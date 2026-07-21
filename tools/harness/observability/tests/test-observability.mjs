@@ -223,6 +223,7 @@ function performanceArtifact({
   standardMedian = 13_000,
   improvementMedian = 17_000,
   transitionPolicy = "b".repeat(64),
+  portfolioTotal = 40_000,
 } = {}) {
   const target = ({
     name,
@@ -237,27 +238,29 @@ function performanceArtifact({
     measurement_profile_id: `${name.replaceAll("-", "_")}_profile`,
     canonical_inputs: {},
     workload_evidence_profile_sha256: "c".repeat(64),
+    timing_source: "public_invocation_envelope",
+    evidence_kind: "strict_current",
+    source_commit: "a".repeat(40),
+    source_snapshot_sha256: "d".repeat(64),
+    host_profile_sha256: "e".repeat(64),
+    capacity_profile_sha256: "f".repeat(64),
+    toolchain_profile_sha256: "2".repeat(64),
+    execution_policy: { target: name, revision: policy },
     execution_policy_sha256: policy,
     ...(transition ? { allowed_policy_transition: transition } : {}),
     sample_provider_target: name,
-    sample_roots: ["root-1", "root-2", "root-3"],
-    samples_ms: [medianMs, medianMs, medianMs],
+    warmup_root: "root-0",
+    sample_roots: ["root-1", "root-2"],
+    samples_ms: [medianMs, medianMs],
     median_ms: medianMs,
     mad_ms: 0,
     no_regression_limit_ms: name === "standard-target" ? 13_000 : medianMs + 1000,
     required_improvement_ms: name === "improvement-target" ? 3000 : 1000,
   });
   return {
-    schema_id: "cartulary.harness_public_target_duration_baselines.v1",
+    schema_id: "cartulary.harness_public_target_duration_baselines.v2",
     status: "qualified",
-    source_commit: "abcdef1",
-    source_snapshot_sha256: "d".repeat(64),
-    profile_digests: {
-      host: "e".repeat(64),
-      capacity: "f".repeat(64),
-      workload: "1".repeat(64),
-      toolchain: "2".repeat(64),
-    },
+    qualification: "strict_current",
     targets: [
       target({ name: "standard-target", gate: "no_regression", medianMs: standardMedian }),
       target({ name: "improvement-target", gate: "required_improvement", medianMs: improvementMedian }),
@@ -269,6 +272,11 @@ function performanceArtifact({
         transition: "serial_to_topology_dag",
       }),
     ],
+    public_entrypoint_portfolio: {
+      target_count: 3,
+      targets: ["improvement-target", "standard-target", "transition-target"],
+      total_median_ms: portfolioTotal,
+    },
     rejected_roots: [],
   };
 }
@@ -379,6 +387,7 @@ try {
     standardMedian: 10_000,
     improvementMedian: 20_000,
     transitionPolicy: "a".repeat(64),
+    portfolioTotal: 50_000,
   });
   const boundaryPerformance = performanceArtifact();
   assert.deepEqual(compareQualifiedBaselines(
@@ -401,12 +410,17 @@ try {
     /did not apply declared policy transition/u,
   );
   const mismatchedHost = performanceArtifact();
-  for (const field of ["host", "capacity", "workload", "toolchain"]) {
+  for (const [field, label] of [
+    ["host_profile_sha256", "host_profile_sha256"],
+    ["capacity_profile_sha256", "capacity_profile_sha256"],
+    ["workload_evidence_profile_sha256", "workload_evidence_profile_sha256"],
+    ["toolchain_profile_sha256", "toolchain_profile_sha256"],
+  ]) {
     const mismatchedEnvironment = structuredClone(mismatchedHost);
-    mismatchedEnvironment.profile_digests[field] = "3".repeat(64);
+    for (const target of mismatchedEnvironment.targets) target[field] = "3".repeat(64);
     assert.throws(
       () => compareQualifiedBaselines(baselinePerformance, mismatchedEnvironment),
-      new RegExp(`mismatched ${field} profile`, "u"),
+      new RegExp(`mismatched ${label}`, "u"),
     );
   }
   for (const [field, value, message] of [
@@ -424,7 +438,7 @@ try {
     );
   }
   const undeclaredPolicyChange = performanceArtifact();
-  undeclaredPolicyChange.targets[0].execution_policy_sha256 = "5".repeat(64);
+  undeclaredPolicyChange.targets[0].execution_policy = { target: "standard-target", revision: "changed" };
   assert.throws(
     () => compareQualifiedBaselines(baselinePerformance, undeclaredPolicyChange),
     /undeclared execution-policy change/u,
@@ -442,24 +456,46 @@ try {
     /target inventories differ/u,
   );
   const baselineRootsManifest = {
-    schema_id: "cartulary.harness_performance_evidence_roots.v1",
+    schema_id: "cartulary.harness_performance_evidence_roots.v2",
     mode: "baseline",
-    baseline_roots: ["root-1", "root-2", "root-3"],
+    reference_windows: [{
+      window_id: "reference-1",
+      provider_target: "standard-target",
+      evidence_kind: "retained_v1_reference_migration",
+      warmup_root: "root-0",
+      measured_roots: ["root-1", "root-2"],
+    }],
+    reference_bindings: [{
+      target: "standard-target",
+      window_id: "reference-1",
+      timing_source: "public_invocation_envelope",
+    }],
   };
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", baselineRootsManifest);
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", baselineRootsManifest);
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
     ...baselineRootsManifest,
     mode: "comparison",
-    candidate_roots: ["candidate-1", "candidate-2", "candidate-3"],
+    candidate_windows: [{
+      window_id: "candidate-1",
+      provider_target: "standard-target",
+      evidence_kind: "strict_current",
+      warmup_root: "candidate-0",
+      measured_roots: ["candidate-1", "candidate-2"],
+    }],
+    candidate_bindings: [{
+      target: "standard-target",
+      window_id: "candidate-1",
+      timing_source: "public_invocation_envelope",
+    }],
   });
   assert.throws(
-    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
       ...baselineRootsManifest,
-      candidate_roots: ["candidate-1"],
+      reference_windows: [{ ...baselineRootsManifest.reference_windows[0], measured_roots: ["root-1"] }],
     }),
   );
   assert.throws(
-    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", {
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
       ...baselineRootsManifest,
       mode: "comparison",
     }),
@@ -470,7 +506,18 @@ try {
   writeJSON(comparisonManifestFile, {
     ...baselineRootsManifest,
     mode: "comparison",
-    candidate_roots: ["candidate-1", "candidate-2", "candidate-3"],
+    candidate_windows: [{
+      window_id: "candidate-1",
+      provider_target: "standard-target",
+      evidence_kind: "strict_current",
+      warmup_root: "candidate-0",
+      measured_roots: ["candidate-1", "candidate-2"],
+    }],
+    candidate_bindings: [{
+      target: "standard-target",
+      window_id: "candidate-1",
+      timing_source: "public_invocation_envelope",
+    }],
   });
   assert.equal(spawnSync(process.execPath, [performanceCheckCLI], { encoding: "utf8" }).status, 2);
   assert.equal(spawnSync(process.execPath, [publicBaselinesCLI], { encoding: "utf8" }).status, 2);
@@ -493,6 +540,13 @@ try {
   };
   assert.ok(
     qualificationReasons({ ...eligibleContext, invocation_boundary_retained: false }).includes("artifact_incomplete"),
+  );
+  assert.deepEqual(
+    qualificationReasons(
+      { ...eligibleContext, invocation_boundary_retained: false },
+      { allowMissingInvocationBoundary: true },
+    ),
+    [],
   );
   for (const [field, value, reason] of [
     ["source_state", "dirty", "dirty_source"],

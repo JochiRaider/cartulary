@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_performance_evidence_roots.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "mode", "reference_windows", "reference_bindings"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_performance_evidence_roots.v2" },
+    "mode": { "enum": ["baseline", "comparison"] },
+    "reference_windows": { "$ref": "#/$defs/windows" },
+    "reference_bindings": { "$ref": "#/$defs/bindings" },
+    "reference_rejected_roots": { "$ref": "#/$defs/rejected_roots" },
+    "reference_audit": { "$ref": "#/$defs/audit" },
+    "candidate_windows": { "$ref": "#/$defs/windows" },
+    "candidate_bindings": { "$ref": "#/$defs/bindings" },
+    "candidate_rejected_roots": { "$ref": "#/$defs/rejected_roots" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "baseline" } }, "required": ["mode"] },
+      "then": {
+        "not": { "anyOf": [{ "required": ["candidate_windows"] }, { "required": ["candidate_bindings"] }] }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "comparison" } }, "required": ["mode"] },
+      "then": { "required": ["candidate_windows", "candidate_bindings"] }
+    }
+  ],
+  "$defs": {
+    "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_id", "provider_target", "evidence_kind", "warmup_root", "measured_roots"],
+      "properties": {
+        "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+        "provider_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "evidence_kind": { "enum": ["retained_v1_reference_migration", "strict_current"] },
+        "warmup_root": { "$ref": "#/$defs/root" },
+        "measured_roots": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/root" }
+        }
+      }
+    },
+    "windows": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/window" }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "window_id", "timing_source"],
+      "properties": {
+        "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+        "timing_source": {
+          "enum": ["public_invocation_envelope", "aggregate_scheduler_work_envelope", "backend_report_collation_union"]
+        }
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/binding" }
+    },
+    "rejected_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "reasons"],
+      "properties": {
+        "root": { "$ref": "#/$defs/root" },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        }
+      }
+    },
+    "rejected_roots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/rejected_root" }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_started_at", "window_ended_at", "inspected_contexts", "nominally_eligible_contexts", "strict_accepted_contexts", "strict_rejected_contexts"],
+      "properties": {
+        "window_started_at": { "type": "string", "format": "date-time" },
+        "window_ended_at": { "type": "string", "format": "date-time" },
+        "inspected_contexts": { "type": "integer", "minimum": 0 },
+        "nominally_eligible_contexts": { "type": "integer", "minimum": 0 },
+        "strict_accepted_contexts": { "type": "integer", "minimum": 0 },
+        "strict_rejected_contexts": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

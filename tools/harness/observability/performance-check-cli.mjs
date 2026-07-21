@@ -4,7 +4,10 @@ import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { repoRoot, validateSchemaSync } from "../contract/index.mjs";
-import { comparePerformanceWindows } from "./performance-evidence.mjs";
+import {
+  comparePerformanceWindows,
+  performanceEvidenceSchemaID,
+} from "./performance-evidence.mjs";
 
 const usage = "usage: performance-check-cli.mjs --evidence-roots-file <manifest.json>";
 
@@ -28,7 +31,7 @@ function loadManifest(argv) {
     throw new Error("invalid-evidence-manifest");
   }
   const manifest = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", manifest);
+  validateSchemaSync(performanceEvidenceSchemaID, manifest);
   if (manifest.mode !== "comparison") {
     throw new Error("comparison-mode-required");
   }
@@ -44,10 +47,7 @@ try {
 
 if (manifest) {
   try {
-    const comparison = comparePerformanceWindows(
-      manifest.baseline_roots,
-      manifest.candidate_roots,
-    );
+    const comparison = comparePerformanceWindows(manifest);
     for (const windowName of ["baseline", "candidate"]) {
       for (const rejected of comparison.rejected_roots[windowName]) {
         process.stdout.write(
@@ -60,6 +60,9 @@ if (manifest) {
         `[PERFORMANCE] target=${row.target} gate=${row.gate} status=${row.status} baseline_median_ms=${row.baseline_median_ms} baseline_mad_ms=${row.baseline_mad_ms} candidate_median_ms=${row.candidate_median_ms} limit_ms=${row.limit_ms}\n`,
       );
     }
+    process.stdout.write(
+      `[PERFORMANCE-PORTFOLIO] status=${comparison.portfolio.status} targets=${comparison.portfolio.target_count} baseline_total_ms=${comparison.portfolio.baseline_total_ms} candidate_total_ms=${comparison.portfolio.candidate_total_ms} delta_ms=${comparison.portfolio.delta_ms}\n`,
+    );
     if (comparison.failures.length > 0) {
       acceptanceFailure(`failed-targets:${comparison.failures.join(",")}`);
     } else {

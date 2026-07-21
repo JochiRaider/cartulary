@@ -3030,7 +3030,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "a6f7f954a565d90f0f28597ba4549aa1e4c7fe3eae6457f0e049da2e0ac80b1f",
+    "56dde503eecb093bce023dc651d96d68c58f3b2d671d37bae8282a53f65e7b8d",
     "public target and command ID inventory changed; revise the authored owner and this explicit interface digest together",
   );
   for (const target of publicTargets) {

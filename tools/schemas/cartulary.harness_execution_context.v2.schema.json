@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_context.v2",
+  "title": "Cartulary retained harness execution context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "run_id", "invocation_id", "target", "command_id", "canonical_inputs",
+    "invocation_boundary_retained", "invocation_edges", "measurement_contracts",
+    "measurement_contracts_sha256", "workload_contracts_sha256", "commit",
+    "source_snapshot_sha256", "source_state", "host_profile_sha256", "toolchain_profile_sha256",
+    "available_capacity", "capacity_profile_sha256", "workload_evidence_profile_sha256",
+    "execution_policy", "execution_policy_sha256", "started_at", "ended_at", "status",
+    "interrupted", "retry_count", "warm_eligibility", "contamination_reasons"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_execution_context.v2" },
+    "run_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "invocation_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+    "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" },
+    "canonical_inputs": { "$ref": "#/$defs/canonical_inputs" },
+    "invocation_boundary_retained": { "type": "boolean" },
+    "invocation_edges": {
+      "type": "array", "maxItems": 1024, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["parent_target", "child_target"],
+        "properties": {
+          "parent_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+          "child_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        }
+      }
+    },
+    "measurement_contracts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [
+          "target", "command_id", "measurement_profile_id", "canonical_inputs",
+          "observation_eligibility", "performance_gates", "timing_source",
+          "workload_evidence_profile_sha256", "execution_policy", "execution_policy_sha256"
+        ],
+        "properties": {
+          "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+          "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" },
+          "measurement_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "canonical_inputs": { "$ref": "#/$defs/canonical_inputs" },
+          "observation_eligibility": { "enum": ["direct_only", "direct_or_aggregate_exact_once"] },
+          "performance_gates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" } },
+          "timing_source": { "const": "invocation_or_exact_aggregate" },
+          "allowed_policy_transition": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "workload_evidence_profile_sha256": { "$ref": "#/$defs/sha256" },
+          "execution_policy": { "type": "object" },
+          "execution_policy_sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "measurement_contracts_sha256": { "$ref": "#/$defs/sha256" },
+    "workload_contracts_sha256": { "$ref": "#/$defs/sha256" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "source_snapshot_sha256": { "$ref": "#/$defs/sha256" },
+    "source_state": { "enum": ["clean", "dirty"] },
+    "host_profile_sha256": { "$ref": "#/$defs/sha256" },
+    "toolchain_profile_sha256": { "$ref": "#/$defs/sha256" },
+    "available_capacity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["available_parallelism", "logical_resources"],
+      "properties": {
+        "available_parallelism": { "type": "integer", "minimum": 1, "maximum": 65536 },
+        "logical_resources": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }, "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 65536 } }
+      }
+    },
+    "capacity_profile_sha256": { "$ref": "#/$defs/sha256" },
+    "workload_evidence_profile_sha256": { "$ref": "#/$defs/sha256" },
+    "execution_policy": { "type": "object" },
+    "execution_policy_sha256": { "$ref": "#/$defs/sha256" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["passed", "failed", "interrupted", "partial"] },
+    "interrupted": { "type": "boolean" },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "warm_eligibility": { "enum": ["eligible", "ineligible"] },
+    "contamination_reasons": {
+      "type": "array", "maxItems": 16, "uniqueItems": true,
+      "items": { "enum": [
+        "cold_provisioning", "dirty_source", "failed_execution", "interrupted_execution",
+        "retry_observed", "source_mismatch", "host_mismatch", "capacity_mismatch",
+        "workload_mismatch", "toolchain_mismatch", "execution_policy_mismatch",
+        "artifact_incomplete", "clock_invalid", "external_activity"
+      ] }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "canonical_inputs": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 256 }
+    }
+  }
+}

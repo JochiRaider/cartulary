@@ -9,7 +9,10 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
-import { buildQualifiedBaseline } from "./performance-evidence.mjs";
+import {
+  buildQualifiedBaseline,
+  performanceEvidenceSchemaID,
+} from "./performance-evidence.mjs";
 
 const usage = "usage: public-target-baselines-cli.mjs --evidence-roots-file <manifest.json>";
 
@@ -28,7 +31,7 @@ function loadManifest(argv) {
     throw new Error("invalid-evidence-manifest");
   }
   const evidence = JSON.parse(readFileSync(evidenceFile, "utf8"));
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v1", evidence);
+  validateSchemaSync(performanceEvidenceSchemaID, evidence);
   if (evidence.mode !== "baseline") {
     throw new Error("baseline-mode-required");
   }
@@ -44,7 +47,11 @@ try {
 
 if (evidence) {
   try {
-    const baseline = buildQualifiedBaseline(evidence.baseline_roots);
+    const baseline = buildQualifiedBaseline(
+      evidence.reference_windows,
+      evidence.reference_bindings,
+      { rejectedRoots: evidence.reference_rejected_roots ?? [], role: "reference" },
+    );
     validateSchemaSync(baseline.schema_id, baseline);
     const output = path.join(repoRoot, "tools", "harness_public_target_duration_baselines.json");
     secureWriteFile(output, prettyJSONString(baseline), { allowedRoot: repoRoot });

@@ -126,35 +126,36 @@
         "profile_id": "standard_no_regression",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["wall_no_regression"]
       },
       {
         "profile_id": "backend_improvement",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
-        "performance_gates": ["backend_unit_wall_improvement", "backend_finalization_union_improvement"]
+        "warm_up_policy": "one_discarded_then_two_consecutive",
+        "performance_gates": ["backend_unit_wall_improvement", "backend_finalization_union_improvement"],
+        "allowed_policy_transition": "backend_grouped_capture_and_parallel_report_emission"
       },
       {
         "profile_id": "module_auth_slice_no_regression",
         "canonical_inputs": { "OWNER": "module.auth", "ROWS": "omitted" },
         "observation_eligibility": "direct_or_aggregate_exact_once",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["wall_no_regression"]
       },
       {
         "profile_id": "module_auth_audit_no_regression",
         "canonical_inputs": { "OWNER": "module.auth", "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence" },
         "observation_eligibility": "direct_only",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["wall_no_regression"]
       },
       {
         "profile_id": "aggregate_sequence_no_regression",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["wall_no_regression"],
         "allowed_policy_transition": "serial_to_topology_dag"
       },
@@ -162,7 +163,7 @@
         "profile_id": "release_browser_reference_candidate",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["release_browser_readiness_wall_improvement"],
         "allowed_policy_transition": "browser_stack_capacity_1_to_2"
       },
@@ -170,7 +171,7 @@
         "profile_id": "release_check_improvement",
         "canonical_inputs": {},
         "observation_eligibility": "direct_only",
-        "warm_up_policy": "one_discarded_then_three_consecutive",
+        "warm_up_policy": "one_discarded_then_two_consecutive",
         "performance_gates": ["release_check_wall_improvement"],
         "allowed_policy_transition": "serial_to_topology_dag"
       }
@@ -6425,7 +6426,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.harness_performance_check.v1",
+      "command_id": "cartulary.harness.command.harness_performance_check.v2",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -6496,7 +6497,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.harness_public_target_duration_baselines.v1",
+      "command_id": "cartulary.harness.command.harness_public_target_duration_baselines.v2",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",

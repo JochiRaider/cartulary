@@ -4307,7 +4307,7 @@ function validateAll(root) {
     repoFile(root, "tools/service_backed_make_target_duration_baselines.json"),
   );
   validateSchemaSync(
-    "cartulary.harness_public_target_duration_baselines.v1",
+    "cartulary.harness_public_target_duration_baselines.v2",
     readShapeFile(repoFile(root, "tools/harness_public_target_duration_baselines.json")),
   );
   validateBootstrapAdminShape(

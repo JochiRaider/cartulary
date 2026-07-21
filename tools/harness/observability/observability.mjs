@@ -371,12 +371,14 @@ function measurementContract(target, catalog, manifest, executionTopology) {
     canonical_inputs: canonicalInputs,
     observation_eligibility: profile.observation_eligibility,
     performance_gates: [...profile.performance_gates],
+    timing_source: "invocation_or_exact_aggregate",
     ...(profile.allowed_policy_transition === undefined
       ? {}
       : { allowed_policy_transition: profile.allowed_policy_transition }),
     workload_evidence_profile_sha256: sha256(
       `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
     ),
+    execution_policy: targetExecutionPolicy,
     execution_policy_sha256: sha256(canonicalJSON(targetExecutionPolicy)),
   };
 }
@@ -399,16 +401,19 @@ function retainedCapacity() {
   };
 }
 
-function currentExecutionPolicyDigest() {
+function currentExecutionPolicy() {
   const inputs = [
     "tools/task_surface_manifest.json",
     "tools/scheduler_manifest.json",
     "tools/browser_e2e_batch_manifest.json",
     "tools/scheduler_resource_registry.json",
   ];
-  return sha256(
-    inputs.map((file) => `${file}\u0000${sha256(readFileSync(path.join(repoRoot, file)))}`).join("\u0000"),
-  );
+  return {
+    inputs: inputs.map((file) => ({
+      file,
+      sha256: sha256(readFileSync(path.join(repoRoot, file))),
+    })),
+  };
 }
 
 function contaminationFor(runDir, { status, interrupted, retryCount, sourceState }) {
@@ -514,8 +519,9 @@ export function captureExecutionContext(runDir, metadata = {}) {
   const observedRetryCount = retryCount > 0 || contaminationReasons.includes("retry_observed")
     ? Math.max(1, retryCount)
     : 0;
+  const executionPolicy = currentExecutionPolicy();
   const context = {
-    schema_id: "cartulary.harness_execution_context.v1",
+    schema_id: "cartulary.harness_execution_context.v2",
     run_id: path.basename(resolvedRunDir),
     invocation_id: safeToken(target),
     target,
@@ -536,7 +542,8 @@ export function captureExecutionContext(runDir, metadata = {}) {
     workload_evidence_profile_sha256: sha256(
       `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${rootContract.command_id}\u0000${canonicalJSON(invocationInputs)}`,
     ),
-    execution_policy_sha256: currentExecutionPolicyDigest(),
+    execution_policy: executionPolicy,
+    execution_policy_sha256: sha256(canonicalJSON(executionPolicy)),
     started_at: new Date(interval.start).toISOString(),
     ended_at: new Date(interval.end).toISOString(),
     status,
@@ -557,7 +564,13 @@ export function loadRetainedExecutionContext(runDir) {
   const file = contextPath(resolvedRunDir);
   if (!existsSync(file)) throw new Error("retained run has no harness execution context");
   const context = readJSON(file);
-  validateSchemaSync("cartulary.harness_execution_context.v1", context);
+  if (!new Set([
+    "cartulary.harness_execution_context.v1",
+    "cartulary.harness_execution_context.v2",
+  ]).has(context.schema_id)) {
+    throw new Error(`unsupported retained execution context ${context.schema_id}`);
+  }
+  validateSchemaSync(context.schema_id, context);
   if (context.run_id !== path.basename(resolvedRunDir)) {
     throw new Error("retained execution context run identity mismatch");
   }

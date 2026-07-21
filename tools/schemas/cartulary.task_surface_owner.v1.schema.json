@@ -85,7 +85,7 @@
               "observation_eligibility": {
                 "enum": ["direct_only", "direct_or_aggregate_exact_once"]
               },
-              "warm_up_policy": { "const": "one_discarded_then_three_consecutive" },
+              "warm_up_policy": { "const": "one_discarded_then_two_consecutive" },
               "performance_gates": {
                 "type": "array",
                 "minItems": 1,
@@ -101,7 +101,7 @@
                 }
               },
               "allowed_policy_transition": {
-                "enum": ["browser_stack_capacity_1_to_2", "serial_to_topology_dag"]
+                "enum": ["backend_grouped_capture_and_parallel_report_emission", "browser_stack_capacity_1_to_2", "serial_to_topology_dag"]
               }
             }
           }

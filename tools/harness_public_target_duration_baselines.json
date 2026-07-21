@@ -1,59 +1,2164 @@
 {
-  "schema_id": "cartulary.harness_public_target_duration_baselines.v1",
-  "status": "seed",
-  "source_commit": "00522cfed1b6e5ca0936fb703de96c4c019544f3",
-  "profile_digests": {
-    "host": "c31c805927c8912d7b56ec09c32cc91b8597404122198b80c923970c546f542d",
-    "capacity": "bd042c914469a69fa6ffda55f0f96e65e968d3a34a64aecd58790dada66d2df1",
-    "workload": "ff7d5a4d9cab0b3ff2fae01ca0537fd19ad884b6c4bca98fce4b533ae9a88f1d",
-    "toolchain": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac"
-  },
+  "schema_id": "cartulary.harness_public_target_duration_baselines.v2",
+  "status": "qualified",
+  "qualification": "composite_reference_migration",
   "targets": [
+    {
+      "target": "agent-finalize",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.agent_finalize.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "62d544e3e54a128f8eb98040bf6c499e952d4d4413425ecd5d63e72809195ba7",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "d6950edd2ca963c90a42d13466d482141619a4858939242330f8f9524c2735ba"
+      },
+      "execution_policy_sha256": "d6950edd2ca963c90a42d13466d482141619a4858939242330f8f9524c2735ba",
+      "sample_provider_target": "agent-finalize",
+      "warmup_root": "retained:20260721T200237Z-p2860847",
+      "sample_roots": [
+        "retained:20260721T200239Z-p2861030",
+        "retained:20260721T200241Z-p2861213"
+      ],
+      "samples_ms": [
+        1211,
+        1184
+      ],
+      "median_ms": 1197.5,
+      "mad_ms": 13.5,
+      "no_regression_limit_ms": 2197.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "backend-integration",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.backend_integration.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "d0c7edd681b9e4996757d15f49ac234b65d0b6ac9a2786000086f88077580195",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "c4a4bb8b871dcb373e42b057a2daa7ec96ad6c3456333850fcb5a270c1e3d7ba"
+      },
+      "execution_policy_sha256": "c4a4bb8b871dcb373e42b057a2daa7ec96ad6c3456333850fcb5a270c1e3d7ba",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        97295,
+        94578
+      ],
+      "median_ms": 95936.5,
+      "mad_ms": 1358.5,
+      "no_regression_limit_ms": 100733.325,
+      "required_improvement_ms": 9593.65
+    },
+    {
+      "target": "backend-module-boundary-check",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.backend_module_boundary_check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "ae7a5347267ecb2c4c81811b4d6232db0b639ad99f3b22868e6c2668c435dda2",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "22a44407b0d35cfd5b576a61adf08dcea7ddc800a6f1ce69a01c065cad97f9d6"
+      },
+      "execution_policy_sha256": "22a44407b0d35cfd5b576a61adf08dcea7ddc800a6f1ce69a01c065cad97f9d6",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        253,
+        247
+      ],
+      "median_ms": 250,
+      "mad_ms": 3,
+      "no_regression_limit_ms": 1250,
+      "required_improvement_ms": 1000
+    },
     {
       "target": "backend-output-finalizer",
       "gate": "required_improvement",
-      "samples_ms": [16655],
-      "median_ms": 16655,
-      "mad_ms": 0,
-      "no_regression_limit_ms": 17655,
-      "required_improvement_ms": 1665.5
+      "command_id": "cartulary.harness.command.backend_unit.v1",
+      "measurement_profile_id": "backend_improvement",
+      "canonical_inputs": {},
+      "timing_source": "backend_report_collation_union",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "6a9423961522d912d1273ae7cd540d964f69fc932c62a2e619cc5ce866651e66",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac"
+      },
+      "execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        6983,
+        6999
+      ],
+      "median_ms": 6991,
+      "mad_ms": 8,
+      "no_regression_limit_ms": 7991,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "backend-process",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.backend_process.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "44ecea465c2a9804604c2f20b9777bbc2d9e426cccf0dc37115adbcab229997d",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "da7726cd9710fdb62a85e323078be1cdb96a9b56397a3cf08a1b8eb54446f2d0"
+      },
+      "execution_policy_sha256": "da7726cd9710fdb62a85e323078be1cdb96a9b56397a3cf08a1b8eb54446f2d0",
+      "sample_provider_target": "seaweedfs-release-evidence",
+      "warmup_root": "retained:20260721T201322Z-p3114931",
+      "sample_roots": [
+        "retained:20260721T201544Z-p3134547",
+        "retained:20260721T201758Z-p3154150"
+      ],
+      "samples_ms": [
+        22388,
+        20891
+      ],
+      "median_ms": 21639.5,
+      "mad_ms": 748.5,
+      "no_regression_limit_ms": 23885,
+      "required_improvement_ms": 2245.5
+    },
+    {
+      "target": "backend-store",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.backend_store.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "fc038ce18626614bbeb120ce0705c4904d96fba1a34650a9d23582267a109025",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "3b6c835bf88224bb945b0a49fde8f0f396b17a1f1fcb7fbc8f2e3e52efe80a9a"
+      },
+      "execution_policy_sha256": "3b6c835bf88224bb945b0a49fde8f0f396b17a1f1fcb7fbc8f2e3e52efe80a9a",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        67285,
+        68807
+      ],
+      "median_ms": 68046,
+      "mad_ms": 761,
+      "no_regression_limit_ms": 71448.3,
+      "required_improvement_ms": 6804.6
     },
     {
       "target": "backend-unit",
       "gate": "required_improvement",
-      "samples_ms": [87244],
-      "median_ms": 87244,
+      "command_id": "cartulary.harness.command.backend_unit.v1",
+      "measurement_profile_id": "backend_improvement",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "6a9423961522d912d1273ae7cd540d964f69fc932c62a2e619cc5ce866651e66",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac"
+      },
+      "execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        40166,
+        40482
+      ],
+      "median_ms": 40324,
+      "mad_ms": 158,
+      "no_regression_limit_ms": 42340.2,
+      "required_improvement_ms": 4032.4
+    },
+    {
+      "target": "benchmark-claim-check",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.benchmark_claim_check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "e2dad300b91cf76c284d43ae72fcf0656933302aee331b739e53a4454012cde5",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "c46b3b8a2daf068244113a1ab13900546df4bd641a8e9e4f52c68a957e2b99d2"
+      },
+      "execution_policy_sha256": "c46b3b8a2daf068244113a1ab13900546df4bd641a8e9e4f52c68a957e2b99d2",
+      "sample_provider_target": "benchmark-claim-check",
+      "warmup_root": "retained:20260721T200244Z-p2861556",
+      "sample_roots": [
+        "retained:20260721T200246Z-p2861722",
+        "retained:20260721T200247Z-p2861882"
+      ],
+      "samples_ms": [
+        342,
+        341
+      ],
+      "median_ms": 341.5,
+      "mad_ms": 0.5,
+      "no_regression_limit_ms": 1341.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "browser-e2e",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "28fe4439c6d0863b4ae6036f37bac6f7a308f28f83f2f8c7e8af38c9721ca5d9",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "6eec669f206c1e81ef30f9d9b3c8b3438276da0e13e3d4bb1fc54d5699fdf7a4"
+      },
+      "execution_policy_sha256": "6eec669f206c1e81ef30f9d9b3c8b3438276da0e13e3d4bb1fc54d5699fdf7a4",
+      "sample_provider_target": "browser-e2e",
+      "warmup_root": "retained:20260721T210244Z-p3454354",
+      "sample_roots": [
+        "retained:20260721T210718Z-p3486881",
+        "retained:20260721T211147Z-p3519261"
+      ],
+      "samples_ms": [
+        265142,
+        253974
+      ],
+      "median_ms": 259558,
+      "mad_ms": 5584,
+      "no_regression_limit_ms": 276310,
+      "required_improvement_ms": 25955.800000000003
+    },
+    {
+      "target": "browser-e2e-a11y",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "0a075334f961cbdcee1aa84ee2fff2970de95e359dfca395ef9cf0e9520c9016",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "c76d5d3357cb9e82f41eb8056006792cdf2748e42d8d25e2f6524c17467cef96"
+      },
+      "execution_policy_sha256": "c76d5d3357cb9e82f41eb8056006792cdf2748e42d8d25e2f6524c17467cef96",
+      "sample_provider_target": "browser-e2e",
+      "warmup_root": "retained:20260721T210244Z-p3454354",
+      "sample_roots": [
+        "retained:20260721T210718Z-p3486881",
+        "retained:20260721T211147Z-p3519261"
+      ],
+      "samples_ms": [
+        3,
+        2
+      ],
+      "median_ms": 2.5,
+      "mad_ms": 0.5,
+      "no_regression_limit_ms": 1002.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "browser-e2e-measurement",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e_measurement.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "64a66f747e090dc4f64cf0a5289056d318b97790b80e800a95daf136146dc0f3",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "ca38a6acadcb401e11bcf17aefbcacb8790cb9d5634c6dde3174c86f60f8e54c"
+      },
+      "execution_policy_sha256": "ca38a6acadcb401e11bcf17aefbcacb8790cb9d5634c6dde3174c86f60f8e54c",
+      "sample_provider_target": "browser-e2e",
+      "warmup_root": "retained:20260721T210244Z-p3454354",
+      "sample_roots": [
+        "retained:20260721T210718Z-p3486881",
+        "retained:20260721T211147Z-p3519261"
+      ],
+      "samples_ms": [
+        2,
+        3
+      ],
+      "median_ms": 2.5,
+      "mad_ms": 0.5,
+      "no_regression_limit_ms": 1002.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "browser-e2e-stateful",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "4c7a855a07cd8f34df0ae185d767a1e0fe8e16ba4b938573a7dc2057733d06ee",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "e49ef48120d616719fb5b82462f6cacf87db92fc82b1b1686ada81436264cc1e"
+      },
+      "execution_policy_sha256": "e49ef48120d616719fb5b82462f6cacf87db92fc82b1b1686ada81436264cc1e",
+      "sample_provider_target": "browser-e2e",
+      "warmup_root": "retained:20260721T210244Z-p3454354",
+      "sample_roots": [
+        "retained:20260721T210718Z-p3486881",
+        "retained:20260721T211147Z-p3519261"
+      ],
+      "samples_ms": [
+        2,
+        2
+      ],
+      "median_ms": 2,
       "mad_ms": 0,
-      "no_regression_limit_ms": 91606.2,
-      "required_improvement_ms": 8724.4
+      "no_regression_limit_ms": 1002,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "browser-e2e-visual",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "cf1decdb9e3b6c26eea8f3aeee01dcd47ad67c5dd7938fb48c9c087ca973fefc",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "e24ae377c41cfffeedbb21c06209490a81f853846b080a92d3f5034fb3ec55cf"
+      },
+      "execution_policy_sha256": "e24ae377c41cfffeedbb21c06209490a81f853846b080a92d3f5034fb3ec55cf",
+      "sample_provider_target": "browser-e2e",
+      "warmup_root": "retained:20260721T210244Z-p3454354",
+      "sample_roots": [
+        "retained:20260721T210718Z-p3486881",
+        "retained:20260721T211147Z-p3519261"
+      ],
+      "samples_ms": [
+        3,
+        3
+      ],
+      "median_ms": 3,
+      "mad_ms": 0,
+      "no_regression_limit_ms": 1003,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "browser-e2e-webserver-backed",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "ada4993b5fe7f56c8864293bb1472d780982a5a6",
+      "source_snapshot_sha256": "2262f45e5938157442f227615cd4cc371dbcd6a943dd3f6522b380093429967d",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "fd2a110e9b8ca8e01c81216ec7012e8e119bc0b858208b11df23b03979bf16cf",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "2f09a692d8ab3c9ae67def82960b8cd59a520b39967df61188c9298c49174aa1"
+      },
+      "execution_policy_sha256": "2f09a692d8ab3c9ae67def82960b8cd59a520b39967df61188c9298c49174aa1",
+      "sample_provider_target": "test",
+      "warmup_root": "retained:20260721T194026Z-p2495611",
+      "sample_roots": [
+        "retained:20260721T194415Z-p2565548",
+        "retained:20260721T194807Z-p2635919"
+      ],
+      "samples_ms": [
+        98261,
+        100041
+      ],
+      "median_ms": 99151,
+      "mad_ms": 890,
+      "no_regression_limit_ms": 104108.55,
+      "required_improvement_ms": 9915.1
     },
     {
       "target": "check",
       "gate": "no_regression",
-      "samples_ms": [124565],
-      "median_ms": 124565,
+      "command_id": "cartulary.harness.command.check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "3992869bcf4adb7f37d0d115114000c6c6a014f20c9f3928daee7e5aba219591",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "ae0fd0238b02183b53a41f58e4c111237e4091081d749db3f3988a1cd9a82019"
+      },
+      "execution_policy_sha256": "ae0fd0238b02183b53a41f58e4c111237e4091081d749db3f3988a1cd9a82019",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        126146,
+        126102
+      ],
+      "median_ms": 126124,
+      "mad_ms": 22,
+      "no_regression_limit_ms": 132430.2,
+      "required_improvement_ms": 12612.400000000001
+    },
+    {
+      "target": "ci",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.ci.v1",
+      "measurement_profile_id": "aggregate_sequence_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "58e8cb02b8cb3c9851329d387d7d13d4854206042dbf626cb2dc38060f531aa4",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "0f4df3d027bd6a4af2a74694323770799b361f222ab985934d6b5110429b59d6"
+      },
+      "execution_policy_sha256": "0f4df3d027bd6a4af2a74694323770799b361f222ab985934d6b5110429b59d6",
+      "allowed_policy_transition": "serial_to_topology_dag",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        179212,
+        179404
+      ],
+      "median_ms": 179308,
+      "mad_ms": 96,
+      "no_regression_limit_ms": 188273.4,
+      "required_improvement_ms": 17930.8
+    },
+    {
+      "target": "frontend-fallow-static",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.frontend_fallow_static.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "c8f5778e0a564c2a6ac615502365936c71b641984edf852de9c691c2c146635f",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "8e2d033c8bea4715c1dc6c8afbc2f0073e83290a88acce8f1ddedfc00c70ae17"
+      },
+      "execution_policy_sha256": "8e2d033c8bea4715c1dc6c8afbc2f0073e83290a88acce8f1ddedfc00c70ae17",
+      "sample_provider_target": "frontend-fallow-static",
+      "warmup_root": "retained:20260721T200255Z-p2862565",
+      "sample_roots": [
+        "retained:20260721T200303Z-p2863104",
+        "retained:20260721T200310Z-p2863619"
+      ],
+      "samples_ms": [
+        6112,
+        6139
+      ],
+      "median_ms": 6125.5,
+      "mad_ms": 13.5,
+      "no_regression_limit_ms": 7125.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "frontend-import-boundary-check",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "f43e6943c5ceff370705d5f2343026857172a7788f82b970889c534289e9287b",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "4d2d2e6f12c4731d5413dda9bf12d45ee1b1bf00df2e628e7f4cf26bc39abc6c"
+      },
+      "execution_policy_sha256": "4d2d2e6f12c4731d5413dda9bf12d45ee1b1bf00df2e628e7f4cf26bc39abc6c",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        1080,
+        1085
+      ],
+      "median_ms": 1082.5,
+      "mad_ms": 2.5,
+      "no_regression_limit_ms": 2082.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "frontend-typecheck",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.frontend_typecheck.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "2362e7f2851b9eb6985124fb76d11b1ddb2e68571c9916d3a7bf1033e24ba279",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "6a52c97880747b26438f43e23e1b588d80231de122db08e700191c8b79790ae6"
+      },
+      "execution_policy_sha256": "6a52c97880747b26438f43e23e1b588d80231de122db08e700191c8b79790ae6",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        10228,
+        10390
+      ],
+      "median_ms": 10309,
+      "mad_ms": 81,
+      "no_regression_limit_ms": 11309,
+      "required_improvement_ms": 1030.9
+    },
+    {
+      "target": "frontend-unit",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.frontend_unit.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "467276c4fe3c2c372dce6334d64891eb3b7f425a3aeb43b3b26d1a16c63170a9",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "859b71ac3d21d7919b7fbb2bd188c5e195fcfa68d436c8f30368f1f185292445"
+      },
+      "execution_policy_sha256": "859b71ac3d21d7919b7fbb2bd188c5e195fcfa68d436c8f30368f1f185292445",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        21866,
+        21870
+      ],
+      "median_ms": 21868,
+      "mad_ms": 2,
+      "no_regression_limit_ms": 22961.4,
+      "required_improvement_ms": 2186.8
+    },
+    {
+      "target": "generate-drift",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.generate_drift.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "feb00c53b705253613aa2d6ae29ce397c38e73268f52c826fb51f17f69fd2e4e",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "69849f98da3c6b3e186da040d2b68779a8aa37efcc3f7b37e234403af3ee4dfb"
+      },
+      "execution_policy_sha256": "69849f98da3c6b3e186da040d2b68779a8aa37efcc3f7b37e234403af3ee4dfb",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        14397,
+        13796
+      ],
+      "median_ms": 14096.5,
+      "mad_ms": 300.5,
+      "no_regression_limit_ms": 15096.5,
+      "required_improvement_ms": 1409.65
+    },
+    {
+      "target": "generated-artifact-policy-check",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "8d2abc7ff17978f3a95a6f75bd415db5d9ceb282b4072e23a9d642aba06da891",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "cd132bfe68a70d030e268e421710c6520f40012606e6016948fdd1288d84de40"
+      },
+      "execution_policy_sha256": "cd132bfe68a70d030e268e421710c6520f40012606e6016948fdd1288d84de40",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        370,
+        369
+      ],
+      "median_ms": 369.5,
+      "mad_ms": 0.5,
+      "no_regression_limit_ms": 1369.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "go-gosec-audit",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.go_gosec_audit.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "3f95545bb0d48e2bdef7248c976062b11e165bc83b7e6608edbc368965da93a6",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "3e5e15a10fc98bc9f08ffc2a5e99a65209f2a2c1b1756c190cf89bce27c19dd8"
+      },
+      "execution_policy_sha256": "3e5e15a10fc98bc9f08ffc2a5e99a65209f2a2c1b1756c190cf89bce27c19dd8",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        3662,
+        3747
+      ],
+      "median_ms": 3704.5,
+      "mad_ms": 42.5,
+      "no_regression_limit_ms": 4704.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "go-gosec-targeted",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.go_gosec_targeted.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "4e5b54dca3aa1fa4e23d81c1a3883433158406913dbb18b662429fe9eda1fa45",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "efb58fcc3ce27d5a08484d28151125474cd7ba844aa64bad8e5b85eb11a55138"
+      },
+      "execution_policy_sha256": "efb58fcc3ce27d5a08484d28151125474cd7ba844aa64bad8e5b85eb11a55138",
+      "sample_provider_target": "go-gosec-targeted",
+      "warmup_root": "retained:20260721T200443Z-p2895954",
+      "sample_roots": [
+        "retained:20260721T200450Z-p2914450",
+        "retained:20260721T200457Z-p2932899"
+      ],
+      "samples_ms": [
+        6096,
+        6073
+      ],
+      "median_ms": 6084.5,
+      "mad_ms": 11.5,
+      "no_regression_limit_ms": 7084.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "go-test-duration-baseline-coverage",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "e762e22c3f0ea5c8440cd0f031bd3542fb924614d7753be4334b2a0c4f786e39",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "b5c184f26e950e46f8f57e6b7d3353494e5b9429bcf8b710afcfb97fc8305737"
+      },
+      "execution_policy_sha256": "b5c184f26e950e46f8f57e6b7d3353494e5b9429bcf8b710afcfb97fc8305737",
+      "sample_provider_target": "go-test-duration-baseline-coverage",
+      "warmup_root": "retained:20260721T200319Z-p2864183",
+      "sample_roots": [
+        "retained:20260721T200321Z-p2864231",
+        "retained:20260721T200322Z-p2864286"
+      ],
+      "samples_ms": [
+        671,
+        707
+      ],
+      "median_ms": 689,
+      "mad_ms": 18,
+      "no_regression_limit_ms": 1689,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "go-vulncheck",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.go_vulncheck.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "31bee9953d1e9be947fe580de52b4a6d4550bde48778e9af052437ff0559b12d",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "8291c1f308de7c8803feaafa20c1697e82670cb3c8c568aaab6f02f17e186c7d"
+      },
+      "execution_policy_sha256": "8291c1f308de7c8803feaafa20c1697e82670cb3c8c568aaab6f02f17e186c7d",
+      "sample_provider_target": "go-vulncheck",
+      "warmup_root": "retained:20260721T200424Z-p2874565",
+      "sample_roots": [
+        "retained:20260721T200427Z-p2874995",
+        "retained:20260721T200430Z-p2875420"
+      ],
+      "samples_ms": [
+        2542,
+        2558
+      ],
+      "median_ms": 2550,
+      "mad_ms": 8,
+      "no_regression_limit_ms": 3550,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "harness-contract",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.harness_contract.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "4be5236212d157a749f282254d7f67be64af70459ddd2d7f6f9b5150976dd5e1",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "1980b3d3a064ceb6d281b1742de042afc34cc301c0dcb75d42542e906f71d915"
+      },
+      "execution_policy_sha256": "1980b3d3a064ceb6d281b1742de042afc34cc301c0dcb75d42542e906f71d915",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        24465,
+        24446
+      ],
+      "median_ms": 24455.5,
+      "mad_ms": 9.5,
+      "no_regression_limit_ms": 25678.275,
+      "required_improvement_ms": 2445.55
+    },
+    {
+      "target": "json-shape-check",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.json_shape_check.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "ff4772d42815027fa4de75da181d137f77b51eb7dd52c9ec559a5cf50bed649e",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "7e4346a41c474ec02d7af58dccd7e826ae0795e73252dd4278002b0cbe18ba34"
+      },
+      "execution_policy_sha256": "7e4346a41c474ec02d7af58dccd7e826ae0795e73252dd4278002b0cbe18ba34",
+      "sample_provider_target": "json-shape-check",
+      "warmup_root": "retained:20260721T200327Z-p2864670",
+      "sample_roots": [
+        "retained:20260721T200330Z-p2865011",
+        "retained:20260721T200332Z-p2865352"
+      ],
+      "samples_ms": [
+        1824,
+        1815
+      ],
+      "median_ms": 1819.5,
+      "mad_ms": 4.5,
+      "no_regression_limit_ms": 2819.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "lint",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.lint.v1",
+      "measurement_profile_id": "aggregate_sequence_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "7e415acf4ab9602c1c25b13966503a6485461e7c286f84f2889621391f45973b",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "68aa8b203db9f5d0edc72bcf42ff983a8b8094d9367c606087c3fdaaa7b14004"
+      },
+      "execution_policy_sha256": "68aa8b203db9f5d0edc72bcf42ff983a8b8094d9367c606087c3fdaaa7b14004",
+      "allowed_policy_transition": "serial_to_topology_dag",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        26588,
+        26595
+      ],
+      "median_ms": 26591.5,
+      "mad_ms": 3.5,
+      "no_regression_limit_ms": 27921.075,
+      "required_improvement_ms": 2659.15
+    },
+    {
+      "target": "lint-biome",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.lint_biome.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "a66b26ee087bdf8dd6210baf42ecef84bd00b27f790ddde616609ec90c11df12",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "0ad125e7249819672a54562a199a60d5216da85866ba86342e0b139c5b7e288d"
+      },
+      "execution_policy_sha256": "0ad125e7249819672a54562a199a60d5216da85866ba86342e0b139c5b7e288d",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        1012,
+        1016
+      ],
+      "median_ms": 1014,
+      "mad_ms": 2,
+      "no_regression_limit_ms": 2014,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "lint-markdown",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.lint_markdown.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "23d034023e3d99b608dbbc6d52bc6610ef4d19594e70d42257c0831245ce5edf",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "fa66bb0b647d909cce7ab817e3102ec87851335aa2cf2f68ac6143d7b144a9e4"
+      },
+      "execution_policy_sha256": "fa66bb0b647d909cce7ab817e3102ec87851335aa2cf2f68ac6143d7b144a9e4",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        958,
+        958
+      ],
+      "median_ms": 958,
       "mad_ms": 0,
-      "no_regression_limit_ms": 130793.25,
-      "required_improvement_ms": 12456.5
+      "no_regression_limit_ms": 1958,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "lint-scripts",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.lint_scripts.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "502ddb88b2b1f00fcfa58e7ec8ca371750976480dfa2105e8bcfbfc1a2e5fd8f",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "33b3c481746fbc7af220796d10f2538403618b3deac3975221e4b8a5f628365c"
+      },
+      "execution_policy_sha256": "33b3c481746fbc7af220796d10f2538403618b3deac3975221e4b8a5f628365c",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        96,
+        100
+      ],
+      "median_ms": 98,
+      "mad_ms": 2,
+      "no_regression_limit_ms": 1098,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "lint-shell",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.lint_shell.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "b4f653812f1f62fbeff6ad685af6c4e46f5f256ed2dd3c60228203b50d30d3d3",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "64f44bea626e6eb51e309578eb1317e8db4c565eba2a1ef39ef1354b11614d30"
+      },
+      "execution_policy_sha256": "64f44bea626e6eb51e309578eb1317e8db4c565eba2a1ef39ef1354b11614d30",
+      "sample_provider_target": "lint",
+      "warmup_root": "retained:20260721T211648Z-p3565016",
+      "sample_roots": [
+        "retained:20260721T211716Z-p3571305",
+        "retained:20260721T211744Z-p3577572"
+      ],
+      "samples_ms": [
+        725,
+        691
+      ],
+      "median_ms": 708,
+      "mad_ms": 17,
+      "no_regression_limit_ms": 1708,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "migration-drift",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.migration_drift.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "31961313fc05627525e82defe773018b8772a0a500dff279cb9ba64ac110e0f1",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "87505c5c258705b1f5f31c5f4e8b064700440203fb50bd55026df20c45e270c9"
+      },
+      "execution_policy_sha256": "87505c5c258705b1f5f31c5f4e8b064700440203fb50bd55026df20c45e270c9",
+      "sample_provider_target": "migration-drift",
+      "warmup_root": "retained:20260721T200346Z-p2867674",
+      "sample_roots": [
+        "retained:20260721T200355Z-p2869380",
+        "retained:20260721T200405Z-p2871082"
+      ],
+      "samples_ms": [
+        8665,
+        8579
+      ],
+      "median_ms": 8622,
+      "mad_ms": 43,
+      "no_regression_limit_ms": 9622,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "otel-conformance",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.otel_conformance.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "1c81321d2a2413732073a0212f7e5802eaea95240d9e14c5544e3ca16b765638",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "74556275a088b8b1d8c83aabdd74ba6eadaec3d55cb80af4046ccd7e51acb1b6"
+      },
+      "execution_policy_sha256": "74556275a088b8b1d8c83aabdd74ba6eadaec3d55cb80af4046ccd7e51acb1b6",
+      "sample_provider_target": "ci",
+      "warmup_root": "retained:20260721T141931Z-p2978865",
+      "sample_roots": [
+        "retained:20260721T142232Z-p3092249",
+        "retained:20260721T142534Z-p3205647"
+      ],
+      "samples_ms": [
+        598,
+        655
+      ],
+      "median_ms": 626.5,
+      "mad_ms": 28.5,
+      "no_regression_limit_ms": 1626.5,
+      "required_improvement_ms": 1000
     },
     {
       "target": "release-browser-readiness",
       "gate": "required_improvement",
-      "samples_ms": [297490],
-      "median_ms": 297490,
-      "mad_ms": 0,
-      "no_regression_limit_ms": 312364.5,
-      "required_improvement_ms": 29749
+      "command_id": "cartulary.harness.command.release_browser_readiness.v1",
+      "measurement_profile_id": "release_browser_reference_candidate",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "a39623d9cb38e36219c5b9ee0b8ac7fd4874b72939a3910ba5ee544db4166597",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "b4f1e2d6c4dcb1ceed2e67cbf92e73ea529801ae2e12251d9e0940253c061eb5"
+      },
+      "execution_policy_sha256": "b4f1e2d6c4dcb1ceed2e67cbf92e73ea529801ae2e12251d9e0940253c061eb5",
+      "allowed_policy_transition": "browser_stack_capacity_1_to_2",
+      "sample_provider_target": "release-check",
+      "warmup_root": "retained:20260721T143704Z-p3467800",
+      "sample_roots": [
+        "retained:20260721T144455Z-p3616169",
+        "retained:20260721T145234Z-p3764561"
+      ],
+      "samples_ms": [
+        154416,
+        154670
+      ],
+      "median_ms": 154543,
+      "mad_ms": 127,
+      "no_regression_limit_ms": 162270.15,
+      "required_improvement_ms": 15454.300000000001
     },
     {
       "target": "release-check",
       "gate": "required_improvement",
-      "samples_ms": [733069],
-      "median_ms": 733069,
-      "mad_ms": 0,
-      "no_regression_limit_ms": 769722.45,
-      "required_improvement_ms": 73306.9
+      "command_id": "cartulary.harness.command.release_check.v1",
+      "measurement_profile_id": "release_check_improvement",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "4de212b93f3ad42f9f10d436b474e8d8ec0a6137d7cac8b17f37d51b7ac9b053",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "bdbbab4e32911ebcd9b4b84f68944ea597c99c5f68f9996f03008b16fb50215d"
+      },
+      "execution_policy_sha256": "bdbbab4e32911ebcd9b4b84f68944ea597c99c5f68f9996f03008b16fb50215d",
+      "allowed_policy_transition": "serial_to_topology_dag",
+      "sample_provider_target": "release-check",
+      "warmup_root": "retained:20260721T143704Z-p3467800",
+      "sample_roots": [
+        "retained:20260721T144455Z-p3616169",
+        "retained:20260721T145234Z-p3764561"
+      ],
+      "samples_ms": [
+        457527,
+        454870
+      ],
+      "median_ms": 456198.5,
+      "mad_ms": 1328.5,
+      "no_regression_limit_ms": 479008.425,
+      "required_improvement_ms": 45619.850000000006
+    },
+    {
+      "target": "release-readiness-evidence",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.release_readiness_evidence.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "11f81c9766bfc90f58ac8cdbb0bffb1fd2254dd6a5edd30b86fb278ccab49fef",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "5a39b0ad3070093353c5020f881683a211527211bffa5f905e87ca225d6deb2a"
+      },
+      "execution_policy_sha256": "5a39b0ad3070093353c5020f881683a211527211bffa5f905e87ca225d6deb2a",
+      "sample_provider_target": "release-check",
+      "warmup_root": "retained:20260721T143704Z-p3467800",
+      "sample_roots": [
+        "retained:20260721T144455Z-p3616169",
+        "retained:20260721T145234Z-p3764561"
+      ],
+      "samples_ms": [
+        870,
+        857
+      ],
+      "median_ms": 863.5,
+      "mad_ms": 6.5,
+      "no_regression_limit_ms": 1863.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "seaweedfs-compatibility",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.seaweedfs_compatibility.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "08fd871f3074e609a05e59114fffa70f8759b18fb75f96159b29872f52b8fae0",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "be257a9471eb05d013337b5bc2ed29183d1b8238e81611517261678e80f2522d"
+      },
+      "execution_policy_sha256": "be257a9471eb05d013337b5bc2ed29183d1b8238e81611517261678e80f2522d",
+      "sample_provider_target": "seaweedfs-release-evidence",
+      "warmup_root": "retained:20260721T201322Z-p3114931",
+      "sample_roots": [
+        "retained:20260721T201544Z-p3134547",
+        "retained:20260721T201758Z-p3154150"
+      ],
+      "samples_ms": [
+        2736,
+        2721
+      ],
+      "median_ms": 2728.5,
+      "mad_ms": 7.5,
+      "no_regression_limit_ms": 3728.5,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "seaweedfs-migration-preservation",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.seaweedfs_migration_preservation.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "0336493aa1b0ea55dba886082faef8265dd371c2dee6df0009061bed1c50ca1b",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "caee5591a075f9f4a29011de74e97c76b851227fd907412ea3560417dd9315c9"
+      },
+      "execution_policy_sha256": "caee5591a075f9f4a29011de74e97c76b851227fd907412ea3560417dd9315c9",
+      "sample_provider_target": "seaweedfs-release-evidence",
+      "warmup_root": "retained:20260721T201322Z-p3114931",
+      "sample_roots": [
+        "retained:20260721T201544Z-p3134547",
+        "retained:20260721T201758Z-p3154150"
+      ],
+      "samples_ms": [
+        83879,
+        83852
+      ],
+      "median_ms": 83865.5,
+      "mad_ms": 13.5,
+      "no_regression_limit_ms": 88058.775,
+      "required_improvement_ms": 8386.550000000001
+    },
+    {
+      "target": "seaweedfs-release-evidence",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.seaweedfs_release_evidence.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "e6430a5ab7bc82be1b97a2f64f538691ee49ef1e2bb59bfc71ca564415ffc26f",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "831b817f18db4faa0e9b8fcdb00dbc19690c644d993db2a49f03eb06730f62c9"
+      },
+      "execution_policy_sha256": "831b817f18db4faa0e9b8fcdb00dbc19690c644d993db2a49f03eb06730f62c9",
+      "sample_provider_target": "seaweedfs-release-evidence",
+      "warmup_root": "retained:20260721T201322Z-p3114931",
+      "sample_roots": [
+        "retained:20260721T201544Z-p3134547",
+        "retained:20260721T201758Z-p3154150"
+      ],
+      "samples_ms": [
+        132589,
+        131094
+      ],
+      "median_ms": 131841.5,
+      "mad_ms": 747.5,
+      "no_regression_limit_ms": 138433.575,
+      "required_improvement_ms": 13184.150000000001
+    },
+    {
+      "target": "seaweedfs-release-gate",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.seaweedfs_release_gate.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "aggregate_scheduler_work_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "0ea8d0cdb01684089cd58001f8524cbcdc13bd49",
+      "source_snapshot_sha256": "ad91dd72d8da383b8a94bc82d7a5893887447284f637c1da85145e4c290bfa18",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "d7721be64b2db6c364226777fcc1525ccc0c701772e5ce954d5fdffdab212cf5",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "57e6859099c43aab90748e4fa7591232a0e3698b6daa501c8bcea64e537dc271"
+      },
+      "execution_policy_sha256": "57e6859099c43aab90748e4fa7591232a0e3698b6daa501c8bcea64e537dc271",
+      "sample_provider_target": "release-check",
+      "warmup_root": "retained:20260721T143704Z-p3467800",
+      "sample_roots": [
+        "retained:20260721T144455Z-p3616169",
+        "retained:20260721T145234Z-p3764561"
+      ],
+      "samples_ms": [
+        492,
+        496
+      ],
+      "median_ms": 494,
+      "mad_ms": 2,
+      "no_regression_limit_ms": 1494,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "service-backed-test-slice",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.service_backed_test_slice.v1",
+      "measurement_profile_id": "module_auth_slice_no_regression",
+      "canonical_inputs": {
+        "OWNER": "module.auth",
+        "ROWS": "omitted"
+      },
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "eefaf6d9fd871b108a44ed90d6b2e478867786c51e40246c5b4cedb6637e27fb",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "9bdc4b81fa161319d41847bf7535fc4c54e8c3f4b8741ac3c63b35fe7fe2e87a"
+      },
+      "execution_policy_sha256": "9bdc4b81fa161319d41847bf7535fc4c54e8c3f4b8741ac3c63b35fe7fe2e87a",
+      "sample_provider_target": "service-backed-test-slice",
+      "warmup_root": "retained:20260721T204406Z-p3330786",
+      "sample_roots": [
+        "retained:20260721T204845Z-p3361233",
+        "retained:20260721T205329Z-p3391580"
+      ],
+      "samples_ms": [
+        282791,
+        276685
+      ],
+      "median_ms": 279738,
+      "mad_ms": 3053,
+      "no_regression_limit_ms": 293724.9,
+      "required_improvement_ms": 27973.800000000003
+    },
+    {
+      "target": "standup-operational-recovery-smoke",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "dbe00b9b1aa11a8c9b0bcee6ad51d144b580f2a43c1a929a864d19a601cde3ae",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "514d5ea72e3c1023ea693319792c6353396d7d473106651522a99e213e80222e"
+      },
+      "execution_policy_sha256": "514d5ea72e3c1023ea693319792c6353396d7d473106651522a99e213e80222e",
+      "sample_provider_target": "standup-operational-recovery-smoke",
+      "warmup_root": "retained:20260721T200821Z-p3041202",
+      "sample_roots": [
+        "retained:20260721T200900Z-p3058744",
+        "retained:20260721T200940Z-p3076324"
+      ],
+      "samples_ms": [
+        38212,
+        37880
+      ],
+      "median_ms": 38046,
+      "mad_ms": 166,
+      "no_regression_limit_ms": 39948.3,
+      "required_improvement_ms": 3804.6000000000004
+    },
+    {
+      "target": "standup-package-smoke",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.standup_package_smoke.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "edaa17b1693c62cb3996ced48613e9e26a72fcafc9983f01415c966cd3bddc74",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "d2538960d964599a6b248f2b854ab2f505d1f97fd62fc37f51aae48fa09a6331"
+      },
+      "execution_policy_sha256": "d2538960d964599a6b248f2b854ab2f505d1f97fd62fc37f51aae48fa09a6331",
+      "sample_provider_target": "standup-package-smoke",
+      "warmup_root": "retained:20260721T200604Z-p2970265",
+      "sample_roots": [
+        "retained:20260721T200636Z-p2987893",
+        "retained:20260721T200709Z-p3005774"
+      ],
+      "samples_ms": [
+        31978,
+        31631
+      ],
+      "median_ms": 31804.5,
+      "mad_ms": 173.5,
+      "no_regression_limit_ms": 33394.725,
+      "required_improvement_ms": 3180.4500000000003
+    },
+    {
+      "target": "test",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.test.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "ada4993b5fe7f56c8864293bb1472d780982a5a6",
+      "source_snapshot_sha256": "2262f45e5938157442f227615cd4cc371dbcd6a943dd3f6522b380093429967d",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "f51027271712d09cd33ddbc2659544fb00cbceced1438444a01cea78fd15f5ac",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "e6f4ffc042130ac68192cac5d9ba242e5f62710f984c9432a34171a8e8ddc5a1"
+      },
+      "execution_policy_sha256": "e6f4ffc042130ac68192cac5d9ba242e5f62710f984c9432a34171a8e8ddc5a1",
+      "sample_provider_target": "test",
+      "warmup_root": "retained:20260721T194026Z-p2495611",
+      "sample_roots": [
+        "retained:20260721T194415Z-p2565548",
+        "retained:20260721T194807Z-p2635919"
+      ],
+      "samples_ms": [
+        229890,
+        229675
+      ],
+      "median_ms": 229782.5,
+      "mad_ms": 107.5,
+      "no_regression_limit_ms": 241271.625,
+      "required_improvement_ms": 22978.25
+    },
+    {
+      "target": "test-evidence-audit",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.test_evidence_audit.v1",
+      "measurement_profile_id": "module_auth_audit_no_regression",
+      "canonical_inputs": {
+        "OWNER": "module.auth",
+        "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence"
+      },
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "e6afe4918d88a83f991b7392a13c4b08a1f781678742ae657fbde07274bd0e1a",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "c3a77f7c1a19a70e60af3886a0b0f54f72dbcc8c1d4c7e382fcd8bb065e8622b"
+      },
+      "execution_policy_sha256": "c3a77f7c1a19a70e60af3886a0b0f54f72dbcc8c1d4c7e382fcd8bb065e8622b",
+      "sample_provider_target": "test-evidence-audit",
+      "warmup_root": "retained:20260721T203920Z-p3300108",
+      "sample_roots": [
+        "retained:20260721T203922Z-p3300163",
+        "retained:20260721T203924Z-p3300218"
+      ],
+      "samples_ms": [
+        944,
+        940
+      ],
+      "median_ms": 942,
+      "mad_ms": 2,
+      "no_regression_limit_ms": 1942,
+      "required_improvement_ms": 1000
+    },
+    {
+      "target": "test-fast",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.test_fast.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "2646baf7bd251b524dc4daa3ece11df2169767f3285bc1dfbd29fe480963364f",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "12ee4e10060ba846ea646807e4976d3c128486df401b09b6515af454ef8aeb26"
+      },
+      "execution_policy_sha256": "12ee4e10060ba846ea646807e4976d3c128486df401b09b6515af454ef8aeb26",
+      "sample_provider_target": "test-fast",
+      "warmup_root": "retained:20260721T212103Z-p3625349",
+      "sample_roots": [
+        "retained:20260721T212351Z-p3666804",
+        "retained:20260721T212640Z-p3708442"
+      ],
+      "samples_ms": [
+        167490,
+        163834
+      ],
+      "median_ms": 165662,
+      "mad_ms": 1828,
+      "no_regression_limit_ms": 173945.1,
+      "required_improvement_ms": 16566.2
+    },
+    {
+      "target": "test-slice",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.test_slice.v1",
+      "measurement_profile_id": "module_auth_slice_no_regression",
+      "canonical_inputs": {
+        "OWNER": "module.auth",
+        "ROWS": "omitted"
+      },
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "7c640ef4010a5f3f920ad3a4fbcf99d84d3ff8f46b09b55826cf92a15c4ca779",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "14cfd51f9869c589ec56e3b4540fcecbb83d51d6a62019a03046eb2853d40088"
+      },
+      "execution_policy_sha256": "14cfd51f9869c589ec56e3b4540fcecbb83d51d6a62019a03046eb2853d40088",
+      "sample_provider_target": "test-slice",
+      "warmup_root": "retained:20260721T202453Z-p3207267",
+      "sample_roots": [
+        "retained:20260721T202933Z-p3238095",
+        "retained:20260721T203413Z-p3269142"
+      ],
+      "samples_ms": [
+        279125,
+        270883
+      ],
+      "median_ms": 275004,
+      "mad_ms": 4121,
+      "no_regression_limit_ms": 288754.2,
+      "required_improvement_ms": 27500.4
+    },
+    {
+      "target": "toolchain-drift",
+      "gate": "no_regression",
+      "command_id": "cartulary.harness.command.toolchain_drift.v1",
+      "measurement_profile_id": "standard_no_regression",
+      "canonical_inputs": {},
+      "timing_source": "public_invocation_envelope",
+      "evidence_kind": "retained_v1_reference_migration",
+      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
+      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
+      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
+      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
+      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
+      "workload_evidence_profile_sha256": "b81c5e94761cf0cfb3362d2693e9152754338d9d76f3efc00be78beed5c15c9e",
+      "execution_policy": {
+        "retained_v1_execution_policy_sha256": "208fdc3eac420036c5b4a41d2343fca6452243a45661993708a1a0ce610f7f41"
+      },
+      "execution_policy_sha256": "208fdc3eac420036c5b4a41d2343fca6452243a45661993708a1a0ce610f7f41",
+      "sample_provider_target": "toolchain-drift",
+      "warmup_root": "retained:20260721T200416Z-p2873118",
+      "sample_roots": [
+        "retained:20260721T200417Z-p2873452",
+        "retained:20260721T200418Z-p2873792"
+      ],
+      "samples_ms": [
+        475,
+        520
+      ],
+      "median_ms": 497.5,
+      "mad_ms": 22.5,
+      "no_regression_limit_ms": 1497.5,
+      "required_improvement_ms": 1000
     }
   ],
-  "seed_evidence": ".cartulary/test-results/20260720T141740Z-p2992081; diagnostic only, not a qualified performance window"
+  "public_entrypoint_portfolio": {
+    "target_count": 48,
+    "targets": [
+      "agent-finalize",
+      "backend-integration",
+      "backend-module-boundary-check",
+      "backend-process",
+      "backend-store",
+      "backend-unit",
+      "benchmark-claim-check",
+      "browser-e2e",
+      "browser-e2e-a11y",
+      "browser-e2e-measurement",
+      "browser-e2e-stateful",
+      "browser-e2e-visual",
+      "browser-e2e-webserver-backed",
+      "check",
+      "ci",
+      "frontend-fallow-static",
+      "frontend-import-boundary-check",
+      "frontend-typecheck",
+      "frontend-unit",
+      "generate-drift",
+      "generated-artifact-policy-check",
+      "go-gosec-audit",
+      "go-gosec-targeted",
+      "go-test-duration-baseline-coverage",
+      "go-vulncheck",
+      "harness-contract",
+      "json-shape-check",
+      "lint",
+      "lint-biome",
+      "lint-markdown",
+      "lint-scripts",
+      "lint-shell",
+      "migration-drift",
+      "otel-conformance",
+      "release-check",
+      "release-readiness-evidence",
+      "seaweedfs-compatibility",
+      "seaweedfs-migration-preservation",
+      "seaweedfs-release-evidence",
+      "seaweedfs-release-gate",
+      "service-backed-test-slice",
+      "standup-operational-recovery-smoke",
+      "standup-package-smoke",
+      "test",
+      "test-evidence-audit",
+      "test-fast",
+      "test-slice",
+      "toolchain-drift"
+    ],
+    "total_median_ms": 2721126
+  },
+  "rejected_roots": [
+    {
+      "root": "retained:20260721T111633Z-p3726545",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150127Z-p3919264",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150134Z-p3919793",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150142Z-p3920317",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150149Z-p3920832",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150932Z-p3936910",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150940Z-p3937429",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150947Z-p3937951",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T150954Z-p3938466",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T151002Z-p3938988",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T151003Z-p3939036",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T151005Z-p3939078",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T151007Z-p3939126",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T152653Z-p50257",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T153120Z-p81015",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T154024Z-p142930",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T154513Z-p173878",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T154946Z-p204641",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155412Z-p235476",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155919Z-p266258",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155921Z-p266313",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155923Z-p266368",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155925Z-p266417",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T155936Z-p266534",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T160408Z-p296915",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T160840Z-p327299",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T161312Z-p357752",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173153Z-p1044885",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173201Z-p1045414",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173208Z-p1045935",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173215Z-p1046452",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173222Z-p1046974",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173224Z-p1047016",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173226Z-p1047064",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T173227Z-p1047106",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T175014Z-p1353283",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T175442Z-p1384132",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T175915Z-p1414882",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180348Z-p1445687",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180902Z-p1476688",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180904Z-p1476743",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180907Z-p1476798",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180909Z-p1476847",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T180921Z-p1476954",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T181400Z-p1507398",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T181832Z-p1537950",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T182304Z-p1568294",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T192029Z-p2199062",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T192131Z-p2213992",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T192233Z-p2228988",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T193342Z-p2381170",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T193430Z-p2395923",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T193524Z-p2410697",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200248Z-p2862044",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200255Z-p2862565",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200303Z-p2863104",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200310Z-p2863619",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200317Z-p2864140",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200319Z-p2864183",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200321Z-p2864231",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T200322Z-p2864286",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T202019Z-p3173789",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T202453Z-p3207267",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T202933Z-p3238095",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203413Z-p3269142",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203918Z-p3300057",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203920Z-p3300108",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203922Z-p3300163",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203924Z-p3300218",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T203938Z-p3300326",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T204406Z-p3330786",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T204845Z-p3361233",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    },
+    {
+      "root": "retained:20260721T205329Z-p3391580",
+      "reasons": [
+        "artifact_incomplete"
+      ]
+    }
+  ]
 }

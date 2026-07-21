@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Clean serial reference measurement snapshot `334465751e05c9d50e00416fc4a071d579bfd719`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | T-001 implementation based on clean `main` source `fd8630ac`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-21 |
-| Active item | T-001 |
+| Active item | T-008 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -41,8 +41,10 @@ Locked decisions:
   explicit post-run command and inherited `OTEL_*` variables have no effect.
 - The application telemetry scopes, `cartulary.module` registry, runtime
   bootstrap, and browser prohibition are unchanged.
-- Public command IDs, selected tests, owner and evidence routing, failure
-  precedence, artifact roles, and cleanup behavior are preserved.
+- Public Make names, selected tests, owner and evidence routing, failure
+  precedence, artifact roles, and cleanup behavior are preserved. The two
+  performance command IDs intentionally advance to v2 with their incompatible
+  evidence contracts.
 - Generated roots and lockfiles are never hand-edited. This effort adds no OTel
   SDK dependency.
 - Code-level profiles, cold tool provisioning, hosted-CI dashboards, and Core
@@ -64,15 +66,19 @@ not a qualifying baseline. It recorded:
 | Post-scheduler/finalizer tail | 16.655 s |
 | Cold license-tool provisioning | 43.280 s |
 
-T-001 must replace this seed with three consecutive warm observations for every
-in-scope public testing command. Aggregate runs may supply leaf observations;
-commands absent from aggregates must be invoked directly. Failed, interrupted,
-stale, capacity-mismatched, source-mismatched, or retry-contaminated runs remain
-retained but cannot enter the accepted sample set.
+T-001 replaced this seed with target/provider-scoped windows containing one
+validated discarded warm-up and exactly two measured observations. Aggregate
+runs supply only exact-once scheduler-work leaf envelopes; direct roots use the
+public invocation envelope, and backend finalization uses the native
+`report_collation` interval union. Failed, interrupted, stale,
+capacity-mismatched, source-mismatched, or retry-contaminated runs remain
+retained but do not enter the accepted sample set.
 
-The current authored inventory classifies 50 public testing entry points as
+The current authored inventory classifies 48 public testing entry points as
 observability-required, four post-run diagnostic/export/maintenance commands
-as owner-cited exclusions, and 43 public commands as explicitly out of scope.
+as owner-cited exclusions, and 45 public commands as explicitly out of scope.
+Performance evidence adds one internal `release-browser-readiness` profile and
+one synthetic `backend-output-finalizer` metric, for 50 baseline rows total.
 The provisional machine profile is frozen by these digests:
 
 | Profile component | SHA-256 |
@@ -82,9 +88,10 @@ The provisional machine profile is frozen by these digests:
 | Workload/evidence inventory | `ff7d5a4d9cab0b3ff2fae01ca0537fd19ad884b6c4bca98fce4b533ae9a88f1d` |
 | Toolchain | `877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac` |
 
-These digests and the single seed observation are not a completed baseline.
-The evidence-roots manifest still requires three exact warm baseline roots and
-three exact candidate roots per covered target.
+The old global digests and single seed observation are superseded. The v2
+baseline retains target-local provenance because independent reference targets
+may come from different immutable clean snapshots. Candidate windows remain
+strict-current evidence from one frozen clean commit.
 
 ## 4. Target architecture and public contracts
 
@@ -144,15 +151,15 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Collect the clean serial reference window and generate the qualified public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | exact retained execution contexts, baseline roots manifest, and generated baseline artifact | one discarded warm-up and three accepted observations exist for every required measurement profile |
+| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, and generated baseline artifact | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
 | T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
-| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | TODO | T-001 | backend runner | retained 255-test parity run and expected process reduction | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
-| T-009 | Batch per-family output ingestion and parallelize deterministic report emission | WS-03 optimization | TODO | T-008 | output/finalizers | batch worker implemented; retained parity is green; qualified improvement gate remains open | output identity is stable and the hotspot clears its gate |
+| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | IN_PROGRESS | T-001 | backend runner | retained 255-test parity run and expected process reduction | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
+| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | TODO | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | TODO | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | TODO | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
@@ -186,10 +193,14 @@ statements closes a reopened task until its corrected exit condition passes):
 ## 6. Optimization contracts
 
 Backend exact-symbol rows share one process only when package selection,
-runtime-binary set, fixture and isolation policy, and evidence class match. Raw
-selectors remain separate. Compatible groups run with
-`clamp(floor(availableParallelism/4), 1, 4)` workers. Missing, duplicate,
-unexpected, crashed, or partial Go JSON output fails closed.
+sorted runtime-binary set, complete fixture profile/policy/budget, isolation
+policy, and evidence class match. Raw selectors remain separate. Compatible
+groups run with
+`min(group_count, clamp(floor(availableParallelism/4), 1, 8))` workers and
+scheduler-owned child `GOMAXPROCS=max(1,floor(availableParallelism/workers))`.
+On the current 24-CPU host this resolves to six workers and four Go scheduler
+threads per child. Missing, duplicate, unexpected, crashed, or partial Go JSON
+output fails closed.
 
 Batch emission may perform independent parsing and file writes concurrently,
 but final summaries, artifact arrays, and failure selection use the existing
@@ -220,13 +231,15 @@ Export fixtures use a local receiver and prove endpoint construction, payload
 decoding, no redirects, timeout behavior, redaction, and zero ordinary-run
 egress.
 
-For a three-sample warm set, let `m` be the median duration and `d` the median
-absolute deviation. The no-regression limit is
+For each two-sample measured set, `m` is the arithmetic midpoint and `d` is the
+arithmetic midpoint of the absolute deviations. The no-regression limit is
 `m + max(1000 ms, 3d, 0.05m)`. A required hotspot improves only when the
 candidate median is at least `max(1000 ms, 3d, 0.10m)` below the baseline
 median. Required improvement gates are backend-unit, backend finalization,
 release browser readiness, and release-check. All other covered commands use
-the no-regression limit. The separate one-warm-plus-five-measured `make check`
+the no-regression limit. Every one of the 48 public rows must pass and their
+candidate median sum must be strictly below the reference sum. The separate
+one-warm-plus-five-measured `make check`
 acceptance with maximum below 120 seconds remains controlling.
 
 Verification order is schema and unit fixtures; generated policy and drift;
@@ -240,6 +253,11 @@ Successful retained evidence on the current worktree lineage:
 
 | Command/evidence | Run root | Result and diagnostic value |
 | --- | --- | --- |
+| retained v1 reference migration audit | `/home/jochi/code/cartulary-reference-baseline/.cartulary/test-results`, cutoff `2026-07-21T10:04:31Z` through `2026-07-21T22:04:31Z` | 368 contexts inspected; 291 nominally eligible; 218 strict accepts; 73 strict rejects; 21 deduplicated windows bind 50 rows without new baseline execution |
+| `make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=.cartulary/performance-reference-roots.v2.json` | `.cartulary/test-results/20260721T224115Z-p3902667` | PASS; deterministic qualified v2 baseline with 48-target portfolio total `2721126 ms`, internal browser row, synthetic native-finalizer row, and all 73 strict rejection reasons |
+| `make generate` owner-manifest refresh and ordinary generation | `.cartulary/test-results/20260721T224243Z-p3904051`; `.cartulary/test-results/20260721T224259Z-p3905640` | PASS; harness owner digest refreshed before ordinary generated projections |
+| T-001 focused drift and shape gates | `.cartulary/test-results/20260721T224419Z-p3907674`; `.cartulary/test-results/20260721T224419Z-p3907695`; `.cartulary/test-results/20260721T224456Z-p3913421` | `generate-drift`, generated-artifact policy, and corrected JSON shape PASS |
+| `make harness-contract` | `.cartulary/test-results/20260721T224549Z-p3915005` | PASS after intentional v2 public command-interface checksum update |
 | `make run-harness-smoke-extended` | `.cartulary/test-results/20260720T171451Z-p3532051` | PASS, 180.115 s; lifecycle and harness fixture coverage before the release-browser correction |
 | `make json-shape-check` | `.cartulary/test-results/20260720T171827Z-p3575733` | PASS |
 | `make generated-artifact-policy-check` | `.cartulary/test-results/20260720T171829Z-p3576053` | PASS |
@@ -1267,3 +1285,45 @@ completed work.
   baseline only through
   `make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=...`, and
   update this tracker before beginning T-008.
+
+### 2026-07-21 — T-001 retained v2 reference qualification complete
+
+- Source: implementation based on clean `main` commit
+  `fd8630ac`; no new baseline target observations were executed.
+- Retained audit: the frozen UTC interval `2026-07-21T10:04:31Z` through
+  `2026-07-21T22:04:31Z` contains 368 execution contexts. Of 291 nominally
+  eligible contexts, 218 satisfy the strict complete-root contract and 73 are
+  retained with strict rejection reasons. The isolated
+  `retained_v1_reference_migration` reader recovered eligible historical roots
+  lacking only the later invocation marker by validating terminal native
+  summaries and exact timing boundaries; candidate evidence cannot use this
+  path.
+- Completed: T-001. The performance contract is v2 and target/provider scoped.
+  Twenty-one deduplicated windows bind all 48 required public targets, the
+  internal release-browser profile, and the synthetic backend finalizer. Each
+  binding retains one discarded warm-up and exactly two measured roots. The
+  backend finalizer is derived from the native `report_collation` interval
+  union. The checked-in v2 baseline has 50 rows and a 48-public-target
+  reference portfolio total of `2721126 ms`.
+- Contract and compatibility: performance command IDs advanced to v2; v1
+  manifests are rejected in normal operation. Original retained roots remain
+  immutable and the migration baseline remains implementation-support, not
+  Core 05 publication evidence. Public Make names, application OTel behavior,
+  product behavior, domain vocabulary, and ordinary-run zero-egress behavior
+  are unchanged.
+- Verification: the sole writer passed at
+  `.cartulary/test-results/20260721T224115Z-p3902667`; owner-manifest refresh and
+  ordinary generation passed at `20260721T224243Z-p3904051` and
+  `20260721T224259Z-p3905640`; `generate-drift` passed at
+  `20260721T224419Z-p3907674`; generated-artifact policy passed at
+  `20260721T224419Z-p3907695`; JSON shape passed at
+  `20260721T224456Z-p3913421`; and `harness-contract` passed at
+  `20260721T224549Z-p3915005`. The first JSON-shape attempt correctly exposed
+  the stale warm-policy enum and the first harness-contract attempt correctly
+  exposed the intentional command-interface digest change; both owner fixtures
+  were corrected before the passing reruns.
+- Generated status: owner documents, extension-owner dependencies, generated
+  contracts, task-surface projection, and topology render index agree with
+  their owners. The v2 baseline was written only by its public Make target.
+- Active: T-008 is the only `IN_PROGRESS` task. Its checkpoint must record the
+  exact 30-process/255-test proof before T-009 begins.
