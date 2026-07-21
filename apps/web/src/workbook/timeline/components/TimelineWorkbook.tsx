@@ -944,8 +944,6 @@ function TimelineWorkbookContent({
     beginViewportContinuity,
     clearViewportContinuity,
     resolveInputElement,
-    resolveViewportContinuityElement,
-    scrollToViewportContinuityTarget,
     settleViewportContinuityBarrier,
   } = timelineViewportContinuity.commands;
   const { advanceViewportContinuityRef, beginViewportContinuityRef } =
@@ -1946,8 +1944,6 @@ function TimelineWorkbookContent({
       nextClientTxnId,
       onRefreshEntities,
       resolvePendingSocketTxn,
-      resolveViewportContinuityElement,
-      scrollToViewportContinuityTarget,
       rowsRef,
       setDismissedMentionsByRow,
       setInspectorMessage,

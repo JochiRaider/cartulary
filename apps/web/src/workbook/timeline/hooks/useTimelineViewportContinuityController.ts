@@ -5,7 +5,7 @@ import {
   gridRowGutterTestId,
   rowCellTestId,
 } from "@cartulary/ui-contracts";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   captureViewportAnchor,
@@ -37,6 +37,7 @@ export type TimelineViewportContinuityRequest = {
   attemptVersion: number;
   target: TimelineViewportContinuityTarget;
   preservedViewport: ViewportSnapshot | null;
+  userInteractionVersion: number;
   barrier: TimelineViewportContinuityBarrier;
 };
 
@@ -68,6 +69,24 @@ export function useTimelineViewportContinuityController({
   readonly viewportContinuityRequest: TimelineViewportContinuityRequest | null;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
 }) {
+  const activeViewportContinuityRequestRef =
+    useRef<TimelineViewportContinuityRequest | null>(viewportContinuityRequest);
+  const userInteractionVersionRef = useRef(0);
+
+  useEffect(() => {
+    const recordUserInteraction = () => {
+      userInteractionVersionRef.current += 1;
+    };
+    document.addEventListener("keydown", recordUserInteraction, true);
+    document.addEventListener("pointerdown", recordUserInteraction, true);
+    document.addEventListener("wheel", recordUserInteraction, true);
+    return () => {
+      document.removeEventListener("keydown", recordUserInteraction, true);
+      document.removeEventListener("pointerdown", recordUserInteraction, true);
+      document.removeEventListener("wheel", recordUserInteraction, true);
+    };
+  }, []);
+
   const currentGridScrollElement = useCallback(
     () => gridHandleRef.current?.getScrollElement() ?? null,
     [gridHandleRef],
@@ -255,17 +274,6 @@ export function useTimelineViewportContinuityController({
         return focusResolvedElement() && fullyVisible;
       };
       const restoredNow = restoreViewportGeometryNow();
-      const restoreViewportGeometry = (attempt: number) => {
-        window.requestAnimationFrame(() => {
-          if (restoreViewportGeometryNow()) {
-            return;
-          }
-          if (attempt < 6) {
-            restoreViewportGeometry(attempt + 1);
-          }
-        });
-      };
-      restoreViewportGeometry(0);
       return focusedNow && restoredNow;
     },
     [currentGridScrollElement, currentGridScrollSnapshot, restoreGridScroll],
@@ -276,17 +284,29 @@ export function useTimelineViewportContinuityController({
       target: TimelineViewportContinuityTarget,
       options: { barrier?: TimelineViewportContinuityBarrier } = {},
     ) => {
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (
+        target.kind === "scroll-only" &&
+        activeRequest !== null &&
+        activeRequest.userInteractionVersion ===
+          userInteractionVersionRef.current
+      ) {
+        return activeRequest.token;
+      }
       const token = viewportContinuityTokenRef.current;
       viewportContinuityTokenRef.current += 1;
-      setViewportContinuityRequest({
+      const request: TimelineViewportContinuityRequest = {
         token,
         attemptVersion: 0,
         target,
         preservedViewport: currentGridViewportSnapshot(
           resolveViewportContinuityElement(target),
         ),
+        userInteractionVersion: userInteractionVersionRef.current,
         barrier: options.barrier ?? null,
-      });
+      };
+      activeViewportContinuityRequestRef.current = request;
+      setViewportContinuityRequest(request);
       return token;
     },
     [
@@ -301,6 +321,17 @@ export function useTimelineViewportContinuityController({
 
   const settleViewportContinuityBarrier = useCallback(
     (token: number, refreshState: TimelineEntityRefreshSettleState) => {
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (activeRequest?.token === token) {
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          barrier: settleTimelineViewportContinuityBarrier(
+            activeRequest.barrier,
+            refreshState,
+          ),
+          attemptVersion: activeRequest.attemptVersion + 1,
+        };
+      }
       setViewportContinuityRequest((current) => {
         if (!current || current.token !== token) {
           return current;
@@ -320,6 +351,9 @@ export function useTimelineViewportContinuityController({
 
   const clearViewportContinuity = useCallback(
     (token: number) => {
+      if (activeViewportContinuityRequestRef.current?.token === token) {
+        activeViewportContinuityRequestRef.current = null;
+      }
       setViewportContinuityRequest((current) =>
         current?.token === token ? null : current,
       );
@@ -337,6 +371,18 @@ export function useTimelineViewportContinuityController({
     ) => {
       if (token === undefined) {
         return;
+      }
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (activeRequest?.token === token) {
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          attemptVersion: activeRequest.attemptVersion + 1,
+          barrier:
+            options.barrier === undefined
+              ? activeRequest.barrier
+              : options.barrier,
+          target: options.target ?? activeRequest.target,
+        };
       }
       setViewportContinuityRequest((current) => {
         if (current === null || current.token !== token) {
@@ -427,6 +473,15 @@ export function useTimelineViewportContinuityController({
     [entityCatalogInput],
   );
 
+  const userInterruptedViewportContinuity = useCallback(
+    (continuity: TimelineViewportContinuityRequest) => {
+      return (
+        userInteractionVersionRef.current !== continuity.userInteractionVersion
+      );
+    },
+    [],
+  );
+
   useLayoutEffect(() => {
     if (
       viewportContinuityRequest === null ||
@@ -437,6 +492,10 @@ export function useTimelineViewportContinuityController({
     let cancelled = false;
     const restoreTarget = (attempt: number) => {
       if (cancelled) {
+        return;
+      }
+      if (userInterruptedViewportContinuity(viewportContinuityRequest)) {
+        clearViewportContinuity(viewportContinuityRequest.token);
         return;
       }
       if (!tryRestoreViewportContinuity(viewportContinuityRequest)) {
@@ -476,6 +535,7 @@ export function useTimelineViewportContinuityController({
     clearViewportContinuity,
     shouldHoldViewportContinuity,
     tryRestoreViewportContinuity,
+    userInterruptedViewportContinuity,
     viewportContinuityRequest,
   ]);
 

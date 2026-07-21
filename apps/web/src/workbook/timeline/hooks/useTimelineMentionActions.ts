@@ -79,8 +79,6 @@ export function useTimelineMentionActions({
   nextClientTxnId,
   onRefreshEntities,
   resolvePendingSocketTxn,
-  resolveViewportContinuityElement,
-  scrollToViewportContinuityTarget,
   rowsRef,
   setDismissedMentionsByRow,
   setInspectorMessage,
@@ -103,12 +101,6 @@ export function useTimelineMentionActions({
   readonly nextClientTxnId: () => string;
   readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
-  readonly resolveViewportContinuityElement: (
-    target: TimelineMentionViewportContinuityTarget,
-  ) => HTMLElement | null;
-  readonly scrollToViewportContinuityTarget: (
-    target: TimelineMentionViewportContinuityTarget,
-  ) => boolean;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
   readonly setDismissedMentionsByRow: Dispatch<
     SetStateAction<Record<string, DismissedMention[]>>
@@ -228,14 +220,6 @@ export function useTimelineMentionActions({
           showLoading: false,
           viewportContinuityToken,
         });
-        restoreMentionActionFocus(
-          resolveViewportContinuityElement,
-          scrollToViewportContinuityTarget,
-          {
-            kind: "row-inspect",
-            recordId,
-          },
-        );
         finishSave("Saved");
 
         let refreshState: TimelineEntityRefreshSettleState = "complete";
@@ -269,8 +253,6 @@ export function useTimelineMentionActions({
       nextClientTxnId,
       onRefreshEntities,
       resolvePendingSocketTxn,
-      resolveViewportContinuityElement,
-      scrollToViewportContinuityTarget,
       rowsRef,
       setInspectorMessage,
       settleViewportContinuityBarrier,
@@ -411,14 +393,6 @@ export function useTimelineMentionActions({
           showLoading: false,
           viewportContinuityToken,
         });
-        restoreMentionActionFocus(
-          resolveViewportContinuityElement,
-          scrollToViewportContinuityTarget,
-          {
-            kind: "row-inspect",
-            recordId,
-          },
-        );
         finishSave("Saved");
       });
     },
@@ -432,9 +406,7 @@ export function useTimelineMentionActions({
       loadRows,
       nextClientTxnId,
       resolvePendingSocketTxn,
-      resolveViewportContinuityElement,
       rowsRef,
-      scrollToViewportContinuityTarget,
       setDismissedMentionsByRow,
       setInspectorMessage,
       trackPendingSocketTxn,
@@ -521,26 +493,4 @@ function buildMentionEntityCreateIntent(
     return { payload, viewSchemaId: identitiesViewSchemaId };
   }
   return null;
-}
-
-function restoreMentionActionFocus(
-  resolveViewportContinuityElement: (
-    target: TimelineMentionViewportContinuityTarget,
-  ) => HTMLElement | null,
-  scrollToViewportContinuityTarget: (
-    target: TimelineMentionViewportContinuityTarget,
-  ) => boolean,
-  target: TimelineMentionViewportContinuityTarget,
-) {
-  const restore = () => {
-    const element = resolveViewportContinuityElement(target);
-    if (element === null) {
-      scrollToViewportContinuityTarget(target);
-      return;
-    }
-    element.focus({ preventScroll: true });
-  };
-  restore();
-  window.requestAnimationFrame(restore);
-  window.setTimeout(restore, 0);
 }
