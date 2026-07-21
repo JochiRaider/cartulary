@@ -827,3 +827,32 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Add the semantic readiness
   assertion, prove the focused claimed visual repeatedly and the broad test
   path, commit a new clean source snapshot, and restart every baseline profile.
+
+### 2026-07-21 — T-001 contributor-readiness qualification correction complete
+
+- Source: clean correction commit
+  `16d6d48fc12b2ecbe037702339a658339bc22b80`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the claimed Network Flow visual fixture now waits for
+  the retained `visual-flow` contributor content inside the visible drawer
+  before preparing deterministic visual state. This closes the asynchronous
+  query boundary without sleeping or retrying. Product data, query execution,
+  grid rendering, timestamp normalization, golden bytes, zero-tolerance visual
+  comparison, and execution topology are unchanged.
+- Focused proof: the exact
+  `module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6`
+  row passed three consecutive service-backed owner slices at
+  `.cartulary/test-results/20260721T115931Z-p501817`,
+  `.cartulary/test-results/20260721T120035Z-p517120`, and
+  `.cartulary/test-results/20260721T120129Z-p531908`, with one selected test
+  executed exactly once per root and the existing contributor golden accepted.
+- Regression proof: `make test` passed at
+  `.cartulary/test-results/20260721T120228Z-p546721` with 651 tests, zero
+  failures, and both aggregate work units complete in 222.787 s. `make format`
+  passed at `.cartulary/test-results/20260721T115851Z-p499231` before the
+  focused checks.
+- Active: T-001 remains the only `IN_PROGRESS` task. Every discarded warm-up
+  and accepted observation now restarts from the clean tracker-completion
+  commit containing this ledger entry. All roots from
+  `c997c00cbf31dbd1a128d6692685112f0a8fc620` and earlier remain diagnostic-only.
