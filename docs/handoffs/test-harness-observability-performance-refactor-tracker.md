@@ -800,3 +800,30 @@ completed work.
   manifest restarts from the clean tracker-completion commit containing this
   ledger entry. Every root from this correction and every earlier reference
   source remains diagnostic-only; none may be migrated into the new window.
+
+### 2026-07-21 — T-001 contributor-readiness qualification correction opened
+
+- Source: clean serial reference snapshot
+  `c997c00cbf31dbd1a128d6692685112f0a8fc620` before this correction.
+- Qualification finding: the discarded `test` warm-up at
+  `.cartulary/test-results/20260721T115205Z-p432270` failed the claimed Network
+  Flow contributor golden by 350 pixels. The retained expected image contains
+  the normalized `2025-01-01` contributor timestamps, while the actual image
+  contains the original fixture `2026-07-10` timestamps. The contributor drawer
+  becomes visible before its asynchronous query has populated the semantic
+  grid, so under broad load the visual-state masker can run before those text
+  nodes exist. The two failed broad roots produced byte-identical actual
+  images, ruling out font or raster variance.
+- Required correction: make the claimed visual fixture await retained
+  contributor content inside the visible drawer before preparing the visual
+  regression state. Preserve the product query, grid rendering, timestamp
+  fixture, dynamic-text normalization, golden bytes, pixel threshold, and
+  browser topology. Do not hide the cells, weaken comparison, add a sleep, or
+  retry the failed run.
+- Excluded evidence: warm-up root `20260721T115205Z-p432270` is retained only
+  for diagnosis. The completed release and CI windows from
+  `c997c00cbf31dbd1a128d6692685112f0a8fc620` are also ineligible after this
+  source correction; no accepted root from that snapshot may be migrated.
+- Active: T-001 remains the only `IN_PROGRESS` task. Add the semantic readiness
+  assertion, prove the focused claimed visual repeatedly and the broad test
+  path, commit a new clean source snapshot, and restart every baseline profile.
