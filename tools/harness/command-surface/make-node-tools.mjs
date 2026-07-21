@@ -313,6 +313,7 @@ export const makeNodeTools = {
   },
   "go-test-duration-baseline-coverage": {
     inputs: ["GO_TEST_DURATION_BASELINE"],
+    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
     script: "./tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs",
     usage: "usage: make go-test-duration-baseline-coverage [GO_TEST_DURATION_BASELINE=<path>]",
     buildArgs(env) {

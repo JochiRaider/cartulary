@@ -629,7 +629,7 @@ go-test-duration-baselines:
 
 go-test-duration-baseline-coverage:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-coverage)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-coverage,GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)")
+	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-coverage,GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
 go-test-duration-baseline-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-drift)

@@ -96,7 +96,11 @@ const expectedMakeEnvVars = {
     "NODE_RUNTIME_DIR",
     "PNPM",
   ],
-  "go-test-duration-baseline-coverage": ["GO_TEST_DURATION_BASELINE"],
+  "go-test-duration-baseline-coverage": [
+    "GO_TEST_DURATION_BASELINE",
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+  ],
   "go-test-duration-baseline-drift": [
     "RESULTS_DIR",
     "GO_TEST_DURATION_BASELINE",
@@ -201,6 +205,11 @@ assertList("frontend-fallow-static runtime env", makeNodeToolRuntimeEnvVars("fro
   "NODE_RUNTIME_DIR",
   "PNPM",
 ]);
+assertList(
+  "go-test-duration-baseline-coverage runtime env",
+  makeNodeToolRuntimeEnvVars("go-test-duration-baseline-coverage"),
+  ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
+);
 assertList("test-slice runtime env", makeNodeToolRuntimeEnvVars("test-slice"), [
   "MAKE",
   "GO",
