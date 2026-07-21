@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate plus lease-fixture correction `218aa49906a2894293a8d9a4ed723273daecf881`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Serial reference substrate plus qualification-fixture corrections `b1067ca059fb1d3863535cc401de5cbdf69b6f48`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -716,3 +716,29 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Correct the test-only
   deadline, run repeated harness-contract and fast regression proof, commit a
   new clean reference snapshot, and restart the complete baseline manifest.
+
+### 2026-07-21 — T-001 readiness-fixture qualification correction complete
+
+- Source: clean correction commit
+  `b1067ca059fb1d3863535cc401de5cbdf69b6f48`; the validation roots below were
+  collected immediately before that commit and remain diagnostic-only because
+  their source state was dirty.
+- Completed correction: the mutation-safety fixture now gives its fake
+  PostgreSQL and object-store readiness commands a five-second bounded deadline
+  instead of one second. This margin exists only in the test process and lets
+  the mocked proxy build, launch, and first probe run even when the host is
+  scheduling a full release workload. Production readiness defaults, loops,
+  diagnostics, service commands, and proxy lifecycle are byte-unchanged.
+- Focused proof: five consecutive `make harness-contract` runs passed at
+  `.cartulary/test-results/20260721T084239Z-p1846527`,
+  `.cartulary/test-results/20260721T084304Z-p1847457`,
+  `.cartulary/test-results/20260721T084329Z-p1848398`,
+  `.cartulary/test-results/20260721T084354Z-p1849362`, and
+  `.cartulary/test-results/20260721T084419Z-p1850327`. `make lint-shell` passed
+  at `.cartulary/test-results/20260721T084452Z-p1851302`.
+- Regression proof: `make test-fast` passed at
+  `.cartulary/test-results/20260721T084510Z-p1852230` with 651 tests and both
+  aggregate work units complete in 162.670 s.
+- Active: T-001 remains the only `IN_PROGRESS` task. The complete baseline
+  manifest now restarts from the clean tracker-completion commit containing
+  this ledger entry; all earlier source roots remain diagnostic-only.
