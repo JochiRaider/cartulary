@@ -52,18 +52,28 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const id = runID();
   const startedAt = new Date().toISOString();
-  const summary = auditOwnerEvidence(root, {
+  const startedMonotonic = process.hrtime.bigint();
+  const audited = auditOwnerEvidence(root, {
     ownerID: options.ownerID,
     manifestPath: options.manifestPath,
     timestamp: startedAt,
   });
+  const finishedAt = new Date().toISOString();
+  const durationMs = Math.max(
+    1,
+    Number((process.hrtime.bigint() - startedMonotonic + 999_999n) / 1_000_000n),
+  );
+  const summary = {
+    ...audited,
+    finished_at: finishedAt,
+    duration_ms: durationMs,
+  };
   validateSchemaSync(summary.schema_id, summary);
   const targetDir = path.join(resultsRoot(), id, target);
   mkdirSync(targetDir, { recursive: true });
   const auditPath = `${target}/test-evidence-audit-summary.json`;
   writeFileSync(path.join(targetDir, "test-evidence-audit-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   const status = summary.status;
-  const finishedAt = new Date().toISOString();
   const tool = buildToolRunSummary({
     target,
     command: ["make", target],

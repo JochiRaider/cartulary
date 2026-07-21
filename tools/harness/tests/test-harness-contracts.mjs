@@ -1016,6 +1016,7 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
     );
     assert.equal(retainedAudit.schema_id, "cartulary.test_evidence_audit_summary.v1");
     assert.equal(retainedAudit.status, "pass");
+    assert.ok(retainedAudit.duration_ms > 0);
     assert.equal(
       JSON.parse(
         readFileSync(
