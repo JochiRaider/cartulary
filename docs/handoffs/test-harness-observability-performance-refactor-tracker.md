@@ -985,3 +985,35 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Every baseline warm-up and
   accepted observation restarts from the clean tracker-completion commit
   containing this ledger entry. All prior roots remain diagnostic-only.
+
+### 2026-07-21 — T-001 direct duration-coverage identity correction opened
+
+- Source: clean serial reference snapshot
+  `0ea8d0cdb01684089cd58001f8524cbcdc13bd49` before this correction.
+- Qualification finding: direct required-profile invocation
+  `make go-test-duration-baseline-coverage` failed at retained root
+  `.cartulary/test-results/20260721T150156Z-p3921353` because the Make-node
+  contract removed `CARTULARY_TEST_RESULTS_DIR` and `CARTULARY_TEST_RUN_ID`
+  before the coverage CLI wrote its retained public summary. The top-level
+  preflight had already created `_shared/harness-invocation-start.json`, so the
+  child attempted to allocate the same caller run identity as an unprepared
+  non-empty root and rejected it. This makes the required direct measurement
+  profile non-invocable even though aggregate coverage execution can pass.
+- Required correction: declare the retained run identity variables as runtime
+  environment for the duration-baseline coverage Make-node tool, add a focused
+  contract fixture that proves direct prepared-identity reuse and retained
+  summary/observability closure, regenerate the task surface only through
+  `make generate`, and prove drift plus direct repeated execution. Preserve the
+  public command, command ID, optional baseline-file input, coverage behavior,
+  summary schema, and strict rejection of arbitrary non-empty caller roots.
+- Excluded evidence: all warm-up and accepted roots from source snapshot
+  `0ea8d0cdb01684089cd58001f8524cbcdc13bd49` remain diagnostic-only. This
+  includes the completed `test`, `test-fast`, `lint`, `ci`, `release-check`,
+  `agent-finalize`, `benchmark-claim-check`, and `frontend-fallow-static`
+  windows. The retry-contaminated `test-fast` root
+  `20260721T135951Z-p2633099` is independently excluded for
+  `retry_observed`. No observation from this snapshot may be migrated into the
+  restarted reference window.
+- Active: T-001 remains the only `IN_PROGRESS` task. Correct and validate the
+  direct identity contract, commit a new clean source snapshot, then restart
+  every reference baseline profile from a fresh discarded warm-up.
