@@ -120,6 +120,7 @@
         "retained_v1_execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac"
       },
       "execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac",
+      "allowed_policy_transition": "backend_grouped_capture_and_parallel_report_emission",
       "sample_provider_target": "test-fast",
       "warmup_root": "retained:20260721T212103Z-p3625349",
       "sample_roots": [
@@ -219,6 +220,7 @@
         "retained_v1_execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac"
       },
       "execution_policy_sha256": "4e6abc19c1fd50e4674795948bd79cce408e5472439e75c0b4a816cc99a729ac",
+      "allowed_policy_transition": "backend_grouped_capture_and_parallel_report_emission",
       "sample_provider_target": "test-fast",
       "warmup_root": "retained:20260721T212103Z-p3625349",
       "sample_roots": [

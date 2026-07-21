@@ -9,6 +9,17 @@ function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
 }
 
+function stableKey(value) {
+  if (Array.isArray(value)) return `[${value.map(stableKey).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => compareStrings(left, right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableKey(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function rowPackages(row) {
   if (row.package) {
     return [row.package];
@@ -125,6 +136,69 @@ export function resetTableAssignments(rows, mode) {
   return assignments.sort(compareStrings);
 }
 
+function captureCompatibility(row) {
+  if (row.coverage === "raw") return stableKey({ raw_selector_row: row.id });
+  return stableKey({
+    target: row.target,
+    package_selection: rowPackages(row).sort(compareStrings),
+    runtime_binaries: [...(row.runtime_binaries ?? [])].sort(compareStrings),
+    runtime_profile_id: row.runtime_profile_id,
+    resource_profile_id: row.resource_profile_id,
+    fixture_profile_id: row.fixture_profile_id,
+    fixture_policy: row.fixture_policy ?? {},
+    fixture_budget: row.fixture_budget ?? {},
+    isolation_policy: { shard_isolation: row.shard_isolation === true },
+    evidence_class: row.evidence_class,
+    coverage: row.coverage,
+    support_only: row.support_only === true,
+    go_test_parallelism: row.go_test_parallelism,
+  });
+}
+
+export function collectCompatibleCaptureGroups(rows) {
+  const groups = new Map();
+  for (const row of [...rows].sort((left, right) => compareStrings(left.id, right.id))) {
+    const key = captureCompatibility(row);
+    const selected = groups.get(key) ?? [];
+    selected.push(row);
+    groups.set(key, selected);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => compareStrings(left, right))
+    .map(([compatibilityKey, groupedRows]) => {
+      const targets = [...new Set(groupedRows.map((row) => row.target))];
+      if (targets.length !== 1) throw new Error("compatible capture group crosses target identities");
+      const rawRows = groupedRows.filter((row) => row.coverage === "raw");
+      if (rawRows.length > 0 && (rawRows.length !== 1 || groupedRows.length !== 1)) {
+        throw new Error(`raw selector ${rawRows[0].id} is not isolated`);
+      }
+      const symbols = groupedRows.flatMap((row) => row.symbols ?? []);
+      if (new Set(symbols).size !== symbols.length) {
+        throw new Error(`${targets[0]} compatible capture group duplicates an exact symbol`);
+      }
+      const families = [...new Set(groupedRows.map((row) => row.execution_family))]
+        .sort(compareStrings);
+      const digest = createHash("sha256").update(compatibilityKey).digest("hex").slice(0, 12);
+      return {
+        name: `${targets[0]}-capture-${digest}`,
+        target: targets[0],
+        compatibility_key: compatibilityKey,
+        raw: rawRows.length === 1,
+        rows: groupedRows,
+        families,
+        packages: aggregatePackages(groupedRows),
+        regex: aggregateRegex(groupedRows),
+        exact_symbol_count: symbols.length,
+        fixture_policy: {
+          tests: fixturePolicyAssignments(groupedRows, "tests").join(","),
+          packages: fixturePolicyAssignments(groupedRows, "packages").join(","),
+          resetTests: resetTableAssignments(groupedRows, "tests").join(","),
+          resetPackages: resetTableAssignments(groupedRows, "packages").join(","),
+        },
+      };
+    });
+}
+
 function aggregateKey(row) {
   if (row.coverage === "raw") {
     return `raw:${row.id}`;
@@ -194,3 +268,4 @@ export function collectAggregateEmissions(rows) {
     };
   });
 }
+import { createHash } from "node:crypto";

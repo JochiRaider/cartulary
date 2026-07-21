@@ -9,6 +9,7 @@ import {
   secureMkdir,
   secureWriteFile,
 } from "../../contract/index.mjs";
+import { prepareSharedArtifactDir } from "./context.mjs";
 import { isCrossTargetSharedReport } from "./planning.mjs";
 import { clampDurationMs, nowUTC } from "./util.mjs";
 
@@ -159,6 +160,64 @@ export function createAggregateReport(
     path.join(outputDir, "aggregate.txt"),
     `${target}:${aggregateName}\n`,
   );
+  return { reportDir: outputDir, usage };
+}
+
+export function createUnshardedFamilyReport(ctx, family, entries) {
+  if (entries.length === 0) throw new Error(`${family} has no physical capture reports`);
+  const outputDir = prepareSharedArtifactDir(ctx, family);
+  const runnerLog = path.join(outputDir, "runner.jsonl");
+  const stderrLog = path.join(outputDir, "stderr.log");
+  const commandFile = path.join(outputDir, "command.txt");
+  secureWriteFile(runnerLog, "");
+  secureWriteFile(stderrLog, "");
+  secureWriteFile(commandFile, "");
+  let startTime = "";
+  let endTime = "";
+  let durationMs = 0;
+  let actualStartTime = "";
+  let actualEndTime = "";
+  let actualDurationMs = 0;
+  let exitStatus = 0;
+  let hasActual = false;
+  for (const [index, entry] of entries.entries()) {
+    const reportDir = entry.reportDir;
+    if (existsSync(path.join(reportDir, "runner.jsonl"))) appendFileSync(runnerLog, readFileSync(path.join(reportDir, "runner.jsonl")));
+    if (existsSync(path.join(reportDir, "stderr.log"))) appendFileSync(stderrLog, readFileSync(path.join(reportDir, "stderr.log")));
+    if (index > 0) appendFileSync(commandFile, "\n");
+    appendFileSync(
+      commandFile,
+      `${entry.name}: ${readFileSync(path.join(reportDir, "command.txt"), "utf8").trimEnd()}\n`,
+    );
+    const reportDuration = clampDurationMs(readFileSync(path.join(reportDir, "duration_ms.txt"), "utf8"));
+    const reportStart = readFileSync(path.join(reportDir, "start_time.txt"), "utf8").trim();
+    const reportEnd = readFileSync(path.join(reportDir, "end_time.txt"), "utf8").trim();
+    const reportStatus = Number.parseInt(readFileSync(path.join(reportDir, "exit_status.txt"), "utf8"), 10) || 0;
+    durationMs += reportDuration;
+    if (startTime === "" || reportStart < startTime) startTime = reportStart;
+    if (endTime === "" || reportEnd > endTime) endTime = reportEnd;
+    if (reportStatus !== 0 && exitStatus === 0) exitStatus = reportStatus;
+    if (entry.usage === "actual") {
+      hasActual = true;
+      actualDurationMs += reportDuration;
+      if (actualStartTime === "" || reportStart < actualStartTime) actualStartTime = reportStart;
+      if (actualEndTime === "" || reportEnd > actualEndTime) actualEndTime = reportEnd;
+    }
+  }
+  const usage = hasActual ? "actual" : "reused";
+  if (hasActual) {
+    startTime = actualStartTime;
+    endTime = actualEndTime;
+    durationMs = actualDurationMs;
+  }
+  secureWriteFile(path.join(outputDir, "start_time.txt"), `${startTime}\n`);
+  secureWriteFile(path.join(outputDir, "end_time.txt"), `${endTime}\n`);
+  secureWriteFile(path.join(outputDir, "duration_ms.txt"), `${clampDurationMs(durationMs)}\n`);
+  secureWriteFile(
+    path.join(outputDir, "wall_duration_ms.txt"),
+    `${clampDurationMs(hasActual ? isoWindowDurationMs(startTime, endTime) : 0)}\n`,
+  );
+  secureWriteFile(path.join(outputDir, "exit_status.txt"), `${exitStatus}\n`);
   return { reportDir: outputDir, usage };
 }
 

@@ -2245,8 +2245,7 @@
         "test-service-images"
       ],
       "env": {
-        "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
-        "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)"
       },
       "test_target": "self"
     },
@@ -2258,8 +2257,7 @@
         "test-service-images"
       ],
       "env": {
-        "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
-        "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)"
       },
       "test_target": "self"
     },

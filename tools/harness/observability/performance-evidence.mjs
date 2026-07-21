@@ -289,6 +289,7 @@ function targetStatistics(binding, window, warmup, samples) {
   const gate = target === backendFinalizerTarget || contract.performance_gates.some((gateName) => gateName.endsWith("_improvement"))
     ? "required_improvement"
     : "no_regression";
+  const allowedPolicyTransition = contract.allowed_policy_transition ?? currentAllowedPolicyTransition(target);
   return {
     target,
     gate,
@@ -305,7 +306,7 @@ function targetStatistics(binding, window, warmup, samples) {
     workload_evidence_profile_sha256: contract.workload_evidence_profile_sha256,
     execution_policy: executionPolicy,
     execution_policy_sha256: contract.execution_policy_sha256,
-    ...(contract.allowed_policy_transition === undefined ? {} : { allowed_policy_transition: contract.allowed_policy_transition }),
+    ...(allowedPolicyTransition === undefined ? {} : { allowed_policy_transition: allowedPolicyTransition }),
     sample_provider_target: window.provider_target,
     warmup_root: rootRef(warmup.runDir, warmup.context),
     sample_roots: samples.map((record) => rootRef(record.runDir, record.context)),
@@ -320,6 +321,16 @@ function targetStatistics(binding, window, warmup, samples) {
 function publicTargets() {
   const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
   return [...manifest.observability_policy.required_targets].sort((left, right) => left.localeCompare(right));
+}
+
+function currentAllowedPolicyTransition(target) {
+  const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
+  const contractTarget = target === backendFinalizerTarget ? "backend-unit" : target;
+  const binding = manifest.observability_policy.target_measurement_profiles
+    .find((entry) => entry.target === contractTarget);
+  const profile = manifest.observability_policy.measurement_profiles
+    .find((entry) => entry.profile_id === binding?.profile_id);
+  return profile?.allowed_policy_transition;
 }
 
 export function buildQualifiedBaseline(windows, bindings, {
@@ -553,7 +564,10 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     throw new Error(`${target} baseline and candidate have mismatched policy transition contracts`);
   }
   if (transition === undefined) {
-    if (!sameJSON(baselineRow.execution_policy, candidateRow.execution_policy)) {
+    const matches = baselineRow.evidence_kind === "retained_v1_reference_migration"
+      ? baselineRow.execution_policy_sha256 === candidateRow.execution_policy_sha256
+      : sameJSON(baselineRow.execution_policy, candidateRow.execution_policy);
+    if (!matches) {
       throw new Error(`${target} has an undeclared execution-policy change`);
     }
     return;
@@ -571,6 +585,26 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     "browser_stack_capacity_1_to_2",
   ]);
   if (!knownTransitions.has(transition)) throw new Error(`${target} has unknown policy transition ${transition}`);
+  if (transition === "backend_grouped_capture_and_parallel_report_emission") {
+    const backend = candidateRow.execution_policy?.backend_unit;
+    if (!sameJSON(backend?.capture_grouping?.dimensions, [
+      "package_selection",
+      "runtime_binaries",
+      "runtime_profile",
+      "resource_profile",
+      "fixture_profile",
+      "fixture_policy",
+      "fixture_budget",
+      "isolation_policy",
+      "evidence_class",
+    ]) || backend?.capture_grouping?.raw_selectors !== "isolated" ||
+      backend?.worker_pool?.formula !== "min(group_count,clamp(floor(available_parallelism/4),1,8))" ||
+      backend?.worker_pool?.child_gomaxprocs !== "max(1,floor(available_parallelism/workers))" ||
+      backend?.report_projection?.physical_report_parse !== "once_per_physical_report" ||
+      backend?.report_projection?.emission !== "parallel_host_derived_pool") {
+      throw new Error(`${target} candidate policy does not implement the exact backend transition`);
+    }
+  }
 }
 
 export function compareQualifiedBaselines(baseline, candidate) {

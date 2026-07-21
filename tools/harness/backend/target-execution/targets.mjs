@@ -3,15 +3,19 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  assignExecutionFamily,
   captureNamedSharedReportsParallel,
+  captureUnshardedGroup,
 } from "./capture.mjs";
-import { createAggregateReport } from "./reports.mjs";
+import {
+  createAggregateReport,
+  createUnshardedFamilyReport,
+} from "./reports.mjs";
 import {
   aggregateNames,
   rowsForScheduledAggregate,
   targetAggregates,
   targetShards,
+  unshardedCaptureGroups,
 } from "./planning.mjs";
 import {
   emitExecutionFamily,
@@ -24,24 +28,54 @@ import {
   captureFinish,
   captureStart,
 } from "./util.mjs";
+import { resolveBackendWorkerPool } from "./worker-policy.mjs";
 
 export async function runUnshardedTarget(ctx, target) {
+  const groups = unshardedCaptureGroups(ctx, target);
+  const pool = resolveBackendWorkerPool(ctx.availableParallelism, groups.length);
+  ctx.goMaxProcs = pool.goMaxProcs;
   let status = 0;
-  for (const aggregateName of aggregateNames(ctx, target)) {
+  const captures = await runBounded(groups, pool.workers, async (group) => {
     try {
-      const captured = await assignExecutionFamily(ctx, target, aggregateName);
-      if (status === 0) {
-        status = await emitExecutionFamily(
-          ctx,
-          target,
-          aggregateName,
-          captured.usage,
-          captured.reportDir,
-        );
+      return { captured: await captureUnshardedGroup(ctx, group), error: null };
+    } catch (error) {
+      return { captured: null, error };
+    }
+  });
+  for (const result of captures) {
+    if (result.error) {
+      process.stderr.write(`${result.error.message}\n`);
+      if (status === 0) status = Number.isInteger(result.error.exitCode) ? result.error.exitCode : 1;
+      continue;
+    }
+  }
+  for (const family of aggregateNames(ctx, target)) {
+    const entries = [];
+    let incomplete = false;
+    for (const [groupIndex, group] of groups.entries()) {
+      if (!group.families.includes(family)) continue;
+      const result = captures[groupIndex];
+      if (result.error) {
+        incomplete = true;
+        break;
       }
+      const ownsPhysicalCapture = group.families[0] === family;
+      entries.push({
+        name: group.name,
+        reportDir: result.captured.reportDir,
+        usage: ownsPhysicalCapture
+          ? result.captured.usage
+          : result.captured.usage === "actual" ? "reused" : result.captured.usage,
+      });
+    }
+    if (incomplete) continue;
+    try {
+      const report = createUnshardedFamilyReport(ctx, family, entries);
+      const emitStatus = await emitExecutionFamily(ctx, target, family, report.usage, report.reportDir);
+      if (status === 0 && emitStatus !== 0) status = emitStatus;
     } catch (error) {
       process.stderr.write(`${error.message}\n`);
-      status = Number.isInteger(error.exitCode) ? error.exitCode : 1;
+      if (status === 0) status = Number.isInteger(error.exitCode) ? error.exitCode : 1;
     }
   }
   return await finishTarget(ctx, status);
@@ -194,10 +228,12 @@ export async function runShardedTarget(ctx, target) {
     path.join(os.tmpdir(), `cartulary-${target}-shards.`),
   );
   const shardNames = targetShards(ctx, target).map((shard) => shard.name);
+  const pool = resolveBackendWorkerPool(ctx.availableParallelism, shardNames.length);
+  ctx.goMaxProcs = pool.goMaxProcs;
   let status = await captureNamedSharedReportsParallel(
     ctx,
     target,
-    ctx.backendIntegrationShardJobs,
+    pool.workers,
     metadataDir,
     shardNames,
   );

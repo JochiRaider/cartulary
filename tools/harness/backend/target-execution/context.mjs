@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,6 +71,10 @@ export function createGoTargetContext(options = {}) {
     CARTULARY_TEST_RESULTS_DIR: resultsRoot,
   };
   const nodeBin = resolveNodeBin(repoRoot, env);
+  const availableParallelism = options.availableParallelism ?? Math.max(1, os.availableParallelism());
+  if (!Number.isInteger(availableParallelism) || availableParallelism < 1) {
+    throw new Error(`invalid available parallelism ${availableParallelism}`);
+  }
   return {
     repoRoot,
     env,
@@ -81,8 +86,8 @@ export function createGoTargetContext(options = {}) {
       env.GO_TEST_PACKAGE_PARALLELISM ||
       env.GO_TEST_SERVICE_PACKAGE_PARALLELISM ||
       "1",
-    backendIntegrationShardJobs:
-      Number.parseInt(env.BACKEND_INTEGRATION_SHARD_JOBS || "4", 10) || 4,
+    availableParallelism,
+    goMaxProcs: availableParallelism,
     resultsRoot,
     runId,
     testTarget: env.CARTULARY_TEST_TARGET || "",

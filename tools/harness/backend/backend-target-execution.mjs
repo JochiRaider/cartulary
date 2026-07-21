@@ -9,13 +9,17 @@ export {
   assignExecutionFamily,
   captureGoReport,
   captureNamedSharedReportsParallel,
+  captureUnshardedGroup,
   releaseSharedReportLock,
 } from "./target-execution/capture.mjs";
 export {
   inspectAggregateCommand,
+  unshardedCaptureGroups,
 } from "./target-execution/planning.mjs";
+export { resolveBackendWorkerPool } from "./target-execution/worker-policy.mjs";
 export {
   createAggregateReport,
+  createUnshardedFamilyReport,
 } from "./target-execution/reports.mjs";
 export {
   runGoTargetCLI,

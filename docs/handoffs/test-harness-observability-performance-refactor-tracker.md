@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-001 implementation based on clean `main` source `fd8630ac`; retained target-local reference snapshots are recorded in the v2 baseline |
+| Current source | T-008 implementation based on T-001 checkpoint `ecd2ef40`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-21 |
-| Active item | T-008 |
+| Active item | T-009 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -158,8 +158,8 @@ result; the explicit observability check fails closed.
 | T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
-| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | IN_PROGRESS | T-001 | backend runner | retained 255-test parity run and expected process reduction | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
-| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | TODO | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
+| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
+| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | IN_PROGRESS | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | TODO | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | TODO | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
@@ -258,6 +258,9 @@ Successful retained evidence on the current worktree lineage:
 | `make generate` owner-manifest refresh and ordinary generation | `.cartulary/test-results/20260721T224243Z-p3904051`; `.cartulary/test-results/20260721T224259Z-p3905640` | PASS; harness owner digest refreshed before ordinary generated projections |
 | T-001 focused drift and shape gates | `.cartulary/test-results/20260721T224419Z-p3907674`; `.cartulary/test-results/20260721T224419Z-p3907695`; `.cartulary/test-results/20260721T224456Z-p3913421` | `generate-drift`, generated-artifact policy, and corrected JSON shape PASS |
 | `make harness-contract` | `.cartulary/test-results/20260721T224549Z-p3915005` | PASS after intentional v2 public command-interface checksum update |
+| T-008 planner and contract fixtures | `.cartulary/test-results/20260721T230009Z-p3937762` | `harness-contract` PASS; current catalog fixture proves 30 physical capture groups, 251 exact symbols, one isolated raw selector, 34 family projections, six workers, and child `GOMAXPROCS=4` |
+| `make backend-unit` | `.cartulary/test-results/20260721T230040Z-p3938914` | PASS, 255 tests, failed/missing `0`, 30 complete physical report roots, 34 logical emissions (`actual=30`, `reused=4`), 32.744 s wall; quantitative acceptance remains T-012-owned |
+| T-008 generated drift and shape | `.cartulary/test-results/20260721T230204Z-p3941056`; `.cartulary/test-results/20260721T230204Z-p3941058` | `generate-drift` and `json-shape-check` PASS after removing the obsolete fixed shard-job input |
 | `make run-harness-smoke-extended` | `.cartulary/test-results/20260720T171451Z-p3532051` | PASS, 180.115 s; lifecycle and harness fixture coverage before the release-browser correction |
 | `make json-shape-check` | `.cartulary/test-results/20260720T171827Z-p3575733` | PASS |
 | `make generated-artifact-policy-check` | `.cartulary/test-results/20260720T171829Z-p3576053` | PASS |
@@ -1327,3 +1330,41 @@ completed work.
   their owners. The v2 baseline was written only by its public Make target.
 - Active: T-008 is the only `IN_PROGRESS` task. Its checkpoint must record the
   exact 30-process/255-test proof before T-009 begins.
+
+### 2026-07-21 — T-008 backend capture consolidation complete
+
+- Source: T-001 checkpoint `ecd2ef40`; worktree implementation was validated
+  before this mandatory T-008 checkpoint.
+- Completed: T-008. Exact-symbol rows are partitioned by normalized package
+  selection, sorted runtime binaries, runtime/resource/fixture profiles,
+  complete fixture policy and budget, isolation policy, evidence class, and
+  coverage identity. Raw selectors always form one isolated physical group.
+  The current catalog deterministically resolves 34 logical families to 29
+  exact groups plus one raw group. The host-derived pool uses six workers on
+  this 24-CPU host and owns child `GOMAXPROCS=4`; the obsolete fixed
+  `BACKEND_INTEGRATION_SHARD_JOBS` surface was removed rather than retained as
+  an ignored compatibility burden.
+- Projection integrity: physical capture identity is separate from logical
+  evidence identity. Families spanning multiple compatible package groups are
+  merged once into their stable family report before emission; shared physical
+  execution is accounted once as actual and subsequent family ownership as
+  reuse. Row order, family step identity, target summary schema, cleanup, and
+  authored failure precedence remain stable.
+- Verification: `harness-contract` passed at
+  `.cartulary/test-results/20260721T230009Z-p3937762`; `backend-unit` passed at
+  `.cartulary/test-results/20260721T230040Z-p3938914` with all 255 tests,
+  failed/missing `0`, 30 completed physical captures, and accounting
+  `actual=30`, `reused=4`; `generate-drift` and `json-shape-check` passed at
+  `20260721T230204Z-p3941056` and `20260721T230204Z-p3941058`.
+- Retained failure: `.cartulary/test-results/20260721T225357Z-p3919588` failed
+  family closure because the first implementation emitted package fragments
+  independently. It is excluded and retained as the regression case that led
+  to family-owned merged projection. The corrected roots close every row and
+  exact symbol once.
+- Performance disposition: the functional slice is complete; its 32.744 s
+  dirty-worktree wall is diagnostic only. No threshold was evaluated or
+  relaxed. The qualified backend and portfolio comparisons remain exclusively
+  T-012-owned.
+- Active: T-009 is the only `IN_PROGRESS` task. It will eliminate repeated
+  physical report parsing and parallelize immutable family requests before any
+  T-010 topology work begins.

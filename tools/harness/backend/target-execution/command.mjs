@@ -24,6 +24,7 @@ function goTestEnvAssignments(ctx, policy = {}) {
   const assignments = [
     `GOCACHE=${ctx.goCacheDir}`,
     `GOMODCACHE=${ctx.goModCacheDir}`,
+    `GOMAXPROCS=${ctx.goMaxProcs}`,
   ];
   const values = fixtureEnv(policy);
   for (const [name, value] of Object.entries(values)) {
@@ -52,6 +53,7 @@ export function goChildEnv(ctx, policy = {}) {
     ...ctx.env,
     GOCACHE: ctx.goCacheDir,
     GOMODCACHE: ctx.goModCacheDir,
+    GOMAXPROCS: String(ctx.goMaxProcs),
     ...fixtureEnv(policy),
   };
 }

@@ -1,6 +1,7 @@
 import {
   aggregatePackages,
   aggregateRegex,
+  collectCompatibleCaptureGroups,
   fixturePolicyAssignments,
   resetTableAssignments,
 } from "../go-target-aggregate.mjs";
@@ -156,6 +157,15 @@ export function aggregateNames(ctx, target) {
         .map((row) => row.execution_family),
     ),
   ).sort(compareStrings);
+}
+
+export function unshardedCaptureGroups(ctx, target) {
+  return collectCompatibleCaptureGroups(
+    targetRows(ctx).filter((row) => row.target === target),
+  ).map((group) => ({
+    ...group,
+    args: [...targetGoTestArgs(ctx, target), ...group.packages],
+  }));
 }
 
 function targetOwnsShard(target, shard) {

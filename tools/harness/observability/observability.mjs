@@ -363,6 +363,32 @@ function measurementContract(target, catalog, manifest, executionTopology) {
     sequence: manifest.sequences?.[target] ?? null,
     service_backed_schedule:
       executionTopology.service_backed_schedules?.schedules?.find((entry) => entry.target === target) ?? null,
+    ...(target === "backend-unit" ? {
+      backend_unit: {
+        capture_grouping: {
+          dimensions: [
+            "package_selection",
+            "runtime_binaries",
+            "runtime_profile",
+            "resource_profile",
+            "fixture_profile",
+            "fixture_policy",
+            "fixture_budget",
+            "isolation_policy",
+            "evidence_class",
+          ],
+          raw_selectors: "isolated",
+        },
+        worker_pool: {
+          formula: "min(group_count,clamp(floor(available_parallelism/4),1,8))",
+          child_gomaxprocs: "max(1,floor(available_parallelism/workers))",
+        },
+        report_projection: {
+          physical_report_parse: "once_per_family_projection",
+          emission: "serial_authored_family_order",
+        },
+      },
+    } : {}),
   };
   return {
     target,

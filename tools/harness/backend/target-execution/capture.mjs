@@ -374,6 +374,23 @@ export async function assignExecutionFamily(ctx, target, familyOrShard) {
   return captured;
 }
 
+export async function captureUnshardedGroup(ctx, group) {
+  if (runtimeBinaryIDsForRows(group.rows).length > 0) {
+    validateRuntimeBinaries(
+      ctx,
+      group.rows,
+      prepareSharedArtifactDir(ctx, group.name),
+    );
+  }
+  return await captureGoReport(
+    ctx,
+    group.name,
+    group.regex,
+    group.args,
+    group.fixture_policy,
+  );
+}
+
 function writeShardMetadata(metadataDir, sharedName, captured) {
   secureMkdir(metadataDir);
   const file = path.join(metadataDir, `${sharedName}.meta`);

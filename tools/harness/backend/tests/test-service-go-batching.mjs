@@ -3,7 +3,10 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { collectCompatibleCaptureGroups } from "../go-target-aggregate.mjs";
 import { collectGoShardPlanFromRows } from "../go-shard-plan.mjs";
+import { collectTargetPlanRows } from "../target-plan.mjs";
+import { resolveBackendWorkerPool } from "../target-execution/worker-policy.mjs";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-service-go-batching-"));
 
@@ -112,6 +115,31 @@ try {
       (item) => item.id && item.scenario_id && item.primary_evidence_owner && item.baseline_key,
     ),
   );
+  const compatibleCaptureGroups = collectCompatibleCaptureGroups(compatible);
+  assert.equal(compatibleCaptureGroups.length, 6);
+  assert.equal(compatibleCaptureGroups.filter((group) => group.rows.length === 2).length, 1);
+
+  const currentBackendRows = collectTargetPlanRows(process.cwd())
+    .filter((selectedRow) => selectedRow.target === "backend-unit");
+  const currentCaptureGroups = collectCompatibleCaptureGroups(currentBackendRows);
+  assert.equal(currentCaptureGroups.length, 30, "backend-unit physical process plan");
+  assert.equal(currentCaptureGroups.reduce((sum, group) => sum + group.exact_symbol_count, 0), 251);
+  assert.equal(currentCaptureGroups.filter((group) => group.raw).length, 1);
+  assert.equal(new Set(currentCaptureGroups.flatMap((group) => group.families)).size, 34);
+  assert.deepEqual(resolveBackendWorkerPool(24, currentCaptureGroups.length), {
+    workers: 6,
+    goMaxProcs: 4,
+  });
+  assert.deepEqual(resolveBackendWorkerPool(3, 30), { workers: 1, goMaxProcs: 3 });
+  assert.deepEqual(resolveBackendWorkerPool(64, 3), { workers: 3, goMaxProcs: 21 });
+  assert.throws(() => resolveBackendWorkerPool(0, 1), /invalid available parallelism/u);
+  assert.throws(
+    () => collectCompatibleCaptureGroups([
+      row(401, { symbol: "TestDuplicateSymbol" }),
+      row(402, { symbol: "TestDuplicateSymbol" }),
+    ]),
+    /duplicates an exact symbol/u,
+  );
 
   const oversizedRows = [row(301), row(302)];
   const oversizedPlan = plan(oversizedRows, { [symbol(301)]: 13_000, [symbol(302)]: 1_000 });
@@ -120,7 +148,7 @@ try {
   assert.equal(oversized.work_weight_ms, 13_000);
 
   process.stdout.write(
-    `service Go batching smoke passed: 25_rows=4_shards 100_rows=13_shards bytes25=${bytes25} bytes100=${bytes100}\n`,
+    `service Go batching smoke passed: 25_rows=4_shards 100_rows=13_shards backend_unit_processes=30 backend_unit_exact_symbols=251 workers=6 gomaxprocs=4 bytes25=${bytes25} bytes100=${bytes100}\n`,
   );
 } finally {
   rmSync(root, { recursive: true, force: true });
