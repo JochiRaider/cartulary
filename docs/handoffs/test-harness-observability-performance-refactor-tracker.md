@@ -7,7 +7,7 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Serial reference substrate plus qualification corrections through the `x/text` security fix `45d54ef7`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
+| Current source | Clean serial reference measurement snapshot `334465751e05c9d50e00416fc4a071d579bfd719`; safety candidate lineage begins at `528ef57d03c12dd47c0991a03380b0167ae54459` |
 | Last updated | 2026-07-21 |
 | Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
@@ -1183,3 +1183,87 @@ completed work.
 - Active: T-001 remains the only `IN_PROGRESS` task. Restart every required
   profile from the clean tracker-completion commit with a fresh discarded
   warm-up. Retain all prior roots for diagnosis and rejection-reason evidence.
+
+### 2026-07-21 — T-001 partial clean reference collection wrapped
+
+- Source: clean serial reference measurement commit
+  `334465751e05c9d50e00416fc4a071d579bfd719`, source snapshot digest
+  `6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85`,
+  host digest
+  `60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76`,
+  capacity digest
+  `0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664`,
+  and toolchain digest
+  `877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac`.
+  Every accepted root below retains `source_state=clean`, `status=passed`,
+  `warm_eligibility=eligible`, `retry_count=0`, `interrupted=false`, and no
+  contamination reason.
+- Direct-profile result: all 16 profiles that are not supplied by the locked
+  aggregate set completed one discarded warm-up followed by three accepted
+  observations. Root IDs below are relative to `.cartulary/test-results/`.
+
+  | Profile | Discarded warm-up | Three accepted observations |
+  | --- | --- | --- |
+  | `agent-finalize` | `20260721T200234Z-p2860669` | `20260721T200237Z-p2860847`, `20260721T200239Z-p2861030`, `20260721T200241Z-p2861213` |
+  | `benchmark-claim-check` | `20260721T200243Z-p2861396` | `20260721T200244Z-p2861556`, `20260721T200246Z-p2861722`, `20260721T200247Z-p2861882` |
+  | `browser-e2e` | `20260721T205819Z-p3421944` | `20260721T210244Z-p3454354`, `20260721T210718Z-p3486881`, `20260721T211147Z-p3519261` |
+  | `frontend-fallow-static` | `20260721T200248Z-p2862044` | `20260721T200255Z-p2862565`, `20260721T200303Z-p2863104`, `20260721T200310Z-p2863619` |
+  | `go-gosec-targeted` | `20260721T200434Z-p2875843` | `20260721T200443Z-p2895954`, `20260721T200450Z-p2914450`, `20260721T200457Z-p2932899` |
+  | `go-test-duration-baseline-coverage` | `20260721T200317Z-p2864140` | `20260721T200319Z-p2864183`, `20260721T200321Z-p2864231`, `20260721T200322Z-p2864286` |
+  | `go-vulncheck` | `20260721T200420Z-p2874129` | `20260721T200424Z-p2874565`, `20260721T200427Z-p2874995`, `20260721T200430Z-p2875420` |
+  | `json-shape-check` | `20260721T200324Z-p2864328` | `20260721T200327Z-p2864670`, `20260721T200330Z-p2865011`, `20260721T200332Z-p2865352` |
+  | `migration-drift` | `20260721T200335Z-p2865697` | `20260721T200346Z-p2867674`, `20260721T200355Z-p2869380`, `20260721T200405Z-p2871082` |
+  | `seaweedfs-release-evidence` | `20260721T201019Z-p3093872` | `20260721T201322Z-p3114931`, `20260721T201544Z-p3134547`, `20260721T201758Z-p3154150` |
+  | `service-backed-test-slice OWNER=module.auth` | `20260721T203938Z-p3300326` | `20260721T204406Z-p3330786`, `20260721T204845Z-p3361233`, `20260721T205329Z-p3391580` |
+  | `standup-operational-recovery-smoke` | `20260721T200742Z-p3023656` | `20260721T200821Z-p3041202`, `20260721T200900Z-p3058744`, `20260721T200940Z-p3076324` |
+  | `standup-package-smoke` | `20260721T200528Z-p2952151` | `20260721T200604Z-p2970265`, `20260721T200636Z-p2987893`, `20260721T200709Z-p3005774` |
+  | `test-evidence-audit OWNER=module.auth` | `20260721T203918Z-p3300057` | `20260721T203920Z-p3300108`, `20260721T203922Z-p3300163`, `20260721T203924Z-p3300218` |
+  | `test-slice OWNER=module.auth` | `20260721T202019Z-p3173789` | `20260721T202453Z-p3207267`, `20260721T202933Z-p3238095`, `20260721T203413Z-p3269142` |
+  | `toolchain-drift` | `20260721T200414Z-p2872778` | `20260721T200416Z-p2873118`, `20260721T200417Z-p2873452`, `20260721T200418Z-p2873792` |
+
+- Parameterized-profile proof: both slice commands used the locked
+  `OWNER=module.auth` input. Each `test-slice` root executed 48 tests across
+  nine rows, each service-backed slice root executed 29 tests across nine
+  rows, and the audit fixture was built from retained slice root
+  `20260721T203413Z-p3269142`; each audit observation accounted for all 48
+  expected tests.
+- Completed aggregate result: `lint` passed all eight sequence steps. Its
+  discarded warm-up is `20260721T211614Z-p3551561`; accepted roots are
+  `20260721T211648Z-p3565016`, `20260721T211716Z-p3571305`, and
+  `20260721T211744Z-p3577572`.
+- Completed aggregate result: `test-fast` passed 651 tests with both aggregate
+  work units complete and no missing evidence. Its discarded warm-up is
+  `20260721T211819Z-p3583897`; accepted roots are
+  `20260721T212103Z-p3625349`, `20260721T212351Z-p3666804`, and
+  `20260721T212640Z-p3708442`.
+- Incomplete aggregate result: `test` warm-up root
+  `20260721T212932Z-p3749876` passed 651 tests with both aggregate work units
+  complete in 235.246 s. Collection was then stopped at the user's wrap-up
+  request while the first measured observation was active. Retained root
+  `20260721T213330Z-p3820013` records `status=failed`,
+  `warm_eligibility=ineligible`, `contamination_reasons=[failed_execution]`,
+  and `interrupted=false`; it is excluded as an operator-cancelled observation.
+  The retained interruption boolean is reported as written rather than
+  reinterpreted. The affected `test` window must restart with a new discarded
+  warm-up.
+- Not collected: no observation from this snapshot exists for `ci` or
+  `release-check`. The public-target roots manifest was therefore not created,
+  `tools/harness_public_target_duration_baselines.json` was not regenerated,
+  and no qualification or performance claim is made.
+- Commands: the direct commands above were invoked four times each through
+  their public Make targets; `test-slice` and `service-backed-test-slice` used
+  `OWNER=module.auth`; `test-evidence-audit` used that owner plus the retained
+  auth-slice evidence manifest. `make lint` and `make test-fast` were invoked
+  four times each. `make test` completed once and its next invocation was
+  cancelled during collection. `ci` and `release-check` were not invoked from
+  this source snapshot.
+- Worktree and sequencing: T-001 remains the sole `IN_PROGRESS` task; T-008 is
+  not unlocked. Committing this ledger advances the tracker branch but does not
+  mutate retained contexts. To reuse the accepted roots, resume the missing
+  `test`, `ci`, and `release-check` windows from a separate clean worktree at
+  exact commit `334465751e05c9d50e00416fc4a071d579bfd719`. Mixing roots from a
+  later source snapshot is forbidden. After all three missing windows pass,
+  verify every context, build the exact evidence manifest, generate the
+  baseline only through
+  `make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=...`, and
+  update this tracker before beginning T-008.
