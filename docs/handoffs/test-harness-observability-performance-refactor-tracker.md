@@ -875,6 +875,15 @@ completed work.
   marker, resolver, exact local and remote values, save-state transition, and
   server result. Preserve product grouping, sorting, conflict behavior, helper
   defaults for stable cells, timeouts, and browser topology.
+- Focused refinement: dirty validation root
+  `.cartulary/test-results/20260721T130308Z-p1871819` produced the other valid
+  projection state: the inline editor remained mounted with the local value,
+  so no conflict-marker button existed. Together with the qualification root,
+  this proves that the grouped/sorted grid representation is event-order
+  dependent. The correction must therefore use both existing projection
+  opt-outs for this call and make the resolver values, conflict save state,
+  selected resolution, and final server value authoritative. It must not poll
+  for or prefer either transient cell representation.
 - Excluded evidence: failed root `20260721T125804Z-p1804662` and the preceding
   accepted `test` root `20260721T125418Z-p1734532` are ineligible. The completed
   release and CI windows from
