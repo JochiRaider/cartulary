@@ -197,6 +197,28 @@ function toolRootWithNestedTargetFixture(runDir) {
   });
 }
 
+function invocationBoundaryToolRootFixture(runDir) {
+  writeJSON(path.join(runDir, "_shared", "harness-invocation-start.json"), {
+    schema_id: "cartulary.harness_invocation_start.v1",
+    run_id: path.basename(runDir),
+    target: "agent-finalize",
+    started_at: "2026-07-20T11:59:58.000Z",
+    invocation_edges: [{ parent_target: "agent-finalize", child_target: "json-shape-check" }],
+  });
+  writeJSON(path.join(runDir, "agent-finalize", "tool-run-summary.json"), {
+    target: "agent-finalize",
+    status: "pass",
+    started_at: "2026-07-20T12:00:00.000Z",
+    completed_at: "2026-07-20T12:00:10.000Z",
+  });
+  writeJSON(path.join(runDir, "json-shape-check", "target-summary.json"), {
+    target: "json-shape-check",
+    status: "pass",
+    start_time: "2026-07-20T11:59:59.000Z",
+    end_time: "2026-07-20T12:00:09.000Z",
+  });
+}
+
 function performanceArtifact({
   standardMedian = 13_000,
   improvementMedian = 17_000,
@@ -306,6 +328,7 @@ try {
       interrupted: false,
       retry_count: 0,
       warm_eligibility: "eligible",
+      invocation_boundary_retained: true,
     },
   };
   const retainedObservations = collectRetainedObservations(eligibleRetained, runDir);
@@ -323,6 +346,28 @@ try {
       (span) => span.phase === "target" && span.name === "json-shape-check",
     ),
   );
+
+  const invocationBoundaryRunDir = path.join(fixtureRoot, "20260720T120022Z-p3");
+  invocationBoundaryToolRootFixture(invocationBoundaryRunDir);
+  captureExecutionContext(invocationBoundaryRunDir, { target: "agent-finalize", status: "passed" });
+  const invocationBoundaryResult = reconstructObservability(invocationBoundaryRunDir);
+  const invocationBoundaryContext = invocationBoundaryResult.context;
+  assert.equal(invocationBoundaryContext.invocation_boundary_retained, true);
+  assert.deepEqual(invocationBoundaryContext.invocation_edges, [
+    { parent_target: "agent-finalize", child_target: "json-shape-check" },
+  ]);
+  const invocationRootSpan = invocationBoundaryResult.built[0].result.bundle.spans.find(
+    (span) => span.span_id === invocationBoundaryResult.built[0].result.bundle.root_span_id,
+  );
+  const invocationChildSpan = invocationBoundaryResult.built[0].result.bundle.spans.find(
+    (span) => span.phase === "target" && span.name === "json-shape-check",
+  );
+  assert.equal(
+    Number((BigInt(invocationRootSpan.end_time_unix_nano) - BigInt(invocationRootSpan.start_time_unix_nano)) / 1_000_000n),
+    12_000,
+    "the root span must retain prerequisite time from public preflight",
+  );
+  assert.equal(invocationChildSpan.parent_span_id, invocationRootSpan.span_id);
 
   assert.equal(median([9000, 1000, 5000]), 5000);
   assert.equal(intervalUnionMs([
@@ -438,6 +483,7 @@ try {
     2,
   );
   const eligibleContext = {
+    invocation_boundary_retained: true,
     contamination_reasons: [],
     source_state: "clean",
     status: "passed",
@@ -445,6 +491,9 @@ try {
     retry_count: 0,
     warm_eligibility: "eligible",
   };
+  assert.ok(
+    qualificationReasons({ ...eligibleContext, invocation_boundary_retained: false }).includes("artifact_incomplete"),
+  );
   for (const [field, value, reason] of [
     ["source_state", "dirty", "dirty_source"],
     ["status", "failed", "failed_execution"],

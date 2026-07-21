@@ -11,6 +11,8 @@
     "target",
     "command_id",
     "canonical_inputs",
+    "invocation_boundary_retained",
+    "invocation_edges",
     "measurement_contracts",
     "measurement_contracts_sha256",
     "workload_contracts_sha256",
@@ -44,6 +46,21 @@
       "type": "object",
       "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
       "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 256 }
+    },
+    "invocation_boundary_retained": { "type": "boolean" },
+    "invocation_edges": {
+      "type": "array",
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parent_target", "child_target"],
+        "properties": {
+          "parent_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+          "child_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        }
+      }
     },
     "measurement_contracts": {
       "type": "array",

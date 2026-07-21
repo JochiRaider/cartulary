@@ -56,6 +56,7 @@ function contractsByTarget(context) {
 
 export function qualificationReasons(context) {
   const reasons = new Set(context.contamination_reasons);
+  if (!context.invocation_boundary_retained) reasons.add("artifact_incomplete");
   if (context.source_state !== "clean") reasons.add("dirty_source");
   if (context.status !== "passed") reasons.add("failed_execution");
   if (context.interrupted) reasons.add("interrupted_execution");

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:e8c686621e4772a130a92c06fefdca25551d92b0d330376342af140a1cd3d1ad",
+  "input_digest": "sha256:9c33094957ce0a5540be7f5854adcb6eae4aa512d47073f85e82334f1d5fe442",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -467,7 +467,7 @@
     {
       "path": "tools/harness/browser/browser-stage-scheduler-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6dd40c32354b30ee8908c9fd52ac46996e25356052f5ca5716d9f3a06dbf9a3b"
+      "hash": "sha256:cbe77f135da8d5cfe734e05d26f98403858301192f349ef066b4ad12ebf3c649"
     },
     {
       "path": "tools/harness/browser/browser-target-finalizer-cli.mjs",
@@ -512,7 +512,7 @@
     {
       "path": "tools/harness/contract/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b71cd920ec45341a0a1feed31daea2651f828aa5f01968b51c1c689916a4dcd2"
+      "hash": "sha256:15b529d47e1669c289cc4cc65abbafb80c1771d44b5215ba1e2e66add24c147a"
     },
     {
       "path": "tools/harness/contract/index.mjs",

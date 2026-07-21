@@ -1,10 +1,21 @@
 #!/usr/bin/env node
 
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { publicExitCodeForSummary } from "../contract/index.mjs";
+import {
+  prettyJSONString,
+  publicExitCodeForSummary,
+  secureWriteFile,
+  validateSchemaSync,
+} from "../contract/index.mjs";
+import { suppressChildSuccess } from "../output/index.mjs";
+import {
+  finalizeObservabilitySafely,
+  observabilityRequiredTarget,
+} from "../observability/observability.mjs";
 import { semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { runNormalizedSchedule } from "../scheduler/scheduler-runner.mjs";
@@ -158,7 +169,7 @@ export function buildBrowserStageSchedule(stage, manifestPath, options = {}) {
           .join(","),
         "--children", stage.summaryChildren.join(","),
       ],
-      env: process.env,
+      env: { ...process.env, CARTULARY_DEFER_OBSERVABILITY_FINALIZE: "1" },
     },
   };
   const finalizerUnits = mode === validationMode ? [...evidenceUnits, targetFinalizer] : [];
@@ -238,6 +249,33 @@ async function main() {
     }),
     testOutputScript: process.env.TEST_OUTPUT_SCRIPT || path.join(root, "tools", "harness", "output", "test-output.mjs"),
   });
+  if (!suppressChildSuccess() && observabilityRequiredTarget(result.summary.target)) {
+    const runDir = path.resolve(
+      root,
+      process.env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results",
+      process.env.CARTULARY_TEST_RUN_ID || "",
+    );
+    const observability = finalizeObservabilitySafely(runDir, {
+      target: result.summary.target,
+      status: result.requestedStatus === "pass" ? "passed" : "failed",
+    });
+    if (observability.status === "partial") {
+      const summaryFile = path.join(runDir, result.summary.target, "tool-run-summary.json");
+      if (existsSync(summaryFile)) {
+        const summary = JSON.parse(readFileSync(summaryFile, "utf8"));
+        summary.warnings = [
+          ...(summary.warnings ?? []),
+          {
+            kind: "harness_observability",
+            status: "partial",
+            diagnostic: observability.diagnostic,
+          },
+        ];
+        validateSchemaSync("cartulary.tool_run_summary.v5", summary);
+        secureWriteFile(summaryFile, prettyJSONString(summary), { allowedRoot: runDir });
+      }
+    }
+  }
   return publicExitCodeForSummary(result.summary);
 }
 

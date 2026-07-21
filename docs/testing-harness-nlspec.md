@@ -1647,6 +1647,7 @@ Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 **TH-HARNESS-REQ-277**
 The required harness-observability schema attachments are
 `cartulary.harness_execution_context.v1`,
+`cartulary.harness_invocation_start.v1`,
 `cartulary.harness_observability_index.v1`,
 `cartulary.harness_trace_bundle.v1`,
 `cartulary.harness_hotspot_summary.v1`,
@@ -1713,6 +1714,19 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-078
 
 **TH-HARNESS-REQ-283**
 The top-level wrapper MUST retain
+`<run-root>/_shared/harness-invocation-start.json` as
+`cartulary.harness_invocation_start.v1` before prerequisite work begins. The
+artifact MUST bind the run, target, start timestamp, and a sorted snapshot of
+the recursively expanded target-to-prerequisite edges from the generated task
+surface. Child wrappers MUST NOT replace the top-level boundary. The terminal
+`<run-root>/_shared/harness-observability/execution-context.json` MUST retain
+whether that boundary was present and the same edge snapshot. The invocation
+root interval MUST use this boundary and the terminal result; target parentage
+MUST use the retained edges, explicit summary children, sequence edges, or
+scheduler edges and MUST NOT be inferred from temporal containment. A required
+performance root without the top-level boundary is artifact-incomplete.
+
+The top-level wrapper MUST retain
 `<run-root>/_shared/harness-observability/execution-context.json` as
 `cartulary.harness_execution_context.v1` before derived observability output is
 accepted. The context MUST contain the exact run, invocation, public target and
@@ -1739,6 +1753,7 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 
 | Artifact family                                      | Producer                                        | Path under run root                                             | Schema policy                                                 | Ordering and nullability                                                              | Retention and cleanup                                        |
 | ---------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Harness invocation start                             | Top-level public preflight                      | `_shared/harness-invocation-start.json`                         | `cartulary.harness_invocation_start.v1`                       | Required run, target, start timestamp, and sorted explicit target-prerequisite edges | Owner-only diagnostic; removed with the run root.             |
 | Tool-run summary                                     | Centralized wrappers                            | `<target>/tool-run-summary.json` or the summary directory closed by the target's Section 8.1 row | `cartulary.tool_run_summary.v5`                               | Required non-null timestamps, target, exit code, output mode, artifact refs, failures | Retained; removed by cleanup only under default result root. |
 | Fallow static reports                                | `frontend-fallow-static`                        | `frontend-fallow-static/fallow/*` and `frontend-fallow-static/fallow-static-summary.json` | `cartulary.fallow_static_summary.v2` for the normalized summary; raw JSON, SARIF, Markdown, stdout, stderr, and `resolved-fallowrc.json` files are diagnostic-only | Report names, statuses, issue counts, artifact refs, resolved-config refs, baseline state, and enforcement state in schema-defined order | Retained as run-root artifacts; generated/source roots and Fallow config or baseline inputs are not cleanup candidates. |
 | Owner summary                                        | Owner accounting handlers                       | `<target>/owners/<owner-id>/test-owner-summary.json`            | `cartulary.test_owner_summary.v1`                             | Stable owner/row/runner/status/count fields                                             | Retained.                                                    |

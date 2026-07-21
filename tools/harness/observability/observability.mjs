@@ -25,6 +25,7 @@ export const harnessScope = "cartulary.harness.execution";
 export const observabilityDirName = "harness-observability";
 
 const sourceNames = new Set([
+  "harness-invocation-start.json",
   "run-summary.json",
   "scheduler-events.jsonl",
   "sequence-events.jsonl",
@@ -431,6 +432,21 @@ function contextPath(runDir) {
   return path.join(runDir, diagnosticDir, "execution-context.json");
 }
 
+function invocationStartPath(runDir) {
+  return path.join(runDir, "_shared", "harness-invocation-start.json");
+}
+
+function loadInvocationStart(runDir, expectedTarget) {
+  const file = invocationStartPath(runDir);
+  if (!existsSync(file)) return null;
+  const retained = readJSON(file);
+  validateSchemaSync("cartulary.harness_invocation_start.v1", retained);
+  if (retained.run_id !== path.basename(runDir) || retained.target !== expectedTarget) {
+    throw new Error("retained harness invocation start identity mismatch");
+  }
+  return retained;
+}
+
 export function captureExecutionContext(runDir, metadata = {}) {
   const resolvedRunDir = path.resolve(runDir);
   const file = contextPath(resolvedRunDir);
@@ -445,7 +461,15 @@ export function captureExecutionContext(runDir, metadata = {}) {
   }
   const root = roots[0];
   const target = metadata.target ?? root.target;
-  const interval = intervalForSummary(root.summary, target);
+  const rootInterval = intervalForSummary(root.summary, target);
+  const invocationStart = loadInvocationStart(resolvedRunDir, target);
+  const invocationStartMs = invocationStart
+    ? timestampMs(invocationStart.started_at, "harness invocation start")
+    : rootInterval.start;
+  if (invocationStartMs > rootInterval.start + 5) {
+    throw new Error("retained harness invocation start follows the top-level result");
+  }
+  const interval = { start: invocationStartMs, end: rootInterval.end };
   const catalog = loadTestCatalog(repoRoot);
   const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
   const executionTopology = readJSON(path.join(repoRoot, "tools", "execution_topology_manifest.json"));
@@ -497,6 +521,8 @@ export function captureExecutionContext(runDir, metadata = {}) {
     target,
     command_id: rootContract.command_id,
     canonical_inputs: invocationInputs,
+    invocation_boundary_retained: invocationStart !== null,
+    invocation_edges: invocationStart?.invocation_edges ?? [],
     measurement_contracts: measurementContracts,
     measurement_contracts_sha256: sha256(canonicalJSON(measurementContracts)),
     workload_contracts_sha256: sha256(canonicalJSON(workloadContracts)),
@@ -576,7 +602,7 @@ function summaryStatus(summary) {
   return summary?.status === "pass" ? "pass" : "fail";
 }
 
-function targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs) {
+function targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs, invocationEdges, invocationBoundaryRetained) {
   const result = [];
   const allSummaries = targetSummaries(runDir);
   const spanByTarget = new Map([[root.target, rootSpan]]);
@@ -593,6 +619,14 @@ function targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs) {
       .filter((child) => itemsByTarget.has(child));
     childrenByTarget.set(item.summary.target, children);
   }
+  for (const edge of invocationEdges) {
+    if (edge.parent_target !== root.target && !itemsByTarget.has(edge.parent_target)) continue;
+    if (!itemsByTarget.has(edge.child_target)) continue;
+    childrenByTarget.set(edge.parent_target, [...new Set([
+      ...(childrenByTarget.get(edge.parent_target) ?? []),
+      edge.child_target,
+    ])].sort((left, right) => left.localeCompare(right)));
+  }
   const reaches = (from, to, visiting = new Set()) => {
     if (from === to) return true;
     if (visiting.has(from)) return false;
@@ -602,7 +636,13 @@ function targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs) {
     }
     return false;
   };
-  const summaries = allSummaries.filter((item) => retainedTargetIDs.has(item.summary.target));
+  const summaries = allSummaries.filter((item) =>
+    retainedTargetIDs.has(item.summary.target) &&
+    (
+      item.summary.target === root.target ||
+      !invocationBoundaryRetained ||
+      reaches(root.target, item.summary.target)
+    ));
   const retainedTargets = summaries.map((item) => item.summary.target);
   const parentByTarget = new Map();
   for (const child of retainedTargets.filter((target) => target !== root.target)) {
@@ -1081,7 +1121,17 @@ function mergeDependencyMaps(...maps) {
 function buildInvocation(runDir, runID, root, allSourceFiles, contextRecord) {
   const occurrence = `${runRelative(runDir, root.file)}:invocation`;
   const traceID = sha256(`${runID}\u0000${safeToken(root.target)}\u0000${occurrence}`).slice(0, 32);
-  const interval = intervalForSummary(root.summary, root.target);
+  const retainedInterval = intervalForSummary(root.summary, root.target);
+  const interval = {
+    start: timestampMs(contextRecord.context.started_at, "execution context started_at"),
+    end: timestampMs(contextRecord.context.ended_at, "execution context ended_at"),
+  };
+  if (interval.end < interval.start) {
+    throw new Error("retained execution context has a negative invocation interval");
+  }
+  if (retainedInterval.start < interval.start - 5 || retainedInterval.end > interval.end + 5) {
+    throw new Error("top-level result escapes the retained invocation boundary");
+  }
   const rootSpan = makeSpan({
     traceID,
     occurrence,
@@ -1095,7 +1145,15 @@ function buildInvocation(runDir, runID, root, allSourceFiles, contextRecord) {
   });
   const retainedTargetIDs = new Set(contextRecord.context.measurement_contracts.map((contract) => contract.target));
   retainedTargetIDs.add(root.target);
-  const targets = targetSpans(runDir, root, traceID, rootSpan, retainedTargetIDs);
+  const targets = targetSpans(
+    runDir,
+    root,
+    traceID,
+    rootSpan,
+    retainedTargetIDs,
+    contextRecord.context.invocation_edges,
+    contextRecord.context.invocation_boundary_retained,
+  );
   const sequence = sequenceSpans(runDir, root, traceID, rootSpan);
   const scheduler = schedulerSpans(runDir, root, traceID, rootSpan, targets.spanByTarget);
   scheduler.queueWaitMs += sequence.queueWaitMs;

@@ -16,7 +16,7 @@ export {
   secureMkdir,
   secureWriteFile,
 } from "./artifact-writer.mjs";
-import { secureDirMode, secureMkdir } from "./artifact-writer.mjs";
+import { secureDirMode, secureMkdir, secureWriteFile } from "./artifact-writer.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const requireFromHarness = createRequire(import.meta.url);
@@ -591,6 +591,62 @@ function loadTaskSurfaceManifest(manifestPath = process.env.TASK_SURFACE_MANIFES
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+const harnessInvocationStartFile = path.join("_shared", "harness-invocation-start.json");
+
+function invocationEdgesForTarget(manifest, rootTarget) {
+  const targetNames = new Set((manifest.targets ?? []).map((entry) => entry.name));
+  const edges = new Map();
+  const expanded = new Set();
+  const visit = (parentTarget) => {
+    if (expanded.has(parentTarget)) return;
+    expanded.add(parentTarget);
+    const prerequisites = manifest.make_recipes?.[parentTarget]?.prerequisites ?? [];
+    for (const childTarget of prerequisites) {
+      if (
+        typeof childTarget !== "string" ||
+        childTarget === parentTarget ||
+        !targetNames.has(childTarget)
+      ) {
+        continue;
+      }
+      edges.set(`${parentTarget}\u0000${childTarget}`, { parent_target: parentTarget, child_target: childTarget });
+      visit(childTarget);
+    }
+  };
+  visit(rootTarget);
+  return [...edges.values()].sort((left, right) =>
+    left.parent_target.localeCompare(right.parent_target) ||
+    left.child_target.localeCompare(right.child_target));
+}
+
+function prepareHarnessInvocationStart(resolved, env) {
+  if (resolved.generated_run_id || env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1") return;
+  const manifest = loadResolverTaskSurfaceManifest(env);
+  if (!(manifest.observability_policy?.required_targets ?? []).includes(resolved.target)) return;
+  const marker = {
+    schema_id: "cartulary.harness_invocation_start.v1",
+    run_id: resolved.run_id,
+    target: resolved.target,
+    started_at: new Date().toISOString(),
+    invocation_edges: invocationEdgesForTarget(manifest, resolved.target),
+  };
+  const file = path.join(resolved.run_root, harnessInvocationStartFile);
+  if (existsSync(file)) {
+    const retained = JSON.parse(readFileSync(file, "utf8"));
+    validateSchemaSync(marker.schema_id, retained);
+    if (
+      retained.run_id !== marker.run_id ||
+      retained.target !== marker.target ||
+      JSON.stringify(retained.invocation_edges) !== JSON.stringify(marker.invocation_edges)
+    ) {
+      throw new HarnessConfigError("retained harness invocation start does not match the public preflight");
+    }
+    return;
+  }
+  validateSchemaSync(marker.schema_id, marker);
+  secureWriteFile(file, prettyJSONString(marker), { allowedRoot: resolved.run_root });
+}
+
 function isMakePreflightEnv(env) {
   return Object.hasOwn(env, makeInputSourcesEnv);
 }
@@ -1119,10 +1175,12 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
 }
 
 export function preflightPublicTarget(target, env = process.env) {
-  return resolveHarnessConfig(target, env, {
+  const resolved = resolveHarnessConfig(target, env, {
     prepareRetainedArtifacts: true,
     materializeGeneratedRunId: false,
   });
+  prepareHarnessInvocationStart(resolved, env);
+  return resolved;
 }
 
 export function resolveRetainedArtifactIdentity(target, env = process.env, options = {}) {

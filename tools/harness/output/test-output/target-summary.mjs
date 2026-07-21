@@ -2224,7 +2224,11 @@ export function handleTargetSummary(args) {
   }
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();
-  if (!suppressChildSuccess() && observabilityRequiredTarget(targetSummary.target)) {
+  if (
+    !suppressChildSuccess() &&
+    process.env.CARTULARY_DEFER_OBSERVABILITY_FINALIZE !== "1" &&
+    observabilityRequiredTarget(targetSummary.target)
+  ) {
     const observability = finalizeObservabilitySafely(path.join(resultsRoot, runId), {
       target: targetSummary.target,
       status: targetSummary.status === "pass" ? "passed" : "failed",

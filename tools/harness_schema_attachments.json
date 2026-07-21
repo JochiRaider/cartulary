@@ -191,6 +191,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_invocation_start.v1",
+      "path": "tools/schemas/cartulary.harness_invocation_start.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "top-level harness preflight",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_observability_index.v1",
       "path": "tools/schemas/cartulary.harness_observability_index.v1.schema.json",
       "classification": "public_contract",

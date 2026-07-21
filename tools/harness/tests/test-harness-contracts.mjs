@@ -50,6 +50,7 @@ import {
   testRouteTokenValid,
   validatePreparedArtifactIdentity,
   validateSchema,
+  validateSchemaSync,
 } from "../contract/index.mjs";
 import {
   collectGoShardsForTargetFromRows,
@@ -535,6 +536,22 @@ test("prepared artifact identity is atomic and validates before artifact creatio
       "partial identity must fail before creating its run root",
     );
     const prepared = preflightPublicTarget("backend-unit", complete);
+    const invocationStart = JSON.parse(readFileSync(
+      path.join(prepared.run_root, "_shared", "harness-invocation-start.json"),
+      "utf8",
+    ));
+    validateSchemaSync("cartulary.harness_invocation_start.v1", invocationStart);
+    assert.equal(invocationStart.target, "backend-unit");
+    assert.ok(
+      invocationStart.invocation_edges.every((edge, index, rows) =>
+        index === 0 ||
+        rows[index - 1].parent_target.localeCompare(edge.parent_target) < 0 ||
+        (
+          rows[index - 1].parent_target === edge.parent_target &&
+          rows[index - 1].child_target.localeCompare(edge.child_target) < 0
+        )),
+      "retained invocation edges must be sorted",
+    );
     writeFileSync(path.join(prepared.run_root, "retained.txt"), "retained\n", "utf8");
     assert.equal(
       preflightPublicTarget("backend-unit", complete).run_root,
@@ -3493,6 +3510,12 @@ test("catalog browser scheduler digest is deterministic and delivery-independent
       unit.needs.every((need) => first.workUnits.some((candidate) => candidate.id === need)),
     ),
     "validation finalizers must depend on exact scheduled unit identities",
+  );
+  const targetFinalizer = finalizers.find((unit) => unit.id.startsWith("browser_target_summary:"));
+  assert.equal(
+    targetFinalizer.command.env.CARTULARY_DEFER_OBSERVABILITY_FINALIZE,
+    "1",
+    "browser target summary must defer observability until terminal scheduler evidence exists",
   );
 });
 
