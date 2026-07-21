@@ -430,13 +430,40 @@ function buildRegistry(file = defaultRegistryPath) {
     const label = `forwarding_profiles[${index + 1}]`;
     assertKnownObjectKeys(requirePlainObject(profile, label), label, forwardingProfileKeys);
     const name = requireString(profile?.name, `${label}.name`);
+    if (forwardingProfiles.has(name)) {
+      throw new Error(`scheduler resource registry declares duplicate forwarding profile ${name}`);
+    }
     const mappings = (profile.mappings ?? []).map((mapping, mappingIndex) => {
       const mappingLabel = `${label}.mappings[${mappingIndex + 1}]`;
       assertKnownObjectKeys(requirePlainObject(mapping, mappingLabel), mappingLabel, forwardingMappingKeys);
+      const sourceResource = requireString(
+        mapping.source_resource,
+        `${mappingLabel}.source_resource`,
+      );
+      const targetResource = requireString(
+        mapping.target_resource,
+        `${mappingLabel}.target_resource`,
+      );
+      const envVariable = requireString(
+        mapping.env_variable,
+        `${mappingLabel}.env_variable`,
+      );
+      if (!resources.has(sourceResource)) {
+        throw new Error(`${mappingLabel}.source_resource references unknown resource ${sourceResource}`);
+      }
+      const targetDescriptor = resources.get(targetResource);
+      if (!targetDescriptor) {
+        throw new Error(`${mappingLabel}.target_resource references unknown resource ${targetResource}`);
+      }
+      if (targetDescriptor.capacity?.overrideEnv !== envVariable) {
+        throw new Error(
+          `${mappingLabel}.env_variable must match ${targetResource} capacity override ${targetDescriptor.capacity?.overrideEnv ?? "none"}`,
+        );
+      }
       return {
-        sourceResource: requireString(mapping.source_resource, `${mappingLabel}.source_resource`),
-        targetResource: requireString(mapping.target_resource, `${mappingLabel}.target_resource`),
-        envVariable: requireString(mapping.env_variable, `${mappingLabel}.env_variable`),
+        sourceResource,
+        targetResource,
+        envVariable,
       };
     });
     forwardingProfiles.set(name, { name, mappings });
@@ -633,6 +660,11 @@ function parsePositiveIntegerEnv(env, name, label, resource) {
 }
 
 export function resourceOverrideEnvVariablesForScheduler(scheduler) {
+  // Sequence capacity is topology-owned. These descriptors expose override
+  // variables only to nested check/service-backed schedulers.
+  if (scheduler === "sequence") {
+    return [];
+  }
   const envVariables = [];
   for (const descriptor of schedulerResourceRegistry().resources.values()) {
     if (descriptor.schedulers.has(scheduler) && descriptor.capacity?.overrideEnv) {
@@ -956,7 +988,7 @@ export function provisionalResourceLimitsForClaims(resourceLimits) {
   return limits;
 }
 
-function resolveForwardingProfile(name, resourceClaims, label) {
+export function resolveResourceForwardingProfile(name, resourceClaims, label) {
   const profileName = requireString(name, `${label}.forwarding`);
   const profile = schedulerResourceRegistry().forwardingProfiles.get(profileName);
   if (!profile) {

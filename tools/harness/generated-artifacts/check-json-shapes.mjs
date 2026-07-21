@@ -118,6 +118,7 @@ const topologyTopLevelKeys = new Set([
   "task_surface_owner",
   "check_schedules",
   "service_backed_schedules",
+  "sequence_resource_profiles",
   "sequence_schedules",
   "browser_e2e_batch",
 ]);

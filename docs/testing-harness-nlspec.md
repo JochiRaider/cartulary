@@ -2164,7 +2164,7 @@ The public `check` wrapper MUST NOT run substantial frontend install, build, ser
 
 The canonical scheduler input schema is `cartulary.scheduler_manifest.v2`.
 `tools/scheduler_manifest.json` is the committed generated scheduler input for
-check, service-backed, test-slice, and future scheduler families. Family-
+check, sequence, service-backed, and test-slice scheduler families. Family-
 specific source forms such as check schedule metadata, service-backed
 `work_unit_sources[]`, Go shard expansion, and browser group expansion MAY exist
 only as upstream authoring inputs. Scheduler runners MUST NOT accept those
@@ -2184,7 +2184,7 @@ whose selected closure remains attributable to that row.
 | `generated`                        | object               |      yes | none                         | Generator and authoring-input provenance.                   |
 | `schedules[]`                      | array                |      yes | none                         | Normalized scheduler inputs.                                |
 | `schedules[].target`               | string               |      yes | none                         | Public target or scheduler target identity.                 |
-| `schedules[].scheduler_kind`       | string               |      yes | none                         | `check`, `service_backed`, or `test_slice`; future families require a later adopted schema/spec revision. |
+| `schedules[].scheduler_kind`       | string               |      yes | none                         | `check`, `sequence`, `service_backed`, or `test_slice`; future families require a later adopted schema/spec revision. |
 | `schedules[].capacity_profile`     | string               |      yes | none                         | Registry-backed capacity profile name.                      |
 | `schedules[].resource_limits`      | object               |      yes | none                         | Logical resource limits or `auto` policies.                 |
 | `schedules[].stop_on_first_failure` | boolean             |      yes | none                         | Check scheduler: `true`; service-backed and test-slice schedulers: `false`. |
@@ -2301,8 +2301,8 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
 
 | Resource | Schedulers | Default limit | Auto policy | Override input | Min | Max | Display/order rule | Omission behavior |
 | --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
-| `host_cpu` | `check` | none | `check_host_cpu` | `CHECK_HOST_CPU_JOBS` | 1 | 256 | display order `10` | resolve by auto policy |
-| `host_io` | `check` | none | `check_host_io` | `CHECK_HOST_IO_JOBS` | 1 | 256 | display order `20` | resolve by auto policy |
+| `host_cpu` | `check`, `sequence` | none | `host_cpu` | `CHECK_HOST_CPU_JOBS` for `check` only | 1 | 256 | display order `10` | resolve by scheduler-specific auto policy |
+| `host_io` | `check`, `sequence` | none | `host_io` | `CHECK_HOST_IO_JOBS` for `check` only | 1 | 256 | display order `20` | resolve by scheduler-specific auto policy |
 | `suite_service_stack` | `check` | `1` | none | none | 1 | 256 | display order `30` | use default `1` |
 | `migration_scratch_postgres` | `check` | `1` | none | none | 1 | 256 | display order `40` | use default `1` |
 | `go_cpu` | `service_backed`, `test_slice` | none | `service_backed_go_cpu` | `CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT` | 1 | 256 | display order `110` | resolve by auto policy |
@@ -2311,14 +2311,14 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
 | `object_store` | `check`, `service_backed`, `test_slice` | `32` | none | none | 1 | 256 | display order `140` | use default `32` |
 | `seaweedfs_fixture` | `check`, `service_backed`, `test_slice` | `2` | none | none | 1 | 8 | display order `145` | use default `2` |
 | `postgres` | `check`, `service_backed`, `test_slice` | `32` | none | none | 1 | 256 | display order `150` | use default `32` |
-| `process` | `check`, `service_backed`, `test_slice` | `6` | none | none | 1 | 256 | display order `160` | use default `6` |
+| `process` | `check`, `sequence`, `service_backed`, `test_slice` | none | `host_process_slots` | none | 1 | 256 | display order `160` | resolve by scheduler-specific auto policy |
 | `postgres_reset` | `check`, `service_backed`, `test_slice` | none | `service_backed_postgres_reset` | `CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT` | 1 | 8 | display order `170` | resolve by auto policy |
 | `postgres_clone` | `check`, `service_backed`, `test_slice` | none | `service_backed_postgres_clone` | `CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT` | 1 | 8 | display order `175` | resolve by auto policy |
 | `browser_stage_*` | `check`, `service_backed`, `test_slice` | `1` | none | manifest positive integer only | 1 | 8 | display order `135`, then resource name lexical order | use generated default `1` unless manifest declares another positive value; current default-check stateful partitions declare `browser_stage_stateful=3` |
 
 Resource override inputs accept positive decimal integers only. An override below the largest declared claim for that resource, above the resource maximum, or incompatible with a feasible non-deadlocking schedule is a `configuration_error`, exit `2`, before child work.
 
-Current capacity profiles are `check_default` for the `check` scheduler, `service_backed_full` and `service_backed_backend` for the `service_backed` scheduler, and `test_slice_default` for the `test_slice` scheduler. Capacity profiles are registry-owned shortcuts only; they MUST NOT authorize resources outside the scheduler family named by the profile. Owner-input validation MUST reject unknown profile names, profile names attached to the wrong scheduler family, and auto-policy names outside the current closed set before schedule execution begins.
+Current capacity profiles are `check_default` for the `check` scheduler, `sequence_adaptive` for the `sequence` scheduler, `service_backed_full` and `service_backed_backend` for the `service_backed` scheduler, and `test_slice_default` for the `test_slice` scheduler. Capacity profiles are registry-owned shortcuts only; they MUST NOT authorize resources outside the scheduler family named by the profile. Owner-input validation MUST reject unknown profile names, profile names attached to the wrong scheduler family, and auto-policy names outside the current closed set before schedule execution begins.
 
 Go shard scheduler-profile resource claims are a closed shared policy. For the `check` scheduler, CPU and I/O claims use `host_cpu` and `host_io`; for `service_backed` and `test_slice`, they use `go_cpu` and `go_io`. Profile claims are: default or `balanced` = CPU `1`, I/O `1`; `cpu_heavy` = CPU `2`, I/O `1`; `io_heavy` = CPU `1`, I/O `2`; `transaction_heavy` = CPU `1`, I/O `1`; `reset_heavy` = CPU `1`, I/O `2`, `postgres_reset` `1`; and `clone_heavy` = CPU `1`, I/O `2`, `postgres_clone` `1`.
 
@@ -2327,8 +2327,9 @@ Auto resource policies are closed by the following algorithms. `available_parall
 
 | Auto policy | Required algorithm |
 | --- | --- |
-| `check_host_cpu` | `clamp(ceil(available_parallelism * 0.7), 1, 256)`. |
-| `check_host_io` | `max(check_host_cpu, largest declared host_io claim in the normalized provisional work-unit set)`. |
+| `host_cpu` | For `check`, `clamp(ceil(available_parallelism * 0.7), 1, 256)`. For `sequence`, `max(largest declared host_cpu claim, floor(available_parallelism * 0.85))`, bounded to the registry limits. |
+| `host_io` | For `check`, `max(host_cpu, largest declared host_io claim in the normalized provisional work-unit set)`. For `sequence`, `max(host_cpu, available_parallelism, largest declared host_io claim)`, bounded to the registry limits. |
+| `host_process_slots` | For `sequence`, `max(largest declared process claim, clamp(floor(available_parallelism / 3), 2, 8))`, bounded to the registry limits. For `check`, `service_backed`, and `test_slice`, return `6`, raised only when required for a feasible declared claim. |
 | `service_backed_go_cpu` | If no Go shard units exist, return `1`. Otherwise compute `total_weight=sum(max(1, weight_ms))`, `max_weight=max(max(1, weight_ms))`, `weighted_concurrency=ceil(total_weight / max(30000, max_weight))`, `host_concurrency=max(2, available_parallelism - 1)` when `available_parallelism <= 4` and `floor(available_parallelism * 0.75)` otherwise; return `clamp(max(4, min(host_concurrency, weighted_concurrency)), 4, 16)`. |
 | `service_backed_go_io` | If no Go shard units exist, return `1`. Otherwise count Go shard scheduler profiles and compute `profile_concurrency=balanced + transaction_heavy + 2*io_heavy + 2*clone_heavy + 2*reset_heavy + ceil(cpu_heavy/2)`; return `clamp(max(6, go_cpu + 2, profile_concurrency), 6, 24)`. |
 | `service_backed_browser_stack` | Count distinct `browser_stage_session` work units that claim `browser_stack`, keyed by `browser_session_group`; if no retained session starters exist, count distinct `browser_stage_*` resource lanes in the normalized provisional work-unit set. If the resulting demand count is `0`, return `1`. Otherwise return `max(1, min(demand_count, stack_claiming_unit_count when nonzero, process limit when set, max selected CPU limit when set))`, where the selected CPU limit is `host_cpu` for `check` and `go_cpu` for `service_backed` or `test_slice`. |
@@ -2486,6 +2487,39 @@ process-group interruption, first-failure selection by observed completion,
 running-sibling drain, dependency skips, finalizers, and public summary order
 remain governed by Sections 9 and 10. A shell launcher, when retained, MUST only
 validate argv and launch this engine; it MUST NOT implement scheduling policy.
+
+The `sequence_adaptive` profile owns `host_cpu`, `host_io`, and `process`
+capacity and MUST ignore inherited `CHECK_HOST_CPU_JOBS` and
+`CHECK_HOST_IO_JOBS`; those variables remain direct inputs to the nested
+`check` scheduler only. Every sequence work profile MUST claim one `process`
+slot. The closed sequence work profiles are: `small_check` = CPU/I/O `1/1`,
+`script` = `2/2`, `cpu_analysis` = `4/1`, `artifact_generation` = `2/4`,
+`build` = `6/3`, and `service_validation` = `2/4`. Each also claims process
+`1`. Parallel Make jobs are `1` for small and service work and equal to the
+profile CPU claim for the other profiles. `nested_check` claims the entire
+resolved CPU and I/O budget and forwards those exact values as
+`CHECK_HOST_CPU_JOBS` and `CHECK_HOST_IO_JOBS`. `nested_service_validation`
+claims CPU/I/O `2/4` and forwards those exact values as
+`CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT` and
+`CARTULARY_SERVICE_BACKED_GO_IO_LIMIT`. Forwarding is registry-owned,
+observable in the scheduler summary, and MUST reject an unclaimed source,
+unknown target resource, duplicate child environment variable, or mapping to
+an environment input other than the target resource's registered capacity
+input.
+
+The current aggregate DAGs are closed as follows. `lint` MUST establish Node,
+frontend-install, and shell-tool readiness once before starting the sequence;
+its eight lint, boundary, script, Markdown, shell, and frontend-typecheck steps
+then have no dependency edges. `ci` MUST start only `check`; after it succeeds,
+`harness-contract`, `go-gosec-audit`, `deployable-shape`, and
+`duration-baseline-drift-suite` are mutually independent. `release-check` MUST
+start only `check`; after it succeeds, harness contract, security audit,
+license generation, build, SeaweedFS compatibility, SeaweedFS migration, and
+release-browser readiness are independent as capacity permits. `sbom` depends
+on `license-report`; `seaweedfs-release-gate` depends on compatibility,
+migration, license, and SBOM; `deployable-shape` depends on build; and
+`release-readiness-evidence` depends on every release branch. Authored summary
+order remains stable and does not follow completion order.
 Verified by: TH-HARNESS-AC-077, TH-HARNESS-AC-078
 
 **TH-HARNESS-REQ-375**

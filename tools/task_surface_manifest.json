@@ -1220,120 +1220,149 @@
         {
           "type": "step",
           "target": "lint-go",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-go-format",
             "lint-go-vet",
             "lint-go-staticcheck"
           ],
           "needs": [],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "lint-biome",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-biome"
           ],
-          "needs": [
-            "lint-go"
-          ],
+          "needs": [],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "frontend-import-boundary-check",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-import-boundary-check"
           ],
-          "needs": [
-            "lint-biome"
-          ],
+          "needs": [],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
           "type": "step",
           "target": "backend-module-boundary-check",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "backend-module-boundary-check"
           ],
-          "needs": [
-            "frontend-import-boundary-check"
-          ],
+          "needs": [],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
           "type": "step",
           "target": "lint-scripts",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-scripts"
           ],
-          "needs": [
-            "backend-module-boundary-check"
-          ],
+          "needs": [],
+          "resource_profile": "script",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "lint-markdown",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-markdown"
           ],
-          "needs": [
-            "lint-scripts"
-          ],
+          "needs": [],
+          "resource_profile": "script",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "lint-shell",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-shell"
           ],
-          "needs": [
-            "lint-markdown"
-          ],
+          "needs": [],
+          "resource_profile": "script",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "frontend-typecheck",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-typecheck"
           ],
-          "needs": [
-            "lint-shell"
-          ],
+          "needs": [],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         }
       ],
-      "execution_mode": "serial",
-      "max_jobs": 1,
+      "execution_mode": "dag",
+      "max_jobs": 8,
+      "capacity_profile": "sequence_adaptive",
       "resource_limits": {
-        "process": 1
+        "host_cpu": "auto",
+        "host_io": "auto",
+        "process": "auto"
       }
     },
     "ci": {
@@ -1371,9 +1400,14 @@
             "check"
           ],
           "needs": [],
+          "resource_profile": "nested_check",
           "resource_claims": {
+            "host_cpu": "limit",
+            "host_io": "limit",
             "process": 1
           },
+          "make_jobs": 1,
+          "forwarding": "sequence_to_check",
           "priority": 100
         },
         {
@@ -1385,9 +1419,13 @@
           "needs": [
             "check"
           ],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1397,11 +1435,15 @@
             "go-gosec-audit"
           ],
           "needs": [
-            "harness-contract"
+            "check"
           ],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1411,29 +1453,40 @@
             "deployable-shape"
           ],
           "needs": [
-            "go-gosec-audit"
+            "check"
           ],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
           "type": "step",
           "target": "duration-baseline-drift-suite",
           "needs": [
-            "deployable-shape"
+            "check"
           ],
+          "resource_profile": "artifact_generation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         }
       ],
-      "execution_mode": "serial",
-      "max_jobs": 1,
+      "execution_mode": "dag",
+      "max_jobs": 8,
+      "capacity_profile": "sequence_adaptive",
       "resource_limits": {
-        "process": 1
+        "host_cpu": "auto",
+        "host_io": "auto",
+        "process": "auto"
       }
     },
     "release-check": {
@@ -1493,9 +1546,14 @@
             "check"
           ],
           "needs": [],
+          "resource_profile": "nested_check",
           "resource_claims": {
+            "host_cpu": "limit",
+            "host_io": "limit",
             "process": 1
           },
+          "make_jobs": 1,
+          "forwarding": "sequence_to_check",
           "priority": 100
         },
         {
@@ -1507,9 +1565,13 @@
           "needs": [
             "check"
           ],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1519,11 +1581,15 @@
             "go-gosec-audit"
           ],
           "needs": [
-            "harness-contract"
+            "check"
           ],
+          "resource_profile": "cpu_analysis",
           "resource_claims": {
+            "host_cpu": 4,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1533,11 +1599,15 @@
             "license-report"
           ],
           "needs": [
-            "go-gosec-audit"
+            "check"
           ],
+          "resource_profile": "artifact_generation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1549,31 +1619,43 @@
           "needs": [
             "license-report"
           ],
+          "resource_profile": "artifact_generation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
           "type": "step",
           "target": "seaweedfs-compatibility",
           "needs": [
-            "sbom"
+            "check"
           ],
+          "resource_profile": "service_validation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
           "type": "step",
           "target": "seaweedfs-migration-preservation",
           "needs": [
-            "seaweedfs-compatibility"
+            "check"
           ],
+          "resource_profile": "service_validation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
@@ -1586,11 +1668,18 @@
             "seaweedfs-release-gate"
           ],
           "needs": [
-            "seaweedfs-migration-preservation"
+            "seaweedfs-compatibility",
+            "seaweedfs-migration-preservation",
+            "license-report",
+            "sbom"
           ],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
@@ -1603,11 +1692,15 @@
             "build-operator"
           ],
           "needs": [
-            "seaweedfs-release-gate"
+            "check"
           ],
+          "resource_profile": "build",
           "resource_claims": {
+            "host_cpu": 6,
+            "host_io": 3,
             "process": 1
           },
+          "make_jobs": "host_cpu",
           "priority": 0
         },
         {
@@ -1619,9 +1712,13 @@
           "needs": [
             "build"
           ],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         },
         {
@@ -1635,11 +1732,16 @@
             "release-browser-readiness"
           ],
           "needs": [
-            "deployable-shape"
+            "check"
           ],
+          "resource_profile": "nested_service_validation",
           "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 4,
             "process": 1
           },
+          "make_jobs": 1,
+          "forwarding": "sequence_to_service_backed",
           "priority": 0
         },
         {
@@ -1649,18 +1751,34 @@
             "release-readiness-evidence"
           ],
           "needs": [
+            "harness-contract",
+            "go-gosec-audit",
+            "license-report",
+            "sbom",
+            "seaweedfs-compatibility",
+            "seaweedfs-migration-preservation",
+            "seaweedfs-release-gate",
+            "build",
+            "deployable-shape",
             "release-browser-readiness"
           ],
+          "resource_profile": "small_check",
           "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
             "process": 1
           },
+          "make_jobs": 1,
           "priority": 0
         }
       ],
-      "execution_mode": "serial",
-      "max_jobs": 1,
+      "execution_mode": "dag",
+      "max_jobs": 8,
+      "capacity_profile": "sequence_adaptive",
       "resource_limits": {
-        "process": 1
+        "host_cpu": "auto",
+        "host_io": "auto",
+        "process": "auto"
       }
     }
   },
@@ -2912,7 +3030,11 @@
       "sequence": "test"
     },
     "lint": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "shell-lint-toolchain"
+      ],
       "type": "sequence",
       "sequence": "lint"
     },

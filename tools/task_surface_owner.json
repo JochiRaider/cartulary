@@ -838,6 +838,7 @@
       {
         "type": "step",
         "target": "lint-go",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-go-format",
             "lint-go-vet",
@@ -847,6 +848,7 @@
         {
         "type": "step",
         "target": "lint-biome",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-biome"
           ]
@@ -854,6 +856,7 @@
         {
         "type": "step",
         "target": "frontend-import-boundary-check",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-import-boundary-check"
           ]
@@ -861,6 +864,7 @@
         {
         "type": "step",
         "target": "backend-module-boundary-check",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "backend-module-boundary-check"
           ]
@@ -868,6 +872,7 @@
         {
         "type": "step",
         "target": "lint-scripts",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-scripts"
           ]
@@ -875,6 +880,7 @@
         {
         "type": "step",
         "target": "lint-markdown",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-markdown"
           ]
@@ -882,6 +888,7 @@
         {
         "type": "step",
         "target": "lint-shell",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-shell"
           ]
@@ -889,6 +896,7 @@
         {
         "type": "step",
         "target": "frontend-typecheck",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-typecheck"
           ]
@@ -2346,7 +2354,11 @@
       "sequence": "test"
     },
     "lint": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "shell-lint-toolchain"
+      ],
       "type": "sequence",
       "sequence": "lint"
     },

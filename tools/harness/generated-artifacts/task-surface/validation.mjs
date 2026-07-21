@@ -560,6 +560,18 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         }
         if (!resourceLimits || typeof resourceLimits !== "object" || Array.isArray(resourceLimits)) {
           errors.push(`sequence ${name}.resource_limits must be an object`);
+        } else {
+          for (const [resource, limit] of Object.entries(resourceLimits)) {
+            if ((limit !== "auto" && (!Number.isInteger(limit) || limit < 1))) {
+              errors.push(`sequence ${name}.resource_limits.${resource} must be positive or auto`);
+            }
+          }
+        }
+        if (
+          sequence.capacity_profile !== undefined &&
+          (typeof sequence.capacity_profile !== "string" || sequence.capacity_profile === "")
+        ) {
+          errors.push(`sequence ${name}.capacity_profile must be a non-empty string`);
         }
       }
       validateSummaryGroups(
@@ -638,10 +650,36 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
             errors.push(`${label}.resource_claims must be an object`);
           } else {
             for (const [resource, claim] of Object.entries(step.resource_claims)) {
-              if (!Number.isInteger(claim) || claim < 1 || !Number.isInteger(resourceLimits?.[resource]) || claim > resourceLimits?.[resource]) {
+              const limit = resourceLimits?.[resource];
+              const validClaim = claim === "limit" || (Number.isInteger(claim) && claim >= 1);
+              const validLimit = limit === "auto" || (Number.isInteger(limit) && limit >= 1);
+              if (
+                !validClaim ||
+                !validLimit ||
+                (Number.isInteger(claim) && Number.isInteger(limit) && claim > limit)
+              ) {
                 errors.push(`${label}.resource_claims.${resource} must fit the sequence resource limit`);
               }
             }
+          }
+        }
+        if (
+          requireSequenceTopology &&
+          step.resource_profile !== undefined &&
+          (typeof step.resource_profile !== "string" || step.resource_profile === "")
+        ) {
+          errors.push(`${label}.resource_profile must be a non-empty string`);
+        }
+        if (requireSequenceTopology) {
+          const makeJobs = step.make_jobs;
+          if (makeJobs !== undefined &&
+            !(Number.isInteger(makeJobs) && makeJobs >= 1) &&
+            !(typeof makeJobs === "string" && Object.hasOwn(step.resource_claims ?? {}, makeJobs))
+          ) {
+            errors.push(`${label}.make_jobs must be positive or reference a claimed resource`);
+          }
+          if (step.forwarding !== undefined && typeof step.forwarding !== "string") {
+            errors.push(`${label}.forwarding must be a string`);
           }
         }
         validateNamedTargetList(

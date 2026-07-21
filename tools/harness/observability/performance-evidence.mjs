@@ -605,6 +605,100 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       throw new Error(`${target} candidate policy does not implement the exact backend transition`);
     }
   }
+  if (transition === "serial_to_topology_dag") {
+    const profiles = {
+      small_check: [{ host_cpu: 1, host_io: 1, process: 1 }, 1, undefined],
+      cpu_analysis: [{ host_cpu: 4, host_io: 1, process: 1 }, "host_cpu", undefined],
+      script: [{ host_cpu: 2, host_io: 2, process: 1 }, "host_cpu", undefined],
+      artifact_generation: [{ host_cpu: 2, host_io: 4, process: 1 }, "host_cpu", undefined],
+      build: [{ host_cpu: 6, host_io: 3, process: 1 }, "host_cpu", undefined],
+      service_validation: [{ host_cpu: 2, host_io: 4, process: 1 }, 1, undefined],
+      nested_check: [
+        { host_cpu: "limit", host_io: "limit", process: 1 },
+        1,
+        "sequence_to_check",
+      ],
+      nested_service_validation: [
+        { host_cpu: 2, host_io: 4, process: 1 },
+        1,
+        "sequence_to_service_backed",
+      ],
+    };
+    const expectedSteps = {
+      lint: [
+        ["lint-go", [], "cpu_analysis"],
+        ["lint-biome", [], "cpu_analysis"],
+        ["frontend-import-boundary-check", [], "small_check"],
+        ["backend-module-boundary-check", [], "small_check"],
+        ["lint-scripts", [], "script"],
+        ["lint-markdown", [], "script"],
+        ["lint-shell", [], "script"],
+        ["frontend-typecheck", [], "cpu_analysis"],
+      ],
+      ci: [
+        ["check", [], "nested_check", 100],
+        ["harness-contract", ["check"], "cpu_analysis"],
+        ["go-gosec-audit", ["check"], "cpu_analysis"],
+        ["deployable-shape", ["check"], "small_check"],
+        ["duration-baseline-drift-suite", ["check"], "artifact_generation"],
+      ],
+      "release-check": [
+        ["check", [], "nested_check", 100],
+        ["harness-contract", ["check"], "cpu_analysis"],
+        ["go-gosec-audit", ["check"], "cpu_analysis"],
+        ["license-report", ["check"], "artifact_generation"],
+        ["sbom", ["license-report"], "artifact_generation"],
+        ["seaweedfs-compatibility", ["check"], "service_validation"],
+        ["seaweedfs-migration-preservation", ["check"], "service_validation"],
+        ["seaweedfs-release-gate", ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "small_check"],
+        ["build", ["check"], "build"],
+        ["deployable-shape", ["build"], "small_check"],
+        ["release-browser-readiness", ["check"], "nested_service_validation"],
+        ["release-readiness-evidence", ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-migration-preservation", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "small_check"],
+      ],
+    };
+    const expectedTargetSteps = expectedSteps[target];
+    const sequence = candidateRow.execution_policy?.sequence;
+    if (!expectedTargetSteps || !sequence) {
+      throw new Error(`${target} candidate policy does not implement the exact sequence transition`);
+    }
+    const projection = {
+      execution_mode: sequence.execution_mode,
+      max_jobs: sequence.max_jobs,
+      capacity_profile: sequence.capacity_profile,
+      resource_limits: sequence.resource_limits,
+      steps: (sequence.steps ?? []).map((step) => ({
+        target: step.target,
+        needs: step.needs,
+        resource_profile: step.resource_profile,
+        resource_claims: step.resource_claims,
+        make_jobs: step.make_jobs,
+        ...(step.forwarding === undefined ? {} : { forwarding: step.forwarding }),
+        priority: step.priority,
+      })),
+    };
+    const expected = {
+      execution_mode: "dag",
+      max_jobs: 8,
+      capacity_profile: "sequence_adaptive",
+      resource_limits: { host_cpu: "auto", host_io: "auto", process: "auto" },
+      steps: expectedTargetSteps.map(([stepTarget, needs, profileName, priority = 0]) => {
+        const [resourceClaims, makeJobs, forwarding] = profiles[profileName];
+        return {
+          target: stepTarget,
+          needs,
+          resource_profile: profileName,
+          resource_claims: resourceClaims,
+          make_jobs: makeJobs,
+          ...(forwarding === undefined ? {} : { forwarding }),
+          priority,
+        };
+      }),
+    };
+    if (!sameJSON(projection, expected)) {
+      throw new Error(`${target} candidate policy does not implement the exact sequence transition`);
+    }
+  }
 }
 
 export function compareQualifiedBaselines(baseline, candidate) {

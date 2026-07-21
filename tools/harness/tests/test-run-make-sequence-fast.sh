@@ -182,10 +182,14 @@ set -euo pipefail
 
 echo "$*" >>"${FAKE_MAKE_LOG}"
 if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
-  printf 'target=%s skip=%s satisfied=%s\n' \
+  printf 'target=%s skip=%s satisfied=%s check_cpu=%s check_io=%s service_cpu=%s service_io=%s\n' \
     "${@: -1}" \
     "${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-unset}" \
     "${CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED:-unset}" \
+    "${CHECK_HOST_CPU_JOBS:-unset}" \
+    "${CHECK_HOST_IO_JOBS:-unset}" \
+    "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-unset}" \
+    "${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-unset}" \
     >>"${FAKE_MAKE_ENV_LOG}"
 fi
 
@@ -344,6 +348,22 @@ manifest.sequences["dry-run"] = {
 };
 manifest.make_recipes["dry-run"] = { type: "sequence", prerequisites: [], sequence: "dry-run" };
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+
+"${NODE_BIN:-node}" --input-type=module - <<'EOF'
+import {
+  estimateSequenceHostCPULimit,
+  estimateSequenceHostIOLimit,
+  estimateSequenceProcessLimit,
+} from "./tools/harness/scheduler/scheduler-resource-policy.mjs";
+
+if (
+  estimateSequenceHostCPULimit(24) !== 20 ||
+  estimateSequenceHostIOLimit(20, 24) !== 24 ||
+  estimateSequenceProcessLimit(24) !== 8
+) {
+  throw new Error("24-way sequence capacity must resolve to CPU=20 IO=24 process=8");
+}
 EOF
 
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-success.XXXXXX")"
@@ -593,6 +613,7 @@ for aggregate_sequence in test-fast ci release-check; do
     CARTULARY_OUTPUT_MODE="" \
     MAKE="${aggregate_dir}/fake-make" \
     FAKE_MAKE_LOG="${aggregate_dir}/make.log" \
+    FAKE_MAKE_ENV_LOG="${aggregate_dir}/make-env.log" \
     CARTULARY_TEST_RESULTS_DIR="${aggregate_dir}/results" \
     CARTULARY_TEST_RUN_ID="${aggregate_sequence}" \
     TASK_SURFACE_MANIFEST="${ROOT_DIR}/tools/task_surface_manifest.json" \
@@ -604,6 +625,25 @@ for aggregate_sequence in test-fast ci release-check; do
   assert_file_present "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "${aggregate_sequence} target summary"
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "target")" "${aggregate_sequence}" "${aggregate_sequence} target summary identity"
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/run-summary.json" "label")" "${aggregate_sequence}" "${aggregate_sequence} run summary identity"
+  if [[ "${aggregate_sequence}" == "ci" ]]; then
+    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=check skip=unset satisfied=unset check_cpu=20 check_io=24" "ci forwards the exact nested check budget"
+    "${NODE_BIN:-node}" - "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const summary = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+if (summary.resource_limits.host_cpu !== 20 || summary.resource_limits.host_io !== 24 || summary.resource_limits.process !== 8) {
+  throw new Error(`unexpected adaptive capacity ${JSON.stringify(summary.resource_limits)}`);
+}
+const nested = summary.nested_scheduler_limits?.find((item) => item.target === "check");
+if (nested?.forwarding_profile !== "sequence_to_check" ||
+    nested.mappings?.find((item) => item.env_variable === "CHECK_HOST_CPU_JOBS")?.amount !== 20 ||
+    nested.mappings?.find((item) => item.env_variable === "CHECK_HOST_IO_JOBS")?.amount !== 24) {
+  throw new Error("nested check forwarding evidence is incomplete");
+}
+EOF
+  fi
+  if [[ "${aggregate_sequence}" == "release-check" ]]; then
+    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=release-browser-readiness skip=1 satisfied=1 check_cpu=unset check_io=unset service_cpu=2 service_io=4" "release forwards the exact nested service budget"
+  fi
 done
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-dry-run.XXXXXX")"

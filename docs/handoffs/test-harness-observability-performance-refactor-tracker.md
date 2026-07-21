@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-009 implementation based on T-008 checkpoint `1c97ec89`; retained target-local reference snapshots are recorded in the v2 baseline |
+| Current source | T-010 implementation based on T-009 checkpoint `dfebc233`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-21 |
-| Active item | T-010 |
+| Active item | T-011 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,8 +160,8 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | TODO | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
@@ -1414,3 +1414,45 @@ completed work.
 - Active: T-010 is the only `IN_PROGRESS` task. Topology-owned adaptive
   sequence resources must be complete and checkpointed before browser capacity
   changes begin.
+
+### 2026-07-21 — T-010 adaptive aggregate DAGs complete
+
+- Source: T-009 checkpoint `dfebc233`; worktree implementation was validated
+  before this mandatory T-010 checkpoint.
+- Completed: T-010. The shared resource registry now admits the `sequence`
+  scheduler through the topology-owned `sequence_adaptive` profile. On this
+  24-CPU host it resolves `host_cpu=20`, `host_io=24`, and `process=8`.
+  Closed work profiles own CPU, I/O, process, and nested Make concurrency;
+  every sequence step claims one process slot. Outer sequence capacity ignores
+  inherited check overrides, while registry-validated forwarding passes exact
+  claimed budgets to nested check and service-backed schedulers.
+- Topology: `lint` establishes Node, frontend-install, and shell readiness once,
+  then admits all eight independent steps. `ci` starts only `check`, then admits
+  harness contract, security audit, deployable shape, and duration drift
+  independently. `release-check` starts only `check`; its harness, security,
+  license/SBOM, build/deployable, SeaweedFS, and browser branches use the exact
+  dependency graph in TH-HARNESS-REQ-374. Authored summary and failure order
+  remain stable regardless of completion order.
+- Retained functional evidence: fast sequence smoke passed at
+  `.cartulary/test-results/20260721T234510Z-p4067014`; extended
+  `harness-contract` passed at `20260721T234522Z-p4068163`; `lint` passed at
+  `20260721T234606Z-p4069227` in 21.633 s with all eight units running at peak
+  and peak claims CPU/I/O/process `20/11/8`; `ci` passed at
+  `20260721T235101Z-p22359` in 154.163 s. Its nested `check` received exactly
+  CPU/I/O `20/24`, and all four post-check branches ran concurrently.
+  `generate`, `json-shape-check`, and `generate-drift` passed at
+  `20260721T234257Z-p4064437`, `20260721T234308Z-p4066013`, and
+  `20260721T235352Z-p137567`.
+- Retained host-state failures: `20260721T234652Z-p4085995` was rejected because
+  the prior baseline workspace still owned host port 5432. That exact stale
+  Compose project was stopped without deleting volumes. The initially failed
+  current-repo container then retained invalid unpublished-port metadata, so
+  `20260721T234901Z-p4145697` was rejected after a connection refusal. The
+  current Compose containers/network were recreated without deleting volumes;
+  the unchanged next run passed. Neither root is performance evidence.
+- Performance disposition: these dirty-worktree roots prove behavior and
+  resource ownership only. The exact sequence transition is now validated from
+  its normalized policy projection; quantitative acceptance remains T-012.
+- Active: T-011 is the only `IN_PROGRESS` task. Release browser schedule
+  capacity and five-session ownership must be checkpointed before candidate
+  collection begins.

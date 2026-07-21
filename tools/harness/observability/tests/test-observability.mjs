@@ -225,6 +225,32 @@ function performanceArtifact({
   transitionPolicy = "b".repeat(64),
   portfolioTotal = 40_000,
 } = {}) {
+  const exactLintSequencePolicy = {
+    target: "lint",
+    sequence: {
+      execution_mode: "dag",
+      max_jobs: 8,
+      capacity_profile: "sequence_adaptive",
+      resource_limits: { host_cpu: "auto", host_io: "auto", process: "auto" },
+      steps: [
+        ["lint-go", "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"],
+        ["lint-biome", "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"],
+        ["frontend-import-boundary-check", "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1],
+        ["backend-module-boundary-check", "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1],
+        ["lint-scripts", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
+        ["lint-markdown", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
+        ["lint-shell", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
+        ["frontend-typecheck", "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"],
+      ].map(([stepTarget, resourceProfile, resourceClaims, makeJobs]) => ({
+        target: stepTarget,
+        needs: [],
+        resource_profile: resourceProfile,
+        resource_claims: resourceClaims,
+        make_jobs: makeJobs,
+        priority: 0,
+      })),
+    },
+  };
   const target = ({
     name,
     gate,
@@ -245,7 +271,9 @@ function performanceArtifact({
     host_profile_sha256: "e".repeat(64),
     capacity_profile_sha256: "f".repeat(64),
     toolchain_profile_sha256: "2".repeat(64),
-    execution_policy: { target: name, revision: policy },
+    execution_policy: name === "lint" && policy !== "a".repeat(64)
+      ? exactLintSequencePolicy
+      : { target: name, revision: policy },
     execution_policy_sha256: policy,
     ...(transition ? { allowed_policy_transition: transition } : {}),
     sample_provider_target: name,
@@ -265,7 +293,7 @@ function performanceArtifact({
       target({ name: "standard-target", gate: "no_regression", medianMs: standardMedian }),
       target({ name: "improvement-target", gate: "required_improvement", medianMs: improvementMedian }),
       target({
-        name: "transition-target",
+        name: "lint",
         gate: "no_regression",
         medianMs: 10_000,
         policy: transitionPolicy,
@@ -274,7 +302,7 @@ function performanceArtifact({
     ],
     public_entrypoint_portfolio: {
       target_count: 3,
-      targets: ["improvement-target", "standard-target", "transition-target"],
+      targets: ["improvement-target", "lint", "standard-target"],
       total_median_ms: portfolioTotal,
     },
     rejected_roots: [],
@@ -408,6 +436,13 @@ try {
       performanceArtifact({ transitionPolicy: "a".repeat(64) }),
     ),
     /did not apply declared policy transition/u,
+  );
+  const invalidSequenceTransition = performanceArtifact();
+  invalidSequenceTransition.targets.find((row) => row.target === "lint")
+    .execution_policy.sequence.max_jobs = 7;
+  assert.throws(
+    () => compareQualifiedBaselines(baselinePerformance, invalidSequenceTransition),
+    /does not implement the exact sequence transition/u,
   );
   const mismatchedHost = performanceArtifact();
   for (const [field, label] of [

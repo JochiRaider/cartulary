@@ -6,6 +6,7 @@ import {
   assertKnownResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  resolveResourceForwardingProfile,
   resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
@@ -919,7 +920,81 @@ function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
   }
 }
 
-function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
+function normalizeSequenceResourceProfiles(topology) {
+  if (topology.sequence_resource_profiles === undefined) {
+    return new Map();
+  }
+  const rawProfiles = requireObject(
+    topology.sequence_resource_profiles,
+    "sequence_resource_profiles",
+  );
+  const profiles = new Map();
+  for (const [name, rawProfile] of Object.entries(rawProfiles)) {
+    const label = `sequence_resource_profiles.${name}`;
+    if (!/^[a-z][a-z0-9_]*$/u.test(name)) {
+      throw new Error(`${label} has an invalid profile name`);
+    }
+    validateAllowedKeys(
+      requireObject(rawProfile, label),
+      new Set(["resource_claims", "make_jobs", "forwarding"]),
+      label,
+    );
+    const claims = requireObject(rawProfile.resource_claims, `${label}.resource_claims`);
+    const normalizedClaims = {};
+    for (const [resource, amount] of Object.entries(claims)) {
+      const normalizedResource = assertKnownResource(
+        resource,
+        `${label}.resource_claims.${resource}`,
+        { scheduler: "sequence" },
+      );
+      if (amount !== "limit") {
+        requirePositiveInteger(amount, `${label}.resource_claims.${resource}`);
+      }
+      normalizedClaims[normalizedResource] = amount;
+    }
+    if (!Object.hasOwn(normalizedClaims, "process")) {
+      throw new Error(`${label}.resource_claims must claim process`);
+    }
+    const makeJobs = rawProfile.make_jobs;
+    if (typeof makeJobs === "string") {
+      if (!Object.hasOwn(normalizedClaims, makeJobs)) {
+        throw new Error(`${label}.make_jobs must reference a claimed resource`);
+      }
+    } else {
+      requirePositiveInteger(makeJobs, `${label}.make_jobs`);
+    }
+    const forwarding = rawProfile.forwarding === undefined
+      ? ""
+      : requireString(rawProfile.forwarding, `${label}.forwarding`);
+    if (forwarding !== "") {
+      resolveResourceForwardingProfile(
+        forwarding,
+        new Map(
+          Object.entries(normalizedClaims).map(([resource, amount]) => [
+            resource,
+            amount === "limit" ? 1 : amount,
+          ]),
+        ),
+        label,
+      );
+    }
+    profiles.set(name, {
+      name,
+      resource_claims: objectFromEntries(Object.entries(normalizedClaims)),
+      make_jobs: makeJobs,
+      forwarding,
+    });
+  }
+  if (profiles.size === 0) throw new Error("sequence_resource_profiles must not be empty");
+  return profiles;
+}
+
+function normalizeSequenceSchedules(
+  topology,
+  taskSurfaceOwner,
+  taskTargets,
+  sequenceResourceProfiles,
+) {
   const ownerSequences = requireObject(taskSurfaceOwner.sequences, "task_surface_owner.sequences");
   const schedules = [];
   const seenSchedules = new Set();
@@ -930,7 +1005,14 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
     const label = `sequence_schedules[${index + 1}]`;
     validateAllowedKeys(
       requireObject(rawSchedule, label),
-      new Set(["target", "execution_mode", "max_jobs", "resource_limits", "steps"]),
+      new Set([
+        "target",
+        "execution_mode",
+        "max_jobs",
+        "capacity_profile",
+        "resource_limits",
+        "steps",
+      ]),
       label,
     );
     const target = requireString(rawSchedule.target, `${label}.target`);
@@ -953,12 +1035,28 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
     if (maxJobs > 16 || (executionMode === "serial" && maxJobs !== 1)) {
       throw new Error(`${label}.max_jobs must be 1 for serial or at most 16 for dag`);
     }
-    const resourceLimits = requireObject(rawSchedule.resource_limits, `${label}.resource_limits`);
-    for (const [resource, limit] of Object.entries(resourceLimits)) {
-      if (!/^[a-z][a-z0-9_]*$/u.test(resource)) {
-        throw new Error(`${label}.resource_limits has invalid resource ${resource}`);
+    const capacityProfile = rawSchedule.capacity_profile === undefined
+      ? ""
+      : requireString(rawSchedule.capacity_profile, `${label}.capacity_profile`);
+    if ((capacityProfile === "") === (rawSchedule.resource_limits === undefined)) {
+      throw new Error(`${label} must declare exactly one of capacity_profile or resource_limits`);
+    }
+    let resourceLimits;
+    if (capacityProfile !== "") {
+      const profileLimits = resourceLimitsForCapacityProfile(
+        capacityProfile,
+        label,
+        { scheduler: "sequence", allowAuto: true },
+      );
+      resourceLimits = objectFromEntries(profileLimits.limits.entries());
+    } else {
+      resourceLimits = requireObject(rawSchedule.resource_limits, `${label}.resource_limits`);
+      for (const [resource, limit] of Object.entries(resourceLimits)) {
+        assertKnownResource(resource, `${label}.resource_limits.${resource}`, {
+          scheduler: "sequence",
+        });
+        requirePositiveInteger(limit, `${label}.resource_limits.${resource}`);
       }
-      requirePositiveInteger(limit, `${label}.resource_limits.${resource}`);
     }
     const ownerSteps = requireNonEmptyArray(ownerSequence.steps, `task_surface_owner.sequences.${target}.steps`);
     const rawSteps = requireNonEmptyArray(rawSchedule.steps, `${label}.steps`);
@@ -970,7 +1068,7 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
       const stepLabel = `${label}.steps[${stepIndex + 1}]`;
       validateAllowedKeys(
         requireObject(rawStep, stepLabel),
-        new Set(["target", "needs", "resource_claims", "priority"]),
+        new Set(["target", "needs", "profile", "resource_claims", "priority"]),
         stepLabel,
       );
       const stepTarget = requireString(rawStep.target, `${stepLabel}.target`);
@@ -982,12 +1080,36 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
         throw new Error(`${stepLabel}.target must bind task-surface step ${ownerSteps[stepIndex]?.target}`);
       }
       const needs = requireStringArray(rawStep.needs, `${stepLabel}.needs`);
-      const resourceClaims = requireObject(rawStep.resource_claims, `${stepLabel}.resource_claims`);
+      const profileName = rawStep.profile === undefined
+        ? ""
+        : requireString(rawStep.profile, `${stepLabel}.profile`);
+      if ((profileName === "") === (rawStep.resource_claims === undefined)) {
+        throw new Error(`${stepLabel} must declare exactly one of profile or resource_claims`);
+      }
+      const profile = profileName === "" ? null : sequenceResourceProfiles.get(profileName);
+      if (profileName !== "" && !profile) {
+        throw new Error(`${stepLabel}.profile references unknown profile ${profileName}`);
+      }
+      const resourceClaims = profile?.resource_claims ?? requireObject(
+        rawStep.resource_claims,
+        `${stepLabel}.resource_claims`,
+      );
       for (const [resource, claim] of Object.entries(resourceClaims)) {
-        requirePositiveInteger(claim, `${stepLabel}.resource_claims.${resource}`);
-        if (!Number.isInteger(resourceLimits[resource]) || claim > resourceLimits[resource]) {
+        assertKnownResource(resource, `${stepLabel}.resource_claims.${resource}`, {
+          scheduler: "sequence",
+        });
+        if (claim !== "limit") {
+          requirePositiveInteger(claim, `${stepLabel}.resource_claims.${resource}`);
+        }
+        if (
+          !Object.hasOwn(resourceLimits, resource) ||
+          (Number.isInteger(resourceLimits[resource]) && claim !== "limit" && claim > resourceLimits[resource])
+        ) {
           throw new Error(`${stepLabel}.resource_claims.${resource} exceeds the declared limit`);
         }
+      }
+      if (!Object.hasOwn(resourceClaims, "process")) {
+        throw new Error(`${stepLabel}.resource_claims must claim process`);
       }
       if (!Number.isInteger(rawStep.priority)) {
         throw new Error(`${stepLabel}.priority must be an integer`);
@@ -995,7 +1117,10 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
       return {
         target: stepTarget,
         needs,
+        resource_profile: profileName,
         resource_claims: objectFromEntries(Object.entries(resourceClaims)),
+        make_jobs: profile?.make_jobs ?? null,
+        forwarding: profile?.forwarding ?? "",
         priority: rawStep.priority,
       };
     });
@@ -1030,6 +1155,7 @@ function normalizeSequenceSchedules(topology, taskSurfaceOwner, taskTargets) {
       target,
       execution_mode: executionMode,
       max_jobs: maxJobs,
+      ...(capacityProfile === "" ? {} : { capacity_profile: capacityProfile }),
       resource_limits: objectFromEntries(Object.entries(resourceLimits)),
       steps,
     });
@@ -1055,7 +1181,13 @@ function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfac
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
   const goTargets = normalizeGoTargets(raw, dependencyByID, runtimeBinaries);
-  const sequenceSchedules = normalizeSequenceSchedules(raw, taskSurfaceOwner, taskTargets);
+  const sequenceResourceProfiles = normalizeSequenceResourceProfiles(raw);
+  const sequenceSchedules = normalizeSequenceSchedules(
+    raw,
+    taskSurfaceOwner,
+    taskTargets,
+    sequenceResourceProfiles,
+  );
   validateBrowserBatch(raw, dependencyByID, taskTargets);
   const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
   validateServiceBackedSchedules(manifestPath, raw, taskTargets);
@@ -1068,6 +1200,7 @@ function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfac
     executionDependencyByID: dependencyByID,
     runtimeBinaries,
     goTargets,
+    sequenceResourceProfiles,
     sequenceSchedules,
     taskSurface: clone(taskSurfaceOwner),
     taskSurfaceOwnerPath,
@@ -1120,11 +1253,23 @@ export function renderTaskSurfaceManifest(topology) {
     }
     sequence.execution_mode = schedule.execution_mode;
     sequence.max_jobs = schedule.max_jobs;
+    if (schedule.capacity_profile !== undefined) {
+      sequence.capacity_profile = schedule.capacity_profile;
+    }
     sequence.resource_limits = clone(schedule.resource_limits);
     sequence.steps = sequence.steps.map((step, index) => ({
       ...step,
       needs: [...schedule.steps[index].needs],
+      ...(schedule.steps[index].resource_profile === ""
+        ? {}
+        : { resource_profile: schedule.steps[index].resource_profile }),
       resource_claims: clone(schedule.steps[index].resource_claims),
+      ...(schedule.steps[index].make_jobs === null
+        ? {}
+        : { make_jobs: schedule.steps[index].make_jobs }),
+      ...(schedule.steps[index].forwarding === ""
+        ? {}
+        : { forwarding: schedule.steps[index].forwarding }),
       priority: schedule.steps[index].priority,
     }));
   }

@@ -21,6 +21,7 @@ const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const postgresCloneResource = "postgres_clone";
 export const testSliceDefaultCapacityProfile = "test_slice_default";
+export const sequenceAdaptiveCapacityProfile = "sequence_adaptive";
 
 function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -131,6 +132,21 @@ function availableCPUCount() {
   return Math.max(1, os.cpus().length);
 }
 
+export function estimateSequenceHostCPULimit(availableParallelism = availableCPUCount()) {
+  return Math.max(1, Math.floor(availableParallelism * 0.85));
+}
+
+export function estimateSequenceHostIOLimit(
+  hostCPULimit,
+  availableParallelism = availableCPUCount(),
+) {
+  return Math.max(hostCPULimit, availableParallelism);
+}
+
+export function estimateSequenceProcessLimit(availableParallelism = availableCPUCount()) {
+  return clampInteger(Math.floor(availableParallelism / 3), 2, 8);
+}
+
 function goShardUnits(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.kind === "go_shard");
 }
@@ -181,9 +197,10 @@ export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
   const schedulerKind = requireSchedulerFamily(scheduler, "scheduler");
   if (schedulerKind === "check") {
     return {
-      check_host_cpu: () => estimateCheckHostCPULimit(),
-      check_host_io: ({ resourceLimits: currentLimits }) =>
+      host_cpu: () => estimateCheckHostCPULimit(),
+      host_io: ({ resourceLimits: currentLimits }) =>
         estimateCheckHostIOLimit(currentLimits),
+      host_process_slots: () => 6,
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
           cpuResources: [hostCPUResource],
@@ -199,10 +216,19 @@ export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
         }),
     };
   }
+  if (schedulerKind === "sequence") {
+    return {
+      host_cpu: () => estimateSequenceHostCPULimit(),
+      host_io: ({ resourceLimits: currentLimits }) =>
+        estimateSequenceHostIOLimit(currentLimits.get(hostCPUResource) ?? 1),
+      host_process_slots: () => estimateSequenceProcessLimit(),
+    };
+  }
   if (schedulerKind !== "service_backed" && schedulerKind !== "test_slice") {
     throw new Error(`unsupported scheduler auto-limit family ${schedulerKind}`);
   }
   return {
+    host_process_slots: () => 6,
     service_backed_go_cpu: () =>
       estimateServiceBackedGoCPULimit(provisionalUnits),
     service_backed_go_io: ({ resourceLimits: currentLimits }) =>

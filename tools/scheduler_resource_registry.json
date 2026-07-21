@@ -4,10 +4,10 @@
     {
       "name": "host_cpu",
       "display_name": "host CPU",
-      "schedulers": ["check"],
+      "schedulers": ["check", "sequence"],
       "display_order": 10,
       "capacity": {
-        "auto_policy": "check_host_cpu",
+        "auto_policy": "host_cpu",
         "override_env": "CHECK_HOST_CPU_JOBS",
         "max_limit": 256
       }
@@ -15,10 +15,10 @@
     {
       "name": "host_io",
       "display_name": "host IO",
-      "schedulers": ["check"],
+      "schedulers": ["check", "sequence"],
       "display_order": 20,
       "capacity": {
-        "auto_policy": "check_host_io",
+        "auto_policy": "host_io",
         "override_env": "CHECK_HOST_IO_JOBS",
         "max_limit": 256
       }
@@ -79,10 +79,10 @@
     {
       "name": "process",
       "display_name": "process slots",
-      "schedulers": ["check", "service_backed", "test_slice"],
+      "schedulers": ["check", "sequence", "service_backed", "test_slice"],
       "display_order": 160,
       "capacity": {
-        "default_limit": 6,
+        "auto_policy": "host_process_slots",
         "max_limit": 256
       }
     },
@@ -194,7 +194,43 @@
         "seaweedfs_fixture",
         "browser_stack"
       ]
+    },
+    {
+      "name": "sequence_adaptive",
+      "scheduler": "sequence",
+      "resources": ["host_cpu", "host_io", "process"]
     }
   ],
-  "forwarding_profiles": []
+  "forwarding_profiles": [
+    {
+      "name": "sequence_to_check",
+      "mappings": [
+        {
+          "source_resource": "host_cpu",
+          "target_resource": "host_cpu",
+          "env_variable": "CHECK_HOST_CPU_JOBS"
+        },
+        {
+          "source_resource": "host_io",
+          "target_resource": "host_io",
+          "env_variable": "CHECK_HOST_IO_JOBS"
+        }
+      ]
+    },
+    {
+      "name": "sequence_to_service_backed",
+      "mappings": [
+        {
+          "source_resource": "host_cpu",
+          "target_resource": "go_cpu",
+          "env_variable": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT"
+        },
+        {
+          "source_resource": "host_io",
+          "target_resource": "go_io",
+          "env_variable": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+        }
+      ]
+    }
+  ]
 }

@@ -44,7 +44,7 @@
       "additionalProperties": false,
       "properties": {
         "target": { "type": "string", "minLength": 1 },
-        "scheduler_kind": { "enum": ["check", "service_backed", "test_slice"] },
+        "scheduler_kind": { "enum": ["check", "sequence", "service_backed", "test_slice"] },
         "capacity_profile": { "type": "string", "minLength": 1 },
         "resource_limits": { "$ref": "#/$defs/claims" },
         "stop_on_first_failure": { "type": "boolean" },

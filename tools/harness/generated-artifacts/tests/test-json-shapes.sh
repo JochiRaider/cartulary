@@ -222,10 +222,10 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "host_cpu",
       "display_name": "host CPU",
-      "schedulers": ["check"],
+      "schedulers": ["check", "sequence"],
       "display_order": 10,
       "capacity": {
-        "auto_policy": "check_host_cpu",
+        "auto_policy": "host_cpu",
         "override_env": "CHECK_HOST_CPU_JOBS",
         "max_limit": 256
       }
@@ -233,10 +233,10 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "host_io",
       "display_name": "host IO",
-      "schedulers": ["check"],
+      "schedulers": ["check", "sequence"],
       "display_order": 20,
       "capacity": {
-        "auto_policy": "check_host_io",
+        "auto_policy": "host_io",
         "override_env": "CHECK_HOST_IO_JOBS",
         "max_limit": 256
       }
@@ -286,7 +286,7 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "browser_stack",
       "display_name": "browser stack",
-      "schedulers": ["check", "service_backed", "test_slice"],
+      "schedulers": ["check", "sequence", "service_backed", "test_slice"],
       "display_order": 130,
       "capacity": {
         "auto_policy": "service_backed_browser_stack",
@@ -320,7 +320,7 @@ write_valid_scheduler_resource_registry() {
       "schedulers": ["check", "service_backed", "test_slice"],
       "display_order": 160,
       "capacity": {
-        "default_limit": 6,
+        "auto_policy": "host_process_slots",
         "max_limit": 256
       }
     },
@@ -366,6 +366,15 @@ write_valid_scheduler_resource_registry() {
         "host_io",
         "suite_service_stack",
         "migration_scratch_postgres"
+      ]
+    },
+    {
+      "name": "sequence_adaptive",
+      "scheduler": "sequence",
+      "resources": [
+        "host_cpu",
+        "host_io",
+        "process"
       ]
     },
     {
@@ -1541,7 +1550,7 @@ const mutations = {
     fixture.stages[0].scheduler_dependency_policy = "parallel";
   },
   "scheduler-registry-bad-capacity-one-of": (fixture) => {
-    fixture.resources[2].capacity.auto_policy = "check_host_cpu";
+    fixture.resources[2].capacity.auto_policy = "host_cpu";
   },
   "scheduler-registry-unknown-auto-policy": (fixture) => {
     fixture.resources[0].capacity.auto_policy = "host_cpu_auto";

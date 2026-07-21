@@ -1231,6 +1231,9 @@ import {
 import {
   estimateServiceBackedGoCPULimit,
   estimateServiceBackedGoIOLimit,
+  estimateSequenceHostCPULimit,
+  estimateSequenceHostIOLimit,
+  estimateSequenceProcessLimit,
   goShardSchedulerProfileClaims,
   testSliceDefaultCapacityProfile,
   resolveSchedulerResourceLimits,
@@ -1247,20 +1250,20 @@ const validSchedulerRegistry = () => ({
     {
       name: "host_cpu",
       display_name: "host CPU",
-      schedulers: ["check"],
+      schedulers: ["check", "sequence"],
       display_order: 10,
       capacity: {
-        auto_policy: "check_host_cpu",
+        auto_policy: "host_cpu",
         max_limit: 256,
       },
     },
     {
       name: "host_io",
       display_name: "host IO",
-      schedulers: ["check"],
+      schedulers: ["check", "sequence"],
       display_order: 20,
       capacity: {
-        auto_policy: "check_host_io",
+        auto_policy: "host_io",
         max_limit: 256,
       },
     },
@@ -1307,7 +1310,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "browser_stack",
       display_name: "browser stack",
-      schedulers: ["check", "service_backed", "test_slice"],
+      schedulers: ["check", "sequence", "service_backed", "test_slice"],
       display_order: 130,
       capacity: {
         auto_policy: "service_backed_browser_stack",
@@ -1350,7 +1353,7 @@ const validSchedulerRegistry = () => ({
       schedulers: ["check", "service_backed", "test_slice"],
       display_order: 160,
       capacity: {
-        default_limit: 6,
+        auto_policy: "host_process_slots",
         max_limit: 256,
       },
     },
@@ -1395,6 +1398,11 @@ const validSchedulerRegistry = () => ({
         "suite_service_stack",
         "migration_scratch_postgres",
       ],
+    },
+    {
+      name: "sequence_adaptive",
+      scheduler: "sequence",
+      resources: ["host_cpu", "host_io", "process"],
     },
     {
       name: "service_backed_full",
@@ -1456,6 +1464,9 @@ if (preferredResourcesForScheduler("test_slice").join(",") !== "go_cpu,go_io,bro
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   fail("check override env names changed");
 }
+if (resourceOverrideEnvVariablesForScheduler("sequence").length !== 0) {
+  fail("sequence capacity must ignore inherited scheduler override inputs");
+}
 if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack") || !isAutoLimitResource("postgres_reset") || !isAutoLimitResource("postgres_clone")) {
   fail("service-backed auto-limit resources are incomplete");
 }
@@ -1486,6 +1497,27 @@ if (
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
   fail(`check_default source got ${checkProfile.sources.get("host_cpu")}`);
 }
+const sequenceProfile = resourceLimitsForCapacityProfile("sequence_adaptive", "registry test", {
+  scheduler: "sequence",
+  allowAuto: true,
+});
+if (
+  sequenceProfile.limits.get("host_cpu") !== "auto" ||
+  sequenceProfile.limits.get("host_io") !== "auto" ||
+  sequenceProfile.limits.get("process") !== "auto"
+) {
+  fail("sequence_adaptive capacity profile changed");
+}
+if (
+  estimateSequenceHostCPULimit(24) !== 20 ||
+  estimateSequenceHostIOLimit(20, 24) !== 24 ||
+  estimateSequenceProcessLimit(24) !== 8 ||
+  estimateSequenceHostCPULimit(2) !== 1 ||
+  estimateSequenceHostIOLimit(1, 2) !== 2 ||
+  estimateSequenceProcessLimit(2) !== 2
+) {
+  fail("sequence adaptive capacity formulas changed");
+}
 if (
   checkProfile.sources.get("host_io") !== "registry:check_default" ||
   checkProfile.sources.get("suite_service_stack") !== "registry:check_default" ||
@@ -1504,7 +1536,6 @@ for (const [resource, expected] of [
   ["postgres", 32],
   ["object_store", 32],
   ["seaweedfs_fixture", 2],
-  ["process", 6],
 ]) {
   if (serviceProfile.limits.get(resource) !== expected) {
     fail(`service_backed_full ${resource} default changed`);
@@ -1512,6 +1543,9 @@ for (const [resource, expected] of [
   if (serviceProfile.sources.get(resource) !== "registry:service_backed_full") {
     fail(`service_backed_full ${resource} source got ${serviceProfile.sources.get(resource)}`);
   }
+}
+if (serviceProfile.limits.get("process") !== "auto") {
+  fail("service_backed_full process must resolve through host_process_slots");
 }
 const testSliceProfile = resourceLimitsForCapacityProfile("test_slice_default", "registry test", {
   scheduler: "test_slice",
@@ -1524,7 +1558,6 @@ for (const [resource, expected] of [
   ["postgres", 32],
   ["object_store", 32],
   ["seaweedfs_fixture", 2],
-  ["process", 6],
 ]) {
   if (testSliceProfile.limits.get(resource) !== expected) {
     fail(`test_slice_default ${resource} default changed`);
@@ -1532,6 +1565,9 @@ for (const [resource, expected] of [
   if (testSliceProfile.sources.get(resource) !== "registry:test_slice_default") {
     fail(`test_slice_default ${resource} source got ${testSliceProfile.sources.get(resource)}`);
   }
+}
+if (testSliceProfile.limits.get("process") !== "auto") {
+  fail("test_slice_default process must resolve through host_process_slots");
 }
 const expectedProfileClaims = new Map([
   ["balanced", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", test_slice: "{go_cpu:1,go_io:1}" }],
@@ -1696,8 +1732,9 @@ const autoFloored = resolveAutoResourceLimits(
   new Map([["host_cpu", "registry:test"], ["host_io", "registry:test"]]),
   "registry auto floor test",
   {
-    check_host_cpu: () => 2,
-    check_host_io: () => 1,
+    host_cpu: () => 2,
+    host_io: () => 1,
+    host_process_slots: () => 6,
   },
   maxResourceClaims(declaredClaimUnits),
 );
@@ -1766,7 +1803,7 @@ try {
 }
 const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-test-")), "registry.json");
 const invalidCapacityRegistry = validSchedulerRegistry();
-invalidCapacityRegistry.resources[2].capacity.auto_policy = "check_host_cpu";
+invalidCapacityRegistry.resources[2].capacity.auto_policy = "host_cpu";
 writeFileSync(
   invalidRegistryPath,
   `${JSON.stringify(invalidCapacityRegistry)}\n`,
@@ -2489,10 +2526,10 @@ assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_u
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (summary.resource_limit_sources?.host_cpu !== "auto:check_host_cpu") {
+if (summary.resource_limit_sources?.host_cpu !== "auto:host_cpu") {
   throw new Error(`default host_cpu source got ${summary.resource_limit_sources?.host_cpu}`);
 }
-if (summary.resource_limit_sources?.host_io !== "auto:check_host_io") {
+if (summary.resource_limit_sources?.host_io !== "auto:host_io") {
   throw new Error(`default host_io source got ${summary.resource_limit_sources?.host_io}`);
 }
 EOF

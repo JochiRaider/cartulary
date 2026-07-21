@@ -1,5 +1,6 @@
 export const schedulerFamilyValues = Object.freeze([
   "check",
+  "sequence",
   "service_backed",
   "test_slice",
 ]);
@@ -8,6 +9,7 @@ export const schedulerFamilySet = new Set(schedulerFamilyValues);
 
 export const schedulerCapacityProfilesByFamily = Object.freeze({
   check: Object.freeze(["check_default"]),
+  sequence: Object.freeze(["sequence_adaptive"]),
   service_backed: Object.freeze([
     "service_backed_full",
     "service_backed_backend",
@@ -26,8 +28,9 @@ const schedulerCapacityProfileSet = new Set(
 );
 
 const schedulerAutoPolicyValues = Object.freeze([
-  "check_host_cpu",
-  "check_host_io",
+  "host_cpu",
+  "host_io",
+  "host_process_slots",
   "service_backed_go_cpu",
   "service_backed_go_io",
   "service_backed_browser_stack",

@@ -25,7 +25,14 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "../scheduler/scheduler-runner.mjs";
-import { formatResourceMap } from "../scheduler/scheduler-resources.mjs";
+import {
+  formatResourceMap,
+  normalizeResourceClaims,
+  normalizeResourceLimits,
+  provisionalResourceLimitsForClaims,
+  resolveResourceForwardingProfile,
+} from "../scheduler/scheduler-resources.mjs";
+import { resolveSchedulerResourceLimits } from "../scheduler/scheduler-resource-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -61,7 +68,13 @@ function positiveInteger(value, label) {
   return parsed;
 }
 
-function stepJobs(step, sequenceName) {
+function stepJobs(step, sequenceName, resourceClaims) {
+  if (step.makeJobs !== undefined) {
+    const value = typeof step.makeJobs === "string"
+      ? resourceClaims.get(step.makeJobs)
+      : step.makeJobs;
+    return positiveInteger(value, `sequence ${sequenceName} step ${step.target} make_jobs`);
+  }
   if (step.type !== "parallel") return 1;
   const value = step.jobs ?? (step.jobsVariable ? process.env[step.jobsVariable] : undefined);
   return positiveInteger(value, `sequence ${sequenceName} step ${step.target} jobs`);
@@ -85,36 +98,58 @@ function childMakeEnv(skipPrerequisites) {
   return env;
 }
 
-function normalizeResourceMap(value, label) {
-  const result = new Map();
-  for (const [resource, amount] of Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right))) {
-    if (!/^[a-z][a-z0-9_]*$/u.test(resource)) {
-      throw new Error(`${label} resource ${resource} must be a logical resource identifier`);
-    }
-    result.set(resource, positiveInteger(amount, `${label}.${resource}`));
-  }
-  return result;
-}
-
 function compileSequence(sequence, context, manifestPath) {
-  const resourceLimits = normalizeResourceMap(sequence.resourceLimits, `sequence ${sequence.name} resource_limits`);
+  const scheduleLabel = `sequence ${sequence.name}`;
+  const normalizedLimits = normalizeResourceLimits(
+    sequence.resourceLimits,
+    scheduleLabel,
+    {
+      scheduler: "sequence",
+      capacityProfile: sequence.capacityProfile || null,
+      allowAuto: true,
+      env: null,
+    },
+  );
+  const provisionalLimits = provisionalResourceLimitsForClaims(
+    normalizedLimits.limits,
+  );
+  const provisionalUnits = sequence.steps.map((step) => ({
+    resourceClaims: normalizeResourceClaims(
+      step.resourceClaims,
+      `${scheduleLabel} step ${step.target}`,
+      provisionalLimits,
+      { scheduler: "sequence" },
+    ),
+  }));
+  const resolvedLimits = resolveSchedulerResourceLimits({
+    scheduler: "sequence",
+    resourceLimits: normalizedLimits.limits,
+    resourceLimitSources: normalizedLimits.sources,
+    label: scheduleLabel,
+    workUnits: provisionalUnits,
+  });
+  const resourceLimits = resolvedLimits.resourceLimits;
   const units = sequence.steps.map((step, index) => {
     const declaredNeeds = [...step.needs];
     if (sequence.executionMode === "serial" && index > 0 && !declaredNeeds.includes(sequence.steps[index - 1].target)) {
       declaredNeeds.push(sequence.steps[index - 1].target);
     }
-    const resourceClaims = normalizeResourceMap(
+    const resourceClaims = normalizeResourceClaims(
       step.resourceClaims,
-      `sequence ${sequence.name} step ${step.target} resource_claims`,
+      `${scheduleLabel} step ${step.target}`,
+      resourceLimits,
+      { scheduler: "sequence" },
     );
-    for (const [resource, amount] of resourceClaims) {
-      const limit = resourceLimits.get(resource);
-      if (!limit) throw new Error(`sequence ${sequence.name} step ${step.target} claims undeclared resource ${resource}`);
-      if (amount > limit) throw new Error(`sequence ${sequence.name} step ${step.target} claims ${amount} ${resource}, above limit ${limit}`);
-    }
-    const makeJobs = stepJobs(step, sequence.name);
+    const forwarding = step.forwarding === ""
+      ? null
+      : resolveResourceForwardingProfile(
+        step.forwarding,
+        resourceClaims,
+        `${scheduleLabel} step ${step.target}`,
+      );
+    const makeJobs = stepJobs(step, sequence.name, resourceClaims);
     const args = ["--no-print-directory"];
-    if (step.type === "parallel") args.push("--output-sync=target", `-j${makeJobs}`);
+    if (makeJobs > 1) args.push("--output-sync=target", `-j${makeJobs}`);
     args.push(step.target);
     return {
       id: step.target,
@@ -145,7 +180,7 @@ function compileSequence(sequence, context, manifestPath) {
       browserGroup: null,
       shard: "",
       shardNames: [],
-      schedulerProfile: "",
+      schedulerProfile: step.resourceProfile,
       readinessAttribution: null,
       completeOnFailure: false,
       timeoutMs: 0,
@@ -154,8 +189,14 @@ function compileSequence(sequence, context, manifestPath) {
       command: {
         command: context.makeBin,
         args,
-        env: childMakeEnv(step.skipPrerequisites),
+        env: {
+          ...childMakeEnv(step.skipPrerequisites),
+          ...Object.fromEntries(forwarding?.resourceLimitEnv ?? []),
+        },
       },
+      forwardingProfile: forwarding?.profile ?? "",
+      forwardingMappings: forwarding?.forwardingMappings ?? [],
+      forwardedResourceLimits: forwarding?.forwardedResourceLimits ?? new Map(),
     };
   });
   const ids = new Set(units.map((unit) => unit.id));
@@ -198,13 +239,20 @@ function compileSequence(sequence, context, manifestPath) {
     quietHumanOutput: true,
     validateSummaryTiming: true,
     resourceLimits,
-    resourceLimitSources: new Map([...resourceLimits.keys()].map((resource) => [resource, "execution_topology"])),
+    resourceLimitSources: resolvedLimits.resourceLimitSources,
     workUnits: units.sort(
       (left, right) => right.priority - left.priority || left.order - right.order || left.id.localeCompare(right.id),
     ),
     totalWorkUnits: units.length,
     finalizerCount: 0,
-    nestedSchedulerLimits: () => [],
+    nestedSchedulerLimits: () => units
+      .filter((unit) => unit.forwardingProfile !== "")
+      .map((unit) => ({
+        work_unit_id: unit.id,
+        target: unit.target,
+        forwarding_profile: unit.forwardingProfile,
+        mappings: unit.forwardingMappings,
+      })),
     nestedSchedulerObservations: () => [],
     countCompletedUnit: (_unit, result) => result.status === 0,
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
@@ -213,6 +261,11 @@ function compileSequence(sequence, context, manifestPath) {
     helperUnitNames,
     summaryGroups,
     executionMode: sequence.executionMode,
+    maxJobs: Math.min(
+      sequence.maxJobs,
+      resourceLimits.get("process") ?? sequence.maxJobs,
+    ),
+    capacityProfile: sequence.capacityProfile,
     manifestPath,
   };
 }
