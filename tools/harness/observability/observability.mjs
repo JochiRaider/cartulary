@@ -411,7 +411,8 @@ function measurementContract(target, catalog, manifest, executionTopology) {
         },
         report_projection: {
           physical_report_parse: "once_per_physical_report",
-          emission: "parallel_host_derived_pool",
+          emission: "bounded_reusable_host_derived_pool",
+          owner_accounting_context: "once_per_target",
         },
       },
     } : {}),

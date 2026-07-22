@@ -20,7 +20,8 @@ import {
   unshardedCaptureGroups,
 } from "./planning.mjs";
 import {
-  emitExecutionFamily,
+  createExecutionFamilyRequest,
+  emitExecutionFamilyRequests,
   finishTarget,
   runSettledBounded,
   writeFinalizerFailureStep,
@@ -95,47 +96,47 @@ export async function runUnshardedTarget(ctx, target) {
       entries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
     }));
   }
-  const familyResults = await runSettledBounded(
+  const collationResults = await runSettledBounded(
     familyRequests,
     pool.workers,
     async (request) => {
-      const finalizerStarted = captureStart();
+      const collationStarted = captureStart();
       try {
         const report = createUnshardedFamilyReport(
           ctx,
           request.family,
           request.entries,
         );
-        const emitStatus = await emitExecutionFamily(
+        const emissionRequest = createExecutionFamilyRequest(
           ctx,
           target,
           request.family,
           report.usage,
           report.reportDir,
         );
-        const finalizerWindow = captureFinish(finalizerStarted);
+        const collationWindow = captureFinish(collationStarted);
         writeTargetTimingSpan(
           ctx,
           "report_collation",
-          `finalize ${target}:${request.family}`,
-          finalizerWindow,
-          emitStatus === 0 ? "pass" : "fail",
+          `collate ${target}:${request.family}`,
+          collationWindow,
+          "pass",
         );
-        return emitStatus;
+        return Object.freeze({ request, report, emissionRequest });
       } catch (error) {
-        const finalizerWindow = captureFinish(finalizerStarted);
+        const collationWindow = captureFinish(collationStarted);
         writeTargetTimingSpan(
           ctx,
           "report_collation",
-          `finalize ${target}:${request.family}`,
-          finalizerWindow,
+          `collate ${target}:${request.family}`,
+          collationWindow,
           "fail",
         );
         writeFinalizerFailureStep(ctx, {
           target,
-          label: `finalize ${target}:${request.family}`,
+          label: `collate ${target}:${request.family}`,
           commandArgs: ["run-go-target.mjs", target],
-          window: finalizerWindow,
+          window: collationWindow,
           error,
           metadataDir: path.join(ctx.resultsRoot, ctx.runId, "_shared"),
         });
@@ -143,14 +144,51 @@ export async function runUnshardedTarget(ctx, target) {
       }
     },
   );
-  for (const result of familyResults) {
-    if (result.error) {
-      process.stderr.write(`${result.error.message}\n`);
-      if (status === 0) {
-        status = Number.isInteger(result.error.exitCode) ? result.error.exitCode : 1;
-      }
-    } else if (status === 0 && result.value !== 0) {
-      status = result.value;
+  const successfulCollations = collationResults
+    .map((result, index) => ({ result, index }))
+    .filter(({ result }) => !result.error);
+  const emissionResults = await emitExecutionFamilyRequests(
+    ctx,
+    successfulCollations.map(({ result }) => result.value.emissionRequest),
+    pool.workers,
+  );
+  const emissionsByFamilyIndex = new Map(
+    successfulCollations.map(({ index }, resultIndex) => [index, emissionResults[resultIndex]]),
+  );
+  for (const [index, collationResult] of collationResults.entries()) {
+    if (collationResult.error) {
+      process.stderr.write(`${collationResult.error.message}\n`);
+      if (status === 0) status = Number.isInteger(collationResult.error.exitCode)
+        ? collationResult.error.exitCode
+        : 1;
+      continue;
+    }
+    const emissionResult = emissionsByFamilyIndex.get(index);
+    const emissionWindow = emissionResult.value?.window ?? emissionResult.error?.window;
+    if (emissionWindow) {
+      writeTargetTimingSpan(
+        ctx,
+        "report_collation",
+        `emit ${target}:${collationResult.value.request.family}`,
+        emissionWindow,
+        emissionResult.error || emissionResult.value.status !== 0 ? "fail" : "pass",
+      );
+    }
+    if (emissionResult.error) {
+      writeFinalizerFailureStep(ctx, {
+        target,
+        label: `emit ${target}:${collationResult.value.request.family}`,
+        commandArgs: ["run-go-target.mjs", target],
+        window: emissionWindow ?? captureFinish(captureStart()),
+        error: emissionResult.error,
+        metadataDir: path.join(ctx.resultsRoot, ctx.runId, "_shared"),
+      });
+      process.stderr.write(`${emissionResult.error.message}\n`);
+      if (status === 0) status = Number.isInteger(emissionResult.error.exitCode)
+        ? emissionResult.error.exitCode
+        : 1;
+    } else if (status === 0 && emissionResult.value.status !== 0) {
+      status = emissionResult.value.status;
     }
   }
   return await finishTarget(ctx, status);
@@ -291,6 +329,14 @@ export async function finalizeScheduledShards(
           target,
           entries,
         );
+        const emissionRequest = createExecutionFamilyRequest(
+          ctx,
+          target,
+          request.aggregateName,
+          report.usage,
+          report.reportDir,
+          rows,
+        );
         const aggregateWindow = captureFinish(aggregateStarted);
         writeTargetTimingSpan(
           ctx,
@@ -299,7 +345,7 @@ export async function finalizeScheduledShards(
           aggregateWindow,
           "pass",
         );
-        return Object.freeze({ request, report, rows });
+        return Object.freeze({ request, report, rows, emissionRequest });
       } catch (error) {
         const aggregateWindow = captureFinish(aggregateStarted);
         writeTargetTimingSpan(
@@ -326,52 +372,10 @@ export async function finalizeScheduledShards(
   const successfulCollations = collationResults
     .map((result, index) => ({ result, index }))
     .filter(({ result }) => !result.error);
-  const emissionResults = await runSettledBounded(
-    successfulCollations,
+  const emissionResults = await emitExecutionFamilyRequests(
+    ctx,
+    successfulCollations.map(({ result }) => result.value.emissionRequest),
     pool.workers,
-    async ({ result: collationResult }) => {
-      const { request, report, rows } = collationResult.value;
-      const emitStarted = captureStart();
-      try {
-        const emitStatus = await emitExecutionFamily(
-          ctx,
-          target,
-          request.aggregateName,
-          report.usage,
-          report.reportDir,
-          rows,
-        );
-        const emitWindow = captureFinish(emitStarted);
-        writeTargetTimingSpan(
-          ctx,
-          "report_collation",
-          `emit ${target}:${request.aggregateName}`,
-          emitWindow,
-          emitStatus === 0 ? "pass" : "fail",
-        );
-        return emitStatus;
-      } catch (error) {
-        const emitWindow = captureFinish(emitStarted);
-        writeTargetTimingSpan(
-          ctx,
-          "report_collation",
-          `emit ${target}:${request.aggregateName}`,
-          emitWindow,
-          "fail",
-        );
-        writeFinalizerFailureStep(ctx, {
-          target,
-          label: `emit ${target}:${request.aggregateName}`,
-          commandArgs: finalizerCommandArgs,
-          window: emitWindow,
-          error,
-          metadataDir,
-          aggregateReportDir: report.reportDir,
-          shardNames: request.shardNames,
-        });
-        throw error;
-      }
-    },
   );
   const emissionsByAggregateIndex = new Map(
     successfulCollations.map(({ index }, resultIndex) => [index, emissionResults[resultIndex]]),
@@ -385,13 +389,33 @@ export async function finalizeScheduledShards(
       continue;
     }
     const emissionResult = emissionsByAggregateIndex.get(index);
+    const emissionWindow = emissionResult.value?.window ?? emissionResult.error?.window;
+    if (emissionWindow) {
+      writeTargetTimingSpan(
+        ctx,
+        "report_collation",
+        `emit ${target}:${collationResult.value.request.aggregateName}`,
+        emissionWindow,
+        emissionResult.error || emissionResult.value.status !== 0 ? "fail" : "pass",
+      );
+    }
     if (emissionResult.error) {
+      writeFinalizerFailureStep(ctx, {
+        target,
+        label: `emit ${target}:${collationResult.value.request.aggregateName}`,
+        commandArgs: finalizerCommandArgs,
+        window: emissionWindow ?? captureFinish(captureStart()),
+        error: emissionResult.error,
+        metadataDir,
+        aggregateReportDir: collationResult.value.report.reportDir,
+        shardNames: collationResult.value.request.shardNames,
+      });
       process.stderr.write(`${emissionResult.error.message}\n`);
       if (status === 0) status = Number.isInteger(emissionResult.error.exitCode)
         ? emissionResult.error.exitCode
         : 1;
-    } else if (status === 0 && emissionResult.value !== 0) {
-      status = emissionResult.value;
+    } else if (status === 0 && emissionResult.value.status !== 0) {
+      status = emissionResult.value.status;
     }
   }
   return await finishTarget(ctx, status);

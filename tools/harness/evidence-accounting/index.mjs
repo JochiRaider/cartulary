@@ -1,5 +1,6 @@
 export {
   accountingRowsForTarget,
+  createOwnerAccountingContext,
   evidenceTargetForCatalogRow,
   loadOwnerAccountingSelection,
 } from "./catalog-accounting.mjs";

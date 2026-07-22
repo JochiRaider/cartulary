@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:07cd6b7e7cc4a2553bae3ade225423b7a0a93e5e62266d56d6e319bae408be8b",
+  "input_digest": "sha256:f1fc01aad222286c12ed9c51b39fc22a07dbe1807e6a492e4d5a848f04a54822",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -400,6 +400,11 @@
       "hash": "sha256:694cad4de43895b5ba1813f8f41c19d3b094f3b78a56e89c05f75c59966e4b32"
     },
     {
+      "path": "tools/harness/backend/target-execution/report-emission-worker.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:ff45e566088ef9980790db2fcfbf5650152b7874e4d94f50ba5f83395264fd8a"
+    },
+    {
       "path": "tools/harness/backend/target-execution/reports.mjs",
       "role": "renderer_source",
       "hash": "sha256:42e1d1f548ea83e72d6defbb734de82c5514a901342e8d7616a54fad928321a8"
@@ -412,12 +417,12 @@
     {
       "path": "tools/harness/backend/target-execution/summary-emission.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0956502e09471df422a2490dbb4905d53cb4166b30391bd2678ccd9132f6b698"
+      "hash": "sha256:428eefb5a3b6d5feeac7882451dabc1ef806f216c5b12f96aa5c7c897fc7c867"
     },
     {
       "path": "tools/harness/backend/target-execution/targets.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0377b1e7e1d7cabc5b33fca7dd20ea5af6ee8f123f231513358e9d4f64a918f3"
+      "hash": "sha256:d12a88354ca53bc902a28d64445cc1b830cd96e910eef2d85b394f14d46a2f66"
     },
     {
       "path": "tools/harness/backend/target-execution/util.mjs",

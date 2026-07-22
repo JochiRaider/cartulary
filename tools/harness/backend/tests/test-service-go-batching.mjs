@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 
 import { collectCompatibleCaptureGroups } from "../go-target-aggregate.mjs";
 import { collectGoShardPlanFromRows } from "../go-shard-plan.mjs";
@@ -17,7 +18,10 @@ import {
   createUnshardedFamilyReport,
   parsePhysicalReport,
 } from "../target-execution/reports.mjs";
-import { runSettledBounded } from "../target-execution/summary-emission.mjs";
+import {
+  partitionEmissionRequests,
+  runSettledBounded,
+} from "../target-execution/summary-emission.mjs";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-service-go-batching-"));
 
@@ -218,6 +222,36 @@ try {
     ["value-0", "worker-1", "value-2", "worker-3", "value-4"],
   );
   assert.ok(settled.every(Object.isFrozen));
+
+  const emissionBatches = partitionEmissionRequests(
+    Array.from({ length: 34 }, (_, index) => `family-${index}`),
+    6,
+  );
+  assert.deepEqual(emissionBatches.map((batch) => batch.length), [6, 6, 6, 6, 5, 5]);
+  assert.deepEqual(
+    emissionBatches.flat().map((entry) => entry.index).sort((left, right) => left - right),
+    Array.from({ length: 34 }, (_, index) => index),
+  );
+  assert.throws(() => partitionEmissionRequests(["family"], 0), /invalid report emission worker count/u);
+
+  const workerFixture = await new Promise((resolve, reject) => {
+    const worker = new Worker(
+      new URL("../target-execution/report-emission-worker.mjs", import.meta.url),
+      {
+        workerData: {
+          entries: [
+            { index: 0, request: { emissions: [{ catalogAware: false, env: {} }] } },
+            { index: 1, request: { emissions: [] } },
+          ],
+        },
+      },
+    );
+    worker.once("message", resolve);
+    worker.once("error", reject);
+  });
+  assert.match(workerFixture.results[0].error.message, /missing required environment variable/u);
+  assert.equal(workerFixture.results[1].error, null);
+  assert.equal(workerFixture.results[1].status, 0);
 
   const oversizedRows = [row(301), row(302)];
   const oversizedPlan = plan(oversizedRows, { [symbol(301)]: 13_000, [symbol(302)]: 1_000 });

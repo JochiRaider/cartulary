@@ -13,11 +13,13 @@ import {
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
 import {
   commandTargetForEvidenceTarget,
-  loadTestCatalog,
   targetForCatalogRow,
 } from "../test-catalog/index.mjs";
 import { parseStrictJSON } from "../test-catalog/semantic-json.mjs";
-import { accountingRowsForTarget } from "./catalog-accounting.mjs";
+import {
+  accountingRowsForTarget,
+  createOwnerAccountingContext,
+} from "./catalog-accounting.mjs";
 import {
   buildTestEvidenceAccounting,
   buildTestOwnerSummary,
@@ -44,18 +46,6 @@ function sortedDistinct(values) {
 
 function readJSON(file) {
   return parseStrictJSON(readFileSync(file, "utf8"), file);
-}
-
-function commandTargetContext(root) {
-  const manifest = readJSON(path.join(root, "tools/task_surface_manifest.json"));
-  return {
-    commandByTarget: new Map(
-      manifest.targets.map((entry) => [entry.name, entry.command_id ?? ""]),
-    ),
-    targetByCommand: new Map(
-      manifest.targets.map((entry) => [entry.command_id, entry.name]),
-    ),
-  };
 }
 
 function rowTarget(row, targetByCommand) {
@@ -528,8 +518,8 @@ export function finalizeTargetOwnerEvidence(
   },
 ) {
   if (requestedStatus !== "pass") return { status: "not_selected", shards: [] };
-  const catalog = loadTestCatalog(root);
-  const { commandByTarget, targetByCommand } = commandTargetContext(root);
+  const accountingContext = createOwnerAccountingContext(root);
+  const { catalog, commandByTarget, targetByCommand } = accountingContext;
   const commandTargetID = commandTargetForEvidenceTarget(targetID);
   const commandID = commandByTarget.get(commandTargetID) ?? "";
   const allTargetRows = catalog.rows.filter(
@@ -582,7 +572,7 @@ export function finalizeTargetOwnerEvidence(
   const ownerIDs = sortedDistinct(selectedRows.map((row) => row.owner_id));
   const shards = ownerIDs.map((ownerID) => {
     const ownerRows = selectedRows.filter((row) => row.owner_id === ownerID);
-    const selection = accountingRowsForTarget(root, {
+    const selection = accountingRowsForTarget(accountingContext, {
       ownerID,
       rowIDs: ownerRows.map((row) => row.row_id),
       targetName: targetID,

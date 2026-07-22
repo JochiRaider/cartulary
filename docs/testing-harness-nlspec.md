@@ -2616,8 +2616,12 @@ All exact symbols in one
 compatible package/runtime/fixture/isolation/evidence-class group MAY share one
 Go JSON process. Raw package selectors remain separate. Each physical Go report
 MUST be parsed once; immutable family-projection requests then execute through
-the same host-derived worker pool. Production MUST NOT read or mutate ambient
-environment to control this private worker limit. Stable row ordering,
+the same host-derived worker pool. Each worker MUST initialize the output
+runtime once and process multiple requests sequentially; starting one cold
+output runtime per family is forbidden. Target owner-evidence finalization MUST
+load one immutable catalog/accounting context and reuse it for every owner
+partition in that target. Production MUST NOT read or mutate ambient environment
+to control this private worker limit. Stable row ordering,
 target-summary ordering, and Section 9 primary-failure ordering MUST be applied
 after all bounded work settles. Capture or report-worker failure MUST preserve
 any already successful row evidence and select one primary failure through the

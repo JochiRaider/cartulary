@@ -87,6 +87,7 @@ import {
   accountingRowsForTarget,
   buildTestEvidenceAccounting,
   buildTestOwnerSummary,
+  createOwnerAccountingContext,
   deriveRequiredEvidencePartitions,
   evidenceTargetForCatalogRow,
   finalizeTargetOwnerEvidence,
@@ -254,7 +255,8 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
 });
 
 test("owner evidence accounting projects exact catalog rows without delivery metadata", () => {
-  const selection = loadOwnerAccountingSelection(repoRoot, {
+  const accountingContext = createOwnerAccountingContext(repoRoot);
+  const selection = loadOwnerAccountingSelection(accountingContext, {
     ownerID: "module.networkflow",
   });
   assert.ok(selection.selected_rows.length > 0);
@@ -266,7 +268,7 @@ test("owner evidence accounting projects exact catalog rows without delivery met
   assert.ok(selection.expected_rows.some((row) => row.runner === "vitest"));
   assert.doesNotMatch(JSON.stringify(selection), /(?:guide_path|guide_digest)/u);
 
-  const accessibility = accountingRowsForTarget(repoRoot, {
+  const accessibility = accountingRowsForTarget(accountingContext, {
     ownerID: "module.networkflow",
     targetName: "browser-e2e-a11y",
   });
@@ -274,6 +276,10 @@ test("owner evidence accounting projects exact catalog rows without delivery met
   assert.ok(accessibility.expected_rows.length > 0);
   assert.ok(accessibility.expected_rows.every((row) => row.target_name === "browser-e2e-a11y"));
   assert.ok(accessibility.expected_rows.every((row) => row.runtime_profile_id === "network_flow_claimed"));
+  assert.throws(
+    () => loadOwnerAccountingSelection({ root: repoRoot }, { ownerID: "module.networkflow" }),
+    /invalid owner accounting context/u,
+  );
 
   const catalog = loadTestCatalog(repoRoot);
   const shellRow = catalog.rows.find((row) => row.runner === "shell");

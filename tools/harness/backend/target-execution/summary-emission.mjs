@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 
 import { collectAggregateEmissions } from "../go-target-aggregate.mjs";
 import {
@@ -16,6 +17,7 @@ import { renderCommand } from "./command.mjs";
 import { rowsForAggregate } from "./planning.mjs";
 import { loadStepWindow } from "./reports.mjs";
 import {
+  captureStart,
   captureFinish,
   nowUTC,
   relToRepo,
@@ -274,7 +276,7 @@ export async function finishTarget(ctx, status) {
   return status;
 }
 
-async function emitReportStepSummary(
+function reportStepRequest(
   ctx,
   helperCommand,
   label,
@@ -284,23 +286,36 @@ async function emitReportStepSummary(
 ) {
   const step = loadStepWindow(reportDir, mode);
   const stepDir = prepareStepArtifactDir(ctx, label);
-  return await runHelper(ctx, [helperCommand], {
-    CARTULARY_TEST_TARGET: ctx.testTarget,
-    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-    CARTULARY_STEP_LABEL: label,
-    CARTULARY_STEP_DIR: stepDir,
-    CARTULARY_STEP_COMMAND: step.command,
-    CARTULARY_STEP_START_TIME: step.startTime,
-    CARTULARY_STEP_END_TIME: step.endTime,
-    CARTULARY_STEP_LOGICAL_DURATION_MS: String(step.durationMs),
-    CARTULARY_STEP_EXECUTED_DURATION_MS: String(step.durationMs),
-    CARTULARY_STEP_WALL_DURATION_MS: String(step.wallDurationMs),
-    CARTULARY_STEP_EXIT_STATUS: String(step.exitStatus),
-    CARTULARY_REPORT_SLICE: "1",
-    CARTULARY_STEP_ACCOUNTING_MODE: mode,
-    CARTULARY_STEP_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
-    CARTULARY_STEP_STDERR_LOG: path.join(reportDir, "stderr.log"),
-    ...extraEnv,
+  return Object.freeze({
+    helperCommand,
+    catalogAware: helperCommand === "go-catalog-step",
+    env: Object.freeze({
+      CARTULARY_TEST_TARGET: ctx.testTarget,
+      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+      CARTULARY_STEP_LABEL: label,
+      CARTULARY_STEP_DIR: stepDir,
+      CARTULARY_STEP_COMMAND: step.command,
+      CARTULARY_STEP_START_TIME: step.startTime,
+      CARTULARY_STEP_END_TIME: step.endTime,
+      CARTULARY_STEP_LOGICAL_DURATION_MS: String(step.durationMs),
+      CARTULARY_STEP_EXECUTED_DURATION_MS: String(step.durationMs),
+      CARTULARY_STEP_WALL_DURATION_MS: String(step.wallDurationMs),
+      CARTULARY_STEP_EXIT_STATUS: String(step.exitStatus),
+      CARTULARY_REPORT_SLICE: "1",
+      CARTULARY_STEP_ACCOUNTING_MODE: mode,
+      CARTULARY_STEP_RUNNER_LOG: path.join(reportDir, "runner.jsonl"),
+      CARTULARY_STEP_STDERR_LOG: path.join(reportDir, "stderr.log"),
+      CARTULARY_CATALOG_OWNER_ID: "",
+      CARTULARY_MANIFEST_SECTION: "",
+      CARTULARY_MANIFEST_COVERAGE: "",
+      CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: "",
+      CARTULARY_EXECUTION_FAMILY: "",
+      CARTULARY_GO_PACKAGE_PATTERNS: "",
+      CARTULARY_MANIFEST_SELECTED_IDS: "",
+      CARTULARY_GO_TEST_REGEX: "",
+      CARTULARY_ACCOUNTING_COVERAGE: "",
+      ...extraEnv,
+    }),
   });
 }
 
@@ -308,7 +323,7 @@ function packagePatternsEnv(packages) {
   return packages.join("\n");
 }
 
-async function emitGoRawStep(
+function goRawStepRequest(
   ctx,
   label,
   mode,
@@ -317,14 +332,14 @@ async function emitGoRawStep(
   packages,
   coverage,
 ) {
-  return await emitReportStepSummary(ctx, "go-step", label, reportDir, mode, {
+  return reportStepRequest(ctx, "go-step", label, reportDir, mode, {
     CARTULARY_GO_TEST_REGEX: regex,
     CARTULARY_ACCOUNTING_COVERAGE: coverage,
     CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(packages),
   });
 }
 
-async function emitGoCatalogStep(
+function goCatalogStepRequest(
   ctx,
   label,
   mode,
@@ -337,7 +352,7 @@ async function emitGoCatalogStep(
   packages,
   selectedIDs = [],
 ) {
-  return await emitReportStepSummary(
+  return reportStepRequest(
     ctx,
     "go-catalog-step",
     label,
@@ -365,15 +380,33 @@ export async function emitExecutionFamily(
   reportDir,
   rows = null,
 ) {
-  let status = 0;
+  const request = createExecutionFamilyRequest(
+    ctx,
+    target,
+    family,
+    usage,
+    reportDir,
+    rows,
+  );
+  return await emitExecutionFamilyRequest(ctx, request);
+}
+
+export function createExecutionFamilyRequest(
+  ctx,
+  target,
+  family,
+  usage,
+  reportDir,
+  rows = null,
+) {
+  const requests = [];
   const emissions = collectAggregateEmissions(
     rows ?? rowsForAggregate(ctx, target, family),
   );
   for (const [index, emission] of emissions.entries()) {
     const emissionUsage = index === 0 ? usage : "derived";
-    let result = 0;
     if (emission.mode === "manifest") {
-      result = await emitGoCatalogStep(
+      requests.push(goCatalogStepRequest(
         ctx,
         emission.label,
         emissionUsage,
@@ -385,9 +418,9 @@ export async function emitExecutionFamily(
         family,
         emission.packages,
         emission.ids ?? [],
-      );
+      ));
     } else if (emission.mode === "support") {
-      result = await emitGoRawStep(
+      requests.push(goRawStepRequest(
         ctx,
         emission.label,
         emissionUsage,
@@ -395,9 +428,9 @@ export async function emitExecutionFamily(
         emission.regex,
         emission.packages,
         "support",
-      );
+      ));
     } else if (emission.mode === "raw") {
-      result = await emitGoRawStep(
+      requests.push(goRawStepRequest(
         ctx,
         emission.label,
         emissionUsage,
@@ -405,15 +438,124 @@ export async function emitExecutionFamily(
         emission.regex,
         emission.packages,
         "raw",
-      );
+      ));
     } else {
       throw new Error(
         `unsupported execution family emission mode ${emission.mode}`,
       );
     }
-    if (result !== 0) {
-      status = result;
-    }
+  }
+  return Object.freeze({
+    target,
+    family,
+    emissions: Object.freeze(requests),
+  });
+}
+
+export async function emitExecutionFamilyRequest(ctx, request) {
+  let status = 0;
+  for (const emission of request.emissions) {
+    const result = await runHelper(ctx, [emission.helperCommand], emission.env);
+    if (result !== 0) status = result;
   }
   return status;
+}
+
+function defaultTestOutputScript(ctx) {
+  return path.resolve(ctx.testOutputScript) === path.join(
+    path.resolve(ctx.repoRoot),
+    "tools",
+    "harness",
+    "output",
+    "test-output.mjs",
+  );
+}
+
+function workerError(value) {
+  if (!value) return null;
+  const error = new Error(value.message ?? "report emission worker failed");
+  if (Number.isInteger(value.exitCode)) error.exitCode = value.exitCode;
+  if (value.stack) error.stack = value.stack;
+  return error;
+}
+
+async function runEmissionWorker(ctx, entries) {
+  return await new Promise((resolve) => {
+    let settled = false;
+    const worker = new Worker(
+      new URL("./report-emission-worker.mjs", import.meta.url),
+      {
+        workerData: { entries },
+        env: {
+          ...ctx.env,
+          NODE_BIN: ctx.nodeBin,
+        },
+      },
+    );
+    const finish = (results) => {
+      if (settled) return;
+      settled = true;
+      resolve(results);
+    };
+    worker.once("message", (message) => finish(message.results));
+    worker.once("error", (error) => finish(entries.map(({ index }) => ({
+      index,
+      error: { message: error.message, stack: error.stack },
+      window: null,
+      status: null,
+    }))));
+    worker.once("exit", (status) => {
+      if (status !== 0) {
+        finish(entries.map(({ index }) => ({
+          index,
+          error: { message: `report emission worker exited ${status}`, exitCode: status },
+          window: null,
+          status: null,
+        })));
+      }
+    });
+  });
+}
+
+export function partitionEmissionRequests(requests, jobs) {
+  if (!Number.isInteger(jobs) || jobs < 1) {
+    throw new Error(`invalid report emission worker count ${jobs}`);
+  }
+  if (requests.length === 0) return [];
+  const workerCount = Math.min(requests.length, jobs);
+  const batches = Array.from({ length: workerCount }, () => []);
+  requests.forEach((request, index) => {
+    batches[index % workerCount].push(Object.freeze({ index, request }));
+  });
+  return batches.map((batch) => Object.freeze(batch));
+}
+
+export async function emitExecutionFamilyRequests(ctx, requests, jobs) {
+  if (!defaultTestOutputScript(ctx)) {
+    return await runSettledBounded(requests, jobs, async (request) => {
+      const started = captureStart();
+      try {
+        const status = await emitExecutionFamilyRequest(ctx, request);
+        return Object.freeze({ status, window: captureFinish(started) });
+      } catch (error) {
+        error.window = captureFinish(started);
+        throw error;
+      }
+    });
+  }
+  if (requests.length === 0) return [];
+  const batches = partitionEmissionRequests(requests, jobs);
+  const workerResults = (await Promise.all(
+    batches.map((entries) => runEmissionWorker(ctx, entries)),
+  )).flat();
+  const results = new Array(requests.length);
+  for (const result of workerResults) {
+    const error = workerError(result.error);
+    results[result.index] = Object.freeze({
+      value: error ? null : Object.freeze({ status: result.status, window: result.window }),
+      error,
+    });
+    if (error && result.window) error.window = result.window;
+  }
+  return results;
 }

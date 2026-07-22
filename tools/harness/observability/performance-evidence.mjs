@@ -601,7 +601,8 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       backend?.worker_pool?.formula !== "min(group_count,clamp(floor(available_parallelism/4),1,8))" ||
       backend?.worker_pool?.child_gomaxprocs !== "max(1,floor(available_parallelism/workers))" ||
       backend?.report_projection?.physical_report_parse !== "once_per_physical_report" ||
-      backend?.report_projection?.emission !== "parallel_host_derived_pool") {
+      backend?.report_projection?.emission !== "bounded_reusable_host_derived_pool" ||
+      backend?.report_projection?.owner_accounting_context !== "once_per_target") {
       throw new Error(`${target} candidate policy does not implement the exact backend transition`);
     }
   }

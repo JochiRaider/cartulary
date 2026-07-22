@@ -27,9 +27,39 @@ function readStrictJSON(root, relativePath) {
   return parseStrictJSON(readFileSync(file, "utf8"), file);
 }
 
-function commandTargets(root) {
+function commandTargetContext(root) {
   const manifest = readStrictJSON(root, "tools/task_surface_manifest.json");
-  return new Map(manifest.targets.map((entry) => [entry.command_id, entry.name]));
+  return {
+    commandByTarget: new Map(
+      manifest.targets.map((entry) => [entry.name, entry.command_id ?? ""]),
+    ),
+    targetByCommand: new Map(
+      manifest.targets.map((entry) => [entry.command_id, entry.name]),
+    ),
+  };
+}
+
+const accountingContexts = new WeakSet();
+
+export function createOwnerAccountingContext(root) {
+  const normalizedRoot = path.resolve(root);
+  const context = Object.freeze({
+    root: normalizedRoot,
+    catalog: loadTestCatalog(normalizedRoot),
+    ...commandTargetContext(normalizedRoot),
+  });
+  accountingContexts.add(context);
+  return context;
+}
+
+function ownerAccountingContext(rootOrContext) {
+  if (rootOrContext && typeof rootOrContext === "object") {
+    if (!accountingContexts.has(rootOrContext)) {
+      throw new Error("invalid owner accounting context");
+    }
+    return rootOrContext;
+  }
+  return createOwnerAccountingContext(rootOrContext);
 }
 
 function profileByID(profiles, key, id) {
@@ -41,11 +71,12 @@ function profileByID(profiles, key, id) {
 export { targetForCatalogRow as evidenceTargetForCatalogRow };
 
 export function loadOwnerAccountingSelection(
-  root,
+  rootOrContext,
   { ownerID, rowIDs = null, targetName = "" },
 ) {
-  const normalizedRoot = path.resolve(root);
-  const catalog = loadTestCatalog(normalizedRoot);
+  const context = ownerAccountingContext(rootOrContext);
+  const normalizedRoot = context.root;
+  const catalog = context.catalog;
   const owner = catalog.registry.owners.find((entry) => entry.owner_id === ownerID);
   if (!owner || owner.status !== "active") throw new Error(`unknown active test owner ${ownerID}`);
 
@@ -67,7 +98,7 @@ export function loadOwnerAccountingSelection(
     });
   }
 
-  const targetByCommand = commandTargets(normalizedRoot);
+  const targetByCommand = context.targetByCommand;
   const rowsWithTargets = rows.map((row) => ({
     row,
     target_name: targetForCatalogRow(row, { commandTargetByID: targetByCommand }),
@@ -115,14 +146,15 @@ export function loadOwnerAccountingSelection(
   };
 }
 
-export function accountingRowsForTarget(root, { ownerID, rowIDs = null, targetName }) {
-  const selection = loadOwnerAccountingSelection(root, { ownerID, rowIDs });
+export function accountingRowsForTarget(rootOrContext, { ownerID, rowIDs = null, targetName }) {
+  const context = ownerAccountingContext(rootOrContext);
+  const selection = loadOwnerAccountingSelection(context, { ownerID, rowIDs });
   const targetRowIDs = selection.expected_rows
     .filter((row) => row.target_name === targetName)
     .map((row) => row.row_id);
   return targetRowIDs.length === 0
     ? null
-    : loadOwnerAccountingSelection(root, {
+    : loadOwnerAccountingSelection(context, {
         ownerID,
         rowIDs: targetRowIDs,
         targetName,
