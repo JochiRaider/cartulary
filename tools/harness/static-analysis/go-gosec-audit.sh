@@ -6,16 +6,21 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
-NODE_BIN="${NODE_BIN:-node}"
-SUPPORT_PROFILE_SCRIPT="$ROOT_DIR/tools/harness/static-analysis/support-inventory-profiles.mjs"
-TEST_SUPPORT_INVENTORY="${TEST_SUPPORT_INVENTORY:-${CARTULARY_TEST_SUPPORT_INVENTORY:-$ROOT_DIR/tools/test_support_inventory.json}}"
 GOSEC_AUDIT_RUNTIME_RULES="${GOSEC_AUDIT_RUNTIME_RULES:-G118,G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:-}"
 GOSEC_AUDIT_RUNTIME_PATTERNS="${GOSEC_AUDIT_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 GOSEC_AUDIT_SUPPORT_RULES="${GOSEC_AUDIT_SUPPORT_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_SUPPORT_FLAGS="${GOSEC_AUDIT_SUPPORT_FLAGS:--exclude-generated -no-fail -quiet}"
-GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-}"
+GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./tools/...}"
 profile_metadata="${CARTULARY_STEP_ARTIFACT_DIR:+${CARTULARY_STEP_ARTIFACT_DIR}/security-profiles.jsonl}"
+audit_cpu_limit="${CARTULARY_SEQUENCE_HOST_CPU_LIMIT:-}"
+if [[ -z "$audit_cpu_limit" ]]; then
+  audit_cpu_limit="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
+fi
+if [[ ! "$audit_cpu_limit" =~ ^[1-9][0-9]*$ ]]; then
+  echo "go-gosec-audit requires a positive scheduler CPU limit" >&2
+  exit 1
+fi
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
@@ -40,12 +45,37 @@ if [[ ! -x "$GOSEC_BIN" ]]; then
   exit 1
 fi
 
-if [[ -z "$GOSEC_AUDIT_RUNTIME_FLAGS" ]]; then
-  GOSEC_AUDIT_RUNTIME_FLAGS="$("$NODE_BIN" "$SUPPORT_PROFILE_SCRIPT" gosec-runtime-flags --base "-exclude-generated -no-fail -quiet" --inventory "$TEST_SUPPORT_INVENTORY" --root "$ROOT_DIR")"
-fi
-if [[ -z "$GOSEC_AUDIT_SUPPORT_PATTERNS" ]]; then
-  GOSEC_AUDIT_SUPPORT_PATTERNS="$("$NODE_BIN" "$SUPPORT_PROFILE_SCRIPT" gosec-support-patterns --inventory "$TEST_SUPPORT_INVENTORY" --root "$ROOT_DIR")"
-fi
+declare -A seen_rules=()
+repository_rules=()
+for rules_value in "$GOSEC_AUDIT_RUNTIME_RULES" "$GOSEC_AUDIT_SUPPORT_RULES"; do
+  IFS=',' read -r -a rule_entries <<<"$rules_value"
+  for rule in "${rule_entries[@]}"; do
+    if [[ -n "$rule" && -z "${seen_rules[$rule]:-}" ]]; then
+      seen_rules["$rule"]=1
+      repository_rules+=("$rule")
+    fi
+  done
+done
+repository_rules_value="$(IFS=','; printf '%s' "${repository_rules[*]}")"
+
+runtime_patterns=()
+read -r -a runtime_patterns <<<"$GOSEC_AUDIT_RUNTIME_PATTERNS"
+repository_patterns=("${runtime_patterns[@]}")
+read -r -a support_patterns <<<"$GOSEC_AUDIT_SUPPORT_PATTERNS"
+for support_pattern in "${support_patterns[@]}"; do
+  covered=0
+  for runtime_pattern in "${runtime_patterns[@]}"; do
+    runtime_prefix="${runtime_pattern%/...}"
+    if [[ "$support_pattern" == "$runtime_pattern" || "$support_pattern" == "$runtime_prefix"/* ]]; then
+      covered=1
+      break
+    fi
+  done
+  if [[ "$covered" -eq 0 ]]; then
+    repository_patterns+=("$support_pattern")
+  fi
+done
+repository_patterns_value="${repository_patterns[*]}"
 
 run_profile() {
   local label="$1"
@@ -78,7 +108,8 @@ run_profile() {
       "$label" "$rules" "$flags" "$patterns_value" >>"$profile_metadata"
   fi
   printf 'go-gosec-audit advisory %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
-  env GOCACHE="$GO_CACHE_DIR" \
+  env GOMAXPROCS="$audit_cpu_limit" \
+    GOCACHE="$GO_CACHE_DIR" \
     GOMODCACHE="$GO_MOD_CACHE_DIR" \
     PATH="$(dirname "$GO_BIN"):$PATH" \
     "$GOSEC_BIN" "${args[@]}" "${patterns[@]}"
@@ -86,5 +117,8 @@ run_profile() {
 
 cd "$ROOT_DIR"
 
-run_profile "runtime" "$GOSEC_AUDIT_RUNTIME_RULES" "$GOSEC_AUDIT_RUNTIME_FLAGS" "$GOSEC_AUDIT_RUNTIME_PATTERNS"
-run_profile "support" "$GOSEC_AUDIT_SUPPORT_RULES" "$GOSEC_AUDIT_SUPPORT_FLAGS" "$GOSEC_AUDIT_SUPPORT_PATTERNS"
+run_profile \
+  "repository" \
+  "$repository_rules_value" \
+  "$GOSEC_AUDIT_SUPPORT_FLAGS" \
+  "$repository_patterns_value"

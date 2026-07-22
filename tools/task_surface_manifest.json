@@ -1220,7 +1220,6 @@
         {
           "type": "step",
           "target": "lint-go",
-          "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-go-format",
             "lint-go-vet",
@@ -1413,6 +1412,7 @@
         {
           "type": "step",
           "target": "harness-contract",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "harness-contract"
           ],
@@ -1431,15 +1431,16 @@
         {
           "type": "step",
           "target": "go-gosec-audit",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "go-gosec-audit"
           ],
           "needs": [
             "check"
           ],
-          "resource_profile": "cpu_analysis",
+          "resource_profile": "security_analysis",
           "resource_claims": {
-            "host_cpu": 4,
+            "host_cpu": "limit",
             "host_io": 1,
             "process": 1
           },
@@ -1449,6 +1450,7 @@
         {
           "type": "step",
           "target": "deployable-shape",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "deployable-shape"
           ],
@@ -1559,6 +1561,7 @@
         {
           "type": "step",
           "target": "harness-contract",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "harness-contract"
           ],
@@ -1577,15 +1580,16 @@
         {
           "type": "step",
           "target": "go-gosec-audit",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "go-gosec-audit"
           ],
           "needs": [
             "check"
           ],
-          "resource_profile": "cpu_analysis",
+          "resource_profile": "security_analysis",
           "resource_claims": {
-            "host_cpu": 4,
+            "host_cpu": "limit",
             "host_io": 1,
             "process": 1
           },
@@ -1706,6 +1710,7 @@
         {
           "type": "step",
           "target": "deployable-shape",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "deployable-shape"
           ],
@@ -3153,7 +3158,8 @@
         "GOSEC_AUDIT_RUNTIME_RULES": "G118,G122,G301,G302,G303,G304,G305,G306,G307",
         "GOSEC_AUDIT_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
         "GOSEC_AUDIT_SUPPORT_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
-        "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet"
+        "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet",
+        "GOSEC_AUDIT_SUPPORT_PATTERNS": "./tools/..."
       },
       "command": [
         "bash",

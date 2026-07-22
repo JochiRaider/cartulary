@@ -153,6 +153,16 @@ function sequenceProducedSummaryTargets(manifest) {
   return produced;
 }
 
+function sequenceStepTargets(manifest) {
+  const targets = new Set();
+  for (const sequence of Object.values(manifest.sequences ?? {})) {
+    for (const step of sequence.steps ?? []) {
+      targets.add(step.target);
+    }
+  }
+  return targets;
+}
+
 function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
   if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v5") {
     return false;
@@ -163,9 +173,14 @@ function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
 function renderMakeRecipe(recipe, manifest) {
   const entry = targetEntryMap(manifest).get(recipe.target);
   const nodeReadinessPrelude = renderNodeReadinessPrelude(recipe, entry);
-  const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry, {
-    excludeNodeRuntime: nodeReadinessPrelude.length > 0,
-  });
+  const prerequisitePrelude = renderPrerequisitePrelude(
+    recipe,
+    entry,
+    manifest,
+    {
+      excludeNodeRuntime: nodeReadinessPrelude.length > 0,
+    },
+  );
   const preflightPrelude = renderPreflightPrelude(recipe, entry, manifest);
   const publicPrelude = [...nodeReadinessPrelude, ...preflightPrelude];
   const prerequisites =
@@ -338,9 +353,14 @@ function renderMakeRecipe(recipe, manifest) {
   throw new Error(`unsupported Make recipe type ${recipe.type}`);
 }
 
-function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
+function shouldCentralizePrerequisiteOutput(
+  recipe,
+  entry = null,
+  manifest = null,
+) {
   return (
-    entry?.target_class === "public" &&
+    (entry?.target_class === "public" ||
+      sequenceStepTargets(manifest).has(recipe.target)) &&
     (recipe.prerequisites ?? []).length > 0 &&
     !["cleanup", "print_help"].includes(recipe.type)
   );
@@ -371,9 +391,10 @@ function renderNodeReadinessPrelude(recipe, entry = null) {
 function renderPrerequisitePrelude(
   recipe,
   entry = null,
+  manifest = null,
   { excludeNodeRuntime = false } = {},
 ) {
-  if (!shouldCentralizePrerequisiteOutput(recipe, entry)) {
+  if (!shouldCentralizePrerequisiteOutput(recipe, entry, manifest)) {
     return [];
   }
   const prerequisites = (recipe.prerequisites ?? []).filter(

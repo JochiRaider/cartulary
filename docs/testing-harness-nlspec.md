@@ -2254,6 +2254,13 @@ For the `check` scheduler, a service-backed suite session MUST become eligible a
 
 For the `check` scheduler, frontend install, pinned tool bootstrap, binary builds, and service-image warmup MUST be first-class scheduler work units with completion keys when selected downstream work consumes them. Scheduler-invoked child targets MAY suppress recursive Make prerequisite setup only when `make_prerequisite_policy=skip` and their declared readiness keys are already satisfied. Direct public Make target invocation MUST continue to run its normal prerequisites.
 
+Every Make target used as an authored aggregate-sequence step MUST apply the same prerequisite suppression policy even when the target is an internal helper. Its prerequisites MUST be emitted through a conditional recipe prelude rather than unconditional Make graph edges: direct invocation runs the prerequisites, while a scheduler-owned invocation may skip them only after the sequence DAG has established the corresponding readiness dependency. A sequence MUST NOT repeat prerequisite builds after an owning `check` or `build` step has completed them.
+
+Prerequisites that are the step's owned child work are not readiness and MUST
+NOT be skipped. In particular, `lint-go` runs its format, vet, and staticcheck
+children through its prerequisite prelude; the lint preflight establishes
+tool readiness but does not replace those child results.
+
 An aggregate sequence invoked by a scheduler work unit MUST treat its authored
 per-step prerequisite policy as authoritative. A normal serial or parallel sequence
 step MUST clear inherited scheduler prerequisite-skip state before invoking its Make
@@ -2520,7 +2527,8 @@ capacity and MUST ignore inherited `CHECK_HOST_CPU_JOBS` and
 `check` scheduler only. Every sequence work profile MUST claim one `process`
 slot. The closed sequence work profiles are: `small_check` = CPU/I/O `1/1`,
 `script` = `2/2`, `cpu_analysis` = `4/1`, `artifact_generation` = `2/4`,
-`build` = `6/3`, and `service_validation` = `2/4`. Each also claims process `1`.
+`build` = `6/3`, `service_validation` = `2/4`, and the parallel gosec-only
+`security_analysis` profile = full resolved CPU capacity and I/O `1`. Each also claims process `1`.
 Parallel Make jobs are `1` for small and service work and equal to the profile
 CPU claim for the other profiles.
 `nested_check` claims the entire
@@ -2540,19 +2548,44 @@ or rereading the same authored tree for each predicate is forbidden when a
 single filtered index provides identical fail-closed coverage. Repo-local tool
 and package caches are excluded from authored-source traversal by explicit
 directory identity; their content cannot satisfy or violate source ownership.
+In the default `check` schedule, the OTel source-boundary work unit MUST wait
+for `check-service-backed` completion before admission. It retains the ordinary
+CPU/I/O `1/1` claim and static-validation priority; this phase edge prevents a
+subsecond repository scan from contending with the service-backed critical
+path without granting it exclusive capacity or artificial scheduling priority.
 The current aggregate DAGs are closed as follows. `lint` MUST establish Node,
 frontend-install, and shell-tool readiness once before starting the sequence;
 its eight lint, boundary, script, Markdown, shell, and frontend-typecheck steps
 then have no dependency edges. `ci` MUST start only `check`; after it succeeds,
-`harness-contract`, `go-gosec-audit`, `deployable-shape`, and
-`duration-baseline-drift-suite` are mutually independent. `release-check` MUST
+`harness-contract`, `deployable-shape`, and `duration-baseline-drift-suite`
+and the bounded `go-gosec-audit` are mutually independent. Both scans and the CI `deployable-shape` step MUST
+suppress recursive prerequisites because successful `check` has established
+their toolchain, frontend, and binary readiness. `release-check` MUST
 start only `check`; after it succeeds, harness contract, security audit,
 license generation, build, SeaweedFS compatibility, SeaweedFS migration, and
-release-browser readiness are independent as capacity permits. `sbom` depends
+release-browser readiness are independent as capacity permits. Both scans
+reuse the readiness established by `check`. `sbom` depends
 on `license-report`; `seaweedfs-release-gate` depends on compatibility,
 migration, license, and SBOM; `deployable-shape` depends on build; and
-`release-readiness-evidence` depends on every release branch. Authored summary
+the release `deployable-shape` step MUST suppress the binary prerequisites
+established by that build dependency. `release-readiness-evidence` depends on every release branch. Authored summary
 order remains stable and does not follow completion order.
+
+The advisory gosec audit owns one physical `repository` scan. Its rules are the
+stable union of the former runtime and support rules, and its package selection
+is the minimal union of runtime patterns and inventory-derived support patterns;
+a broad runtime pattern subsumes narrower support descendants. The consolidated
+scan MUST preserve every prior check and MAY add the stricter runtime-only rule
+to support code because the audit remains non-failing. Under the
+`security_analysis` sequence profile, the scan receives the scheduler's exact
+resolved CPU claim as `GOMAXPROCS`; the full-capacity claim prevents unrelated
+CPU work from oversubscribing it. The scheduler MUST strip an inherited value
+and inject the claim for every sequence child. Direct execution derives the
+same limit from online host capacity. Output and profile metadata identify the
+single repository scan. The audit reads and validates its support inventory
+through a contract check rather than runtime discovery. The authored broad
+package roots MUST subsume every support-inventory root; adding an uncovered
+root fails the harness contract until the audit plan is extended.
 Verified by: TH-HARNESS-AC-077, TH-HARNESS-AC-078
 
 **TH-HARNESS-REQ-375**

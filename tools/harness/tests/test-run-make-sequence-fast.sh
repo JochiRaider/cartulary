@@ -182,10 +182,11 @@ set -euo pipefail
 
 echo "$*" >>"${FAKE_MAKE_LOG}"
 if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
-  printf 'target=%s skip=%s satisfied=%s check_cpu=%s check_io=%s service_cpu=%s service_io=%s\n' \
+  printf 'target=%s skip=%s satisfied=%s sequence_cpu=%s check_cpu=%s check_io=%s service_cpu=%s service_io=%s\n' \
     "${@: -1}" \
     "${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-unset}" \
     "${CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED:-unset}" \
+    "${CARTULARY_SEQUENCE_HOST_CPU_LIMIT:-unset}" \
     "${CHECK_HOST_CPU_JOBS:-unset}" \
     "${CHECK_HOST_IO_JOBS:-unset}" \
     "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-unset}" \
@@ -626,7 +627,8 @@ for aggregate_sequence in test-fast ci release-check; do
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "target")" "${aggregate_sequence}" "${aggregate_sequence} target summary identity"
   assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/run-summary.json" "label")" "${aggregate_sequence}" "${aggregate_sequence} run summary identity"
   if [[ "${aggregate_sequence}" == "ci" ]]; then
-    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=check skip=unset satisfied=unset check_cpu=20 check_io=24" "ci forwards the exact nested check budget"
+    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=check skip=unset satisfied=unset sequence_cpu=20 check_cpu=20 check_io=24" "ci forwards the exact nested check budget"
+    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=go-gosec-audit skip=1 satisfied=1 sequence_cpu=20" "ci forwards the security analysis CPU limit"
     "${NODE_BIN:-node}" - "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const summary = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
@@ -642,7 +644,7 @@ if (nested?.forwarding_profile !== "sequence_to_check" ||
 EOF
   fi
   if [[ "${aggregate_sequence}" == "release-check" ]]; then
-    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=release-browser-readiness skip=1 satisfied=1 check_cpu=unset check_io=unset service_cpu=2 service_io=4" "release forwards the exact nested service budget"
+    assert_contains "$(cat "${aggregate_dir}/make-env.log")" "target=release-browser-readiness skip=1 satisfied=1 sequence_cpu=2 check_cpu=unset check_io=unset service_cpu=2 service_io=4" "release forwards the exact nested service budget"
   fi
 done
 

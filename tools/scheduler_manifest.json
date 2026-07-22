@@ -5310,7 +5310,8 @@
           "weight_ms": 10000,
           "needs": [
             "toolchain-drift",
-            "build-web"
+            "build-web",
+            "check-service-backed"
           ],
           "produces_summary_targets": [
             "otel-conformance"

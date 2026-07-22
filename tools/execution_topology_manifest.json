@@ -155,6 +155,10 @@
       "resource_claims": { "host_cpu": 4, "host_io": 1, "process": 1 },
       "make_jobs": "host_cpu"
     },
+    "security_analysis": {
+      "resource_claims": { "host_cpu": "limit", "host_io": 1, "process": 1 },
+      "make_jobs": "host_cpu"
+    },
     "artifact_generation": {
       "resource_claims": { "host_cpu": 2, "host_io": 4, "process": 1 },
       "make_jobs": "host_cpu"
@@ -223,7 +227,7 @@
       "steps": [
         { "target": "check", "needs": [], "profile": "nested_check", "priority": 100 },
         { "target": "harness-contract", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
+        { "target": "go-gosec-audit", "needs": ["check"], "profile": "security_analysis", "priority": 0 },
         { "target": "deployable-shape", "needs": ["check"], "profile": "small_check", "priority": 0 },
         { "target": "duration-baseline-drift-suite", "needs": ["check"], "profile": "artifact_generation", "priority": 0 }
       ]
@@ -236,7 +240,7 @@
       "steps": [
         { "target": "check", "needs": [], "profile": "nested_check", "priority": 100 },
         { "target": "harness-contract", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
+        { "target": "go-gosec-audit", "needs": ["check"], "profile": "security_analysis", "priority": 0 },
         { "target": "license-report", "needs": ["check"], "profile": "artifact_generation", "priority": 0 },
         { "target": "sbom", "needs": ["license-report"], "profile": "artifact_generation", "priority": 0 },
         { "target": "seaweedfs-compatibility", "needs": ["check"], "profile": "service_validation", "priority": 0 },
@@ -792,7 +796,8 @@
         ],
         "needs": [
           "toolchain-drift",
-          "build-web"
+          "build-web",
+          "check-service-backed"
         ]
       },
       "go-test-duration-baseline-coverage": {

@@ -4069,6 +4069,84 @@ test("public non-interactive wrappers run preflight before child work", () => {
   }
 });
 
+test("sequence-owned internal wrappers conditionally centralize Make prerequisites", () => {
+  const { taskSurface, taskSurfaceMake } = renderedArtifacts();
+  const targetsByName = new Map(
+    taskSurface.targets.map((target) => [target.name, target]),
+  );
+  const sequenceStepTargets = new Set(
+    Object.values(taskSurface.sequences).flatMap((sequence) =>
+      sequence.steps.map((step) => step.target),
+    ),
+  );
+  const coveredTargets = [];
+  for (const target of sequenceStepTargets) {
+    if (targetsByName.get(target)?.target_class === "public") {
+      continue;
+    }
+    const prerequisites = taskSurface.make_recipes[target]?.prerequisites ?? [];
+    if (prerequisites.length === 0) {
+      continue;
+    }
+    coveredTargets.push(target);
+    const block = targetRecipeBlock(taskSurfaceMake, target);
+    assert.equal(
+      block[0],
+      `${target}:`,
+      `${target} prerequisites must not run before scheduler policy is applied`,
+    );
+    assert.match(
+      block.join("\n"),
+      /CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES/u,
+      `${target} must preserve direct prerequisites behind the scheduler-owned conditional`,
+    );
+    for (const prerequisite of prerequisites) {
+      assert.ok(
+        block.some((line) => line.includes(prerequisite)),
+        `${target} must retain direct prerequisite ${prerequisite}`,
+      );
+    }
+  }
+  assert.ok(
+    coveredTargets.includes("deployable-shape"),
+    "CI deployable-shape must centralize prerequisites",
+  );
+  assert.ok(
+    coveredTargets.includes("release-browser-readiness"),
+    "release browser readiness must centralize prerequisites",
+  );
+  assert.equal(
+    taskSurface.sequences.lint.steps.find((step) => step.target === "lint-go")
+      ?.skip_prerequisites,
+    undefined,
+    "lint-go prerequisites are owned child work, not skippable readiness",
+  );
+  for (const sequenceName of ["ci", "release-check"]) {
+    const steps = taskSurface.sequences[sequenceName].steps;
+    for (const target of [
+      "harness-contract",
+      "go-gosec-audit",
+      "deployable-shape",
+    ]) {
+      assert.equal(
+        steps.find((step) => step.target === target)?.skip_prerequisites,
+        true,
+        `${sequenceName} ${target} must reuse readiness established by its DAG`,
+      );
+    }
+    assert.deepEqual(
+      steps.find((step) => step.target === "go-gosec-audit")?.needs,
+      ["check"],
+      `${sequenceName} must admit its bounded security audit after check`,
+    );
+    assert.deepEqual(
+      steps.find((step) => step.target === "go-gosec-audit")?.resource_claims,
+      { host_cpu: "limit", host_io: 1, process: 1 },
+      `${sequenceName} must account for both gosec workers`,
+    );
+  }
+});
+
 test("per-target input contract rejects misplaced Make variables and ignores ambient env", () => {
   for (const [sources, message] of [
     ["UNDECLARED_INPUT=command-line", /contains invalid source token/],
@@ -4221,6 +4299,22 @@ test("extended harness contracts are explicit and outside default local check", 
     ["ci", "release-check"],
     "harness-contract must be selected by extended gates only",
   );
+});
+
+test("default check defers lightweight OTel source validation past service fanout", () => {
+  const { checkSchedule } = renderedArtifacts();
+  const check = checkSchedule.schedules.find(
+    (schedule) => schedule.target === "check",
+  );
+  const otel = check?.work_units.find(
+    (unit) => unit.target === "otel-conformance",
+  );
+  assert.ok(otel, "default check must retain OTel conformance");
+  assert.ok(
+    otel.needs.includes("check-service-backed"),
+    "OTel source validation must not contend with the service-backed critical path",
+  );
+  assert.deepEqual(otel.resource_claims, { host_cpu: 1, host_io: 1 });
 });
 
 test("browser topology is catalog-derived, semantic, and profile-isolated", () => {
@@ -4673,6 +4767,28 @@ test("backend module boundary consumes test support inventory scan exclusions", 
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("gosec audit repository patterns cover every support inventory root", () => {
+  const { taskSurface } = renderedArtifacts();
+  const recipe = taskSurface.make_recipes["go-gosec-audit"];
+  const patterns = [
+    ...(recipe.env.GOSEC_AUDIT_RUNTIME_PATTERNS ?? "").split(/\s+/u),
+    ...(recipe.env.GOSEC_AUDIT_SUPPORT_PATTERNS ?? "").split(/\s+/u),
+  ].filter(Boolean);
+  const inventory = readJSON("tools/test_support_inventory.json");
+  for (const root of inventory.go_support_roots) {
+    const covered = patterns.some((pattern) => {
+      const prefix = pattern.endsWith("/...")
+        ? pattern.slice(2, -4)
+        : pattern.slice(2);
+      return root.path === prefix || root.path.startsWith(`${prefix}/`);
+    });
+    assert.ok(
+      covered,
+      `gosec audit repository patterns must cover support root ${root.path}`,
+    );
   }
 });
 

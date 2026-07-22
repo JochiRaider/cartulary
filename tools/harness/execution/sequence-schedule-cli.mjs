@@ -87,6 +87,7 @@ function childMakeEnv(skipPrerequisites) {
     "CARTULARY_TEST_TARGET",
     "CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES",
     "CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED",
+    "CARTULARY_SEQUENCE_HOST_CPU_LIMIT",
   ]) {
     delete env[name];
   }
@@ -191,6 +192,9 @@ function compileSequence(sequence, context, manifestPath) {
         args,
         env: {
           ...childMakeEnv(step.skipPrerequisites),
+          CARTULARY_SEQUENCE_HOST_CPU_LIMIT: String(
+            resourceClaims.get("host_cpu") ?? 1,
+          ),
           ...Object.fromEntries(forwarding?.resourceLimitEnv ?? []),
         },
       },

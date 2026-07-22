@@ -69,7 +69,7 @@ env_log="$scratch/gosec-env.log"
 cat >"$fake_gosec" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "--call--" "$@" >>"${FAKE_GOSEC_ARGS_LOG:?}"
-printf 'GOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
+printf 'GOMAXPROCS=%s\nGOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOMAXPROCS:-}" "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
 if [[ " $* " != *" -no-fail "* ]]; then
   echo "missing -no-fail" >&2
   exit 96
@@ -88,6 +88,7 @@ output="$(
     GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
     GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -terse" \
+    CARTULARY_SEQUENCE_HOST_CPU_LIMIT=4 \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
     FAKE_GOSEC_ENV_LOG="$env_log" \
     "$SCRIPT" 2>&1
@@ -96,33 +97,19 @@ if [[ "$status" -ne 0 ]]; then
   fail "advisory audit findings must not fail the target, got status $status: $output"
 fi
 
-assert_contains "$output" "go-gosec-audit advisory runtime profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime advisory profile label"
-assert_contains "$output" "go-gosec-audit advisory support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=" "support advisory profile label"
-assert_contains "$output" "./internal/modules/networkflow/harnesscontrol/..." "support advisory profile includes module-owned Network Flow controls"
-assert_contains "$output" "./tools/..." "support advisory profile includes repo-local harness tooling"
+assert_contains "$output" "go-gosec-audit advisory repository profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/... ./tools/..." "repository advisory profile label"
 assert_contains "$output" "simulated gosec finding" "advisory finding output"
 
 args="$(cat "$args_log")"
-assert_equals "$(grep -c '^--call--$' "$args_log")" "2" "gosec invocation count"
+assert_equals "$(grep -c '^--call--$' "$args_log")" "1" "gosec invocation count"
 assert_contains "$args" "-include=G118,G122,G301,G302,G303,G304,G305,G306,G307" "runtime audit include rules"
-assert_contains "$args" "-exclude-dir=internal/testutil" "runtime audit excludes internal test helpers"
-assert_contains "$args" "-exclude-dir=internal/modules/auth/testsupport" "runtime audit excludes auth test support"
-assert_contains "$args" "-exclude-dir=internal/modules/workbook/testsupport" "runtime audit excludes workbook test support"
-if grep -q '^-exclude-dir=internal/modules/networkflow/harnesscontrol$' "$args_log"; then
-  fail "runtime audit must not exclude inventory roots marked runtime_scan=included"
-fi
 assert_contains "$args" "./cmd/..." "runtime audit cmd package pattern"
 assert_contains "$args" "./internal/..." "runtime audit internal package pattern"
-assert_contains "$args" "-include=G122,G301,G302,G303,G304,G305,G306,G307" "support audit include rules"
 assert_contains "$args" "-terse" "support audit passthrough flags"
-assert_contains "$args" "./internal/testutil/..." "support audit internal testutil package pattern"
-assert_contains "$args" "./internal/modules/auth/testsupport/..." "support audit auth test support package pattern"
-assert_contains "$args" "./internal/modules/networkflow/harnesscontrol/..." "support audit network flow harness control package pattern"
-assert_contains "$args" "./internal/platform/contracttest/..." "support audit generated contract facade package pattern"
-assert_contains "$args" "./internal/modules/workbook/testsupport/..." "support audit workbook test support package pattern"
 assert_contains "$args" "./tools/..." "support audit tools package pattern"
 
 env_output="$(cat "$env_log")"
+assert_equals "$(grep -c '^GOMAXPROCS=4$' "$env_log")" "1" "gosec audit bounded worker CPUs"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "gosec audit GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "gosec audit GOMODCACHE"
 assert_contains "$env_output" "PATH=$scratch:" "gosec audit PATH includes GO directory"

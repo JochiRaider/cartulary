@@ -505,7 +505,8 @@ migration-scratch-apply: build-migrate $(GOOSE_BIN)
 
 deployable-shape: export CARTULARY_TEST_TARGET ?= deployable-shape
 deployable-shape: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-deployable-shape: build-server build-migrate build-operator
+deployable-shape:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory build-server build-migrate build-operator; fi
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "deployable-shape" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-deployable-shape.sh
 	$(call RUN_TARGET_SUMMARY,deployable-shape,pass)
 
@@ -920,11 +921,13 @@ browser-e2e-visual-update:
 	$(call RUN_TARGET_SUMMARY,browser-e2e-visual-update,pass)
 
 test-local: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-test-local: backend-unit frontend-typecheck frontend-unit
+test-local:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory backend-unit frontend-typecheck frontend-unit; fi
 
 test-service-backed: export CARTULARY_TEST_TARGET ?= test-service-backed
 test-service-backed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
+test-service-backed:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target test-service-backed --step-label "test service-backed" --service-wrapper test-services
 
 test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -936,7 +939,8 @@ test-fast:
 
 test-fast-service-backed: export CARTULARY_TEST_TARGET ?= test-fast-service-backed
 test-fast-service-backed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness $(TEST_SERVICES_BIN) test-service-images
+test-fast-service-backed:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target test-fast-service-backed --step-label "test-fast service-backed" --service-wrapper test-services
 
 test: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -954,7 +958,8 @@ lint:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence lint
 
 lint-go: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-lint-go: lint-go-format lint-go-vet lint-go-staticcheck
+lint-go:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory lint-go-format lint-go-vet lint-go-staticcheck; fi
 
 lint-go-format: export CARTULARY_TEST_TARGET ?= lint-go-format
 lint-go-format: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -995,8 +1000,8 @@ go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
 go-gosec-audit:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory gosec-toolchain; fi
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" bash \
-	  ./tools/harness/static-analysis/go-gosec-audit.sh; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" \
+	  GOSEC_AUDIT_SUPPORT_PATTERNS="./tools/..." bash ./tools/harness/static-analysis/go-gosec-audit.sh; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
 check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 check:
@@ -1027,7 +1032,8 @@ ci:
 
 release-browser-readiness: export CARTULARY_TEST_TARGET ?= release-browser-readiness
 release-browser-readiness: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-release-browser-readiness: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
+release-browser-readiness:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target release-browser-readiness --step-label "release browser readiness" --service-wrapper test-services
 
 release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -1048,13 +1054,15 @@ release-readiness-evidence:
 
 license-report: export CARTULARY_TEST_TARGET ?= license-report
 license-report: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-license-report: $(LICENSE_REPORT_ARTIFACT)
+license-report:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(LICENSE_REPORT_ARTIFACT); fi
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "license-report" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
 	$(call RUN_TARGET_SUMMARY,license-report,pass)
 
 sbom: export CARTULARY_TEST_TARGET ?= sbom
 sbom: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-sbom: $(SBOM_ARTIFACT)
+sbom:
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SBOM_ARTIFACT); fi
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "sbom" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
 	$(call RUN_TARGET_SUMMARY,sbom,pass)
 
