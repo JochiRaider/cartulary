@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-001 digest-only v1 policy bridge implementation `67afce9c`; retained target-local reference snapshots remain qualified |
+| Current source | T-012 candidate checkpoint `e1ad71ff`; release-check exposed a websocket subscription teardown race under the adopted aggregate concurrency |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1825,3 +1825,30 @@ completed work.
   roots from `206c343c`, including the two direct fallback windows, remain
   diagnostic-only. Recollect every provider window after the next clean
   tracker checkpoint.
+
+### 2026-07-22 — T-012 release-check window reopens T-010 teardown safety
+
+- Source: clean frozen candidate checkpoint
+  `e1ad71ff236ecdf1b460783ce12a76924da8cc9a`. The first release-check
+  warm-up passed at `.cartulary/test-results/20260722T084305Z-p316168` in
+  `220.700 s`. The first measured observation failed at
+  `.cartulary/test-results/20260722T084648Z-p467068` after `113.122 s`; it is
+  retained as `failed_execution` and cannot enter a candidate window.
+- Failure: the nested `check` backend-integration row panicked with
+  `send on closed channel` while `Hub.PublishJobProgress` delivered the
+  collaboration presence/replay integration scenario. A publisher currently
+  snapshots subscriber channels under the hub mutex and sends after unlocking,
+  while unsubscribe removes and closes a channel after unlocking. Concurrent
+  teardown can therefore close a snapshotted channel before its send.
+- Ownership finding: production websocket consumers terminate through request
+  context and call unsubscribe only as deferred registry cleanup. Tests likewise
+  use unsubscribe as cleanup and do not require it to signal completion by
+  closing the data channel. Closing a sender-owned data channel from receiver
+  cleanup is both unnecessary and unsafe; repeated unsubscribe also currently
+  panics.
+- Disposition: T-010 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Make subscription teardown a non-closing, idempotent
+  registry removal, add concurrent publish/unsubscribe regression coverage,
+  and revalidate the exact failed row plus aggregate concurrency. All otherwise
+  successful roots from `e1ad71ff` become diagnostic-only after the correction;
+  T-012 must recollect every provider window from the next clean checkpoint.
