@@ -323,15 +323,18 @@ help-all:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,help-all)
 	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_ALL_LINES)
 
+doctor: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 doctor:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,doctor)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-doctor}" $(RUN_STEP_SCRIPT) "doctor" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./tools/harness/readiness/check-doctor.sh
 
+bootstrap: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 bootstrap:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,bootstrap)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) $(SHELLCHECK_BIN) frontend-install playwright-install; fi
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_STEP_SCRIPT) "bootstrap" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
+otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 otel-conformance:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
@@ -339,43 +342,52 @@ otel-conformance:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "otel-conformance" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/otel/check-otel-conformance.mjs
 	$(call RUN_TARGET_SUMMARY,otel-conformance,pass)
 
+bootstrap-node-runtime: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 bootstrap-node-runtime:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(call RUN_TARGET_SUMMARY,bootstrap-node-runtime,pass)
 
+frontend-toolchain: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-toolchain:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-toolchain)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_TOOLCHAIN_STAMP); fi
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-frontend-toolchain}" $(RUN_STEP_SCRIPT) "frontend-toolchain" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" CARTULARY_FRONTEND_TOOLCHAIN_QUIET="$(CARTULARY_FRONTEND_TOOLCHAIN_QUIET)" bash ./tools/harness/readiness/frontend-toolchain.sh --print-stamp
 
+frontend-install: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-install: export CARTULARY_TEST_TARGET ?= frontend-install
 frontend-install:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-install)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(call RUN_TARGET_SUMMARY,frontend-install,pass)
 
+playwright-install: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 playwright-install:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,playwright-install)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(PLAYWRIGHT_INSTALL_STAMP); fi
 	$(call RUN_TARGET_SUMMARY,playwright-install,pass)
 
+db-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 db-up:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-up)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-up}" $(RUN_STEP_SCRIPT) "db-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/readiness/dev-services.sh db-up
 
+db-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 db-migrate:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-migrate)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-migrate}" $(RUN_STEP_SCRIPT) "db-migrate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./tools/harness/readiness/dev-services.sh db-migrate
 
+db-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 db-reset:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-reset)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-reset}" $(RUN_STEP_SCRIPT) "db-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin \
 	  CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/dev-services.sh db-reset
 
+services-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 services-up:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-up)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-up}" $(RUN_STEP_SCRIPT) "services-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/readiness/dev-services.sh up
 
+services-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 services-down:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-down)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-down}" $(RUN_STEP_SCRIPT) "services-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" bash ./tools/harness/readiness/dev-services.sh services-down
@@ -391,10 +403,12 @@ object-store-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 object-store-wait:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/readiness/dev-services.sh wait-object-store
 
+object-store-init: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 object-store-init:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,object-store-init)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-object-store-init}" $(RUN_STEP_SCRIPT) "object-store-init" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" bash ./tools/harness/readiness/dev-services.sh init-object-store
 
+object-store-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 object-store-reset:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,object-store-reset)
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-object-store-reset}" $(RUN_STEP_SCRIPT) "object-store-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash \
@@ -430,6 +444,7 @@ shell-lint-toolchain: export CARTULARY_TEST_TARGET ?= shell-lint-toolchain
 shell-lint-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 shell-lint-toolchain: $(SHELLCHECK_BIN)
 
+generate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 generate:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory codegen-toolchain; fi
@@ -440,6 +455,7 @@ generate-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 generate-artifacts: $(NODE_BIN)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" SQLC_BIN="$(SQLC_BIN)" bash ./tools/harness/generated-artifacts/generate-artifacts.sh
 
+generate-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 generate-drift: export CARTULARY_TEST_TARGET ?= generate-drift
 generate-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate-drift)
@@ -447,6 +463,7 @@ generate-drift:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/check-generate-drift.sh
 	$(call RUN_TARGET_SUMMARY,generate-drift,pass)
 
+generated-artifact-policy-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 generated-artifact-policy-check: export CARTULARY_TEST_TARGET ?= generated-artifact-policy-check
 generated-artifact-policy-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -454,6 +471,7 @@ generated-artifact-policy-check:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generated-artifact-policy-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs
 	$(call RUN_TARGET_SUMMARY,generated-artifact-policy-check,pass)
 
+json-shape-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 json-shape-check: export CARTULARY_TEST_TARGET ?= json-shape-check
 json-shape-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -461,12 +479,14 @@ json-shape-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)$(RUN_STEP_SCRIPT) "json-shape-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-json-shapes.mjs
 
+toolchain-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 toolchain-drift:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,toolchain-drift)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-toolchain-drift}" $(RUN_STEP_SCRIPT) "toolchain-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/readiness/toolchain-pin-check-cli.mjs
 
+migration-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 migration-drift: export CARTULARY_TEST_TARGET ?= migration-drift
 migration-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,migration-drift)
@@ -489,6 +509,7 @@ deployable-shape: build-server build-migrate build-operator
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "deployable-shape" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-deployable-shape.sh
 	$(call RUN_TARGET_SUMMARY,deployable-shape,pass)
 
+standup-package-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 standup-package-smoke: export CARTULARY_TEST_TARGET ?= standup-package-smoke
 standup-package-smoke:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-package-smoke)
@@ -496,6 +517,7 @@ standup-package-smoke:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "standup-package-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-standup-package-smoke.sh
 	$(call RUN_TARGET_SUMMARY,standup-package-smoke,pass)
 
+standup-operational-recovery-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 standup-operational-recovery-smoke: export CARTULARY_TEST_TARGET ?= standup-operational-recovery-smoke
 standup-operational-recovery-smoke:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-operational-recovery-smoke)
@@ -508,6 +530,7 @@ test-catalog-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 test-catalog-check: $(NODE_BIN)
 	$(Q)$(RUN_STEP_SCRIPT) "test-catalog-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/test-catalog/catalog-check.mjs
 
+agent-finalize: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 agent-finalize: export CARTULARY_TEST_TARGET ?= agent-finalize
 agent-finalize:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -515,11 +538,13 @@ agent-finalize:
 	$(Q)ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR RESULTS_DIR)" $(RUN_STEP_SCRIPT) "agent-finalize" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR RESULTS_DIR)" MAKE="$(MAKE)" $(NODE_BIN) \
 	  ./tools/harness/finalization/agent-finalize-cli.mjs
 
+test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-evidence-audit:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-evidence-audit)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,OWNER="$(OWNER)" EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+benchmark-claim-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 benchmark-claim-check: export CARTULARY_TEST_TARGET ?= benchmark-claim-check
 benchmark-claim-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -535,11 +560,13 @@ task-guide:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-guide)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")
 
+test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-slice:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,test-slice,OWNER="$(OWNER)" ROWS="$(ROWS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" JSON="$(JSON)" MAKE="$(MAKE)" GO="$(GO)" PNPM="$(PNPM)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+service-backed-test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 service-backed-test-slice:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-test-slice)
@@ -549,12 +576,14 @@ graph-projection-fixture-candidate: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 graph-projection-fixture-candidate:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" FIXTURE="$(FIXTURE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" bash ./tools/harness/execution/run-graph-projection-fixture-candidate.sh
 
+backend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-unit: export CARTULARY_TEST_TARGET ?= backend-unit
 backend-unit:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-unit)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_GO_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-unit
 
+backend-store: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-store: export CARTULARY_TEST_TARGET ?= backend-store
 backend-store:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -562,6 +591,7 @@ backend-store:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_GO_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_PACKAGE_PARALLELISM="$(EFFECTIVE_BACKEND_STORE_GO_TEST_P)" GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)" $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-store
 
+backend-integration: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-integration: export CARTULARY_TEST_TARGET ?= backend-integration
 backend-integration:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -575,6 +605,7 @@ backend-integration-support: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-image
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_GO_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_PACKAGE_PARALLELISM="$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)" GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)" $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support
 
 # Process-level evidence is part of the developer gate and must never be direct-run only.
+backend-process: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-process: export CARTULARY_TEST_TARGET ?= backend-process
 backend-process:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -610,6 +641,7 @@ harness-performance-check:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-performance-check)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-performance-check,EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)")
 
+harness-public-target-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-public-target-duration-baselines:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-public-target-duration-baselines)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-public-target-duration-baselines,EVIDENCE_ROOTS_FILE="$(EVIDENCE_ROOTS_FILE)")
@@ -623,46 +655,57 @@ explain-target:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-target)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-target,TARGET="$(TARGET)" DETAIL="$(DETAIL)" JSON="$(JSON)")
 
+go-test-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-test-duration-baselines:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baselines)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baselines,RESULTS_DIR="$(RESULTS_DIR)" PRUNE_OBSERVED_PACKAGES="$(PRUNE_OBSERVED_PACKAGES)" ALLOW_COMMAND_OVERHEAD_DECREASE="$(ALLOW_COMMAND_OVERHEAD_DECREASE)" GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)")
 
+go-test-duration-baseline-coverage: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-test-duration-baseline-coverage:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-coverage)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-coverage,GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+go-test-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-test-duration-baseline-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-drift,RESULTS_DIR="$(RESULTS_DIR)" GO_TEST_DURATION_BASELINE="$(GO_TEST_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+browser-e2e-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-duration-baselines:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-duration-baselines)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,browser-e2e-duration-baselines,RESULTS_DIR="$(RESULTS_DIR)" BROWSER_E2E_DURATION_BASELINE="$(BROWSER_E2E_DURATION_BASELINE)")
 
+browser-e2e-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-duration-baseline-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-duration-baseline-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,browser-e2e-duration-baseline-drift,RESULTS_DIR="$(RESULTS_DIR)" BROWSER_E2E_DURATION_BASELINE="$(BROWSER_E2E_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+service-backed-make-target-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 service-backed-make-target-duration-baselines:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-make-target-duration-baselines)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-make-target-duration-baselines,RESULTS_DIR="$(RESULTS_DIR)" SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)")
 
+service-backed-make-target-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 service-backed-make-target-duration-baseline-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-make-target-duration-baseline-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-make-target-duration-baseline-drift,RESULTS_DIR="$(RESULTS_DIR)" SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+harness-smoke-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-smoke-duration-baselines:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-smoke-duration-baselines)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-smoke-duration-baselines,RESULTS_DIR="$(RESULTS_DIR)" HARNESS_SMOKE_DURATION_BASELINE="$(HARNESS_SMOKE_DURATION_BASELINE)")
 
+harness-smoke-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-smoke-duration-baseline-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-smoke-duration-baseline-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-smoke-duration-baseline-drift,RESULTS_DIR="$(RESULTS_DIR)" HARNESS_SMOKE_DURATION_BASELINE="$(HARNESS_SMOKE_DURATION_BASELINE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+scheduler-event-order-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 scheduler-event-order-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,scheduler-event-order-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,scheduler-event-order-drift,RESULTS_DIR="$(RESULTS_DIR)" TARGET="$(TARGET)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
 
+scheduler-summary-timing-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 scheduler-summary-timing-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,scheduler-summary-timing-drift)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,scheduler-summary-timing-drift,RESULTS_DIR="$(RESULTS_DIR)" TARGET="$(TARGET)" SCHEDULER_WARM_CHECK_BUDGET_MS="$(SCHEDULER_WARM_CHECK_BUDGET_MS)" SCHEDULER_WARM_CHECK_BALANCE_RATIO="$(SCHEDULER_WARM_CHECK_BALANCE_RATIO)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
@@ -705,6 +748,7 @@ semantic-identity-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 semantic-identity-check: $(NODE_BIN)
 	$(Q)$(RUN_STEP_SCRIPT) "semantic-identity-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/test-catalog/semantic-identity-check-cli.mjs
 
+frontend-typecheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-typecheck: export CARTULARY_TEST_TARGET ?= frontend-typecheck
 frontend-typecheck:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -713,6 +757,7 @@ frontend-typecheck:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "frontend typecheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" $(PNPM) typecheck; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,frontend-typecheck,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,frontend-typecheck,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit \
 	  "$$summary_status"; fi; exit "$$status"
 
+frontend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-unit: export CARTULARY_TEST_TARGET ?= frontend-unit
 frontend-unit:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -720,6 +765,7 @@ frontend-unit:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-frontend-unit}" $(RUN_STEP_SCRIPT) "frontend-unit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,VITEST_MAX_WORKERS)" PNPM="$(PNPM)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" ./tools/harness/execution/run-frontend-unit.sh
 
+frontend-import-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-import-boundary-check: export CARTULARY_TEST_TARGET ?= frontend-import-boundary-check
 frontend-import-boundary-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -728,6 +774,7 @@ frontend-import-boundary-check:
 	$(Q)$(RUN_STEP_SCRIPT) "frontend-import-boundary-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,frontend-import-boundary-check,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,frontend-import-boundary-check,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit \
 	  "$$status"
 
+backend-module-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 backend-module-boundary-check: export CARTULARY_TEST_TARGET ?= backend-module-boundary-check
 backend-module-boundary-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -735,12 +782,14 @@ backend-module-boundary-check:
 	$(Q)$(RUN_STEP_SCRIPT) "backend-module-boundary-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,backend-module-boundary-check,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,backend-module-boundary-check,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit \
 	  "$$status"
 
+frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-fallow-static:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)$(call RUN_MAKE_NODE_TOOL,frontend-fallow-static,CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)")
 
+lint-biome: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-biome: export CARTULARY_TEST_TARGET ?= lint-biome
 lint-biome:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -749,6 +798,7 @@ lint-biome:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_STEP_FAILURE_NOTE="inspect Biome diagnostics; run make format only for formatting/style diagnostics" $(RUN_STEP_SCRIPT) "lint biome" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/frontend-biome.sh check $(BIOME_CHECK_FLAGS); status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,lint-biome,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,lint-biome,fail); \
 	  summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
+lint-scripts: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-scripts: export CARTULARY_TEST_TARGET ?= lint-scripts
 lint-scripts:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -756,6 +806,7 @@ lint-scripts:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint scripts" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/scripts-biome.sh $(BIOME_SCRIPT_CHECK_FLAGS); status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,lint-scripts,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,lint-scripts,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
+lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-markdown: export CARTULARY_TEST_TARGET ?= lint-markdown
 lint-markdown:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -769,6 +820,7 @@ harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-contract-tests: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs
 
+harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
 harness-contract:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -777,6 +829,7 @@ harness-contract:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs ./tools/harness/observability/tests/test-observability.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,harness-contract,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then \
 	  exit "$$summary_status"; fi; exit "$$status"
 
+lint-shell: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-shell: export CARTULARY_TEST_TARGET ?= lint-shell
 lint-shell:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-shell)
@@ -784,6 +837,7 @@ lint-shell:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint shell" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) SHELLCHECK_BIN="$(SHELLCHECK_BIN)" LINT_SHELL_STRICT="1" ./tools/harness/static-analysis/shellcheck.sh; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,lint-shell,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,lint-shell,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit \
 	  "$$status"
 
+format: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 format:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,format)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory format-go format-frontend; fi
@@ -799,6 +853,7 @@ format-frontend: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "format frontend" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/frontend-biome.sh format
 
+browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e
 browser-e2e:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -806,6 +861,7 @@ browser-e2e:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" $(TEST_SERVICES_BIN) run -- ./tools/harness/browser/run-browser-e2e-target.sh isolated
 
+browser-e2e-webserver-backed: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET ?= browser-e2e-webserver-backed
 browser-e2e-webserver-backed:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -824,6 +880,7 @@ browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-serve
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh support
 
 # Browser evidence that mutates process-global backend state belongs here.
+browser-e2e-stateful: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-stateful: export CARTULARY_TEST_TARGET ?= browser-e2e-stateful
 browser-e2e-stateful:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -837,6 +894,7 @@ browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-se
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh resettable
 
 # Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
+browser-e2e-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-measurement: export CARTULARY_TEST_TARGET ?= browser-e2e-measurement
 browser-e2e-measurement:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -844,6 +902,7 @@ browser-e2e-measurement:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" $(TEST_SERVICES_BIN) run -- ./tools/harness/browser/run-browser-e2e-target.sh measurement
 
+browser-e2e-visual: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-visual: export CARTULARY_TEST_TARGET ?= browser-e2e-visual
 browser-e2e-visual:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -851,6 +910,7 @@ browser-e2e-visual:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh visual
 
+browser-e2e-visual-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-visual-update: export CARTULARY_TEST_TARGET ?= browser-e2e-visual-update
 browser-e2e-visual-update:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -867,6 +927,7 @@ test-service-backed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target test-service-backed --step-label "test service-backed" --service-wrapper test-services
 
+test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-fast:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-fast)
@@ -878,12 +939,14 @@ test-fast-service-backed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server-harness $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target test-fast-service-backed --step-label "test-fast service-backed" --service-wrapper test-services
 
+test: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test
 
+lint: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint)
@@ -911,6 +974,7 @@ lint-go-staticcheck: go-lint-toolchain
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint staticcheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" STATICCHECK_BIN="$(STATICCHECK_BIN)" bash ./tools/harness/static-analysis/go-staticcheck.sh
 	$(call RUN_TARGET_SUMMARY,lint-go-staticcheck,pass)
 
+go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
 go-vulncheck:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
@@ -918,6 +982,7 @@ go-vulncheck:
 	$(Q)GOVULNCHECK_DB="$(GOVULNCHECK_DB)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,GOVULNCHECK_DB)" $(RUN_STEP_SCRIPT) "go vulncheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GOVULNCHECK_DB="$(GOVULNCHECK_DB)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,GOVULNCHECK_DB)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOVULNCHECK_BIN="$(GOVULNCHECK_BIN)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" GOVULNCHECK_FLAGS="-test \
 	  -json" GOVULNCHECK_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." bash ./tools/harness/static-analysis/go-govulncheck.sh
 
+go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
 go-gosec-targeted:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
@@ -925,6 +990,7 @@ go-gosec-targeted:
 	$(Q)$(RUN_STEP_SCRIPT) "go gosec targeted" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_RULES="G602,G124,G112,G114" GOSEC_FLAGS="-exclude-generated" GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." bash \
 	  ./tools/harness/static-analysis/go-gosec-targeted.sh
 
+go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
 go-gosec-audit:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
@@ -932,6 +998,7 @@ go-gosec-audit:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" bash \
 	  ./tools/harness/static-analysis/go-gosec-audit.sh; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,go-gosec-audit,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
+check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,check)
@@ -950,6 +1017,7 @@ check-service-backed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target check-service-backed --step-label "check service-backed" --service-wrapper test-services
 
+ci: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 ci: export CI := 1
 ci:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -962,6 +1030,7 @@ release-browser-readiness: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 release-browser-readiness: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target release-browser-readiness --step-label "release browser readiness" --service-wrapper test-services
 
+release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 release-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-check)
@@ -989,6 +1058,7 @@ sbom: $(SBOM_ARTIFACT)
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "sbom" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
 	$(call RUN_TARGET_SUMMARY,sbom,pass)
 
+seaweedfs-compatibility: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-compatibility: export CARTULARY_TEST_TARGET ?= seaweedfs-compatibility
 seaweedfs-compatibility:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-compatibility)
@@ -996,6 +1066,7 @@ seaweedfs-compatibility:
 	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-compatibility" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" OBJECT_STORE_PROFILE_ID="local_dev" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" $(GO) run ./tools/objectstoreprobe; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-compatibility,pass); summary_status=$$?; else $(call \
 	  RUN_RETAINED_TARGET_SUMMARY,seaweedfs-compatibility,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
+seaweedfs-migration-preservation: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-migration-preservation: export CARTULARY_TEST_TARGET ?= seaweedfs-migration-preservation
 seaweedfs-migration-preservation:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-migration-preservation)
@@ -1024,17 +1095,20 @@ seaweedfs-release-gate:
 	  SEAWEEDFS_MIGRATION_PASS_DIR="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass" CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED="$(CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED)" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,pass); summary_status=$$?; else $(call \
 	  RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
+build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory build-web build-server build-migrate build-operator; fi
 	$(call RUN_TARGET_SUMMARY,build,pass)
 
+build-server: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-server: export CARTULARY_TEST_TARGET ?= build-server
 build-server:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SERVER_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-server,pass)
 
+build-server-harness: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-server-harness: export CARTULARY_TEST_TARGET ?= build-server-harness
 build-server-harness:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server-harness)
@@ -1045,18 +1119,21 @@ embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
 embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 embedded-web-assets: $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_WEB_ASSET_READY_STAMP)
 
+build-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-migrate: export CARTULARY_TEST_TARGET ?= build-migrate
 build-migrate:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-migrate)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(MIGRATE_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-migrate,pass)
 
+build-operator: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-operator: export CARTULARY_TEST_TARGET ?= build-operator
 build-operator:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-operator)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(OPERATOR_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-operator,pass)
 
+build-web: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-web: export CARTULARY_TEST_TARGET ?= build-web
 build-web:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web)
@@ -1076,6 +1153,7 @@ duration-baseline-drift-suite: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 duration-baseline-drift-suite:
 	$(Q)$(RUN_STEP_SCRIPT) "duration-baseline-drift-suite" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/duration-accounting/duration-baseline-drift-suite.sh
 
+browser-e2e-a11y: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-a11y: export CARTULARY_TEST_TARGET ?= browser-e2e-a11y
 browser-e2e-a11y:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi

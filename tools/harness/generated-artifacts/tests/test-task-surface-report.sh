@@ -171,6 +171,15 @@ assert.equal(
   "frontend-typecheck must keep its explicit pass summary",
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
+for (const target of manifest.targets.filter((entry) =>
+  entry.target_class === "public" && entry.output_policy.artifact_policy !== "none")) {
+  const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  assert.match(
+    renderedMake,
+    new RegExp(`^${escapedTarget}: export CARTULARY_TEST_RUN_ID := \\$\\(CARTULARY_TEST_RUN_ID\\)$`, "mu"),
+    `${target.name} must freeze its public retained run identity at target scope`,
+  );
+}
 assert.match(
   renderedMake,
   /CARTULARY_TEST_TARGET="\$\$\{CARTULARY_TEST_TARGET:-frontend-toolchain\}" \$\(RUN_STEP_SCRIPT\) "frontend-toolchain"/,

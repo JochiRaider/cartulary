@@ -393,6 +393,15 @@ function renderRecipePrefix(recipe, entry = null) {
   for (const comment of recipe.comments ?? []) {
     lines.push(`# ${comment}`);
   }
+  if (
+    entry?.target_class === "public" &&
+    entry.output_policy?.artifact_policy !== "none" &&
+    recipe.exports?.CARTULARY_TEST_RUN_ID === undefined
+  ) {
+    lines.push(
+      `${recipe.target}: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)`,
+    );
+  }
   if (recipe.test_target === "self") {
     lines.push(
       `${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`,
