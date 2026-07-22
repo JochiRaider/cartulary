@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 retained-browser stabilization implementation `64dd1023`; T-012 activated by the current tracker checkpoint |
+| Current source | T-012 strict candidate comparison from clean checkpoint `9e2fc1aa`; T-008 reopened for backend worker-policy scope correction |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-008 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -158,11 +158,11 @@ result; the explicit observability check fails closed.
 | T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
-| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
+| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | IN_PROGRESS | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2057,3 +2057,44 @@ completed work.
   successful `6a32e41e` contexts, is diagnostic-only. Recollect one warm-up and
   exactly two measured roots for every provider window from this clean source;
   candidate evidence may not use retained-v1 migration exceptions.
+
+### 2026-07-22 — T-012 portfolio comparison reopens T-008 worker-policy scope
+
+- Source: clean frozen candidate checkpoint
+  `9e2fc1aafaf09eb5c0e8c8ba4df3eba48f3da091`. All 23 provider windows were
+  collected as one successful warm-up plus exactly two measured observations.
+  Three retry-contaminated roots were rejected and retained with
+  `retry_observed`: test-fast
+  `.cartulary/test-results/20260722T161707Z-p1236031`, service-backed owner
+  slice `.cartulary/test-results/20260722T160507Z-p1132214`, and release-check
+  `.cartulary/test-results/20260722T170244Z-p2026907`. Complete replacement
+  windows were collected rather than substituting individual samples.
+- Strict comparison: every selected root passed schema, clean-state, canonical
+  input, workload, host/capacity/toolchain, timing-source, and exact policy
+  transition qualification. All four required-improvement gates passed:
+  backend-unit `40324 -> 5497 ms`, backend finalization `6991 -> 3995 ms`,
+  release browser readiness `154543 -> 136375.5 ms`, and release-check
+  `456198.5 -> 261940.5 ms`. The 48-target portfolio improved
+  `2721126 -> 2405789 ms` (`-315337 ms`).
+- No-regression failures: backend-process `24182 > 23885 ms`,
+  browser-e2e-webserver-backed `115932.5 > 104108.55 ms`, harness-contract
+  `27047.5 > 25678.275 ms`, otel-conformance `4274 > 1626.5 ms`,
+  SeaweedFS migration preservation `92735 > 88058.775 ms`, SeaweedFS release
+  evidence `142819 > 138433.575 ms`, and operational recovery smoke
+  `46804.5 > 39948.3 ms`. Thresholds remain unchanged and the failed window
+  will not be rerun unchanged.
+- Ownership finding: the backend pool's scheduler-owned `GOMAXPROCS=4` escaped
+  the T-008 backend-unit consolidation boundary and was applied to process
+  families. Retained command evidence shows the same app-server process group
+  slowing from `14.746 s` without that override to `22.745 s` with it. T-008
+  must scope the six-worker/four-thread capture policy to backend-unit while
+  keeping the shared T-009 finalizer pool. The remaining failed rows are
+  assigned to a subsequent T-010 resource/topology correction after T-008 is
+  closed.
+- Disposition: T-008 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. After focused backend parity and process-latency proof,
+  close T-008, reopen T-010, and correct retained browser resource
+  double-accounting, latency-sensitive check admission, isolated SeaweedFS
+  scenario scheduling, and operational recovery startup duplication. Any code
+  change invalidates all `9e2fc1aa` candidate windows; T-012 must recollect from
+  the next clean checkpoint.
