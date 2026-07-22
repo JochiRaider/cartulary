@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-011 lifecycle synchronization implementation `96c08d65`; retained target-local reference snapshots remain qualified |
+| Current source | T-012 candidate checkpoint `706aa7ed`; retained target-local reference snapshots remain qualified while the execution-policy digest contract is corrected |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -151,7 +151,7 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, and strict public-invocation identity proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary |
+| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, strict public-invocation identity proof, and semantic execution-policy digest proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary; producer and validator share one order-independent execution-policy canonicalization contract |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
@@ -162,7 +162,7 @@ result; the explicit observability check fails closed.
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1703,3 +1703,36 @@ completed work.
   must now share the next clean tracker checkpoint; all roots from
   `8720868b`, including successful windows, are retained rejects after this
   source change and cannot enter the accepted comparison.
+
+### 2026-07-22 — T-012 strict comparison reopens T-001 policy digest contract
+
+- Source: clean frozen candidate checkpoint
+  `706aa7ed62832ce77871577921c9f841bd884a87`. Collection produced 21
+  provider windows and 63 selected strict-current roots covering all 50
+  target bindings. Every selected root passed, retained a clean source state,
+  reported zero retries and no contamination, preserved its public invocation
+  boundary, and completed observability indexing.
+- Retained rejects: test-fast root
+  `.cartulary/test-results/20260722T042926Z-p302152` and ci root
+  `.cartulary/test-results/20260722T043420Z-p382608` are rejected as
+  `retry_observed`; test-fast root
+  `.cartulary/test-results/20260722T054231Z-p1282645` is rejected as
+  `artifact_incomplete`; the prior failed full-test root remains rejected as
+  `failed_execution`; three overlapping standup roots remain rejected as
+  `external_activity`. The retry-free replacement windows passed strict
+  retained qualification.
+- Rejection: the read-only comparison reached the first target and failed with
+  `agent-finalize retained execution-policy projection digest mismatch` before
+  evaluating any duration threshold. The retained producer hashes formatted,
+  insertion-ordered JSON while the v2 performance validator hashes recursively
+  sorted semantic JSON. The same policy value therefore has two deterministic
+  digests. This is a contract implementation defect, not a candidate timing
+  regression, and no threshold was relaxed.
+- Disposition: T-001 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Define one I-JSON-safe, recursively key-sorted semantic
+  encoding for execution-policy projections, use the shared canonicalizer in
+  both producer and validator, and prove key-order independence plus
+  producer/validator agreement. Retained reference roots remain immutable and
+  readable; all `706aa7ed` candidate roots become diagnostic-only after the
+  correction. T-012 must recollect every provider window from the next clean
+  tracker checkpoint.
