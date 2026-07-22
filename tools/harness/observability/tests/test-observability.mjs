@@ -31,6 +31,7 @@ import {
   median,
   qualificationReasons,
 } from "../performance-evidence.mjs";
+import { semanticJSONSHA256 } from "../../test-catalog/semantic-json.mjs";
 import {
   deliver,
   exporterTimeoutMs,
@@ -376,6 +377,23 @@ try {
   captureExecutionContext(toolRootRunDir, { target: "agent-finalize", status: "passed" });
   const toolRootResult = reconstructObservability(toolRootRunDir);
   assert.equal(toolRootResult.context.target, "agent-finalize");
+  assert.equal(
+    toolRootResult.context.execution_policy_sha256,
+    semanticJSONSHA256(toolRootResult.context.execution_policy),
+    "the execution-context producer and performance validator must share the semantic policy digest",
+  );
+  assert.equal(
+    toolRootResult.context.execution_policy_sha256,
+    semanticJSONSHA256(Object.fromEntries(Object.entries(toolRootResult.context.execution_policy).reverse())),
+    "execution-policy digests must be independent of object insertion order",
+  );
+  for (const contract of toolRootResult.context.measurement_contracts) {
+    assert.equal(
+      contract.execution_policy_sha256,
+      semanticJSONSHA256(contract.execution_policy),
+      `${contract.target} must retain the validator's semantic policy digest`,
+    );
+  }
   assert.equal(toolRootResult.built[0].root.target, "agent-finalize");
   assert.ok(
     toolRootResult.built[0].result.bundle.spans.some(

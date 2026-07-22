@@ -191,6 +191,10 @@ export function canonicalJSONString(value) {
     .join(",")}}`;
 }
 
+export function semanticJSONSHA256(value) {
+  return createHash("sha256").update(canonicalJSONString(value)).digest("hex");
+}
+
 export function semanticJSONDigest(value) {
-  return `sha256:${createHash("sha256").update(canonicalJSONString(value)).digest("hex")}`;
+  return `sha256:${semanticJSONSHA256(value)}`;
 }

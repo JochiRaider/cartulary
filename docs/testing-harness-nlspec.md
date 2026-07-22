@@ -2582,6 +2582,11 @@ projection. Let `m` be the median duration and `d` the median absolute
 deviation. The no-regression limit is `m + max(1000, 3*d, 0.05*m)`
 milliseconds. A required hotspot improves only when its candidate median is at
 least `max(1000, 3*d, 0.10*m)` milliseconds below the reference median.
+The normalized execution-policy projection MUST use the Section 3.6 semantic
+JSON encoding. Its `execution_policy_sha256` value is the same SHA-256 digest
+without the `sha256:` prefix. Producers and validators MUST use that one
+recursively key-sorted, I-JSON-safe encoding; formatted bytes, object insertion
+order, and a second policy-specific canonicalizer are forbidden digest inputs.
 Failed, interrupted, stale, retried, source- or capacity-mismatched observations
 are retained as rejected evidence and do not enter either set. Performance
 acceptance MUST consume retained execution contexts, record every rejected root

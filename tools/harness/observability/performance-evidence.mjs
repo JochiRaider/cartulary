@@ -1,28 +1,16 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { repoRoot } from "../contract/index.mjs";
+import { canonicalJSONString, semanticJSONSHA256 } from "../test-catalog/semantic-json.mjs";
 import { loadRetainedObservability, resolveExactRunDir } from "./observability.mjs";
 
 export const backendFinalizerTarget = "backend-output-finalizer";
 export const performanceEvidenceSchemaID = "cartulary.harness_performance_evidence_roots.v2";
 export const performanceBaselineSchemaID = "cartulary.harness_public_target_duration_baselines.v2";
 
-function canonicalJSON(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJSON(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function sha256(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 function sameJSON(left, right) {
-  return canonicalJSON(left) === canonicalJSON(right);
+  return canonicalJSONString(left) === canonicalJSONString(right);
 }
 
 function readJSON(file) {
@@ -283,7 +271,7 @@ function targetStatistics(binding, window, warmup, samples) {
   const executionPolicy = contract.execution_policy ?? {
     retained_v1_execution_policy_sha256: contract.execution_policy_sha256,
   };
-  if (contract.execution_policy && sha256(canonicalJSON(contract.execution_policy)) !== contract.execution_policy_sha256) {
+  if (contract.execution_policy && semanticJSONSHA256(contract.execution_policy) !== contract.execution_policy_sha256) {
     throw new Error(`${target} retained execution-policy projection digest mismatch`);
   }
   const gate = target === backendFinalizerTarget || contract.performance_gates.some((gateName) => gateName.endsWith("_improvement"))
@@ -435,7 +423,7 @@ function migrationCandidate(record, target) {
     target,
     timingSource,
     breadth,
-    compatibility: canonicalJSON({
+    compatibility: canonicalJSONString({
       provider: record.context.target,
       commit: record.context.commit,
       source_snapshot_sha256: record.context.source_snapshot_sha256,
@@ -523,7 +511,7 @@ export function buildRetainedV1ReferenceManifest(resultsRoot, { windowStartedAt,
   const bindings = [];
   for (const target of targets) {
     const triple = selectMigrationTriple(target, migrationRecords);
-    const signature = canonicalJSON({
+    const signature = canonicalJSONString({
       provider: triple[0].record.context.target,
       roots: triple.map((candidate) => candidate.record.runDir),
     });

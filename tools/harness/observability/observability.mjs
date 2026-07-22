@@ -18,6 +18,7 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { semanticJSONSHA256 } from "../test-catalog/semantic-json.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
 import { collectServiceTimingContamination } from "../duration-accounting/duration-drift.mjs";
 
@@ -432,7 +433,7 @@ function measurementContract(target, catalog, manifest, executionTopology) {
       `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
     ),
     execution_policy: targetExecutionPolicy,
-    execution_policy_sha256: sha256(canonicalJSON(targetExecutionPolicy)),
+    execution_policy_sha256: semanticJSONSHA256(targetExecutionPolicy),
   };
 }
 
@@ -596,7 +597,7 @@ export function captureExecutionContext(runDir, metadata = {}) {
       `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${rootContract.command_id}\u0000${canonicalJSON(invocationInputs)}`,
     ),
     execution_policy: executionPolicy,
-    execution_policy_sha256: sha256(canonicalJSON(executionPolicy)),
+    execution_policy_sha256: semanticJSONSHA256(executionPolicy),
     started_at: new Date(interval.start).toISOString(),
     ended_at: new Date(interval.end).toISOString(),
     status,

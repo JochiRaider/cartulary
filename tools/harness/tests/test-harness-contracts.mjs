@@ -77,7 +77,11 @@ import { validateSchedulerResourceRegistrySemantics } from "../scheduler/schedul
 import { resolveRetainedLogArtifacts } from "../diagnostics/retained-artifact-resolver.mjs";
 import { loadVerificationContracts } from "../test-catalog/verification-contracts.mjs";
 import { loadTestCatalog } from "../test-catalog/test-catalog.mjs";
-import { parseStrictJSON, semanticJSONDigest } from "../test-catalog/semantic-json.mjs";
+import {
+  parseStrictJSON,
+  semanticJSONDigest,
+  semanticJSONSHA256,
+} from "../test-catalog/semantic-json.mjs";
 import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
@@ -1457,6 +1461,11 @@ test("semantic JSON rejects ambiguous encodings and ignores display metadata", (
   assert.equal(
     semanticJSONDigest({ owner_id: "module.fixture", status: "active" }),
     semanticJSONDigest({ status: "active", owner_id: "module.fixture" }),
+  );
+  assert.equal(
+    semanticJSONDigest({ owner_id: "module.fixture", status: "active" }),
+    `sha256:${semanticJSONSHA256({ status: "active", owner_id: "module.fixture" })}`,
+    "prefixed and bare semantic digests must share one canonical encoding",
   );
 });
 
