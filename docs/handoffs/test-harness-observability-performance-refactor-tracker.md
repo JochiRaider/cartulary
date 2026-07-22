@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-009 remediation implementation `995bfe48`; retained target-local reference snapshots are recorded in the v2 baseline |
+| Current source | frozen T-012 candidate checkpoint `d829ccee`; strict candidate qualification exposed a public invocation-identity defect |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -151,7 +151,7 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, and generated baseline artifact | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons |
+| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, and strict public-invocation identity proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
@@ -162,7 +162,7 @@ result; the explicit observability check fails closed.
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1577,3 +1577,32 @@ completed work.
 - Active: T-012 is again the sole `IN_PROGRESS` task. Its prior release warm-up
   remains rejected. Candidate evidence must restart from the new clean tracker
   checkpoint and cannot reuse any root from commit `995bfe48`.
+
+### 2026-07-22 — T-012 strict qualification reopens T-001 invocation identity
+
+- Source: clean frozen candidate checkpoint
+  `d829ccee3a2b7f337e679fba29a3f36b1c83deb8`. Candidate collection produced
+  one successful warm-up plus exactly two measured roots for each of the 21
+  reference-mirrored providers. All 63 provider contexts are v2, clean,
+  terminal-successful, warm-eligible, uncontaminated, and share the frozen
+  commit and source snapshot.
+- Rejection: the first strict comparison stopped before duration evaluation at
+  `frontend-fallow-static` because its direct roots do not retain the public
+  invocation boundary. The same structural defect affects
+  `go-test-duration-baseline-coverage`, `test-slice`,
+  `service-backed-test-slice`, and `test-evidence-audit`. The roots remain
+  diagnostic-only and will not be rerun unchanged.
+- Diagnosis: each public preflight wrote a valid invocation marker to a sibling
+  run ID while its generated node-tool recipe explicitly re-expanded the
+  recursive Make default `CARTULARY_TEST_RUN_ID` for the actual summary root.
+  For example, audit summary root `20260722T022824Z-p2225741` has its marker in
+  sibling root `20260722T022824Z-p2225743`. This splits one public invocation
+  across two retained roots and violates strict-current evidence identity.
+- Disposition: T-001 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Freeze `CARTULARY_TEST_RUN_ID` once at target scope for
+  every public artifact-emitting generated recipe, add generator and contract
+  coverage that proves preflight and summary identity agree, regenerate owned
+  outputs, and validate focused direct roots. Only the five affected provider
+  windows require recollection after the corrected clean checkpoint; every
+  other candidate window remains rejected for the next source snapshot because
+  strict candidate rows must share one frozen commit.
