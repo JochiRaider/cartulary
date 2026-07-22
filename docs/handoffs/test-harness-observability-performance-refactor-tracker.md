@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 candidate checkpoint `706aa7ed`; retained target-local reference snapshots remain qualified while the execution-policy digest contract is corrected |
+| Current source | T-001 semantic execution-policy digest implementation `45639626`; retained target-local reference snapshots remain qualified |
 | Last updated | 2026-07-22 |
-| Active item | T-001 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -151,7 +151,7 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, strict public-invocation identity proof, and semantic execution-policy digest proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary; producer and validator share one order-independent execution-policy canonicalization contract |
+| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, strict public-invocation identity proof, and semantic execution-policy digest proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary; producer and validator share one order-independent execution-policy canonicalization contract |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
@@ -162,7 +162,7 @@ result; the explicit observability check fails closed.
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1736,3 +1736,32 @@ completed work.
   readable; all `706aa7ed` candidate roots become diagnostic-only after the
   correction. T-012 must recollect every provider window from the next clean
   tracker checkpoint.
+
+### 2026-07-22 — T-001 semantic execution-policy digest correction complete
+
+- Source: implementation commit `45639626`, following mandatory reopen
+  checkpoint `b27b43a6`. Section 10.5 now binds normalized policy projections
+  to the Section 3.6 recursively key-sorted, I-JSON-safe semantic encoding and
+  its bare SHA-256 value. The retained context producer and v2 validator call
+  the same shared digest implementation. The performance implementation also
+  removed its private JSON canonicalizer and uses the shared semantic encoding
+  for policy equality and window signatures. Retained artifact file formatting
+  and all unrelated legacy digests remain unchanged.
+- Regression proof: harness fixtures assert that top-level and target-local
+  measurement-policy digests equal the validator digest and remain equal after
+  object-key reordering. The semantic JSON contract separately proves that its
+  prefixed and bare forms share one byte encoding.
+- Generated owners: `make generate` passed at
+  `.cartulary/test-results/20260722T060818Z-p1771304` and refreshed the testing
+  harness owner-document digest, extension dependency projection, generated Go
+  contracts, and execution-topology render index through their owner inputs.
+- Validation: `make harness-contract` passed at
+  `.cartulary/test-results/20260722T060831Z-p1773514`; JSON shape,
+  generated-artifact policy, and generation drift passed at
+  `20260722T060831Z-p1773133`, `20260722T060831Z-p1773138`, and
+  `20260722T060831Z-p1773154`. Script and Markdown lint passed at
+  `20260722T060831Z-p1773612` and `20260722T060831Z-p1773653`.
+- Active: T-012 is again the sole `IN_PROGRESS` item. Every candidate provider
+  window must be collected from the next clean tracker checkpoint; none of the
+  otherwise-qualified `706aa7ed` roots can enter the accepted candidate
+  snapshot after this source change.
