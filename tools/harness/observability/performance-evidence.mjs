@@ -323,7 +323,7 @@ function currentAllowedPolicyTransition(target) {
     .find((entry) => entry.target === contractTarget);
   const profile = manifest.observability_policy.measurement_profiles
     .find((entry) => entry.profile_id === binding?.profile_id);
-  return profile?.allowed_policy_transition;
+  return binding?.allowed_policy_transition ?? profile?.allowed_policy_transition;
 }
 
 export function buildQualifiedBaseline(windows, bindings, {
@@ -583,6 +583,7 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     "backend_grouped_capture_and_parallel_report_emission",
     "serial_to_topology_dag",
     "browser_stack_capacity_1_to_2",
+    "browser_webserver_stage_capacity_1_to_2",
   ]);
   if (!knownTransitions.has(transition)) throw new Error(`${target} has unknown policy transition ${transition}`);
   if (transition === "backend_grouped_capture_and_parallel_report_emission") {
@@ -629,6 +630,11 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
         1,
         "sequence_to_service_backed",
       ],
+      nested_browser_validation: [
+        { host_cpu: 4, host_io: 4, process: 1 },
+        1,
+        "sequence_to_service_backed",
+      ],
     };
     const expectedSteps = {
       lint: [
@@ -659,7 +665,7 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
         ["seaweedfs-release-gate", ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "small_check"],
         ["build", ["check"], "build"],
         ["deployable-shape", ["build"], "small_check"],
-        ["release-browser-readiness", ["check"], "nested_service_validation"],
+        ["release-browser-readiness", ["check"], "nested_browser_validation"],
         ["release-readiness-evidence", ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-migration-preservation", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "small_check"],
       ],
     };
@@ -709,6 +715,8 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     const releaseBrowser = candidateRow.execution_policy?.release_browser;
     const expected = {
       browser_stack_capacity: 2,
+      parent_sequence_profile: "nested_browser_validation",
+      forwarded_limits: { go_cpu: 4, go_io: 4 },
       stage_capacities: { visual: 1, accessibility: 1 },
       retained_session_claims: ["browser_stack", "browser_stage_lane"],
       released_after_startup: ["process"],
@@ -748,6 +756,27 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     if (!sameJSON(releaseBrowser, expected) ||
       candidateRow.execution_policy?.service_backed_schedule?.resource_limits?.browser_stack !== 2) {
       throw new Error(`${target} candidate policy does not implement the exact browser-capacity transition`);
+    }
+  }
+  if (transition === "browser_webserver_stage_capacity_1_to_2") {
+    const webserver = candidateRow.execution_policy?.browser_webserver;
+    const expected = {
+      stage_capacity: 2,
+      browser_group_resource_claims: { go_cpu: 2, go_io: 1, process: 1 },
+      sessions: [
+        {
+          browser_session_group: "browser-e2e-webserver-backed-default",
+          runtime_profile_id: "default",
+        },
+        {
+          browser_session_group: "browser-functional-network-flow-claimed",
+          runtime_profile_id: "network_flow_claimed",
+          browser_session_isolation_reason: "claimed Network Flow evidence requires immutable startup-only extension configuration",
+        },
+      ],
+    };
+    if (!sameJSON(webserver, expected)) {
+      throw new Error(`${target} candidate policy does not implement the exact browser-webserver transition`);
     }
   }
 }

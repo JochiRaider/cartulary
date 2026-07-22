@@ -3106,6 +3106,12 @@ test("observability dispositions and sequence identities fail closed", () => {
   ).command_id;
   assert.match(errorsFor(unownedMeasurementIdentity), /target must declare a valid command_id/);
 
+  const misplacedTargetTransition = structuredClone(taskSurface);
+  misplacedTargetTransition.observability_policy.target_measurement_profiles
+    .find((binding) => binding.target === "agent-finalize").allowed_policy_transition =
+      "browser_webserver_stage_capacity_1_to_2";
+  assert.match(errorsFor(misplacedTargetTransition), /allowed_policy_transition is not valid/);
+
   const duplicateSequence = structuredClone(taskSurface);
   duplicateSequence.sequences.lint.steps[1].target = duplicateSequence.sequences.lint.steps[0].target;
   assert.match(errorsFor(duplicateSequence), /occurrence aliases are unsupported/);

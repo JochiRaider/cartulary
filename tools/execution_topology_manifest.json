@@ -180,6 +180,11 @@
       "resource_claims": { "host_cpu": 2, "host_io": 4, "process": 1 },
       "make_jobs": 1,
       "forwarding": "sequence_to_service_backed"
+    },
+    "nested_browser_validation": {
+      "resource_claims": { "host_cpu": 4, "host_io": 4, "process": 1 },
+      "make_jobs": 1,
+      "forwarding": "sequence_to_service_backed"
     }
   },
   "sequence_schedules": [
@@ -248,7 +253,7 @@
         { "target": "seaweedfs-release-gate", "needs": ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "profile": "small_check", "priority": 0 },
         { "target": "build", "needs": ["check"], "profile": "build", "priority": 0 },
         { "target": "deployable-shape", "needs": ["build"], "profile": "small_check", "priority": 0 },
-        { "target": "release-browser-readiness", "needs": ["check"], "profile": "nested_service_validation", "priority": 0 },
+        { "target": "release-browser-readiness", "needs": ["check"], "profile": "nested_browser_validation", "priority": 0 },
         { "target": "release-readiness-evidence", "needs": ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-migration-preservation", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "profile": "small_check", "priority": 0 }
       ]
     }
@@ -1169,6 +1174,7 @@
         }
       },
       "browser_stage_resource_limits": {
+        "webserver-backed": 2,
         "stateful": 3
       },
       "browser_stage_generated_needs": {

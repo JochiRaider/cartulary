@@ -115,7 +115,10 @@
             "required": ["target", "profile_id"],
             "properties": {
               "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
-              "profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+              "profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "allowed_policy_transition": {
+                "enum": ["browser_webserver_stage_capacity_1_to_2"]
+              }
             }
           }
         }

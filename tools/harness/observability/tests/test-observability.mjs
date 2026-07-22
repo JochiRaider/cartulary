@@ -585,6 +585,8 @@ try {
     service_backed_schedule: { resource_limits: { browser_stack: 2 } },
     release_browser: {
       browser_stack_capacity: 2,
+      parent_sequence_profile: "nested_browser_validation",
+      forwarded_limits: { go_cpu: 4, go_io: 4 },
       stage_capacities: { visual: 1, accessibility: 1 },
       retained_session_claims: ["browser_stack", "browser_stage_lane"],
       released_after_startup: ["process"],
@@ -612,6 +614,57 @@ try {
   assert.throws(
     () => compareQualifiedBaselines(browserBaseline, browserCandidate),
     /does not implement the exact browser-capacity transition/u,
+  );
+  const webserverBaseline = performanceArtifact();
+  const webserverBaselineRow = webserverBaseline.targets.find((row) => row.target === "lint");
+  webserverBaselineRow.target = "browser-e2e-webserver-backed";
+  webserverBaselineRow.allowed_policy_transition = "browser_webserver_stage_capacity_1_to_2";
+  webserverBaselineRow.execution_policy = {
+    target: "browser-e2e-webserver-backed",
+    browser_webserver: { stage_capacity: 1 },
+  };
+  webserverBaselineRow.execution_policy_sha256 = "a".repeat(64);
+  webserverBaseline.public_entrypoint_portfolio.targets = [
+    "browser-e2e-webserver-backed",
+    "improvement-target",
+    "standard-target",
+  ];
+  const webserverCandidate = structuredClone(webserverBaseline);
+  const webserverImprovementRow = webserverCandidate.targets
+    .find((row) => row.target === "improvement-target");
+  webserverImprovementRow.median_ms = 14_000;
+  webserverImprovementRow.samples_ms = [14_000, 14_000];
+  const webserverCandidateRow = webserverCandidate.targets
+    .find((row) => row.target === "browser-e2e-webserver-backed");
+  webserverCandidateRow.execution_policy = {
+    target: "browser-e2e-webserver-backed",
+    browser_webserver: {
+      stage_capacity: 2,
+      browser_group_resource_claims: { go_cpu: 2, go_io: 1, process: 1 },
+      sessions: [
+        {
+          browser_session_group: "browser-e2e-webserver-backed-default",
+          runtime_profile_id: "default",
+        },
+        {
+          browser_session_group: "browser-functional-network-flow-claimed",
+          runtime_profile_id: "network_flow_claimed",
+          browser_session_isolation_reason: "claimed Network Flow evidence requires immutable startup-only extension configuration",
+        },
+      ],
+    },
+  };
+  webserverCandidateRow.execution_policy_sha256 = "b".repeat(64);
+  webserverCandidate.public_entrypoint_portfolio.total_median_ms = 39_000;
+  assert.deepEqual(
+    compareQualifiedBaselines(webserverBaseline, webserverCandidate).failures,
+    [],
+    "the exact isolated webserver session-lane transition must pass",
+  );
+  webserverCandidateRow.execution_policy.browser_webserver.stage_capacity = 1;
+  assert.throws(
+    () => compareQualifiedBaselines(webserverBaseline, webserverCandidate),
+    /does not implement the exact browser-webserver transition/u,
   );
   const mismatchedHost = performanceArtifact();
   for (const [field, label] of [

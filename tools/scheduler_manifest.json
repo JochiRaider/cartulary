@@ -25,7 +25,7 @@
         "process": "auto",
         "seaweedfs_fixture": 2,
         "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1,
+        "browser_stage_webserver_backed": 2,
         "browser_stage_stateful": 3
       },
       "summary_groups": [
@@ -5528,7 +5528,7 @@
         "process": "auto",
         "seaweedfs_fixture": 2,
         "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1,
+        "browser_stage_webserver_backed": 2,
         "browser_stage_stateful": 3,
         "browser_stage_measurement": 1,
         "browser_stage_visual": 1,
@@ -16742,7 +16742,7 @@
         "process": "auto",
         "seaweedfs_fixture": 2,
         "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1,
+        "browser_stage_webserver_backed": 2,
         "browser_stage_stateful": 3
       },
       "stop_on_first_failure": false,

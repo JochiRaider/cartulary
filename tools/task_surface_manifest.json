@@ -428,7 +428,8 @@
       },
       {
         "target": "browser-e2e-webserver-backed",
-        "profile_id": "standard_no_regression"
+        "profile_id": "standard_no_regression",
+        "allowed_policy_transition": "browser_webserver_stage_capacity_1_to_2"
       },
       {
         "target": "check",
@@ -1739,9 +1740,9 @@
           "needs": [
             "check"
           ],
-          "resource_profile": "nested_service_validation",
+          "resource_profile": "nested_browser_validation",
           "resource_claims": {
-            "host_cpu": 2,
+            "host_cpu": 4,
             "host_io": 4,
             "process": 1
           },

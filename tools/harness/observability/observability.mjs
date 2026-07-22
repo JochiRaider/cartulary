@@ -352,12 +352,21 @@ function currentSourceState() {
 function releaseBrowserPolicyProjection(executionTopology) {
   const schedule = executionTopology.service_backed_schedules?.schedules
     ?.find((entry) => entry.target === "release-browser-readiness");
+  const parentStep = executionTopology.sequence_schedules
+    ?.find((entry) => entry.target === "release-check")?.steps
+    ?.find((entry) => entry.target === "release-browser-readiness");
+  const parentProfile = executionTopology.sequence_resource_profiles?.[parentStep?.profile];
   const stageDefaults = executionTopology.service_backed_schedules?.defaults
     ?.browser_stage_resource_limits ?? {};
   const stages = (executionTopology.browser_e2e_batch?.stages ?? [])
     .filter((stage) => (stage.schedule_tags ?? []).includes("service_backed_release_browser"));
   return {
     browser_stack_capacity: schedule?.resource_limits?.browser_stack,
+    parent_sequence_profile: parentStep?.profile,
+    forwarded_limits: {
+      go_cpu: parentProfile?.resource_claims?.host_cpu,
+      go_io: parentProfile?.resource_claims?.host_io,
+    },
     stage_capacities: {
       visual: stageDefaults.visual ?? 1,
       accessibility: stageDefaults.a11y ?? 1,
@@ -365,12 +374,29 @@ function releaseBrowserPolicyProjection(executionTopology) {
     retained_session_claims: ["browser_stack", "browser_stage_lane"],
     released_after_startup: ["process"],
     sessions: stages.flatMap((stage) => (stage.groups ?? []).map((group) => ({
-      browser_session_group: group.browser_session_group,
+      browser_session_group: group.browser_session_group ?? `${stage.target}-default`,
       browser_stage: stage.name,
       runtime_profile_id: group.runtime_profile_id ?? "default",
       browser_session_isolation_reason: group.browser_session_isolation_reason,
     }))).sort((left, right) =>
       left.browser_session_group.localeCompare(right.browser_session_group)),
+  };
+}
+
+function webserverBrowserPolicyProjection(executionTopology) {
+  const defaults = executionTopology.service_backed_schedules?.defaults ?? {};
+  const stage = executionTopology.browser_e2e_batch?.stages
+    ?.find((entry) => entry.name === "webserver-backed");
+  return {
+    stage_capacity: defaults.browser_stage_resource_limits?.["webserver-backed"] ?? 1,
+    browser_group_resource_claims: defaults.browser_group_resource_claims,
+    sessions: (stage?.groups ?? []).map((group) => ({
+      browser_session_group: group.browser_session_group ?? `${stage.target}-default`,
+      runtime_profile_id: group.runtime_profile_id ?? "default",
+      ...(group.browser_session_isolation_reason === undefined
+        ? {}
+        : { browser_session_isolation_reason: group.browser_session_isolation_reason }),
+    })).sort((left, right) => left.browser_session_group.localeCompare(right.browser_session_group)),
   };
 }
 
@@ -391,6 +417,9 @@ function measurementContract(target, catalog, manifest, executionTopology) {
       executionTopology.service_backed_schedules?.schedules?.find((entry) => entry.target === target) ?? null,
     ...(target === "release-browser-readiness" ? {
       release_browser: releaseBrowserPolicyProjection(executionTopology),
+    } : {}),
+    ...(target === "browser-e2e-webserver-backed" ? {
+      browser_webserver: webserverBrowserPolicyProjection(executionTopology),
     } : {}),
     ...(target === "backend-unit" ? {
       backend_unit: {
@@ -428,9 +457,9 @@ function measurementContract(target, catalog, manifest, executionTopology) {
     observation_eligibility: profile.observation_eligibility,
     performance_gates: [...profile.performance_gates],
     timing_source: "invocation_or_exact_aggregate",
-    ...(profile.allowed_policy_transition === undefined
+    ...((binding.allowed_policy_transition ?? profile.allowed_policy_transition) === undefined
       ? {}
-      : { allowed_policy_transition: profile.allowed_policy_transition }),
+      : { allowed_policy_transition: binding.allowed_policy_transition ?? profile.allowed_policy_transition }),
     workload_evidence_profile_sha256: sha256(
       `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
     ),

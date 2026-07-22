@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 transition-validator parity correction; T-011 browser performance remediation is next |
+| Current source | T-011 browser-capacity remediation complete; T-012 clean candidate acceptance is next |
 | Last updated | 2026-07-22 |
-| Active item | T-011 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -161,8 +161,8 @@ result; the explicit observability check fails closed.
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, and exact transition-validator parity | dependency, resource, cancellation, output, cleanup, primary-failure behavior, and normalized transition validation are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, and accepted strict browser performance windows | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser duration gates pass |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, exact policy-transition fixtures, and managed-service aggregate concurrency proof | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser policies are ready for T-012 quantitative acceptance |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -272,6 +272,9 @@ Successful retained evidence on the current worktree lineage:
 | T-010 owner and aggregate validation | `.cartulary/test-results/20260722T150928Z-p210325`; `.cartulary/test-results/20260722T152209Z-p374034`; `.cartulary/test-results/20260722T152426Z-p460599`; `.cartulary/test-results/20260722T152449Z-p466433` | Exact workbook browser row, `check`, `lint`, and `ci` PASS; standalone `check` was 129.057 s diagnostic-only, while CI's nested `check` was 112.937 s |
 | `make release-check` | `.cartulary/test-results/20260722T153047Z-p627614` | PASS, 12/12 sequence units and 510 tests in 286.918 s; release browser readiness 139.721 s; nested contract, drift, shape, security, build, SeaweedFS, SBOM/license, and readiness branches all passed |
 | T-010 final generated validation | `.cartulary/test-results/20260722T152730Z-p580020`; `.cartulary/test-results/20260722T152730Z-p580049`; `.cartulary/test-results/20260722T152730Z-p580025` | `generate-drift`, `json-shape-check`, and generated-artifact policy PASS on implementation commit `64dd1023` |
+| T-011 focused browser validation | `.cartulary/test-results/20260722T225518Z-p2927420`; `.cartulary/test-results/20260722T225808Z-p2953187` | `release-browser-readiness` PASS in 132.596 s with five profile-compatible sessions, peak `browser_stack=2`, and visual/accessibility capacity one; `browser-e2e-visual` PASS in 122.500 s with no golden drift |
+| T-011 managed-service concurrency proof | `.cartulary/test-results/20260722T231142Z-p3012400` | `make test` PASS, 651 tests in 230.524 s; both isolated webserver sessions started six milliseconds apart, peak `browser_stage_webserver_backed=2`, all 147 service-backed units and finalizers completed, and no fixture or cleanup failure occurred |
+| T-011 contract and generated validation | `.cartulary/test-results/20260722T231109Z-p3007366`; `.cartulary/test-results/20260722T231109Z-p3007361`; `.cartulary/test-results/20260722T231109Z-p3007386` | `json-shape-check`, generated-artifact policy, and `generate-drift` PASS; `harness-contract` also passed from the same validation batch |
 | `make run-harness-smoke-extended` | `.cartulary/test-results/20260720T171451Z-p3532051` | PASS, 180.115 s; lifecycle and harness fixture coverage before the release-browser correction |
 | `make json-shape-check` | `.cartulary/test-results/20260720T171827Z-p3575733` | PASS |
 | `make generated-artifact-policy-check` | `.cartulary/test-results/20260720T171829Z-p3576053` | PASS |
@@ -298,6 +301,7 @@ Failed, contaminated, or incomplete evidence retained for diagnosis:
 | `.cartulary/test-results/20260720T174659Z-p3995630` | Failed generation; exclude | A stage-wide release session group mixed default and claimed Network Flow profiles. The schedule now preserves five profile-compatible sessions with group-level isolation reasons. |
 | `.cartulary/test-results/20260720T175017Z-p3999438` | Failed fixture; exclude | The fast sequence smoke fake did not emit the three browser leaf summaries produced by the new aggregate. The fixture was updated. |
 | `.cartulary/test-results/20260720T175230Z-p4005166` | Interrupted; exclude | Follow-up execution smoke rerun was interrupted before aggregate finalization; retained child artifacts are incomplete. |
+| `.cartulary/test-results/20260722T230342Z-p2980285` | Failed diagnostic experiment; exclude | A proposed direct two-session webserver scheduler raced the shared development Compose/CORS service boundary; one session failed during `compose up`. The direct-capacity experiment and v7 manifest draft were removed. Direct leaves remain isolated, while the adopted two-lane policy is limited to the concurrency-safe managed test-service aggregate. |
 
 The current optimization implementation has passed its focused generation,
 scheduler, browser, check, lint, and CI validation. Candidate qualification
@@ -2346,3 +2350,42 @@ completed work.
   `139,088.7 ms` required-improvement limit. T-010 is closed. T-011 is
   reopened as the sole `IN_PROGRESS` item to diagnose retained browser
   critical paths and implement a durable reduction; T-012 remains `TODO`.
+
+### 2026-07-22 — T-011 browser critical-path remediation complete
+
+- Source: implementation worktree based on mandatory T-010 checkpoint
+  `69b1a2f22d18aea3a12ff2d1aacd1568272f2ebf`; this record and its generated
+  outputs form the mandatory T-011 checkpoint before new candidate collection.
+- Retained diagnosis: release-check forwarded only CPU/I/O `2/4` into
+  `release-browser-readiness`, so its CPU-two browser groups serialized even
+  though the child schedule owned `browser_stack=2`. The webserver-backed
+  managed-service stage likewise owned one stage lane for its default and
+  claimed Network Flow sessions. These were topology bottlenecks, not product
+  or Playwright behavior changes.
+- Remediation: added the closed `nested_browser_validation` sequence profile
+  with CPU/I/O `4/4`, process one, and registry-owned service-backed budget
+  forwarding; release-check now uses that profile. The managed test-service
+  webserver stage owns exactly two lanes. A target-local closed policy
+  transition proves the exact two-session identities, runtime profiles,
+  isolation reason, CPU-two group claims, and capacity change without changing
+  sibling `standard_no_regression` targets.
+- Safety boundary: a diagnostic direct-capacity prototype was rejected at
+  `.cartulary/test-results/20260722T230342Z-p2980285` after two direct sessions
+  raced the shared development Compose/CORS proxy and one failed startup. The
+  prototype and draft schema bump were fully removed. Direct public browser
+  leaves remain one-stack isolated; concurrency two is admitted only inside the
+  managed test-service scheduler that owns fixture and cleanup isolation.
+- Validation: `release-browser-readiness` passed at
+  `.cartulary/test-results/20260722T225518Z-p2927420` with five sessions, peak
+  stack two, and visual/accessibility capacities one. `browser-e2e-visual`
+  passed without drift at
+  `.cartulary/test-results/20260722T225808Z-p2953187`. `make test` passed 651
+  tests at `.cartulary/test-results/20260722T231142Z-p3012400`; the two
+  webserver session-start units began at monotonic 164 ms and 170 ms, peak
+  stage capacity was two, and every service-backed unit/finalizer completed.
+  `harness-contract`, `json-shape-check`, generated-artifact policy,
+  `generate-drift`, and `lint-biome` passed on the final implementation.
+- Active: T-012 is the sole `IN_PROGRESS` item. Freeze this clean checkpoint,
+  discard every prior candidate window as diagnostic-only, and collect one
+  successful warm-up plus exactly two consecutive measured observations for
+  every minimal provider. Candidate roots may not use retained-v1 migration.

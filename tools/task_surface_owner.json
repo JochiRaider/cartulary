@@ -189,7 +189,7 @@
       { "target": "browser-e2e-measurement", "profile_id": "standard_no_regression" },
       { "target": "browser-e2e-stateful", "profile_id": "standard_no_regression" },
       { "target": "browser-e2e-visual", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-webserver-backed", "profile_id": "standard_no_regression" },
+      { "target": "browser-e2e-webserver-backed", "profile_id": "standard_no_regression", "allowed_policy_transition": "browser_webserver_stage_capacity_1_to_2" },
       { "target": "check", "profile_id": "standard_no_regression" },
       { "target": "ci", "profile_id": "aggregate_sequence_no_regression" },
       { "target": "frontend-fallow-static", "profile_id": "standard_no_regression" },
