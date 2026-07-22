@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 candidate checkpoint `6a32e41e`; retained `test` failure exposed a measurement-session process self-deadlock |
+| Current source | T-010 retained-browser stabilization implementation `64dd1023`; T-012 activated by the current tracker checkpoint |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown and browser-worker admission regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -263,6 +263,11 @@ Successful retained evidence on the current worktree lineage:
 | T-008 planner and contract fixtures | `.cartulary/test-results/20260721T230009Z-p3937762` | `harness-contract` PASS; current catalog fixture proves 30 physical capture groups, 251 exact symbols, one isolated raw selector, 34 family projections, six workers, and child `GOMAXPROCS=4` |
 | `make backend-unit` | `.cartulary/test-results/20260721T230040Z-p3938914` | PASS, 255 tests, failed/missing `0`, 30 complete physical report roots, 34 logical emissions (`actual=30`, `reused=4`), 32.744 s wall; quantitative acceptance remains T-012-owned |
 | T-008 generated drift and shape | `.cartulary/test-results/20260721T230204Z-p3941056`; `.cartulary/test-results/20260721T230204Z-p3941058` | `generate-drift` and `json-shape-check` PASS after removing the obsolete fixed shard-job input |
+| T-010 retained-browser scheduler matrix | `.cartulary/test-results/20260722T152800Z-p584361` | Extended harness smoke PASS on the final implementation, including exact retained lifecycle claims, two-token browser CPU admission, dual-session feasibility, measurement isolation, reservation-liveness fallback, failure drain, and cleanup |
+| `make test` | `.cartulary/test-results/20260722T151807Z-p302020` | PASS, 651 tests and all 147 service-backed work units; observed ceiling 18 concurrent units, Go CPU 16, Go I/O 24, process 12, and both isolated measurement sessions completed without deadlock |
+| T-010 owner and aggregate validation | `.cartulary/test-results/20260722T150928Z-p210325`; `.cartulary/test-results/20260722T152209Z-p374034`; `.cartulary/test-results/20260722T152426Z-p460599`; `.cartulary/test-results/20260722T152449Z-p466433` | Exact workbook browser row, `check`, `lint`, and `ci` PASS; standalone `check` was 129.057 s diagnostic-only, while CI's nested `check` was 112.937 s |
+| `make release-check` | `.cartulary/test-results/20260722T153047Z-p627614` | PASS, 12/12 sequence units and 510 tests in 286.918 s; release browser readiness 139.721 s; nested contract, drift, shape, security, build, SeaweedFS, SBOM/license, and readiness branches all passed |
+| T-010 final generated validation | `.cartulary/test-results/20260722T152730Z-p580020`; `.cartulary/test-results/20260722T152730Z-p580049`; `.cartulary/test-results/20260722T152730Z-p580025` | `generate-drift`, `json-shape-check`, and generated-artifact policy PASS on implementation commit `64dd1023` |
 | `make run-harness-smoke-extended` | `.cartulary/test-results/20260720T171451Z-p3532051` | PASS, 180.115 s; lifecycle and harness fixture coverage before the release-browser correction |
 | `make json-shape-check` | `.cartulary/test-results/20260720T171827Z-p3575733` | PASS |
 | `make generated-artifact-policy-check` | `.cartulary/test-results/20260720T171829Z-p3576053` | PASS |
@@ -1996,3 +2001,59 @@ completed work.
   successful `6a32e41e` contexts and the failed `test` root become
   diagnostic-only after the correction; T-012 must recollect every provider
   window from the next clean checkpoint.
+
+### 2026-07-22 — T-010 retained-browser admission and scheduler liveness complete
+
+- Source: implementation commit `64dd1023`, following mandatory reopen
+  checkpoint `2c8a5a28`. Every retained browser stage session now releases its
+  startup envelope to exactly one browser-stack slot, one stage-lane slot, and
+  one process slot. Measurement children preserve full CPU, I/O, Postgres, and
+  object-store isolation while claiming their own single Playwright process.
+- Adaptive admission: every ordinary scheduled browser group now claims two
+  scheduler-family CPU tokens, one I/O token, and one process slot. Measurement
+  groups retain limit-sized CPU/I/O claims plus one process slot. This preserves
+  the 12-slot host process ceiling while bounding Chromium/Playwright pressure
+  through the existing CPU registry instead of adding a private control.
+- Liveness: a later limit-sized measurement session could reserve `process`
+  while blocked by the first retained measurement lane, preventing the first
+  session's feasible child from running and releasing that lane. FIFO resource
+  reservation now has an idle-only liveness fallback: when no child is running,
+  the earliest otherwise feasible ready unit may proceed. Reservation behavior
+  is unchanged while any child is active. Contract fixtures prove both paths.
+- Browser reliability: the account-settings page helper now distinguishes an
+  already-open dialog from a failed tab/control action, so it cannot fall
+  through and click navigation behind a modal. The exact workbook row that
+  failed under the former full-load schedule passed at
+  `.cartulary/test-results/20260722T150928Z-p210325`.
+- Diagnostic failures retained: full `test` at
+  `.cartulary/test-results/20260722T142558Z-p3971425` exposed the broad modal
+  fallback; `.cartulary/test-results/20260722T143305Z-p4073334` exposed a
+  different workbook assertion under the former one-CPU browser profile; and
+  `.cartulary/test-results/20260722T151040Z-p226164` exposed FIFO reservation
+  deadlock between the two measurement profiles. Product rows passed in the
+  deadlock run; none of these roots qualifies for T-012.
+- Focused validation: final extended harness smoke passed at
+  `.cartulary/test-results/20260722T152800Z-p584361`. Harness contract passed on
+  the final state and again inside release-check. Generation drift, JSON shape,
+  and generated-artifact policy passed at
+  `.cartulary/test-results/20260722T152730Z-p580020`,
+  `.cartulary/test-results/20260722T152730Z-p580049`, and
+  `.cartulary/test-results/20260722T152730Z-p580025`.
+- Broad validation: `make test` passed all 651 tests at
+  `.cartulary/test-results/20260722T151807Z-p302020`; its service scheduler
+  completed 147/147 work units while reaching 18 concurrent units and the
+  declared 16 CPU, 24 I/O, and 12 process ceilings. `make check`, `make lint`,
+  and `make ci` passed at `20260722T152209Z-p374034`,
+  `20260722T152426Z-p460599`, and `20260722T152449Z-p466433`; CI's nested check
+  was 112.937 seconds. `make release-check` passed all 12 sequence units at
+  `.cartulary/test-results/20260722T153047Z-p627614` in 286.918 seconds, with
+  release browser readiness at 139.721 seconds.
+- Generated state: owner specification digest, dependency declaration,
+  generated contracts, execution-topology render index, and scheduler manifest
+  were refreshed only through their authored owners and `make generate`. No
+  lockfile, application telemetry, domain vocabulary, or visual golden changed.
+- Active: T-010 is closed and T-012 is the sole `IN_PROGRESS` item. Every root
+  collected before this tracker activation checkpoint, including the 48
+  successful `6a32e41e` contexts, is diagnostic-only. Recollect one warm-up and
+  exactly two measured roots for every provider window from this clean source;
+  candidate evidence may not use retained-v1 migration exceptions.
