@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:14c458c32ab4cfc77afda5584e4913472db04d0ac76da06ceb20f55c14825486",
+  "input_digest": "sha256:07cd6b7e7cc4a2553bae3ade225423b7a0a93e5e62266d56d6e319bae408be8b",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -287,7 +287,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:f86e335467845607d7e626777322ed9797c309ccd82e2dc55d000d7f9dff67ae"
+      "hash": "sha256:e00bde17b208a8e119d01d9890dde5019905fd65b9806705e37266da2a1ef8b8"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -707,7 +707,7 @@
     {
       "path": "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7cdd4efc8736ca9f601e6d2d5b1644117116623aedc140055a49bf1de40fd4a8"
+      "hash": "sha256:8ca1eff2ec9bdf4571d179e353455264419cde5ae11194c98f9377d4996169bc"
     },
     {
       "path": "tools/harness/generated-artifacts/render-task-surface-make.mjs",
@@ -1212,7 +1212,7 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:7090a54c94077f9f385c17d6a5129951d679db1a65d740196e02374dee6dcb41",
-    "tools/scheduler_manifest.json": "sha256:f5b264be8de76b2228b78e2eccb7787801e6071425d893be7c6ee40b43879b0e",
+    "tools/scheduler_manifest.json": "sha256:6494b813962e76bd335abbd9585a0e9923091d06da069326c2a6fea00b16feae",
     "tools/task_surface_manifest.json": "sha256:eaa69e52d30248236c77cee6da2e7c67ae8b1ef5d1557d5ca702c9626d8bce10",
     "tools/task_surface.generated.mk": "sha256:b36f6879219d5a68a66462bb57b0a114bbc2cb980ff27495a25e9d552967c091",
     "tools/task_surface.runtime.generated.mk": "sha256:9436faef6c0fb8ea6317f7f3eec44e7d45274bf81bade4a77854534bfeb91eb0"

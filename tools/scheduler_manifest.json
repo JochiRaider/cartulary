@@ -20962,7 +20962,7 @@
         "postgres_clone": "auto",
         "process": "auto",
         "seaweedfs_fixture": 2,
-        "browser_stack": 1,
+        "browser_stack": 2,
         "browser_stage_visual": 1,
         "browser_stage_a11y": 1,
         "browser_stage_support": 1

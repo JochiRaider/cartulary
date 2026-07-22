@@ -330,11 +330,11 @@ manifest.make_recipes.smoke = { type: "sequence", prerequisites: [], sequence: "
 manifest.sequences["generic-resource"] = {
   execution_mode: "dag",
   max_jobs: 3,
-  resource_limits: { process: 3, fixture_lane: 1 },
+  resource_limits: { host_io: 1, process: 3 },
   summary_groups: [],
   steps: [
-    { type: "step", target: "alpha", priority: 20, needs: [], resource_claims: { process: 1, fixture_lane: 1 }, produces_summary_targets: ["alpha"] },
-    { type: "step", target: "beta", priority: 10, needs: [], resource_claims: { process: 1, fixture_lane: 1 }, produces_summary_targets: ["beta"] },
+    { type: "step", target: "alpha", priority: 20, needs: [], resource_claims: { host_io: 1, process: 1 }, produces_summary_targets: ["alpha"] },
+    { type: "step", target: "beta", priority: 10, needs: [], resource_claims: { host_io: 1, process: 1 }, produces_summary_targets: ["beta"] },
     { type: "step", target: "gamma", priority: 0, needs: ["alpha", "beta"], resource_claims: { process: 1 }, produces_summary_targets: ["gamma"] },
   ],
 };
@@ -458,10 +458,10 @@ const fs = require("node:fs");
 const [summaryFile, eventsFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\r?\n/).map(JSON.parse);
-if (summary.resource_limits.fixture_lane !== 1 || summary.max_active_resource_claims.fixture_lane !== 1) {
+if (summary.resource_limits.host_io !== 1 || summary.max_active_resource_claims.host_io !== 1) {
   throw new Error("generic logical resource capacity was not enforced");
 }
-if (!events.some((event) => event.event === "blocked" && event.blocked_resources.includes("fixture_lane"))) {
+if (!events.some((event) => event.event === "blocked" && event.blocked_resources.includes("host_io"))) {
   throw new Error("generic logical resource contention was not retained");
 }
 EOF

@@ -1233,10 +1233,10 @@
       },
       {
         "target": "release-browser-readiness",
-        "capacity_profile": "service_backed_full",
-        "resource_limits": {
-          "browser_stack": 1
-        },
+      "capacity_profile": "service_backed_full",
+      "resource_limits": {
+        "browser_stack": 2
+      },
         "selectors": {
           "backend": {
             "enabled": false

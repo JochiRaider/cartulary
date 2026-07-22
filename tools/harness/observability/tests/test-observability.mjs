@@ -444,6 +444,59 @@ try {
     () => compareQualifiedBaselines(baselinePerformance, invalidSequenceTransition),
     /does not implement the exact sequence transition/u,
   );
+  const browserBaseline = performanceArtifact();
+  const browserBaselineRow = browserBaseline.targets.find((row) => row.target === "lint");
+  browserBaselineRow.target = "release-browser-readiness";
+  browserBaselineRow.allowed_policy_transition = "browser_stack_capacity_1_to_2";
+  browserBaselineRow.execution_policy = {
+    target: "release-browser-readiness",
+    service_backed_schedule: { resource_limits: { browser_stack: 1 } },
+  };
+  browserBaselineRow.execution_policy_sha256 = "a".repeat(64);
+  browserBaseline.public_entrypoint_portfolio.targets = [
+    "improvement-target",
+    "release-browser-readiness",
+    "standard-target",
+  ];
+  const browserCandidate = structuredClone(browserBaseline);
+  const browserImprovementRow = browserCandidate.targets
+    .find((row) => row.target === "improvement-target");
+  browserImprovementRow.median_ms = 14_000;
+  browserImprovementRow.samples_ms = [14_000, 14_000];
+  browserCandidate.public_entrypoint_portfolio.total_median_ms = 39_000;
+  const browserCandidateRow = browserCandidate.targets
+    .find((row) => row.target === "release-browser-readiness");
+  browserCandidateRow.execution_policy = {
+    target: "release-browser-readiness",
+    service_backed_schedule: { resource_limits: { browser_stack: 2 } },
+    release_browser: {
+      browser_stack_capacity: 2,
+      stage_capacities: { visual: 1, accessibility: 1 },
+      sessions: [
+        ["browser-a11y-network-flow-claimed", "a11y", "network_flow_claimed", "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"],
+        ["browser-e2e-a11y-default", "a11y", "default", "accessibility evidence owns an isolated fixture session"],
+        ["browser-e2e-support-default", "support", "default", "release support evidence owns an isolated fixture session"],
+        ["browser-e2e-visual-default", "visual", "default", "visual evidence owns an isolated fixture and snapshot session"],
+        ["browser-visual-network-flow-claimed", "visual", "network_flow_claimed", "claimed Network Flow visual evidence requires immutable startup-only extension configuration"],
+      ].map(([browserSessionGroup, browserStage, runtimeProfileID, isolationReason]) => ({
+        browser_session_group: browserSessionGroup,
+        browser_stage: browserStage,
+        runtime_profile_id: runtimeProfileID,
+        browser_session_isolation_reason: isolationReason,
+      })),
+    },
+  };
+  browserCandidateRow.execution_policy_sha256 = "b".repeat(64);
+  assert.deepEqual(
+    compareQualifiedBaselines(browserBaseline, browserCandidate).failures,
+    [],
+    "the exact five-session capacity-two transition must pass",
+  );
+  browserCandidateRow.execution_policy.release_browser.sessions.pop();
+  assert.throws(
+    () => compareQualifiedBaselines(browserBaseline, browserCandidate),
+    /does not implement the exact browser-capacity transition/u,
+  );
   const mismatchedHost = performanceArtifact();
   for (const [field, label] of [
     ["host_profile_sha256", "host_profile_sha256"],

@@ -882,6 +882,60 @@ function selectedBrowserStages(scheduleProfile, browserStages) {
   return stages;
 }
 
+function validateReleaseBrowserSchedule(target, resourceLimits, sources) {
+  if (target !== "release-browser-readiness") return;
+  if (
+    resourceLimits.browser_stack !== 2 ||
+    resourceLimits.browser_stage_visual !== 1 ||
+    resourceLimits.browser_stage_a11y !== 1
+  ) {
+    throw new Error(
+      "release-browser-readiness must own browser_stack=2 and visual/a11y stage capacity one",
+    );
+  }
+  const sessions = new Map();
+  for (const source of sources) {
+    if (source.class !== "browser") {
+      throw new Error("release-browser-readiness must contain browser work only");
+    }
+    for (const group of source.groups ?? []) {
+      const sessionGroup = requireString(
+        group.browser_session_group,
+        `release-browser-readiness ${source.browser_stage} browser_session_group`,
+      );
+      const isolationReason = requireString(
+        group.browser_session_isolation_reason,
+        `release-browser-readiness ${sessionGroup} browser_session_isolation_reason`,
+      );
+      const identity = {
+        browser_stage: source.browser_stage,
+        runtime_profile_id: group.runtime_profile_id,
+        browser_session_isolation_reason: isolationReason,
+      };
+      const existing = sessions.get(sessionGroup);
+      if (existing && JSON.stringify(existing) !== JSON.stringify(identity)) {
+        throw new Error(`release-browser-readiness session ${sessionGroup} has inconsistent identity`);
+      }
+      sessions.set(sessionGroup, identity);
+    }
+  }
+  const expected = [
+    ["browser-a11y-network-flow-claimed", "a11y", "network_flow_claimed"],
+    ["browser-e2e-a11y-default", "a11y", "default"],
+    ["browser-e2e-support-default", "support", "default"],
+    ["browser-e2e-visual-default", "visual", "default"],
+    ["browser-visual-network-flow-claimed", "visual", "network_flow_claimed"],
+  ];
+  const actual = [...sessions.entries()]
+    .map(([name, identity]) => [name, identity.browser_stage, identity.runtime_profile_id])
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      `release-browser-readiness must own the exact five-session schedule; got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+
 function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
   const capacityProfile = requireString(scheduleProfile.capacity_profile, `${target}.capacity_profile`);
@@ -958,6 +1012,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     }
     sources.push(source);
   }
+  validateReleaseBrowserSchedule(target, resourceLimits, sources);
   return {
     target,
     scheduler_kind: "service_backed",

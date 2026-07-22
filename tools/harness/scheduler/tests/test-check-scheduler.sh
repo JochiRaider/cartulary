@@ -1310,7 +1310,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "browser_stack",
       display_name: "browser stack",
-      schedulers: ["check", "sequence", "service_backed", "test_slice"],
+      schedulers: ["check", "service_backed", "test_slice"],
       display_order: 130,
       capacity: {
         auto_policy: "service_backed_browser_stack",
@@ -1350,7 +1350,7 @@ const validSchedulerRegistry = () => ({
     {
       name: "process",
       display_name: "process slots",
-      schedulers: ["check", "service_backed", "test_slice"],
+      schedulers: ["check", "sequence", "service_backed", "test_slice"],
       display_order: 160,
       capacity: {
         auto_policy: "host_process_slots",

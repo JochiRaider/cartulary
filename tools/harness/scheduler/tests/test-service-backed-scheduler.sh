@@ -1327,8 +1327,8 @@ if (sources.postgres_reset !== "auto:service_backed_postgres_reset") {
 if (sources.postgres_clone !== "auto:service_backed_postgres_clone") {
   throw new Error(`postgres_clone auto source got ${sources.postgres_clone}`);
 }
-if (sources.process !== "registry:service_backed_full") {
-  throw new Error(`process registry source got ${sources.process}`);
+if (sources.process !== "manifest") {
+  throw new Error(`process manifest source got ${sources.process}`);
 }
 EOF
 env_capacity_output="$(
@@ -2683,14 +2683,19 @@ if (JSON.stringify(actualReleaseBrowserTargets) !== JSON.stringify(expectedRelea
   throw new Error(`release browser sources got ${JSON.stringify(actualReleaseBrowserTargets)}`);
 }
 const releaseSchedule = byTarget.get("release-browser-readiness");
-if (releaseSchedule?.resource_limits?.browser_stack !== 2) {
-  throw new Error("release-browser-readiness must own exact browser_stack capacity two");
+if (
+  releaseSchedule?.resource_limits?.browser_stack !== 2 ||
+  releaseSchedule?.resource_limits?.browser_stage_visual !== 1 ||
+  releaseSchedule?.resource_limits?.browser_stage_a11y !== 1
+) {
+  throw new Error("release-browser-readiness must own stack capacity two and visual/a11y capacity one");
 }
 const expectedReleaseSessions = new Map([
   ["support", ["browser-e2e-support-default"]],
   ["visual", ["browser-e2e-visual-default", "browser-visual-network-flow-claimed"]],
   ["a11y", ["browser-a11y-network-flow-claimed", "browser-e2e-a11y-default"]],
 ]);
+const allReleaseSessions = new Set();
 for (const source of releaseSchedule?.work_unit_sources ?? []) {
   if (source.class !== "browser") continue;
   const actualGroups = Array.from(new Set((source.groups ?? []).map((group) => group.browser_session_group))).sort();
@@ -2700,6 +2705,10 @@ for (const source of releaseSchedule?.work_unit_sources ?? []) {
   if ((source.groups ?? []).some((group) => !group.browser_session_isolation_reason)) {
     throw new Error(`release ${source.browser_stage} groups must declare session-isolation reasons`);
   }
+  for (const group of source.groups ?? []) allReleaseSessions.add(group.browser_session_group);
+}
+if (allReleaseSessions.size !== 5) {
+  throw new Error(`release-browser-readiness must own exactly five sessions, got ${allReleaseSessions.size}`);
 }
 const webserverSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-webserver-backed",

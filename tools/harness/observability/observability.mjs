@@ -348,6 +348,29 @@ function currentSourceState() {
   return status.trim() === "" ? "clean" : "dirty";
 }
 
+function releaseBrowserPolicyProjection(executionTopology) {
+  const schedule = executionTopology.service_backed_schedules?.schedules
+    ?.find((entry) => entry.target === "release-browser-readiness");
+  const stageDefaults = executionTopology.service_backed_schedules?.defaults
+    ?.browser_stage_resource_limits ?? {};
+  const stages = (executionTopology.browser_e2e_batch?.stages ?? [])
+    .filter((stage) => (stage.schedule_tags ?? []).includes("service_backed_release_browser"));
+  return {
+    browser_stack_capacity: schedule?.resource_limits?.browser_stack,
+    stage_capacities: {
+      visual: stageDefaults.visual ?? 1,
+      accessibility: stageDefaults.a11y ?? 1,
+    },
+    sessions: stages.flatMap((stage) => (stage.groups ?? []).map((group) => ({
+      browser_session_group: group.browser_session_group,
+      browser_stage: stage.name,
+      runtime_profile_id: group.runtime_profile_id ?? "default",
+      browser_session_isolation_reason: group.browser_session_isolation_reason,
+    }))).sort((left, right) =>
+      left.browser_session_group.localeCompare(right.browser_session_group)),
+  };
+}
+
 function measurementContract(target, catalog, manifest, executionTopology) {
   const targetEntry = manifest.targets.find((entry) => entry.name === target);
   const binding = manifest.observability_policy.target_measurement_profiles
@@ -363,6 +386,9 @@ function measurementContract(target, catalog, manifest, executionTopology) {
     sequence: manifest.sequences?.[target] ?? null,
     service_backed_schedule:
       executionTopology.service_backed_schedules?.schedules?.find((entry) => entry.target === target) ?? null,
+    ...(target === "release-browser-readiness" ? {
+      release_browser: releaseBrowserPolicyProjection(executionTopology),
+    } : {}),
     ...(target === "backend-unit" ? {
       backend_unit: {
         capture_grouping: {

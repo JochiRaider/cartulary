@@ -699,6 +699,49 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       throw new Error(`${target} candidate policy does not implement the exact sequence transition`);
     }
   }
+  if (transition === "browser_stack_capacity_1_to_2") {
+    const releaseBrowser = candidateRow.execution_policy?.release_browser;
+    const expected = {
+      browser_stack_capacity: 2,
+      stage_capacities: { visual: 1, accessibility: 1 },
+      sessions: [
+        {
+          browser_session_group: "browser-a11y-network-flow-claimed",
+          browser_stage: "a11y",
+          runtime_profile_id: "network_flow_claimed",
+          browser_session_isolation_reason: "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+        },
+        {
+          browser_session_group: "browser-e2e-a11y-default",
+          browser_stage: "a11y",
+          runtime_profile_id: "default",
+          browser_session_isolation_reason: "accessibility evidence owns an isolated fixture session",
+        },
+        {
+          browser_session_group: "browser-e2e-support-default",
+          browser_stage: "support",
+          runtime_profile_id: "default",
+          browser_session_isolation_reason: "release support evidence owns an isolated fixture session",
+        },
+        {
+          browser_session_group: "browser-e2e-visual-default",
+          browser_stage: "visual",
+          runtime_profile_id: "default",
+          browser_session_isolation_reason: "visual evidence owns an isolated fixture and snapshot session",
+        },
+        {
+          browser_session_group: "browser-visual-network-flow-claimed",
+          browser_stage: "visual",
+          runtime_profile_id: "network_flow_claimed",
+          browser_session_isolation_reason: "claimed Network Flow visual evidence requires immutable startup-only extension configuration",
+        },
+      ],
+    };
+    if (!sameJSON(releaseBrowser, expected) ||
+      candidateRow.execution_policy?.service_backed_schedule?.resource_limits?.browser_stack !== 2) {
+      throw new Error(`${target} candidate policy does not implement the exact browser-capacity transition`);
+    }
+  }
 }
 
 export function compareQualifiedBaselines(baseline, candidate) {

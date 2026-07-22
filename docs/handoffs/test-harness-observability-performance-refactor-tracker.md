@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 implementation based on T-009 checkpoint `dfebc233`; retained target-local reference snapshots are recorded in the v2 baseline |
+| Current source | T-011 implementation based on T-010 checkpoint `d31f1f0d`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-21 |
-| Active item | T-011 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -161,8 +161,8 @@ result; the explicit observability check fails closed.
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures and retained parity evidence; quantitative gate remains T-012-owned | output identity, partial-success retention, and primary-failure selection are stable |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1456,3 +1456,44 @@ completed work.
 - Active: T-011 is the only `IN_PROGRESS` task. Release browser schedule
   capacity and five-session ownership must be checkpointed before candidate
   collection begins.
+
+### 2026-07-21 — T-011 release browser capacity complete
+
+- Source: T-010 checkpoint `d31f1f0d`; worktree implementation was validated
+  before this mandatory T-011 checkpoint.
+- Completed: T-011. `release-browser-readiness` now owns `browser_stack=2`
+  directly in its authored service-backed schedule. Its exact five sessions are
+  support default, visual default, visual Network Flow claimed, accessibility
+  default, and accessibility Network Flow claimed. Every session has an
+  immutable isolation reason and runtime profile. Visual and accessibility
+  stage capacities remain one, so same-stage sessions never overlap. The outer
+  `release-check` sequence forwards only its 2/4 CPU/I/O child budget and does
+  not own or override browser-stack capacity.
+- Contract enforcement: service schedule generation rejects any release
+  schedule that changes stack or stage capacity, introduces non-browser work,
+  omits an isolation reason, gives one session inconsistent identity, or
+  differs from the exact five-session inventory. Strict performance comparison
+  now validates the normalized release-browser session projection rather than
+  accepting only a changed digest.
+- Retained verification: `harness-contract` passed at
+  `.cartulary/test-results/20260722T000055Z-p148719`; the full extended Harness
+  matrix passed at `20260722T000635Z-p213252`; the real release browser schedule
+  passed at `20260722T000949Z-p267160` in 134.034 s with five session starts,
+  peak browser stacks `2`, visual/accessibility lane peaks `1`, peak running
+  work `2`, no skipped work or finalizer failure, and five fixture-reclaimed
+  events. The isolated public `browser-e2e-visual` leaf passed at
+  `20260722T001838Z-p317683` in 121.017 s with browser-stack capacity one and no
+  visual drift. `json-shape-check`, `generate-drift`, and generated-artifact
+  policy passed at `20260722T000428Z-p179420`, `20260722T002110Z-p336702`, and
+  `20260722T002110Z-p336694`.
+- Retained corrections: extended roots `20260722T000154Z-p150129`,
+  `20260722T000259Z-p155261`, and `20260722T000441Z-p180032` exposed stale
+  synthetic-resource, scheduler-registry, and process-source fixture
+  assumptions from T-010; each was corrected before the passing matrix. Direct
+  visual root `20260722T001311Z-p280154` was rejected because an abandoned
+  reference-baseline `s3corsproxy` process still owned port 8333. The exact
+  stale process was terminated; the unchanged next visual run passed.
+- Performance disposition: all roots above are dirty-worktree functional
+  evidence. No T-012 threshold was evaluated or relaxed.
+- Active: T-012 is the only `IN_PROGRESS` task. Candidate evidence must now be
+  collected from one clean frozen commit and may not use retained-v1 migration.
