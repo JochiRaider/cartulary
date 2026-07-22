@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 candidate checkpoint `e1ad71ff`; release-check exposed a websocket subscription teardown race under the adopted aggregate concurrency |
+| Current source | T-010 websocket subscription teardown correction `5a2865d2`; aggregate concurrency is revalidated |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown regression | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1852,3 +1852,35 @@ completed work.
   and revalidate the exact failed row plus aggregate concurrency. All otherwise
   successful roots from `e1ad71ff` become diagnostic-only after the correction;
   T-012 must recollect every provider window from the next clean checkpoint.
+
+### 2026-07-22 — T-010 websocket teardown correction complete
+
+- Source: implementation commit `5a2865d2`, following mandatory reopen
+  checkpoint `a07f5bb6`. `SubscribeIncident` and `SubscribeRecordChanges` now
+  treat unsubscribe as idempotent registry removal and intentionally leave the
+  sender-owned data channel open. This matches the hub's existing revocation
+  subscription lifecycle and removes the close-versus-snapshotted-send race
+  without serializing publication behind consumer teardown.
+- Regression proof: the selected `platform.ws` transport test races repeated
+  incident and record-change publication against repeated unsubscribe for 256
+  fresh hubs, then proves detached channels receive no later events. Its exact
+  catalog slice passed at
+  `.cartulary/test-results/20260722T085316Z-p557866`. The exact collaboration
+  integration row that previously panicked passed at
+  `.cartulary/test-results/20260722T085329Z-p558329`.
+- Backend and local-loop proof: `make backend-unit` passed 255 tests at
+  `.cartulary/test-results/20260722T085351Z-p560563`; `make test-fast` passed
+  651 tests at `.cartulary/test-results/20260722T085414Z-p566522`.
+- Aggregate proof: `make release-check` passed all 12 work units and 510 tests
+  at `.cartulary/test-results/20260722T085626Z-p611037` with zero failed or
+  skipped work units and zero finalizer failures. Its scheduler completed in
+  `229.970 s`, enforced capacities `host_cpu=20`, `host_io=24`, `process=8`,
+  observed the full CPU and I/O capacities, and admitted at most six concurrent
+  work units. `make lint` passed all eight steps at
+  `.cartulary/test-results/20260722T090103Z-p770392`; `make ci` passed all five
+  work units and 510 tests at
+  `.cartulary/test-results/20260722T090124Z-p776174`.
+- Active: T-010 is closed and T-012 is again the sole `IN_PROGRESS` item. The
+  dirty-tree validation roots above are functional evidence only. Candidate
+  performance collection must use the next clean tracker checkpoint, and no
+  root from the superseded `e1ad71ff` snapshot may qualify.
