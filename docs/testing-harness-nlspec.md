@@ -2642,6 +2642,10 @@ profile, fixture policy and budget, isolation policy, and authoritative or
 support evidence class, then execute with
 `min(group_count,clamp(floor(available_parallelism/4),1,8))` workers. Each Go
 child receives scheduler-owned `GOMAXPROCS=max(1,floor(available_parallelism/workers))`.
+This child scheduler partition applies only to backend-unit grouped capture.
+Other backend targets retain the available host parallelism assigned to their
+own scheduler unit; backend finalization MAY reuse the bounded worker-count
+formula without rewriting capture-child `GOMAXPROCS`.
 All exact symbols in one
 compatible package/runtime/fixture/isolation/evidence-class group MAY share one
 Go JSON process. Raw package selectors remain separate. Each physical Go report

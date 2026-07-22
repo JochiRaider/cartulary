@@ -15,3 +15,16 @@ export function resolveBackendWorkerPool(availableParallelism, groupCount) {
     goMaxProcs: Math.max(1, Math.floor(availableParallelism / workers)),
   };
 }
+
+export function resolveBackendCapturePool(
+  target,
+  availableParallelism,
+  groupCount,
+) {
+  const pool = resolveBackendWorkerPool(availableParallelism, groupCount);
+  if (target === "backend-unit") return pool;
+  return {
+    workers: pool.workers,
+    goMaxProcs: availableParallelism,
+  };
+}

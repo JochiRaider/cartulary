@@ -13,7 +13,10 @@ import { Worker } from "node:worker_threads";
 import { collectCompatibleCaptureGroups } from "../go-target-aggregate.mjs";
 import { collectGoShardPlanFromRows } from "../go-shard-plan.mjs";
 import { collectTargetPlanRows } from "../target-plan.mjs";
-import { resolveBackendWorkerPool } from "../target-execution/worker-policy.mjs";
+import {
+  resolveBackendCapturePool,
+  resolveBackendWorkerPool,
+} from "../target-execution/worker-policy.mjs";
 import {
   createUnshardedFamilyReport,
   parsePhysicalReport,
@@ -147,6 +150,14 @@ try {
   });
   assert.deepEqual(resolveBackendWorkerPool(3, 30), { workers: 1, goMaxProcs: 3 });
   assert.deepEqual(resolveBackendWorkerPool(64, 3), { workers: 3, goMaxProcs: 21 });
+  assert.deepEqual(resolveBackendCapturePool("backend-unit", 24, 30), {
+    workers: 6,
+    goMaxProcs: 4,
+  });
+  assert.deepEqual(resolveBackendCapturePool("backend-process", 24, 6), {
+    workers: 6,
+    goMaxProcs: 24,
+  });
   assert.throws(() => resolveBackendWorkerPool(0, 1), /invalid available parallelism/u);
   assert.throws(
     () => collectCompatibleCaptureGroups([

@@ -31,11 +31,18 @@ import {
   captureFinish,
   captureStart,
 } from "./util.mjs";
-import { resolveBackendWorkerPool } from "./worker-policy.mjs";
+import {
+  resolveBackendCapturePool,
+  resolveBackendWorkerPool,
+} from "./worker-policy.mjs";
 
 export async function runUnshardedTarget(ctx, target) {
   const groups = unshardedCaptureGroups(ctx, target);
-  const pool = resolveBackendWorkerPool(ctx.availableParallelism, groups.length);
+  const pool = resolveBackendCapturePool(
+    target,
+    ctx.availableParallelism,
+    groups.length,
+  );
   ctx.goMaxProcs = pool.goMaxProcs;
   let status = 0;
   const captures = await runSettledBounded(groups, pool.workers, async (group) => {
@@ -426,7 +433,11 @@ export async function runShardedTarget(ctx, target) {
     path.join(os.tmpdir(), `cartulary-${target}-shards.`),
   );
   const shardNames = targetShards(ctx, target).map((shard) => shard.name);
-  const pool = resolveBackendWorkerPool(ctx.availableParallelism, shardNames.length);
+  const pool = resolveBackendCapturePool(
+    target,
+    ctx.availableParallelism,
+    shardNames.length,
+  );
   ctx.goMaxProcs = pool.goMaxProcs;
   let status = await captureNamedSharedReportsParallel(
     ctx,

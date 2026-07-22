@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 strict candidate comparison from clean checkpoint `9e2fc1aa`; T-008 reopened for backend worker-policy scope correction |
+| Current source | T-008 worker-policy scope correction atop reopen checkpoint `525856cb`; T-010 resource/topology correction active |
 | Last updated | 2026-07-22 |
-| Active item | T-008 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -158,9 +158,9 @@ result; the explicit observability check fails closed.
 | T-005 | Implement retained-provenance deterministic reconstruction and interval-union hotspot analysis | WS-02 observability | DONE | T-004 | diagnostics | immutable context plus deterministic native, trace, metric, hotspot, and digest fixtures | retained roots reconstruct independently of the checkout and explicit graph parentage, paths, waits, gaps, and digests validate |
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
-| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | IN_PROGRESS | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
+| T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
@@ -192,15 +192,17 @@ statements closes a reopened task until its corrected exit condition passes):
 
 ## 6. Optimization contracts
 
-Backend exact-symbol rows share one process only when package selection,
+Backend-unit exact-symbol rows share one process only when package selection,
 sorted runtime-binary set, complete fixture profile/policy/budget, isolation
 policy, and evidence class match. Raw selectors remain separate. Compatible
-groups run with
+backend-unit groups run with
 `min(group_count, clamp(floor(availableParallelism/4), 1, 8))` workers and
 scheduler-owned child `GOMAXPROCS=max(1,floor(availableParallelism/workers))`.
 On the current 24-CPU host this resolves to six workers and four Go scheduler
 threads per child. Missing, duplicate, unexpected, crashed, or partial Go JSON
-output fails closed.
+output fails closed. Other backend targets retain the host parallelism assigned
+to their scheduler unit; the backend-unit capture partition must not escape
+into those independently scheduled children.
 
 Each physical Go report is parsed and validated exactly once. Explicit frozen
 family-projection requests then merge and emit concurrently through the same
@@ -2098,3 +2100,35 @@ completed work.
   scenario scheduling, and operational recovery startup duplication. Any code
   change invalidates all `9e2fc1aa` candidate windows; T-012 must recollect from
   the next clean checkpoint.
+
+### 2026-07-22 — T-008 backend worker-policy scope correction complete
+
+- Source: reopen checkpoint `525856cb4a1b750af7dc64d27c0e2ce354bb6bba`.
+  The implementation, owner specification, derived contract digest, and focused
+  tests were updated before this mandatory checkpoint.
+- Completed: the bounded capture pool now resolves through an explicit
+  target-aware policy. `backend-unit` retains six workers with child
+  `GOMAXPROCS=4` on this 24-CPU host; other backend capture targets retain
+  `GOMAXPROCS=24`. Backend finalization continues to use the bounded T-009 pool
+  without mutating capture-child parallelism.
+- Evidence refinement: the failed T-012 aggregate samples themselves used
+  scheduled process shards with `GOMAXPROCS=24`; the escaped four-thread policy
+  was confined to the standalone sharded-runner path. The correction is still
+  required because that path is part of the public backend target contract,
+  but aggregate contention remains T-010-owned rather than being attributed to
+  T-008.
+- Verification: `make generate` passed at
+  `.cartulary/test-results/20260722T180725Z-p3141781`; `make harness-contract`
+  passed at `.cartulary/test-results/20260722T180737Z-p3143659`; `make
+  backend-unit` passed all 255 tests at
+  `.cartulary/test-results/20260722T180804Z-p3144729`; and `make
+  backend-process` passed all 36 tests in `18.440 s` at
+  `.cartulary/test-results/20260722T180821Z-p3147025`, with retained commands
+  proving `GOMAXPROCS=24`.
+- Drift and shape closure: `make generate-drift` and `make json-shape-check`
+  passed at `.cartulary/test-results/20260722T180946Z-p3165420` and
+  `.cartulary/test-results/20260722T181000Z-p3168510`.
+- Active: T-008 is closed and T-010 is the sole `IN_PROGRESS` item. T-010 owns
+  retained browser process-token double-accounting, latency-sensitive check
+  admission, isolated SeaweedFS scenario concurrency, and operational recovery
+  startup duplication. T-012 remains `TODO` until that checkpoint is complete.
