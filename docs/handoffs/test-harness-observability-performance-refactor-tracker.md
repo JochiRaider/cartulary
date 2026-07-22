@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 resource/topology correction atop T-008 checkpoint `fd0b5bcf`; T-012 candidate acceptance active |
+| Current source | T-012 clean candidate `867028de`; T-010 prerequisite/admission correction reopened |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2199,3 +2199,35 @@ completed work.
   candidate qualification. Freeze this checkpoint, then collect one successful
   warm-up and exactly two consecutive measured roots for each minimal provider
   window; candidate evidence may not use retained-v1 migration exceptions.
+
+### 2026-07-22 — T-012 early CI window reopens T-010 prerequisite admission
+
+- Source: clean frozen candidate checkpoint
+  `867028dee64a451e2790844142776d0b5bf1b37f`. The CI warm-up and consecutive
+  measured roots passed at
+  `.cartulary/test-results/20260722T192640Z-p4184011`,
+  `.cartulary/test-results/20260722T192905Z-p104778`, and
+  `.cartulary/test-results/20260722T193132Z-p218409`. Their public walls were
+  `142.066 s`, `144.711 s`, and `143.937 s`; measured nested-check work was
+  `116.318 s` and `115.599 s`.
+- Early rejection: the measured target-local medians for harness contract
+  (`28.296 s` against `25.678 s`), OTel conformance (`3.115 s` against
+  `1.627 s`), and gosec audit (`6.024 s` against `4.705 s`) exceed their
+  no-regression limits. CI and check themselves pass. Collection stopped before
+  unrelated provider windows so a known-invalid candidate would not consume a
+  full qualification cycle.
+- Ownership finding: `deployable-shape` is a sequence-owned internal helper,
+  but its authored Make prerequisites were not converted to the scheduler-aware
+  prerequisite prelude used by public targets. Each CI child therefore reran
+  `build-server`, `build-migrate`, and `build-operator` for roughly 20 seconds
+  after `check` had already produced them, concurrently slowing harness and
+  gosec work. OTel's now-subsecond source scan still needs explicit low-priority
+  admission so its short process and summary envelope is not stretched by the
+  initial CPU-heavy fan-out.
+- Disposition: T-010 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Correct prerequisite suppression for sequence-owned
+  internal helpers without weakening direct Make prerequisites, and give the
+  OTel work unit a topology-owned non-blocking isolation policy. Revalidate
+  direct helper behavior, scheduler contracts, and a fresh CI window from a new
+  clean checkpoint. These three `867028de` roots remain retained diagnostic
+  rejects and cannot enter the next candidate manifest.
