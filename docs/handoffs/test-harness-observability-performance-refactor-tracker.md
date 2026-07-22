@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 candidate checkpoint `786e0c9e`; retained release-check failure exposed unaccounted browser worker processes |
+| Current source | T-010 browser-process admission implementation `b6ad2de7`; candidate collection must begin from the next clean tracker checkpoint |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown and browser-worker admission regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown and browser-worker admission regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -290,10 +290,10 @@ Failed, contaminated, or incomplete evidence retained for diagnosis:
 | `.cartulary/test-results/20260720T175017Z-p3999438` | Failed fixture; exclude | The fast sequence smoke fake did not emit the three browser leaf summaries produced by the new aggregate. The fixture was updated. |
 | `.cartulary/test-results/20260720T175230Z-p4005166` | Interrupted; exclude | Follow-up execution smoke rerun was interrupted before aggregate finalization; retained child artifacts are incomplete. |
 
-The current post-correction generated state still requires a fresh
-`generate-drift`, harness-contract/OTel pass, focused
-`release-browser-readiness`, complete execution smoke, and full
-`release-check`. Do not reuse any excluded root for T-001 or T-012.
+The current optimization implementation has passed its focused generation,
+scheduler, browser, check, lint, and CI validation. Candidate qualification
+must use only roots collected after the clean T-012 activation checkpoint; do
+not reuse an excluded or diagnostic root for T-001 or T-012.
 
 ## 8. Handoff protocol and log
 
@@ -1920,3 +1920,43 @@ completed work.
   check, and release aggregates. All 69 `786e0c9e` roots become
   diagnostic-only after the correction, and T-012 must recollect every
   provider window from the next clean checkpoint.
+
+### 2026-07-22 — T-010 browser-process admission correction complete
+
+- Source: implementation commit `b6ad2de7`, following mandatory reopen
+  checkpoint `3754f997`. Schedule generation now gives every normalized
+  `browser_group` exactly one process claim in addition to its scheduler-family
+  CPU and I/O claims. The retained browser session continues to own a distinct
+  process slot for its backend/frontend stack. Manifest normalization rejects
+  any browser group that lacks the exact process claim.
+- Capacity: `check`, `service_backed`, and `test_slice` now resolve process
+  capacity as `clamp(floor(available_parallelism/2),2,12)`, yielding 12 on this
+  24-CPU host. Sequence scheduling retains its independent `/3`, cap-eight
+  policy. Extended fixtures prove seven normalized browser groups each own one
+  slot, the observed synthetic ceiling equals its six-slot limit, failure skips
+  dependent same-session work while draining an isolated sibling, and all
+  retained browser sessions finalize.
+- Generated and contract validation: the first `make generate` at
+  `.cartulary/test-results/20260722T104900Z-p2523777` failed closed on the
+  intentionally stale testing-harness owner digest. After refreshing the
+  authored owner/dependency chain, `make generate` passed at
+  `.cartulary/test-results/20260722T105038Z-p2525875`. JSON shape,
+  generated-artifact policy, generation drift, and harness contract passed at
+  `20260722T105056Z-p2527818`, `20260722T105056Z-p2527756`,
+  `20260722T105056Z-p2527781`, and `20260722T105056Z-p2528045`.
+- Live proof: `make browser-e2e-webserver-backed` passed at
+  `.cartulary/test-results/20260722T105129Z-p2534651`. `make check` passed all
+  130 work units and 510 tests at
+  `.cartulary/test-results/20260722T105658Z-p2561502`; it reached 16 concurrent
+  work units and exactly 12 active process claims without exceeding the
+  12-slot limit. Its 121.612-second wall is functional evidence, not the later
+  warm acceptance window. `make lint` passed all eight steps at
+  `.cartulary/test-results/20260722T105917Z-p2650473`, and `make ci` passed all
+  five work units and 510 tests at
+  `.cartulary/test-results/20260722T105935Z-p2656266`, with its nested check at
+  117.131 seconds.
+- Active: T-010 is closed and T-012 is the sole `IN_PROGRESS` item. All 69
+  roots from `786e0c9e`, including 68 successful contexts and the retained
+  release-check failure, are diagnostic-only. Recollect every provider window
+  from the next clean tracker checkpoint; candidate evidence may not use the
+  retained-v1 migration path.
