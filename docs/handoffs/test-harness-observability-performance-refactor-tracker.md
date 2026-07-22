@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 policy-transition validation failure reopens T-010; candidate evidence from `4dc80ea5` is diagnostic-only |
+| Current source | T-010 transition-validator parity correction; T-011 browser performance remediation is next |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-011 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,8 +160,8 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, and exact transition-validator parity | dependency, resource, cancellation, output, cleanup, primary-failure behavior, and normalized transition validation are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, and exact transition-validator parity | dependency, resource, cancellation, output, cleanup, primary-failure behavior, and normalized transition validation are stable |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, and accepted strict browser performance windows | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser duration gates pass |
 | T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
@@ -2320,3 +2320,29 @@ completed work.
   both `ci` and `release-check`, and checkpoint the correction before
   collecting a new candidate. Every `4dc80ea5` candidate root is retained as
   diagnostic evidence but cannot qualify after the source change.
+
+### 2026-07-22 — T-010 transition validation complete; browser gates reopen T-011
+
+- Source: mandatory T-010 reopen checkpoint `ead0ee9e`. The exact transition
+  validator now recognizes `security_analysis` as full resolved CPU, I/O one,
+  process one, with Make jobs equal to the CPU claim. Both `ci` and
+  `release-check` require that profile for `go-gosec-audit`; the former stale
+  `cpu_analysis` projection is rejected by a dedicated negative fixture.
+- Validation: `make harness-contract`, `make lint-biome`,
+  `make json-shape-check`, `make generated-artifact-policy-check`, and
+  `make generate-drift` passed. Retained roots for the artifact checks are
+  `.cartulary/test-results/20260722T223709Z-p2907059`,
+  `.cartulary/test-results/20260722T223712Z-p2907552`, and
+  `.cartulary/test-results/20260722T223714Z-p2907884`.
+- Diagnostic comparison: the complete `4dc80ea5` manifest now passes exact
+  policy validation and 46 of 48 public duration rows. The public portfolio
+  falls from `2,721,126 ms` to `2,344,564.5 ms` (`-376,561.5 ms`). Backend
+  unit (`40,324 -> 5,316.5 ms`), backend finalization
+  (`6,991 -> 3,862.5 ms`), and release-check
+  (`456,198.5 -> 290,293 ms`) pass required improvement.
+- Remaining failures: `browser-e2e-webserver-backed` measured `109,475 ms`
+  against a `104,108.55 ms` no-regression limit, and internal
+  `release-browser-readiness` measured `139,917.5 ms` against its
+  `139,088.7 ms` required-improvement limit. T-010 is closed. T-011 is
+  reopened as the sole `IN_PROGRESS` item to diagnose retained browser
+  critical paths and implement a durable reduction; T-012 remains `TODO`.

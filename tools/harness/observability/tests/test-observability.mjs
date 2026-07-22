@@ -220,6 +220,36 @@ function invocationBoundaryToolRootFixture(runDir) {
   });
 }
 
+function exactCISequencePolicy() {
+  const step = (target, needs, resourceProfile, resourceClaims, makeJobs, extras = {}) => ({
+    target,
+    needs,
+    resource_profile: resourceProfile,
+    resource_claims: resourceClaims,
+    make_jobs: makeJobs,
+    ...extras,
+    priority: target === "check" ? 100 : 0,
+  });
+  return {
+    target: "ci",
+    sequence: {
+      execution_mode: "dag",
+      max_jobs: 8,
+      capacity_profile: "sequence_adaptive",
+      resource_limits: { host_cpu: "auto", host_io: "auto", process: "auto" },
+      steps: [
+        step("check", [], "nested_check", { host_cpu: "limit", host_io: "limit", process: 1 }, 1, {
+          forwarding: "sequence_to_check",
+        }),
+        step("harness-contract", ["check"], "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"),
+        step("go-gosec-audit", ["check"], "security_analysis", { host_cpu: "limit", host_io: 1, process: 1 }, "host_cpu"),
+        step("deployable-shape", ["check"], "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1),
+        step("duration-baseline-drift-suite", ["check"], "artifact_generation", { host_cpu: 2, host_io: 4, process: 1 }, "host_cpu"),
+      ],
+    },
+  };
+}
+
 function performanceArtifact({
   standardMedian = 13_000,
   improvementMedian = 17_000,
@@ -495,6 +525,37 @@ try {
     .execution_policy.sequence.max_jobs = 7;
   assert.throws(
     () => compareQualifiedBaselines(baselinePerformance, invalidSequenceTransition),
+    /does not implement the exact sequence transition/u,
+  );
+  const exactCITransitionBaseline = structuredClone(baselinePerformance);
+  const exactCITransitionCandidate = structuredClone(boundaryPerformance);
+  for (const artifact of [exactCITransitionBaseline, exactCITransitionCandidate]) {
+    const row = artifact.targets.find((item) => item.target === "lint");
+    row.target = "ci";
+    row.command_id = "cartulary.harness.command.ci.v1";
+    row.measurement_profile_id = "ci_profile";
+    row.sample_provider_target = "ci";
+    artifact.public_entrypoint_portfolio.targets = artifact.public_entrypoint_portfolio.targets
+      .map((target) => target === "lint" ? "ci" : target)
+      .sort((left, right) => left.localeCompare(right));
+  }
+  exactCITransitionBaseline.targets.find((row) => row.target === "ci").execution_policy = {
+    target: "ci",
+    execution_mode: "serial",
+  };
+  exactCITransitionCandidate.targets.find((row) => row.target === "ci").execution_policy = exactCISequencePolicy();
+  assert.deepEqual(
+    compareQualifiedBaselines(exactCITransitionBaseline, exactCITransitionCandidate).failures,
+    [],
+    "the exact CI transition must require the topology-owned full-capacity security profile",
+  );
+  const staleCISecurityProfile = structuredClone(exactCITransitionCandidate);
+  const staleGosecStep = staleCISecurityProfile.targets.find((row) => row.target === "ci")
+    .execution_policy.sequence.steps.find((step) => step.target === "go-gosec-audit");
+  staleGosecStep.resource_profile = "cpu_analysis";
+  staleGosecStep.resource_claims = { host_cpu: 4, host_io: 1, process: 1 };
+  assert.throws(
+    () => compareQualifiedBaselines(exactCITransitionBaseline, staleCISecurityProfile),
     /does not implement the exact sequence transition/u,
   );
   const browserBaseline = performanceArtifact();

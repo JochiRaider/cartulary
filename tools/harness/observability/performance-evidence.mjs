@@ -614,6 +614,11 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       artifact_generation: [{ host_cpu: 2, host_io: 4, process: 1 }, "host_cpu", undefined],
       build: [{ host_cpu: 6, host_io: 3, process: 1 }, "host_cpu", undefined],
       service_validation: [{ host_cpu: 2, host_io: 4, process: 1 }, 1, undefined],
+      security_analysis: [
+        { host_cpu: "limit", host_io: 1, process: 1 },
+        "host_cpu",
+        undefined,
+      ],
       nested_check: [
         { host_cpu: "limit", host_io: "limit", process: 1 },
         1,
@@ -639,14 +644,14 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       ci: [
         ["check", [], "nested_check", 100],
         ["harness-contract", ["check"], "cpu_analysis"],
-        ["go-gosec-audit", ["check"], "cpu_analysis"],
+        ["go-gosec-audit", ["check"], "security_analysis"],
         ["deployable-shape", ["check"], "small_check"],
         ["duration-baseline-drift-suite", ["check"], "artifact_generation"],
       ],
       "release-check": [
         ["check", [], "nested_check", 100],
         ["harness-contract", ["check"], "cpu_analysis"],
-        ["go-gosec-audit", ["check"], "cpu_analysis"],
+        ["go-gosec-audit", ["check"], "security_analysis"],
         ["license-report", ["check"], "artifact_generation"],
         ["sbom", ["license-report"], "artifact_generation"],
         ["seaweedfs-compatibility", ["check"], "service_validation"],
