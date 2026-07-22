@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-001 semantic execution-policy digest implementation `45639626`; retained target-local reference snapshots remain qualified |
+| Current source | T-012 candidate checkpoint `206c343c`; retained target-local reference snapshots remain qualified while the digest-only v1 policy bridge is corrected |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-001 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -151,7 +151,7 @@ result; the explicit observability check fails closed.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence/artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | DONE | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, strict public-invocation identity proof, and semantic execution-policy digest proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary; producer and validator share one order-independent execution-policy canonicalization contract |
+| T-001 | Qualify retained target/provider reference windows and generate the v2 public-target duration baseline | WS-00 baseline | IN_PROGRESS | T-007 | harness performance | retained 12-hour audit, v2 roots manifest, generated baseline artifact, strict public-invocation identity proof, semantic execution-policy digest proof, and isolated digest-only v1 comparison proof | one discarded warm-up plus exactly two measured observations cover 48 public rows, one internal row, and one synthetic row; all rejected roots retain reasons; every strict direct provider retains its exact public invocation boundary; producer and validator share one order-independent execution-policy canonicalization contract; digest-only v1 rows can prove unchanged policy without weakening strict candidates |
 | T-002 | Correct observability, artifact, security, scheduler, and performance requirements and tracker ownership | WS-01 specification | DONE | none | harness specification | `docs/testing-harness-nlspec.md`; requirements and acceptance crosswalk | every behavior has one normative owner and every measurement identity is reproducible |
 | T-003 | Add the application-versus-harness OTel boundary | WS-01 specification | DONE | T-002 | telemetry specification | `docs/opentelemetry-instrumentation-nlspec.md`; OTel conformance fixtures | application scopes and runtime signals remain unchanged |
 | T-004 | Add explicit target dispositions, stable measurement profiles, retained execution context, corrected schemas, attachments, and generated projections | WS-01 contracts | DONE | T-002, T-003 | harness contracts | closed public inventory, authored schemas, and reproducible generated projections | omissions, overlap, unknowns, duplicates, and unowned exclusions fail generation |
@@ -162,7 +162,7 @@ result; the explicit observability check fails closed.
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1765,3 +1765,31 @@ completed work.
   window must be collected from the next clean tracker checkpoint; none of the
   otherwise-qualified `706aa7ed` roots can enter the accepted candidate
   snapshot after this source change.
+
+### 2026-07-22 — T-012 strict comparison reopens T-001 digest-only v1 bridge
+
+- Source: clean frozen candidate checkpoint
+  `206c343ce849e7b2a69cdc5ea9d408e15760136d`. Collection produced 21 primary
+  provider windows and 63 selected strict-current roots, all passed, clean,
+  retry-free, uncontaminated, invocation-boundary complete, observability-index
+  complete, and bound to one source snapshot. Two additional direct windows
+  for `generate-drift` and `generated-artifact-policy-check` were retained
+  after their `ci` trace lacked an exact target envelope; this follows the
+  direct-provider fallback instead of weakening exact-once aggregate proof.
+- First comparison rejection: `generate-drift aggregate timing is not
+  exact-once`. Diagnosis proved one unique scheduler-work interval but no
+  target span for each wrapper-style target. Direct warm-up plus two measured
+  windows passed for both commands and preserve the reference timing identity.
+- Second comparison rejection: `agent-finalize has an undeclared
+  execution-policy change`. Every retained baseline row is a deliberately
+  migrated v1 digest-only policy record. Its legacy formatted digest cannot
+  equal the corrected strict candidate's semantic digest even when the policy
+  projection is unchanged. Duration thresholds were not reached or relaxed.
+- Disposition: T-001 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. The migration-only comparator must recompute the historical
+  formatted digest over the strict candidate projection to prove an unchanged
+  legacy policy. That bridge is forbidden for candidate qualification, v2
+  candidate digests, and publication evidence; declared policy transitions
+  continue to require their exact normalized projections. All `206c343c`
+  candidate roots become diagnostic-only after the correction, and T-012 must
+  recollect from the next clean checkpoint.
