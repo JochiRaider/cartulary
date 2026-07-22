@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-001 public invocation-identity implementation `4d8b01ff`; retained target-local reference snapshots remain qualified |
+| Current source | Clean T-001 checkpoint `8720868b`; retained target-local reference snapshots remain qualified |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-011 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -161,8 +161,8 @@ result; the explicit observability check fails closed.
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1642,3 +1642,36 @@ completed work.
   rows must share one clean frozen commit and snapshot, all provider windows
   must be recollected after this mandatory tracker checkpoint; none of the
   prior `d829ccee` candidate roots can enter the accepted comparison.
+
+### 2026-07-22 — T-012 browser lifecycle failure reopens T-011
+
+- Source: clean frozen candidate checkpoint
+  `8720868b7663704420462009ace192125e790348`. Candidate collection retained
+  successful strict-current warm-up and two-sample windows for release-check,
+  test-fast, ci, lint, agent-finalize, benchmark-claim-check, duration-baseline
+  coverage, JSON shape, migration drift, toolchain drift, frontend fallow,
+  gosec, govulncheck, both standup smoke targets, SeaweedFS release evidence,
+  and browser-e2e. These roots remain diagnostic-only after the next source
+  change and cannot be mixed into the replacement candidate snapshot.
+- Rejection: full `test` warm-up root
+  `.cartulary/test-results/20260722T034226Z-p3585244` passed 651 tests, but the
+  first measured attempt
+  `.cartulary/test-results/20260722T034608Z-p3655308` failed the
+  `stateful-network-flow-claimed-network-flow` group while starting the
+  recovery import after a table lifecycle deletion. The failed root is
+  retained with reason `failed_execution`; no unchanged second measurement
+  was started.
+- Diagnosis: the trace proves upload, job, unit, and preview requests completed
+  in approximately 23--150 ms, excluding backend starvation and a timeout
+  remedy. The test used the WebSocket `extension_resource_changed` event as the
+  deletion-completion boundary. That event can arrive just before the delete
+  request's UI completion callback. The next import then reserves a generation
+  which the late callback resets, leaving the intentionally stale result
+  ignored while the view still reports `Discovering source columns.`
+- Disposition: T-011 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Synchronize the browser lifecycle scenario on the UI's
+  committed deletion acknowledgement after retaining the socket assertion,
+  add focused regression coverage for the boundary, and rerun the owned
+  stateful browser evidence. Product behavior, request timing, and test timeout
+  budgets remain unchanged. Only after that proof may T-011 return to `DONE`
+  and T-012 restart from a new clean checkpoint.
