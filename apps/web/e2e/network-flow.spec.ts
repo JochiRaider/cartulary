@@ -283,6 +283,7 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
       typeof message.payload.resource_id === "string" &&
       message.payload.resource_id.length > 0,
   });
+  await expect(page.getByText("lifecycle-source was deleted.")).toBeVisible();
 
   await importNetworkFlowCSV(page, { displayName: "recovery-source" });
   await expect(
