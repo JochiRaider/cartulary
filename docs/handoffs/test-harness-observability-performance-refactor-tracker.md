@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 browser-process admission implementation `b6ad2de7`; candidate collection must begin from the next clean tracker checkpoint |
+| Current source | T-012 candidate checkpoint `6a32e41e`; retained `test` failure exposed a measurement-session process self-deadlock |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown and browser-worker admission regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown and browser-worker admission regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1960,3 +1960,39 @@ completed work.
   release-check failure, are diagnostic-only. Recollect every provider window
   from the next clean tracker checkpoint; candidate evidence may not use the
   retained-v1 migration path.
+
+### 2026-07-22 — T-012 `test` warm-up reopens T-010 retained-session admission
+
+- Source: clean frozen candidate checkpoint
+  `6a32e41e325a2287700184d78b7648081ea1ae3b`. Host `/tmp` maintenance removed
+  an initial 42-context partial collection, so those roots were not retained or
+  selected. Collection restarted from zero after capacity was restored.
+- Successful retained collection: 48 strict-current contexts completed across
+  16 provider windows. The `test-fast` measured pair passed 651 tests in
+  `123.718 s` and `131.013 s`. The `ci` measured pair passed 510 tests in
+  `139.893 s` and `141.628 s`, with nested `check` walls of `108.246 s` and
+  `109.336 s`. Twelve short provider windows and both standup windows also
+  completed successfully.
+- Failure: the next provider's `test` warm-up at
+  `.cartulary/test-results/20260722T141711Z-p3891735` passed its product tests
+  but failed with a service-backed scheduler deadlock. A measurement-stage
+  session retained `process=limit`, resolving to all 12 slots, while its
+  normalized Playwright child correctly claimed the additional one process
+  slot required by the preceding browser-admission correction. The pending
+  child could therefore never become feasible.
+- Ownership finding: a retained browser session owns one live application-stack
+  process, never the worker capacity of its future children. Measurement
+  exclusivity belongs on the measurement browser-group claim, which already
+  owns full Go CPU, Go I/O, Postgres, and object-store capacity. Allowing a
+  retained session to expand `process` or `browser_stack` to the scheduler limit
+  conflates lifecycle retention with child admission and can self-deadlock any
+  later explicitly accounted child.
+- Disposition: T-010 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Normalize every retained browser stage session to exactly
+  one `process` and one `browser_stack` claim while preserving its authored
+  stage lane; keep measurement exclusivity on the child group. Add exact
+  generation, normalization, feasibility, and failure-drain coverage, then
+  revalidate `test`, `check`, and release aggregates. All 48 otherwise
+  successful `6a32e41e` contexts and the failed `test` root become
+  diagnostic-only after the correction; T-012 must recollect every provider
+  window from the next clean checkpoint.
