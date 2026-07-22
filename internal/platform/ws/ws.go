@@ -374,10 +374,11 @@ func (h *Hub) SubscribeRecordChanges(buffer int) (<-chan RecordChange, func()) {
 	h.mu.Unlock()
 
 	return ch, func() {
+		// Detach without closing: a publisher may already own a snapshot of ch.
+		// The caller's surrounding context owns consumer termination.
 		h.mu.Lock()
 		delete(h.recordSubscribers, ch)
 		h.mu.Unlock()
-		close(ch)
 	}
 }
 
@@ -401,6 +402,8 @@ func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Messag
 	h.mu.Unlock()
 
 	return ch, func() {
+		// Detach without closing: a publisher may already own a snapshot of ch.
+		// The caller's surrounding context owns consumer termination.
 		h.mu.Lock()
 		if subscribers := h.incidentStreams[incidentID]; subscribers != nil {
 			delete(subscribers, ch)
@@ -409,7 +412,6 @@ func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Messag
 			}
 		}
 		h.mu.Unlock()
-		close(ch)
 	}
 }
 

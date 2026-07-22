@@ -2,6 +2,7 @@ package ws
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -157,6 +158,71 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 
 		hub.RevokeIncidentSession(incidentID, sessionID, "incident_access_revoked")
 		requireReason(t, incidentRevocations, "incident_access_revoked")
+	})
+
+	t.Run("subscription teardown is idempotent and safe during publish", func(t *testing.T) {
+		const iterations = 256
+		for iteration := 0; iteration < iterations; iteration++ {
+			hub := NewHub()
+			incidentID := uuid.New()
+			messages, unsubscribeIncident := hub.SubscribeIncident(incidentID, 1)
+			changes, unsubscribeChanges := hub.SubscribeRecordChanges(1)
+			start := make(chan struct{})
+			var workers sync.WaitGroup
+			workers.Add(2)
+
+			go func() {
+				defer workers.Done()
+				<-start
+				for publish := 0; publish < 8; publish++ {
+					if err := hub.PublishJobProgress(incidentID, NewIncidentJobProgressPayload(
+						"job-subscription-teardown",
+						incidentID,
+						JobStatusRunning,
+						JobProgress{Completed: int64(publish)},
+						time.Now(),
+					)); err != nil {
+						t.Errorf("publish job progress: %v", err)
+						return
+					}
+					hub.PublishRecordChange(RecordChange{IncidentID: incidentID})
+				}
+			}()
+			go func() {
+				defer workers.Done()
+				<-start
+				unsubscribeIncident()
+				unsubscribeIncident()
+				unsubscribeChanges()
+				unsubscribeChanges()
+			}()
+
+			close(start)
+			workers.Wait()
+
+			for len(messages) > 0 {
+				<-messages
+			}
+			for len(changes) > 0 {
+				<-changes
+			}
+			if err := hub.PublishJobProgress(incidentID, NewIncidentJobProgressPayload(
+				"job-after-unsubscribe",
+				incidentID,
+				JobStatusRunning,
+				JobProgress{},
+				time.Now(),
+			)); err != nil {
+				t.Fatalf("publish after unsubscribe: %v", err)
+			}
+			hub.PublishRecordChange(RecordChange{IncidentID: incidentID})
+			requireNoIncidentMessage(t, messages)
+			select {
+			case change := <-changes:
+				t.Fatalf("unsubscribed record-change channel received %#v", change)
+			default:
+			}
+		}
 	})
 
 	t.Run("record changes emit canonical patch cells with invalidate fallback", func(t *testing.T) {
