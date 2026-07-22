@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-011 checkpoint `5602039c`; first strict T-012 warm-up rejected and T-009 reopened for backend-finalizer remediation |
+| Current source | T-009 remediation implementation `995bfe48`; retained target-local reference snapshots are recorded in the v2 baseline |
 | Last updated | 2026-07-22 |
-| Active item | T-009 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -159,10 +159,10 @@ result; the explicit observability check fails closed.
 | T-006 | Unify sequence and scheduler lifecycle evidence, topology ownership, cancellation, and deterministic failure behavior | WS-02 observability | DONE | T-005 | execution runtime | scheduler v7, shared sequence scheduler, and lifecycle fixtures | required transitions and dependencies are attributable exactly once under success, failure, and interruption |
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
-| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | IN_PROGRESS | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
+| T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1529,3 +1529,51 @@ completed work.
   evidence, and re-run focused finalizer plus backend-unit validation. Only
   after the strict finalizer warm diagnostic clears the existing threshold may
   T-009 return to `DONE` and T-012 restart with a new clean commit.
+
+### 2026-07-22 — T-009 reusable backend finalization complete
+
+- Source: remediation implementation commit `995bfe48`, following the
+  mandatory reopen checkpoint `f809d392`.
+- Completed: immutable family-projection requests are partitioned across the
+  same host-derived six-worker pool as backend capture, but each output worker
+  now initializes once and processes several requests sequentially. The
+  34-family backend-unit inventory resolves to balanced worker batches of
+  `6/6/6/6/5/5`. Report collation remains separate from emission, all worker
+  results settle into authored family order, and custom test helpers retain the
+  existing bounded fallback path.
+- Owner finalization: one validated catalog/accounting context is loaded per
+  target and reused across every owner partition. The context retains exact
+  command routing, catalog rows, profile digests, and source identity; it does
+  not cache across target invocations or weaken owner-shard validation.
+- Failure and policy proof: focused fixtures retain a failed worker request and
+  still complete its successful sibling, reject invalid worker counts, prove
+  stable 34-request partitioning, and reject forged accounting contexts. The
+  normalized backend transition now records
+  `emission=bounded_reusable_host_derived_pool` and
+  `owner_accounting_context=once_per_target` in addition to exact physical
+  parse-once identity.
+- Functional verification: `harness-contract` passed at
+  `.cartulary/test-results/20260722T004511Z-p519347`; consecutive dirty-worktree
+  `backend-unit` runs `20260722T003843Z-p511250` and
+  `20260722T004540Z-p520390` each retained 255 tests, 26 owner shards, and
+  finalizer unions of `3.177 s` and `3.161 s`; `test-fast` passed at
+  `20260722T004610Z-p522630` with 651 tests and backend-unit/store/integration
+  finalizer unions of `3.868 s`, `3.304 s`, and `2.879 s`. `generate`,
+  `generate-drift`, JSON shape, generated-artifact policy, Biome, and Markdown
+  validation passed at `20260722T004453Z-p517660`,
+  `20260722T004822Z-p563573`, `20260722T004838Z-p568692`,
+  `20260722T004838Z-p568698`, `20260722T004847Z-p569300`, and
+  `20260722T004847Z-p569306`.
+- Strict quantitative proof: clean-source root
+  `.cartulary/test-results/20260722T004956Z-p571520` retained execution-context
+  v2 for commit `995bfe48d90a2e7dbabedb361df8afb50e2860aa`, the public invocation
+  boundary, no contamination, all 255 tests, and all 26 owner shards. Backend
+  wall was `4.645 s` and the authoritative native `report_collation` union was
+  `3.225 s`, below the unchanged `5.991 s` improvement limit.
+- Rejected generation attempts `20260722T004240Z-p515040`,
+  `20260722T004345Z-p516091`, and `20260722T004425Z-p516901` exposed the
+  expected owner-document then canonical dependency-digest refresh sequence;
+  none is performance evidence.
+- Active: T-012 is again the sole `IN_PROGRESS` task. Its prior release warm-up
+  remains rejected. Candidate evidence must restart from the new clean tracker
+  checkpoint and cannot reuse any root from commit `995bfe48`.
