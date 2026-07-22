@@ -323,6 +323,10 @@ function digestTree(dir) {
   return result;
 }
 
+function retainedV1PolicyDigest(value) {
+  return createHash("sha256").update(`${JSON.stringify(value, null, 2)}\n`).digest("hex");
+}
+
 function verifyRun(runDir) {
   const first = reconstructObservability(runDir);
   const beforeReadOnly = digestTree(runDir);
@@ -440,6 +444,37 @@ try {
     baselinePerformance,
     boundaryPerformance,
   ).failures, [], "exact performance boundaries must pass");
+  const digestOnlyMigrationBaseline = performanceArtifact({
+    standardMedian: 10_000,
+    improvementMedian: 20_000,
+    transitionPolicy: "a".repeat(64),
+    portfolioTotal: 50_000,
+  });
+  const digestOnlyMigrationCandidate = performanceArtifact();
+  const migratedStandard = digestOnlyMigrationBaseline.targets.find((row) => row.target === "standard-target");
+  const strictStandard = digestOnlyMigrationCandidate.targets.find((row) => row.target === "standard-target");
+  const migratedDigest = retainedV1PolicyDigest(strictStandard.execution_policy);
+  migratedStandard.evidence_kind = "retained_v1_reference_migration";
+  migratedStandard.execution_policy = { retained_v1_execution_policy_sha256: migratedDigest };
+  migratedStandard.execution_policy_sha256 = migratedDigest;
+  assert.deepEqual(
+    compareQualifiedBaselines(digestOnlyMigrationBaseline, digestOnlyMigrationCandidate).failures,
+    [],
+    "digest-only v1 migration must prove an unchanged strict policy through its isolated legacy digest",
+  );
+  const changedMigratedCandidate = structuredClone(digestOnlyMigrationCandidate);
+  changedMigratedCandidate.targets.find((row) => row.target === "standard-target").execution_policy.revision = "changed";
+  assert.throws(
+    () => compareQualifiedBaselines(digestOnlyMigrationBaseline, changedMigratedCandidate),
+    /undeclared execution-policy change/u,
+  );
+  const invalidMigrationWrapper = structuredClone(digestOnlyMigrationBaseline);
+  invalidMigrationWrapper.targets.find((row) => row.target === "standard-target")
+    .execution_policy.retained_v1_execution_policy_sha256 = "0".repeat(64);
+  assert.throws(
+    () => compareQualifiedBaselines(invalidMigrationWrapper, digestOnlyMigrationCandidate),
+    /migrated baseline policy wrapper and digest differ/u,
+  );
   const failedPerformance = performanceArtifact({
     standardMedian: 13_001,
     improvementMedian: 17_001,

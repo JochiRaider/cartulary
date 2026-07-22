@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
@@ -11,6 +12,10 @@ export const performanceBaselineSchemaID = "cartulary.harness_public_target_dura
 
 function sameJSON(left, right) {
   return canonicalJSONString(left) === canonicalJSONString(right);
+}
+
+function retainedV1ExecutionPolicySHA256(value) {
+  return createHash("sha256").update(`${JSON.stringify(value, null, 2)}\n`).digest("hex");
 }
 
 function readJSON(file) {
@@ -552,9 +557,16 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     throw new Error(`${target} baseline and candidate have mismatched policy transition contracts`);
   }
   if (transition === undefined) {
-    const matches = baselineRow.evidence_kind === "retained_v1_reference_migration"
-      ? baselineRow.execution_policy_sha256 === candidateRow.execution_policy_sha256
-      : sameJSON(baselineRow.execution_policy, candidateRow.execution_policy);
+    let matches;
+    if (baselineRow.evidence_kind === "retained_v1_reference_migration") {
+      const retainedDigest = baselineRow.execution_policy?.retained_v1_execution_policy_sha256;
+      if (retainedDigest !== baselineRow.execution_policy_sha256) {
+        throw new Error(`${target} migrated baseline policy wrapper and digest differ`);
+      }
+      matches = retainedV1ExecutionPolicySHA256(candidateRow.execution_policy) === retainedDigest;
+    } else {
+      matches = sameJSON(baselineRow.execution_policy, candidateRow.execution_policy);
+    }
     if (!matches) {
       throw new Error(`${target} has an undeclared execution-policy change`);
     }

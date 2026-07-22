@@ -2652,7 +2652,15 @@ bytes, and retain a bounded maintenance summary. A non-publication
 without the later invocation marker only when its terminal native summaries,
 scheduler evidence where applicable, complete artifacts, clean state, canonical
 inputs, and timing boundaries all validate. Migration mode is forbidden for
-candidate evidence. The writer MUST reject cold, dirty, failed, interrupted,
+candidate evidence. When a migrated v1 baseline row contains only its historical
+execution-policy digest, unchanged-policy comparison MUST recompute that exact
+legacy formatted-JSON digest over the strict candidate's retained normalized
+projection. The bridge MUST first prove that the baseline wrapper and row digest
+agree, MUST remain isolated to `retained_v1_reference_migration`, and MUST NOT
+replace the Section 10.5 semantic digest in a v2 context or strict candidate.
+Declared policy transitions remain governed by their exact normalized
+transition checks and MUST NOT use the digest-only bridge. The writer MUST
+reject cold, dirty, failed, interrupted,
 retried, duplicate, profile-mismatched, missing-command, and wrong-cardinality
 roots. Hand editing, partial refresh, inferred roots, newest-run selection, and
 v1 manifests in normal operation are forbidden.
