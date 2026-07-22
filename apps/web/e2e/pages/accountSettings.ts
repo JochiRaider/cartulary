@@ -35,13 +35,20 @@ export class AccountSettings {
       // The modal can still be opening after the preceding auth transition.
     }
     const closeButton = this.page.getByRole("button", { name: "Close" });
+    let dialogIsOpen = false;
     try {
       await expect(closeButton).toBeVisible({ timeout: 500 });
-      await this.page.getByRole("tab", { name: panelLabel }).click();
+      dialogIsOpen = true;
+    } catch {
+      // Open the absent modal through account navigation below.
+    }
+    if (dialogIsOpen) {
+      const tab = this.page.getByRole("tab", { name: panelLabel });
+      if ((await tab.getAttribute("aria-selected")) !== "true") {
+        await tab.click();
+      }
       await expect(expectedControlLocator).toBeVisible();
       return;
-    } catch {
-      // Open the absent modal through account navigation.
     }
     const trigger = this.page.getByLabel("Account and application navigation");
     await expect(trigger).toBeVisible();

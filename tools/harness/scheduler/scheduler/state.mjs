@@ -97,8 +97,10 @@ export function priorityAdmissiblePendingUnitIndex({
   failedKeys,
   resourceLimits,
   activeClaims,
+  allowPriorityReservationBypass = false,
 }) {
   const reservedResources = new Set();
+  let reservationBlockedIndex = -1;
   for (const [index, candidate] of pending.entries()) {
     if (hasFailedDependency(candidate, failedKeys) || !dependenciesSatisfied(candidate, completedKeys, failedKeys)) {
       continue;
@@ -108,13 +110,16 @@ export function priorityAdmissiblePendingUnitIndex({
       if (!claimsReservedResource(candidate, reservedResources)) {
         return index;
       }
+      if (reservationBlockedIndex === -1) {
+        reservationBlockedIndex = index;
+      }
       continue;
     }
     for (const resource of blockedResources) {
       reservedResources.add(resource);
     }
   }
-  return -1;
+  return allowPriorityReservationBypass ? reservationBlockedIndex : -1;
 }
 
 function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {

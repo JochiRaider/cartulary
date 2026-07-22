@@ -623,8 +623,8 @@ function browserGroupResourceClaims(profile, stageName) {
       throw new Error(`defaults.browser_group_resource_claims.${resource} must be a positive integer`);
     }
   }
-  if (claims.go_cpu !== 1 || claims.go_io !== 1 || claims.process !== 1) {
-    throw new Error("defaults.browser_group_resource_claims must declare go_cpu=1, go_io=1, and process=1");
+  if (claims.go_cpu !== 2 || claims.go_io !== 1 || claims.process !== 1) {
+    throw new Error("defaults.browser_group_resource_claims must declare go_cpu=2, go_io=1, and process=1");
   }
   if (stageName !== "measurement") {
     return claims;

@@ -3508,6 +3508,31 @@ test("scheduler FIFO reservations prevent resource leapfrogging", () => {
   );
 });
 
+test("scheduler FIFO reservations yield to a feasible liveness unit when no child is running", () => {
+  const unit = (id, claims) => ({ id, label: id, needs: [], resourceClaims: new Map(claims) });
+  const pending = [
+    unit("next-limit-session", [["browser_stage_measurement", 1], ["process", 2]]),
+    unit("retained-session-child", [["process", 1]]),
+  ];
+  const input = {
+    pending,
+    completedKeys: new Set(),
+    failedKeys: new Map(),
+    resourceLimits: new Map([["browser_stage_measurement", 1], ["process", 2]]),
+    activeClaims: new Map([["browser_stage_measurement", 1], ["process", 1]]),
+  };
+  assert.equal(
+    priorityAdmissiblePendingUnitIndex(input),
+    -1,
+    "ordinary admission preserves the earlier session's blocked resources",
+  );
+  assert.equal(
+    priorityAdmissiblePendingUnitIndex({ ...input, allowPriorityReservationBypass: true }),
+    1,
+    "an idle scheduler must admit a feasible child that can release retained claims",
+  );
+});
+
 test("catalog browser scheduler digest is deterministic and delivery-independent", () => {
   const manifest = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
   const stage = resolveBrowserBatchStage(manifest, "stateful");

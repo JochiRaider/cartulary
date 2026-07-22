@@ -1401,6 +1401,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
             failedKeys,
             resourceLimits: schedule.resourceLimits,
             activeClaims,
+            allowPriorityReservationBypass: running.size === 0,
           });
           if (nextIndex === -1) {
             break;

@@ -1128,7 +1128,7 @@
         "max_shards": 6
       },
       "browser_group_resource_claims": {
-        "go_cpu": 1,
+        "go_cpu": 2,
         "go_io": 1,
         "process": 1
       },

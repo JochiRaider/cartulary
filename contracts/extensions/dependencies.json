@@ -217,10 +217,10 @@
       ],
       "owner_contract_manifest_id": "testing_harness.extensions_contract.v2",
       "owner_contract_manifest_ref": "contracts/extensions/owners/testing_harness.contract-manifest.json",
-      "owner_contract_manifest_sha256": "68f388e62b56e074e5ebab6f4321d42522a9b65c267cc6a815816c67925cbaa7",
+      "owner_contract_manifest_sha256": "0fabaf372455a25171b64f685d8606a689cbb3cbe9bde2680db326af95478800",
       "owner_document_ref": "docs/testing-harness-nlspec.md#document:cartulary.testing_harness.v2",
       "owner_document_schema_id": "cartulary.testing_harness.v2",
-      "owner_document_sha256": "c25d4c7188509c7431b7a4501dd5fcc3b317c2566fdfd6abb442231b56cddf2f",
+      "owner_document_sha256": "36f685b9a2d1789e7b6307c779d344ac2db36cd4601d14c2816e2d03517a1e14",
       "owner_document_version": "2.0.0",
       "required_status": "adopted/current"
     }

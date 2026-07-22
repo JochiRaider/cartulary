@@ -2295,13 +2295,23 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 **TH-HARNESS-REQ-399**
 Every scheduled `browser_group` that runs inside one service-backed scheduler runtime MUST receive a scheduler-owned worker-admin slot range. The ranges for all concurrently schedulable browser groups in that service-backed runtime MUST be non-overlapping and contiguous from offset `0`, and every group MUST receive `CARTULARY_PLAYWRIGHT_WORKER_COUNT` equal to the total slot count plus `CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET` equal to the start of its range. A group that launches more than one Playwright worker MUST own a range with at least that many slots. Direct public browser leaf targets MAY keep the direct isolated offset default from Section 5, but scheduled browser groups MUST fail before Playwright product assertions when the count, offset, or range is missing or invalid.
 
-Every scheduled `browser_group` MUST also claim exactly one `process` slot in
-addition to its scheduler-family CPU and I/O claims. The retained browser stage
-session continues to own its separate process slot for the live backend/frontend
-stack. A browser group process claim MUST NOT be dropped merely because the
-group attaches to an existing browser session; the Playwright/Chromium child is
-independent host process pressure and participates in ordinary resource
-admission.
+Every scheduled non-measurement `browser_group` MUST claim exactly two
+scheduler-family CPU tokens, one scheduler-family I/O token, and one `process`
+slot. A measurement group retains its limit-sized CPU and I/O isolation and
+also claims exactly one `process` slot. The retained browser stage session
+continues to own its separate process slot for the live backend/frontend stack.
+A browser group process or CPU claim MUST NOT be dropped merely because the
+group attaches to an existing browser session; the Playwright/Chromium child
+is independent host pressure and participates in ordinary resource admission.
+
+Every retained `browser_stage_session` MUST retain exactly one `browser_stack`
+slot and exactly one `process` slot, even when the authored stage startup uses
+`limit` claims to establish an isolation boundary. Limit-sized startup claims
+MUST release down to those exact retained lifecycle claims before a dependent
+browser group is admitted. Measurement exclusivity belongs to the measurement
+group's full CPU, I/O, Postgres, and object-store claims; a retained session
+MUST NOT retain its dependent child's process capacity or make that child
+infeasible.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 ### 10.2 Logical Resource Registry
@@ -2745,6 +2755,14 @@ Work units skipped because `stop_on_first_failure` has selected a primary failed
 Dependencies outrank priority: a work unit is not ready until its dependencies are satisfied. Priority affects only ready work and MUST NOT preempt work that is already running.
 
 For the `check` scheduler, priority assignments MUST preserve the service-backed critical path once service readiness exists. A ready `check-service-backed` service session and its expanded browser stage, browser group, Go shard, backend make target, aggregate finalizer, and service-complete child work MUST have higher priority than post-build local evidence, static validation, catalog validation, and drift validation work. Build readiness and service-image readiness MAY remain above service-backed child work when those dependencies are still required to create valid service-backed evidence. Lower-priority ready work MAY start only when it does not overlap the resource claims of an earlier ready service-backed child that is resource-blocked.
+
+Priority reservation MUST NOT create scheduler deadlock around retained
+lifecycle claims. When no child process is running and at least one ready work
+unit fits the current resource limits, the scheduler MUST admit the earliest
+such unit even when an earlier resource-blocked unit reserved an overlapping
+resource. This liveness fallback applies only to an otherwise idle scheduler;
+ordinary admission while work is running continues to preserve the priority
+reservation rule above.
 
 ### 10.4 Event Ordering
 

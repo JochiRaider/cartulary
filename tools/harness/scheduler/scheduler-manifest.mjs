@@ -723,8 +723,32 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       ? unit.aggregate_target.trim()
       : target;
   const claims = normalizeResourceClaims(unit.resource_claims, `${label} ${target}`, resourceLimits, scheduler);
-  if (kind === "browser_group" && claims.get("process") !== 1) {
-    throw new Error(`${label} ${target} browser_group must claim exactly one process slot`);
+  if (kind === "browser_group") {
+    const cpuResource = scheduler === "check" ? "host_cpu" : "go_cpu";
+    const ioResource = scheduler === "check" ? "host_io" : "go_io";
+    const measurement = unit.browser_stage === "measurement";
+    if (claims.get("process") !== 1) {
+      throw new Error(`${label} ${target} browser_group must claim exactly one process slot`);
+    }
+    const exactCPU = measurement
+      ? unit.resource_claims?.[cpuResource] === "limit"
+      : claims.get(cpuResource) === 2;
+    const exactIO = measurement
+      ? unit.resource_claims?.[ioResource] === "limit"
+      : claims.get(ioResource) === 1;
+    if (!exactCPU || !exactIO) {
+      throw new Error(
+        `${label} ${target} browser_group must claim the exact ${measurement ? "measurement" : "ordinary"} CPU and I/O profile`,
+      );
+    }
+  }
+  if (
+    kind === "browser_stage_session" &&
+    (unit.retained_resource_claims?.browser_stack !== 1 || unit.retained_resource_claims?.process !== 1)
+  ) {
+    throw new Error(
+      `${label} ${target} browser_stage_session must retain exactly one browser_stack and one process slot`,
+    );
   }
   const retainedResourceClaims = normalizeRetainedResourceClaims(
     unit.retained_resource_claims,

@@ -1,5 +1,6 @@
 import {
   browserGroupClaims,
+  directBrowserGroupClaims,
   checkClaimsForShard,
   mergeClaims,
   schedulerClaimsForShard,
@@ -290,7 +291,7 @@ export function expandServiceBackedScheduleForCheck({
           ),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
-          resource_claims: browserGroupClaims(group.resource_claims),
+          resource_claims: browserGroupClaims(group.resource_claims, source.browser_stage),
           service_session: {
             target: scheduleTarget,
           },
@@ -602,7 +603,7 @@ export function expandServiceBackedSchedule({
           ),
           completion_keys: [browserGroupCompletionKey(group.id)],
           failure_keys: [browserGroupCompletionKey(group.id)],
-          resource_claims: resourceClaimsObject(group.resource_claims ?? {}),
+          resource_claims: directBrowserGroupClaims(group.resource_claims, source.browser_stage),
           browser_stage: source.browser_stage,
           browser_session_group: groupSessionInfo.group,
           browser_group: clone(group),

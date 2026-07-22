@@ -141,6 +141,27 @@ assert.deepEqual(
   ],
   "ordinary service-backed measurement evidence must depend on every selected full-fidelity peer browser stage",
 );
+const expandedTestServiceBacked = checkServiceBackedExpansionModule.expandServiceBackedSchedule({
+  repoRoot: root,
+  serviceSchedule: renderedTestServiceBacked,
+});
+const expandedTestMeasurementSessions = expandedTestServiceBacked.filter(
+  (unit) => unit.kind === "browser_stage_session" && unit.browser_stage === "measurement",
+);
+assert.equal(
+  expandedTestMeasurementSessions.length,
+  2,
+  "test-service-backed must retain two profile-compatible measurement sessions",
+);
+for (const session of expandedTestMeasurementSessions) {
+  assert.equal(session.resource_claims.process, "limit", "measurement startup keeps process isolation");
+  assert.equal(session.resource_claims.browser_stack, "limit", "measurement startup keeps stack isolation");
+  assert.deepEqual(
+    session.retained_resource_claims,
+    { browser_stack: 1, browser_stage_measurement: 1, process: 1 },
+    "measurement sessions release limit-sized startup claims before child admission",
+  );
+}
 assert.ok(
   (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "backend-integration-support"),
   "test-service-backed must retain explicit support-only backend integration evidence",
@@ -779,8 +800,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   webserverBrowserGroup?.resource_claims,
-  { host_cpu: 1, host_io: 1, process: 1 },
-  "each scheduled browser group must account for its Playwright process",
+  { host_cpu: 2, host_io: 1, process: 1 },
+  "each scheduled browser group must account for its Playwright CPU and process pressure",
 );
 const measurementStageSession = expandedUnit("check-service-backed:browser-stage-session:measurement");
 assert.equal(

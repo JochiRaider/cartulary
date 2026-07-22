@@ -37,15 +37,32 @@ export function mergeClaims(left, ...claimObjects) {
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
-export function browserGroupClaims(rawClaims) {
+export function browserGroupClaims(rawClaims, browserStage) {
   const claims = new Map(Object.entries(
     mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true }),
   ));
+  normalizeBrowserGroupClaims(claims, "host_cpu", "host_io", browserStage);
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+export function directBrowserGroupClaims(rawClaims, browserStage) {
+  const claims = new Map(Object.entries(rawClaims ?? {}));
+  normalizeBrowserGroupClaims(claims, "go_cpu", "go_io", browserStage);
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+function normalizeBrowserGroupClaims(claims, cpuResource, ioResource, browserStage) {
   if (claims.has("process") && claims.get("process") !== 1) {
     throw new Error("browser group resource claims must declare process=1");
   }
+  if (browserStage === "measurement") {
+    claims.set(cpuResource, "limit");
+    claims.set(ioResource, "limit");
+  } else {
+    claims.set(cpuResource, 2);
+    claims.set(ioResource, 1);
+  }
   claims.set("process", 1);
-  return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
 function isRetainedBrowserStageResource(resource) {
@@ -53,11 +70,16 @@ function isRetainedBrowserStageResource(resource) {
 }
 
 function retainedBrowserStageClaimsFromEntries(entries) {
-  return resourceClaimsObject(
-    Object.fromEntries(
-      entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
-    ),
+  const claims = new Map(
+    entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
   );
+  for (const resource of ["browser_stack", "process"]) {
+    if (!claims.has(resource)) {
+      throw new Error(`browser stage resource claims must declare ${resource}`);
+    }
+    claims.set(resource, 1);
+  }
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
 export function retainedBrowserStageClaims(rawClaims) {

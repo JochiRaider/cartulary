@@ -241,4 +241,4 @@ assert_make_passes "valid SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$va
 assert_no_ambient_summary "license-report"
 assert_no_ambient_summary "sbom"
 
-assert_equals "$(extract_target_definition release-check | grep -c '^release-check:')" "1" "release-check target declaration"
+assert_equals "$(extract_target_definition release-check | grep -c '^release-check:[[:space:]]*$')" "1" "release-check target declaration"

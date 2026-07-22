@@ -1574,6 +1574,13 @@ dual_browser_manifest="${dual_browser_dir}/manifest.json"
 write_manifest "$dual_browser_manifest" check-service-backed \
   'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
   'make_target|browser-e2e-stateful|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+"$NODE_BIN" - "$dual_browser_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+manifest.schedules[0].resource_limits.process = 4;
+fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
 dual_browser_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.2 \
@@ -1679,18 +1686,23 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
 }
 JSON
 expand_source_manifest "${browser_auto_manifest}.sources" "$browser_auto_manifest"
+set +e
 browser_auto_output="$(
   FAKE_SCHEDULER_SLEEP=0.2 \
     run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
 )"
+browser_auto_status=$?
+set -e
+assert_equals "$browser_auto_status" "0" "service-backed browser auto scheduler: $browser_auto_output"
 assert_contains "$browser_auto_output" "browser_stack:5" "service-backed browser stack auto capacity counts isolated stateful sessions"
-assert_equals "$(cat "${browser_auto_dir}/max")" "6" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
+assert_equals "$(cat "${browser_auto_dir}/max")" "4" "service-backed browser CPU profile bounds non-measurement overlap while measurement stays isolated"
 "$NODE_BIN" - "$browser_auto_manifest" "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [manifestFile, summaryFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const browserGroups = manifest.schedules[0].work_units.filter((unit) => unit.kind === "browser_group");
+const browserSessions = manifest.schedules[0].work_units.filter((unit) => unit.kind === "browser_stage_session");
 if (browserGroups.length !== 7) {
   throw new Error(`expected seven normalized browser groups, got ${browserGroups.length}`);
 }
@@ -1698,6 +1710,37 @@ for (const group of browserGroups) {
   if (group.resource_claims?.process !== 1) {
     throw new Error(`${group.id} process claim got ${group.resource_claims?.process}`);
   }
+  const measurement = group.browser_stage === "measurement";
+  const expectedCPU = measurement ? "limit" : 2;
+  const expectedIO = measurement ? "limit" : 1;
+  if (
+    group.resource_claims?.go_cpu !== expectedCPU ||
+    group.resource_claims?.go_io !== expectedIO
+  ) {
+    throw new Error(
+      `${group.id} resource profile got ${JSON.stringify(group.resource_claims)}`,
+    );
+  }
+}
+for (const session of browserSessions) {
+  if (
+    session.retained_resource_claims?.browser_stack !== 1 ||
+    session.retained_resource_claims?.process !== 1
+  ) {
+    throw new Error(
+      `${session.id} retained lifecycle claims got ${JSON.stringify(session.retained_resource_claims)}`,
+    );
+  }
+}
+const measurementSessions = browserSessions.filter(
+  (session) => session.browser_stage === "measurement",
+);
+if (
+  measurementSessions.length !== 1 ||
+  measurementSessions[0].resource_claims?.process !== "limit" ||
+  measurementSessions[0].resource_claims?.browser_stack !== "limit"
+) {
+  throw new Error("measurement startup must retain its authored limit-sized isolation claims");
 }
 if (summary.resource_limits?.browser_stack !== 5) {
   throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
@@ -1711,6 +1754,26 @@ if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_brows
   throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
 }
 EOF
+invalid_retained_browser_manifest="${browser_auto_dir}/invalid-retained-browser-manifest.json"
+"$NODE_BIN" - "$browser_auto_manifest" "$invalid_retained_browser_manifest" <<'EOF'
+const fs = require("node:fs");
+const [sourceFile, outputFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
+const session = manifest.schedules[0].work_units.find((unit) => unit.kind === "browser_stage_session");
+if (!session) {
+  throw new Error("missing browser stage session for invalid retained-claim fixture");
+}
+session.retained_resource_claims.process = 2;
+fs.writeFileSync(outputFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+set +e
+invalid_retained_browser_output="$(
+  run_scheduler "$browser_auto_dir" "$invalid_retained_browser_manifest" check-service-backed invalid-retained-browser 2>&1
+)"
+invalid_retained_browser_status=$?
+set -e
+assert_equals "$invalid_retained_browser_status" "2" "invalid retained browser claims status"
+assert_contains "$invalid_retained_browser_output" "must retain exactly one browser_stack and one process slot" "invalid retained browser claims output"
 "$NODE_BIN" - "${browser_auto_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -1734,12 +1797,9 @@ if (
   supportEnd === -1 ||
   functionalOneStart > functionalTwoEnd ||
   functionalTwoStart > functionalOneEnd ||
-  supportStart > functionalOneEnd ||
-  functionalOneStart > supportEnd ||
-  supportStart > functionalTwoEnd ||
-  functionalTwoStart > supportEnd
+  supportStart < Math.min(functionalOneEnd, functionalTwoEnd)
 ) {
-  throw new Error(`webserver-backed groups must overlap after the stage session, got\n${lines.join("\n")}`);
+  throw new Error(`exactly two webserver-backed groups must overlap before the retained-session process bound admits support, got\n${lines.join("\n")}`);
 }
 EOF
 
@@ -1758,7 +1818,7 @@ cat >"${browser_failure_cleanup_manifest}.sources" <<'JSON'
         "object_store": 32,
         "go_cpu": 4,
         "go_io": 4,
-        "process": 2,
+        "process": 4,
         "browser_stack": 2,
         "browser_stage_stateful": 2
       },
@@ -2007,6 +2067,13 @@ browser_backend_overlap_manifest="${browser_backend_overlap_dir}/manifest.json"
 write_manifest "$browser_backend_overlap_manifest" check-service-backed \
   'make_target|backend-process|30|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
   'make_target|browser-e2e-stateful|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+"$NODE_BIN" - "$browser_backend_overlap_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+manifest.schedules[0].resource_limits.process = 3;
+fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
 browser_backend_overlap_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.25 \
@@ -2073,6 +2140,13 @@ write_manifest "$dependency_order_manifest" check-service-backed \
   'make_target|backend-process|30|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||' \
   'make_target|browser-e2e-webserver-backed|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|' \
   'make_target|browser-e2e-stateful|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful|backend-process'
+"$NODE_BIN" - "$dependency_order_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+manifest.schedules[0].resource_limits.process = 4;
+fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
 dependency_order_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
@@ -2882,7 +2956,7 @@ cleanup_paths+=("$invalid_browser_dir")
 write_fake_make "$invalid_browser_dir"
 invalid_browser_manifest="${invalid_browser_dir}/manifest.json"
 write_manifest "$invalid_browser_manifest" test-service-backed \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|missing-stage'
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|missing-stage'
 set +e
 invalid_browser_output="$(run_scheduler "$invalid_browser_dir" "$invalid_browser_manifest" test-service-backed invalid-browser 2>&1)"
 invalid_browser_status=$?
@@ -2895,7 +2969,7 @@ cleanup_paths+=("$invalid_browser_target_dir")
 write_fake_make "$invalid_browser_target_dir"
 invalid_browser_target_manifest="${invalid_browser_target_dir}/manifest.json"
 write_manifest "$invalid_browser_target_manifest" test-service-backed \
-  'make_target|browser-e2e-visual|10|"postgres": 1, "object_store": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
+  'make_target|browser-e2e-visual|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 set +e
 invalid_browser_target_output="$(run_scheduler "$invalid_browser_target_dir" "$invalid_browser_target_manifest" test-service-backed invalid-browser-target 2>&1)"
 invalid_browser_target_status=$?
