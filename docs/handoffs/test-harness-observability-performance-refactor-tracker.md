@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | Clean T-001 checkpoint `8720868b`; retained target-local reference snapshots remain qualified |
+| Current source | T-011 lifecycle synchronization implementation `96c08d65`; retained target-local reference snapshots remain qualified |
 | Last updated | 2026-07-22 |
-| Active item | T-011 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -161,8 +161,8 @@ result; the explicit observability check fails closed.
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
 | T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
-| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | IN_PROGRESS | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -1675,3 +1675,31 @@ completed work.
   stateful browser evidence. Product behavior, request timing, and test timeout
   budgets remain unchanged. Only after that proof may T-011 return to `DONE`
   and T-012 restart from a new clean checkpoint.
+
+### 2026-07-22 — T-011 browser lifecycle synchronization complete
+
+- Source: implementation commit `96c08d65`, following the mandatory reopen
+  checkpoint `e52b501b`. The network-flow lifecycle scenario now retains its
+  WebSocket removal assertion and also waits for the visible
+  `lifecycle-source was deleted.` acknowledgement before starting recovery.
+  This is the UI commit boundary after `clearResources`; it prevents a stale
+  deletion callback from invalidating the next import generation without
+  changing application behavior or increasing a timeout.
+- Focused proof: `make browser-e2e-stateful` passed at
+  `.cartulary/test-results/20260722T035444Z-p3722698` with both direct sessions
+  complete and the claimed network-flow lifecycle scenario passing. Its
+  scheduler completed in `175.30 s` with the direct target's authored
+  single-stack isolation.
+- Release proof: `make release-browser-readiness` passed at
+  `.cartulary/test-results/20260722T035814Z-p3757406`; all 14 scheduler work
+  units completed, `browser_stack` capacity was two, observed peak usage was
+  exactly two, the visual/accessibility stage capacities remained one, no work
+  unit or finalizer failed, and scheduler duration was `134.161 s`.
+- Visual and source validation: `make browser-e2e-visual` passed at
+  `.cartulary/test-results/20260722T040037Z-p3770742` with both sessions and no
+  golden drift. `make lint-biome` passed at
+  `.cartulary/test-results/20260722T040305Z-p3790056`.
+- Active: T-012 is again the sole `IN_PROGRESS` item. Strict candidate roots
+  must now share the next clean tracker checkpoint; all roots from
+  `8720868b`, including successful windows, are retained rejects after this
+  source change and cannot enter the accepted comparison.
