@@ -721,6 +721,9 @@ assert.deepEqual(
   "check service session must start after service images and before build artifacts finish",
 );
 const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:default-check-browser-shared");
+const webserverBrowserGroup = expandedCheckSchedule.work_units.find(
+  (unit) => unit.kind === "browser_group" && unit.browser_session_group === "default-check-browser-shared",
+);
 const serviceCompleteUnit = expandedUnit("check-service-backed:complete");
 assert.equal(
   serviceSessionUnit?.priority,
@@ -773,6 +776,11 @@ assert.deepEqual(
     process: 1,
   },
   "browser stage retained claims must model only live browser stack ownership",
+);
+assert.deepEqual(
+  webserverBrowserGroup?.resource_claims,
+  { host_cpu: 1, host_io: 1, process: 1 },
+  "each scheduled browser group must account for its Playwright process",
 );
 const measurementStageSession = expandedUnit("check-service-backed:browser-stage-session:measurement");
 assert.equal(

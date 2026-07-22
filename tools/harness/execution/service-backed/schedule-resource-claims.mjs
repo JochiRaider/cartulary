@@ -38,7 +38,14 @@ export function mergeClaims(left, ...claimObjects) {
 }
 
 export function browserGroupClaims(rawClaims) {
-  return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
+  const claims = new Map(Object.entries(
+    mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true }),
+  ));
+  if (claims.has("process") && claims.get("process") !== 1) {
+    throw new Error("browser group resource claims must declare process=1");
+  }
+  claims.set("process", 1);
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
 function isRetainedBrowserStageResource(resource) {

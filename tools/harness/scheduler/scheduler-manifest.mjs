@@ -723,6 +723,9 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       ? unit.aggregate_target.trim()
       : target;
   const claims = normalizeResourceClaims(unit.resource_claims, `${label} ${target}`, resourceLimits, scheduler);
+  if (kind === "browser_group" && claims.get("process") !== 1) {
+    throw new Error(`${label} ${target} browser_group must claim exactly one process slot`);
+  }
   const retainedResourceClaims = normalizeRetainedResourceClaims(
     unit.retained_resource_claims,
     `${label} ${target} retained_resource_claims`,

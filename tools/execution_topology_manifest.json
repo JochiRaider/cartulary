@@ -1127,6 +1127,11 @@
         "min_shards": 2,
         "max_shards": 6
       },
+      "browser_group_resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "process": 1
+      },
       "priority_bands": {
         "browser_critical_path": 36000,
         "backend_critical_path": 35000,

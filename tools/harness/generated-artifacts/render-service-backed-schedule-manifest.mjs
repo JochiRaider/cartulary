@@ -614,10 +614,18 @@ function isRetainedBrowserStageResource(resource) {
 }
 
 function browserGroupResourceClaims(profile, stageName) {
-  const claims = {
-    go_cpu: 1,
-    go_io: 1,
-  };
+  const claims = cloneObject(profile.defaults.browser_group_resource_claims);
+  if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
+    throw new Error("defaults.browser_group_resource_claims must be an object");
+  }
+  for (const [resource, amount] of Object.entries(claims)) {
+    if (!Number.isInteger(amount) || amount < 1) {
+      throw new Error(`defaults.browser_group_resource_claims.${resource} must be a positive integer`);
+    }
+  }
+  if (claims.go_cpu !== 1 || claims.go_io !== 1 || claims.process !== 1) {
+    throw new Error("defaults.browser_group_resource_claims must declare go_cpu=1, go_io=1, and process=1");
+  }
   if (stageName !== "measurement") {
     return claims;
   }

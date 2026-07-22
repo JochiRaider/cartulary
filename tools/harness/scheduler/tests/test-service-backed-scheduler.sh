@@ -1685,12 +1685,27 @@ browser_auto_output="$(
 )"
 assert_contains "$browser_auto_output" "browser_stack:5" "service-backed browser stack auto capacity counts isolated stateful sessions"
 assert_equals "$(cat "${browser_auto_dir}/max")" "6" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
-"$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
+"$NODE_BIN" - "$browser_auto_manifest" "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
-const [summaryFile] = process.argv.slice(2);
+const [manifestFile, summaryFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const browserGroups = manifest.schedules[0].work_units.filter((unit) => unit.kind === "browser_group");
+if (browserGroups.length !== 7) {
+  throw new Error(`expected seven normalized browser groups, got ${browserGroups.length}`);
+}
+for (const group of browserGroups) {
+  if (group.resource_claims?.process !== 1) {
+    throw new Error(`${group.id} process claim got ${group.resource_claims?.process}`);
+  }
+}
 if (summary.resource_limits?.browser_stack !== 5) {
   throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
+}
+if (summary.resource_limits?.process !== 6 || summary.max_active_resource_claims?.process !== 6) {
+  throw new Error(
+    `process admission got limit=${summary.resource_limits?.process} max=${summary.max_active_resource_claims?.process}`,
+  );
 }
 if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {
   throw new Error(`browser_stack source got ${summary.resource_limit_sources?.browser_stack}`);
@@ -1822,6 +1837,11 @@ const second = byGroup.get("stateful-default-second");
 const claimed = byGroup.get("stateful-claimed");
 if (!first || !second || !claimed) {
   throw new Error("missing synthetic stateful groups");
+}
+for (const group of byGroup.values()) {
+  if (group.resource_claims?.process !== 1) {
+    throw new Error(`${group.id} process claim got ${group.resource_claims?.process}`);
+  }
 }
 if (!second.needs.includes(`browser_group:${first.browser_group.id}`)) {
   throw new Error(`same-session successor is not serialized: ${JSON.stringify(second.needs)}`);

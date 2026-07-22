@@ -147,6 +147,10 @@ export function estimateSequenceProcessLimit(availableParallelism = availableCPU
   return clampInteger(Math.floor(availableParallelism / 3), 2, 8);
 }
 
+export function estimateHostProcessSlotLimit(availableParallelism = availableCPUCount()) {
+  return clampInteger(Math.floor(availableParallelism / 2), 2, 12);
+}
+
 function goShardUnits(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.kind === "go_shard");
 }
@@ -200,7 +204,7 @@ export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
       host_cpu: () => estimateCheckHostCPULimit(),
       host_io: ({ resourceLimits: currentLimits }) =>
         estimateCheckHostIOLimit(currentLimits),
-      host_process_slots: () => 6,
+      host_process_slots: () => estimateHostProcessSlotLimit(),
       service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
         estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
           cpuResources: [hostCPUResource],
@@ -228,7 +232,7 @@ export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
     throw new Error(`unsupported scheduler auto-limit family ${schedulerKind}`);
   }
   return {
-    host_process_slots: () => 6,
+    host_process_slots: () => estimateHostProcessSlotLimit(),
     service_backed_go_cpu: () =>
       estimateServiceBackedGoCPULimit(provisionalUnits),
     service_backed_go_io: ({ resourceLimits: currentLimits }) =>

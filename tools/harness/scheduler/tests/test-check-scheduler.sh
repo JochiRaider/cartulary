@@ -1231,6 +1231,7 @@ import {
 import {
   estimateServiceBackedGoCPULimit,
   estimateServiceBackedGoIOLimit,
+  estimateHostProcessSlotLimit,
   estimateSequenceHostCPULimit,
   estimateSequenceHostIOLimit,
   estimateSequenceProcessLimit,
@@ -1512,9 +1513,11 @@ if (
   estimateSequenceHostCPULimit(24) !== 20 ||
   estimateSequenceHostIOLimit(20, 24) !== 24 ||
   estimateSequenceProcessLimit(24) !== 8 ||
+  estimateHostProcessSlotLimit(24) !== 12 ||
   estimateSequenceHostCPULimit(2) !== 1 ||
   estimateSequenceHostIOLimit(1, 2) !== 2 ||
-  estimateSequenceProcessLimit(2) !== 2
+  estimateSequenceProcessLimit(2) !== 2 ||
+  estimateHostProcessSlotLimit(2) !== 2
 ) {
   fail("sequence adaptive capacity formulas changed");
 }
@@ -1628,7 +1631,7 @@ const resolvedPolicy = resolveSchedulerResourceLimits({
 if (
   resolvedPolicy.resourceLimits.get("go_cpu") < 4 ||
   resolvedPolicy.resourceLimits.get("go_io") < 6 ||
-  resolvedPolicy.resourceLimits.get("process") !== 6 ||
+  resolvedPolicy.resourceLimits.get("process") !== estimateHostProcessSlotLimit() ||
   resolvedPolicy.resourceLimits.get("browser_stack") !== 1 ||
   resolvedPolicy.resourceLimits.get("browser_stage_visual") !== 1 ||
   resolvedPolicy.resourceLimits.has("postgres_clone") ||

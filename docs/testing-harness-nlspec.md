@@ -2294,6 +2294,14 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 **TH-HARNESS-REQ-399**
 Every scheduled `browser_group` that runs inside one service-backed scheduler runtime MUST receive a scheduler-owned worker-admin slot range. The ranges for all concurrently schedulable browser groups in that service-backed runtime MUST be non-overlapping and contiguous from offset `0`, and every group MUST receive `CARTULARY_PLAYWRIGHT_WORKER_COUNT` equal to the total slot count plus `CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET` equal to the start of its range. A group that launches more than one Playwright worker MUST own a range with at least that many slots. Direct public browser leaf targets MAY keep the direct isolated offset default from Section 5, but scheduled browser groups MUST fail before Playwright product assertions when the count, offset, or range is missing or invalid.
+
+Every scheduled `browser_group` MUST also claim exactly one `process` slot in
+addition to its scheduler-family CPU and I/O claims. The retained browser stage
+session continues to own its separate process slot for the live backend/frontend
+stack. A browser group process claim MUST NOT be dropped merely because the
+group attaches to an existing browser session; the Playwright/Chromium child is
+independent host process pressure and participates in ordinary resource
+admission.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 ### 10.2 Logical Resource Registry
@@ -2336,7 +2344,7 @@ Auto resource policies are closed by the following algorithms. `available_parall
 | --- | --- |
 | `host_cpu` | For `check`, `clamp(ceil(available_parallelism * 0.7), 1, 256)`. For `sequence`, `max(largest declared host_cpu claim, floor(available_parallelism * 0.85))`, bounded to the registry limits. |
 | `host_io` | For `check`, `max(host_cpu, largest declared host_io claim in the normalized provisional work-unit set)`. For `sequence`, `max(host_cpu, available_parallelism, largest declared host_io claim)`, bounded to the registry limits. |
-| `host_process_slots` | For `sequence`, `max(largest declared process claim, clamp(floor(available_parallelism / 3), 2, 8))`, bounded to the registry limits. For `check`, `service_backed`, and `test_slice`, return `6`, raised only when required for a feasible declared claim. |
+| `host_process_slots` | For `sequence`, `max(largest declared process claim, clamp(floor(available_parallelism / 3), 2, 8))`, bounded to the registry limits. For `check`, `service_backed`, and `test_slice`, return `max(largest declared process claim, clamp(floor(available_parallelism / 2), 2, 12))`, bounded to the registry limits. |
 | `service_backed_go_cpu` | If no Go shard units exist, return `1`. Otherwise compute `total_weight=sum(max(1, weight_ms))`, `max_weight=max(max(1, weight_ms))`, `weighted_concurrency=ceil(total_weight / max(30000, max_weight))`, `host_concurrency=max(2, available_parallelism - 1)` when `available_parallelism <= 4` and `floor(available_parallelism * 0.75)` otherwise; return `clamp(max(4, min(host_concurrency, weighted_concurrency)), 4, 16)`. |
 | `service_backed_go_io` | If no Go shard units exist, return `1`. Otherwise count Go shard scheduler profiles and compute `profile_concurrency=balanced + transaction_heavy + 2*io_heavy + 2*clone_heavy + 2*reset_heavy + ceil(cpu_heavy/2)`; return `clamp(max(6, go_cpu + 2, profile_concurrency), 6, 24)`. |
 | `service_backed_browser_stack` | Count distinct `browser_stage_session` work units that claim `browser_stack`, keyed by `browser_session_group`; if no retained session starters exist, count distinct `browser_stage_*` resource lanes in the normalized provisional work-unit set. If the resulting demand count is `0`, return `1`. Otherwise return `max(1, min(demand_count, stack_claiming_unit_count when nonzero, process limit when set, max selected CPU limit when set))`, where the selected CPU limit is `host_cpu` for `check` and `go_cpu` for `service_backed` or `test_slice`. |

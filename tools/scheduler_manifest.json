@@ -506,7 +506,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -539,7 +540,8 @@
             "weight_ms": 50889,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -575,7 +577,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -610,7 +613,8 @@
             "weight_ms": 50094,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -646,7 +650,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -674,7 +679,8 @@
             "weight_ms": 43495,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -759,7 +765,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -784,7 +791,8 @@
             "weight_ms": 26062,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -820,7 +828,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -850,7 +859,8 @@
             "weight_ms": 22015,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -886,7 +896,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -914,7 +925,8 @@
             "weight_ms": 21496,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -950,7 +962,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -979,7 +992,8 @@
             "weight_ms": 19529,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1015,7 +1029,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1040,7 +1055,8 @@
             "weight_ms": 19271,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1076,7 +1092,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1101,7 +1118,8 @@
             "weight_ms": 18495,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1137,7 +1155,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1166,7 +1185,8 @@
             "weight_ms": 18105,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1202,7 +1222,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1230,7 +1251,8 @@
             "weight_ms": 13439,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1267,7 +1289,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1293,7 +1316,8 @@
             "weight_ms": 13369,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1329,7 +1353,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1356,7 +1381,8 @@
             "weight_ms": 12523,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1392,7 +1418,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1418,7 +1445,8 @@
             "weight_ms": 12399,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1454,7 +1482,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1479,7 +1508,8 @@
             "weight_ms": 10740,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1515,7 +1545,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1540,7 +1571,8 @@
             "weight_ms": 9328,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1576,7 +1608,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1601,7 +1634,8 @@
             "weight_ms": 9259,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1637,7 +1671,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1663,7 +1698,8 @@
             "weight_ms": 8972,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1699,7 +1735,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1724,7 +1761,8 @@
             "weight_ms": 8371,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1761,7 +1799,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1787,7 +1826,8 @@
             "weight_ms": 7308,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1824,7 +1864,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1850,7 +1891,8 @@
             "weight_ms": 6626,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1886,7 +1928,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1911,7 +1954,8 @@
             "weight_ms": 6593,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -1947,7 +1991,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "process": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -1972,7 +2017,8 @@
             "weight_ms": 5469,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -5991,7 +6037,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6023,7 +6070,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6060,7 +6108,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6082,7 +6131,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6119,7 +6169,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6145,7 +6196,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6182,7 +6234,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6205,7 +6258,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6242,7 +6296,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6268,7 +6323,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6305,7 +6361,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6327,7 +6384,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6364,7 +6422,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6386,7 +6445,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6423,7 +6483,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6449,7 +6510,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6486,7 +6548,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6513,7 +6576,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6550,7 +6614,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6572,7 +6637,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6609,7 +6675,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6634,7 +6701,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6671,7 +6739,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6693,7 +6762,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6730,7 +6800,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6752,7 +6823,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6789,7 +6861,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6811,7 +6884,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6848,7 +6922,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6870,7 +6945,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6907,7 +6983,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6929,7 +7006,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -6966,7 +7044,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -6988,7 +7067,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7025,7 +7105,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7056,7 +7137,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7093,7 +7175,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7115,7 +7198,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7152,7 +7236,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7176,7 +7261,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7213,7 +7299,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7240,7 +7327,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7277,7 +7365,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7299,7 +7388,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7336,7 +7426,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -7358,7 +7449,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7395,7 +7487,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-functional-network-flow-claimed",
@@ -7426,7 +7519,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7463,7 +7557,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7485,7 +7580,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7523,7 +7619,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7545,7 +7642,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7583,7 +7681,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7605,7 +7704,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7643,7 +7743,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7665,7 +7766,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7703,7 +7805,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7725,7 +7828,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7763,7 +7867,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7786,7 +7891,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7824,7 +7930,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7846,7 +7953,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7884,7 +7992,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7906,7 +8015,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -7944,7 +8054,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -7966,7 +8077,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8004,7 +8116,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -8026,7 +8139,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8064,7 +8178,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -8087,7 +8202,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8124,7 +8240,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-network-flow-claimed",
@@ -8147,7 +8264,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8185,7 +8303,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-network-flow-claimed",
@@ -8208,7 +8327,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8247,7 +8367,8 @@
             "go_cpu": "limit",
             "go_io": "limit",
             "object_store": "limit",
-            "postgres": "limit"
+            "postgres": "limit",
+            "process": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-e2e-measurement-default",
@@ -8270,6 +8391,7 @@
             "resource_claims": {
               "go_cpu": "limit",
               "go_io": "limit",
+              "process": 1,
               "postgres": "limit",
               "object_store": "limit"
             }
@@ -8310,7 +8432,8 @@
             "go_cpu": "limit",
             "go_io": "limit",
             "object_store": "limit",
-            "postgres": "limit"
+            "postgres": "limit",
+            "process": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-measurement-network-flow-claimed",
@@ -8335,6 +8458,7 @@
             "resource_claims": {
               "go_cpu": "limit",
               "go_io": "limit",
+              "process": 1,
               "postgres": "limit",
               "object_store": "limit"
             }
@@ -8373,7 +8497,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -8396,7 +8521,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8433,7 +8559,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -8479,7 +8606,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8516,7 +8644,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",
@@ -8539,7 +8668,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -8576,7 +8706,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -8610,7 +8741,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -16764,7 +16896,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -16794,7 +16927,8 @@
             "weight_ms": 50889,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -16831,7 +16965,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -16863,7 +16998,8 @@
             "weight_ms": 50094,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -16900,7 +17036,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -16925,7 +17062,8 @@
             "weight_ms": 43495,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17002,7 +17140,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17024,7 +17163,8 @@
             "weight_ms": 26062,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17061,7 +17201,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17088,7 +17229,8 @@
             "weight_ms": 22015,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17125,7 +17267,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17150,7 +17293,8 @@
             "weight_ms": 21496,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17187,7 +17331,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17213,7 +17358,8 @@
             "weight_ms": 19529,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17250,7 +17396,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17272,7 +17419,8 @@
             "weight_ms": 19271,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17309,7 +17457,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17331,7 +17480,8 @@
             "weight_ms": 18495,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17368,7 +17518,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17394,7 +17545,8 @@
             "weight_ms": 18105,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17431,7 +17583,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17456,7 +17609,8 @@
             "weight_ms": 13439,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17494,7 +17648,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -17517,7 +17672,8 @@
             "weight_ms": 13369,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17554,7 +17710,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17578,7 +17735,8 @@
             "weight_ms": 12523,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17615,7 +17773,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -17638,7 +17797,8 @@
             "weight_ms": 12399,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17675,7 +17835,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17697,7 +17858,8 @@
             "weight_ms": 10740,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17734,7 +17896,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17756,7 +17919,8 @@
             "weight_ms": 9328,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17793,7 +17957,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17815,7 +17980,8 @@
             "weight_ms": 9259,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17852,7 +18018,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17875,7 +18042,8 @@
             "weight_ms": 8972,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17912,7 +18080,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17934,7 +18103,8 @@
             "weight_ms": 8371,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -17972,7 +18142,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -17995,7 +18166,8 @@
             "weight_ms": 7308,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -18033,7 +18205,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -18056,7 +18229,8 @@
             "weight_ms": 6626,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -18093,7 +18267,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -18115,7 +18290,8 @@
             "weight_ms": 6593,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -18152,7 +18328,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -18174,7 +18351,8 @@
             "weight_ms": 5469,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21192,7 +21370,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -21215,7 +21394,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21252,7 +21432,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -21298,7 +21479,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21335,7 +21517,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",
@@ -21358,7 +21541,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21395,7 +21579,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -21429,7 +21614,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21466,7 +21652,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21489,7 +21676,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21527,7 +21715,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21552,7 +21741,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21590,7 +21780,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21613,7 +21804,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21651,7 +21843,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21676,7 +21869,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
@@ -21714,7 +21908,8 @@
           ],
           "resource_claims": {
             "go_cpu": 1,
-            "go_io": 1
+            "go_io": 1,
+            "process": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21737,7 +21932,8 @@
             "weight_ms": 10000,
             "resource_claims": {
               "go_cpu": 1,
-              "go_io": 1
+              "go_io": 1,
+              "process": 1
             }
           },
           "env": {
