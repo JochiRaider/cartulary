@@ -525,6 +525,8 @@ try {
     release_browser: {
       browser_stack_capacity: 2,
       stage_capacities: { visual: 1, accessibility: 1 },
+      retained_session_claims: ["browser_stack", "browser_stage_lane"],
+      released_after_startup: ["process"],
       sessions: [
         ["browser-a11y-network-flow-claimed", "a11y", "network_flow_claimed", "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"],
         ["browser-e2e-a11y-default", "a11y", "default", "accessibility evidence owns an isolated fixture session"],

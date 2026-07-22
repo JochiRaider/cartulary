@@ -396,8 +396,13 @@ function repoPath(relativePath) {
   return path.join(repoRoot, relativePath);
 }
 
+const textCache = new Map();
+
 function readText(relativePath) {
-  return readFileSync(repoPath(relativePath), "utf8");
+  if (!textCache.has(relativePath)) {
+    textCache.set(relativePath, readFileSync(repoPath(relativePath), "utf8"));
+  }
+  return textCache.get(relativePath);
 }
 
 function readJSON(relativePath) {
@@ -727,7 +732,9 @@ function validateConformanceStatus(status, checks) {
   assert(status.release_state === "otel_release_ready", "release state is otel_release_ready", checks, "status.release_ready");
 }
 
-function walkFiles(root, predicate, files = []) {
+let repositoryFileIndex = null;
+
+function collectFiles(root, excludedDirectories, files = []) {
   const absoluteRoot = repoPath(root);
   let entries;
   try {
@@ -738,37 +745,55 @@ function walkFiles(root, predicate, files = []) {
   for (const entry of entries) {
     const relative = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      if ([".git", "node_modules", "tmp", ".cartulary", "dist"].includes(entry.name)) {
+      if (excludedDirectories.has(entry.name)) {
         continue;
       }
-      walkFiles(relative, predicate, files);
+      collectFiles(relative, excludedDirectories, files);
       continue;
     }
-    if (entry.isFile() && predicate(relative)) {
+    if (entry.isFile()) {
       files.push(relative);
     }
   }
   return files;
 }
 
-function walkFilesIncludingBuild(root, predicate, files = []) {
-  const absoluteRoot = repoPath(root);
-  let entries;
-  try {
-    entries = readdirSync(absoluteRoot, { withFileTypes: true });
-  } catch {
-    return files;
-  }
-  for (const entry of entries) {
-    const relative = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      if ([".git", "node_modules", "tmp", ".cartulary"].includes(entry.name)) {
-        continue;
-      }
-      walkFilesIncludingBuild(relative, predicate, files);
-      continue;
+function walkFiles(root, predicate, files = []) {
+  repositoryFileIndex ??= collectFiles(
+    ".",
+    new Set([
+      ".git",
+      "node_modules",
+      "tmp",
+      ".cartulary",
+      ".cache",
+      ".pnpm-store",
+      "dist",
+    ]),
+  );
+  const prefix = root === "." ? "" : `${root.replace(/\/$/u, "")}/`;
+  for (const relative of repositoryFileIndex) {
+    if ((prefix === "" || relative.startsWith(prefix)) && predicate(relative)) {
+      files.push(relative);
     }
-    if (entry.isFile() && predicate(relative)) {
+  }
+  return files;
+}
+
+const buildFileIndexes = new Map();
+
+function walkFilesIncludingBuild(root, predicate, files = []) {
+  if (!buildFileIndexes.has(root)) {
+    buildFileIndexes.set(
+      root,
+      collectFiles(
+        root,
+        new Set([".git", "node_modules", "tmp", ".cartulary", ".cache", ".pnpm-store"]),
+      ),
+    );
+  }
+  for (const relative of buildFileIndexes.get(root)) {
+    if (predicate(relative)) {
       files.push(relative);
     }
   }
@@ -1946,9 +1971,9 @@ function writeSummary(checks, status) {
 function validateHarnessTelemetryBoundary(checks) {
   const profileFile = "tools/harness/observability/observability.mjs";
   const exportFile = "tools/harness/observability/otel-export-cli.mjs";
-  const profile = readFileSync(path.join(repoRoot, profileFile), "utf8");
-  const exporter = readFileSync(path.join(repoRoot, exportFile), "utf8");
-  const rootPackage = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  const profile = readText(profileFile);
+  const exporter = readText(exportFile);
+  const rootPackage = readJSON("package.json");
   const dependencies = {
     ...(rootPackage.dependencies ?? {}),
     ...(rootPackage.devDependencies ?? {}),
@@ -1976,7 +2001,10 @@ function validateHarnessTelemetryBoundary(checks) {
     const files = [];
     walkFiles(root, () => true, files);
     for (const file of files) {
-      if ([".go", ".ts", ".tsx", ".js", ".mjs"].some((suffix) => file.endsWith(suffix)) && readFileSync(path.join(repoRoot, file), "utf8").includes("cartulary.harness.execution")) {
+      if (
+        [".go", ".ts", ".tsx", ".js", ".mjs"].some((suffix) => file.endsWith(suffix)) &&
+        readText(file).includes("cartulary.harness.execution")
+      ) {
         scopeViolations.push(file);
       }
     }

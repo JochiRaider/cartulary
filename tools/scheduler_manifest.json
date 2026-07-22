@@ -470,8 +470,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -728,8 +727,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -2075,8 +2073,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -2119,8 +2116,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "service_session": {
             "target": "check-service-backed"
@@ -5631,8 +5627,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -5670,8 +5665,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-functional-network-flow-claimed",
@@ -5710,8 +5704,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -5749,8 +5742,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-network-flow-claimed",
@@ -5796,8 +5788,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_measurement": 1,
-            "process": 1
+            "browser_stage_measurement": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-e2e-measurement-default",
@@ -5842,8 +5833,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_measurement": 1,
-            "process": 1
+            "browser_stage_measurement": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-measurement-network-flow-claimed",
@@ -5882,8 +5872,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -5922,8 +5911,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -5962,8 +5950,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",
@@ -6002,8 +5989,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -12673,8 +12659,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-e2e-webserver-backed-default",
@@ -12707,8 +12692,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "browser-functional-network-flow-claimed",
@@ -12752,8 +12736,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-default",
@@ -12787,8 +12770,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-stateful-network-flow-claimed",
@@ -12822,8 +12804,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_measurement": 1,
-            "process": 1
+            "browser_stage_measurement": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-e2e-measurement-default",
@@ -12856,8 +12837,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_measurement": 1,
-            "process": 1
+            "browser_stage_measurement": 1
           },
           "browser_stage": "measurement",
           "browser_session_group": "browser-measurement-network-flow-claimed",
@@ -12891,8 +12871,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -12926,8 +12905,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -12961,8 +12939,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -12996,8 +12973,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",
@@ -16862,8 +16838,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -17105,8 +17080,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -21065,8 +21039,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_webserver_backed": 1,
-            "process": 1
+            "browser_stage_webserver_backed": 1
           },
           "browser_stage": "webserver-backed",
           "browser_session_group": "default-check-browser-shared",
@@ -21107,8 +21080,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "browser_stage_stateful": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "default-check-stateful-isolated",
@@ -21175,8 +21147,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_support": 1,
-            "process": 1
+            "browser_stage_support": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -21215,8 +21186,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -21255,8 +21225,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -21295,8 +21264,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",
@@ -21335,8 +21303,7 @@
           },
           "retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -22052,8 +22019,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_support": 1,
-            "process": 1
+            "browser_stage_support": 1
           },
           "browser_stage": "support",
           "browser_session_group": "browser-e2e-support-default",
@@ -22092,8 +22058,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-e2e-visual-default",
@@ -22127,8 +22092,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_visual": 1,
-            "process": 1
+            "browser_stage_visual": 1
           },
           "browser_stage": "visual",
           "browser_session_group": "browser-visual-network-flow-claimed",
@@ -22162,8 +22126,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-e2e-a11y-default",
@@ -22197,8 +22160,7 @@
           "resource_claims": {},
           "release_retained_resource_claims": {
             "browser_stack": 1,
-            "browser_stage_a11y": 1,
-            "process": 1
+            "browser_stage_a11y": 1
           },
           "browser_stage": "a11y",
           "browser_session_group": "browser-a11y-network-flow-claimed",

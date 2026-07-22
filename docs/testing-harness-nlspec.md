@@ -2232,10 +2232,10 @@ For every command type, fields not listed for that type are forbidden. Scheduler
 | --- | --- | --- | --- | --- |
 | `make_target` | `target` | `service_target` only when joining a service session. | `shard`, `browser_stage`, `group_id` | Starts `make <target>` under scheduler-owned environment. Success requires the target's declared summary and artifact policy. When `make_prerequisite_policy=run`, recursive Make prerequisites run normally; when `skip`, the scheduler injects the prerequisite-skip environment only after declared scheduler dependencies have modeled the required readiness work. |
 | `service_session_start` | `service_target` | none | `target`, `shard`, `browser_stage`, `group_id` | Starts the owned service session, emits lease and lifecycle evidence, and retains service-stack claims until service completion or finalizers release them. |
-| `browser_stage_session_start` | `service_target`, `browser_stage` | none | `target`, `shard`, `group_id` | Starts the browser session group for an existing service session and retains declared browser/process claims until the session finalizer releases them. |
+| `browser_stage_session_start` | `service_target`, `browser_stage` | none | `target`, `shard`, `group_id` | Starts the browser session group for an existing service session, releases its transient process claim after startup, and retains declared browser lifecycle claims until the session finalizer releases them. |
 | `browser_group` | `service_target`, `browser_stage`, `group_id` | none | `target`, `shard` | Runs the selected browser group. Success emits group evidence and the work unit's completion key. |
 | `browser_stage_complete` | `service_target`, `browser_stage` | none | `target`, `shard`, `group_id` | Aggregates completed browser groups and emits the stage target summary. For shared projection sessions it MUST depend only on its own browser groups and MUST NOT stop or release the shared session. |
-| `browser_session_finalizer` | `service_target`, `browser_session_group` | none | `target`, `shard`, `group_id`, `browser_stage` | Stops a shared browser session and releases its retained browser/process claims after every group in the session has finished. |
+| `browser_session_finalizer` | `service_target`, `browser_session_group` | none | `target`, `shard`, `group_id`, `browser_stage` | Stops a shared browser session and releases its retained browser-stack and stage-lane claims after every group in the session has finished. |
 | `go_shard` | `target`, `shard`, `service_target` | `complete_on_failure=false` unless explicitly declared on the work unit. | `browser_stage`, `group_id` | Runs one Go shard under the service session. Product assertion failures map as product failures; setup and runtime failures map through Section 9. |
 | `go_shard_finalize` | `target`, `service_target` | top-level `work_units[].shard_names[]` is required and is not a command field. | `shard`, `browser_stage`, `group_id` | Aggregates summaries for scheduler-selected shards and emits the target summary. Missing or inconsistent evidence for a selected shard is an artifact or scheduler-accounting failure; shards omitted by the scheduler selection MUST NOT be required by this finalizer. |
 | `service_complete` | `service_target` | none | `target`, `shard`, `browser_stage`, `group_id` | Terminates the owned service lease after dependent work completes and emits its completion key only after teardown succeeds. End-of-schedule cleanup remains an idempotent failure/interruption fallback and MUST NOT be the ordinary teardown path when later work depends on the service-complete key. |
@@ -2244,7 +2244,7 @@ For every command type, fields not listed for that type are forbidden. Scheduler
 
 Nested child-runner concurrency is not advisory. A work unit whose command launches a worker pool MUST keep its declared resource claims and scheduled child worker budget aligned according to Section 5. Direct public targets may expose different developer-loop defaults only when the scheduler-owned invocation remains deterministic and resource-accounted.
 
-Retained resource claims represent continuing logical capacity pressure after a work unit exits. They MUST NOT be used to preserve historical ownership for resources that no longer constrain future work. A browser stage session MAY retain browser stack, stage-lane, and process claims while the stage remains live, but it MUST NOT retain broad database or object-store capacity solely because the stage used those services during readiness.
+Retained resource claims represent continuing logical capacity pressure after a work unit exits. They MUST NOT be used to preserve historical ownership for resources that no longer constrain future work. A browser stage session MAY retain browser-stack and stage-lane claims while the stage remains live, but it MUST release its generic process claim after startup and MUST NOT retain broad database or object-store capacity solely because the stage used those services during readiness. The browser-stack resource owns persistent backend/frontend lifecycle capacity; the process resource owns transient scheduler child admission.
 
 Every `go_shard` scheduler work unit MUST be executable by its declared `target` through the shared Go shard-plan contract. Scheduler generation MUST fail before writing a manifest when a work unit assigns an authoritative/raw shard to `backend-integration-support`, a support shard to `backend-integration`, or any shard name that the target runner cannot resolve for the same target.
 
@@ -2298,20 +2298,21 @@ Every scheduled `browser_group` that runs inside one service-backed scheduler ru
 Every scheduled non-measurement `browser_group` MUST claim exactly two
 scheduler-family CPU tokens, one scheduler-family I/O token, and one `process`
 slot. A measurement group retains its limit-sized CPU and I/O isolation and
-also claims exactly one `process` slot. The retained browser stage session
-continues to own its separate process slot for the live backend/frontend stack.
+also claims exactly one `process` slot. A retained browser stage session
+releases its startup process slot once the backend/frontend stack is ready;
+`browser_stack` remains its exact live-stack capacity claim.
 A browser group process or CPU claim MUST NOT be dropped merely because the
 group attaches to an existing browser session; the Playwright/Chromium child
 is independent host pressure and participates in ordinary resource admission.
 
 Every retained `browser_stage_session` MUST retain exactly one `browser_stack`
-slot and exactly one `process` slot, even when the authored stage startup uses
-`limit` claims to establish an isolation boundary. Limit-sized startup claims
-MUST release down to those exact retained lifecycle claims before a dependent
-browser group is admitted. Measurement exclusivity belongs to the measurement
-group's full CPU, I/O, Postgres, and object-store claims; a retained session
-MUST NOT retain its dependent child's process capacity or make that child
-infeasible.
+slot and MUST NOT retain a generic `process` slot, even when the authored stage
+startup uses `limit` claims to establish an isolation boundary. Limit-sized
+startup claims MUST release down to the exact browser-stack and stage-lane
+lifecycle claims before a dependent browser group is admitted. Measurement
+exclusivity belongs to the measurement group's full CPU, I/O, Postgres, and
+object-store claims; a retained session MUST NOT retain its dependent child's
+process capacity or make that child infeasible.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 ### 10.2 Logical Resource Registry
@@ -2519,9 +2520,10 @@ capacity and MUST ignore inherited `CHECK_HOST_CPU_JOBS` and
 `check` scheduler only. Every sequence work profile MUST claim one `process`
 slot. The closed sequence work profiles are: `small_check` = CPU/I/O `1/1`,
 `script` = `2/2`, `cpu_analysis` = `4/1`, `artifact_generation` = `2/4`,
-`build` = `6/3`, and `service_validation` = `2/4`. Each also claims process
-`1`. Parallel Make jobs are `1` for small and service work and equal to the
-profile CPU claim for the other profiles. `nested_check` claims the entire
+`build` = `6/3`, and `service_validation` = `2/4`. Each also claims process `1`.
+Parallel Make jobs are `1` for small and service work and equal to the profile
+CPU claim for the other profiles.
+`nested_check` claims the entire
 resolved CPU and I/O budget and forwards those exact values as
 `CHECK_HOST_CPU_JOBS` and `CHECK_HOST_IO_JOBS`. `nested_service_validation`
 claims CPU/I/O `2/4` and forwards those exact values as
@@ -2532,6 +2534,12 @@ unknown target resource, duplicate child environment variable, or mapping to
 an environment input other than the target resource's registered capacity
 input.
 
+Source-boundary conformance commands MUST index each repository tree once per
+invocation and reuse immutable file text across independent checks. Rewalking
+or rereading the same authored tree for each predicate is forbidden when a
+single filtered index provides identical fail-closed coverage. Repo-local tool
+and package caches are excluded from authored-source traversal by explicit
+directory identity; their content cannot satisfy or violate source ownership.
 The current aggregate DAGs are closed as follows. `lint` MUST establish Node,
 frontend-install, and shell-tool readiness once before starting the sequence;
 its eight lint, boundary, script, Markdown, shell, and frontend-typecheck steps
@@ -3611,7 +3619,9 @@ Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-056
 
 SeaweedFS strict release evidence MUST derive its redaction scan input set from the current release-evidence run, the current `seaweedfs-compatibility` report, the current backend-process `backup_restore` row evidence, and the current `seaweedfs-migration-preservation` `object_store_migration` evidence. The compatibility input MUST be `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID/seaweedfs-compatibility/object-store-compatibility-report.json`, and its sibling target summary MUST report a passing target. The migration pass input MUST be `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID/seaweedfs-migration-preservation/object-store-migration/pass`, and the sibling tool summary MUST report a passing target. Strict release targets MUST run `backend-process`, `seaweedfs-compatibility`, and `seaweedfs-migration-preservation` as current-run prerequisites. Stable copies, historical delivery-shaped paths, newest-run fallback evidence, and retained `services-up` reports MUST NOT satisfy the gate. Missing selected child artifacts are blocking findings and MUST NOT be replaced with fallback evidence.
 
-SeaweedFS migration-preservation is recovery-owned release-support evidence. It MUST remain reachable through the explicit `seaweedfs-migration-preservation` and release surfaces, MUST use a support-profile catalog row, and MUST NOT be selected by default local `check` as product recovery conformance evidence.
+SeaweedFS migration-preservation is recovery-owned release-support evidence. It MUST remain reachable through the explicit `seaweedfs-migration-preservation` and release surfaces, MUST use a support-profile catalog row, and MUST NOT be selected by default local `check` as product recovery conformance evidence. Its pass and mismatch scenarios own distinct database, object-store, bucket, artifact, and cleanup identities and MUST execute as parallel top-level tests; either scenario must preserve its exact failure and artifact semantics when its sibling fails.
+
+The operational recovery smoke MUST build its uniquely tagged application image exactly once before Compose startup. Startup MUST consume that completed image without requesting a second build. Removing duplicate build orchestration MUST NOT change readiness, backup, restore-verification, route-absence, diagnostic, or cleanup behavior.
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-603**

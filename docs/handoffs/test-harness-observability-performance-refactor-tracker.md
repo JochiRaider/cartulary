@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-008 worker-policy scope correction atop reopen checkpoint `525856cb`; T-010 resource/topology correction active |
+| Current source | T-010 resource/topology correction atop T-008 checkpoint `fd0b5bcf`; T-012 candidate acceptance active |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, and priority-liveness regressions | dependency, resource, cancellation, output, cleanup, and primary-failure behavior are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof and retained focused lifecycle evidence | direct aggregate behavior matches release behavior, leaf summaries remain distinct, and no visual or fixture drift occurs |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2132,3 +2132,70 @@ completed work.
   retained browser process-token double-accounting, latency-sensitive check
   admission, isolated SeaweedFS scenario concurrency, and operational recovery
   startup duplication. T-012 remains `TODO` until that checkpoint is complete.
+
+### 2026-07-22 — T-010 resource and critical-path correction complete
+
+- Source: T-008 checkpoint `fd0b5bcf`. The implementation, owner
+  specification, policy projection, generated artifacts, and focused tests were
+  completed before this mandatory T-010 checkpoint.
+- Retained browser ownership: browser stage startup still claims one process
+  slot while creating its backend/frontend stack, then releases that transient
+  claim. The live session retains only its browser-stack and authored stage-lane
+  claims. Browser children retain their own process claims, so session lifetime
+  no longer double-counts child admission capacity. The normalized release
+  browser policy projection records the retained and released resource classes
+  and strict comparison validates them.
+- Source-boundary work: OTel conformance now builds one filtered repository file
+  index and reuses immutable file text across its checks. Authored-source scans
+  explicitly exclude `.cache` and `.pnpm-store`; those directories contained
+  219,486 and 18,174 non-source files on this host. The direct conformance body
+  fell from `2.84 s` to `0.14 s` without changing the application/harness
+  telemetry boundary, privacy rules, or ordinary-run zero-egress behavior.
+- Release-support critical path: the independent SeaweedFS migration pass and
+  mismatch scenarios now execute as parallel top-level tests with separate
+  fixtures and cleanup identities. `make seaweedfs-migration-preservation`
+  passed in `46.310 s` at
+  `.cartulary/test-results/20260722T182101Z-p3179041`, down from the rejected
+  `92.735 s` candidate row. Operational recovery now builds its uniquely tagged
+  application image once and starts Compose from that completed image; its
+  focused target passed in `25.750 s` at
+  `.cartulary/test-results/20260722T182155Z-p3180277`, below the retained
+  `39.948 s` no-regression limit.
+- Aggregate proof: `make lint` passed all eight work units in `9.806 s` at
+  `.cartulary/test-results/20260722T191455Z-p4116266`. `make ci` passed all five
+  outer work units and 510 tests in `148.634 s` at
+  `.cartulary/test-results/20260722T191121Z-p4000045`; its nested `check` target
+  completed in `117.325 s`. The sequence scheduler resolved the required
+  24-CPU host profile to 20 CPU tokens, 24 I/O tokens, and eight process slots.
+  The final topology uses the plan's closed shared profiles; attempted private
+  backend priority and full-CPU OTel profiles were removed after retained runs
+  showed worse aggregate critical paths.
+- Browser proof: `make release-browser-readiness` passed at
+  `.cartulary/test-results/20260722T191523Z-p4134256` in `137.788 s`. Its
+  scheduler admitted at most two concurrent stacks, retained one visual and one
+  accessibility lane, and completed all five authored sessions with cleanup.
+  Direct `make browser-e2e-visual` also passed at
+  `.cartulary/test-results/20260722T191828Z-p4147780` in `129.21 s` with no
+  visual drift.
+- Contract and generated closure: final `make harness-contract` passed in
+  `22.170 s` at `.cartulary/test-results/20260722T192139Z-p4171135`.
+  `make generate` passed at
+  `.cartulary/test-results/20260722T192241Z-p4172385`; final generation drift,
+  JSON shape, and generated-artifact policy checks passed at
+  `.cartulary/test-results/20260722T192320Z-p4174206`,
+  `.cartulary/test-results/20260722T192335Z-p4177293`, and
+  `.cartulary/test-results/20260722T192347Z-p4177822`. OTel conformance passed
+  again at `.cartulary/test-results/20260722T192356Z-p4178159`.
+- Diagnostic rejects: CI root
+  `.cartulary/test-results/20260722T185527Z-p3644302` retained the rejected
+  full-CPU OTel admission policy (`175.297 s`, nested check `143.390 s`). Root
+  `.cartulary/test-results/20260722T190533Z-p3881013` retained a transient
+  74.276-second service startup (`199.710 s`, nested check `168.205 s`). Both
+  passed functionally but do not qualify performance acceptance. The clean
+  shared-profile rerun restored service startup to `9.087 s` and is the
+  controlling T-010 proof.
+- Active: T-010 is closed and T-012 is the sole `IN_PROGRESS` item. All roots
+  collected before this tracker activation checkpoint are diagnostic-only for
+  candidate qualification. Freeze this checkpoint, then collect one successful
+  warm-up and exactly two consecutive measured roots for each minimal provider
+  window; candidate evidence may not use retained-v1 migration exceptions.

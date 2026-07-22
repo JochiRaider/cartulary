@@ -744,10 +744,13 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
   }
   if (
     kind === "browser_stage_session" &&
-    (unit.retained_resource_claims?.browser_stack !== 1 || unit.retained_resource_claims?.process !== 1)
+    (
+      unit.retained_resource_claims?.browser_stack !== 1 ||
+      Object.hasOwn(unit.retained_resource_claims ?? {}, "process")
+    )
   ) {
     throw new Error(
-      `${label} ${target} browser_stage_session must retain exactly one browser_stack and one process slot`,
+      `${label} ${target} browser_stage_session must retain exactly one browser_stack and release its process slot`,
     );
   }
   const retainedResourceClaims = normalizeRetainedResourceClaims(

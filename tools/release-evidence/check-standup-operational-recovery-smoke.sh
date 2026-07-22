@@ -117,7 +117,7 @@ CARTULARY_S3_RESTORE_VERIFY_SECURE=false
 EOF
 
 compose build app >/dev/null
-compose up -d --build app >/dev/null
+compose up -d app >/dev/null
 
 wait_for_http_status() {
   local path="$1"

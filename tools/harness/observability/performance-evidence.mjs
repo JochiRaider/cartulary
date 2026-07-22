@@ -705,6 +705,8 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     const expected = {
       browser_stack_capacity: 2,
       stage_capacities: { visual: 1, accessibility: 1 },
+      retained_session_claims: ["browser_stack", "browser_stage_lane"],
+      released_after_startup: ["process"],
       sessions: [
         {
           browser_session_group: "browser-a11y-network-flow-claimed",

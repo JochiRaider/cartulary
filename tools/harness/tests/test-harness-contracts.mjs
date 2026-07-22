@@ -4361,6 +4361,13 @@ test("default check service-backed browser work uses declared session groups", (
       false,
       "browser sessions must consume the harness server rather than the deployable build",
     );
+    assert.equal(session.resource_claims.process, 1);
+    assert.equal(session.retained_resource_claims.browser_stack, 1);
+    assert.equal(
+      Object.hasOwn(session.retained_resource_claims, "process"),
+      false,
+      "browser readiness releases its transient process slot after the stack is retained",
+    );
   }
   const statefulSource = browserSources.find((source) => source.browser_stage === "stateful");
   const expectedStatefulSessionGroups = [

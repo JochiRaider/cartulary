@@ -362,6 +362,8 @@ function releaseBrowserPolicyProjection(executionTopology) {
       visual: stageDefaults.visual ?? 1,
       accessibility: stageDefaults.a11y ?? 1,
     },
+    retained_session_claims: ["browser_stack", "browser_stage_lane"],
+    released_after_startup: ["process"],
     sessions: stages.flatMap((stage) => (stage.groups ?? []).map((group) => ({
       browser_session_group: group.browser_session_group,
       browser_stage: stage.name,

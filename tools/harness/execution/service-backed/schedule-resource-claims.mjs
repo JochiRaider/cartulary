@@ -66,14 +66,14 @@ function normalizeBrowserGroupClaims(claims, cpuResource, ioResource, browserSta
 }
 
 function isRetainedBrowserStageResource(resource) {
-  return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
+  return resource === "browser_stack" || resource.startsWith("browser_stage_");
 }
 
 function retainedBrowserStageClaimsFromEntries(entries) {
   const claims = new Map(
     entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
   );
-  for (const resource of ["browser_stack", "process"]) {
+  for (const resource of ["browser_stack"]) {
     if (!claims.has(resource)) {
       throw new Error(`browser stage resource claims must declare ${resource}`);
     }

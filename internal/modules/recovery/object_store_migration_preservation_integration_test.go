@@ -28,6 +28,7 @@ import (
 const migrationPreservationIdentity = "local_os_execution"
 
 func TestSupportSeaweedFSMigrationPreservationPassEvidence(t *testing.T) {
+	t.Parallel()
 	fixture := newMigrationPreservationFixture(t, "pass")
 	beforeRefs := fixture.evidenceRefs(t)
 	result := runMigrationPreservation(t, fixture, uuid.MustParse("00000000-0000-0000-0000-000000130111"), migrationPreservationArtifactsDir(t, "pass"))
@@ -54,6 +55,7 @@ func TestSupportSeaweedFSMigrationPreservationPassEvidence(t *testing.T) {
 }
 
 func TestSupportSeaweedFSMigrationPreservationMismatchEvidence(t *testing.T) {
+	t.Parallel()
 	fixture := newMigrationPreservationFixture(t, "mismatch")
 	if err := fixture.TargetStore.PutObject(fixture.Context, fixture.Blobs[0].StorageKey, bytes.NewReader([]byte("target-side mismatch")), int64(len("target-side mismatch")), "application/octet-stream"); err != nil {
 		t.Fatalf("seed target mismatch: %v", err)
