@@ -131,6 +131,14 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
         }
       }
     }
+    validatePrerequisiteJobs({
+      errors,
+      target,
+      recipe,
+      label,
+      targets,
+      sequences,
+    });
     if (!validMakeRecipeTypes.has(recipe.type)) {
       errors.push(
         `${label}.type must be one of ${Array.from(validMakeRecipeTypes).join(", ")}`,
@@ -177,6 +185,40 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
         hasMakeNodeTool,
       },
     });
+  }
+}
+
+function validatePrerequisiteJobs({
+  errors,
+  target,
+  recipe,
+  label,
+  targets,
+  sequences,
+}) {
+  if (recipe.prerequisite_jobs === undefined) {
+    return;
+  }
+  const jobs = recipe.prerequisite_jobs;
+  const runnablePrerequisites = Array.isArray(recipe.prerequisites)
+    ? recipe.prerequisites.filter((prerequisite) => prerequisite !== "$(NODE_BIN)")
+    : [];
+  if (!Number.isInteger(jobs) || jobs < 2 || jobs > 8) {
+    errors.push(`${label}.prerequisite_jobs must be an integer from 2 through 8`);
+    return;
+  }
+  if (jobs > runnablePrerequisites.length) {
+    errors.push(
+      `${label}.prerequisite_jobs must not exceed its non-Node prerequisite count`,
+    );
+  }
+  const sequenceTarget = Object.values(sequences ?? {}).some((sequence) =>
+    (sequence.steps ?? []).some((step) => step.target === target),
+  );
+  if (targets.get(target)?.target_class !== "public" && !sequenceTarget) {
+    errors.push(
+      `${label}.prerequisite_jobs requires a public or sequence-step recipe`,
+    );
   }
 }
 

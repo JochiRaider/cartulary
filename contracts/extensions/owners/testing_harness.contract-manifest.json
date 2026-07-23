@@ -3,18 +3,18 @@
     {
       "anchor_id": "cartulary.testing_harness.v2",
       "anchor_kind": "document",
-      "anchor_sha256": "abff0567e8b3cbc8a6c46ff1baf99901078c3be1dfddf25ba55c4d974bbd0dc1",
+      "anchor_sha256": "e728971cc5d3e814d933ba824d4ecbfd07eedab26506ebb333090bbeacf2ee9c",
       "closure_categories": [],
-      "end_byte": 633305,
+      "end_byte": 634673,
       "start_byte": 0
     }
   ],
   "owner_contract_manifest_id": "testing_harness.extensions_contract.v2",
   "owner_document": {
-    "byte_length": 633305,
+    "byte_length": 634673,
     "owner_document_ref": "docs/testing-harness-nlspec.md#document:cartulary.testing_harness.v2",
     "owner_document_schema_id": "cartulary.testing_harness.v2",
-    "owner_document_sha256": "abff0567e8b3cbc8a6c46ff1baf99901078c3be1dfddf25ba55c4d974bbd0dc1",
+    "owner_document_sha256": "e728971cc5d3e814d933ba824d4ecbfd07eedab26506ebb333090bbeacf2ee9c",
     "owner_document_version": "2.0.0"
   },
   "owner_fragments": [],

@@ -2260,6 +2260,26 @@ For the `check` scheduler, frontend install, pinned tool bootstrap, binary build
 
 Every Make target used as an authored aggregate-sequence step MUST apply the same prerequisite suppression policy even when the target is an internal helper. Its prerequisites MUST be emitted through a conditional recipe prelude rather than unconditional Make graph edges: direct invocation runs the prerequisites, while a scheduler-owned invocation may skip them only after the sequence DAG has established the corresponding readiness dependency. A sequence MUST NOT repeat prerequisite builds after an owning `check` or `build` step has completed them.
 
+A generated recipe MAY declare `prerequisite_jobs` only when its non-Node
+prerequisites are independent artifact producers that are safe to admit through
+one recursive Make graph. The value MUST be an integer from `2` through `8`,
+MUST NOT exceed the number of non-Node prerequisites, and is supported only for
+public recipes or authored sequence-step recipes whose prerequisite output is
+centralized. The renderer MUST pass the closed value as `--jobs=<value>` to the
+single recursive Make invocation. Pinned Node readiness remains a separately
+serialized precondition and is excluded from this count. Recipes without the
+field remain serial. Ambient `MAKEFLAGS`, parent environment, or public inputs
+MUST NOT expand this target-owned bound, and scheduler-owned prerequisite skip
+policy MUST suppress the entire recursive block.
+
+The current `migration-drift` recipe owns two independent readiness producers,
+the migrate binary and pinned Goose binary, and therefore declares
+`prerequisite_jobs=2`. The current `deployable-shape` recipe owns the server,
+migrate, and operator binary artifacts through one shared recursive graph and
+declares `prerequisite_jobs=3`; that shared graph preserves Make dependency
+deduplication for their embedded-web inputs. The standup smoke targets continue
+to depend on `deployable-shape` rather than repeating its artifact inventory.
+
 Prerequisites that are the step's owned child work are not readiness and MUST
 NOT be skipped. In particular, `lint-go` runs its format, vet, and staticcheck
 children through its prerequisite prelude; the lint preflight establishes

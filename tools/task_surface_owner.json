@@ -1479,9 +1479,10 @@
     },
     "migration-drift": {
       "prerequisites": [
-        "build-migrate",
+        "$(MIGRATE_BIN)",
         "$(GOOSE_BIN)"
       ],
+      "prerequisite_jobs": 2,
       "type": "step_command",
       "mode": "run_step",
       "step_label": "migration-drift",
@@ -1539,10 +1540,11 @@
     },
     "deployable-shape": {
       "prerequisites": [
-        "build-server",
-        "build-migrate",
-        "build-operator"
+        "$(SERVER_BIN)",
+        "$(MIGRATE_BIN)",
+        "$(OPERATOR_BIN)"
       ],
+      "prerequisite_jobs": 3,
       "type": "step_command",
       "mode": "run_step",
       "step_label": "deployable-shape",

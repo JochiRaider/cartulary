@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 strict candidate comparison reopens T-010 prerequisite admission |
+| Current source | T-010 bounded prerequisite admission complete; T-012 clean candidate acceptance is next |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, and target-owned parallel prerequisite admission | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, and public prerequisite admission are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, and target-owned parallel prerequisite admission | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, and public prerequisite admission are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, exact policy-transition fixtures, and managed-service aggregate concurrency proof | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser policies are ready for T-012 quantitative acceptance |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2419,3 +2419,47 @@ completed work.
   Every `60d91166` candidate root remains diagnostic evidence but cannot
   qualify after the implementation source changes. No acceptance threshold is
   relaxed.
+
+### 2026-07-23 — T-010 bounded prerequisite admission complete
+
+- Source: mandatory T-010 reopen checkpoint `a712a606`. The owner task surface
+  now carries an explicit `prerequisite_jobs` contract for independent
+  non-Node artifact producers. Values are closed integers from two through
+  eight, cannot exceed the authored producer count, are accepted only for
+  public or sequence-step recipes, and are rendered into one recursive Make
+  graph. Recipes without the field remain serial; Node readiness and scheduler
+  prerequisite suppression retain their existing boundaries.
+- Remediation: `migration-drift` now admits `$(MIGRATE_BIN)` and
+  `$(GOOSE_BIN)` together with two jobs. `deployable-shape` admits
+  `$(SERVER_BIN)`, `$(MIGRATE_BIN)`, and `$(OPERATOR_BIN)` together with three
+  jobs. Naming artifact goals directly preserves one Make dependency graph, so
+  server and operator share embedded-web readiness rather than starting
+  duplicate target-wrapper graphs. The standup targets retain their single
+  `deployable-shape` prerequisite.
+- Retained timing proof: warm `migration-drift` passed in `6.300 s` at
+  `.cartulary/test-results/20260723T011517Z-p491880`, below the rejected
+  candidate median of `10.110 s`. Warm `standup-package-smoke` passed with a
+  `25.75 s` public invocation envelope at
+  `.cartulary/test-results/20260723T011740Z-p524094`, versus the rejected
+  `34.86 s` median. Warm `standup-operational-recovery-smoke` passed with a
+  `35.05 s` invocation envelope at
+  `.cartulary/test-results/20260723T011651Z-p509133`, versus the rejected
+  `40.757 s` median. A preceding recovery proof that rebuilt cold missing
+  server and operator cache records still passed in `38.09 s` at
+  `.cartulary/test-results/20260723T011530Z-p493717`.
+- Contract closure: `make harness-contract` passed at
+  `.cartulary/test-results/20260723T011438Z-p490765`; `make generate` passed at
+  `.cartulary/test-results/20260723T011420Z-p488933`; generated-artifact policy,
+  JSON shape, and generation drift passed at
+  `.cartulary/test-results/20260723T011837Z-p540886`,
+  `.cartulary/test-results/20260723T011843Z-p541247`, and
+  `.cartulary/test-results/20260723T011850Z-p541762`. Biome and Markdown lint
+  also pass. The first generation attempt at
+  `.cartulary/test-results/20260723T011223Z-p487138` correctly failed closed on
+  the changed harness specification digest; the authored extension owner and
+  dependency digests were refreshed before the successful generation.
+- Active: T-010 is closed and T-012 is the sole `IN_PROGRESS` item. Freeze the
+  clean checkpoint containing this tracker and implementation, then discard
+  all earlier candidate windows and collect one warm-up plus exactly two
+  measured observations for every provider. No timing from this dirty
+  implementation worktree qualifies as candidate evidence.
