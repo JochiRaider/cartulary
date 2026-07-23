@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-011 browser-capacity remediation complete; T-012 clean candidate acceptance is next |
+| Current source | T-012 strict candidate comparison reopens T-010 prerequisite admission |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, and exact transition-validator parity | dependency, resource, cancellation, output, cleanup, primary-failure behavior, and normalized transition validation are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, and target-owned parallel prerequisite admission | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, and public prerequisite admission are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, exact policy-transition fixtures, and managed-service aggregate concurrency proof | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser policies are ready for T-012 quantitative acceptance |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2389,3 +2389,33 @@ completed work.
   discard every prior candidate window as diagnostic-only, and collect one
   successful warm-up plus exactly two consecutive measured observations for
   every minimal provider. Candidate roots may not use retained-v1 migration.
+
+### 2026-07-23 — T-012 strict comparison reopens T-010 prerequisite admission
+
+- Source: clean frozen candidate checkpoint
+  `60d911669ad11e057ca91f799a1540b06c610ca0`. All 23 provider windows were
+  collected serially from this source. The selected set contains 69
+  strict-current roots, one successful warm-up and exactly two measured roots
+  per provider, with one retry-contaminated `test-slice` warm-up explicitly
+  rejected and replaced.
+- Accepted evidence: 45 of 48 public duration rows pass. All four required
+  improvements pass: backend unit `40,324 -> 5,560 ms`, native backend
+  finalization `6,991 -> 3,996.5 ms`, internal release-browser readiness
+  `154,543 -> 93,841 ms`, and release-check
+  `456,198.5 -> 250,011 ms`. The 48-target portfolio falls from
+  `2,721,126 ms` to `2,316,231.5 ms`, a `-404,894.5 ms` improvement.
+- Remaining failures: `migration-drift` measured `10,110 ms` against its
+  `9,622 ms` no-regression limit; `standup-operational-recovery` measured
+  `40,757 ms` against `39,948.3 ms`; and `standup-package-smoke` measured
+  `34,860 ms` against `33,394.725 ms`. Retained span attribution identifies
+  serial public prerequisite submakes, not owned validation work, as the
+  common critical path: migration spends about two seconds before its runner,
+  while each standup repeats roughly 16.5 seconds of serial build-artifact
+  readiness before a roughly 140 ms deployable-shape check.
+- Disposition: T-010 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Add a target-owned, bounded parallel prerequisite policy
+  to the generated task surface, apply it only where prerequisite independence
+  is explicit, and validate direct public invocation before checkpointing.
+  Every `60d91166` candidate root remains diagnostic evidence but cannot
+  qualify after the implementation source changes. No acceptance threshold is
+  relaxed.
