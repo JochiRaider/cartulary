@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-010 bounded prerequisite admission complete; T-012 clean candidate acceptance is next |
+| Current source | T-012 migration window reopens T-010 scenario scheduling |
 | Last updated | 2026-07-22 |
-| Active item | T-012 |
+| Active item | T-010 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, and target-owned parallel prerequisite admission | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, and public prerequisite admission are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, target-owned parallel prerequisite admission, and isolated migration-scenario scheduling | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, public prerequisite admission, and migration scenario isolation are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, exact policy-transition fixtures, and managed-service aggregate concurrency proof | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser policies are ready for T-012 quantitative acceptance |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2463,3 +2463,33 @@ completed work.
   all earlier candidate windows and collect one warm-up plus exactly two
   measured observations for every provider. No timing from this dirty
   implementation worktree qualifies as candidate evidence.
+
+### 2026-07-23 — T-012 migration window reopens T-010 scenario scheduling
+
+- Source: clean frozen candidate checkpoint
+  `b76c9cb46873ec4a62e63d84b79c73226cf316a8`. Candidate collection completed
+  providers one through thirteen and then completed the `migration-drift`
+  window. Collection stopped before `release-check` rather than spending more
+  wall time on a candidate that was already mathematically unable to pass.
+- Rejection: the two clean measured migration roots are
+  `.cartulary/test-results/20260723T020901Z-p1408218` and
+  `.cartulary/test-results/20260723T020915Z-p1410057`. Their exact public
+  invocation envelopes are `12.54 s` and `8.71 s`, so the required two-sample
+  midpoint is `10.625 s` against the fixed `9.622 s` no-regression limit.
+  Neither root contains a retry, source-state fault, external activity, or
+  other valid rejection reason. Re-running the unchanged window would be
+  impermissible cherry-picking.
+- Diagnosis: bounded parallel artifact admission reduced prerequisite overhead
+  to about one second. The remaining critical path is owned runner work: the
+  script applies all 34 migrations to an empty scratch database and then
+  serially applies through the penultimate boundary plus head to a second
+  independent scratch database. The databases, working directories, and
+  validation results are independent; serial scenario execution has no
+  continuing semantic value.
+- Disposition: T-010 is reopened as the sole `IN_PROGRESS` item and T-012
+  returns to `TODO`. Run the two scratch scenarios concurrently with distinct
+  database and working-directory identities, drain both, emit their logs in
+  stable authored order, preserve empty-scenario-first failure precedence, and
+  clean both under pass, failure, and interruption. Every `b76c9cb4` candidate
+  root remains diagnostic-only after the implementation changes; no threshold
+  is relaxed.
