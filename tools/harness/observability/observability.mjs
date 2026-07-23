@@ -17,6 +17,7 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import { serviceExactShardProfile } from "../backend/backend-shard-plan.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { semanticJSONSHA256 } from "../test-catalog/semantic-json.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
@@ -445,6 +446,15 @@ function measurementContract(target, catalog, manifest, executionTopology) {
           physical_report_parse: "once_per_physical_report",
           emission: "bounded_reusable_host_derived_pool",
           owner_accounting_context: "once_per_target",
+        },
+      },
+    } : {}),
+    ...(target === "backend-process" ? {
+      backend_process: {
+        exact_symbol_shard_profile: serviceExactShardProfile(target),
+        capture_pool: {
+          workers: "min(group_count,clamp(floor(available_parallelism/4),1,8))",
+          child_gomaxprocs: "available_parallelism",
         },
       },
     } : {}),

@@ -158,6 +158,29 @@ try {
     workers: 6,
     goMaxProcs: 24,
   });
+  const currentProcessRows = collectTargetPlanRows(process.cwd())
+    .filter((selectedRow) => selectedRow.target === "backend-process");
+  const currentProcessPlan = collectGoShardPlanFromRows(process.cwd(), currentProcessRows);
+  const currentProcessShards = currentProcessPlan.shards.filter((shard) =>
+    shard.items.some((item) => item.target === "backend-process"));
+  assert.equal(currentProcessShards.length, 4, "backend-process physical process plan");
+  assert.equal(currentProcessShards.reduce((sum, shard) => sum + shard.item_count, 0), 36);
+  assert.deepEqual(
+    currentProcessShards.map((shard) => [shard.aggregate_name, shard.item_count]),
+    [
+      ["app.server.process", 16],
+      ["module.recovery.process", 6],
+      ["app.server.process", 12],
+      ["module.extensions.process", 2],
+    ],
+  );
+  assert.ok(currentProcessShards.every((shard) => shard.item_count <= 16));
+  assert.ok(currentProcessShards.every((shard) => shard.work_weight_ms <= 24_000));
+  assert.ok(currentProcessShards.every((shard) => shard.shard_target_ms === 24_000));
+  assert.deepEqual(resolveBackendCapturePool("backend-process", 24, currentProcessShards.length), {
+    workers: 4,
+    goMaxProcs: 24,
+  });
   assert.throws(() => resolveBackendWorkerPool(0, 1), /invalid available parallelism/u);
   assert.throws(
     () => collectCompatibleCaptureGroups([

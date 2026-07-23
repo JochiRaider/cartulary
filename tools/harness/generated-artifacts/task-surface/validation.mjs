@@ -436,10 +436,12 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         if (!profileIDs.has(binding?.profile_id)) {
           errors.push(`${label}.profile_id references unknown profile ${binding?.profile_id}`);
         }
-        if (binding?.allowed_policy_transition !== undefined && (
-          binding.target !== "browser-e2e-webserver-backed" ||
-          binding.allowed_policy_transition !== "browser_webserver_stage_capacity_1_to_2"
-        )) {
+        const allowedTargetTransition =
+          (binding?.target === "browser-e2e-webserver-backed" &&
+            binding.allowed_policy_transition === "browser_webserver_stage_capacity_1_to_2") ||
+          (binding?.target === "backend-process" &&
+            binding.allowed_policy_transition === "backend_process_shard_consolidation");
+        if (binding?.allowed_policy_transition !== undefined && !allowedTargetTransition) {
           errors.push(`${label}.allowed_policy_transition is not valid for ${binding?.target}`);
         }
         usedProfiles.add(binding?.profile_id);

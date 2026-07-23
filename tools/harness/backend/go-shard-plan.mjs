@@ -6,6 +6,7 @@ import {
   readGoDurationBaselineMaps,
   testBaselineKey,
 } from "./go-duration-baselines.mjs";
+import { serviceExactShardProfile } from "./go-shard-policy.mjs";
 import { collectTargetPlanRows } from "./target-plan.mjs";
 import { symbolFixtureDetail } from "./go-target-aggregate.mjs";
 
@@ -13,8 +14,6 @@ const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
 const cloneHeavyFixturePolicies = new Set(["template_clone"]);
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
-const serviceExactShardTargetMs = 12_000;
-const serviceExactShardMaxItems = 8;
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
 const schedulerProfileByResourceProfile = Object.freeze({
   go_balanced: "balanced",
@@ -357,19 +356,21 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
   for (const item of sorted) {
     if (item.shard_isolation) {
       const isolatedItems = [item];
+      const exactProfile = serviceExactShardProfile(item.target);
       bins.push({
         aggregateName,
         items: isolatedItems,
         weight_ms: shardWeightMs(isolatedItems, baselines),
         work_weight_ms: aggregateWorkWeightMs(isolatedItems),
-        target_ms: item.kind === "raw" ? targetMs : serviceExactShardTargetMs,
+        target_ms: item.kind === "raw" ? targetMs : exactProfile.max_estimated_test_work_ms,
         ...(item.scenario_id ? { scenario_id: item.scenario_id } : {}),
         isolated: true,
       });
       continue;
     }
     const isExact = item.kind !== "raw";
-    const packingTargetMs = isExact ? serviceExactShardTargetMs : targetMs;
+    const exactProfile = serviceExactShardProfile(item.target);
+    const packingTargetMs = isExact ? exactProfile.max_estimated_test_work_ms : targetMs;
     let selected = null;
     for (const bin of bins) {
       if (bin.isolated) {
@@ -380,7 +381,7 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
         ? aggregateWorkWeightMs(nextItems)
         : shardWeightMs(nextItems, baselines);
       if (
-        nextItems.length <= (isExact ? serviceExactShardMaxItems : Number.POSITIVE_INFINITY) &&
+        nextItems.length <= (isExact ? exactProfile.max_symbols : Number.POSITIVE_INFINITY) &&
         nextPackingWeightMs <= packingTargetMs
       ) {
         selected = bin;

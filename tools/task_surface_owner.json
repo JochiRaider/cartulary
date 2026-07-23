@@ -180,7 +180,7 @@
       { "target": "agent-finalize", "profile_id": "standard_no_regression" },
       { "target": "backend-integration", "profile_id": "standard_no_regression" },
       { "target": "backend-module-boundary-check", "profile_id": "standard_no_regression" },
-      { "target": "backend-process", "profile_id": "standard_no_regression" },
+      { "target": "backend-process", "profile_id": "standard_no_regression", "allowed_policy_transition": "backend_process_shard_consolidation" },
       { "target": "backend-store", "profile_id": "standard_no_regression" },
       { "target": "backend-unit", "profile_id": "backend_improvement" },
       { "target": "benchmark-claim-check", "profile_id": "standard_no_regression" },

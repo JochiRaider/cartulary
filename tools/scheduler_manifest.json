@@ -2775,6 +2775,54 @@
           }
         },
         {
+          "id": "check-service-backed:backend-process:app-server-process-shard-01",
+          "kind": "go_shard",
+          "target": "backend-process",
+          "label": "backend-process/app-server-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23551,
+          "needs": [
+            "service_session:check-service-backed",
+            "build-server-harness"
+          ],
+          "env": {
+            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
+          },
+          "runtime_binaries": [
+            "server-harness"
+          ],
+          "completion_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "app-server-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "app-server-process-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "check-service-backed:backend-store:module-workbook-store-shard-02",
           "kind": "go_shard",
           "target": "backend-store",
@@ -2811,6 +2859,54 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-workbook-store-shard-02",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-process:module-recovery-process-shard-01",
+          "kind": "go_shard",
+          "target": "backend-process",
+          "label": "backend-process/module-recovery-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23349,
+          "needs": [
+            "service_session:check-service-backed",
+            "build-operator"
+          ],
+          "env": {
+            "CARTULARY_OPERATOR_BIN": "operator"
+          },
+          "runtime_binaries": [
+            "operator"
+          ],
+          "completion_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-recovery-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "module-recovery-process-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -3207,54 +3303,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-workbook-integration-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:app-server-process-shard-01",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 21651,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-server-harness"
-          ],
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -3964,54 +4012,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-process:module-recovery-process-shard-01",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 19969,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-01",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration:module-jobapi-integration-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
@@ -4689,102 +4689,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-process:module-recovery-process-shard-02",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13019,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:app-server-process-shard-02",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 11561,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-server-harness"
-          ],
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-process:module-extensions-process-shard-01",
           "kind": "go_shard",
           "target": "backend-process",
@@ -5027,8 +4931,6 @@
           "needs": [
             "go_shard:app-server-process-shard-01",
             "go_shard:module-recovery-process-shard-01",
-            "go_shard:module-recovery-process-shard-02",
-            "go_shard:app-server-process-shard-02",
             "go_shard:module-extensions-process-shard-01"
           ],
           "completion_keys": [
@@ -5049,8 +4951,6 @@
           "shard_names": [
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
-            "module-recovery-process-shard-02",
-            "app-server-process-shard-02",
             "module-extensions-process-shard-01"
           ],
           "unblock_label": "backend-process",
@@ -8783,6 +8683,51 @@
           }
         },
         {
+          "id": "backend-process:app-server-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/app-server-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 28961,
+          "needs": [
+            "build-server-harness"
+          ],
+          "completion_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "app-server-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
+          },
+          "runtime_binaries": [
+            "server-harness"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "app-server-process-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
           "id": "backend-integration:module-timeline-integration-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -9753,6 +9698,51 @@
           }
         },
         {
+          "id": "backend-process:module-recovery-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/module-recovery-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23369,
+          "needs": [
+            "build-operator"
+          ],
+          "completion_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-recovery-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_OPERATOR_BIN": "operator"
+          },
+          "runtime_binaries": [
+            "operator"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "module-recovery-process-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
           "id": "backend-integration:module-reference-data-integration-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -10176,51 +10166,6 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-workbook-store-shard-03",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 21581,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-01",
             "service_target": "test-service-backed"
           }
         },
@@ -10855,51 +10800,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "app-server-integration-shard-01",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:module-recovery-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 19989,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-01",
             "service_target": "test-service-backed"
           }
         },
@@ -11808,7 +11708,7 @@
           "label": "backend-process/app-server-process-shard-02",
           "aggregate_target": "backend-process",
           "priority": 35000,
-          "weight_ms": 15241,
+          "weight_ms": 13481,
           "needs": [
             "build-server-harness"
           ],
@@ -11842,141 +11742,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "app-server-process-shard-02",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-03",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-03",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13041,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-03"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-03"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-03",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-03",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:module-recovery-process-shard-02",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13019,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-02",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-04",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-04",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 11901,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-04"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-04"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-04",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-04",
             "service_target": "test-service-backed"
           }
         },
@@ -12367,9 +12132,6 @@
             "go_shard:app-server-process-shard-01",
             "go_shard:module-recovery-process-shard-01",
             "go_shard:app-server-process-shard-02",
-            "go_shard:app-server-process-shard-03",
-            "go_shard:module-recovery-process-shard-02",
-            "go_shard:app-server-process-shard-04",
             "go_shard:module-extensions-process-shard-01"
           ],
           "completion_keys": [
@@ -12388,9 +12150,6 @@
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
             "app-server-process-shard-02",
-            "app-server-process-shard-03",
-            "module-recovery-process-shard-02",
-            "app-server-process-shard-04",
             "module-extensions-process-shard-01"
           ],
           "unblock_label": "backend-process",
@@ -13108,6 +12867,51 @@
           }
         },
         {
+          "id": "backend-process:app-server-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/app-server-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 28961,
+          "needs": [
+            "build-server-harness"
+          ],
+          "completion_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "app-server-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
+          },
+          "runtime_binaries": [
+            "server-harness"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "app-server-process-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
           "id": "backend-integration:module-timeline-integration-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -14078,6 +13882,51 @@
           }
         },
         {
+          "id": "backend-process:module-recovery-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/module-recovery-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23369,
+          "needs": [
+            "build-operator"
+          ],
+          "completion_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-recovery-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_OPERATOR_BIN": "operator"
+          },
+          "runtime_binaries": [
+            "operator"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "module-recovery-process-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
           "id": "backend-integration:module-reference-data-integration-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -14501,51 +14350,6 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-workbook-store-shard-03",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 21581,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-01",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -15180,51 +14984,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "app-server-integration-shard-01",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:module-recovery-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 19989,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-01",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -16133,7 +15892,7 @@
           "label": "backend-process/app-server-process-shard-02",
           "aggregate_target": "backend-process",
           "priority": 35000,
-          "weight_ms": 15241,
+          "weight_ms": 13481,
           "needs": [
             "build-server-harness"
           ],
@@ -16167,141 +15926,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "app-server-process-shard-02",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-03",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-03",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13041,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-03"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-03"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-03",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-03",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:module-recovery-process-shard-02",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13019,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-02",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-04",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-04",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 11901,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-04"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-04"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-04",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-04",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -16692,9 +16316,6 @@
             "go_shard:app-server-process-shard-01",
             "go_shard:module-recovery-process-shard-01",
             "go_shard:app-server-process-shard-02",
-            "go_shard:app-server-process-shard-03",
-            "go_shard:module-recovery-process-shard-02",
-            "go_shard:app-server-process-shard-04",
             "go_shard:module-extensions-process-shard-01"
           ],
           "completion_keys": [
@@ -16713,9 +16334,6 @@
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
             "app-server-process-shard-02",
-            "app-server-process-shard-03",
-            "module-recovery-process-shard-02",
-            "app-server-process-shard-04",
             "module-extensions-process-shard-01"
           ],
           "unblock_label": "backend-process",
@@ -18920,6 +18538,51 @@
           }
         },
         {
+          "id": "backend-process:app-server-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/app-server-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23551,
+          "needs": [
+            "build-server-harness"
+          ],
+          "completion_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:app-server-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "app-server-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
+          },
+          "runtime_binaries": [
+            "server-harness"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "app-server-process-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
           "id": "backend-store:module-workbook-store-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -18952,6 +18615,51 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-workbook-store-shard-02",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "backend-process:module-recovery-process-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-process",
+          "label": "backend-process/module-recovery-process-shard-01",
+          "aggregate_target": "backend-process",
+          "priority": 35000,
+          "weight_ms": 23349,
+          "needs": [
+            "build-operator"
+          ],
+          "completion_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-recovery-process-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-process"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-recovery-process-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1,
+            "process": 1
+          },
+          "env": {
+            "CARTULARY_OPERATOR_BIN": "operator"
+          },
+          "runtime_binaries": [
+            "operator"
+          ],
+          "command": {
+            "type": "go_shard",
+            "target": "backend-process",
+            "shard": "module-recovery-process-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -19308,51 +19016,6 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-workbook-integration-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 21651,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -19990,51 +19653,6 @@
           }
         },
         {
-          "id": "backend-process:module-recovery-process-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-01",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 19969,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-01",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-01",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:module-jobapi-integration-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -20644,96 +20262,6 @@
           }
         },
         {
-          "id": "backend-process:module-recovery-process-shard-02",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/module-recovery-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13019,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:module-recovery-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-recovery-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "module-recovery-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:app-server-process-shard-02",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/app-server-process-shard-02",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 11561,
-          "needs": [
-            "build-server-harness"
-          ],
-          "completion_keys": [
-            "go_shard:app-server-process-shard-02"
-          ],
-          "failure_keys": [
-            "go_shard:app-server-process-shard-02"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "app-server-process-shard-02",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_SERVER_HARNESS_BIN": "server-harness"
-          },
-          "runtime_binaries": [
-            "server-harness"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "app-server-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "backend-process:module-extensions-process-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -20969,8 +20497,6 @@
           "needs": [
             "go_shard:app-server-process-shard-01",
             "go_shard:module-recovery-process-shard-01",
-            "go_shard:module-recovery-process-shard-02",
-            "go_shard:app-server-process-shard-02",
             "go_shard:module-extensions-process-shard-01"
           ],
           "completion_keys": [
@@ -20988,8 +20514,6 @@
           "shard_names": [
             "app-server-process-shard-01",
             "module-recovery-process-shard-01",
-            "module-recovery-process-shard-02",
-            "app-server-process-shard-02",
             "module-extensions-process-shard-01"
           ],
           "unblock_label": "backend-process",

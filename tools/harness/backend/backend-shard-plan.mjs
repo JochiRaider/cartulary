@@ -3,8 +3,13 @@ import {
   collectGoShardsForTargetFromRows,
 } from "./go-shard-plan.mjs";
 import { collectTargetPlanRows } from "./target-plan.mjs";
+import { serviceExactShardProfile } from "./go-shard-policy.mjs";
 
-export { collectGoShardPlanFromRows, collectGoShardsForTargetFromRows };
+export {
+  collectGoShardPlanFromRows,
+  collectGoShardsForTargetFromRows,
+  serviceExactShardProfile,
+};
 
 function targetPlanRowsForGoShards(root = process.cwd()) {
   return collectTargetPlanRows(root);

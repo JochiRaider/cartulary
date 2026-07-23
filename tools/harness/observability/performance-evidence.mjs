@@ -581,6 +581,7 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
   }
   const knownTransitions = new Set([
     "backend_grouped_capture_and_parallel_report_emission",
+    "backend_process_shard_consolidation",
     "serial_to_topology_dag",
     "browser_stack_capacity_1_to_2",
     "browser_webserver_stage_capacity_1_to_2",
@@ -605,6 +606,17 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
       backend?.report_projection?.emission !== "bounded_reusable_host_derived_pool" ||
       backend?.report_projection?.owner_accounting_context !== "once_per_target") {
       throw new Error(`${target} candidate policy does not implement the exact backend transition`);
+    }
+  }
+  if (transition === "backend_process_shard_consolidation") {
+    const backend = candidateRow.execution_policy?.backend_process;
+    if (!sameJSON(backend?.exact_symbol_shard_profile, {
+      max_symbols: 16,
+      max_estimated_test_work_ms: 24_000,
+    }) || backend?.capture_pool?.workers !==
+      "min(group_count,clamp(floor(available_parallelism/4),1,8))" ||
+      backend?.capture_pool?.child_gomaxprocs !== "available_parallelism") {
+      throw new Error(`${target} candidate policy does not implement the exact backend-process transition`);
     }
   }
   if (transition === "serial_to_topology_dag") {

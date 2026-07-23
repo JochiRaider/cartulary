@@ -2459,10 +2459,15 @@ policy and complete fixture budget, isolation policy, scheduler resource
 profile, and authoritative or support evidence class. Raw package selectors,
 isolated items, and incompatible items remain separate. Within each compatible
 execution family the planner MUST sort by descending authored-input duration
-estimate with stable row ID and symbol tie-breakers, then first-fit pack at most
-eight exact symbols and at most 12,000 milliseconds of estimated test work per
-shard. An individual item whose owner estimate exceeds 12,000 milliseconds
-MUST remain alone and MUST NOT be split or hidden. Package and command startup overhead remains part of the shard's
+estimate with stable row ID and symbol tie-breakers, then first-fit pack using
+the target's closed exact-symbol shard profile. The default profile admits at
+most eight exact symbols and at most 12,000 milliseconds of estimated test work
+per shard. `backend-process` uses at most 16 exact symbols and at most 24,000
+milliseconds because its compatible process-lifecycle symbols share expensive
+Go package startup and contend for the same service fixture when split into too
+many physical children. An individual item whose owner estimate exceeds its
+target profile's estimated-work limit MUST remain alone and MUST NOT be split
+or hidden. Package and command startup overhead remains part of the shard's
 scheduler weight but MUST NOT be charged once per item when deciding whether
 compatible work shares a process.
 

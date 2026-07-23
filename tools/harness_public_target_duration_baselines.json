@@ -154,6 +154,7 @@
         "retained_v1_execution_policy_sha256": "da7726cd9710fdb62a85e323078be1cdb96a9b56397a3cf08a1b8eb54446f2d0"
       },
       "execution_policy_sha256": "da7726cd9710fdb62a85e323078be1cdb96a9b56397a3cf08a1b8eb54446f2d0",
+      "allowed_policy_transition": "backend_process_shard_consolidation",
       "sample_provider_target": "seaweedfs-release-evidence",
       "warmup_root": "retained:20260721T201322Z-p3114931",
       "sample_roots": [
@@ -452,6 +453,7 @@
         "retained_v1_execution_policy_sha256": "2f09a692d8ab3c9ae67def82960b8cd59a520b39967df61188c9298c49174aa1"
       },
       "execution_policy_sha256": "2f09a692d8ab3c9ae67def82960b8cd59a520b39967df61188c9298c49174aa1",
+      "allowed_policy_transition": "browser_webserver_stage_capacity_1_to_2",
       "sample_provider_target": "test",
       "warmup_root": "retained:20260721T194026Z-p2495611",
       "sample_roots": [

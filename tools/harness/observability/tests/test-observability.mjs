@@ -558,6 +558,53 @@ try {
     () => compareQualifiedBaselines(exactCITransitionBaseline, staleCISecurityProfile),
     /does not implement the exact sequence transition/u,
   );
+  const backendProcessBaseline = structuredClone(baselinePerformance);
+  const backendProcessCandidate = structuredClone(boundaryPerformance);
+  for (const artifact of [backendProcessBaseline, backendProcessCandidate]) {
+    const row = artifact.targets.find((item) => item.target === "lint");
+    row.target = "backend-process";
+    row.command_id = "cartulary.harness.command.backend_process.v1";
+    row.measurement_profile_id = "standard_no_regression";
+    row.allowed_policy_transition = "backend_process_shard_consolidation";
+    row.sample_provider_target = "backend-process";
+    artifact.public_entrypoint_portfolio.targets = artifact.public_entrypoint_portfolio.targets
+      .map((target) => target === "lint" ? "backend-process" : target)
+      .sort((left, right) => left.localeCompare(right));
+  }
+  backendProcessBaseline.targets.find((row) => row.target === "backend-process").execution_policy = {
+    target: "backend-process",
+    backend_process: {
+      exact_symbol_shard_profile: {
+        max_symbols: 8,
+        max_estimated_test_work_ms: 12_000,
+      },
+    },
+  };
+  backendProcessCandidate.targets.find((row) => row.target === "backend-process").execution_policy = {
+    target: "backend-process",
+    backend_process: {
+      exact_symbol_shard_profile: {
+        max_symbols: 16,
+        max_estimated_test_work_ms: 24_000,
+      },
+      capture_pool: {
+        workers: "min(group_count,clamp(floor(available_parallelism/4),1,8))",
+        child_gomaxprocs: "available_parallelism",
+      },
+    },
+  };
+  assert.deepEqual(
+    compareQualifiedBaselines(backendProcessBaseline, backendProcessCandidate).failures,
+    [],
+    "the backend-process transition must require the exact consolidated shard profile",
+  );
+  const staleBackendProcessProfile = structuredClone(backendProcessCandidate);
+  staleBackendProcessProfile.targets.find((row) => row.target === "backend-process")
+    .execution_policy.backend_process.exact_symbol_shard_profile.max_symbols = 15;
+  assert.throws(
+    () => compareQualifiedBaselines(backendProcessBaseline, staleBackendProcessProfile),
+    /does not implement the exact backend-process transition/u,
+  );
   const browserBaseline = performanceArtifact();
   const browserBaselineRow = browserBaseline.targets.find((row) => row.target === "lint");
   browserBaselineRow.target = "release-browser-readiness";

@@ -392,7 +392,8 @@
       },
       {
         "target": "backend-process",
-        "profile_id": "standard_no_regression"
+        "profile_id": "standard_no_regression",
+        "allowed_policy_transition": "backend_process_shard_consolidation"
       },
       {
         "target": "backend-store",
