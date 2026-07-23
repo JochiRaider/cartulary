@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
   statSync,
 } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   repoRoot,
@@ -147,10 +150,6 @@ function collectIssueCounts(value, result = { issueCount: 0, byRule: {}, bySever
   return result;
 }
 
-function writeText(file, content) {
-  secureWriteFile(file, content ?? "");
-}
-
 function fallowArtifactRef(role, file, kind = "json") {
   return {
     role,
@@ -162,29 +161,65 @@ function fallowArtifactRef(role, file, kind = "json") {
 function runFallow(reportRoot, name, args, outputFile) {
   const stdoutFile = path.join(reportRoot, `${name}.stdout.log`);
   const stderrFile = path.join(reportRoot, `${name}.stderr.log`);
-  const child = spawnSync(process.execPath, [fallowScript, ...args], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      PATH: `${path.dirname(process.execPath)}:${process.env.PATH ?? ""}`,
-    },
-    encoding: "utf8",
-    maxBuffer: 128 * 1024 * 1024,
+  return new Promise((resolve) => {
+    const stdoutFD = openSync(stdoutFile, "w", 0o600);
+    let stderrFD;
+    try {
+      stderrFD = openSync(stderrFile, "w", 0o600);
+    } catch (error) {
+      closeSync(stdoutFD);
+      throw error;
+    }
+    let settled = false;
+    const finish = (status) => {
+      if (settled) return;
+      settled = true;
+      closeSync(stdoutFD);
+      closeSync(stderrFD);
+      const exitCode = status ?? 1;
+      resolve({
+        name,
+        command: ["fallow", ...args],
+        outputFile,
+        stdoutFile,
+        stderrFile,
+        status: exitCode === 0 ? "pass" : "fail",
+        exitCode,
+      });
+    };
+    const child = spawn(process.execPath, [fallowScript, ...args], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        PATH: `${path.dirname(process.execPath)}:${process.env.PATH ?? ""}`,
+      },
+      stdio: ["ignore", stdoutFD, stderrFD],
+    });
+    child.on("error", () => finish(127));
+    child.on("close", (status, signal) => finish(signal ? 1 : status));
   });
-  writeText(stdoutFile, child.stdout ?? "");
-  writeText(stderrFile, child.stderr ?? "");
-  if (child.error) {
-    throw child.error;
-  }
-  return {
-    name,
-    command: ["fallow", ...args],
-    outputFile,
-    stdoutFile,
-    stderrFile,
-    status: (child.status ?? 1) === 0 ? "pass" : "fail",
-    exitCode: child.status ?? 1,
-  };
+}
+
+export async function runFallowBatch(specs, execute = runFallow) {
+  const settled = await Promise.allSettled(specs.map((spec) => execute(
+    spec.reportRoot,
+    spec.name,
+    spec.args,
+    spec.outputFile,
+  )));
+  return settled.map((result, index) => {
+    if (result.status === "fulfilled") return result.value;
+    const spec = specs[index];
+    return {
+      name: spec.name,
+      command: ["fallow", ...spec.args],
+      outputFile: spec.outputFile,
+      stdoutFile: path.join(spec.reportRoot, `${spec.name}.stdout.log`),
+      stderrFile: path.join(spec.reportRoot, `${spec.name}.stderr.log`),
+      status: "fail",
+      exitCode: 127,
+    };
+  });
 }
 
 function reportFromRun(run) {
@@ -261,7 +296,7 @@ function makeToolSummary({ identity, status, startedAt, durationMs, summaryArtif
   return summary;
 }
 
-function main() {
+async function main() {
   const startedAt = nowUTC();
   const startedMs = monotonicMs();
   const identity = resolveRetainedArtifactIdentity(target, process.env, {
@@ -318,52 +353,74 @@ function main() {
     const dupesJSON = path.join(reportRoot, "dupes.json");
     const healthJSON = path.join(reportRoot, "health.json");
 
-    runs.push(runFallow(reportRoot, "dead-code", [
-      "dead-code",
-      "--config",
-      resolvedConfigRel,
-      "--format",
-      "json",
-      "--quiet",
-      "--no-cache",
-      "--output-file",
-      deadCodeJSON,
-      "--sarif-file",
-      deadCodeSARIF,
-    ], deadCodeJSON));
-    runs.push(runFallow(reportRoot, "dead-code-markdown", [
-      "dead-code",
-      "--config",
-      resolvedConfigRel,
-      "--format",
-      "markdown",
-      "--quiet",
-      "--no-cache",
-      "--output-file",
-      deadCodeMarkdown,
-    ], deadCodeMarkdown));
-    runs.push(runFallow(reportRoot, "dupes", [
-      "dupes",
-      "--config",
-      resolvedConfigRel,
-      "--format",
-      "json",
-      "--quiet",
-      "--no-cache",
-      "--output-file",
-      dupesJSON,
-    ], dupesJSON));
-    runs.push(runFallow(reportRoot, "health", [
-      "health",
-      "--config",
-      resolvedConfigRel,
-      "--format",
-      "json",
-      "--quiet",
-      "--no-cache",
-      "--output-file",
-      healthJSON,
-    ], healthJSON));
+    runs.push(...await runFallowBatch([
+      {
+        reportRoot,
+        name: "dead-code",
+        args: [
+          "dead-code",
+          "--config",
+          resolvedConfigRel,
+          "--format",
+          "json",
+          "--quiet",
+          "--no-cache",
+          "--output-file",
+          deadCodeJSON,
+          "--sarif-file",
+          deadCodeSARIF,
+        ],
+        outputFile: deadCodeJSON,
+      },
+      {
+        reportRoot,
+        name: "dead-code-markdown",
+        args: [
+          "dead-code",
+          "--config",
+          resolvedConfigRel,
+          "--format",
+          "markdown",
+          "--quiet",
+          "--no-cache",
+          "--output-file",
+          deadCodeMarkdown,
+        ],
+        outputFile: deadCodeMarkdown,
+      },
+      {
+        reportRoot,
+        name: "dupes",
+        args: [
+          "dupes",
+          "--config",
+          resolvedConfigRel,
+          "--format",
+          "json",
+          "--quiet",
+          "--no-cache",
+          "--output-file",
+          dupesJSON,
+        ],
+        outputFile: dupesJSON,
+      },
+      {
+        reportRoot,
+        name: "health",
+        args: [
+          "health",
+          "--config",
+          resolvedConfigRel,
+          "--format",
+          "json",
+          "--quiet",
+          "--no-cache",
+          "--output-file",
+          healthJSON,
+        ],
+        outputFile: healthJSON,
+      },
+    ]));
 
     for (const run of runs) {
       if (existsSync(run.stdoutFile) && statSync(run.stdoutFile).size > 0) {
@@ -522,4 +579,6 @@ function main() {
   }
 }
 
-process.exit(main());
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exit(await main());
+}

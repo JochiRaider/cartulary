@@ -24,6 +24,60 @@ if [[ ! -f "$FALLOW_SCRIPT" ]]; then
   fail "missing Fallow package script at $FALLOW_SCRIPT; run make frontend-install"
 fi
 
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+import { pathToFileURL } from "node:url";
+
+const [rootDir] = process.argv.slice(2);
+const { runFallowBatch } = await import(pathToFileURL(
+  `${rootDir}/tools/harness/static-analysis/fallow-static-cli.mjs`,
+).href);
+
+let active = 0;
+let peak = 0;
+const completed = [];
+const delays = new Map([
+  ["dead-code", 45],
+  ["dead-code-markdown", 10],
+  ["dupes", 30],
+  ["health", 20],
+]);
+const specs = [...delays.keys()].map((name) => ({
+  reportRoot: "/fixture",
+  name,
+  args: [name],
+  outputFile: `/fixture/${name}.json`,
+}));
+const results = await runFallowBatch(specs, async (_root, name, args, outputFile) => {
+  active += 1;
+  peak = Math.max(peak, active);
+  await new Promise((resolve) => setTimeout(resolve, delays.get(name)));
+  active -= 1;
+  completed.push(name);
+  if (name === "dupes") {
+    throw new Error("simulated start failure");
+  }
+  return {
+    name,
+    command: ["fallow", ...args],
+    outputFile,
+    status: name === "dead-code" || name === "dupes" ? "fail" : "pass",
+    exitCode: name === "dead-code" || name === "dupes" ? 1 : 0,
+  };
+});
+if (peak !== 4) {
+  throw new Error(`expected four overlapping Fallow children, got ${peak}`);
+}
+if (completed.join(",") === specs.map((spec) => spec.name).join(",")) {
+  throw new Error("fixture must complete out of authored order");
+}
+if (results.map((result) => result.name).join(",") !== specs.map((spec) => spec.name).join(",")) {
+  throw new Error("concurrent Fallow results did not retain authored order");
+}
+if (results.filter((result) => result.status === "fail").map((result) => result.name).join(",") !== "dead-code,dupes") {
+  throw new Error("simultaneous Fallow failures were not retained in authored order");
+}
+EOF
+
 case_root="$(mktemp -d)"
 cleanup_paths+=("$case_root")
 
