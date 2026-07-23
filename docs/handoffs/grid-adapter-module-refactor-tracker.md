@@ -5,6 +5,350 @@
 - **Target path:** `packages/grid-adapter`
 - **Normalized target label:** `grid-adapter`
 - **Output path:** `docs/handoffs/grid-adapter-module-refactor-tracker.md`
+- **Repository baseline inspected:** branch `main`, commit
+  `0c37fb4cf189c47c7474c15c4e622a55decc5264`.
+- **Status:** planning and documentation only. No production refactor is authorized
+  by this tracker refresh.
+- **Allowed change:** this tracker file only.
+- **Non-goals:** no production code, test, contract, generated artifact, package
+  configuration, dependency, lockfile, migration, harness, route, protocol, or
+  behavior change.
+- **Implementation gate:** every implementation slice below requires a later,
+  explicitly authorized task.
+
+Source hierarchy used for current-state findings:
+
+1. Adopted subsystem NLSpecs, for their named subsystem only. The adopted Network
+   Flow Activity NLSpec governs the extension-grid branch but does not own Core
+   workbook-grid or vendor behavior.
+2. Core 00 through Core 04, for implementation-conformance behavior.
+3. Core 05, only for claim-bearing timed or fixture-sensitive publication. This
+   planning task creates no Core 05 claim.
+4. Domain vocabulary, design direction, implementation guides, and the testing
+   harness NLSpec, for terminology, package boundaries, and execution mechanics.
+5. Current repository code, tests, authored contracts, and manifests, for current
+   implementation state.
+6. Prior plans, handoffs, research, phase labels, and this planning framework, as
+   evidence only.
+
+Owner and support documents inspected:
+
+- `AGENTS.md`
+- `docs/handoffs/cartulary_modular_refactor_planning_framework.md`
+- `docs/domain.md`
+- `docs/design.md`
+- `docs/spec/00_document_set_status_and_precedence.md`
+- `docs/spec/01_architecture_storage_and_view_contracts.md`, especially the
+  view-query, view-row, view-schema, and projection ownership boundaries
+- `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`, especially
+  workbook state, paste, editing, keyboard, bulk mutation, grouping, and Timeline
+  read/write behavior
+- `docs/spec/04_security_deployment_and_conformance.md`, especially incident and
+  Network Flow authorization
+- `docs/network-flow-activity-nlspec.md`, especially the extension-grid
+  presentation contract
+- `docs/testing-harness-nlspec.md`
+- `docs/guides/cartulary-dev-guide.md`
+- `docs/guides/cartulary_frontend_implementation_testing_guide.md`
+
+Repository files inspected:
+
+- Every tracked source, test, declaration, style, and configuration file listed in
+  Section 2, plus the ignored target-local install and TypeScript cache entries.
+- `apps/web/package.json`; the production import sites under
+  `apps/web/src/workbook/components/**`,
+  `apps/web/src/workbook/timeline/{components,hooks,models}/**`,
+  `apps/web/src/workbook/{models,utils}/**`, and
+  `apps/web/src/networkFlow/**`.
+- Workbook unit tests that replace the root adapter with
+  `@cartulary/grid-adapter/test-support`, plus
+  `apps/web/src/testing/testSetup.dom.ts`.
+- `tools/frontend_import_boundaries.json`,
+  `tools/fallow/cartulary-boundaries.rulepack.json`,
+  `contracts/verification/owners/package.grid_adapter.json`, and
+  `tools/test_families/package.grid_adapter.json`.
+- The existing contents and Git history of this tracker.
+
+The planning framework remains doctrine, not repository proof. Its older inventory
+describes a pre-remediation custom renderer and obsolete symbols. The live package
+now contains a real `DataGrid`/`TreeDataGrid` integration, a generalized
+`SemanticDataGrid` facade, Core and extension resource identities, fixed-height
+virtualization, and current owner-based test accounting. That mismatch is a
+planning finding; the historical remediation record is preserved in Section 13.
+
+No `BLOCKED: owner contradiction` was found. The current owner documents support a
+shared semantic adapter boundary while leaving HTTP, WebSocket, saved-view,
+revision, projection, storage, collaboration, and authorization behavior in their
+existing owners.
+
+## 2. Current-State Repository Inventory
+
+| Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `packages/grid-adapter/package.json` | Declares the private workspace package, exact RDG dependency, and root/test-support exports. | `@cartulary/grid-adapter`; `@cartulary/grid-adapter/test-support`. | pnpm workspace; `apps/web/package.json`; TypeScript package resolution. | React 19, ReactDOM 19, `@cartulary/ui-contracts`, `react-data-grid@7.0.0-beta.59`, test libraries. | Frontend install, typecheck, import-boundary, unit, and build surfaces consume it indirectly. | Lockfile is downstream and tool-managed; no generated source is owned here. | Package facade/configuration. | Medium | Dependency or export-map changes require separate authorization. |
+| `packages/grid-adapter/tsconfig.json` | Strict no-emit TypeScript project using bundler resolution, DOM, and JSX. | Typecheck project surface only. | Root/project TypeScript configuration. | `../../tsconfig.base.json`. | `make frontend-typecheck`. | None. | Frontend toolchain support. | Low | Authored configuration is outside this tracker-only change. |
+| `packages/grid-adapter/src/core.ts` | Defines vendor-neutral surface, row, mutation, column, state, grouping, anchor/range, editor, clipboard, paste, fill, and restricted-handle contracts plus pure semantic helpers. | `GridSurfaceIdentity`, `GridRowIdentity`, `GridMutationIdentity`, `GridDataRow`, `GridColumn`, `GridDataState`, `GridInteractionMode`, `GridHandle`, editor/anchor/range/intent types; assertions and semantic navigation/clipboard/paste helpers. | Package runtime/test facade; workbook focus, clipboard, layout, row, Timeline anchor, and Network Flow models/controllers. | React types. | `src/core.test.ts`, `src/index.test.tsx`, app anchor/query/sentinel tests, Network Flow selection tests. | No generated imports; values use owner-defined stable identities. | Semantic grid contract core. | High | Broad public surface; moving helpers is deferred pending characterization. |
+| `packages/grid-adapter/src/index.tsx` | Root package barrel, sole RDG stylesheet import, `GridViewport`, and public `SemanticDataGrid` exposure. | Re-exports the vendor-neutral root API; exports `GridViewport` and `SemanticDataGrid`. | Timeline, generic, entity, assessment, and Network Flow grid surfaces. | React, RDG stylesheet, local core and production grid. | `src/index.test.tsx`; app and browser suites through consumers. | Uses authored UI contracts indirectly; owns no generated output. | Public semantic grid facade. | High | The stylesheet remains package-owned and imported once. |
+| `packages/grid-adapter/src/SemanticDataGrid.tsx` | Production React orchestration over RDG `DataGrid` and `TreeDataGrid`: semantic row/column projection, state, focus, editor sessions, keyboard, range, paste/fill, selection, grouping, sizing, and virtualization. | Exported through `src/index.tsx` as `SemanticDataGrid`; vendor types remain private. | All production semantic grid consumers via the root facade; direct package tests. | React, `react-data-grid`, `@cartulary/ui-contracts`, local core/compiler/state/diagnostics. | `src/index.test.tsx`; owner browser accessibility/visual rows and app behavior tests indirectly. | No generated source; consumes UI selector/token contracts. | Grid-vendor integration and semantic React orchestration. | Critical | At roughly 2.3k lines, this is the primary mixed-responsibility decomposition candidate. |
+| `packages/grid-adapter/src/rdgCompiler.tsx` | Privately compiles semantic columns, gutters, actions, selection, editors, markers, ARIA, and mutation targets into RDG column/render contracts. | No package export; private compiler surface. | `SemanticDataGrid.tsx`. | React, RDG `Column` types, local core/state. | `src/index.test.tsx` through production rendering. | None. | Private vendor translation layer. | High | Correctly contains vendor coordinates/types; split only along private seams. |
+| `packages/grid-adapter/src/semanticState.ts` | Deterministically merges owner and adapter cell/row state and produces semantic classes/attributes. | Private state compiler. | Production compiler/grid and test support. | Local core types. | `src/core.test.ts`, `src/index.test.tsx`. | None. | Semantic presentation-state policy. | High | Shared use is valuable; precedence is observable behavior. |
+| `packages/grid-adapter/src/styles.css` | Adapter-owned RDG tokens, layout, markers, state styles, focus, grouping, drafts, data-state overlays, density, and forced-color behavior. | CSS behavior reached through the root package. | Production `SemanticDataGrid`. | RDG class surface and design tokens. | Live component, browser visual, and accessibility evidence. | No generated output. | Adapter presentation/style boundary. | High | Class hashes and vendor DOM nesting are not public contracts; semantic states are. |
+| `packages/grid-adapter/src/virtualizationDiagnostics.ts` | Holds a process-global diagnostic switch used to disable virtualization in DOM tests that cannot model RDG scroll layout. | Setter is exposed only through `./test-support`; getter is package-private. | Production grid reads it; DOM test setup writes it through test support. | No external dependency. | `src/index.test.tsx`; app DOM tests through `testSetup.dom.ts`. | None. | Test diagnostic seam inside adapter. | Medium | Mutable global production-path seam requires characterization before change. |
+| `packages/grid-adapter/src/test-support.tsx` | Lightweight non-vendor semantic table used by explicit unit-test mocks; mirrors selected state, editing, sorting, selection, paste, and grouping behavior. | `./test-support` facade plus the diagnostic setter and a subset of root contracts. | Workbook shell/unit tests and shared DOM test setup only. | React, `@cartulary/ui-contracts`, local semantic core/state. | Workbook action, autosave, collaboration, history, inspector, payload, query, save-state, and Timeline query tests. | No generated artifacts; import allowance is authored in the boundary manifest. | Adapter-owned test facade. | High | It is deliberately not live RDG evidence; duplicated policies can drift. |
+| `packages/grid-adapter/src/css.d.ts` | Declares the RDG stylesheet module to TypeScript. | Ambient declaration only. | TypeScript compiler for `src/index.tsx`. | RDG stylesheet module name. | `make frontend-typecheck` indirectly. | None. | Vendor build seam. | Low | Required while the stylesheet import remains. |
+| `packages/grid-adapter/src/core.test.ts` | Characterizes pure semantic identities, grouping, state precedence, anchors, navigation, ranges, clipboard, paste, and editability. | No runtime export. | Owner-selected Vitest rows. | Vitest and local core/state. | This is the test source. | Accounted by the authored `package.grid_adapter` family manifest. | Semantic unit evidence. | Medium | Current titles are owner-selected implementation evidence. |
+| `packages/grid-adapter/src/index.test.tsx` | Exercises live production RDG behavior, identities, editing, focus, states, selection, grouping, sizing, density, and fixed-height virtualization. | No runtime export. | Owner-selected Vitest rows. | Testing Library, Vitest, React, package root. | This is the test source. | Accounted by the authored `package.grid_adapter` family manifest. | Live adapter component evidence. | High | Current live suite covers 500 rows/24 columns and extension identities. |
+| `packages/grid-adapter/node_modules/**` | Workspace dependency links and executable shims. | None. | Package manager and local tooling only. | pnpm store. | None as authored evidence. | Tool-managed install artifacts. | Out of scope. | Low | Entire ignored subtree is explicitly out of scope. |
+| `packages/grid-adapter/tsconfig.tsbuildinfo` | Incremental TypeScript cache. | None. | TypeScript compiler only. | TypeScript toolchain. | None. | Tool-managed cache. | Out of scope. | Low | Ignored and explicitly out of scope. |
+
+The target directly imports no HTTP client, WebSocket client, SQL or storage
+adapter, authorization policy, revision/change-set writer, projection refresh
+owner, saved-view persistence owner, protocol decoder, view-contract parser, or
+generated source. Those behaviors reach the adapter only as app-supplied semantic
+rows, capabilities, state, callbacks, or identities.
+
+## 3. Module Boundary Diagnosis
+
+Current classification:
+
+- legitimate grid-vendor integration layer;
+- vendor-neutral semantic grid facade;
+- view and projection-presentation orchestration layer;
+- frontend interaction adapter;
+- mixed-responsibility package internally;
+- not a backend transport, persistence, projection-store, revision,
+  collaboration, saved-view, or authorization owner.
+
+| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Direct RDG imports, stylesheet, `DataGrid`/`TreeDataGrid`, vendor events, and vendor coordinates | `index.tsx`, `SemanticDataGrid.tsx`, `rdgCompiler.tsx`, `styles.css` | `packages/grid-adapter` | keep | Dev guide boundary; import-boundary manifest; no direct RDG import outside the package. | This is the legitimate package seam. |
+| Vendor-neutral surface, row, field, mutation, anchor, range, and handle contracts | `core.ts`, root facade | `packages/grid-adapter` | keep | Production callers use semantic identities; no RDG type escapes. | Public compatibility must be characterized before narrowing. |
+| Production focus, editor-session, keyboard, selection, range, paste/fill, grouping, data-state, and virtualization orchestration | `SemanticDataGrid.tsx` | `packages/grid-adapter`, separated into private focused modules | split | Live file combines independently testable policies and both RDG components. | Split is an architectural finding, not authorization or a file design mandate. |
+| Semantic cell/row state precedence | `semanticState.ts` and test support | `packages/grid-adapter` | keep | Design state matrix and current unit/live tests. | Preserve deterministic precedence across any decomposition. |
+| Workbook query, layout persistence, mutation submission, pending replay, revision/conflict, collaboration, and saved-view behavior | `apps/web/src/workbook/**` | Existing workbook application owners | keep outside target | Exact callers provide rows, query state, callbacks, and handles. | The adapter must not absorb these responsibilities. |
+| Network Flow accepted, rejected, and contributor resource policy | `apps/web/src/networkFlow/**`; semantic rendering in the adapter | Network Flow subsystem for policy; grid adapter for rendering | split | Adopted Network Flow NLSpec and extension-grid identities. | Extension grids remain distinct from Core `view_schema` surfaces and fail closed on Core mutation capabilities. |
+| View-schema parsing and capability interpretation | `packages/view-contracts`; workbook models | `packages/view-contracts` and app policy owners | keep outside target | The target does not import the view-contract package. | The adapter consumes already compiled capabilities and stable keys. |
+| Test-only semantic renderer | `test-support.tsx` | `packages/grid-adapter` test facade | split | Explicit test-only export and import-boundary rule. | Share only behavior that needs parity; do not make the double vendor evidence. |
+| Virtualization diagnostic switch | `virtualizationDiagnostics.ts` | Adapter test infrastructure | defer | Production reads a mutable flag set only by test support. | Characterize isolation and reset behavior before redesign. |
+| Public pure navigation/clipboard/paste helpers used by apps and live adapter | `core.ts`; app focus/Timeline controllers | Adapter semantic core or app controller owners | defer | Current callers and live grid both depend on related policies. | Do not move or remove until equivalent behavior and compatibility are proven. |
+| HTTP, WebSocket, storage, authorization, revision, projection, saved-view, and generated-contract production | Outside target | Existing platform/module/app owners | keep outside target | Negative target imports and exact caller inspection. | Preserve this exclusion in all later slices. |
+
+Architectural finding: `packages/grid-adapter` is justified as the shared
+semantic-to-vendor boundary, including the Network Flow extension-grid branch.
+That does not make its current file layout or complete public helper surface a
+permanent module design. The primary future question is how to decompose private
+orchestration and reduce semantic-policy duplication without moving product
+ownership into the adapter.
+
+## 4. Public Contract and Behavior Freeze Map
+
+| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Root package and `./test-support` export surfaces | Grid adapter package | `package.json`, `index.tsx`, `test-support.tsx`, exact app imports | Typecheck, import-boundary checks, package and workbook unit tests | Compile all current callers before removing or moving any export. | High | No compatibility change is authorized by this tracker. |
+| Core record, extension resource, surface, and mutation identities | Grid adapter for semantic types; Core/Network Flow owners for meaning | `core.ts`, Core 01/03, Network Flow NLSpec | Core identity tests; live extension-grid tests; Network Flow model tests | Preserve identity through sort, reorder, grouping, rerender, selection, and edit. | Critical | Extension resources must never be coerced into Core records or `view_schema`. |
+| `view_schema_id`, `field_key`, row version, and view-row capability semantics | Core 01 and `packages/view-contracts`; app compilers | Core 01 view contracts; `workbookContractRows.ts`; adapter inputs | Workbook query/model tests and package identity tests | Verify adapter decisions remain driven by supplied stable keys/capabilities, never labels. | High | Target owns no view-schema parser or discovery route. |
+| Data states and editable/read-only interaction mode | Core 03; app load/authorization owners; adapter presentation | `workbookGridState.ts`, `core.ts`, `semanticState.ts`, design state matrix | Package state tests and workbook authorization/state tests | Preserve prior authorized rows for refresh/stale error and clear protected state through app-owned access-loss behavior. | Critical | Presentation state is not authorization. |
+| Editor activation, commit, rejection, cancel, and focus restoration | Core 03 and app mutation owners; adapter interaction translation | Core 03 §13; editor adapters and `SemanticDataGrid.tsx` | Live editor/focus tests; workbook mutation and autosave tests | Characterize rejected inter-cell transitions, draft retention, deduped commit, and `Escape` restoration. | Critical | Adapter emits semantic intents/outcomes; app/server own writes and conflicts. |
+| Clipboard parsing, paste targeting, fill, and bulk selection | Core 03; app mutation owners; adapter target translation | Core 03 §§11 and 13; pure helpers and Timeline controllers | Core paste/range tests; live fill/paste tests; workbook sentinel/payload tests | Prove group rows and recordless drafts never become record mutation targets; preserve stable row versions. | Critical | Import/file ingest remains outside the adapter. |
+| Grouping and presentation-only group rows | Core 03; Network Flow NLSpec for contributor grid; adapter presentation | Grouping requirements; `buildGridPresentationRows`; `TreeDataGrid` branch | Pure/live grouping and typed bucket tests; browser grouping evidence | Preserve one-level grouping, stable typed buckets, draft exclusion, and local expansion scope. | High | Grouping must not mutate records, projections, links, or tags. |
+| Keyboard navigation, anchors, ranges, focus, and restricted handle | Core 03; adapter semantic translation; app focus orchestration | `core.ts`, `SemanticDataGrid.tsx`, workbook focus/anchor controllers | Core navigation tests, live keyboard/focus tests, app anchor tests | Compare app helper navigation with live visible-position navigation across collapsed groups and reorder. | Critical | RDG indexes and raw handles must remain private. |
+| Controlled sort, order, width, density, and saved layout application | Core 01/03 and app saved-view/layout owners; adapter rendering | Core view/saved-layout rules; workbook layout models; adapter callbacks | Workbook layout/query tests; live sort/width/density tests | Preserve stable field-key callbacks and exclude vendor state from persisted layout. | High | Adapter owns no saved-view persistence. |
+| Network Flow read-only extension grids | Network Flow Activity NLSpec; adapter rendering | NLSpec extension-grid schema IDs and constraints; Network Flow callers | Live extension-resource/grouping/fail-closed tests; Network Flow selection tests | Preserve selection/copy while rejecting editor, paste, fill, draft, reorder, bulk, and Core mutation capabilities. | Critical | Authorization and resource policy remain in Network Flow/server owners. |
+| Semantic ARIA, selectors, markers, state classes, themes, and forced colors | UI-contracts/design owners plus adapter implementation | `ui-contracts`, `semanticState.ts`, `styles.css`, design direction | Live component tests; owner accessibility and visual rows | Preserve semantic names/states and non-color cues without freezing vendor DOM nesting. | High | Visual evidence is implementation support, not Core conformance. |
+| Fixed-height row/column virtualization and semantic scrolling | Adapter implementation; Network Flow NLSpec for supported extension load | `SemanticDataGrid.tsx`, diagnostics, design fixed-height policy | Live 500-row/24-column test; measurement/webserver-backed evidence | Characterize diagnostic isolation and focus/editor continuity at offscreen targets. | High | No timed or benchmark claim is made. |
+| HTTP routes, WebSocket events, authorization, revisions, change sets, projection refresh, and saved views | Core/server/app owners | Core 01/03/04; exact app controllers | Workbook query, collaboration, mutation, history, authorization, and saved-view suites | Preserve callback/envelope expectations; no direct adapter test should claim server behavior. | Critical | The target affects these only indirectly through semantic targets and callbacks. |
+| Owner/harness accounting | Harness NLSpec and `package.grid_adapter` owner contracts | Verification owner and test-family manifests | 25 unit rows plus one accessibility and one visual row currently selected | Update owner rows only if exact selectors or postconditions materially change. | Medium | Phase/history labels are evidence accounting, not runtime architecture. |
+
+## 5. Coupling and Boundary Findings
+
+| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
+| --- | --- | --- | --- | --- | --- |
+| Sections 1–12 of the prior tracker described obsolete pre-RDG files/symbols and used unsupported `DECIDED` statuses. | Live inventory, tracker Git history, current owner manifests. | A future agent could plan against a renderer that no longer exists. | `must_fix` | Tracker owner | Replace current sections; preserve the old record as history; normalize historical status wording. |
+| Production orchestration is concentrated in `SemanticDataGrid.tsx`. | Exact 2.3k-line source inspection. | Coupled changes can regress unrelated focus, editing, grouping, state, or virtualization behavior. | `should_fix` | Grid adapter | Characterize policy seams, then plan private decomposition with unchanged exports/callbacks. |
+| Live rendering and `test-support.tsx` implement overlapping editing, selection, paste, sorting, grouping, and state behavior. | Exact source comparison and workbook test mocks. | Fast unit tests can pass while live RDG behavior differs. | `should_fix` | Grid adapter test facade | Define the deliberate shared subset and add parity characterization before consolidation. |
+| App focus/Timeline controllers use public semantic helpers while the live grid maintains related private visible-coordinate logic. | `workbookGridFocus.tsx`, `useTimelineGridAnchorController.ts`, `SemanticDataGrid.tsx`. | Collapsed grouping or reorder can produce divergent navigation/target decisions. | `should_fix` | Grid adapter plus workbook controllers | Test equivalence and document the semantic owner before moving code. |
+| Public semantic helper relocation/removal is not yet evidence-complete. | Multiple production and test callers. | Premature movement creates compatibility churn or moves policy into the wrong layer. | `defer` | Pending adapter/app owner proof | Preserve exports until characterization and later authorization. |
+| The production path reads a mutable diagnostic flag set by test support. | `virtualizationDiagnostics.ts`, `testSetup.dom.ts`. | Cross-test leakage or bundling assumptions can hide virtualization defects. | `should_fix` | Adapter test infrastructure | Characterize reset/isolation and production default before redesign. |
+| Direct RDG imports and stylesheet ownership are confined to the adapter. | Repository-wide import search and boundary manifests. | Low while enforcement remains current. | `intentional/no_action` | Grid adapter | Retain the import boundary and its static check. |
+| Core `view_schema` identities and extension-grid identities remain distinct and untyped Core mutation capabilities fail closed. | `core.ts`, live tests, Network Flow NLSpec. | Mixing identity families would corrupt behavior and authorization assumptions. | `intentional/no_action` | Grid adapter and Network Flow owners | Preserve types, runtime guard, and tests. |
+| HTTP, WebSocket, storage, revision, projection, saved-view, collaboration, and authorization behavior remains outside the target. | Negative imports and exact app caller inspection. | Moving it into the adapter would violate module ownership. | `intentional/no_action` | Existing app/platform/module owners | Keep callback/data-only integration. |
+| No generated root is imported or authored by the target. | Target imports and generated-artifact policy. | Hand edits would create owner drift. | `intentional/no_action` | Contract/codegen owners | Update authored inputs first only if a later slice changes accounting/contracts. |
+
+## 6. Refactor Workstreams
+
+| Workflow ID | Name | Class: root/chain/parallel | Required previous workflows | Required subsequent workflows | Goal | Files likely involved | Validation | Handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| WF-00 | Session/source bootstrap and tracker refresh | root | none | WF-01 | Freeze scope, authority, baseline, and tracker-only status. | This tracker only. | Documentation checks in Section 8. | Current session, baseline, source posture, and sole write recorded. |
+| WF-01 | Live target inventory | chain | WF-00 | WF-02 | Account for every target file, ignored entry, caller class, dependency, and test. | Target package and exact callers, read-only. | Inventory reconciliation and import searches. | Section 2 has no generic or missing target row. |
+| WF-02 | Contract-owner mapping | chain | WF-01 | WF-03, WF-04 | Map observable contracts to Core, Network Flow, app, adapter, and harness owners. | Owner documents, manifests, target/callers, read-only. | Owner/document cross-check. | Every contract has an owner and evidence posture. |
+| WF-03 | Characterization gap analysis | parallel | WF-02 | WF-05 | Identify missing behavior evidence before code movement. | Package tests, app tests, browser owner rows. | `make test-slice OWNER=package.grid_adapter` in a later implementation task. | Exact missing cases and existing coverage are separated. |
+| WF-04 | Boundary and coupling scan | parallel | WF-02 | WF-05 | Identify real coupling without inferring ownership from filenames. | Production/test facade, app controllers, boundary manifests. | Static import inspection and `make frontend-import-boundary-check`. | Findings are classified `must_fix`, `should_fix`, `defer`, or `intentional/no_action`. |
+| WF-05 | Facade and internal ownership redesign | chain | WF-03, WF-04 | WF-06 | Define private decomposition and shared-policy seams while preserving the public facade. | `SemanticDataGrid.tsx`, compiler, core/state, test support. | Typecheck plus focused characterization. | No public change or product behavior change is implicit. |
+| WF-06 | Slice sequencing | chain | WF-05 | WF-07 | Order the smallest independently reversible behavior-preserving changes. | Target package and only proven caller/test owners. | Per-slice commands in Section 7. | Every slice has dependency, rollback, risk, and exit criteria. |
+| WF-07 | Harness/test/accounting update plan | chain | WF-06 | WF-08 | Change owner rows only when selectors or postconditions actually change. | Owner manifests and authored catalog inputs only when required. | Owner slices plus drift/policy checks. | Evidence class and retained artifacts are recorded without runtime-architecture claims. |
+| WF-08 | Validation and final handoff | chain | WF-07 | none | Run narrow-to-broad verification and publish exact results/risks. | Implementation diff and tracker. | Section 8 ladder; `make agent-finalize` before broad `make check`. | Final handoff names files, commands, artifacts, failures, rollback, and residual risks. |
+
+## 7. Proposed Refactor Slice Plan
+
+All slices below require later implementation authorization. They preserve
+observable behavior unless explicitly stated otherwise.
+
+| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GA-S01 | WF-03 | Establish a fresh owner-slice baseline and add only missing characterization for private seams. | Package tests; targeted app anchor/test-support tests. | Freezing vendor DOM rather than semantic behavior; misclassifying the test double as live evidence. | Preserve all owner rows; add live/test-support subset, collapsed-group navigation, rejected editor transition, and diagnostic-isolation cases where missing. | `make test-slice OWNER=package.grid_adapter`; `make frontend-typecheck`. | Revert characterization additions independently; retain recorded baseline failures. | Existing behavior is green or failures are classified before production movement. |
+| GA-S02 | GA-S01 | Decompose private production orchestration into focused internal policies without changing root exports, props, callback shapes, or semantic identities. | `SemanticDataGrid.tsx`; new private package files; `rdgCompiler.tsx`; `semanticState.ts`. | Focus/editor session continuity, controlled state, grouping, and virtualization. | Preserve live package suite; add policy-level tests only for extracted pure behavior. | `make test-slice OWNER=package.grid_adapter`; `make frontend-typecheck`; `make frontend-import-boundary-check`. | Revert the slice as one internal-decomposition commit; no compatibility shim is needed because public surfaces do not change. | Public API and observable package tests are unchanged; no vendor type escapes. |
+| GA-S03 | GA-S02 | Consolidate equivalent semantic coordinate, navigation, and event policies while retaining compatibility exports. | `core.ts`; private production policies; workbook focus/Timeline anchor callers only if proof requires delegation changes. | Collapsed groups, sort/reorder, ranges, paste targets, focus restoration. | Cross-check public helpers against live visible-coordinate behavior for Core and extension rows. | `make test-slice OWNER=package.grid_adapter`; `make frontend-typecheck`; relevant `ROWS=` slice when identified. | Revert consolidation and restore prior internal delegation; retain compatibility exports. | One semantic policy owns each proven behavior and all prior callers remain compatible. |
+| GA-S04 | GA-S02 | Contain test-support and virtualization-diagnostic seams while preserving the `./test-support` export and its deliberate lightweight scope. | `test-support.tsx`; `virtualizationDiagnostics.ts`; `testSetup.dom.ts`; package/app tests. | Test isolation, false live-RDG confidence, production default virtualization. | Add reset/isolation coverage and explicit subset-parity cases; preserve live virtualization evidence separately. | `make test-slice OWNER=package.grid_adapter`; `make frontend-typecheck`; `make frontend-import-boundary-check`. | Revert diagnostic/test-facade changes as one test-infrastructure slice. | Production defaults cannot be changed accidentally; test support remains test-only and non-authoritative for vendor behavior. |
+| GA-S05 | GA-S03, GA-S04 | Reassess the public helper/export surface after characterization. No removal occurs in the behavior-preserving series. | `core.ts`, `index.tsx`, exact app callers, package export map if later approved. | Private-package compatibility, semantic ownership, app duplication. | Compile and characterize every caller of a candidate export. | `make frontend-typecheck`; `make test-slice OWNER=package.grid_adapter`; relevant app owner slice. | Preserve the existing export unless an atomic migration has a dedicated rollback. | Ownership recommendation is evidence-backed. Any removal or contract change is marked **requires later authorization**. |
+| GA-S06 | GA-S01 through GA-S04; GA-S05 only if activated | Update owner rows, selectors, or evidence accounting only when a test path/title/postcondition materially changes. | `contracts/verification/owners/package.grid_adapter.json`, `tools/test_families/package.grid_adapter.json`, authored harness inputs; generated outputs only through Make. | Lost row accounting, incorrect evidence class, generated drift. | Exact selectors and profiles must resolve; visual/accessibility remain distinct evidence. | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; owner slices. | Revert authored inputs first and regenerate; never hand-edit generated output. | Owner rows close exactly the implemented behavior and all drift/policy checks pass. |
+| GA-S07 | GA-S02 through GA-S04 and GA-S06; GA-S05 only if activated | Run final narrow-to-broad validation and append an implementation handoff. | All changed files and this tracker. | Unrelated broad failures, overstated validation, missing rollback record. | All affected owner, static, browser, and accessibility/visual evidence selected by risk. | `make agent-finalize`; later authorized `make check`; commands in Section 8. | Roll back by completed slice boundary and regenerate owner-derived artifacts when applicable. | Exact commands/results/artifact roots, failures, residual risks, and rollback point are recorded. |
+
+## 8. Validation Plan
+
+The commands below were discovered through current Make-owned guidance. This
+planning session ran command-discovery diagnostics only; it did not execute or
+claim passing product validation.
+
+| Validation layer | Command | Scope | Required before implementation? | Notes |
+| --- | --- | --- | --- | --- |
+| unit | `make test-slice OWNER=package.grid_adapter` | Current owner-selected non-service rows; the manifest presently reports 25 Vitest unit rows. | yes | Establish a fresh baseline before production movement. Use `ROWS=<row-id,...>` only after `make explain-test-owner`. |
+| integration | `TODO: no integration evidence-class row currently exists for package.grid_adapter; do not invent one` | No current owner row is classified `integration`. | no | `service-backed-test-slice` is browser/accessibility/visual evidence, not an integration row. |
+| e2e/browser | `make service-backed-test-slice OWNER=package.grid_adapter` | Current owner-selected accessibility and visual Playwright rows. | yes, before browser-sensitive implementation | Use broader `make browser-e2e-a11y` and `make browser-e2e-visual` when the affected risk requires full-owner evidence. |
+| generated drift | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` | Owner inputs and downstream generated-policy/schema consistency. | no | Required after owner/catalog changes; no generated hand edit is permitted. |
+| import-boundary/static | `make frontend-import-boundary-check`; `make frontend-typecheck` | RDG/test-support containment and TypeScript compatibility. | yes | `make lint-biome` is additionally required when implementation source changes. |
+| full check | `make agent-finalize`; then a later authorized `make check` | Final repository maintenance and broad verification. | no | Run only after narrow affected-owner evidence. Pass `RESULTS_DIR` only for an applicable successful retained warm run; otherwise report that maintenance was skipped because it was unset. |
+
+For this tracker-only update, the documentation verification is
+`make lint-markdown`, `make generated-artifact-policy-check`,
+`make json-shape-check`, and
+`git diff --check -- docs/handoffs/grid-adapter-module-refactor-tracker.md`.
+All four commands passed on 2026-07-23. Retained roots are
+`.cartulary/test-results/20260723T220125Z-p19341` for generated-artifact policy
+and `.cartulary/test-results/20260723T220127Z-p19706` for JSON shape. Broad
+implementation validation is intentionally not part of this task.
+
+## 9. Top-Level Work Tracker
+
+Only `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and `DROPPED` are valid
+statuses in this active tracker.
+
+| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| GA-TRK-001 | Normalize the target label and freeze tracker-only scope/current authority | WF-00 | DONE | none | Section 1 | Target, output, hierarchy, baseline, and implementation gate are explicit. |
+| GA-TRK-002 | Inventory every target file and ignored install/cache entry | WF-01 | DONE | GA-TRK-001 | Section 2 | Every target file is inventoried or explicitly out of scope. |
+| GA-TRK-003 | Map current contracts, owners, callers, and evidence | WF-02 | DONE | GA-TRK-002 | Sections 3 and 4 | Every discovered contract risk has a current owner and test posture. |
+| GA-TRK-004 | Classify residual coupling and repository/framework mismatch | WF-04 | DONE | GA-TRK-003 | Section 5 | Findings use only the required classifications and do not decide unsupported moves. |
+| GA-TRK-005 | Establish a fresh owner-slice baseline and characterization gaps | WF-03 | TODO | GA-TRK-003 | GA-S01 | Current owner rows pass or failures are classified before production movement. |
+| GA-TRK-006 | Decompose private production orchestration without public API change | WF-05 | TODO | GA-TRK-005 | GA-S02 | Public facade and observable behavior remain unchanged. |
+| GA-TRK-007 | Consolidate proven semantic coordinate/event policies | WF-05 | TODO | GA-TRK-006 | GA-S03 | Equivalent behavior has one owner and compatibility exports remain. |
+| GA-TRK-008 | Contain test-support and virtualization diagnostic seams | WF-05 | TODO | GA-TRK-006 | GA-S04 | Test isolation is explicit and live evidence remains separate. |
+| GA-TRK-009 | Reassess public helper ownership or relocation | WF-06 | DEFERRED | GA-TRK-007, GA-TRK-008 | GA-S05; RB-004 | Characterization and separate authorization exist before any public change. |
+| GA-TRK-010 | Reconcile owner rows/accounting only if implementation changes them | WF-07 | TODO | GA-TRK-005 through GA-TRK-008; GA-TRK-009 only if activated | GA-S06 | Authored owners and generated outputs agree without hand edits. |
+| GA-TRK-011 | Run final validation and publish implementation handoff | WF-08 | TODO | GA-TRK-006 through GA-TRK-008 and GA-TRK-010; GA-TRK-009 only if activated | GA-S07 | Exact commands, results, artifacts, residual risks, and rollback are recorded. |
+
+## 10. Session Handoff Log
+
+Historical sessions remain preserved in Section 13.10. The rows below are the
+current planning-only refresh and distinguish inspected material from the tracker
+as the sole touched file.
+
+### Scope and authority
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Current Sections 1–12 now describe the live semantic RDG adapter at `0c37fb4...`; planning only. | Inspected: framework, existing tracker/history, AGENTS, domain/design, Core 00/01/03/04, Network Flow NLSpec, harness NLSpec, guides, complete target. Touched: this tracker only. | `sed`, `head`, `rg`, `find`, `git status`, `git log`, `git rev-parse`, `date`, tracker patching; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; tracker-scoped `git diff --check`. | No owner contradiction; framework/current-repository mismatch recorded; all documentation checks passed; implementation remains unauthorized. | None for the tracker update. | A later authorized task begins with GA-S01. |
+
+### Backend module boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Target remains frontend-only and owns no route, transport, storage, projection, revision, or authorization behavior. | Inspected: target imports, Core owner sections, app caller boundaries. Touched: this tracker only. | Exact file reads and target/caller token/import searches with `rg`. | No backend/platform coupling was found in the target. | None for planning. | Keep backend and product mutation ownership outside later adapter slices. |
+
+### Frontend module boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Legitimate shared semantic grid/vendor seam with concentrated private orchestration and a deliberately lightweight test facade. | Inspected: every target file; exact workbook/Timeline/Network Flow production callers; test-support consumers; boundary manifests. Touched: this tracker only. | `rg --files`, `find`, `head`, `sed`, import/symbol searches. | Direct RDG imports remain adapter-only; app owners retain query, mutation, collaboration, and saved-view state. | Characterization is required before internal movement. | Execute GA-S01 only with later implementation authorization. |
+
+### Contract and codegen
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Core and extension identities are distinct; the target consumes semantic contracts but owns no generated root. | Inspected: Core view/workbook rules, Network Flow extension-grid rules, package exports, UI/import boundaries, verification owner manifest. Touched: this tracker only. | Exact owner/source reads, generated-root/import searches, `make explain-test-owner`. | No generated or public contract change is required for this documentation task. | Public helper movement remains deferred. | Update authored owner inputs first only if a later implementation changes selectors/postconditions. |
+
+### Tests and harness
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Current owner has 27 rows: 25 unit, one accessibility, and one visual; test support is not live RDG evidence. | Inspected: package tests, workbook adapter mocks/tests, `package.grid_adapter` owner/family manifests, harness command guidance. Touched: this tracker only. | `make help`, `make help-all`, `make task-guide ROLE=module-author OWNER=package.grid_adapter`, `make explain-test-owner OWNER=package.grid_adapter`, `make explain-target` for owner slices/import boundary; documentation checks listed in Section 8. | Command discovery plus tracker-only documentation verification; documentation checks passed. No product validation suite was run or claimed passing. | GA-S01 baseline has not been executed. | Run the owner slice first in a later authorized implementation task. |
+
+### Security and authorization
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Adapter state and capability visibility are presentation inputs, never authorization. | Inspected: Core 04 authorization, Network Flow route policy, target sources, app interaction-mode callers. Touched: this tracker only. | Direct owner reads and target authorization/import searches. | No target authorization policy or route-time check was found. | None for planning. | Preserve server/app authorization ownership and fail-closed extension mutation guards. |
+
+### Open risks and next session
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-23T17:55:28-04:00 | Codex `/root`, current-state tracker refresh | Documentation planning is current; production movement remains gated by characterization and authorization. | Inspected: tracker against all required sections, live package, callers, owner documents, test rows, and command surface. Touched: this tracker only. | Structural/source inspection and tracker diff preparation; no product suite. | Residual risks are private orchestrator coupling, live/test-support drift, helper-owner ambiguity, and diagnostic global state. | RB-003 through RB-005 block their respective implementation decisions, not this tracker update. | Later authorized GA-S01 records a fresh baseline before any production change. |
+
+## 11. Open Questions and Blockers
+
+There is no blocker to this documentation update and no
+`BLOCKED: owner contradiction`.
+
+| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
+| --- | --- | --- | --- | --- |
+| RB-003 | A fresh `package.grid_adapter` owner slice has not been run during this planning session. | Production movement without a current baseline can misattribute pre-existing failures or freeze stale behavior. | Successful `make test-slice OWNER=package.grid_adapter`, or an exact classified failure record, in the later implementation task. | `TODO` — blocks production refactor, not tracker completion. |
+| RB-004 | Do public navigation, presentation, clipboard, and paste helpers permanently belong in the adapter or in app controllers? | Moving them can create divergent collapsed-group/reorder behavior or shift product policy into the wrong layer. | Cross-characterization of current app callers and live adapter behavior, followed by owner review. | `DEFERRED` — no export movement is authorized. |
+| RB-005 | Can the mutable virtualization diagnostic seam be contained without weakening DOM-unit isolation or live virtualization evidence? | Incorrect redesign can leak state between tests or silently disable production-path virtualization. | Reset/isolation characterization, production-default proof, and separate live browser evidence. | `TODO` — blocks only GA-S04 diagnostic redesign. |
+
+Historical RB-001 and RB-002 decisions remain preserved in Section 13.11 as
+evidence of the completed RDG migration; they are not current blockers.
+
+## 12. Binary Completion Criteria
+
+This tracker refresh is complete only when every criterion below passes:
+
+- [x] Every tracked file in `packages/grid-adapter` is inventoried.
+- [x] `node_modules/**` and `tsconfig.tsbuildinfo` are explicitly out of scope.
+- [x] Every discovered public contract risk has a current owner and test posture.
+- [x] Every workflow has dependencies, validation, and a handoff checkpoint.
+- [x] Every proposed implementation slice is behavior-preserving unless it is
+  explicitly marked **requires later authorization**.
+- [x] Validation commands are discovered; the absent integration evidence class
+  is recorded as `TODO` with a reason rather than invented.
+- [x] No owner contradiction was found; any future contradiction must be written
+  exactly as `BLOCKED: owner contradiction`.
+- [x] The framework/repository mismatch and obsolete historical symbols/statuses
+  are recorded as planning findings.
+- [x] Phase/test rows are treated as evidence accounting, not runtime architecture.
+- [x] No generated-file hand edit is proposed.
+- [x] Current handoff tables identify inspected files, the sole touched file,
+  commands, results, blockers, and next action.
+- [x] Prior handoff and completed RDG remediation history are preserved in
+  Section 13.
+
+Implementation validation was not run in this planning session. Completion of this
+tracker does not complete, authorize, or validate a production refactor. A later
+authorized task must start with GA-S01 and record actual command results before
+claiming implementation success.
+
+## 13. Historical Refactor and RDG Remediation Archive
+
+The material below is preserved as dated implementation and validation history. It
+describes repository states and public symbols that existed during the 2026-07-14
+through 2026-07-17 remediation and must not be used as the current inventory or
+authority. Historical `DECIDED` tracker statuses have been normalized to `DONE`
+without changing the underlying recorded decisions.
+
+### 13.1 Historical Scope and Source Posture
+
+- **Target path:** `packages/grid-adapter`
+- **Normalized target label:** `grid-adapter`
+- **Output path:** `docs/handoffs/grid-adapter-module-refactor-tracker.md`
 - **Implementation baseline:** branch `main`, commit `666d52a0ffe1df6c04b3bee9a3afee6fde98fd7e`; no working-tree changes were observed when remediation execution began on 2026-07-14.
 - **Status:** remediation complete; GA-S00 through GA-S08 are complete and final validation is recorded.
 - **Authorized scope:** the production, test, guide, authored-accounting, Make-generated accounting, and tracker changes described by GA-S01 through GA-S08.
@@ -49,7 +393,7 @@ Repository files inspected include every tracked file under the target, ignored 
 
 No Core owner contradiction was found. Core 00 through Core 04 remain vendor-neutral behavior owners. The material mismatch is between the live custom renderer and implementation-support descriptions of an RDG-backed adapter; the owner has now resolved that mismatch in favor of a real RDG component integration. This tracker specifies the remediation but does not implement it.
 
-## 2. Current-State Repository Inventory
+### 13.2 Historical Repository Inventory
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -66,7 +410,7 @@ No Core owner contradiction was found. Core 00 through Core 04 remain vendor-neu
 
 The target contains no route handler, SQL, storage adapter, protocol decoder, view-contract parser, WebSocket client, authorization policy, revision writer, or generated source. Live outbound imports confirm only React, the UI-contract facade, local files, and the RDG stylesheet.
 
-## 3. Module Boundary Diagnosis
+### 13.3 Historical Module Boundary Diagnosis
 
 Current classification:
 
@@ -94,7 +438,7 @@ Current classification:
 
 Architectural decision: `packages/grid-adapter` remains the permanent seam for Cartulary-native grid semantics and direct vendor containment. Its current custom renderer and broad public helper surface are not retained architecture. The replacement separates pure semantic logic, private RDG compilation, React orchestration, adapter-owned styles, and a narrow semantic facade. Core-owned behavior and stable selectors are compatibility inputs; custom DOM, inline grid-template values, synthetic RDG evidence, and all-rows-mounted behavior are not.
 
-### 3.1 Approved Target State
+#### 13.3.1 Approved Target State
 
 - `WorkbookDataGrid` replaces `GridTable`; `GridViewport` remains only as the shell/layout boundary.
 - Ordinary surfaces render `DataGrid`; grouped surfaces render `TreeDataGrid` with exactly one adapter-private group column.
@@ -105,7 +449,7 @@ Architectural decision: `packages/grid-adapter` remains the permanent seam for C
 - Query sort arrays map to controlled `sortColumns`; saved-view widths map to controlled `columnWidths`; committed selection maps to record-ID sets; and Cartulary anchors map to RDG selection/scroll coordinates. Active cell, group expansion, edit, copy, paste, fill, and focus exit are controlled or translated through explicit Cartulary owners before reaching `apps/web`.
 - The exact existing `react-data-grid@7.0.0-beta.59` pin remains unchanged during remediation. Dependency upgrade risk is handled only after the integration is complete.
 
-## 4. Contract Compatibility and Characterization Map
+### 13.4 Historical Contract Compatibility and Characterization Map
 
 | Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -129,7 +473,7 @@ Architectural decision: `packages/grid-adapter` remains the permanent seam for C
 | Generated protocol/view contracts | Contract/codegen owners | No generated import or output in target | Generated policy, JSON-shape, type-check | Confirm refactor adds no generated hand edit or protected-root import | Medium | Any later contract change starts at its owner and generator. |
 | Harness and evidence accounting | Testing-harness NLSpec; authored maps/manifests | FE-P3 map, Phase 3 map, test accounting, generated ledgers | Make target accounting and drift checks | Preserve scenario titles/paths or update authored owners then regenerate | High | Phase identity is evidence accounting, not runtime architecture. |
 
-## 5. Coupling and Boundary Findings
+### 13.5 Historical Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
 | --- | --- | --- | --- | --- | --- |
@@ -148,9 +492,9 @@ Architectural decision: `packages/grid-adapter` remains the permanent seam for C
 
 No duplicate SQL/storage row logic, hidden revision/projection side effect, misplaced authorization check, or hand-edited generated file was found inside the target. The principal duplication risk is production/test-renderer semantic drift, not duplicated source-state behavior.
 
-### 5.1 Decision-Complete Remediation Register
+#### 13.5.1 Decision-Complete Remediation Register
 
-#### RG-001 — Real RDG Runtime Integration
+##### RG-001 — Real RDG Runtime Integration
 
 - **Remediation:** Replace the custom `div`/CSS-grid renderer with `DataGrid` for ordinary workbook surfaces and `TreeDataGrid` when grouping is active. Remove `gridAdapterVendor` and require live component behavior as vendor evidence.
 - **Areas:** Implementation, tests, and implementation-support documentation.
@@ -160,7 +504,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Future work continues to build on false capability claims, duplicated grid mechanics, unbounded row mounting, and evidence that cannot detect vendor integration regressions.
 - **Validation criteria:** A live RDG root renders on every workbook surface; vendor callbacks are exercised; the RDG stylesheet is imported exactly once; functional, stateful, visual, and accessibility grid evidence passes.
 
-#### RG-002 — Internal Package Decomposition
+##### RG-002 — Internal Package Decomposition
 
 - **Remediation:** Split pure Cartulary semantics, private RDG row/column/event compilation, React orchestration, adapter-owned styles, and a narrow root facade. Export no vendor type or raw imperative handle.
 - **Areas:** Implementation and tests.
@@ -170,7 +514,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Review, rollback, and future phase work remain expensive, and vendor APIs can escape through convenience exports.
 - **Validation criteria:** Import-boundary checks prove only the adapter imports RDG; pure mapping tests run without a browser; the root facade exposes only approved semantic types and components.
 
-#### RG-003 — Committed and Draft Row Identity
+##### RG-003 — Committed and Draft Row Identity
 
 - **Remediation:** Replace `GridRow` with `GridRecordRow` and `GridDraftRow`. Committed rows require non-empty unique `recordId` and explicit `rowVersion`; the RDG key is `recordId`. One optional recordless draft has no public identity key and uses RDG bottom-summary rendering outside committed grouping, selection, and mutation targeting.
 - **Areas:** Implementation, tests, and specification-support documentation.
@@ -180,7 +524,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Reorder, grouping, or refresh can silently retarget selection or mutation state to the wrong record.
 - **Validation criteria:** Missing/blank/duplicate committed IDs fail before mutation-capable render; reorder and refresh preserve anchors; the draft never joins a group, selected-record set, or record mutation intent.
 
-#### RG-004 — Live Renderer and Editor Adapters
+##### RG-004 — Live Renderer and Editor Adapters
 
 - **Remediation:** Replace row-only renderer/editor signatures with semantic contexts carrying row data, stable cell target, selection state, and adapter-owned update/close functions. Emit RDG `renderEditCell` only when contract writeability and an explicit editor adapter are both present. Remove unused registry APIs.
 - **Areas:** Implementation and tests.
@@ -190,7 +534,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Tests keep claiming capabilities the runtime lacks, editability can drift from contracts, and editor cleanup/focus behavior remains renderer-specific.
 - **Validation criteria:** Direct typing, Enter/Tab commit, Escape cancel, invalid local timestamp retention, cleanup, renderer precedence, and read-only blocking pass against the live RDG component.
 
-#### RG-005 — Controlled State and Semantic Event Translation
+##### RG-005 — Controlled State and Semantic Event Translation
 
 - **Remediation:** Add semantic callbacks for active cell, record selection, sort arrays, column widths, edit intent, copy/paste, fill, and focus exit. Translate every RDG coordinate to `recordId + rowVersion + fieldKey` before calling the app and fail closed for group, draft, missing, read-only, incompatible, or stale targets. Expose only semantic focus, scroll-to-anchor, and scroll-element methods through `GridHandle`.
 - **Areas:** Implementation, tests, and implementation-support documentation.
@@ -200,7 +544,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Vendor row indexes can leak into writes, hidden state can diverge from saved/query state, and keyboard or fill behavior can retarget after refresh.
 - **Validation criteria:** The exhaustive Core/design keyboard matrix, stable multi-cell TSV paste, readable-cell copy, stable-target fill, controlled resize, sort-query dispatch, and focus restoration pass without authoritative local sorting or row mutation.
 
-#### RG-006 — Contract-Backed Treegrid Grouping
+##### RG-006 — Contract-Backed Treegrid Grouping
 
 - **Remediation:** Use `TreeDataGrid` with one adapter-private group column and a typed descriptor containing authoritative `fieldKey`, canonical scalar extraction, label formatting, and test-ID construction. Encode type-aware lossless group IDs, preserve server row/group order, and keep null as the explicit unassigned bucket. Expansion is client-local, initially expanded, keyed by surface plus grouping field, and reconciled as buckets change.
 - **Areas:** Implementation, tests, and documentation.
@@ -210,7 +554,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Group labels can become accidental identity, group rows can acquire mutation affordances, and accessibility behavior remains custom and incomplete.
 - **Validation criteria:** One group level, deterministic order, null handling, keyboard expand/collapse, ARIA treegrid metadata, no draft-created buckets, and no edit/copy/paste/fill mutation on group rows all pass.
 
-#### RG-007 — Real Fixed-Height Virtualization
+##### RG-007 — Real Fixed-Height Virtualization
 
 - **Remediation:** Delete `buildVirtualizedRows`, spacer calculations, viewport state that does not affect materialization, and the Timeline-specific all-rows-mounted workaround. Keep RDG virtualization enabled and derive fixed numeric row heights from generated design tokens through an authored `ui-contracts` projection. Variable-height mode remains unsupported until separately justified and tested.
 - **Areas:** Implementation, tests, and design-support documentation.
@@ -220,7 +564,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Future phases inherit poor large-result performance and fragile focus workarounds that become harder to remove.
 - **Validation criteria:** Bounded rendered-row counts, deep scrolling, active edit/focus continuity, frozen gutter behavior, density modes, and record-keyed interaction after virtualization pass.
 
-#### RG-008 — Live Evidence and Deliberate Test Double
+##### RG-008 — Live Evidence and Deliberate Test Double
 
 - **Remediation:** Retain `./test-support` only as a lightweight fast double that shares semantic compilation and cannot close RDG interaction, accessibility, or visual rows. Replace string-marker assertions and injected specimen DOM with live-component unit/browser evidence and deterministic production-adapter captures.
 - **Areas:** Tests, harness accounting, visual evidence, and documentation.
@@ -230,7 +574,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Green tests and goldens can coexist with a broken or absent vendor integration.
 - **Validation criteria:** No RDG claim relies on a constant or fabricated vendor class; live tests cover resize, fill handle, editor, grouping, empty state, themes, keyboard, and accessibility; generated accounting passes drift checks.
 
-#### RG-009 — App-Owned Row Reconciliation
+##### RG-009 — App-Owned Row Reconciliation
 
 - **Remediation:** Move `reconcileRecordRows` to an app-owned workbook query/collaboration utility, migrate both loader families, and remove it from grid-adapter exports and tests.
 - **Areas:** Implementation, tests, and tracker ownership.
@@ -240,7 +584,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** The adapter becomes a catch-all frontend state package and future refresh semantics split across owners.
 - **Validation criteria:** Sparse/full refresh and local-draft loader tests pass; unchanged references are retained; changed rows are replaced; no query/collaboration helper remains in the adapter.
 
-#### RG-010 — Specification-Support and Evidence Alignment
+##### RG-010 — Specification-Support and Evidence Alignment
 
 - **Remediation:** Mark RB-001 `RESOLVED: real RDG integration selected` and RB-002 `RESOLVED: app-owned reconciliation`. Amend only implementation-support guides needed to define the semantic facade, draft exception, controlled-state mapping, live evidence, and fixed-height virtualization. Do not add vendor requirements to Core 00 through Core 04 or create a vendor-specific NLSpec.
 - **Areas:** Specification-support documentation, tracker, and tests.
@@ -250,7 +594,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 - **Risk if unresolved:** Guides continue to overstate runtime capabilities or vendor evidence is incorrectly represented as product conformance.
 - **Validation criteria:** Tracker, guides, phase maps, test accounting, and live runtime agree; design/vendor evidence remains correctly classified; Core 05 is not invoked absent a timed or fixture-publication claim.
 
-## 6. Refactor Workstreams
+### 13.6 Historical Refactor Workstreams
 
 | Workflow ID | Name | Class: root/chain/parallel | Required previous workflows | Required subsequent workflows | Goal | Files likely involved | Validation | Handoff checkpoint |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -262,7 +606,7 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 | WF-R05 | Evidence and documentation alignment | chain | WF-R04 | WF-R06 | Replace synthetic RDG evidence, update live scenarios/goldens, revise support guides, update authored accounting inputs, and regenerate downstream ledgers/schedules. | Package/app/browser tests; guides; authored maps/registries; generated accounting through Make only. | Visual/a11y targets; JSON/generated policy; ledger/schedule drift. | Evidence exercises the production component, classifications remain correct, and generated artifacts match owners. |
 | WF-R06 | Final validation and handoff | chain | WF-R05 | none | Run the narrow-to-broad gate as a separate GA-S08 slice, record exact results and failures, update tracker statuses, and publish the implementation handoff. | No new production scope; tracker and retained test artifacts. | `make agent-finalize`; `make phase-slice PHASE=phase3`; `make check` after all narrow gates. | Custom renderer and obsolete facade are absent; required checks pass or exact related failures and artifacts are recorded. |
 
-## 7. Proposed Refactor Slice Plan
+### 13.7 Historical Refactor Slice Plan
 
 | Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -277,11 +621,11 @@ No duplicate SQL/storage row logic, hidden revision/projection side effect, misp
 
 GA-S00 through GA-S08 are authorized by the implementation task that began on 2026-07-14. Workstreams execute serially. After a slice passes, update this tracker before beginning the next slice. A failed slice remains active and blocks advancement.
 
-### 7.1 Mandatory Slice Checkpoint
+#### 13.7.1 Mandatory Slice Checkpoint
 
 Every completed slice MUST record: status; files changed; substantive changes; exact validation commands and artifact roots; failures and their relationship to the slice; residual risks; rollback boundary; and next slice. The tracker update is part of the slice exit condition, not deferred final documentation.
 
-## 8. Validation Plan
+### 13.8 Historical Validation Plan
 
 No dedicated public `grid-adapter` target was found. `make frontend-unit` is the current Make-owned package-inclusive unit surface. `browser-e2e-support` exists as an internal helper and is not used here as the primary public recommendation.
 
@@ -298,7 +642,7 @@ Implementation validation order is `make frontend-typecheck`, `make frontend-uni
 
 The implementation session establishes a fresh baseline and records exact run roots after each slice. Planning-session run roots are context only and are not retained as implementation evidence.
 
-## 9. Top-Level Work Tracker
+### 13.9 Historical Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -309,17 +653,19 @@ The implementation session establishes a fresh baseline and records exact run ro
 | GT-005 | Define sequenced remediation workstreams and slices | WF-R00 | DONE | GT-004 | Sections 6 and 7 | Dependencies, validation, rollback, handoff checkpoints, and exit criteria are explicit. |
 | GT-006 | Discover the Make-owned validation ladder | WF-R00 | DONE | GT-005 | Section 8; Make help/task guidance | Canonical commands are named without inventing a package target. |
 | GT-007 | Establish the behavior and evidence baseline | WF-R01 | DONE | GT-003 | GA-S01; `.cartulary/test-results/20260714T230109Z-p32639` | Core-owned behavior and deliberate app contracts are protected without freezing the custom renderer. |
-| GT-008 | Decide real RDG integration versus revised custom-renderer guidance | WF-R00 | DECIDED | GT-004 | RB-001; Section 3.1 | Real `DataGrid`/`TreeDataGrid` integration is selected and no permanent custom-renderer fallback is planned. |
-| GT-009 | Decide ownership of `reconcileRecordRows` | WF-R00 | DECIDED | GT-004 | RB-002; RG-009 | Reconciliation is assigned to app-owned workbook query/collaboration state with no compatibility re-export. |
+| GT-008 | Decide real RDG integration versus revised custom-renderer guidance | WF-R00 | DONE | GT-004 | RB-001; historical Section 13.3.1 | Real `DataGrid`/`TreeDataGrid` integration is selected and no permanent custom-renderer fallback is planned. |
+| GT-009 | Decide ownership of `reconcileRecordRows` | WF-R00 | DONE | GT-004 | RB-002; RG-009 | Reconciliation is assigned to app-owned workbook query/collaboration state with no compatibility re-export. |
 | GT-010 | Execute the semantic API, ownership, renderer, interaction, and evidence slices | WF-R02 through WF-R05 | DONE | GT-007, GT-008, GT-009 | GA-S02 through GA-S07; implementation-session checkpoints | Every authorized slice satisfies its validation and exit criteria; no custom production grid fallback remains. |
 | GT-011 | Publish the decision-complete planning handoff | WF-R00 | DONE | GT-001 through GT-009 | Sections 10 through 12 | Another agent can begin an authorized implementation slice without architecture rediscovery. |
 | GT-012 | Complete broad validation and implementation handoff | WF-R06 | DONE | GT-010 | GA-S08; `.cartulary/test-results/20260715T031916Z-p62232`; `.cartulary/test-results/20260715T031929Z-p63657`; `.cartulary/test-results/20260715T032020Z-p26498` | Required checks pass and exact results, residual risks, and the rollback point are recorded. |
 
-`DONE` and `DECIDED` above now cover the planning artifact, owner decisions, authorized implementation slices, generated-accounting alignment, browser validation, and broad final validation recorded in this tracker.
+`DONE` above covers the historical planning artifact, owner decisions, authorized
+implementation slices, generated-accounting alignment, browser validation, and
+broad final validation recorded in this archive.
 
-## 10. Session Handoff Log
+### 13.10 Historical Session Handoff Log
 
-### Scope and authority
+#### Scope and authority
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -335,43 +681,43 @@ The implementation session establishes a fresh baseline and records exact run ro
 | 2026-07-14T18:58:09-04:00 | Codex `/root`, implementation session | GA-S00 complete; remediation is active on baseline `666d52a0...`, and the tracker is the mandatory serial gate. | Touched: tracker only. | `git status --short`; `git rev-parse HEAD`; tracker patch; `git diff --check` | Target interfaces now use a recordless `bottomSummaryRows` draft; GA-S01 must remain green; GA-S08 is the separate completion slice; checkpoint fields and owner-document posture are explicit. | None. Residual risk is implementation against the pinned RDG beta. | Establish the fresh GA-S01 baseline and remove only obsolete evidence assertions. |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Owner direction is recorded on `main` at `a10e14f...`; the tracker remains the only write and all production work requires later authorization. | Inspected: framework, `AGENTS.md`, domain, Core 00-04, guides, design, R09, target code/tests, callers, maps, and Make guidance. Touched: `docs/handoffs/grid-adapter-module-refactor-tracker.md` only. | `sed`, `rg`, `git status`, `git rev-parse`, `date`, tracker patching and inspection | No Core-owner contradiction; real RDG integration and app-owned reconciliation are decision-complete. | None for planning. | Begin GA-S01 only in a separately authorized implementation task. |
 
-### Backend module boundary
+#### Backend module boundary
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Target is not a backend, transport, persistence, projection-store, revision, or authorization module. | Inspected: target imports; relevant Core architecture/projection/history sections. Touched: tracker only. | Target token/import searches for route, WebSocket, storage, protocol, view-schema, revision, and authorization families | No backend or platform coupling found in the target. | None for planning. | Keep all backend/domain/store behavior out of later grid-adapter slices. |
 
-### Frontend module boundary
+#### Frontend module boundary
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Legitimate grid seam with mixed semantics, custom rendering, styles, vendor claims, and test-double responsibilities; the replacement boundary is approved. | Inspected: every target source/config/test file; Timeline/entity/generic/assessment renderers; focus/paste/load controllers; UI/test helpers; local RDG API. Touched: tracker only. | `rg --files`, `find`, `git ls-files`, `wc -l`, direct reads, import/symbol searches | Target is `WorkbookDataGrid` over real `DataGrid`/`TreeDataGrid`, with private vendor translation, semantic public events, and no custom production fallback. | None for planning. | Authorize GA-S01, then execute GA-S02 through GA-S06 in dependency order. |
 
-### Contract and codegen
+#### Contract and codegen
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Core 00-04 remain vendor-neutral; the private package facade is approved for an atomic breaking in-repo migration; semantic selectors remain compatibility inputs, but custom DOM geometry does not. | Inspected: package export map, root/project TypeScript configs, `workbookContractRows.ts`, generated-artifact policy, frontend boundary manifest. Touched: tracker only. | Export/import searches; `git check-ignore`; generated-policy/config inspection | No generated source changes are required by the architecture decision; later evidence-map changes must start at authored owners and regenerate through Make. | None for planning. | Implement the semantic facade in GA-S02 and regenerate only if GA-S07 changes authored accounting owners. |
 
-### Tests and harness
+#### Tests and harness
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Existing package/unit/browser evidence is mapped; authoritative RDG closure is assigned to live-component unit/browser/a11y/visual tests, while `./test-support` is limited to fast semantic coverage. | Inspected: target tests, workbook tests/imports, Phase 3 maps/ledgers, FE-P3 map/ledger, test accounting, harness boundary scripts. Touched: tracker only. | `make help-all`; `make task-guide ROLE=feature-dev PHASE=phase3`; `make explain-target` for frontend, browser, drift, Markdown, and check targets; evidence inspection | Command discovery only; no product validation suite was executed or claimed passing in this documentation-only task. | None for planning; GA-S01 remains unimplemented. | Establish the baseline and red-first live-component smoke assertion within the first authorized implementation slice. |
 
-### Security and authorization
+#### Security and authorization
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Target contains no authorization logic; UI visibility/editability must never become authorization. | Inspected: Core 04 authorization section, target sources, caller responsibilities. Touched: tracker only. | Direct owner read; target authorization-token search | Server/app owners remain authoritative; no misplaced check found in target. | None for planning. | Preserve callback-driven, authorization-neutral adapter behavior. |
 
-### Open risks and next session
+#### Open risks and next session
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-14T18:41:16-04:00 | Codex `/root`, tracker-remediation-planning session | Architecture planning is decision-complete; production work remains deferred to later authorized slices. | Inspected: tracker against the requested remediations, workstreams, public facade, validation ladder, and repository evidence. Touched: tracker only. | Structural and terminology inspection followed by tracker diff checks; no product suite | RB-001 and RB-002 are resolved. Remaining risks are implementation risks around the pinned beta API, interaction parity, treegrid accessibility, virtualization, and reviewed visual changes—not owner blockers. | None for planning. | Authorize GA-S01 and retain the pre-renderer commit as the initial rollback point; record exact results after each later slice. |
 
-## 11. Decision and Blocker Register
+### 13.11 Historical Decision and Blocker Register
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
@@ -380,7 +726,7 @@ The implementation session establishes a fresh baseline and records exact run ro
 
 There is no `BLOCKED: owner contradiction` entry because no conflicting Core owner requirements were found. There is no remaining architecture or ownership blocker in this tracker. Later execution still requires explicit implementation authorization and must satisfy the slice dependencies and evidence gates in Sections 6 through 8.
 
-## 12. Binary Completion Criteria
+### 13.12 Historical Completion Criteria
 
 This tracker and implementation remediation are complete only when every criterion below passes:
 
@@ -405,9 +751,9 @@ This tracker and implementation remediation are complete only when every criteri
 
 These checks complete the remediation plan and the authorized refactor. GT-007, GT-010, and GT-012 are complete, GT-008 and GT-009 remain the recorded owner decisions, and no Core, domain, backend, protocol, dependency, or lockfile change was required.
 
-## 13. Future RDG Workbook Integration Backlog
+### 13.13 Completed RDG Workbook Integration Backlog
 
-### 13.1 Status, source posture, and guardrails
+#### 13.13.1 Status, Source Posture, and Guardrails
 
 Status: **COMPLETE — F-RDG-00 THROUGH F-RDG-10 CLOSED.** The owner-authorized remediation began from clean baseline `8ad25c6a7d24783a1e2f230daa549591b7bbcabb` on 2026-07-15 and completed on 2026-07-16. GA-S00 through GA-S08 remain closed and their completion evidence is unchanged. F-RDG-00 through F-RDG-10 executed serially, with implementation, validation, and tracker checkpoints completed before each successor began.
 
@@ -420,7 +766,7 @@ The following constraints apply to every future workstream:
 - Server authorization, storage, domain vocabulary, dependencies, and lockfiles remain unchanged unless a workstream records a specific owner-backed gap. F-RDG-00 authorizes the coordinated discovery-contract and owner-document changes recorded below; later route use remains within already adopted public route families.
 - `docs/domain.md` remains unchanged after terminology review because RDG, grid editability, selection columns, and editor adapters are interface or implementation terms rather than new domain concepts. Core 01, Core 03, Core 04, `docs/design.md`, implementation guides, contracts, generated artifacts, code, tests, authored maps, and evidence may change only within the active workstream.
 
-### 13.2 RDG feature classification
+#### 13.13.2 RDG Feature Classification
 
 This matrix compares the upstream RDG feature surface with the currently inspected Cartulary adapter, app wiring, tests, and live evidence. “Partially integrated” includes capabilities present at the adapter seam but not yet owned end to end by workbook behavior.
 
@@ -450,11 +796,11 @@ This matrix compares the upstream RDG feature surface with the currently inspect
 | RDG header filters/local filtering | not appropriate for Cartulary | Query and filter ownership remains in the View bar and server-backed view contract. |
 | Row reordering/tree/master-detail behavior | not appropriate for Cartulary | Server query order, one-level grouping, and current hierarchy non-goals remain authoritative. |
 
-### 13.3 Sequenced future workstreams
+#### 13.13.3 Sequenced Remediation Workstreams
 
 The numeric order is mandatory for this authorized effort. After each workstream passes, its checkpoint records status, files, substantive changes, commands and results, artifact roots, migration and rollback posture, residual risks, and the next workstream before that next workstream becomes active.
 
-#### F-RDG-00 — Tracker activation and specification closure
+##### F-RDG-00 — Tracker activation and specification closure
 
 - **Status:** COMPLETE.
 - **Baseline:** Clean worktree at `8ad25c6a7d24783a1e2f230daa549591b7bbcabb`.
@@ -471,7 +817,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** User-reference option presentation is intentionally deferred to the editor workstream; server validation is already authoritative. Appendix traceability and final evidence-map reconciliation remain assigned to F-RDG-10. No Core 05 claim is made.
 - **Next:** F-RDG-01 owns live saved-layout application/capture/reset, semantic column controls, reorder/resize, and controlled multi-sort.
 
-#### F-RDG-01 — Column layout and multi-sort depth
+##### F-RDG-01 — Column layout and multi-sort depth
 
 - **Status:** COMPLETE.
 - **Dependencies:** GA-S00 through GA-S08 remain closed; no other future workstream is required to start.
@@ -492,7 +838,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Pointer drag reorder remains a convenience layered over the accessible View-bar commands; specialized live browser suites remain the authoritative vendor-boundary evidence. Column grouping still requires owner metadata, data-column freezing remains prohibited, and column spanning remains rejected. F-RDG-09 will remove the remaining small/large virtualization mode split.
 - **Next:** F-RDG-02 owns command-gated Timeline bulk record selection and the adopted multi-row tag assignment.
 
-#### F-RDG-02 — Semantic record-selection maturity
+##### F-RDG-02 — Semantic record-selection maturity
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 establishes stable visible column and ordering behavior.
@@ -513,7 +859,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Selection styling precedence and expanded announcements remain assigned to F-RDG-07 and F-RDG-08. Closed/read-only incident gating is completed by F-RDG-06; current role loss already clears and disables selection. No other surface receives selection until an owner adopts a consuming command.
 - **Next:** F-RDG-03 replaces the RDG-shaped editor seam and registers capability-driven existing-row editors.
 
-#### F-RDG-03 — Editor maturity
+##### F-RDG-03 — Editor maturity
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 and F-RDG-02 define stable layout, focus, and selection relationships.
@@ -534,7 +880,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Read-only incident transitions and state-specific interaction blocking remain owned by F-RDG-06; state styling and expanded announcements remain F-RDG-07/F-RDG-08. Timeline clipboard paste still uses its established specialized controller until F-RDG-04 consolidates range validation. Server authorization remains authoritative, and no Core 05 claim is made.
 - **Next:** F-RDG-04 owns semantic range state, shared TSV copy/paste validation, and guarded fill-down dispatch.
 
-#### F-RDG-04 — Clipboard and fill maturity
+##### F-RDG-04 — Clipboard and fill maturity
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-02 provides selection ownership and F-RDG-03 provides editor and validation rules.
@@ -555,7 +901,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Range extension gestures and the complete keyboard event state machine remain F-RDG-08 work. Closed/read-only transition gating remains F-RDG-06. Grouped fill, collection fill, positional overflow, and partial dispatch remain rejected. No timed or benchmark claim is made.
 - **Next:** F-RDG-05 closes summary policy by retaining only the recordless bottom draft realization and explicitly rejecting generic summary APIs.
 
-#### F-RDG-05 — Summary and aggregation policy
+##### F-RDG-05 — Summary and aggregation policy
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 defines column layout and F-RDG-03 defines non-record focus and edit boundaries. Additional summary semantics remain owner-gated.
@@ -576,7 +922,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Any future total or aggregation requires a new Core 03 decision and a new identity, focus, accessibility, grouping, and mutation analysis. RDG's private API names remain visible only inside the adapter implementation. Dynamic heights and record-like synthetic rows remain deferred or rejected.
 - **Next:** F-RDG-06 replaces generic empty/error presentation with explicit data and interaction state machines, including closed-incident read-only behavior.
 
-#### F-RDG-06 — Empty, loading, error, and read-only presentation
+##### F-RDG-06 — Empty, loading, error, and read-only presentation
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-05 establishes which non-record rows are legitimate summaries rather than state placeholders.
@@ -597,7 +943,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Compound semantic styling and non-color state markers remain F-RDG-07 work. Complete command interception, focus restoration, range gestures, and announcements remain F-RDG-08 work. Permission loss still relies on server responses as the authoritative signal, and no Core 05 claim is made.
 - **Next:** F-RDG-07 centralizes semantic row and cell state precedence, adapter-owned classes and ARIA, stable-selector containment, and non-color state markers.
 
-#### F-RDG-07 — Styling and renderer policy
+##### F-RDG-07 — Styling and renderer policy
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 through F-RDG-06 define the semantic states and elements that styling must represent.
@@ -618,7 +964,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** The complete keyboard event owner, range-extension gestures, semantic focus restoration, Escape layering, and expanded announcements remain F-RDG-08 work. Virtualization mode unification and supported-load reference stability remain F-RDG-09 work. Timeline's clickable `Conflict` resolver action intentionally coexists with the adapter's non-color conflict marker because state communication and command invocation are separate responsibilities. No Core 05 claim is made.
 - **Next:** F-RDG-08 implements and validates the complete keyboard, event, focus, and announcement state machine while keeping RTL explicitly deferred.
 
-#### F-RDG-08 — Keyboard, accessibility, events, and RTL assessment
+##### F-RDG-08 — Keyboard, accessibility, events, and RTL assessment
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-02 through F-RDG-07 provide the selection, editing, clipboard, summary, state, and renderer interactions covered by the matrix.
@@ -639,7 +985,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** The remaining supported-load risk is reference churn and interaction continuity when virtualization is enabled for every grid; F-RDG-09 owns that work. The pinned RDG focus workaround is deliberately private and regression-covered. Dynamic heights and RTL remain deferred, grouped fill remains rejected, and no Core 05 timed claim is made.
 - **Next:** F-RDG-09 removes the small-grid virtualization mode, verifies reference stability, and exercises the full 500-row grouped and ungrouped interaction load.
 
-#### F-RDG-09 — Performance and scalability
+##### F-RDG-09 — Performance and scalability
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 through F-RDG-08 establish the representative layout and interaction load to measure.
@@ -660,7 +1006,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks:** Browser evidence must continue to locate semantic targets through the shared helper because mounted DOM is intentionally incomplete in both axes. Dynamic heights remain deferred under the fixed-height owner decision. Performance measurements are not a timed or benchmark claim, and no Core 05 evidence is published.
 - **Next:** F-RDG-10 reconciles final claim ownership and evidence classes, runs the complete validation matrix, and closes the owner-facing handoff.
 
-#### F-RDG-10 — Evidence, accounting, and final handoff
+##### F-RDG-10 — Evidence, accounting, and final handoff
 
 - **Status:** COMPLETE.
 - **Dependencies:** F-RDG-01 through F-RDG-09 provide the implemented claims and artifacts to classify.
@@ -683,7 +1029,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - **Residual risks and deferrals:** Column grouping still requires explicit owner metadata. Column spanning, RDG-local filters, row reordering, nested trees, and master-detail remain rejected. Additional summaries and aggregation, dynamic heights, RTL, and data-column freezing remain deferred. Bulk record selection remains intentionally Timeline-only until another adopted command consumes it. The pinned `react-data-grid@7.0.0-beta.59` and its private focus workaround remain regression-covered; a future RDG upgrade must repeat live layout, keyboard, focus, accessibility, visual, and virtualization evidence. Server authorization remains authoritative.
 - **Next:** No successor workstream. Section 13 and the Future RDG Workbook Integration Remediation are closed; any reclassification of deferred or rejected features requires a new owner-authorized effort.
 
-### 13.4 Evidence-class expectations
+#### 13.13.4 Evidence-Class Expectations
 
 | Claim type | Minimum expected evidence |
 | --- | --- |
@@ -694,7 +1040,7 @@ The numeric order is mandatory for this authorized effort. After each workstream
 | Timed or benchmark claims | Separate Core 05 authority and retained evidence; functional bounded-DOM checks alone make no timing claim. |
 | Scenario, phase, or generated accounting | Authored owner maps change first; regeneration and drift checks run only through Make targets. |
 
-### 13.5 Global future exit rules
+#### 13.13.5 Global Future Exit Rules
 
 - All authorized workstreams are complete. Any later extension starts only through a new owner-authorized tracker activation.
 - Owner-gated column grouping and new summaries, plus dynamic row heights and RTL, may remain deferred without blocking unrelated workstreams. Dynamic heights should remain deferred while fixed-height virtualization is authoritative; RTL should remain deferred without a localization or bidirectionality owner.
@@ -704,6 +1050,6 @@ The numeric order is mandatory for this authorized effort. After each workstream
 - Each executed workstream must record files changed, exact commands and results, retained artifact roots when applicable, residual risks, its rollback boundary, and the next dependency.
 - A workstream exits only after its listed validation criteria and commands pass, owner-gated decisions are recorded, migration and rollback evidence exists, and evidence/accounting claims match the implemented scope.
 
-### 13.6 Completion posture
+#### 13.13.6 Completion Posture
 
 F-RDG-00 through F-RDG-10 are complete. The implementation, owner specifications, generated contracts, app integration, live production-RDG evidence, specialized accessibility and visual evidence, authored accounting, generated ledgers and schedules, advisory timing maintenance, migration and rollback posture, residual risks, and final retained validation are recorded in the serial checkpoints above. `docs/domain.md` remains unchanged after terminology review, and no database migration, saved-view data migration, dependency or lockfile change, RDG upgrade, or Core 05 claim was introduced.
