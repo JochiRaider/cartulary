@@ -7,9 +7,9 @@
 | State | ACTIVE |
 | Primary seam | Public Make invocation -> harness execution graph -> retained timing graph -> derived OpenTelemetry diagnostics |
 | Initial source | `00522cfed1b6e5ca0936fb703de96c4c019544f3` on `revision/grid-adapter` |
-| Current source | T-012 migration window reopens T-010 scenario scheduling |
+| Current source | T-010 migration scenario scheduling complete; T-012 clean candidate acceptance is next |
 | Last updated | 2026-07-22 |
-| Active item | T-010 |
+| Active item | T-012 |
 | Successor to | `docs/handoffs/test-harness-subsystem-migration-refactor-tracker.md` |
 | Product behavior | Preserved |
 | Harness behavior | Additive diagnostics plus explicitly adopted scheduling and duration changes |
@@ -160,9 +160,9 @@ result; the explicit observability check fails closed.
 | T-007 | Make local validation read-only and exact-selected; correct OTLP export, privacy, and failure semantics | WS-02 observability | DONE | T-005, T-006 | diagnostics/export | tamper, exact-selection, OTLP decode, failure-class, redirect, timeout, and egress fixtures | selected source evidence is never mutated and export conforms exactly |
 | T-008 | Consolidate compatible backend-unit exact symbols and run compatible groups concurrently | WS-03 optimization | DONE | T-001 | backend runner | retained 255-test parity run and 30-process plan/run proof | every symbol and row is proven exactly once across complete compatibility keys and failure paths |
 | T-009 | Parse each physical Go report once and parallelize deterministic family projection emission | WS-03 optimization | DONE | T-008 | output/finalizers | worker failure fixtures, retained parity evidence, and strict warm-up diagnosis | output identity, partial-success retention, and primary-failure selection are stable; strict candidate finalizer union clears its improvement gate |
-| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | IN_PROGRESS | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, target-owned parallel prerequisite admission, and isolated migration-scenario scheduling | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, public prerequisite admission, and migration scenario isolation are stable |
+| T-010 | Execute `lint`, `ci`, and `release-check` through the topology-owned shared scheduler | WS-03 optimization | DONE | T-001, T-007 | scheduler/task surface | serial and DAG parity evidence for all three aggregates plus concurrent websocket teardown, browser-worker admission, retained-session, priority-liveness, prerequisite-admission, bounded security-analysis regressions, exact transition-validator parity, target-owned parallel prerequisite admission, and isolated migration-scenario scheduling | dependency, resource, cancellation, output, cleanup, primary-failure behavior, normalized transition validation, public prerequisite admission, and migration scenario isolation are stable |
 | T-011 | Make release browser readiness own its five-session schedule and capacity two | WS-03 optimization | DONE | T-010 | browser scheduler | static schedule proof, retained focused lifecycle evidence, exact policy-transition fixtures, and managed-service aggregate concurrency proof | direct aggregate behavior matches release behavior, leaf summaries remain distinct, no visual or fixture drift occurs, and both browser policies are ready for T-012 quantitative acceptance |
-| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | TODO | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
+| T-012 | Generate public-target baselines and enforce baseline-derived acceptance | WS-04 acceptance | IN_PROGRESS | T-008, T-009, T-010, T-011 | harness performance | baseline and performance-check summaries | required hotspots improve and all other targets stay within budget |
 | T-013 | Run broad verification and close the handoff | WS-04 handoff | TODO | T-012 | integrator | final verification matrix and handoff log | clean tree, terminal tasks, no unresolved blocker |
 
 Provisional implementation currently present in the worktree (none of these
@@ -2493,3 +2493,39 @@ completed work.
   clean both under pass, failure, and interruption. Every `b76c9cb4` candidate
   root remains diagnostic-only after the implementation changes; no threshold
   is relaxed.
+
+### 2026-07-23 — T-010 isolated migration scenarios complete
+
+- Source: mandatory T-010 reopen checkpoint `ac046c4e`. After common migration
+  input validation and Postgres readiness, the empty apply-to-head and
+  penultimate-boundary upgrade scenarios now run as concurrent siblings with
+  distinct database and working-directory identities.
+- Determinism and failure behavior: each sibling captures output independently;
+  the parent drains both and replays empty-scenario output before penultimate
+  output. Simultaneous failures preserve both diagnostics and select the empty
+  scenario first. The parent cleanup drains live sibling shells before dropping
+  both databases, while the existing outer step-runtime process group remains
+  authoritative for interruption and descendant termination.
+- Contract proof: focused fast harness smoke passed at
+  `.cartulary/test-results/20260723T021321Z-p1413111`, including explicit
+  overlap, distinct working directories, single-migration fallback, malformed
+  input rejection, simultaneous failure drain, stable logs, and primary-failure
+  selection. Full `harness-contract` passed at
+  `.cartulary/test-results/20260723T021532Z-p1424121`. Shell and Markdown lint
+  passed at `.cartulary/test-results/20260723T021617Z-p1425289` and
+  `.cartulary/test-results/20260723T021620Z-p1426257`.
+- Timing proof: three direct diagnostic public invocation envelopes are
+  `7.46 s`, `7.30 s`, and `6.61 s` at
+  `.cartulary/test-results/20260723T021410Z-p1416640`,
+  `.cartulary/test-results/20260723T021423Z-p1418507`, and
+  `.cartulary/test-results/20260723T021431Z-p1420335`. Each is below the fixed
+  `9.622 s` no-regression limit; the two latest have a `6.955 s` midpoint.
+- Generated closure: `make generate` passed at
+  `.cartulary/test-results/20260723T021522Z-p1422323`; generated-artifact
+  policy, JSON shape, and generation drift passed at
+  `.cartulary/test-results/20260723T021630Z-p1427760`,
+  `.cartulary/test-results/20260723T021632Z-p1428098`, and
+  `.cartulary/test-results/20260723T021635Z-p1428590`.
+- Active: T-010 is closed and T-012 is the sole `IN_PROGRESS` item. Freeze the
+  clean checkpoint containing this implementation and tracker before restarting
+  every provider window. All prior candidate roots remain diagnostic-only.

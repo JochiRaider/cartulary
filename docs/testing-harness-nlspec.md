@@ -2280,6 +2280,18 @@ declares `prerequisite_jobs=3`; that shared graph preserves Make dependency
 deduplication for their embedded-web inputs. The standup smoke targets continue
 to depend on `deployable-shape` rather than repeating its artifact inventory.
 
+After input validation and shared Postgres readiness, `migration-drift` MUST run
+its empty-database apply-to-head scenario and penultimate-boundary upgrade
+scenario concurrently. Each scenario MUST own a distinct scratch database and
+working directory. The parent MUST await both scenarios, retain both results,
+and replay their captured standard output and standard error in authored order:
+empty database first, then penultimate boundary. If both fail, the empty
+scenario is the primary failure; a penultimate-only failure retains its own
+status. Cleanup MUST drain live scenario children and drop both scratch
+databases on pass, failure, or interruption. Scenario parallelism MUST NOT
+change migration selection, lineage verification, built-binary use, or the
+single-migration best-available-boundary fallback.
+
 Prerequisites that are the step's owned child work are not readiness and MUST
 NOT be skipped. In particular, `lint-go` runs its format, vet, and staticcheck
 children through its prerequisite prelude; the lint preflight establishes

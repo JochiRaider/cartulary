@@ -49,6 +49,21 @@ assert_not_contains() {
   fi
 }
 
+assert_before() {
+  local haystack="$1"
+  local first="$2"
+  local second="$3"
+  local label="$4"
+  local first_line
+  local second_line
+
+  first_line="$(printf '%s\n' "$haystack" | grep -nF "$first" | head -1 | cut -d: -f1)"
+  second_line="$(printf '%s\n' "$haystack" | grep -nF "$second" | head -1 | cut -d: -f1)"
+  if [[ -z "$first_line" || -z "$second_line" || "$first_line" -ge "$second_line" ]]; then
+    fail "${label}: expected [${first}] before [${second}]"
+  fi
+}
+
 assert_file_absent_or_empty() {
   local path="$1"
   local label="$2"
@@ -100,6 +115,25 @@ EOF
 set -euo pipefail
 
 printf '%s|%s|%s\n' "$PWD" "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
+printf '%s\n' "start" >>"${MIGRATE_EVENT_LOG:?}"
+sleep 0.2
+printf '%s\n' "end" >>"${MIGRATE_EVENT_LOG:?}"
+case "${FAIL_MIGRATE_SCENARIO:-}" in
+  empty|both)
+    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN}" == *"_empty_"* ]]; then
+      echo "synthetic empty migration failure" >&2
+      exit 41
+    fi
+    ;;
+esac
+case "${FAIL_MIGRATE_SCENARIO:-}" in
+  penultimate|both)
+    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN}" == *"_penultimate_"* ]]; then
+      echo "synthetic penultimate migration failure" >&2
+      exit 42
+    fi
+    ;;
+esac
 if [[ "$*" == *"up-by-one"* ]]; then
   exit 91
 fi
@@ -213,6 +247,7 @@ run_check() {
   : >"${work_dir}/docker.log"
   : >"${work_dir}/wait.log"
   : >"${work_dir}/migrate.log"
+  : >"${work_dir}/migrate-events.log"
   : >"${work_dir}/goose.log"
   : >"${work_dir}/docker-compose.yml"
   : >"${work_dir}/config.toml"
@@ -223,7 +258,9 @@ run_check() {
     DOCKER_LOG="${work_dir}/docker.log" \
     WAIT_LOG="${work_dir}/wait.log" \
     MIGRATE_LOG="${work_dir}/migrate.log" \
+    MIGRATE_EVENT_LOG="${work_dir}/migrate-events.log" \
     GOOSE_LOG="${work_dir}/goose.log" \
+    FAIL_MIGRATE_SCENARIO="${FAIL_MIGRATE_SCENARIO:-}" \
     CARTULARY_MIGRATE_BIN="${work_dir}/migrate" \
     GOOSE_BIN="${work_dir}/goose" \
     CARTULARY_MIGRATIONS_DIR="${migrations_dir}" \
@@ -269,10 +306,13 @@ normal_working_directories="$(working_directories_from_log "${normal_dir}/migrat
 assert_contains "$normal_output" "migration verification: empty database apply to head" "normal empty database output"
 assert_contains "$normal_output" "migration verification: lineage marker present" "normal lineage output"
 assert_contains "$normal_output" "migration verification: upgrade path from penultimate boundary" "normal penultimate output"
+assert_before "$normal_output" "migration verification: empty database apply to head" "migration verification: upgrade path from penultimate boundary" "normal scenario log order"
 assert_equals "$(count_lines "$normal_commands" "up")" "2" "normal up command count"
 assert_contains "$normal_goose_commands" "up-to 4" "normal penultimate boundary version"
 assert_not_contains "$normal_commands" "up-by-one" "normal migration commands"
 assert_not_contains "$normal_working_directories" "$ROOT_DIR" "built migrate binary working directory"
+assert_equals "$(printf '%s\n' "$normal_working_directories" | sort -u | wc -l | tr -d ' ')" "2" "scenario working-directory isolation"
+assert_equals "$(sed -n '1,2p' "${normal_dir}/migrate-events.log")" $'start\nstart' "migration scenarios overlap"
 
 single_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migrations-single.XXXXXX")"
 cleanup_paths+=("$single_dir")
@@ -297,6 +337,19 @@ run_check "$malformed_dir" "${malformed_dir}/migrations"
 assert_equals "$(cat "${malformed_dir}/status")" "1" "malformed migration check status"
 assert_contains "$(cat "${malformed_dir}/output.log")" "invalid migration filename \"not_a_goose_migration.sql\"" "malformed migration diagnostic"
 assert_file_absent_or_empty "${malformed_dir}/migrate.log" "malformed migrate log"
+
+failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migrations-failure.XXXXXX")"
+cleanup_paths+=("$failure_dir")
+write_fakes "$failure_dir"
+make_migrations "${failure_dir}/migrations" \
+  00001_database_infrastructure.sql \
+  00002_auth_accounts_and_enterprise.sql
+FAIL_MIGRATE_SCENARIO=both run_check "$failure_dir" "${failure_dir}/migrations"
+assert_equals "$(cat "${failure_dir}/status")" "41" "simultaneous migration failure precedence"
+failure_output="$(cat "${failure_dir}/output.log")"
+assert_contains "$failure_output" "synthetic empty migration failure" "empty failure retained"
+assert_contains "$failure_output" "synthetic penultimate migration failure" "penultimate failure retained"
+assert_before "$failure_output" "synthetic empty migration failure" "synthetic penultimate migration failure" "failure log order"
 
 history_valid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-valid.XXXXXX")"
 cleanup_paths+=("$history_valid_dir")

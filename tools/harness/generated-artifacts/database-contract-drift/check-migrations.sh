@@ -16,6 +16,7 @@ EMPTY_DB="cartulary_migration_empty_$$"
 PENULTIMATE_DB="cartulary_migration_penultimate_$$"
 MODE="all"
 MIGRATE_WORK_DIR=""
+SCENARIO_PIDS=()
 
 fail() {
   echo "migration verification failed: $*" >&2
@@ -88,6 +89,15 @@ migration_version_at_index() {
 
 cleanup() {
   local db_name
+  local scenario_pid
+  for scenario_pid in "${SCENARIO_PIDS[@]}"; do
+    if kill -0 "$scenario_pid" >/dev/null 2>&1; then
+      kill -TERM "$scenario_pid" >/dev/null 2>&1 || true
+    fi
+  done
+  for scenario_pid in "${SCENARIO_PIDS[@]}"; do
+    wait "$scenario_pid" >/dev/null 2>&1 || true
+  done
   for db_name in "$EMPTY_DB" "$PENULTIMATE_DB"; do
     docker compose -f "$COMPOSE_FILE" exec -T postgres \
       psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";" >/dev/null 2>&1 || true
@@ -117,29 +127,84 @@ run_input_validation() {
 }
 
 run_scratch_apply() {
+  local empty_pid
+  local empty_status
+  local penultimate_pid
+  local penultimate_status
+
   load_and_validate_migration_inputs
   MIGRATE_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-migrate-cwd.XXXXXX")"
+  mkdir -p "$MIGRATE_WORK_DIR/empty" "$MIGRATE_WORK_DIR/penultimate"
   trap cleanup EXIT
 
   docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
   "$DEV_SERVICES_SCRIPT" wait-postgres
 
-  echo "migration verification: empty database apply to head"
-  create_database "$EMPTY_DB"
-  run_migrate "$EMPTY_DB" up
-  verify_lineage "$EMPTY_DB"
+  run_scenario_capture empty run_empty_database_scenario &
+  empty_pid="$!"
+  SCENARIO_PIDS+=("$empty_pid")
+  run_scenario_capture penultimate run_penultimate_database_scenario &
+  penultimate_pid="$!"
+  SCENARIO_PIDS+=("$penultimate_pid")
 
+  wait "$empty_pid"
+  wait "$penultimate_pid"
+  SCENARIO_PIDS=()
+
+  emit_scenario_logs empty
+  emit_scenario_logs penultimate
+  empty_status="$(<"$MIGRATE_WORK_DIR/empty.status")"
+  penultimate_status="$(<"$MIGRATE_WORK_DIR/penultimate.status")"
+  if ((empty_status != 0)); then
+    return "$empty_status"
+  fi
+  if ((penultimate_status != 0)); then
+    return "$penultimate_status"
+  fi
+}
+
+run_scenario_capture() {
+  local scenario="$1"
+  local status
+  shift
+
+  set +e
+  "$@" >"$MIGRATE_WORK_DIR/${scenario}.stdout" 2>"$MIGRATE_WORK_DIR/${scenario}.stderr"
+  status="$?"
+  set -e
+  printf '%s\n' "$status" >"$MIGRATE_WORK_DIR/${scenario}.status"
+}
+
+emit_scenario_logs() {
+  local scenario="$1"
+
+  if [[ -s "$MIGRATE_WORK_DIR/${scenario}.stdout" ]]; then
+    cat "$MIGRATE_WORK_DIR/${scenario}.stdout"
+  fi
+  if [[ -s "$MIGRATE_WORK_DIR/${scenario}.stderr" ]]; then
+    cat "$MIGRATE_WORK_DIR/${scenario}.stderr" >&2
+  fi
+}
+
+run_empty_database_scenario() {
+  echo "migration verification: empty database apply to head"
+  create_database "$EMPTY_DB" || return "$?"
+  run_migrate "$EMPTY_DB" "$MIGRATE_WORK_DIR/empty" up || return "$?"
+  verify_lineage "$EMPTY_DB" || return "$?"
+}
+
+run_penultimate_database_scenario() {
   echo "migration verification: upgrade path from penultimate boundary"
-  create_database "$PENULTIMATE_DB"
+  create_database "$PENULTIMATE_DB" || return "$?"
   if [ "$MIGRATION_COUNT" -ge 2 ]; then
     PENULTIMATE_VERSION="$(migration_version_at_index "$((MIGRATION_COUNT - 2))")"
-    run_migrate "$PENULTIMATE_DB" up-to "$PENULTIMATE_VERSION"
-    run_migrate "$PENULTIMATE_DB" up
+    run_migrate "$PENULTIMATE_DB" "$MIGRATE_WORK_DIR/penultimate" up-to "$PENULTIMATE_VERSION" || return "$?"
+    run_migrate "$PENULTIMATE_DB" "$MIGRATE_WORK_DIR/penultimate" up || return "$?"
   else
     echo "upgrade-path coverage limited: only one migration exists; running best-available boundary" >&2
-    run_migrate "$PENULTIMATE_DB" up
+    run_migrate "$PENULTIMATE_DB" "$MIGRATE_WORK_DIR/penultimate" up || return "$?"
   fi
-  verify_lineage "$PENULTIMATE_DB"
+  verify_lineage "$PENULTIMATE_DB" || return "$?"
 }
 
 create_database() {
@@ -152,9 +217,10 @@ create_database() {
 
 run_migrate() {
   local db_name="$1"
-  local command="$2"
+  local work_dir="$2"
+  local command="$3"
   local dsn
-  shift 2
+  shift 3
   dsn="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
   (
     export CARTULARY_CONFIG_FILE="$CONFIG_FILE"
@@ -164,14 +230,14 @@ run_migrate() {
         if [[ -z "$MIGRATE_BIN" || ! -x "$MIGRATE_BIN" ]]; then
           fail "CARTULARY_MIGRATE_BIN must name the Make-built migrate executable"
         fi
-        cd "$MIGRATE_WORK_DIR"
+        cd "$work_dir"
         "$MIGRATE_BIN" up
         ;;
       up-to)
         if [[ -z "$GOOSE_BIN" || ! -x "$GOOSE_BIN" ]]; then
           fail "GOOSE_BIN must name the Make-built database-contract migration driver"
         fi
-        cd "$MIGRATE_WORK_DIR"
+        cd "$work_dir"
         "$GOOSE_BIN" -dir "$MIGRATIONS_DIR" postgres "$dsn" up-to "$@"
         ;;
       *)
