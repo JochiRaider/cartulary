@@ -188,6 +188,17 @@ application tests, shared setup files, the root facade, and `./test-support` mus
 import or expose the package-private DOM-unit binding. There is no mutable diagnostic
 setter, environment switch, storage switch, or consumer prop.
 
+Extension-gated frontend code consumes the explicit serving-epoch availability
+projection returned by production APIs. It does not infer claims from route probes,
+generated registry defaults, raw configuration, or mutable globals. Optional profile
+assets load only after their exact contribution is available. Tests must cover
+claimed and Base fallback behavior, claim loss, disposal of stale async responses,
+and preservation of Base state. The Import Assistant remains lazy, while its
+production-path browser evidence covers unit discovery, preview, mapping,
+select/skip, warnings, apply progress, cancellation, partial outcomes, and result
+navigation. Network Flow is a collaborator on its regression rows, not the owner of
+a second import worker.
+
 ## 8. Change workflow
 
 1. Identify the normative postcondition and current semantic owner.

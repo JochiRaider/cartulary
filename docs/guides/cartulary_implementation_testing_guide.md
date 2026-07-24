@@ -127,6 +127,49 @@ lockfiles, or tool-managed install artifacts. Keep binary composition in
 `internal/modules/*`, and reusable application test composition in
 `internal/testutil/*`.
 
+## Extension Profile Changes
+
+Treat extension adoption as one owner-to-runtime chain:
+
+```text
+owner specification and authored contracts
+  -> generated plan rows and digests
+  -> exact application contribution/worker/participant catalogs
+  -> copied serving-epoch projections
+  -> production routes, workspaces, workers, and participants
+```
+
+Do not add a profile switch, fixed registrar list, broad epoch provider, default
+registry, or test-only production setter alongside that chain. A claimed
+profile implementation is prepared quiescently, installed by commit,
+acknowledged by the exact HTTP, WebSocket, dequeue, and claimed-worker
+components, and made available only by the single `Serve` transition. Recovery
+and dequeue evidence must prove that no handler runs before serving.
+
+Extension jobs use their generated versioned job kind and canonical worker kind.
+Terminal success evidence is complete only when the owner mutation, public
+terminal job result, immutable proof, route-scoped idempotency outcome, and
+applicable audit/resource references share one final transaction. Cancellation
+evidence must cover the durable precommit observation and the success-wins-race
+case. Public job assertions must also prove that internal profile/job ownership
+metadata is absent from the resource.
+
+An extension participant row is not evidence of invocation by itself. Its
+semantic owner must provide a production-path selector showing exact catalog
+admission, bounded invocation, closed result validation, owner-controlled output
+admission, and no effect when inactive, absent, malformed, oversized, timed out,
+cancelled, or failed. For Snapshot/Reporting, Report Composition owns the
+immutable preview source while Reporting owns participant invocation, result
+admission, redaction, rendering, and the terminal job/proof transaction.
+
+For an ordered multi-workstream remediation, the named handoff tracker is the
+controlling execution artifact. Mark exactly one slice `IN_PROGRESS` before
+changing its surfaces. After implementation, record files, decisions, commands,
+run roots, failures, risks, rollback and domain posture; mark the slice `DONE`
+only after its exit criteria pass; commit that implementation and checkpoint
+together; then activate the next slice. The final validation slice changes only
+validation, accounting, or handoff defects.
+
 ## Browser Work
 
 Browser rows are grouped by semantic stage, runtime profile, fixture and

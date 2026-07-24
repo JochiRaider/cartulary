@@ -3,7 +3,7 @@
   "owner_id": "module.reportcomposition",
   "rows": [
     {
-      "row_id": "module.reportcomposition.integration.preview_reporting_delegation",
+      "row_id": "module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a",
       "owner_id": "module.reportcomposition",
       "family_id": "module.reportcomposition.integration",
       "collaborator_ids": ["module.reporting"],

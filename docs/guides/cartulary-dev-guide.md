@@ -504,6 +504,24 @@ The implementation sequence for a behavior-affecting change MUST be:
 
 `internal/app/server` owns configuration-driven server assembly, HTTP and WebSocket route composition, background-job wiring, embedded frontend delivery, diagnostics, and server exit mapping. `internal/app/revisionassembly` is the exact aggregator for source-owner revision contributions: owner root facades construct reconstruction and reversal providers, Revisions validates the complete current-profile catalog and coordinates them, and application assembly only aggregates contributions and injects platform dependencies. Package initialization and mutable global provider registries are not composition mechanisms. `internal/platform/httpruntime` owns HTTP listener acquisition, serving, and bounded graceful shutdown. The Make-owned `build-server-harness` profile alone adds inherited-listener conversion and guarded test-route composition; it is the existing `server` identity for test evidence, not another deployable. `internal/app/serverprocess` remains test-only process evidence, while reusable test composition belongs in `internal/testutil/appsupport`.
 
+`internal/app/extensionassembly` is the only application edge that joins
+generated extension-owner facts to concrete profile implementations. It builds
+exact catalogs keyed by contribution ID, worker kind, and participant ID, then
+copies only the route, discovery, workspace, claim, worker/job-contract, and
+implementation-binding projections needed by each consumer. Profile registrars
+must receive their exact admitted rows; they must not inspect a broad discovery
+object, re-resolve raw configuration, or independently decide whether a profile
+is claimed. Base route registration remains explicit and separate.
+
+Extension startup has one lifecycle:
+`Prepare -> Commit -> Acknowledge -> Serve`. Preparation is quiescent. HTTP,
+WebSocket, the dequeue gate, and every claimed worker acknowledge the installed
+plan digest only after commit. The serving transition opens their shared
+admission gate once, so readiness, discovery, workspaces, public dispatch,
+recovery, and job dequeue cannot describe different epochs. Acknowledgment
+before commit, an unknown or duplicate component, a wrong digest, or a failed
+component leaves the process closed.
+
 Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed dependencies and remain open after `Runtime.Close`. The runtime owns only resources it creates, drains those resources in reverse acquisition order, and makes repeated `Close` calls harmless.
 
 Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup. The production migration grammar is exactly `migrate up`; other Goose verbs, flags, implicit defaults, and `up-to` are not deployable commands. Deployment-local backup inspection, backup creation, restore, and verification behavior belongs under `internal/app/operator` and `internal/modules/*`. Operator wiring exposes exactly the five Core 01 recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`; retired aliases are unsupported.
@@ -560,9 +578,12 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 `internal/platform/jobs` owns:
 
 - common job-resource shape,
-- background execution,
-- status updates,
-- cancellation,
+- internal extension job ownership and route-scoped idempotency metadata that
+  never appears in the public job resource,
+- gated background execution and post-serve recovery,
+- atomic owner finalization of terminal state, immutable proof, idempotency
+  outcome, and applicable audit or resource references,
+- precommit-observable cancellation and its durable observation,
 - post-terminal retention.
 
 ### 5.3 Domain-module ownership baseline
@@ -581,7 +602,7 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 | `artifacts`      | Notes, communications log, handoff, status review, lesson, and optional artifact-backed workbook surfaces                                                    | Evidence blob lifecycle, party records, host/identity records            |
 | `evidence`       | Evidence records, blob-slot lifecycle, attach-blob finalization, custody events, preview/download handle issuance and redemption                             | Saved views, reference-pack activation                                   |
 | `imports`        | CSV and XLSX adapters, `import_session`, `import_unit`, preview, mapping, provenance, warning codes, import jobs                                             | Hot-path clipboard UI beyond the shared tabular-ingest contract          |
-| `extensions`     | Immutable registry admission, claim resolution, serving-plan construction, state admission, validation-condition admission, and pure deadline policy         | HTTP/auth/session delivery, profile-owned state algorithms, portability, staged bytes, backup/restore, and shared final transactions |
+| `extensions`     | Immutable registry admission, claim resolution, serving-plan construction, inactive-job reconciliation, state admission, validation-condition admission, and pure deadline policy | HTTP/auth/session delivery, profile-owned state algorithms, portability, staged bytes, backup/restore, and owner final transactions |
 | `incidentbundles` | Incident bundle export/import plus admitted extension portability orchestration                                                                              | Generic claim/catalog admission, physical object storage, unrelated recovery |
 | `crossownertransaction` | Bounded multi-owner final-commit protocol with typed capabilities and closed commit outcomes                                                         | Participant-owned business rules, ordinary single-owner transactions     |
 | `stagedobjects`  | Operation-scoped staged-byte allocation, transfer, publication, cleanup, retry, readiness, and fatal-integrity handling                                      | Bundle semantics, profile business rules, physical storage DTOs          |
@@ -590,7 +611,7 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 | `revisions`      | Change sets, mutation entries, record revisions, rollback operations                                                                                         | Live presence and WS transport                                           |
 | `projections`    | `*_grid_projection` maintenance, rebuild commands, projection invalidation strategy                                                                          | Source-of-truth business decisions                                       |
 | `reference_data` | Reference packs, manifests, activation state, attestation metadata, type registries                                                                          | Incident record lifecycle                                                |
-| `reporting`      | Snapshots, releases, canonical export model, self-contained render artifacts                                                                                 | Live workbook write path                                                 |
+| `reporting`      | Snapshots, releases, canonical export model, admitted render-export participation, internal-draft preview execution, redaction, and self-contained render artifacts | Live workbook write path and composition-source authoring                |
 | `collaboration`  | Presence state, `record_changed`, `job_progress`, replay and resume handling                                                                                 | HTTP mutation acceptance and persistence                                 |
 
 Workbook surfaces and test rows are not module-boundary authority. This guide follows the current implementation-support package layout; future splits remain owner-spec work, not evidence inferred from test locations.
@@ -1178,6 +1199,14 @@ The implementation baseline for paste is:
 
 File-based structured import is not part of the default Base surface. When the Import Extension Profile is claimed, it MUST be realized through the dedicated `imports` module and the Phase 2 Workbook Import Assistant object model.
 
+The production Workbook Import Assistant is a lazy incident-workbook
+contribution admitted by the serving `import` profile. It owns discovery of all
+CSV/XLSX units, preview, mapping, select/skip decisions, overlap/readiness
+warnings, apply progress, cancellation, partial outcomes, and result
+navigation. Claim loss disposes stale responses and closes the assistant without
+changing Base workbook state. Network Flow may reuse Import scheduling and
+mapping contracts, but it does not own or register another import worker.
+
 The guide uses the following canonical import objects:
 
 | Object                | Default interpretation                                                  | Minimum implementation responsibility                                                                          |
@@ -1300,12 +1329,18 @@ Enterprise-auth provider definitions are not runtime resources in the current pr
 
 Runtime claim-state discovery for those deployment-gated families is `GET /api/v1/extensions`. That route returns the current extension registry plus reserved `route_families[]` roots. Requests under a reserved but unclaimed family fail with `404` and `error.code = extension_profile_not_claimed`; they are not treated as ordinary unknown routes. Frontend routing, deployment-gated feature flags, and integration tests SHOULD key off that discovery contract rather than ad hoc route probes.
 
-The Extensions module supplies the immutable discovery snapshot from the installed
-serving epoch. The focused `internal/platform/httpapi/extensiondiscovery` adapter
-owns route registration, authentication, session sliding, singleton-query
-rejection, and envelope serialization. Application-server composition is the only
-edge that binds that adapter, reserved-family dispatch, workspace and worker
-admission, and profile implementations to one installed plan.
+The Extensions module supplies the immutable discovery snapshot from the
+installed serving epoch. The focused
+`internal/platform/httpapi/extensiondiscovery` adapter owns route registration,
+authentication, session sliding, singleton-query rejection, and envelope
+serialization. Application-server composition is the only edge that binds that
+adapter, reserved-family dispatch, workspace and worker admission, and profile
+implementations to one installed plan. Generated claim configuration is
+materialized once into the resolved claim projection; raw configuration cannot
+activate a provider, route, worker, workspace, or participant that the installed
+plan did not admit. Production HTTP APIs require explicit serving-epoch
+projections and have no generated-registry default, nil-epoch fallback, or
+process-global profile mutation.
 
 For claimed Reference Pack deployments, every `/api/v1/reference-packs/*` endpoint is deployment-admin-only. Clients and integration tests SHOULD combine `GET /api/v1/extensions` with the session `is_deployment_admin` value rather than probing reference-pack routes; a claimed non-admin receives `403` with `error.code = authorization_denied`, while an unclaimed family returns `extension_profile_not_claimed` first.
 
@@ -1385,6 +1420,14 @@ Release-scoped rendering and external publication remain extension behavior, not
 Implementation consequences:
 
 - release-state handling belongs under the reporting module, not the general row-edit path,
+- the admitted `snapshot_reporting.render_export_v1` participant reads only the
+  immutable snapshot/export-model view and returns the closed shared result;
+  Reporting validates and admits that canonical model before redaction and
+  rendering,
+- composition preview persists its immutable source in Report Composition and
+  delegates execution through the Reporting-owned transactional port; its
+  output is always `internal_draft` and never approval or external-release
+  evidence,
 - generated outputs MUST be self-contained and MUST NOT depend on CDN-hosted runtime assets,
 - release verification MUST include the developer gate plus SBOM and license checks,
 - export redaction and recipient-specific withholding MUST happen at snapshot, render, and release time rather than by hiding live workbook content.
