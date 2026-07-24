@@ -176,7 +176,29 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if options.HTTP.Dependencies.ExtensionEpoch != nil {
 		claimOverride = httpapi.ExtensionProfilesFromEpoch(options.HTTP.Dependencies.ExtensionEpoch)
 	}
-	requestedClaims := extensionClaimRequest(extensionCoordinator.Descriptors(), normalizedCfg, claimOverride)
+	descriptors := extensionCoordinator.Descriptors()
+	claimPaths, err := extensionassembly.ClaimConfigurationPaths(descriptors)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project extension claim configuration: %w", err)
+	}
+	claimValues, err := config.BooleanValuesAtPaths(normalizedCfg, claimPaths)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project extension claim configuration: %w", err)
+	}
+	if claimOverride != nil {
+		claimValues, err = extensionClaimOverride(descriptors, claimOverride)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("project extension claim override: %w", err)
+		}
+	}
+	requestedClaims, err := extensionassembly.ResolveClaimRequest(descriptors, claimValues)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("materialize extension claim request: %w", err)
+	}
 	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims)
 	if err != nil {
 		runtime.Close()
@@ -187,14 +209,19 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("prepare extension publication: %w", err)
 	}
+	publicationCatalog, err := extensionassembly.NewPublicationCatalog(extensionPlan, extensionCoordinator.ParticipantContracts())
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("prepare extension publication catalog: %w", err)
+	}
 	publication := NewPublicationController(runtime.Lifecycle)
 	if err := publication.Prepare(extensionPlan); err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	runtime.Publication = publication
-	resolvedClaims := publication.ResolvedClaims()
-	profiles := publicationHTTPProfiles(publication.Discovery())
+	resolvedClaims := extensionPlan.ResolvedClaims()
+	profiles := publicationHTTPProfiles(extensionPlan.Discovery())
 	runtime.Extensions = extensionCoordinator
 
 	secretPurposes := secretpurpose.NewRegistry()
@@ -207,7 +234,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
-	if normalizedCfg.EnterpriseAuthentication.Claimed {
+	if resolvedClaims.Contains("enterprise_authentication") {
 		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
 		if err != nil {
 			runtime.Close()
@@ -363,7 +390,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if normalizedCfg.EnterpriseAuthentication.Claimed {
+	if resolvedClaims.Contains("enterprise_authentication") {
 		if err := enterpriseauth.ReconcileProviderDefinitions(ctx, enterpriseProviderDefinitions, authn.NewStore(postgresHandle), now()); err != nil {
 			runtime.Close()
 			return nil, err
@@ -381,6 +408,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs = newJobsManager()
 	runtime.Jobs.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	runtime.JobRunner = jobs.NewRunner()
+	runtime.JobRunner.ConfigureDequeueGate(runtime.Lifecycle)
 	jobRunner := runtime.JobRunner
 	runtime.own(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -394,24 +422,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.JobRunner.Configure(runtime.Jobs)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
-	if err := publication.Acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	if err := publication.Acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	for _, worker := range extensionPlan.Workers() {
-		if err := publication.Acknowledge(
-			"worker:"+worker.ProfileID+":"+worker.WorkerKind,
-			extensionPlan.Summary().WorkerPlanSHA256,
-			nil,
-		); err != nil {
-			runtime.Close()
-			return nil, err
-		}
-	}
 
 	httpOptions := options.HTTP
 	testRuntimeDeps := httpOptions.Dependencies
@@ -430,7 +440,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("register incident portability attribution resolver: %w", err)
 	}
-	if err := attributionResolvers.ValidateAttributionResolvers(revisionPublicationClaims(publication.Claims())); err != nil {
+	if err := attributionResolvers.ValidateAttributionResolvers(revisionPublicationClaims(extensionPlan.Claims())); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
 	}
@@ -508,7 +518,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("compose Incident Portability state presence: %w", err)
 	}
 	portability, err := incidentbundles.NewPortabilityOrchestrator(
-		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), publication.ResolvedClaims()),
+		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
 		portabilityPresence,
 		nil,
 		runtime.StagedObjects,
@@ -523,17 +533,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	)
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
-	builtInRoutes, err := builtInRouteRegistrars([]routeContribution{
+	builtInRoutes, err := applicationRouteRegistrars([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes()},
 		{id: "incidents", registrar: incidentRoutes},
 		{id: "extensions", registrar: extensiondiscovery.RegisterRoutes()},
 		{id: "jobs", registrar: jobapi.RegisterRoutes()},
-		{id: "imports", registrar: imports.RegisterRoutes()},
-		{id: "network_flow", registrar: networkFlowModule.RegisterRoutes()},
-		{id: "reporting", registrar: reporting.RegisterRoutes()},
-		{id: "report_composition", registrar: reportcomposition.RegisterRoutes()},
-		{id: "reference_data", registrar: reference_data.RegisterRoutes()},
-		{id: "incident_bundles", registrar: incidentBundleRoutes},
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
 		{id: "collaboration", registrar: collaboration.RegisterRoutes()},
@@ -543,7 +547,32 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		{id: "workbook", registrar: workbook.RegisterRoutes()},
 		{id: "timeline", registrar: timeline.RegisterRoutes()},
 		{id: "revisions", registrar: revisionRoutes},
-	})
+	}, []extensionRouteBinding{
+		{
+			id: "enterprise_authentication",
+			contributionIDs: []string{
+				"enterprise_authentication.auth_oidc_route",
+				"enterprise_authentication.auth_providers_route",
+				"enterprise_authentication.auth_saml_route",
+				"enterprise_authentication.user_auth_bindings_route",
+			},
+			baseRegistrarID: "auth",
+		},
+		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: imports.RegisterRoutes()},
+		{id: "incident_portability", contributionIDs: []string{"incident_portability.bundles_route"}, registrar: incidentBundleRoutes},
+		{id: "network_flow_activity", contributionIDs: []string{"network_flow_activity.route_family"}, registrar: networkFlowModule.RegisterRoutes()},
+		{id: "reference_pack", contributionIDs: []string{"reference_pack.packs_route"}, registrar: reference_data.RegisterRoutes()},
+		{
+			id:              "snapshot_reporting_resources",
+			contributionIDs: []string{"snapshot_reporting.releases_route", "snapshot_reporting.snapshots_route"},
+			registrar:       reporting.RegisterRoutes(),
+		},
+		{
+			id:              "snapshot_reporting_compositions",
+			contributionIDs: []string{"snapshot_reporting.report_compositions_route"},
+			registrar:       reportcomposition.RegisterRoutes(),
+		},
+	}, publicationCatalog)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose built-in routes: %w", err)
@@ -554,23 +583,31 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: runtime.StagedHealth})
 	}
 	httpOptions.Dependencies = httpapi.DependencySet{
-		Config:            normalizedCfg,
-		Env:               options.Env,
-		Postgres:          runtime.Postgres,
-		PostgresDB:        postgresHandle,
-		ObjectStore:       runtime.ObjectStore,
-		Jobs:              runtime.Jobs,
-		JobRunner:         runtime.JobRunner,
-		WSHub:             hub,
-		CursorCodec:       cursorCodec,
-		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore, readinessProbes...),
-		Admission:         runtime.Lifecycle,
-		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
-		ModuleOverrides:   moduleOverrides,
-		ExtensionEpoch:    publicationExtensionEpoch{publication: publication},
-		Now:               now,
+		Config:              normalizedCfg,
+		Env:                 options.Env,
+		Postgres:            runtime.Postgres,
+		PostgresDB:          postgresHandle,
+		ObjectStore:         runtime.ObjectStore,
+		Jobs:                runtime.Jobs,
+		JobRunner:           runtime.JobRunner,
+		WSHub:               hub,
+		CursorCodec:         cursorCodec,
+		Readiness:           httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore, readinessProbes...),
+		Admission:           runtime.Lifecycle,
+		PublicErrorFaults:   testRuntimeDeps.PublicErrorFaults,
+		ModuleOverrides:     moduleOverrides,
+		ExtensionEpoch:      publicationExtensionEpoch{publication: publication},
+		ExtensionDiscovery:  publicationExtensionEpoch{publication: publication},
+		ExtensionClaims:     publicationExtensionEpoch{publication: publication},
+		ExtensionRoutes:     publicationExtensionEpoch{publication: publication},
+		ExtensionWorkspaces: publicationExtensionEpoch{publication: publication},
+		Now:                 now,
 	}
 
+	if err := publication.Commit(); err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	handler, err := newHTTPHandler(httpOptions)
 	if err != nil {
 		runtime.Close()
@@ -578,11 +615,25 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	runtime.Handler = handler
-	if err := publication.Acknowledge("http", listenerPlanSHA256, nil); err != nil {
+	if err := publication.Acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
 	}
-	if err := publication.Commit(); err != nil {
+	if err := publication.Acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	for _, worker := range extensionPlan.Workers() {
+		if err := publication.Acknowledge(
+			"worker:"+worker.ProfileID+":"+worker.WorkerKind,
+			extensionPlan.Summary().WorkerPlanSHA256,
+			nil,
+		); err != nil {
+			runtime.Close()
+			return nil, err
+		}
+	}
+	if err := publication.Acknowledge("http", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -648,38 +699,29 @@ func (probe stagedCleanupReadinessProbe) CheckReadinessDependency(context.Contex
 	return errors.New(state.ReasonCode)
 }
 
-func extensionClaimRequest(descriptors []extensions.Descriptor, cfg config.Config, override []httpapi.ExtensionProfile) []string {
-	if override != nil {
-		claimed := make([]string, 0, len(override))
-		for _, profile := range override {
-			if profile.Claimed {
-				claimed = append(claimed, profile.ProfileID)
-			}
-		}
-		return claimed
-	}
-	claimed := make([]string, 0, len(descriptors))
+func extensionClaimOverride(descriptors []extensions.Descriptor, override []httpapi.ExtensionProfile) (map[string]bool, error) {
+	descriptorByProfile := make(map[string]extensions.Descriptor, len(descriptors))
+	values := make(map[string]bool, len(descriptors))
 	for _, descriptor := range descriptors {
-		isClaimed := false
-		switch descriptor.ProfileID {
-		case "enterprise_authentication":
-			isClaimed = cfg.EnterpriseAuthentication.Claimed
-		case "import":
-			isClaimed = cfg.Import.Claimed
-		case "incident_portability":
-			isClaimed = cfg.IncidentPortability.Claimed
-		case "network_flow_activity":
-			isClaimed = cfg.NetworkFlowActivity.Claimed
-		case "reference_pack":
-			isClaimed = cfg.ReferencePack.Claimed
-		case "snapshot_reporting":
-			isClaimed = cfg.SnapshotReporting.Claimed
+		if _, duplicate := descriptorByProfile[descriptor.ProfileID]; duplicate {
+			return nil, fmt.Errorf("duplicate extension profile %q", descriptor.ProfileID)
 		}
-		if isClaimed {
-			claimed = append(claimed, descriptor.ProfileID)
-		}
+		descriptorByProfile[descriptor.ProfileID] = descriptor
+		values[descriptor.ClaimConfigKey] = false
 	}
-	return claimed
+	seen := make(map[string]struct{}, len(override))
+	for _, profile := range override {
+		descriptor, present := descriptorByProfile[profile.ProfileID]
+		if !present {
+			return nil, fmt.Errorf("extension profile %q is not generated", profile.ProfileID)
+		}
+		if _, duplicate := seen[profile.ProfileID]; duplicate {
+			return nil, fmt.Errorf("duplicate extension profile %q", profile.ProfileID)
+		}
+		seen[profile.ProfileID] = struct{}{}
+		values[descriptor.ClaimConfigKey] = profile.Claimed
+	}
+	return values, nil
 }
 
 func publicationHTTPProfiles(discovery []extensions.DiscoveryProfile) []httpapi.ExtensionProfile {
@@ -709,6 +751,50 @@ func (provider publicationExtensionEpoch) ExtensionProfiles() []httpapi.Extensio
 	return publicationHTTPProfiles(provider.publication.Discovery())
 }
 
+func (provider publicationExtensionEpoch) ExtensionDiscoveryProfiles() []httpapi.ExtensionProfile {
+	return provider.ExtensionProfiles()
+}
+
+func (provider publicationExtensionEpoch) ExtensionClaims() []httpapi.ExtensionClaim {
+	if provider.publication == nil {
+		return nil
+	}
+	publication := provider.publication.Claims()
+	claims := make([]httpapi.ExtensionClaim, 0, len(publication))
+	for _, claim := range publication {
+		claims = append(claims, httpapi.ExtensionClaim{ProfileID: claim.ProfileID, Claimed: claim.Claimed})
+	}
+	return claims
+}
+
+func (provider publicationExtensionEpoch) ExtensionRoutes() []httpapi.ExtensionRoute {
+	if provider.publication == nil {
+		return nil
+	}
+	publication := provider.publication.Routes()
+	routes := make([]httpapi.ExtensionRoute, 0, len(publication))
+	for _, route := range publication {
+		routes = append(routes, httpapi.ExtensionRoute{
+			ProfileID: route.ProfileID, RouteFamily: route.RouteFamily, Claimed: route.DispatchState == "claimed",
+		})
+	}
+	return routes
+}
+
+func (provider publicationExtensionEpoch) ExtensionWorkspaces() []httpapi.ExtensionWorkspacePublication {
+	if provider.publication == nil {
+		return nil
+	}
+	publication := provider.publication.Workspaces()
+	workspaces := make([]httpapi.ExtensionWorkspacePublication, 0, len(publication))
+	for _, workspace := range publication {
+		workspaces = append(workspaces, httpapi.ExtensionWorkspacePublication{
+			ProfileID: workspace.ProfileID, WorkspaceKey: workspace.WorkspaceKey, MinimumRole: "viewer",
+		})
+	}
+	return workspaces
+}
+
 func revisionPublicationClaims(publication []extensions.ClaimPublication) []revisions.ExtensionClaim {
 	claims := make([]revisions.ExtensionClaim, 0, len(publication))
 	for _, profile := range publication {
@@ -729,6 +815,14 @@ func (r *Runtime) ActivatePublication() error {
 	}
 	if err := r.Publication.Serve(); err != nil {
 		return err
+	}
+	if r.JobRunner != nil {
+		recoveryCtx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Config.Timeouts.Extensions.ReconciliationSeconds)*time.Second)
+		defer cancel()
+		if err := r.JobRunner.Activate(recoveryCtx); err != nil {
+			r.Publication.ComponentLost("job_dequeue")
+			return fmt.Errorf("activate extension job recovery: %w", err)
+		}
 	}
 	r.publicationOnce.Do(func() {
 		if r.StagedJanitor != nil && r.stagedJanitorContext != nil {

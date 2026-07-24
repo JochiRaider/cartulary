@@ -26,21 +26,25 @@ import (
 const RequestIDHeader = "X-Request-Id"
 
 type DependencySet struct {
-	Config            config.Config
-	Env               map[string]string
-	Postgres          *pgxpool.Pool
-	PostgresDB        postgres.DB
-	ObjectStore       objectstore.Store
-	Jobs              *jobs.Manager
-	JobRunner         *jobs.Runner
-	WSHub             *platformws.Hub
-	CursorCodec       *pagination.Codec
-	ExtensionEpoch    ExtensionEpochProvider
-	Readiness         ReadinessChecker
-	Admission         AdmissionGate
-	PublicErrorFaults PublicErrorFaultStore
-	ModuleOverrides   map[string]any
-	Now               func() time.Time
+	Config              config.Config
+	Env                 map[string]string
+	Postgres            *pgxpool.Pool
+	PostgresDB          postgres.DB
+	ObjectStore         objectstore.Store
+	Jobs                *jobs.Manager
+	JobRunner           *jobs.Runner
+	WSHub               *platformws.Hub
+	CursorCodec         *pagination.Codec
+	ExtensionEpoch      ExtensionEpochProvider
+	ExtensionDiscovery  ExtensionDiscoveryProvider
+	ExtensionClaims     ExtensionClaimProvider
+	ExtensionRoutes     ExtensionRouteProvider
+	ExtensionWorkspaces ExtensionWorkspaceProvider
+	Readiness           ReadinessChecker
+	Admission           AdmissionGate
+	PublicErrorFaults   PublicErrorFaultStore
+	ModuleOverrides     map[string]any
+	Now                 func() time.Time
 }
 
 func (deps DependencySet) PostgresHandle() postgres.DB {
@@ -170,7 +174,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 
 	handler := http.Handler(mux)
-	handler = withUnclaimedReservedExtensionFamilies(handler, option.Dependencies.ExtensionEpoch)
+	handler = withUnclaimedReservedExtensionFamilies(handler, extensionRoutesFromDependencies(option.Dependencies))
 	if option.Dependencies.PublicErrorFaults != nil {
 		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
 	}
@@ -201,11 +205,10 @@ func withAdmissionGate(next http.Handler, admission AdmissionGate) http.Handler 
 	})
 }
 
-func withUnclaimedReservedExtensionFamilies(next http.Handler, provider ExtensionEpochProvider) http.Handler {
+func withUnclaimedReservedExtensionFamilies(next http.Handler, routes []ExtensionRoute) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			profiles := ExtensionProfilesFromEpoch(provider)
-			if match, ok := MatchReservedExtensionFamilyIn(profiles, r.URL.Path); ok && !match.Claimed {
+			if match, ok := MatchReservedExtensionRouteIn(routes, r.URL.Path); ok && !match.Claimed {
 				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
 					"profile_id":   match.ProfileID,
 					"route_family": match.RouteFamily,
@@ -215,6 +218,48 @@ func withUnclaimedReservedExtensionFamilies(next http.Handler, provider Extensio
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func ExtensionDiscoveryFromDependencies(deps DependencySet) []ExtensionProfile {
+	if deps.ExtensionDiscovery != nil {
+		return cloneExtensionProfiles(deps.ExtensionDiscovery.ExtensionDiscoveryProfiles())
+	}
+	return ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
+}
+
+func ExtensionClaimsFromDependencies(deps DependencySet) []ExtensionClaim {
+	if deps.ExtensionClaims != nil {
+		return cloneExtensionClaims(deps.ExtensionClaims.ExtensionClaims())
+	}
+	if provider, ok := deps.ExtensionEpoch.(ExtensionClaimProvider); ok {
+		return cloneExtensionClaims(provider.ExtensionClaims())
+	}
+	profiles := ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
+	claims := make([]ExtensionClaim, 0, len(profiles))
+	for _, profile := range profiles {
+		claims = append(claims, ExtensionClaim{ProfileID: profile.ProfileID, Claimed: profile.Claimed})
+	}
+	return claims
+}
+
+func extensionRoutesFromDependencies(deps DependencySet) []ExtensionRoute {
+	if deps.ExtensionRoutes != nil {
+		return cloneExtensionRoutes(deps.ExtensionRoutes.ExtensionRoutes())
+	}
+	if provider, ok := deps.ExtensionEpoch.(ExtensionRouteProvider); ok {
+		return cloneExtensionRoutes(provider.ExtensionRoutes())
+	}
+	return NewStaticExtensionEpochProvider(ExtensionProfilesFromEpoch(deps.ExtensionEpoch)).ExtensionRoutes()
+}
+
+func ExtensionWorkspacesFromDependencies(deps DependencySet) []ExtensionWorkspacePublication {
+	if deps.ExtensionWorkspaces != nil {
+		return cloneExtensionWorkspaces(deps.ExtensionWorkspaces.ExtensionWorkspaces())
+	}
+	if provider, ok := deps.ExtensionEpoch.(ExtensionWorkspaceProvider); ok {
+		return cloneExtensionWorkspaces(provider.ExtensionWorkspaces())
+	}
+	return NewStaticExtensionEpochProvider(ExtensionProfilesFromEpoch(deps.ExtensionEpoch)).ExtensionWorkspaces()
 }
 
 func RequestIDFromContext(ctx context.Context) string {

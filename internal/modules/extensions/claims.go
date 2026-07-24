@@ -55,3 +55,8 @@ func (claims ResolvedClaimSet) ProfileIDs() []string {
 func (claims ResolvedClaimSet) SHA256() string {
 	return claims.sha256
 }
+
+func (claims ResolvedClaimSet) Contains(profileID string) bool {
+	index := sort.SearchStrings(claims.profileIDs, profileID)
+	return index < len(claims.profileIDs) && claims.profileIDs[index] == profileID
+}

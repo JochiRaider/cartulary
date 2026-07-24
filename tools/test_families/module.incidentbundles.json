@@ -377,7 +377,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestRouteSetupRequiresImportFinalizerWhenClaimed_Unit"
+          "TestAdmittedRouteSetupRequiresImportFinalizer_Unit"
         ]
       },
       "evidence_class": "unit",

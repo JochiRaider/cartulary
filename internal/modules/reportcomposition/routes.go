@@ -27,9 +27,6 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
-			return nil
-		}
 		service, err := newService(deps)
 		if err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -13,32 +14,49 @@ import (
 var ErrRunnerClosed = errors.New("jobs: runner closed")
 var ErrHandlerNotRegistered = errors.New("jobs: handler not registered")
 var ErrHandlerAlreadyRegistered = errors.New("jobs: handler already registered")
+var ErrDequeueGateClosed = errors.New("jobs: dequeue gate closed")
 
 type HandlerFunc func(context.Context, uuid.UUID) error
 
+type DequeueGate interface {
+	AdmissionOpen() bool
+}
+
 type Runner struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	mu            sync.Mutex
-	closed        bool
-	manager       *Manager
-	workerID      string
-	leaseDuration time.Duration
-	recoverLimit  int
-	handlers      map[string]HandlerFunc
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	mu              sync.Mutex
+	closed          bool
+	manager         *Manager
+	workerID        string
+	leaseDuration   time.Duration
+	recoverLimit    int
+	handlers        map[string]HandlerFunc
+	gate            DequeueGate
+	pendingRecovery map[string]struct{}
 }
 
 func NewRunner() *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Runner{
-		ctx:           ctx,
-		cancel:        cancel,
-		workerID:      uuid.NewString(),
-		leaseDuration: 30 * time.Second,
-		recoverLimit:  100,
-		handlers:      map[string]HandlerFunc{},
+		ctx:             ctx,
+		cancel:          cancel,
+		workerID:        uuid.NewString(),
+		leaseDuration:   30 * time.Second,
+		recoverLimit:    100,
+		handlers:        map[string]HandlerFunc{},
+		pendingRecovery: map[string]struct{}{},
 	}
+}
+
+func (r *Runner) ConfigureDequeueGate(gate DequeueGate) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.gate = gate
 }
 
 func (r *Runner) Configure(manager *Manager) {
@@ -105,6 +123,51 @@ func (r *Runner) RecoverHandler(ctx context.Context, handlerName string) error {
 	if err != nil {
 		return err
 	}
+	r.mu.Lock()
+	if r.gate != nil && !r.gate.AdmissionOpen() {
+		r.pendingRecovery[handlerName] = struct{}{}
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+	return r.recoverHandler(ctx, handlerName, manager)
+}
+
+func (r *Runner) Activate(ctx context.Context) error {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		return ErrRunnerClosed
+	}
+	if r.gate != nil && !r.gate.AdmissionOpen() {
+		r.mu.Unlock()
+		return ErrDequeueGateClosed
+	}
+	handlerNames := make([]string, 0, len(r.pendingRecovery))
+	for handlerName := range r.pendingRecovery {
+		handlerNames = append(handlerNames, handlerName)
+	}
+	r.mu.Unlock()
+	sort.Strings(handlerNames)
+	for _, handlerName := range handlerNames {
+		_, manager, err := r.namedWork(handlerName)
+		if err != nil {
+			return err
+		}
+		if err := r.recoverHandler(ctx, handlerName, manager); err != nil {
+			return err
+		}
+		r.mu.Lock()
+		delete(r.pendingRecovery, handlerName)
+		r.mu.Unlock()
+	}
+	return nil
+}
+
+func (r *Runner) recoverHandler(ctx context.Context, handlerName string, manager *Manager) error {
 	jobIDs, err := manager.RecoverableHandlerJobs(ctx, handlerName, r.recoverLimit)
 	if err != nil {
 		return err
@@ -146,6 +209,9 @@ func (r *Runner) addWork() error {
 	defer r.mu.Unlock()
 	if r.closed {
 		return ErrRunnerClosed
+	}
+	if r.gate != nil && !r.gate.AdmissionOpen() {
+		return ErrDequeueGateClosed
 	}
 	r.wg.Add(1)
 	return nil

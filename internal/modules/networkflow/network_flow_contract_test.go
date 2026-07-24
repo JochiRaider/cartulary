@@ -718,13 +718,19 @@ func AssertAuthorizationBoundary(t *testing.T) {
 	routes := string(ReadFile(t, "internal/modules/networkflow/routes.go"))
 	module := string(ReadFile(t, "internal/modules/networkflow/module.go"))
 	boundary := module + "\n" + routes
-	for _, required := range []string{"ExtensionProfileClaimedBy", "requireIncidentMembership", "requireIncidentRole"} {
+	for _, required := range []string{"requireIncidentMembership", "requireIncidentRole"} {
 		if !strings.Contains(boundary, required) {
-			t.Fatalf("Network Flow routes missing authorization/admission hook %q", required)
+			t.Fatalf("Network Flow routes missing authorization hook %q", required)
+		}
+	}
+	assembly := string(ReadFile(t, "internal/app/server/runtime.go")) + "\n" + string(ReadFile(t, "internal/app/server/runtime_routes.go"))
+	for _, required := range []string{"network_flow_activity.route_family", "applicationRouteRegistrars"} {
+		if !strings.Contains(assembly, required) {
+			t.Fatalf("Network Flow application admission missing exact catalog hook %q", required)
 		}
 	}
 	httpapiGate := string(ReadFile(t, "internal/platform/httpapi/httpapi.go"))
-	for _, required := range []string{"withUnclaimedReservedExtensionFamilies", "extension_profile_not_claimed", "MatchReservedExtensionFamilyIn"} {
+	for _, required := range []string{"withUnclaimedReservedExtensionFamilies", "extension_profile_not_claimed", "MatchReservedExtensionRouteIn"} {
 		if !strings.Contains(httpapiGate, required) {
 			t.Fatalf("HTTP API extension gate missing authorization/admission hook %q", required)
 		}

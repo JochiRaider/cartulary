@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"sort"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -16,12 +18,6 @@ var requiredBuiltInRouteContributionIDs = []string{
 	"incidents",
 	"extensions",
 	"jobs",
-	"imports",
-	"network_flow",
-	"reporting",
-	"report_composition",
-	"reference_data",
-	"incident_bundles",
 	"saved_views",
 	"view_schemas",
 	"collaboration",
@@ -33,16 +29,81 @@ var requiredBuiltInRouteContributionIDs = []string{
 	"revisions",
 }
 
-func builtInRouteRegistrars(contributions []routeContribution) ([]httpapi.RouteRegistrar, error) {
+type extensionRouteBinding struct {
+	id              string
+	contributionIDs []string
+	registrar       httpapi.RouteRegistrar
+	baseRegistrarID string
+}
+
+func applicationRouteRegistrars(
+	contributions []routeContribution,
+	extensionBindings []extensionRouteBinding,
+	catalog extensionassembly.PublicationCatalog,
+) ([]httpapi.RouteRegistrar, error) {
 	if len(contributions) != len(requiredBuiltInRouteContributionIDs) {
 		return nil, fmt.Errorf("built-in route contribution count got %d want %d", len(contributions), len(requiredBuiltInRouteContributionIDs))
 	}
+	baseIDs := make(map[string]struct{}, len(contributions))
 	for index, requiredID := range requiredBuiltInRouteContributionIDs {
 		if contributions[index].id != requiredID {
 			return nil, fmt.Errorf("built-in route contribution %d got %q want %q", index, contributions[index].id, requiredID)
 		}
+		baseIDs[requiredID] = struct{}{}
 	}
-	return routeRegistrars(contributions)
+	registrars, err := routeRegistrars(contributions)
+	if err != nil {
+		return nil, err
+	}
+	claimedRoutes := catalog.ContributionIDs("http_route_family")
+	claimed := make(map[string]struct{}, len(claimedRoutes))
+	for _, contributionID := range claimedRoutes {
+		claimed[contributionID] = struct{}{}
+	}
+	consumed := make(map[string]string, len(claimedRoutes))
+	for _, binding := range extensionBindings {
+		if binding.id == "" || len(binding.contributionIDs) == 0 {
+			return nil, fmt.Errorf("extension route binding identity is incomplete")
+		}
+		admitted := true
+		for _, contributionID := range binding.contributionIDs {
+			if _, present := claimed[contributionID]; !present {
+				admitted = false
+			}
+		}
+		if !admitted {
+			for _, contributionID := range binding.contributionIDs {
+				if _, present := claimed[contributionID]; present {
+					return nil, fmt.Errorf("extension route binding %q is partially claimed", binding.id)
+				}
+			}
+			continue
+		}
+		if binding.registrar == nil {
+			if _, present := baseIDs[binding.baseRegistrarID]; !present {
+				return nil, fmt.Errorf("extension route binding %q has no registrar", binding.id)
+			}
+		} else {
+			registrars = append(registrars, binding.registrar)
+		}
+		for _, contributionID := range binding.contributionIDs {
+			if prior := consumed[contributionID]; prior != "" {
+				return nil, fmt.Errorf("extension route contribution %q is bound by %q and %q", contributionID, prior, binding.id)
+			}
+			consumed[contributionID] = binding.id
+		}
+	}
+	if len(consumed) != len(claimed) {
+		missing := make([]string, 0)
+		for contributionID := range claimed {
+			if consumed[contributionID] == "" {
+				missing = append(missing, contributionID)
+			}
+		}
+		sort.Strings(missing)
+		return nil, fmt.Errorf("claimed extension route contributions are unbound: %v", missing)
+	}
+	return registrars, nil
 }
 
 func routeRegistrars(contributions []routeContribution) ([]httpapi.RouteRegistrar, error) {

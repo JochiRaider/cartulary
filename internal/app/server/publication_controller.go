@@ -21,12 +21,13 @@ const (
 )
 
 type PublicationController struct {
-	mu           sync.RWMutex
-	lifecycle    *processlifecycle.Controller
-	state        PublicationState
-	plan         *extensions.PublicationPlan
-	expected     map[string]string
-	acknowledged map[string]struct{}
+	mu            sync.RWMutex
+	lifecycle     *processlifecycle.Controller
+	state         PublicationState
+	preparedPlan  *extensions.PublicationPlan
+	installedPlan *extensions.PublicationPlan
+	expected      map[string]string
+	acknowledged  map[string]struct{}
 }
 
 func NewPublicationController(lifecycle *processlifecycle.Controller) *PublicationController {
@@ -74,7 +75,8 @@ func (c *PublicationController) Prepare(plan extensions.PublicationPlan) error {
 	if len(expected) < 3 {
 		return c.failLocked("missing_required_components")
 	}
-	c.plan = &plan
+	c.preparedPlan = &plan
+	c.installedPlan = nil
 	c.expected = expected
 	c.acknowledged = map[string]struct{}{}
 	c.state = PublicationPrepared
@@ -87,7 +89,7 @@ func (c *PublicationController) Acknowledge(componentID string, planSHA256 strin
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationPrepared {
+	if c.state != PublicationCommitted || c.installedPlan == nil {
 		return c.failLocked("early_acknowledgment")
 	}
 	expectedDigest, known := c.expected[componentID]
@@ -110,21 +112,29 @@ func (c *PublicationController) Commit() error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationPrepared || c.plan == nil || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
+	if c.state != PublicationPrepared || c.preparedPlan == nil || c.installedPlan != nil ||
+		c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
 		return c.failLocked("invalid_commit_state")
 	}
-	if len(c.acknowledged) != len(c.expected) {
-		missing := make([]string, 0)
-		for componentID := range c.expected {
-			if _, ok := c.acknowledged[componentID]; !ok {
-				missing = append(missing, componentID)
-			}
-		}
-		sort.Strings(missing)
-		return c.failLocked("missing_acknowledgment:" + fmt.Sprint(missing))
-	}
+	installed := *c.preparedPlan
+	c.installedPlan = &installed
+	c.preparedPlan = nil
 	c.state = PublicationCommitted
 	return nil
+}
+
+func (c *PublicationController) missingAcknowledgmentsLocked() []string {
+	if len(c.acknowledged) == len(c.expected) {
+		return nil
+	}
+	missing := make([]string, 0)
+	for componentID := range c.expected {
+		if _, ok := c.acknowledged[componentID]; !ok {
+			missing = append(missing, componentID)
+		}
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 func (c *PublicationController) Serve() error {
@@ -133,8 +143,11 @@ func (c *PublicationController) Serve() error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationCommitted || c.plan == nil || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
+	if c.state != PublicationCommitted || c.installedPlan == nil || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
 		return c.failLocked("invalid_serving_state")
+	}
+	if missing := c.missingAcknowledgmentsLocked(); len(missing) > 0 {
+		return c.failLocked("missing_acknowledgment:" + fmt.Sprint(missing))
 	}
 	if err := c.lifecycle.Publish(); err != nil {
 		return c.failLocked("admission_gate_failed")
@@ -160,17 +173,26 @@ func (c *PublicationController) ComponentLost(componentID string) bool {
 		return false
 	}
 	c.mu.Lock()
-	if c.state != PublicationServing || c.lifecycle == nil {
+	if c.lifecycle == nil || (c.state != PublicationPrepared && c.state != PublicationCommitted && c.state != PublicationServing) {
 		c.mu.Unlock()
 		return false
 	}
+	if _, expected := c.expected[componentID]; !expected {
+		c.mu.Unlock()
+		return false
+	}
+	wasServing := c.state == PublicationServing
 	c.state = PublicationFailed
-	c.plan = nil
+	c.preparedPlan = nil
+	c.installedPlan = nil
 	c.expected = nil
 	c.acknowledged = nil
 	lifecycle := c.lifecycle
 	c.mu.Unlock()
-	return lifecycle.Fatal("published_component_lost")
+	if wasServing {
+		return lifecycle.Fatal("published_component_lost")
+	}
+	return true
 }
 
 func (c *PublicationController) State() PublicationState {
@@ -201,10 +223,10 @@ func (c *PublicationController) Discovery() []extensions.DiscoveryProfile {
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.plan == nil {
+	if c.installedPlan == nil {
 		return nil
 	}
-	return c.plan.Discovery()
+	return c.installedPlan.Discovery()
 }
 
 func (c *PublicationController) Claims() []extensions.ClaimPublication {
@@ -213,10 +235,82 @@ func (c *PublicationController) Claims() []extensions.ClaimPublication {
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.plan == nil {
+	if c.installedPlan == nil {
 		return nil
 	}
-	return c.plan.Claims()
+	return c.installedPlan.Claims()
+}
+
+func (c *PublicationController) Routes() []extensions.RouteDispatch {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.Routes()
+}
+
+func (c *PublicationController) Workspaces() []extensions.WorkspacePublication {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.Workspaces()
+}
+
+func (c *PublicationController) Workers() []extensions.WorkerPublication {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.Workers()
+}
+
+func (c *PublicationController) JobKindContracts() []extensions.JobKindContract {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.JobKindContracts()
+}
+
+func (c *PublicationController) Contributions() []extensions.ContributionPublication {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.Contributions()
+}
+
+func (c *PublicationController) ImplementationBindings() []extensions.ImplementationBindingPublication {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.installedPlan == nil {
+		return nil
+	}
+	return c.installedPlan.ImplementationBindings()
 }
 
 func (c *PublicationController) ResolvedClaims() extensions.ResolvedClaimSet {
@@ -225,10 +319,10 @@ func (c *PublicationController) ResolvedClaims() extensions.ResolvedClaimSet {
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.plan == nil {
+	if c.installedPlan == nil {
 		return extensions.ResolvedClaimSet{}
 	}
-	return c.plan.ResolvedClaims()
+	return c.installedPlan.ResolvedClaims()
 }
 
 func (c *PublicationController) Summary() (extensions.PublicationPlanSummary, bool) {
@@ -237,16 +331,17 @@ func (c *PublicationController) Summary() (extensions.PublicationPlanSummary, bo
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.plan == nil {
+	if c.installedPlan == nil {
 		return extensions.PublicationPlanSummary{}, false
 	}
-	return c.plan.Summary(), true
+	return c.installedPlan.Summary(), true
 }
 
 func (c *PublicationController) failLocked(reason string) error {
 	wasServing := c.state == PublicationServing
 	c.state = PublicationFailed
-	c.plan = nil
+	c.preparedPlan = nil
+	c.installedPlan = nil
 	c.expected = nil
 	c.acknowledged = nil
 	if wasServing && c.lifecycle != nil {

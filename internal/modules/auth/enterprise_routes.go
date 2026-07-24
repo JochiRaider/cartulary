@@ -545,17 +545,29 @@ func (s *Service) enterpriseCompletionError(err error) *httpapi.APIError {
 }
 
 func (s *Service) requireEnterpriseProfileClaimed(path string) *httpapi.APIError {
-	if httpapi.ExtensionProfileClaimedIn(s.profiles, "enterprise_authentication") {
+	if s.enterpriseClaimed {
 		return nil
 	}
-	match, _ := httpapi.MatchReservedExtensionFamilyIn(s.profiles, path)
 	return &httpapi.APIError{
 		Status: http.StatusNotFound,
 		Code:   "extension_profile_not_claimed",
 		Details: map[string]any{
 			"profile_id":   "enterprise_authentication",
-			"route_family": match.RouteFamily,
+			"route_family": enterpriseRouteFamily(path),
 		},
+	}
+}
+
+func enterpriseRouteFamily(path string) string {
+	switch {
+	case strings.HasPrefix(path, "/api/v1/auth/providers"):
+		return "/api/v1/auth/providers"
+	case strings.HasPrefix(path, "/api/v1/auth/oidc"):
+		return "/api/v1/auth/oidc"
+	case strings.HasPrefix(path, "/api/v1/auth/saml"):
+		return "/api/v1/auth/saml"
+	default:
+		return "/api/v1/users/{user_id}/auth-bindings"
 	}
 }
 

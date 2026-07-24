@@ -38,15 +38,12 @@ type Service struct {
 	limits                 config.ImportLimits
 	archiveLimits          config.ArchiveLimits
 	extensionImportFacades map[string]ExtensionImportFacade
-	extensionProfiles      []httpapi.ExtensionProfile
+	extensionClaims        []httpapi.ExtensionClaim
 	now                    func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
-			return nil
-		}
 		service, err := newService(deps)
 		if err != nil {
 			return err
@@ -89,7 +86,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		limits:                 deps.Config.Limits.Imports,
 		archiveLimits:          deps.Config.Limits.Archives,
 		extensionImportFacades: extensionImportFacades,
-		extensionProfiles:      httpapi.ExtensionProfilesFromEpoch(deps.ExtensionEpoch),
+		extensionClaims:        httpapi.ExtensionClaimsFromDependencies(deps),
 		now:                    now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
@@ -621,7 +618,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 }
 
 func (s *Service) extensionProfileClaimed(profileID string) bool {
-	return httpapi.ExtensionProfileClaimedIn(s.extensionProfiles, profileID)
+	return httpapi.ExtensionProfileClaimedInProjection(s.extensionClaims, profileID)
 }
 
 func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, route importSessionRoute, request MappingRequest) (MappingRequest, *httpapi.APIError) {

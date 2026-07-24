@@ -117,6 +117,27 @@ type ClaimConfig struct {
 	Claimed bool `toml:"claimed"`
 }
 
+// BooleanValuesAtPaths projects normalized configuration without teaching
+// application composition about concrete profile fields. Every requested path
+// must resolve to one Boolean field.
+func BooleanValuesAtPaths(cfg Config, paths []string) (map[string]bool, error) {
+	values := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			return nil, fmt.Errorf("configuration Boolean path is required")
+		}
+		if _, duplicate := values[path]; duplicate {
+			return nil, fmt.Errorf("duplicate configuration Boolean path %q", path)
+		}
+		value, present := configBoolAtPath(&cfg, path)
+		if !present {
+			return nil, fmt.Errorf("configuration Boolean path %q is unresolved", path)
+		}
+		values[path] = value
+	}
+	return values, nil
+}
+
 type TimeoutConfig struct {
 	Extensions ExtensionTimeoutConfig `toml:"extensions"`
 }

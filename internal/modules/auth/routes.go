@@ -41,7 +41,7 @@ type Service struct {
 	env                     map[string]string
 	publicOrigin            string
 	now                     func() time.Time
-	profiles                []httpapi.ExtensionProfile
+	enterpriseClaimed       bool
 	oidcVerifier            enterpriseOIDCVerifier
 	samlVerifier            enterpriseSAMLVerifier
 	beginRedirect           enterpriseBeginRedirectBuilder
@@ -196,9 +196,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
-	profiles := httpapi.ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
+	enterpriseClaimed := httpapi.ExtensionProfileClaimedInProjection(
+		httpapi.ExtensionClaimsFromDependencies(deps),
+		"enterprise_authentication",
+	)
 	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})
-	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+	if enterpriseClaimed {
 		oidcVerifier = enterpriseOIDCVerifier(enterpriseauth.ProductionOIDCVerifier{})
 	}
 	beginRedirect := enterpriseBeginRedirectBuilder(enterpriseauth.BuildBeginRedirect)
@@ -211,7 +214,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		}
 	}
 	samlVerifier := enterpriseSAMLVerifier(enterpriseauth.UnconfiguredSAMLVerifier{})
-	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+	if enterpriseClaimed {
 		samlVerifier = enterpriseSAMLVerifier(enterpriseauth.ProductionSAMLVerifier{})
 	}
 	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok {
@@ -239,7 +242,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		env:                     deps.Env,
 		publicOrigin:            deps.Config.Application.PublicOrigin,
 		now:                     now,
-		profiles:                profiles,
+		enterpriseClaimed:       enterpriseClaimed,
 		oidcVerifier:            oidcVerifier,
 		samlVerifier:            samlVerifier,
 		beginRedirect:           beginRedirect,

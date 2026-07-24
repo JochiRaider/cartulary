@@ -55,9 +55,6 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		}
 	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
-			return nil
-		}
 		service, err := newService(deps, resolved)
 		if err != nil {
 			return err

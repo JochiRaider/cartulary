@@ -29,6 +29,23 @@ type ExtensionWorkspace struct {
 	MinimumRole  string
 }
 
+type ExtensionClaim struct {
+	ProfileID string
+	Claimed   bool
+}
+
+type ExtensionRoute struct {
+	ProfileID   string
+	RouteFamily string
+	Claimed     bool
+}
+
+type ExtensionWorkspacePublication struct {
+	ProfileID    string
+	WorkspaceKey string
+	MinimumRole  string
+}
+
 type ReservedExtensionMatch struct {
 	ProfileID   string
 	Claimed     bool
@@ -40,6 +57,22 @@ type ReservedExtensionMatch struct {
 // installed immutable publication plan.
 type ExtensionEpochProvider interface {
 	ExtensionProfiles() []ExtensionProfile
+}
+
+type ExtensionDiscoveryProvider interface {
+	ExtensionDiscoveryProfiles() []ExtensionProfile
+}
+
+type ExtensionClaimProvider interface {
+	ExtensionClaims() []ExtensionClaim
+}
+
+type ExtensionRouteProvider interface {
+	ExtensionRoutes() []ExtensionRoute
+}
+
+type ExtensionWorkspaceProvider interface {
+	ExtensionWorkspaces() []ExtensionWorkspacePublication
 }
 
 type StaticExtensionEpochProvider struct {
@@ -54,6 +87,45 @@ func (p StaticExtensionEpochProvider) ExtensionProfiles() []ExtensionProfile {
 	return cloneExtensionProfiles(p.profiles)
 }
 
+func (p StaticExtensionEpochProvider) ExtensionDiscoveryProfiles() []ExtensionProfile {
+	return cloneExtensionProfiles(p.profiles)
+}
+
+func (p StaticExtensionEpochProvider) ExtensionClaims() []ExtensionClaim {
+	claims := make([]ExtensionClaim, 0, len(p.profiles))
+	for _, profile := range p.profiles {
+		claims = append(claims, ExtensionClaim{ProfileID: profile.ProfileID, Claimed: profile.Claimed})
+	}
+	return claims
+}
+
+func (p StaticExtensionEpochProvider) ExtensionRoutes() []ExtensionRoute {
+	routes := []ExtensionRoute{}
+	for _, profile := range p.profiles {
+		for _, routeFamily := range profile.RouteFamilies {
+			routes = append(routes, ExtensionRoute{
+				ProfileID: profile.ProfileID, RouteFamily: routeFamily, Claimed: profile.Claimed,
+			})
+		}
+	}
+	return routes
+}
+
+func (p StaticExtensionEpochProvider) ExtensionWorkspaces() []ExtensionWorkspacePublication {
+	workspaces := []ExtensionWorkspacePublication{}
+	for _, profile := range p.profiles {
+		if !profile.Claimed {
+			continue
+		}
+		for _, workspace := range profile.Workspaces {
+			workspaces = append(workspaces, ExtensionWorkspacePublication{
+				ProfileID: profile.ProfileID, WorkspaceKey: workspace.WorkspaceKey, MinimumRole: workspace.MinimumRole,
+			})
+		}
+	}
+	return workspaces
+}
+
 func ExtensionProfilesFromEpoch(provider ExtensionEpochProvider) []ExtensionProfile {
 	if provider == nil {
 		return nil
@@ -63,6 +135,15 @@ func ExtensionProfilesFromEpoch(provider ExtensionEpochProvider) []ExtensionProf
 
 func ExtensionProfileClaimedBy(provider ExtensionEpochProvider, profileID string) bool {
 	return ExtensionProfileClaimedIn(ExtensionProfilesFromEpoch(provider), profileID)
+}
+
+func ExtensionProfileClaimedInProjection(claims []ExtensionClaim, profileID string) bool {
+	for _, claim := range claims {
+		if claim.ProfileID == profileID {
+			return claim.Claimed
+		}
+	}
+	return false
 }
 
 var (
@@ -175,6 +256,17 @@ func MatchReservedExtensionFamilyIn(profiles []ExtensionProfile, path string) (R
 	return ReservedExtensionMatch{}, false
 }
 
+func MatchReservedExtensionRouteIn(routes []ExtensionRoute, path string) (ReservedExtensionMatch, bool) {
+	for _, route := range routes {
+		if routeFamilyMatchesPath(route.RouteFamily, path) {
+			return ReservedExtensionMatch{
+				ProfileID: route.ProfileID, Claimed: route.Claimed, RouteFamily: route.RouteFamily,
+			}, true
+		}
+	}
+	return ReservedExtensionMatch{}, false
+}
+
 func SetCurrentExtensionProfilesForTesting(profiles []ExtensionProfile) func() {
 	extensionProfilesMu.Lock()
 	previous := cloneExtensionProfiles(currentProfileExtensions)
@@ -238,6 +330,18 @@ func cloneExtensionProfiles(profiles []ExtensionProfile) []ExtensionProfile {
 		})
 	}
 	return cloned
+}
+
+func cloneExtensionClaims(claims []ExtensionClaim) []ExtensionClaim {
+	return append([]ExtensionClaim(nil), claims...)
+}
+
+func cloneExtensionRoutes(routes []ExtensionRoute) []ExtensionRoute {
+	return append([]ExtensionRoute(nil), routes...)
+}
+
+func cloneExtensionWorkspaces(workspaces []ExtensionWorkspacePublication) []ExtensionWorkspacePublication {
+	return append([]ExtensionWorkspacePublication(nil), workspaces...)
 }
 
 func cloneInt(value *int) *int {

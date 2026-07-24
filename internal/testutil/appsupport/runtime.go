@@ -27,6 +27,7 @@ type ServerHarness struct {
 type ServerOptions struct {
 	Prefix           string
 	Database         *pgtest.TestDatabase
+	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
 	ObjectStore      objectstore.Store
@@ -68,6 +69,9 @@ func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarnes
 
 	env := testDB.Env()
 	for key, value := range r.S3.Env(bucket) {
+		env[key] = value
+	}
+	for key, value := range options.Env {
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")

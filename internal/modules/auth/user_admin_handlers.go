@@ -193,13 +193,13 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if match, ok := httpapi.MatchReservedExtensionFamilyIn(s.profiles, r.URL.Path); ok && !match.Claimed {
+	if len(segments) > 1 && segments[1] == "auth-bindings" && !s.enterpriseClaimed {
 		writeAPIError(w, r, &httpapi.APIError{
 			Status: http.StatusNotFound,
 			Code:   "extension_profile_not_claimed",
 			Details: map[string]any{
-				"profile_id":   match.ProfileID,
-				"route_family": match.RouteFamily,
+				"profile_id":   "enterprise_authentication",
+				"route_family": "/api/v1/users/{user_id}/auth-bindings",
 			},
 		})
 		return

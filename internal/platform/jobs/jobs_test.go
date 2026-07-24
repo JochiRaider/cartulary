@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -200,6 +201,8 @@ func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
 
 	runner := jobs.NewRunner()
 	runner.Configure(manager)
+	gate := &dequeueGate{}
+	runner.ConfigureDequeueGate(gate)
 	t.Cleanup(func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -228,7 +231,16 @@ func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
 	}
 
 	if err := runner.RecoverHandler(ctx, "test.recover"); err != nil {
-		t.Fatalf("recover durable handler jobs: %v", err)
+		t.Fatalf("queue durable handler recovery: %v", err)
+	}
+	select {
+	case <-handled:
+		t.Fatal("recovered durable job before dequeue gate opened")
+	case <-time.After(25 * time.Millisecond):
+	}
+	gate.open.Store(true)
+	if err := runner.Activate(ctx); err != nil {
+		t.Fatalf("activate durable handler recovery: %v", err)
 	}
 	waitForDurableJobHandler(t, handled)
 	completed, err := manager.Get(ctx, jobID)
@@ -238,6 +250,14 @@ func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
 	if completed.Status != jobs.StatusSucceeded || completed.ResultSummary == nil || completed.ResultSummary.Code != "durable_handler_recovered" {
 		t.Fatalf("unexpected recovered durable job: %#v", completed)
 	}
+}
+
+type dequeueGate struct {
+	open atomic.Bool
+}
+
+func (gate *dequeueGate) AdmissionOpen() bool {
+	return gate != nil && gate.open.Load()
 }
 
 func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {

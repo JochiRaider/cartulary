@@ -131,6 +131,8 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
+          "TestBooleanValuesAtPathsProjectsOnlyRequestedClaims_Unit",
+          "TestBooleanValuesAtPathsRejectsUnknownAndDuplicatePaths_Unit",
           "TestExtensionRuntimeConfig_Unit"
         ]
       },

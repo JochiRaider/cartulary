@@ -159,6 +159,18 @@
       "rationale": "Config loader fixtures for valid and invalid platform configuration behavior."
     },
     {
+      "path": "internal/testutil/fixtures/enterprise-auth",
+      "owner": "auth",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": [
+        "fixture"
+      ],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Production-shaped empty Enterprise Authentication provider manifest used by application runtime tests."
+    },
+    {
       "path": "internal/testutil/fixtures/envelopes",
       "owner": "platform_httpapi",
       "posture": "shared",

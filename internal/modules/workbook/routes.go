@@ -317,7 +317,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		indicatorOwner: indicatorStore,
 		conflictTokens: conflictTokens,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistry(httpapi.ExtensionProfilesFromEpoch(deps.ExtensionEpoch))),
+		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistryFromPublication(httpapi.ExtensionWorkspacesFromDependencies(deps))),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:    cursorCodec,

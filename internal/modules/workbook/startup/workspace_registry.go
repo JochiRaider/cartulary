@@ -61,6 +61,25 @@ func NewWorkspaceRegistry(profiles []httpapi.ExtensionProfile) *WorkspaceRegistr
 	return registry
 }
 
+func NewWorkspaceRegistryFromPublication(workspaces []httpapi.ExtensionWorkspacePublication) *WorkspaceRegistry {
+	registry := &WorkspaceRegistry{profiles: map[string]workspaceProfile{}}
+	for _, workspace := range workspaces {
+		profileID := strings.TrimSpace(workspace.ProfileID)
+		workspaceKey := strings.TrimSpace(workspace.WorkspaceKey)
+		minimumRole := strings.TrimSpace(workspace.MinimumRole)
+		if profileID == "" || workspaceKey == "" || minimumRole == "" {
+			continue
+		}
+		entry := registry.profiles[profileID]
+		if entry.workspaces == nil {
+			entry = workspaceProfile{claimed: true, workspaces: map[string]string{}}
+		}
+		entry.workspaces[workspaceKey] = minimumRole
+		registry.profiles[profileID] = entry
+	}
+	return registry
+}
+
 func (r *WorkspaceRegistry) ResolveWorkspace(ref SheetRef, role string) string {
 	if !validExtensionToken(ref.ExtensionProfileID) {
 		return "invalid_extension_profile_id"

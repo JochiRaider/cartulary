@@ -15,7 +15,7 @@ import (
 type service struct {
 	authStore *authn.Store
 	keys      authn.MasterKeys
-	epoch     httpapi.ExtensionEpochProvider
+	profiles  []httpapi.ExtensionProfile
 	now       func() time.Time
 }
 
@@ -42,7 +42,7 @@ func newService(deps httpapi.DependencySet) (*service, error) {
 	return &service{
 		authStore: authn.NewStore(deps.PostgresHandle()),
 		keys:      keys,
-		epoch:     deps.ExtensionEpoch,
+		profiles:  httpapi.ExtensionDiscoveryFromDependencies(deps),
 		now:       now,
 	}, nil
 }
@@ -66,8 +66,7 @@ func (s *service) handleCollection(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	profiles := httpapi.ExtensionProfilesFromEpoch(s.epoch)
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResponseData(profiles))
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResponseData(s.profiles))
 }
 
 func slideSessionIfNeeded(

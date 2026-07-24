@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
@@ -1506,13 +1507,19 @@ type sessionRow struct {
 func startServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	harness := runtime.StartServerWithDependencies(t, prefix, httpapi.DependencySet{
-		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(httpapi.CurrentExtensionProfiles()),
+	profiles := httpapi.CurrentExtensionProfiles()
+	env := map[string]string{}
+	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+		env["CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED"] = "true"
+		env["CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH"] = fixtures.Path("enterprise-auth", "empty.json")
+	}
+	harness := runtime.StartServerWithDependenciesAndEnv(t, prefix, httpapi.DependencySet{
+		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(profiles),
 		ModuleOverrides: map[string]any{
 			auth.EnterpriseOIDCVerifierOverrideKey: enterpriseauthtest.DeterministicOIDCVerifier{},
 			auth.EnterpriseSAMLVerifierOverrideKey: enterpriseauthtest.DeterministicSAMLVerifier{},
 		},
-	}, auth.RegisterTestRoutes())
+	}, env, auth.RegisterTestRoutes())
 	return harness.Server, harness.DB
 }
 

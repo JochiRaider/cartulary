@@ -410,6 +410,17 @@ type WorkerPublication struct {
 	WorkerKind string
 }
 
+type ContributionPublication struct {
+	ProfileID                   string
+	ContributionID              string
+	Kind                        string
+	ContributionSHA256          string
+	ImplementationBindingSHA256 string
+	RouteFamily                 string
+	WorkspaceKey                string
+	ParticipantID               string
+}
+
 type JobResourceRefContract struct {
 	ResourceRefKind    string
 	ResourceIDSchemaID string
@@ -523,17 +534,23 @@ type PublicationPlanSummary struct {
 
 type PublicationPlan struct {
 	summary                PublicationPlanSummary
+	contributions          []ContributionPublication
 	discovery              []DiscoveryProfile
 	claims                 []ClaimPublication
 	routes                 []RouteDispatch
 	workspaces             []WorkspacePublication
 	workers                []WorkerPublication
+	jobContracts           []JobKindContract
 	listeners              []ListenerPublication
 	implementationBindings []ImplementationBindingPublication
 	resolvedClaims         ResolvedClaimSet
 }
 
 func (p PublicationPlan) Summary() PublicationPlanSummary { return p.summary }
+
+func (p PublicationPlan) Contributions() []ContributionPublication {
+	return append([]ContributionPublication(nil), p.contributions...)
+}
 
 func (p PublicationPlan) Routes() []RouteDispatch {
 	result := append([]RouteDispatch(nil), p.routes...)
@@ -552,6 +569,10 @@ func (p PublicationPlan) Workspaces() []WorkspacePublication {
 
 func (p PublicationPlan) Workers() []WorkerPublication {
 	return append([]WorkerPublication(nil), p.workers...)
+}
+
+func (p PublicationPlan) JobKindContracts() []JobKindContract {
+	return cloneJobKindContracts(p.jobContracts)
 }
 
 func (p PublicationPlan) Discovery() []DiscoveryProfile {
@@ -611,6 +632,7 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	}
 
 	contributionItems := []any{}
+	contributionPublications := []ContributionPublication{}
 	routeItems := []any{}
 	workspaceItems := []any{}
 	workerItems := []any{}
@@ -618,6 +640,7 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	routes := []RouteDispatch{}
 	workspaces := []WorkspacePublication{}
 	workers := []WorkerPublication{}
+	jobContracts := []JobKindContract{}
 	discovery := []DiscoveryProfile{}
 	claims := []ClaimPublication{}
 	implementationBindings := []ImplementationBindingPublication{}
@@ -649,9 +672,20 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 				contributionByWorkspace[stringValue(contribution["workspace_key"])] = contributionID
 			}
 			if isClaimed {
+				contributionDigest := canonicalDigest(contribution)
 				contributionItems = append(contributionItems, map[string]any{
 					"profile_id": profileID, "contribution_id": contributionID, "kind": kind,
-					"contribution_sha256": canonicalDigest(contribution), "implementation_binding_sha256": record.bindingSHA256,
+					"contribution_sha256": contributionDigest, "implementation_binding_sha256": record.bindingSHA256,
+				})
+				contributionPublications = append(contributionPublications, ContributionPublication{
+					ProfileID:                   profileID,
+					ContributionID:              contributionID,
+					Kind:                        kind,
+					ContributionSHA256:          contributionDigest,
+					ImplementationBindingSHA256: record.bindingSHA256,
+					RouteFamily:                 stringValue(contribution["route_family"]),
+					WorkspaceKey:                stringValue(contribution["workspace_key"]),
+					ParticipantID:               stringValue(contribution["participant_id"]),
 				})
 			}
 		}
@@ -681,6 +715,7 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 			workerItems = append(workerItems, map[string]any{"profile_id": profileID, "worker_kind": workerKind})
 			workers = append(workers, WorkerPublication{ProfileID: profileID, WorkerKind: workerKind})
 		}
+		jobContracts = append(jobContracts, cloneJobKindContracts(record.jobContracts)...)
 		bindingItems = append(bindingItems, map[string]any{"profile_id": profileID, "binding_sha256": record.bindingSHA256})
 		implementationBindings = append(implementationBindings, ImplementationBindingPublication{ProfileID: profileID, BindingSHA256: record.bindingSHA256})
 	}
@@ -690,6 +725,14 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	})
 	sort.Slice(routes, func(i, j int) bool {
 		return routes[i].RouteFamily+"\x00"+routes[i].ProfileID < routes[j].RouteFamily+"\x00"+routes[j].ProfileID
+	})
+	sort.Slice(contributionPublications, func(i, j int) bool {
+		return contributionPublications[i].ProfileID+"\x00"+contributionPublications[i].ContributionID <
+			contributionPublications[j].ProfileID+"\x00"+contributionPublications[j].ContributionID
+	})
+	sort.Slice(jobContracts, func(i, j int) bool {
+		return jobContracts[i].ProfileID+"\x00"+jobContracts[i].JobKind <
+			jobContracts[j].ProfileID+"\x00"+jobContracts[j].JobKind
 	})
 
 	componentDigests := map[string]string{
@@ -719,7 +762,8 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 			WorkerPlanSHA256: componentDigests["worker_plan_sha256"], ListenerPlanSHA256: componentDigests["listener_plan_sha256"],
 			ClientSupportRegistrySHA256: c.clientSupportSHA256, ImplementationBindingSetSHA256: componentDigests["implementation_binding_set_sha256"],
 		},
-		discovery: discovery, claims: claims, routes: routes, workspaces: workspaces, workers: workers,
+		contributions: contributionPublications, discovery: discovery, claims: claims, routes: routes,
+		workspaces: workspaces, workers: workers, jobContracts: jobContracts,
 		listeners:              []ListenerPublication{{ComponentID: "http"}, {ComponentID: "job_dequeue"}, {ComponentID: "websocket"}},
 		implementationBindings: implementationBindings, resolvedClaims: resolution.Claims(),
 	}, nil

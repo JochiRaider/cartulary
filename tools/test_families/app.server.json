@@ -620,6 +620,38 @@
       ]
     },
     {
+      "row_id": "app.server.unit.extension_policy_catalog_7f6ad80724",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.config"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestPublicationCatalog_ExactGeneratedSets_Unit",
+          "TestPublicationCatalog_RejectsParticipantMismatch_Unit",
+          "TestResolveClaimRequestRejectsIncompleteOrExtraProjection_Unit",
+          "TestResolveClaimRequestUsesGeneratedClaimKeys_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-214"
+      ]
+    },
+    {
       "row_id": "app.server.unit.extension_process_lifecycle_f9457096a3",
       "owner_id": "app.server",
       "family_id": "app.server.unit",
@@ -670,6 +702,7 @@
           "TestRuntime_ExtensionPublication_AcknowledgmentValidation",
           "TestRuntime_ExtensionPublication_AtomicAdmissionGate",
           "TestRuntime_ExtensionPublication_CurrentAssemblyParity",
+          "TestRuntime_ExtensionPublication_DequeueGate",
           "TestRuntime_ExtensionPublication_FailureNoExposure",
           "TestRuntime_ExtensionPublication_MixedClaimProfileDomains",
           "TestRuntime_ExtensionPublication_NoIndependentRederivation",

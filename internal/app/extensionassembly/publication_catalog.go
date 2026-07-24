@@ -1,0 +1,200 @@
+package extensionassembly
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+)
+
+type PublicationCatalog struct {
+	contributions map[string]extensions.ContributionPublication
+	workers       map[string]extensions.WorkerPublication
+	jobs          map[string]extensions.JobKindContract
+	participants  map[string]extensions.ParticipantContract
+	bindings      map[string]extensions.ImplementationBindingPublication
+}
+
+func NewPublicationCatalog(plan extensions.PublicationPlan, participantContracts []extensions.ParticipantContract) (PublicationCatalog, error) {
+	catalog := PublicationCatalog{
+		contributions: map[string]extensions.ContributionPublication{},
+		workers:       map[string]extensions.WorkerPublication{},
+		jobs:          map[string]extensions.JobKindContract{},
+		participants:  map[string]extensions.ParticipantContract{},
+		bindings:      map[string]extensions.ImplementationBindingPublication{},
+	}
+	participantSources := make(map[string]extensions.ParticipantContract, len(participantContracts))
+	for _, participant := range participantContracts {
+		if participant.ParticipantID == "" || participant.OwnerProfileID == "" {
+			return PublicationCatalog{}, fmt.Errorf("extension publication participant identity is incomplete")
+		}
+		if _, duplicate := participantSources[participant.ParticipantID]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication participant %q", participant.ParticipantID)
+		}
+		participantSources[participant.ParticipantID] = cloneParticipantContract(participant)
+	}
+
+	usedParticipants := map[string]struct{}{}
+	for _, contribution := range plan.Contributions() {
+		if contribution.ContributionID == "" || contribution.ProfileID == "" ||
+			contribution.Kind == "" || contribution.ContributionSHA256 == "" ||
+			contribution.ImplementationBindingSHA256 == "" {
+			return PublicationCatalog{}, fmt.Errorf("extension publication contribution identity is incomplete")
+		}
+		if _, duplicate := catalog.contributions[contribution.ContributionID]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication contribution %q", contribution.ContributionID)
+		}
+		catalog.contributions[contribution.ContributionID] = contribution
+		if contribution.ParticipantID == "" {
+			continue
+		}
+		participant, present := participantSources[contribution.ParticipantID]
+		if !present || participant.OwnerProfileID != contribution.ProfileID {
+			return PublicationCatalog{}, fmt.Errorf("extension contribution %q has no exact participant", contribution.ContributionID)
+		}
+		if _, duplicate := catalog.participants[contribution.ParticipantID]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication participant %q", contribution.ParticipantID)
+		}
+		catalog.participants[contribution.ParticipantID] = participant
+		usedParticipants[contribution.ParticipantID] = struct{}{}
+	}
+	for _, participant := range participantContracts {
+		if plan.ResolvedClaims().Contains(participant.OwnerProfileID) {
+			if _, used := usedParticipants[participant.ParticipantID]; !used {
+				return PublicationCatalog{}, fmt.Errorf("claimed extension participant %q has no contribution", participant.ParticipantID)
+			}
+		}
+	}
+	for _, worker := range plan.Workers() {
+		if worker.ProfileID == "" || worker.WorkerKind == "" {
+			return PublicationCatalog{}, fmt.Errorf("extension publication worker identity is incomplete")
+		}
+		if _, duplicate := catalog.workers[worker.WorkerKind]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication worker %q", worker.WorkerKind)
+		}
+		catalog.workers[worker.WorkerKind] = worker
+	}
+	for _, binding := range plan.ImplementationBindings() {
+		if binding.ProfileID == "" || binding.BindingSHA256 == "" {
+			return PublicationCatalog{}, fmt.Errorf("extension publication implementation binding identity is incomplete")
+		}
+		if _, duplicate := catalog.bindings[binding.ProfileID]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication implementation binding %q", binding.ProfileID)
+		}
+		catalog.bindings[binding.ProfileID] = binding
+	}
+	for contributionID, contribution := range catalog.contributions {
+		binding, present := catalog.bindings[contribution.ProfileID]
+		if !present || binding.BindingSHA256 != contribution.ImplementationBindingSHA256 {
+			return PublicationCatalog{}, fmt.Errorf("extension contribution %q has no exact implementation binding", contributionID)
+		}
+	}
+	for workerKind, worker := range catalog.workers {
+		if _, present := catalog.bindings[worker.ProfileID]; !present {
+			return PublicationCatalog{}, fmt.Errorf("extension worker %q has no implementation binding", workerKind)
+		}
+	}
+	for _, job := range plan.JobKindContracts() {
+		if job.ProfileID == "" || job.JobKind == "" {
+			return PublicationCatalog{}, fmt.Errorf("extension publication job identity is incomplete")
+		}
+		if _, duplicate := catalog.jobs[job.JobKind]; duplicate {
+			return PublicationCatalog{}, fmt.Errorf("duplicate extension publication job %q", job.JobKind)
+		}
+		catalog.jobs[job.JobKind] = cloneJobKindContract(job)
+	}
+	for jobKind, job := range catalog.jobs {
+		if _, present := catalog.bindings[job.ProfileID]; !present {
+			return PublicationCatalog{}, fmt.Errorf("extension job %q has no implementation binding", jobKind)
+		}
+	}
+	return catalog, nil
+}
+
+func (catalog PublicationCatalog) Contribution(contributionID string) (extensions.ContributionPublication, bool) {
+	contribution, present := catalog.contributions[contributionID]
+	return contribution, present
+}
+
+func (catalog PublicationCatalog) Worker(workerKind string) (extensions.WorkerPublication, bool) {
+	worker, present := catalog.workers[workerKind]
+	return worker, present
+}
+
+func (catalog PublicationCatalog) Job(jobKind string) (extensions.JobKindContract, bool) {
+	job, present := catalog.jobs[jobKind]
+	return cloneJobKindContract(job), present
+}
+
+func (catalog PublicationCatalog) Participant(participantID string) (extensions.ParticipantContract, bool) {
+	participant, present := catalog.participants[participantID]
+	return cloneParticipantContract(participant), present
+}
+
+func (catalog PublicationCatalog) ImplementationBinding(profileID string) (extensions.ImplementationBindingPublication, bool) {
+	binding, present := catalog.bindings[profileID]
+	return binding, present
+}
+
+func (catalog PublicationCatalog) ContributionIDs(kind string) []string {
+	ids := []string{}
+	for contributionID, contribution := range catalog.contributions {
+		if kind == "" || contribution.Kind == kind {
+			ids = append(ids, contributionID)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (catalog PublicationCatalog) WorkerKinds() []string {
+	kinds := make([]string, 0, len(catalog.workers))
+	for workerKind := range catalog.workers {
+		kinds = append(kinds, workerKind)
+	}
+	sort.Strings(kinds)
+	return kinds
+}
+
+func (catalog PublicationCatalog) JobKinds() []string {
+	kinds := make([]string, 0, len(catalog.jobs))
+	for jobKind := range catalog.jobs {
+		kinds = append(kinds, jobKind)
+	}
+	sort.Strings(kinds)
+	return kinds
+}
+
+func (catalog PublicationCatalog) ParticipantIDs() []string {
+	ids := make([]string, 0, len(catalog.participants))
+	for participantID := range catalog.participants {
+		ids = append(ids, participantID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (catalog PublicationCatalog) BindingProfileIDs() []string {
+	profileIDs := make([]string, 0, len(catalog.bindings))
+	for profileID := range catalog.bindings {
+		profileIDs = append(profileIDs, profileID)
+	}
+	sort.Strings(profileIDs)
+	return profileIDs
+}
+
+func cloneJobKindContract(contract extensions.JobKindContract) extensions.JobKindContract {
+	contract.ResourceRefContracts = append([]extensions.JobResourceRefContract(nil), contract.ResourceRefContracts...)
+	return contract
+}
+
+func cloneParticipantContract(contract extensions.ParticipantContract) extensions.ParticipantContract {
+	contract.AlgorithmIDs = append([]string(nil), contract.AlgorithmIDs...)
+	contract.SerializationKeyKinds = append([]string(nil), contract.SerializationKeyKinds...)
+	contract.OwnedStateFamilyIDs = append([]string(nil), contract.OwnedStateFamilyIDs...)
+	contract.Operations = append([]extensions.ParticipantOperation(nil), contract.Operations...)
+	for index := range contract.Operations {
+		contract.Operations[index].StateFamilyIDs = append([]string(nil), contract.Operations[index].StateFamilyIDs...)
+	}
+	return contract
+}

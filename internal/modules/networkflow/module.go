@@ -125,9 +125,6 @@ func (m *Module) ImportOwner() imports.ExtensionImportFacade {
 
 func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
-			return nil
-		}
 		if m == nil {
 			return errors.New("network flow module unavailable")
 		}
