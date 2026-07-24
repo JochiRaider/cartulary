@@ -94,17 +94,6 @@ type ProviderReconciliationStore interface {
 	ReconcileEnterpriseAuthProviders(context.Context, []authn.EnterpriseAuthProviderDefinition, time.Time) error
 }
 
-func ReconcileProviderManifest(ctx context.Context, cfg config.Config, env map[string]string, store ProviderReconciliationStore, now time.Time) error {
-	if !cfg.EnterpriseAuthentication.Claimed {
-		return nil
-	}
-	definitions, err := LoadProviderManifest(cfg, env)
-	if err != nil {
-		return err
-	}
-	return ReconcileProviderDefinitions(ctx, definitions, store, now)
-}
-
 func ReconcileProviderDefinitions(ctx context.Context, definitions []authn.EnterpriseAuthProviderDefinition, store ProviderReconciliationStore, now time.Time) error {
 	if err := store.ReconcileEnterpriseAuthProviders(ctx, definitions, now); err != nil {
 		if errors.Is(err, authn.ErrAuthProviderTypeChangeNotSupported) {

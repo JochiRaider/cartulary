@@ -104,3 +104,66 @@ func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {
 		t.Fatal("participant owner mismatch was accepted")
 	}
 }
+
+func TestPublicationCatalog_ExactProfileContributionSet_Unit(t *testing.T) {
+	t.Parallel()
+	coordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{
+		"enterprise_authentication.auth_oidc_route",
+		"enterprise_authentication.auth_providers_route",
+		"enterprise_authentication.auth_saml_route",
+		"enterprise_authentication.user_auth_bindings_route",
+	}
+
+	t.Run("unadmitted profile has no executable projection", func(t *testing.T) {
+		resolution, resolveErr := coordinator.ResolveClaims(nil)
+		if resolveErr != nil {
+			t.Fatal(resolveErr)
+		}
+		plan, planErr := coordinator.BuildPublicationPlan(resolution)
+		if planErr != nil {
+			t.Fatal(planErr)
+		}
+		catalog, catalogErr := NewPublicationCatalog(plan, coordinator.ParticipantContracts())
+		if catalogErr != nil {
+			t.Fatal(catalogErr)
+		}
+		admitted, projectionErr := catalog.ExactProfileContributionSet("enterprise_authentication", "http_route_family", expected)
+		if projectionErr != nil {
+			t.Fatal(projectionErr)
+		}
+		if admitted {
+			t.Fatal("unclaimed Enterprise Authentication profile was admitted")
+		}
+	})
+
+	t.Run("admitted profile requires the exact application set", func(t *testing.T) {
+		resolution, resolveErr := coordinator.ResolveClaims([]string{"enterprise_authentication"})
+		if resolveErr != nil {
+			t.Fatal(resolveErr)
+		}
+		plan, planErr := coordinator.BuildPublicationPlan(resolution)
+		if planErr != nil {
+			t.Fatal(planErr)
+		}
+		catalog, catalogErr := NewPublicationCatalog(plan, coordinator.ParticipantContracts())
+		if catalogErr != nil {
+			t.Fatal(catalogErr)
+		}
+		admitted, projectionErr := catalog.ExactProfileContributionSet("enterprise_authentication", "http_route_family", expected)
+		if projectionErr != nil {
+			t.Fatal(projectionErr)
+		}
+		if !admitted {
+			t.Fatal("claimed Enterprise Authentication profile was not admitted")
+		}
+
+		delete(catalog.contributions, expected[0])
+		if _, projectionErr := catalog.ExactProfileContributionSet("enterprise_authentication", "http_route_family", expected); projectionErr == nil {
+			t.Fatal("partial Enterprise Authentication application set was accepted")
+		}
+	})
+}

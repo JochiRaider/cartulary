@@ -216,6 +216,15 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("prepare extension publication catalog: %w", err)
 	}
+	enterpriseAuthenticationAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		auth.ProfileID,
+		"http_route_family",
+		auth.EnterpriseRouteContributionIDs(),
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Enterprise Authentication application plan: %w", err)
+	}
 	publication := NewPublicationController(runtime.Lifecycle)
 	if err := publication.Prepare(extensionPlan); err != nil {
 		runtime.Close()
@@ -236,7 +245,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
-	if resolvedClaims.Contains("enterprise_authentication") {
+	if enterpriseAuthenticationAdmitted {
 		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
 		if err != nil {
 			runtime.Close()
@@ -418,7 +427,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if resolvedClaims.Contains("enterprise_authentication") {
+	if enterpriseAuthenticationAdmitted {
 		if err := enterpriseauth.ReconcileProviderDefinitions(ctx, enterpriseProviderDefinitions, authn.NewStore(postgresHandle), now()); err != nil {
 			runtime.Close()
 			return nil, err
@@ -585,8 +594,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	)
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
+	authRouteOptions := []auth.RouteOption{}
+	if enterpriseAuthenticationAdmitted {
+		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
+	}
 	builtInRoutes, err := applicationRouteRegistrars([]routeContribution{
-		{id: "auth", registrar: auth.RegisterRoutes()},
+		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},
 		{id: "incidents", registrar: incidentRoutes},
 		{id: "extensions", registrar: extensiondiscovery.RegisterRoutes()},
 		{id: "jobs", registrar: jobapi.RegisterRoutes()},
@@ -601,13 +614,17 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		{id: "revisions", registrar: revisionRoutes},
 	}, []extensionRouteBinding{
 		{
-			id: "enterprise_authentication",
+			id: "enterprise_authentication_routes",
 			contributionIDs: []string{
-				"enterprise_authentication.auth_oidc_route",
-				"enterprise_authentication.auth_providers_route",
-				"enterprise_authentication.auth_saml_route",
-				"enterprise_authentication.user_auth_bindings_route",
+				auth.EnterpriseOIDCRouteContributionID,
+				auth.EnterpriseProvidersRouteContributionID,
+				auth.EnterpriseSAMLRouteContributionID,
 			},
+			registrar: auth.RegisterEnterpriseRoutes(),
+		},
+		{
+			id:              "enterprise_authentication_user_auth_bindings",
+			contributionIDs: []string{auth.EnterpriseUserAuthBindingsRouteContributionID},
 			baseRegistrarID: "auth",
 		},
 		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: imports.RegisterRoutes()},

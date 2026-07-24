@@ -136,6 +136,50 @@ func (catalog PublicationCatalog) ImplementationBinding(profileID string) (exten
 	return binding, present
 }
 
+// ExactProfileContributionSet returns whether one profile is admitted and
+// verifies that its installed contributions of the requested kind are exactly
+// the application composition set. An admitted profile cannot be partially
+// wired, and an unadmitted profile cannot contribute executable behavior.
+func (catalog PublicationCatalog) ExactProfileContributionSet(profileID string, kind string, expectedIDs []string) (bool, error) {
+	if profileID == "" || kind == "" || len(expectedIDs) == 0 {
+		return false, fmt.Errorf("exact extension contribution projection is incomplete")
+	}
+	expected := append([]string(nil), expectedIDs...)
+	sort.Strings(expected)
+	for index, contributionID := range expected {
+		if contributionID == "" {
+			return false, fmt.Errorf("exact extension contribution projection contains an empty identity")
+		}
+		if index > 0 && contributionID == expected[index-1] {
+			return false, fmt.Errorf("exact extension contribution projection contains duplicate %q", contributionID)
+		}
+	}
+
+	actual := make([]string, 0, len(expected))
+	for contributionID, contribution := range catalog.contributions {
+		if contribution.ProfileID == profileID && contribution.Kind == kind {
+			actual = append(actual, contributionID)
+		}
+	}
+	sort.Strings(actual)
+	_, admitted := catalog.bindings[profileID]
+	if !admitted {
+		if len(actual) != 0 {
+			return false, fmt.Errorf("unadmitted extension profile %q has executable contributions %v", profileID, actual)
+		}
+		return false, nil
+	}
+	if len(actual) != len(expected) {
+		return false, fmt.Errorf("extension profile %q %s contributions got %v want %v", profileID, kind, actual, expected)
+	}
+	for index := range expected {
+		if actual[index] != expected[index] {
+			return false, fmt.Errorf("extension profile %q %s contributions got %v want %v", profileID, kind, actual, expected)
+		}
+	}
+	return true, nil
+}
+
 func (catalog PublicationCatalog) ContributionIDs(kind string) []string {
 	ids := []string{}
 	for contributionID, contribution := range catalog.contributions {

@@ -44,7 +44,7 @@ type EnterpriseBindingRetireRequest struct {
 }
 
 func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileClaimed(r.URL.Path); apiErr != nil {
+	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -178,7 +178,7 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileClaimed(r.URL.Path); apiErr != nil {
+	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -250,7 +250,7 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
-	if apiErr := s.requireEnterpriseProfileClaimed(r.URL.Path); apiErr != nil {
+	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -353,7 +353,7 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 	if len(segments) < 2 || segments[1] != "auth-bindings" {
 		return false
 	}
-	if apiErr := s.requireEnterpriseProfileClaimed(r.URL.Path); apiErr != nil {
+	if apiErr := s.requireEnterpriseProfileAdmitted(r.URL.Path); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return true
 	}
@@ -544,15 +544,15 @@ func (s *Service) enterpriseCompletionError(err error) *httpapi.APIError {
 	}
 }
 
-func (s *Service) requireEnterpriseProfileClaimed(path string) *httpapi.APIError {
-	if s.enterpriseClaimed {
+func (s *Service) requireEnterpriseProfileAdmitted(path string) *httpapi.APIError {
+	if s.enterpriseAdmitted {
 		return nil
 	}
 	return &httpapi.APIError{
 		Status: http.StatusNotFound,
 		Code:   "extension_profile_not_claimed",
 		Details: map[string]any{
-			"profile_id":   "enterprise_authentication",
+			"profile_id":   ProfileID,
 			"route_family": enterpriseRouteFamily(path),
 		},
 	}

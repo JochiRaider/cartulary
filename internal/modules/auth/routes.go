@@ -26,6 +26,25 @@ const (
 	EnterpriseSAMLVerifierOverrideKey = "auth.enterprise_saml_verifier"
 )
 
+const (
+	ProfileID                                     = "enterprise_authentication"
+	EnterpriseOIDCRouteContributionID             = "enterprise_authentication.auth_oidc_route"
+	EnterpriseProvidersRouteContributionID        = "enterprise_authentication.auth_providers_route"
+	EnterpriseSAMLRouteContributionID             = "enterprise_authentication.auth_saml_route"
+	EnterpriseUserAuthBindingsRouteContributionID = "enterprise_authentication.user_auth_bindings_route"
+)
+
+var enterpriseRouteContributionIDs = []string{
+	EnterpriseOIDCRouteContributionID,
+	EnterpriseProvidersRouteContributionID,
+	EnterpriseSAMLRouteContributionID,
+	EnterpriseUserAuthBindingsRouteContributionID,
+}
+
+func EnterpriseRouteContributionIDs() []string {
+	return append([]string(nil), enterpriseRouteContributionIDs...)
+}
+
 type Service struct {
 	loginStore              localLoginStore
 	sessionStore            sessionStore
@@ -41,7 +60,7 @@ type Service struct {
 	env                     map[string]string
 	publicOrigin            string
 	now                     func() time.Time
-	enterpriseClaimed       bool
+	enterpriseAdmitted      bool
 	oidcVerifier            enterpriseOIDCVerifier
 	samlVerifier            enterpriseSAMLVerifier
 	beginRedirect           enterpriseBeginRedirectBuilder
@@ -135,9 +154,27 @@ type CredentialAuthContext struct {
 	User               authn.UserRecord
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOption func(*routeOptions)
+
+type routeOptions struct {
+	enterpriseAuthBindings bool
+}
+
+func WithEnterpriseAuthBindings() RouteOption {
+	return func(options *routeOptions) {
+		options.enterpriseAuthBindings = true
+	}
+}
+
+func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		settings := routeOptions{}
+		for _, option := range options {
+			if option != nil {
+				option(&settings)
+			}
+		}
+		service, err := newService(deps, settings.enterpriseAuthBindings)
 		if err != nil {
 			return err
 		}
@@ -145,10 +182,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("/api/v1/auth/login", service.handleLogin)
 		mux.HandleFunc("/api/v1/auth/session", service.handleSession)
 		mux.HandleFunc("/api/v1/auth/logout", service.handleLogout)
-		mux.HandleFunc("/api/v1/auth/providers", service.handleEnterpriseProviders)
-		mux.HandleFunc("/api/v1/auth/providers/", service.handleEnterpriseProviders)
-		mux.HandleFunc("/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
-		mux.HandleFunc("/api/v1/auth/saml/", service.handleEnterpriseSAML)
 		mux.HandleFunc("/api/v1/auth/credential-state", service.handleCredentialState)
 		mux.HandleFunc("/api/v1/auth/password/change", service.handlePasswordChange)
 		mux.HandleFunc("/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
@@ -162,6 +195,20 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
+func RegisterEnterpriseRoutes() httpapi.RouteRegistrar {
+	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		service, err := newService(deps, true)
+		if err != nil {
+			return err
+		}
+		mux.HandleFunc("/api/v1/auth/providers", service.handleEnterpriseProviders)
+		mux.HandleFunc("/api/v1/auth/providers/", service.handleEnterpriseProviders)
+		mux.HandleFunc("/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
+		mux.HandleFunc("/api/v1/auth/saml/", service.handleEnterpriseSAML)
+		return nil
+	}
+}
+
 func RegisterTestRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if !httpapi.TestRoutesEnabled(deps.Env) {
@@ -171,7 +218,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		service, err := newService(deps)
+		service, err := newService(deps, false)
 		if err != nil {
 			return err
 		}
@@ -181,7 +228,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, enterpriseAdmitted bool) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -196,16 +243,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
-	enterpriseClaimed := httpapi.ExtensionProfileClaimedInProjection(
-		httpapi.ExtensionClaimsFromDependencies(deps),
-		"enterprise_authentication",
-	)
 	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})
-	if enterpriseClaimed {
+	if enterpriseAdmitted {
 		oidcVerifier = enterpriseOIDCVerifier(enterpriseauth.ProductionOIDCVerifier{})
 	}
 	beginRedirect := enterpriseBeginRedirectBuilder(enterpriseauth.BuildBeginRedirect)
-	if override, ok := deps.ModuleOverrides[EnterpriseOIDCVerifierOverrideKey]; ok {
+	if override, ok := deps.ModuleOverrides[EnterpriseOIDCVerifierOverrideKey]; ok && enterpriseAdmitted {
 		if verifier, ok := override.(enterpriseOIDCVerifier); ok {
 			oidcVerifier = verifier
 			beginRedirect = deterministicEnterpriseBeginRedirect
@@ -214,10 +257,10 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		}
 	}
 	samlVerifier := enterpriseSAMLVerifier(enterpriseauth.UnconfiguredSAMLVerifier{})
-	if enterpriseClaimed {
+	if enterpriseAdmitted {
 		samlVerifier = enterpriseSAMLVerifier(enterpriseauth.ProductionSAMLVerifier{})
 	}
-	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok {
+	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok && enterpriseAdmitted {
 		if verifier, ok := override.(enterpriseSAMLVerifier); ok {
 			samlVerifier = verifier
 			beginRedirect = deterministicEnterpriseBeginRedirect
@@ -242,7 +285,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		env:                     deps.Env,
 		publicOrigin:            deps.Config.Application.PublicOrigin,
 		now:                     now,
-		enterpriseClaimed:       enterpriseClaimed,
+		enterpriseAdmitted:      enterpriseAdmitted,
 		oidcVerifier:            oidcVerifier,
 		samlVerifier:            samlVerifier,
 		beginRedirect:           beginRedirect,

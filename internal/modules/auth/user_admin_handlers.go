@@ -193,12 +193,12 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(segments) > 1 && segments[1] == "auth-bindings" && !s.enterpriseClaimed {
+	if len(segments) > 1 && segments[1] == "auth-bindings" && !s.enterpriseAdmitted {
 		writeAPIError(w, r, &httpapi.APIError{
 			Status: http.StatusNotFound,
 			Code:   "extension_profile_not_claimed",
 			Details: map[string]any{
-				"profile_id":   "enterprise_authentication",
+				"profile_id":   ProfileID,
 				"route_family": "/api/v1/users/{user_id}/auth-bindings",
 			},
 		})
