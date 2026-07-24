@@ -59,6 +59,63 @@ func TestRuntime_ExtensionPublication_CurrentAssemblyParity(t *testing.T) {
 	}
 }
 
+func TestRuntime_ExtensionPublication_MixedClaimProfileDomains(t *testing.T) {
+	coordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalProfiles := []string{
+		"enterprise_authentication",
+		"import",
+		"incident_portability",
+		"reference_pack",
+		"snapshot_reporting",
+	}
+	resolution, err := coordinator.ResolveClaims(canonicalProfiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := coordinator.BuildPublicationPlan(resolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed := map[string]bool{}
+	for _, profile := range plan.Discovery() {
+		if profile.Claimed {
+			claimed[profile.ProfileID] = true
+		}
+	}
+	for _, profileID := range canonicalProfiles {
+		if !claimed[profileID] {
+			t.Errorf("canonical profile %q is absent from the claimed production epoch", profileID)
+		}
+	}
+	if claimed["network_flow_activity"] {
+		t.Fatal("mixed-claim production epoch independently claimed Network Flow")
+	}
+
+	routeProfiles := map[string]bool{}
+	for _, route := range plan.Routes() {
+		if route.DispatchState == "claimed" {
+			routeProfiles[route.ProfileID] = true
+			if route.ContributionID == nil || *route.ContributionID == "" {
+				t.Errorf("claimed route has no exact contribution: %#v", route)
+			}
+		}
+	}
+	for _, profileID := range canonicalProfiles {
+		if !routeProfiles[profileID] {
+			t.Errorf("canonical profile %q has no claimed production route contribution", profileID)
+		}
+	}
+	snapshotDescriptor, ok := coordinator.Descriptor("snapshot_reporting")
+	if !ok ||
+		!containsString(snapshotDescriptor.RouteFamilies, "/api/v1/snapshots") ||
+		!containsString(snapshotDescriptor.RouteFamilies, "/api/v1/incidents/{incident_id}/report-compositions") {
+		t.Fatalf("Snapshot/Reporting domains are not both represented: %#v/%t", snapshotDescriptor, ok)
+	}
+}
+
 func TestRuntime_ExtensionPublication_PreparedComponentsAreQuiescent(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
 	acknowledgeAllPublicationComponents(t, controller)
@@ -288,4 +345,13 @@ func acknowledgeAllPublicationComponents(t testing.TB, controller *PublicationCo
 			t.Fatalf("acknowledge %s: %v", componentID, err)
 		}
 	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }

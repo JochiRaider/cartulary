@@ -8,7 +8,7 @@
 | Planning baseline | Clean `main` at `c0c9c02aae53762d25316afaa8808aa5e424b0db`, observed on 2026-07-24 |
 | Upstream posture | `main` is one commit ahead of `origin/main` (`b796a9c5b80b43e7d8284cb1e96de971364e169b`) |
 | Task posture | Ordered remediation execution under the mandatory checkpoint protocol |
-| Execution status | `EPA-00` is `DONE`; `EPA-01` through `EPA-12` are `NOT_STARTED` |
+| Execution status | `EPA-00` and `EPA-01` are `DONE`; `EPA-02` through `EPA-12` are `NOT_STARTED` |
 | Controlling authority | Core 00 through Core 04, adopted profile-owner specifications, the Extensions NLSpec, `docs/domain.md`, and the Harness NLSpec |
 | Historical evidence | `docs/handoffs/extensions-module-refactor-tracker.md` and `docs/handoffs/extensions-subsystem-implementation-tracker.md`; neither is normative |
 | Domain posture | `domain vocabulary unchanged` |
@@ -638,6 +638,7 @@ independently deployable releases. No production rollout is permitted before
 | Generated/drift checks | Harness catalog shape if authored selectors change |
 | Exit criteria | every subsequent gap has a failing or passing production-path selector; wrong-order tests are identified for correction, not frozen |
 | Checkpoint | exact selector names, owner assignment, current results, expected post-remediation outcomes |
+| Completion checkpoint | Added `TestExtensionProfileAdoptionMatrix_Static` under `module.extensions` for the exact five-profile, ten-job, five-worker target identity set, the shared Snapshot/Reporting participant identity, and the explicit Network Flow non-worker posture. Added `TestRuntime_ExtensionPublication_MixedClaimProfileDomains` under `app.server` for all five canonical IDs, both Snapshot/Reporting route domains, exact claimed route contribution presence, and unclaimed Network Flow. The existing `TestRuntime_ExtensionPublication_*` row remains temporary current-state characterization: its acknowledgment-before-commit calls are owner-invalid and must be rewritten in EPA-03, not treated as compatibility. Existing process selector `TestNetworkFlowHarnessRuntimeRouteServerProcessContribution` remains the service-backed Network Flow regression. Focused rows passed at `.cartulary/test-results/20260724T181632Z-p85776` and `.cartulary/test-results/20260724T181710Z-p89267`; service-backed process evidence passed at `.cartulary/test-results/20260724T181724Z-p89718`. `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make harness-contract`, `make lint-scripts`, and `git diff --check` passed after generated selector accounting was refreshed. Related failures corrected during the slice were two test compile errors in the new participant assertion, stale topology reported by `json-shape-check`, and Harness's expected selector total (`1473` to `1475`); no unrelated failure remains. Files changed: this tracker, `internal/modules/extensions/coordinator_test.go`, `internal/modules/extensions/contract_test.go`, `internal/app/server/extensions_publication_characterization_test.go`, both affected test-family manifests, generated contract embedding/render index, and the Harness contract count. Residual risk is intentionally characterized implementation gaps assigned to EPA-02 onward; rollback is the EPA-01 commit only and has no data effect. Domain vocabulary unchanged. |
 
 ### EPA-02 — Owner, authored-contract, and generation closure
 
@@ -1047,7 +1048,7 @@ Every implementation session must follow this protocol:
 | Workstream | Status | Dependency | Deployment posture | Checkpoint |
 | --- | --- | --- | --- | --- |
 | EPA-00 | `DONE` | none | no behavior | baseline and clean-cutover decision recorded; tracker-only gates passed |
-| EPA-01 | `NOT_STARTED` | EPA-00 | evidence only | pending |
+| EPA-01 | `DONE` | EPA-00 | evidence only | exact target matrix and mixed-claim production characterization pass |
 | EPA-02 | `NOT_STARTED` | EPA-01 | non-deployable contract intermediate | pending |
 | EPA-03 | `NOT_STARTED` | EPA-02 | non-deployable shared runtime intermediate | pending |
 | EPA-04 | `NOT_STARTED` | EPA-03 | non-deployable job intermediate | pending |
@@ -1084,6 +1085,7 @@ Every implementation session must follow this protocol:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-24 | Tracker research and planning | planning only | complete | this tracker only | documentation-only checks recorded at handoff | BLOCK-001 was open at planning handoff | activate EPA-00 |
 | 2026-07-24 | Remediation execution | EPA-00 | complete | this tracker only | tracker-only validation passed; run roots recorded in EPA-00 | BLOCK-001 resolved; BLOCK-002 remains for EPA-02 | commit EPA-00, then activate EPA-01 |
+| 2026-07-24 | Remediation execution | EPA-01 | complete | tracker; Extensions/app-server characterization tests; Harness manifests, generated embedding/render index, and count | focused and service-backed selectors plus generation/Harness drift passed; run roots recorded in EPA-01 | BLOCK-002 remains for EPA-02 | commit EPA-01, then execute EPA-02 |
 
 ## 20. Open Contradictions and Blockers
 

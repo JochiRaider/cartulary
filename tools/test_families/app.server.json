@@ -671,6 +671,7 @@
           "TestRuntime_ExtensionPublication_AtomicAdmissionGate",
           "TestRuntime_ExtensionPublication_CurrentAssemblyParity",
           "TestRuntime_ExtensionPublication_FailureNoExposure",
+          "TestRuntime_ExtensionPublication_MixedClaimProfileDomains",
           "TestRuntime_ExtensionPublication_NoIndependentRederivation",
           "TestRuntime_ExtensionPublication_NoSecondPublicationPath",
           "TestRuntime_ExtensionPublication_OneServingEpoch",

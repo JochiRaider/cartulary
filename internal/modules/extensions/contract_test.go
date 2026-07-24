@@ -738,6 +738,7 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		"module.extensions.unit.coordinator_registry_1dce9a539a": {
 			"TestCoordinatorGeneratedRegistry_Unit",
 			"TestCoordinatorPortabilityPolicyProjection_Unit",
+			"TestExtensionProfileAdoptionMatrix_Static",
 		},
 	}
 	for rowID, testNames := range coordinatorRows {

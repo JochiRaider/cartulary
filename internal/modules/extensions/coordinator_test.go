@@ -41,6 +41,84 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 	}
 }
 
+func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
+	coordinator := requireGeneratedCoordinator(t)
+	descriptors := coordinator.Descriptors()
+	byProfile := make(map[string]Descriptor, len(descriptors))
+	for _, descriptor := range descriptors {
+		byProfile[descriptor.ProfileID] = descriptor
+	}
+
+	type jobIdentity struct {
+		jobKind       string
+		operationKind string
+		workerKind    string
+	}
+	adoption := map[string][]jobIdentity{
+		"enterprise_authentication": nil,
+		"import": {
+			{jobKind: "import.discovery_v1", operationKind: "import.discovery", workerKind: "import.discovery_worker_v1"},
+			{jobKind: "import.apply_v1", operationKind: "import.apply", workerKind: "import.apply_worker_v1"},
+		},
+		"incident_portability": {
+			{jobKind: "incident_portability.export_v1", operationKind: "incident_portability.export", workerKind: "incident_portability.bundle_worker_v1"},
+			{jobKind: "incident_portability.import_v1", operationKind: "incident_portability.import", workerKind: "incident_portability.bundle_worker_v1"},
+		},
+		"reference_pack": {
+			{jobKind: "reference_pack.import_v1", operationKind: "reference_pack.import", workerKind: "reference_pack.lifecycle_worker_v1"},
+			{jobKind: "reference_pack.reverify_v1", operationKind: "reference_pack.reverify", workerKind: "reference_pack.lifecycle_worker_v1"},
+			{jobKind: "reference_pack.refresh_v1", operationKind: "reference_pack.refresh", workerKind: "reference_pack.lifecycle_worker_v1"},
+		},
+		"snapshot_reporting": {
+			{jobKind: "snapshot_reporting.snapshot_create_v1", operationKind: "snapshot_reporting.snapshot_create", workerKind: "snapshot_reporting.job_worker_v1"},
+			{jobKind: "snapshot_reporting.release_create_v1", operationKind: "snapshot_reporting.release_create", workerKind: "snapshot_reporting.job_worker_v1"},
+			{jobKind: "snapshot_reporting.composition_preview_v1", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v1"},
+		},
+	}
+	if len(adoption) != 5 {
+		t.Fatalf("profile adoption matrix has %d profiles; want 5", len(adoption))
+	}
+	jobKinds := map[string]string{}
+	workerKinds := map[string]bool{}
+	for profileID, jobs := range adoption {
+		descriptor, ok := byProfile[profileID]
+		if !ok || !descriptor.Claimable || descriptor.ContractMajor != 1 {
+			t.Fatalf("canonical profile %q = %#v/%t", profileID, descriptor, ok)
+		}
+		for _, job := range jobs {
+			if previous, duplicate := jobKinds[job.jobKind]; duplicate {
+				t.Fatalf("job kind %q is shared by %q and %q", job.jobKind, previous, profileID)
+			}
+			jobKinds[job.jobKind] = profileID
+			if job.operationKind == "" || job.workerKind == "" {
+				t.Fatalf("incomplete adoption identity for %q: %#v", profileID, job)
+			}
+			workerKinds[job.workerKind] = true
+		}
+	}
+	if len(jobKinds) != 10 || len(workerKinds) != 5 {
+		t.Fatalf("adoption identity totals = %d jobs/%d workers; want 10/5", len(jobKinds), len(workerKinds))
+	}
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable {
+		t.Fatalf("Network Flow regression profile = %#v/%t", networkFlow, ok)
+	}
+	if _, incorrectlyAdopted := adoption["network_flow_activity"]; incorrectlyAdopted {
+		t.Fatal("Network Flow must remain an Import-scheduled regression target, not an adopted worker owner")
+	}
+
+	var participant *ParticipantContract
+	for _, contract := range coordinator.ParticipantContracts() {
+		if contract.ParticipantID == "snapshot_reporting.render_export_v1" {
+			copy := contract
+			participant = &copy
+			break
+		}
+	}
+	if participant == nil || participant.OwnerProfileID != "snapshot_reporting" {
+		t.Fatalf("Snapshot/Reporting participant identity = %#v", participant)
+	}
+}
+
 func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 	coordinator := requireGeneratedCoordinator(t)
 	policies := coordinator.PortabilityPolicies()

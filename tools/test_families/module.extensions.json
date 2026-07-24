@@ -580,7 +580,8 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestCoordinatorGeneratedRegistry_Unit",
-          "TestCoordinatorPortabilityPolicyProjection_Unit"
+          "TestCoordinatorPortabilityPolicyProjection_Unit",
+          "TestExtensionProfileAdoptionMatrix_Static"
         ]
       },
       "evidence_class": "unit",
