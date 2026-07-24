@@ -6011,7 +6011,7 @@
           "label": "browser-e2e-webserver-backed-default/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
           "priority": 36000,
-          "weight_ms": 240000,
+          "weight_ms": 260000,
           "needs": [],
           "completion_keys": [
             "browser_stage_session:browser-e2e-webserver-backed-default"
@@ -6049,7 +6049,7 @@
           "label": "browser-functional-network-flow-claimed/stage-session",
           "aggregate_target": "browser-e2e-webserver-backed",
           "priority": 36000,
-          "weight_ms": 240000,
+          "weight_ms": 260000,
           "needs": [],
           "completion_keys": [
             "browser_stage_session:browser-functional-network-flow-claimed"
@@ -6465,7 +6465,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8,module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229,module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f,module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2,module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437,module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3,module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8,module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508,module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1,module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899,module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "0"
           },
           "command": {
@@ -6526,7 +6526,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "1"
           },
           "command": {
@@ -6591,7 +6591,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab,module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d,module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac,module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932,module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "2"
           },
           "command": {
@@ -6653,7 +6653,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad,module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "3"
           },
           "command": {
@@ -6718,7 +6718,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4,module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb,module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b,module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625,module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "5"
           },
           "command": {
@@ -6779,7 +6779,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "4"
           },
           "command": {
@@ -6840,7 +6840,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser.verify_hosts_identities_and_notes_grids_render_c_7531b57a50",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "6"
           },
           "command": {
@@ -6905,7 +6905,7 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94,module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66,module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897,module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32,module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
             "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
           },
           "command": {
@@ -6913,6 +6913,67 @@
             "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:functional-support-default-history"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:functional-support-default-import-assistant",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/functional-support-default-import-assistant",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-e2e-webserver-backed-default"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:functional-support-default-import-assistant"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:functional-support-default-import-assistant"
+          ],
+          "resource_claims": {
+            "go_cpu": 2,
+            "go_io": 1,
+            "process": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-e2e-webserver-backed-default",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:functional-support-default-import-assistant",
+            "name": "functional-support-default-import-assistant",
+            "kind": "duration_balanced_specs",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "workers": "default",
+            "runtime_profile_id": "default",
+            "selected_row_ids": [
+              "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42"
+            ],
+            "browser_session_group": "browser-e2e-webserver-backed-default",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 2,
+              "go_io": 1,
+              "process": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:functional-support-default-import-assistant"
           }
         },
         {
@@ -6971,8 +7032,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162,module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece,module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5,module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db,module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084,module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
           },
           "command": {
             "type": "browser_group",
@@ -7032,8 +7093,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.revisions.browser.verify_history_and_rollback_preview_action_use_p_4201ff80a8",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "10"
           },
           "command": {
             "type": "browser_group",
@@ -7096,8 +7157,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59,module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d,module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9,module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "10"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "11"
           },
           "command": {
             "type": "browser_group",
@@ -7157,8 +7218,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "11"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "12"
           },
           "command": {
             "type": "browser_group",
@@ -7218,8 +7279,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "12"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "13"
           },
           "command": {
             "type": "browser_group",
@@ -7279,8 +7340,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser.the_browser_inspector_merges_duplicate_entities_d0cb95b021",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "13"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "14"
           },
           "command": {
             "type": "browser_group",
@@ -7340,8 +7401,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "14"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "15"
           },
           "command": {
             "type": "browser_group",
@@ -7401,8 +7462,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "15"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "16"
           },
           "command": {
             "type": "browser_group",
@@ -7462,8 +7523,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "16"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "17"
           },
           "command": {
             "type": "browser_group",
@@ -7532,8 +7593,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b,module.links.browser.the_notes_tab_supports_browser_visible_creation_ae6bdcc2da,module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e,module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb,module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a,module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c,module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8,module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070,module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d,module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "17"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "18"
           },
           "command": {
             "type": "browser_group",
@@ -7593,8 +7654,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "18"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "19"
           },
           "command": {
             "type": "browser_group",
@@ -7656,8 +7717,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89,module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07,module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "19"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "20"
           },
           "command": {
             "type": "browser_group",
@@ -7722,8 +7783,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58,module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d,module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01,module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2,platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5,platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "22"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "23"
           },
           "command": {
             "type": "browser_group",
@@ -7783,8 +7844,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "20"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "21"
           },
           "command": {
             "type": "browser_group",
@@ -7844,14 +7905,76 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "21"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "22"
           },
           "command": {
             "type": "browser_group",
             "service_target": "test-service-backed",
             "browser_stage": "webserver-backed",
             "group_id": "browser-e2e-webserver-backed:functional-support-default-workbook-generic"
+          }
+        },
+        {
+          "id": "browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant",
+          "kind": "browser_group",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "label": "browser-e2e-webserver-backed/functional-support-network-flow-claimed-import-assistant",
+          "aggregate_target": "browser-e2e-webserver-backed",
+          "priority": 36000,
+          "weight_ms": 10000,
+          "needs": [
+            "browser_stage_session:browser-functional-network-flow-claimed"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant"
+          ],
+          "failure_keys": [
+            "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant"
+          ],
+          "resource_claims": {
+            "go_cpu": 2,
+            "go_io": 1,
+            "process": 1
+          },
+          "browser_stage": "webserver-backed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_group": {
+            "id": "browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant",
+            "name": "functional-support-network-flow-claimed-import-assistant",
+            "kind": "duration_balanced_specs",
+            "target": "browser-e2e-webserver-backed",
+            "aggregate_target": "browser-e2e-webserver-backed",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "workers": "default",
+            "runtime_profile_id": "network_flow_claimed",
+            "selected_row_ids": [
+              "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee"
+            ],
+            "browser_session_group": "browser-functional-network-flow-claimed",
+            "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 2,
+              "go_io": 1,
+              "process": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-functional-network-flow-claimed",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "24"
+          },
+          "command": {
+            "type": "browser_group",
+            "service_target": "test-service-backed",
+            "browser_stage": "webserver-backed",
+            "group_id": "browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant"
           }
         },
         {
@@ -7914,8 +8037,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619,module.networkflow.browser.network_flow_selector_covers_default_graph_mode_fc65f0ecfd,module.networkflow.browser.network_flow_selector_covers_importing_nf_fix_00_094b0f779b,module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_e_346ec21519,module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_v_171429ad9e,module.networkflow.browser.network_flow_selector_covers_soft_deleting_a_tab_537fbd618e,module.networkflow.browser.network_flow_selector_covers_the_filter_selector_12b0cf1448,module.networkflow.browser.network_flow_selector_covers_when_the_extension_4ce49e0d6f,module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-functional-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "23"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "25"
           },
           "command": {
             "type": "browser_group",
@@ -7975,8 +8098,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "24"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "26"
           },
           "command": {
             "type": "browser_group",
@@ -8037,8 +8160,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.browser_stateful.idle_expiry_fails_closed_after_the_shared_clock_6525f19d9d",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "25"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "27"
           },
           "command": {
             "type": "browser_group",
@@ -8099,8 +8222,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "26"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "28"
           },
           "command": {
             "type": "browser_group",
@@ -8161,8 +8284,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "27"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "29"
           },
           "command": {
             "type": "browser_group",
@@ -8223,8 +8346,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "28"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "30"
           },
           "command": {
             "type": "browser_group",
@@ -8286,8 +8409,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.revisions.browser_stateful.verify_inspector_details_relationships_evidence_e32cd188c5,module.workbook.browser_stateful.verify_default_closed_inspector_state_no_row_sta_897d604d9e",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "29"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "31"
           },
           "command": {
             "type": "browser_group",
@@ -8348,8 +8471,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.entities.browser_stateful.verify_manual_mention_resolution_dismissal_auto_dfa355e592",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "30"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "32"
           },
           "command": {
             "type": "browser_group",
@@ -8410,8 +8533,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser_stateful.verify_timeline_inspector_workflow_create_relate_7fc4833af4",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "31"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "33"
           },
           "command": {
             "type": "browser_group",
@@ -8472,8 +8595,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "32"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "34"
           },
           "command": {
             "type": "browser_group",
@@ -8534,8 +8657,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "33"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "35"
           },
           "command": {
             "type": "browser_group",
@@ -8597,8 +8720,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674,module.savedviews.browser_stateful.verify_saved_view_persistence_default_startup_su_3fd1edb0fd",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "34"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "36"
           },
           "command": {
             "type": "browser_group",
@@ -8659,8 +8782,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "35"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "37"
           },
           "command": {
             "type": "browser_group",
@@ -8722,8 +8845,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-stateful-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "36"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "38"
           },
           "command": {
             "type": "browser_group",
@@ -8787,8 +8910,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-measurement-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "37"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "39"
           },
           "command": {
             "type": "browser_group",
@@ -8854,8 +8977,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322,module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-measurement-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "38"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "40"
           },
           "command": {
             "type": "browser_group",
@@ -8916,8 +9039,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-visual-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "40"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "42"
           },
           "command": {
             "type": "browser_group",
@@ -9001,8 +9124,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99,module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1,module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec,module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c,module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc,module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7,module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7,module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4,module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830,module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc,module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af,module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc,module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810,module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206,module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf,module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0,module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea,module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67,module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc,module.workbook.visual.the_visual_harness_captures_a_required_coordinat_a38d329f28,package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba,web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c,web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967,web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-visual-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "39"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "41"
           },
           "command": {
             "type": "browser_group",
@@ -9063,8 +9186,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-a11y-network-flow-claimed",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "42"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "44"
           },
           "command": {
             "type": "browser_group",
@@ -9136,8 +9259,8 @@
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
             "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9,module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd,module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3,module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2,module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d,module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e,module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac,module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2,module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e,module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159,package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d,web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-a11y-default",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "43",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "41"
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "43"
           },
           "command": {
             "type": "browser_group",
@@ -13091,6 +13214,7 @@
             "browser_group:browser-e2e-webserver-backed:functional-support-default-evidence",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-grid-provenance",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-history",
+            "browser_group:browser-e2e-webserver-backed:functional-support-default-import-assistant",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-incident-administration",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-inspector-actions",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-keyboard",
@@ -13106,6 +13230,7 @@
             "browser_group:browser-e2e-webserver-backed:functional-support-default-workbook-assessments",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-workbook-generic",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-workbook",
+            "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant",
             "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-network-flow"
           ],
           "completion_keys": [
@@ -13306,6 +13431,7 @@
             "browser_group:browser-e2e-webserver-backed:functional-support-default-evidence",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-grid-provenance",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-history",
+            "browser_group:browser-e2e-webserver-backed:functional-support-default-import-assistant",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-incident-administration",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-inspector-actions",
             "browser_group:browser-e2e-webserver-backed:functional-support-default-keyboard",
@@ -13353,6 +13479,7 @@
           "priority": 36000,
           "weight_ms": 1,
           "needs": [
+            "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-import-assistant",
             "browser_group:browser-e2e-webserver-backed:functional-support-network-flow-claimed-network-flow"
           ],
           "completion_keys": [

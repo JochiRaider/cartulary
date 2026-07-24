@@ -192,6 +192,38 @@ function workspaceIdentityKey(identity: ExtensionWorkspaceIdentity) {
   return `${identity.extensionProfileId}\u0000${identity.workspaceKey}`;
 }
 
+function discoveryProfilesEqual(
+  left: readonly ExtensionDiscoveryProfile[],
+  right: readonly ExtensionDiscoveryProfile[],
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((profile, index) => {
+    const candidate = right[index];
+    return (
+      candidate !== undefined &&
+      profile.profile_id === candidate.profile_id &&
+      profile.claimed === candidate.claimed &&
+      profile.contract_major === candidate.contract_major &&
+      profile.route_families.length === candidate.route_families.length &&
+      profile.route_families.every(
+        (route, routeIndex) => route === candidate.route_families[routeIndex],
+      ) &&
+      profile.workspace_keys.length === candidate.workspace_keys.length &&
+      profile.workspace_keys.every(
+        (workspace, workspaceIndex) =>
+          workspace === candidate.workspace_keys[workspaceIndex],
+      ) &&
+      profile.capabilities.length === candidate.capabilities.length &&
+      profile.capabilities.every(
+        (capability, capabilityIndex) =>
+          capability === candidate.capabilities[capabilityIndex],
+      )
+    );
+  });
+}
+
 function randomEpochId(randomValues: (bytes: Uint8Array) => Uint8Array) {
   const bytes = randomValues(new Uint8Array(32));
   if (bytes.byteLength !== 32) {
@@ -296,13 +328,15 @@ export class ExtensionAvailabilityController {
   }
 
   setDiscovery(profiles: readonly ExtensionDiscoveryProfile[]) {
-    this.#discovery = profiles.map((profile) => ({
+    const next = profiles.map((profile) => ({
       ...profile,
       route_families: [...profile.route_families],
       workspace_keys: [...profile.workspace_keys],
       capabilities: [...profile.capabilities],
     }));
-    if (this.#discovery.some((profile) => profile.capabilities.length !== 0)) {
+    const changed = !discoveryProfilesEqual(this.#discovery, next);
+    this.#discovery = next;
+    if (changed) {
       this.invalidate();
     }
   }
@@ -400,6 +434,58 @@ export class ExtensionAvailabilityController {
       }
     }
     return rows;
+  }
+
+  isRouteAvailable(extensionProfileId: string, routeFamily: string): boolean {
+    if (!this.#enabled || this.support === null) {
+      return false;
+    }
+    const discovery = this.#discovery.find(
+      (profile) => profile.profile_id === extensionProfileId,
+    );
+    const support = this.support.profiles.find(
+      (profile) => profile.profile_id === extensionProfileId,
+    );
+    return Boolean(
+      discovery?.claimed &&
+        discovery.capabilities.length === 0 &&
+        discovery.route_families.includes(routeFamily) &&
+        support &&
+        support.capability_ids.length === 0 &&
+        discovery.contract_major === support.supported_contract_majors[0],
+    );
+  }
+
+  async runProfileRequest<T>(
+    extensionProfileId: string,
+    routeFamily: string,
+    request: () => Promise<T>,
+  ): Promise<T> {
+    let release: () => void = () => undefined;
+    const previous = this.#requestTail;
+    this.#requestTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      if (!this.isRouteAvailable(extensionProfileId, routeFamily)) {
+        throw new ExtensionAvailabilityUnavailableError();
+      }
+      const tag = this.reserve();
+      if (tag === null) {
+        throw new ExtensionAvailabilityUnavailableError();
+      }
+      const result = await request();
+      if (
+        !this.isCurrent(tag) ||
+        !this.isRouteAvailable(extensionProfileId, routeFamily)
+      ) {
+        throw new ExtensionAvailabilityUnavailableError();
+      }
+      return result;
+    } finally {
+      release();
+    }
   }
 
   async runRequest<T>(request: () => Promise<T>): Promise<T> {

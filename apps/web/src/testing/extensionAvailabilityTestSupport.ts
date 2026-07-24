@@ -12,6 +12,14 @@ export function readyExtensionAvailability(
   });
   controller.setDiscovery([
     {
+      profile_id: "import",
+      claimed: true,
+      contract_major: 1,
+      route_families: ["/api/v1/import-sessions"],
+      workspace_keys: [],
+      capabilities: [],
+    },
+    {
       profile_id: "network_flow_activity",
       claimed: true,
       contract_major: 2,

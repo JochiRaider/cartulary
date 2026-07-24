@@ -52,8 +52,8 @@ describe("extension import coordinator stages", () => {
 
     expect(refs).toEqual([{ kind: "network_flow_table", id: "nft_returned" }]);
     expect(progress).toEqual([
-      "Uploading import.",
-      "Discovering source columns.",
+      "Uploading workbook.",
+      "Discovering workbook units.",
       "Approving mapping.",
       "Applying import.",
     ]);
@@ -151,8 +151,22 @@ function installHappyPath(
           },
         });
       }
+      if (url === "/api/v1/import-sessions/session-1" && method === "GET") {
+        return jsonResponse({
+          data: {
+            import_session_id: "session-1",
+            incident_id: "incident-1",
+            original_filename: "flows.csv",
+            source_file_kind: "csv",
+            session_status: "discovered",
+            selected_unit_ids: [],
+            blocking_diagnostics: [],
+            nonblocking_warning_codes: [],
+          },
+        });
+      }
       if (
-        url === "/api/v1/import-sessions/session-1/units" &&
+        url === "/api/v1/import-sessions/session-1/units?limit=50" &&
         method === "GET"
       ) {
         return jsonResponse({

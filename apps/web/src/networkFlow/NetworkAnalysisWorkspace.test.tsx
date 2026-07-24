@@ -914,7 +914,21 @@ function installImportFlowFetchMock(returnedTableId: string) {
           },
         });
       }
-      if (method === "GET" && url.endsWith("/session-1/units")) {
+      if (method === "GET" && url.endsWith("/session-1")) {
+        return jsonResponse({
+          data: {
+            import_session_id: "session-1",
+            incident_id: "incident-1",
+            original_filename: "new-flows.csv",
+            source_file_kind: "csv",
+            session_status: "discovered",
+            selected_unit_ids: [],
+            blocking_diagnostics: [],
+            nonblocking_warning_codes: [],
+          },
+        });
+      }
+      if (method === "GET" && url.endsWith("/session-1/units?limit=50")) {
         return jsonResponse({
           data: {
             import_units: [

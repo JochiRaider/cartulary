@@ -206,6 +206,12 @@
       "filename": "00034_extension_coordination.sql",
       "sha256": "dfaab18af79bfc4c6b3f31fb2ff154c18dfd53d847334892512468ae120cbee9",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 35,
+      "filename": "00035_import_unit_discovery_order.sql",
+      "sha256": "87457b5a16cd6a82a40970082d8b9b00c6f32ca89409d5c69ae03b1f7ab348fa",
+      "historical_phase_shaped": false
     }
   ]
 }

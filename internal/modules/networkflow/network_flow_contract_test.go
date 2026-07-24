@@ -724,10 +724,14 @@ func AssertAuthorizationBoundary(t *testing.T) {
 		}
 	}
 	assembly := string(ReadFile(t, "internal/app/server/runtime.go")) + "\n" + string(ReadFile(t, "internal/app/server/runtime_routes.go"))
-	for _, required := range []string{"network_flow_activity.route_family", "applicationRouteRegistrars"} {
+	for _, required := range []string{"networkflow.RouteContributionID", "applicationRouteRegistrars"} {
 		if !strings.Contains(assembly, required) {
 			t.Fatalf("Network Flow application admission missing exact catalog hook %q", required)
 		}
+	}
+	identities := string(ReadFile(t, "internal/modules/networkflow/api.go"))
+	if !strings.Contains(identities, `RouteContributionID         = "network_flow_activity.route_family"`) {
+		t.Fatal("Network Flow owner-local route contribution identity is missing")
 	}
 	httpapiGate := string(ReadFile(t, "internal/platform/httpapi/httpapi.go"))
 	for _, required := range []string{"withUnclaimedReservedExtensionFamilies", "extension_profile_not_claimed", "MatchReservedExtensionRouteIn"} {

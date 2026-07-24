@@ -45,6 +45,12 @@ describe("extension availability lifecycle", () => {
     expect(support?.client_build_class).toBe("standard");
     expect(support?.profiles).toEqual([
       expect.objectContaining({
+        profile_id: "import",
+        supported_contract_majors: [1],
+        workspace_keys: [],
+        capability_ids: [],
+      }),
+      expect.objectContaining({
         profile_id: "network_flow_activity",
         supported_contract_majors: [2],
         workspace_keys: ["network_analysis"],
@@ -60,6 +66,47 @@ describe("extension availability lifecycle", () => {
     expect(extensionCapabilityActivationFailure()).toEqual({
       code: "extension_capability_not_supported",
     });
+  });
+
+  it("admits exact profile routes and discards a response after claim loss", async () => {
+    const controller = new ExtensionAvailabilityController({
+      incidentId: "incident-1",
+      randomValues: deterministicRandom(4),
+    });
+    const importDiscovery = {
+      profile_id: "import",
+      claimable: true,
+      claimed: true,
+      contract_major: 1,
+      route_families: ["/api/v1/import-sessions"],
+      workspace_keys: [],
+      capabilities: [],
+    } as const;
+    controller.setDiscovery([importDiscovery]);
+    expect(
+      controller.isRouteAvailable("import", "/api/v1/import-sessions"),
+    ).toBe(true);
+    expect(
+      controller.isRouteAvailable("import", "/api/v1/reference-packs"),
+    ).toBe(false);
+
+    let resolveRequest: (value: string) => void = () => undefined;
+    const request = controller.runProfileRequest(
+      "import",
+      "/api/v1/import-sessions",
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.currentTag()?.generation).toBe(2n),
+    );
+    controller.setDiscovery([{ ...importDiscovery, claimed: false }]);
+    resolveRequest("stale");
+    await expect(request).rejects.toBeInstanceOf(
+      ExtensionAvailabilityUnavailableError,
+    );
   });
 
   it("uses the build-bound browser bootstrap and fails closed when it is malformed", () => {
@@ -104,6 +151,13 @@ describe("extension availability lifecycle", () => {
     controller.setDiscovery([{ ...discovery[0], contract_major: 3 }]);
     expect(controller.renderableWorkspaces()).toEqual([]);
     controller.setDiscovery(discovery);
+    const refreshed = controller.currentTag();
+    if (refreshed === null) {
+      throw new Error("expected refreshed availability tag");
+    }
+    expect(controller.acceptWorkbookStartup(refreshed, availability)).toBe(
+      true,
+    );
     expect(controller.renderableWorkspaces()).toHaveLength(1);
     controller.invalidate();
     expect(controller.renderableWorkspaces()).toEqual([]);
@@ -176,8 +230,8 @@ describe("extension availability lifecycle", () => {
       order.push("second-start");
       return controller.currentTag()?.generation;
     });
-    await expect(first).resolves.toBe(2n);
-    await expect(second).resolves.toBe(3n);
+    await expect(first).resolves.toBe(3n);
+    await expect(second).resolves.toBe(4n);
     expect(order).toEqual(["first-start", "first-end", "second-start"]);
   });
 

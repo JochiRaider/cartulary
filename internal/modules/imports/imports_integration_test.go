@@ -100,6 +100,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	if job["status"] != "succeeded" {
 		t.Fatalf("discovery job status = %#v, want succeeded", job["status"])
 	}
+	requireImportProof(t, harness.DB, firstJobID, "import.discovery")
 	resultSummary := job["result_summary"].(map[string]any)
 	refs := resultSummary["resource_refs"].([]any)
 	sessionID := refs[0].(map[string]any)["id"].(string)
@@ -172,7 +173,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 	metadata := `{"client_txn_id":"txn-extension_profile-import-xlsx-upload","incident_id":"` + incidentID + `"}`
 
-	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, minimalXLSX(t), "input.xlsx", imports.MediaTypeXLSX, false)
+	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, multipleSheetXLSX(t), "input.xlsx", imports.MediaTypeXLSX, false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
 	jobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
@@ -189,9 +190,16 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 
 	unitsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
+	if len(units) != 2 {
+		t.Fatalf("expected two workbook units, got %#v", units)
+	}
 	unit := units[0].(map[string]any)
 	if unit["locator_kind"] != "xlsx_used_range" || unit["inferred_row_count"] != float64(2) || unit["inferred_column_count"] != float64(2) {
 		t.Fatalf("unexpected XLSX unit: %#v", unit)
+	}
+	if unit["locator"].(map[string]any)["sheet_name"] != "Sheet1" ||
+		units[1].(map[string]any)["locator"].(map[string]any)["sheet_name"] != "Sheet2" {
+		t.Fatalf("workbook units are not in sheet order: %#v", units)
 	}
 
 	previewResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unit["import_unit_id"].(string)+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -306,6 +314,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
 		t.Fatalf("unexpected apply job: %#v", appliedJob)
 	}
+	requireImportProof(t, harness.DB, applyJob["job_id"].(string), "import.apply")
 
 	queryResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
@@ -1010,6 +1019,75 @@ func minimalXLSX(t testing.TB) []byte {
 		t.Fatalf("close XLSX zip: %v", err)
 	}
 	return buffer.Bytes()
+}
+
+func multipleSheetXLSX(t testing.TB) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	writeZipText(t, writer, "[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`)
+	writeZipText(t, writer, "xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
+    <sheet name="Sheet2" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`)
+	writeZipText(t, writer, "xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+</Relationships>`)
+	writeZipText(t, writer, "xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1"><c r="A1" t="inlineStr"><is><t>host</t></is></c><c r="B1" t="inlineStr"><is><t>summary</t></is></c></row>
+    <row r="2"><c r="A2" t="inlineStr"><is><t>host-1</t></is></c><c r="B2" t="inlineStr"><is><t>Alpha summary</t></is></c></row>
+    <row r="3"><c r="A3" t="inlineStr"><is><t>host-2</t></is></c><c r="B3" t="inlineStr"><is><t>Beta summary</t></is></c></row>
+  </sheetData>
+</worksheet>`)
+	writeZipText(t, writer, "xl/worksheets/sheet2.xml", `<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1"><c r="A1" t="inlineStr"><is><t>indicator</t></is></c><c r="B1" t="inlineStr"><is><t>type</t></is></c></row>
+    <row r="2"><c r="A2" t="inlineStr"><is><t>203.0.113.42</t></is></c><c r="B2" t="inlineStr"><is><t>ipv4_addr</t></is></c></row>
+  </sheetData>
+</worksheet>`)
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close XLSX zip: %v", err)
+	}
+	return buffer.Bytes()
+}
+
+func requireImportProof(t testing.TB, db *sql.DB, jobID string, operationKind string) {
+	t.Helper()
+	var ownerProfileID string
+	var actualOperationKind string
+	var finalCommitID string
+	if err := db.QueryRow(`
+SELECT owner_profile_id, operation_kind, final_commit_id
+  FROM extension_job_commit_proofs
+ WHERE job_id::text = $1
+`, jobID).Scan(&ownerProfileID, &actualOperationKind, &finalCommitID); err != nil {
+		t.Fatalf("read import proof for job %s: %v", jobID, err)
+	}
+	if ownerProfileID != imports.ProfileID ||
+		actualOperationKind != operationKind ||
+		finalCommitID == "" {
+		t.Fatalf(
+			"unexpected import proof: owner=%q operation=%q commit=%q",
+			ownerProfileID,
+			actualOperationKind,
+			finalCommitID,
+		)
+	}
 }
 
 func writeZipText(t testing.TB, writer *zip.Writer, name string, content string) {

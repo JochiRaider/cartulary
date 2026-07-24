@@ -172,6 +172,22 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-import-assistant",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42"
+          ],
+          "specs": [
+            "apps/web/e2e/import-assistant.spec.ts"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-incident-administration",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -436,6 +452,23 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-network-flow-claimed-import-assistant",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee"
+          ],
+          "specs": [
+            "apps/web/e2e/import-assistant.spec.ts"
+          ]
+        },
+        {
           "name": "functional-support-network-flow-claimed-network-flow",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -614,6 +647,22 @@
           ],
           "specs": [
             "apps/web/e2e/history.spec.ts"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-import-assistant",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42"
+          ],
+          "specs": [
+            "apps/web/e2e/import-assistant.spec.ts"
           ],
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -880,6 +929,23 @@
             "apps/web/e2e/workbook.spec.ts"
           ],
           "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-network-flow-claimed-import-assistant",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-functional-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee"
+          ],
+          "specs": [
+            "apps/web/e2e/import-assistant.spec.ts"
+          ]
         },
         {
           "name": "functional-network-flow-claimed-network-flow",

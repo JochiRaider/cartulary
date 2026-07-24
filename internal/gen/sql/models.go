@@ -806,6 +806,7 @@ type ImportUnit struct {
 	ApprovedTargetKind         pgtype.Text        `json:"approved_target_kind"`
 	ApprovedExtensionProfileID pgtype.Text        `json:"approved_extension_profile_id"`
 	ApprovedTargetViewSchemaID pgtype.Text        `json:"approved_target_view_schema_id"`
+	DiscoverySequence          int32              `json:"discovery_sequence"`
 }
 
 type Incident struct {

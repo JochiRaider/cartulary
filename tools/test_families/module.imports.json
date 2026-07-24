@@ -3,6 +3,68 @@
   "owner_id": "module.imports",
   "rows": [
     {
+      "row_id": "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_6f271c8b42a1"
+        ],
+        "titles": [
+          "Workbook Import Assistant is absent when the Import profile is unclaimed"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_986c2117ee4d"
+        ],
+        "titles": [
+          "Workbook Import Assistant discovers, maps, selects, applies, and navigates from the claimed production surface"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.csv_import_discovery_exhaustive_mapping_approval_fc99e8ea88",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",

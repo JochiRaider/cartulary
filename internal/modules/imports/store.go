@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,7 +77,7 @@ type CreateAcceptedSessionParams struct {
 	SourceMediaType     string
 	SourceByteSize      int64
 	SourceBytes         []byte
-	Unit                DiscoveredUnit
+	Units               []DiscoveredUnit
 	NormalizedRequest   []byte
 	Now                 time.Time
 }
@@ -219,8 +220,9 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	}
 
 	sessionID := uuid.New()
-	unitID := uuid.New()
-	sourceStreamRef := newImportSourceStreamRef()
+	if len(params.Units) == 0 {
+		return CreateAcceptedSessionResult{}, fmt.Errorf("import session requires at least one discovered unit")
+	}
 	handlerPayload, err := json.Marshal(discoveryJobHandlerPayload{ImportSessionID: sessionID.String()})
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
@@ -260,36 +262,43 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 `, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfileWorkbookImport, ParserVersionWorkbookImport, jobID, params.Now.UTC()); err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
-	previewRows, err := json.Marshal(params.Unit.PreviewRows)
-	if err != nil {
-		return CreateAcceptedSessionResult{}, err
-	}
-	sourceRows, err := json.Marshal(params.Unit.SourceRows)
-	if err != nil {
-		return CreateAcceptedSessionResult{}, err
-	}
-	columns, err := json.Marshal(params.Unit.Columns)
-	if err != nil {
-		return CreateAcceptedSessionResult{}, err
-	}
-	if _, err := tx.Exec(ctx, `
+	for index, unit := range params.Units {
+		unitID := uuid.New()
+		sourceStreamRef := newImportSourceStreamRef()
+		previewRows, err := json.Marshal(unit.PreviewRows)
+		if err != nil {
+			return CreateAcceptedSessionResult{}, err
+		}
+		sourceRows, err := json.Marshal(unit.SourceRows)
+		if err != nil {
+			return CreateAcceptedSessionResult{}, err
+		}
+		columns, err := json.Marshal(unit.Columns)
+		if err != nil {
+			return CreateAcceptedSessionResult{}, err
+		}
+		if _, err := tx.Exec(ctx, `
 	INSERT INTO import_units (
 	    import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
 	    header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
-	    warning_codes, columns_json, source_rows_json, preview_rows_json, source_stream_ref, created_at, updated_at
+	    warning_codes, columns_json, source_rows_json, preview_rows_json, source_stream_ref,
+	    discovery_sequence, created_at, updated_at
 	)
-	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15)
-	`, unitID, sessionID, params.Unit.LocatorKind, params.Unit.Locator, params.Unit.SourceRectA1, params.Unit.HeaderRowRef, params.Unit.DataStartRowRef, params.Unit.InferredRowCount, params.Unit.InferredColumnCount, params.Unit.WarningCodes, columns, sourceRows, previewRows, sourceStreamRef, params.Now.UTC()); err != nil {
-		return CreateAcceptedSessionResult{}, err
-	}
-	if _, err := tx.Exec(ctx, `
+	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)
+	`, unitID, sessionID, unit.LocatorKind, unit.Locator, unit.SourceRectA1,
+			unit.HeaderRowRef, unit.DataStartRowRef, unit.InferredRowCount, unit.InferredColumnCount,
+			unit.WarningCodes, columns, sourceRows, previewRows, sourceStreamRef, index+1, params.Now.UTC()); err != nil {
+			return CreateAcceptedSessionResult{}, err
+		}
+		if _, err := tx.Exec(ctx, `
 	INSERT INTO import_source_streams (
 	    source_stream_ref, import_session_id, import_unit_id, source_content_sha256,
 	    source_media_type, source_byte_size, source_bytes, created_at
 	)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, sourceStreamRef, sessionID, unitID, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, params.SourceBytes, params.Now.UTC()); err != nil {
-		return CreateAcceptedSessionResult{}, err
+			return CreateAcceptedSessionResult{}, err
+		}
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
 		return CreateAcceptedSessionResult{}, err
@@ -312,6 +321,23 @@ UPDATE import_sessions
 		return err
 	}
 	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) MarkDiscoveredTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, now time.Time) error {
+	tag, err := tx.Exec(ctx, `
+UPDATE import_sessions
+   SET session_status = 'discovered',
+       updated_at = $2
+ WHERE import_session_id = $1
+   AND session_status = 'created'
+`, sessionID, now.UTC())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
 		return ErrNotFound
 	}
 	return nil
@@ -343,9 +369,9 @@ func (s *Store) ListUnits(ctx context.Context, sessionID uuid.UUID) ([]map[strin
 SELECT import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
        header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
        to_jsonb(warning_codes), mapping_fingerprint, approved_mapping_json, created_at, updated_at
-  FROM import_units
+ FROM import_units
  WHERE import_session_id = $1
- ORDER BY created_at ASC, import_unit_id ASC
+ ORDER BY discovery_sequence ASC
 `, sessionID)
 	if err != nil {
 		return nil, uuid.UUID{}, err
@@ -780,7 +806,7 @@ SELECT u.import_unit_id,
     ON s.import_session_id = u.import_session_id
  WHERE u.import_session_id = $1
    AND u.import_unit_id = ANY($2)
- ORDER BY u.created_at ASC, u.import_unit_id ASC
+ ORDER BY u.discovery_sequence ASC
 `, sessionID, unitIDs)
 	if err != nil {
 		return nil, err
@@ -811,24 +837,64 @@ func (s *Store) CompleteApply(ctx context.Context, sessionID uuid.UUID, unitIDs 
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `
-UPDATE import_units
-   SET unit_status = 'applied',
-       updated_at = $3
- WHERE import_session_id = $1
-   AND import_unit_id = ANY($2)
-`, sessionID, unitIDs, now.UTC()); err != nil {
+	if err := s.CompleteApplyTx(ctx, tx, sessionID, unitIDs, status, now); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `
+	return tx.Commit(ctx)
+}
+
+func (s *Store) CompleteApplyTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitIDs []uuid.UUID, status string, now time.Time) error {
+	command, err := tx.Exec(ctx, `
 UPDATE import_sessions
    SET session_status = $2,
        updated_at = $3
  WHERE import_session_id = $1
-`, sessionID, status, now.UTC()); err != nil {
+   AND session_status = 'applying'
+   AND NOT EXISTS (
+       SELECT 1
+         FROM import_units
+        WHERE import_session_id = $1
+          AND import_unit_id = ANY($4)
+          AND unit_status NOT IN ('applied', 'failed')
+   )
+`, sessionID, status, now.UTC(), unitIDs)
+	if err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if command.RowsAffected() != 1 {
+		return fmt.Errorf("import apply terminal state precondition failed")
+	}
+	return nil
+}
+
+func (s *Store) MarkApplyUnitStatus(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID, status string, now time.Time) error {
+	if status != "applied" && status != "failed" {
+		return fmt.Errorf("invalid terminal import unit status %q", status)
+	}
+	command, err := s.pool.Exec(ctx, `
+UPDATE import_units
+   SET unit_status = $3,
+       updated_at = $4
+ WHERE import_session_id = $1
+   AND import_unit_id = $2
+   AND unit_status = 'applying'
+`, sessionID, unitID, status, now.UTC())
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		var existing string
+		if scanErr := s.pool.QueryRow(ctx, `
+SELECT unit_status
+  FROM import_units
+ WHERE import_session_id = $1
+   AND import_unit_id = $2
+`, sessionID, unitID).Scan(&existing); scanErr == nil && existing == status {
+			return nil
+		}
+		return fmt.Errorf("import unit terminal state precondition failed")
+	}
+	return nil
 }
 
 func (s *Store) FailApply(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID, now time.Time) error {
@@ -843,6 +909,7 @@ UPDATE import_units
        updated_at = $3
  WHERE import_session_id = $1
    AND import_unit_id = ANY($2)
+   AND unit_status = 'applying'
 `, sessionID, unitIDs, now.UTC()); err != nil {
 		return err
 	}
@@ -855,6 +922,45 @@ UPDATE import_sessions
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *Store) CancelApply(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID, now time.Time) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `
+UPDATE import_units
+   SET unit_status = 'failed',
+       updated_at = $3
+ WHERE import_session_id = $1
+   AND import_unit_id = ANY($2)
+   AND unit_status = 'applying'
+`, sessionID, unitIDs, now.UTC()); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE import_sessions
+   SET session_status = 'canceled',
+       updated_at = $2
+ WHERE import_session_id = $1
+   AND session_status = 'applying'
+`, sessionID, now.UTC()); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) CancelDiscovery(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE import_sessions
+   SET session_status = 'canceled',
+       updated_at = $2
+ WHERE import_session_id = $1
+   AND session_status = 'created'
+`, sessionID, now.UTC())
+	return err
 }
 
 func (s *Store) InsertApplyJournalTx(ctx context.Context, tx pgx.Tx, params ApplyJournalParams) error {
@@ -1255,12 +1361,21 @@ func scanUnitResource(row pgx.Row) (map[string]any, error) {
 	if warnings == nil {
 		warnings = []string{}
 	}
+	var locatorResource any = locator
+	if locatorKind == "csv_file" {
+		locatorResource = map[string]any{"file": "source"}
+	} else if strings.HasPrefix(locator, "{") {
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(locator), &decoded); err == nil {
+			locatorResource = decoded
+		}
+	}
 	resource := map[string]any{
 		"import_unit_id":        unitID.String(),
 		"import_session_id":     sessionID.String(),
 		"unit_status":           status,
 		"locator_kind":          locatorKind,
-		"locator":               locator,
+		"locator":               locatorResource,
 		"source_rect_a1":        sourceRect,
 		"header_row_ref":        headerRow,
 		"data_start_row_ref":    dataStart,

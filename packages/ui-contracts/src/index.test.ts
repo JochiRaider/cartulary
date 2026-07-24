@@ -182,6 +182,7 @@ import {
   workbookAddRowButtonTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookImportAssistantTestId,
   workbookIncidentIdentityTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
@@ -1028,6 +1029,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(incidentControlsMenuTestId()).toBe("incident-controls-menu");
     expect(incidentControlsSections).toEqual([
       "summary",
+      "import-assistant",
       "incident-fields",
       "memberships",
       "membership-audit",
@@ -1035,6 +1037,10 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(incidentControlsMenuItemTestId("summary")).toBe(
       "incident-controls-menu-item-summary",
     );
+    expect(incidentControlsMenuItemTestId("import-assistant")).toBe(
+      "incident-controls-menu-item-import-assistant",
+    );
+    expect(workbookImportAssistantTestId()).toBe("workbook-import-assistant");
     expect(incidentControlsMenuItemTestId("incident-fields")).toBe(
       "incident-controls-menu-item-incident-fields",
     );

@@ -235,6 +235,7 @@ export const landingAdminPanelTokens = [
 export type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
 
 export type IncidentControlsSection =
+  | "import-assistant"
   | "incident-fields"
   | "membership-audit"
   | "memberships"
@@ -248,6 +249,7 @@ export type IncidentControlsLoadState =
 
 export const incidentControlsSections = [
   "summary",
+  "import-assistant",
   "incident-fields",
   "memberships",
   "membership-audit",
@@ -884,6 +886,10 @@ export function incidentControlsMenuItemTestId(
 
 export function incidentControlsPanelTestId(): StableTestId {
   return stableTestId("incident-controls-panel");
+}
+
+export function workbookImportAssistantTestId(): StableTestId {
+  return stableTestId("workbook-import-assistant");
 }
 
 export function incidentControlsSurfaceTestId(): StableTestId {

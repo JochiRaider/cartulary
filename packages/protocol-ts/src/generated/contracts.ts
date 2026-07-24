@@ -144,8 +144,8 @@ export const errorArtifactsIndex = indexArtifacts(errorArtifacts);
 export const extensionArtifacts: readonly Artifact[] = [
   {
     path: "contracts/extensions/generated/client-support-registry.json",
-    json: "{\"asset_set_sha256\":\"aa52f48fb8aa1998ae569abaffa4bdbbf6ad5039be63228fa250a4875ed3b627\",\"client_build_class\":\"standard\",\"client_build_id\":\"cartulary.web.standard.source.v1\",\"profiles\":[{\"capability_ids\":[],\"profile_id\":\"network_flow_activity\",\"public_schema_ids\":[],\"supported_contract_majors\":[2],\"workspace_keys\":[\"network_analysis\"]}],\"schema_id\":\"cartulary.client_extension_support_registry.v1\"}\n",
-    sha256: "a94f35621e529ba7336e24c54f1938a2a6f8c7f16e4a255476a5c4909f198432",
+    json: "{\"asset_set_sha256\":\"3a09851db2b013f6dd53e98ab5d5c1a06c1b8d6dba14f0d134aba32d4b22380e\",\"client_build_class\":\"standard\",\"client_build_id\":\"cartulary.web.standard.source.v1\",\"profiles\":[{\"capability_ids\":[],\"profile_id\":\"import\",\"public_schema_ids\":[],\"supported_contract_majors\":[1],\"workspace_keys\":[]},{\"capability_ids\":[],\"profile_id\":\"network_flow_activity\",\"public_schema_ids\":[],\"supported_contract_majors\":[2],\"workspace_keys\":[\"network_analysis\"]}],\"schema_id\":\"cartulary.client_extension_support_registry.v1\"}\n",
+    sha256: "e7f906285d9138feed9c7e5105fa79681496d6337052390a0fa5ec59272de470",
   },
   {
     path: "contracts/extensions/generated/descriptors/enterprise_authentication.json",

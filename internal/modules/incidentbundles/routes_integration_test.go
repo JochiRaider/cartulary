@@ -920,11 +920,12 @@ INSERT INTO import_units (
     import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
     header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
     warning_codes, mapping_fingerprint, approved_mapping_json, columns_json, source_rows_json,
-    preview_rows_json, approved_target_kind, approved_extension_profile_id, created_at, updated_at
+    preview_rows_json, approved_target_kind, approved_extension_profile_id, discovery_sequence,
+    created_at, updated_at
 ) VALUES (
     $1, $2, 'ready', 'csv', 'unit-1', 'A1:Z2', 1, 2, 1, 9,
     '{}', $3, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
-    'network_flow_table', 'network_flow_activity', now(), now()
+    'network_flow_table', 'network_flow_activity', 1, now(), now()
 )
 `, unitID, sessionID, digest); err != nil {
 		t.Fatalf("seed Network Flow import unit: %v", err)

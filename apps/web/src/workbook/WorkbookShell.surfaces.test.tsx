@@ -50,6 +50,7 @@ import {
   timelinePreviewRowTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookImportAssistantTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
@@ -867,6 +868,40 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
     });
+  });
+
+  it("lazy-loads the Workbook Import Assistant only for the claimed Import profile", async () => {
+    render(
+      <WorkbookShell
+        accountApplicationMenu={(props) => (
+          <TestAccountApplicationMenu {...props} />
+        )}
+        extensionProfiles={[
+          {
+            profile_id: "import",
+            claimable: true,
+            claimed: true,
+            contract_major: 1,
+            route_families: ["/api/v1/import-sessions"],
+            workspace_keys: [],
+            capabilities: [],
+          },
+        ]}
+        incidentId="incident-1"
+        renderIncidentControls={(props) => <TestIncidentControls {...props} />}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId(testAccountMenuTriggerTestId));
+    fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
+    const importItem = await screen.findByTestId(
+      incidentControlsMenuItemTestId("import-assistant"),
+    );
+    fireEvent.click(importItem);
+    expect(
+      await screen.findByTestId(workbookImportAssistantTestId()),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Source workbook")).toBeTruthy();
   });
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {

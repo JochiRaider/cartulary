@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -26,25 +28,51 @@ import (
 )
 
 type Service struct {
-	store                  *Store
-	incidentAccess         incidents.Access
-	authStore              *authn.Store
-	jobManager             *jobs.Manager
-	jobRunner              *jobs.Runner
-	timelineStore          *timeline.Facade
-	hub                    *platformws.Hub
-	keys                   authn.MasterKeys
-	cursorCodec            *pagination.Codec
-	limits                 config.ImportLimits
-	archiveLimits          config.ArchiveLimits
-	extensionImportFacades map[string]ExtensionImportFacade
-	extensionClaims        []httpapi.ExtensionClaim
-	now                    func() time.Time
+	store                    *Store
+	incidentAccess           incidents.Access
+	authStore                *authn.Store
+	jobManager               *jobs.Manager
+	jobRunner                *jobs.Runner
+	timelineStore            *timeline.Facade
+	hub                      *platformws.Hub
+	keys                     authn.MasterKeys
+	cursorCodec              *pagination.Codec
+	limits                   config.ImportLimits
+	archiveLimits            config.ArchiveLimits
+	extensionImportFacades   map[string]ExtensionImportFacade
+	extensionProfileAdmitted func(string) bool
+	jobSuccessFinalizer      JobSuccessFinalizer
+	now                      func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOption func(*routeOptions)
+
+type routeOptions struct {
+	extensionProfileAdmitted func(string) bool
+	jobSuccessFinalizer      JobSuccessFinalizer
+}
+
+func WithExtensionProfileAdmission(admitted func(string) bool) RouteOption {
+	return func(options *routeOptions) {
+		options.extensionProfileAdmitted = admitted
+	}
+}
+
+func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
+	return func(options *routeOptions) {
+		options.jobSuccessFinalizer = finalizer
+	}
+}
+
+func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		settings := routeOptions{}
+		for _, option := range options {
+			if option != nil {
+				option(&settings)
+			}
+		}
+		service, err := newService(deps, settings)
 		if err != nil {
 			return err
 		}
@@ -54,7 +82,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options routeOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -73,21 +101,29 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	if deps.Jobs != nil && options.jobSuccessFinalizer == nil {
+		return nil, fmt.Errorf("Import admitted route requires a job success finalizer")
+	}
+	extensionProfileAdmitted := options.extensionProfileAdmitted
+	if extensionProfileAdmitted == nil {
+		extensionProfileAdmitted = func(string) bool { return false }
+	}
 	service := &Service{
-		store:                  NewStore(deps.Postgres),
-		incidentAccess:         incidents.NewAccess(deps.PostgresHandle()),
-		authStore:              authn.NewStore(deps.PostgresHandle()),
-		jobManager:             deps.Jobs,
-		jobRunner:              deps.JobRunner,
-		timelineStore:          timelineStore,
-		hub:                    deps.WSHub,
-		keys:                   keys,
-		cursorCodec:            cursorCodec,
-		limits:                 deps.Config.Limits.Imports,
-		archiveLimits:          deps.Config.Limits.Archives,
-		extensionImportFacades: extensionImportFacades,
-		extensionClaims:        httpapi.ExtensionClaimsFromDependencies(deps),
-		now:                    now,
+		store:                    NewStore(deps.Postgres),
+		incidentAccess:           incidents.NewAccess(deps.PostgresHandle()),
+		authStore:                authn.NewStore(deps.PostgresHandle()),
+		jobManager:               deps.Jobs,
+		jobRunner:                deps.JobRunner,
+		timelineStore:            timelineStore,
+		hub:                      deps.WSHub,
+		keys:                     keys,
+		cursorCodec:              cursorCodec,
+		limits:                   deps.Config.Limits.Imports,
+		archiveLimits:            deps.Config.Limits.Archives,
+		extensionImportFacades:   extensionImportFacades,
+		extensionProfileAdmitted: extensionProfileAdmitted,
+		jobSuccessFinalizer:      options.jobSuccessFinalizer,
+		now:                      now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
 		return nil, err
@@ -146,7 +182,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		return
 	}
 	sourceFileKind := detectSourceFileKind(envelope)
-	unit, apiErr := s.discoverImportUnit(envelope, sourceFileKind)
+	units, apiErr := s.discoverImportUnits(envelope, sourceFileKind)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -170,7 +206,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		SourceMediaType:     envelope.FileContentType,
 		SourceByteSize:      int64(len(envelope.File)),
 		SourceBytes:         envelope.File,
-		Unit:                unit,
+		Units:               units,
 		NormalizedRequest:   normalized,
 		Now:                 s.now(),
 	})
@@ -618,7 +654,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 }
 
 func (s *Service) extensionProfileClaimed(profileID string) bool {
-	return httpapi.ExtensionProfileClaimedInProjection(s.extensionClaims, profileID)
+	return s.extensionProfileAdmitted(profileID)
 }
 
 func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, route importSessionRoute, request MappingRequest) (MappingRequest, *httpapi.APIError) {
@@ -780,6 +816,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 	}
 	total := len(start.SelectedUnitIDs)
 	if !s.markJobRunningOrResume(ctx, jobID, total) {
+		s.cancelApplySessionForTerminalJob(ctx, jobID, start)
 		return nil
 	}
 	units, err := s.store.GetApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
@@ -788,34 +825,75 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 		return nil
 	}
 	extensionRefs := make([]jobs.ResourceRef, 0)
+	completed := 0
+	failed := 0
+	seenUnits := make(map[uuid.UUID]struct{}, len(units))
 	for _, unit := range units {
+		seenUnits[unit.UnitID] = struct{}{}
+		if s.jobCancelRequested(ctx, jobID) {
+			if err := s.store.CancelApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, s.now()); err != nil {
+				return err
+			}
+			_, err := s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
+				JobID:    jobID,
+				Progress: jobs.Progress{Completed: completed, Total: &total},
+			})
+			return err
+		}
 		refs, err := s.applyUnit(ctx, actor, start, unit)
 		if err != nil {
+			if statusErr := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unit.UnitID, "failed", s.now()); statusErr != nil {
+				s.failApplyJob(ctx, jobID, start, "import_apply_failed", statusErr)
+				return nil
+			}
+			failed++
+			completed++
+			continue
+		}
+		if err := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unit.UnitID, "applied", s.now()); err != nil {
 			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
 			return nil
 		}
 		extensionRefs = append(extensionRefs, refs...)
+		completed++
+	}
+	for _, unitID := range start.SelectedUnitIDs {
+		if _, ok := seenUnits[unitID]; ok {
+			continue
+		}
+		if err := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unitID, "failed", s.now()); err != nil {
+			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
+			return nil
+		}
+		failed++
+		completed++
+	}
+	if completed-failed == 0 {
+		s.failApplyJob(ctx, jobID, start, "import_apply_failed", fmt.Errorf("all selected import units failed"))
+		return nil
 	}
 	status := "applied"
 	code := "import_session_applied"
-	if len(units) != len(start.SelectedUnitIDs) {
+	if failed > 0 {
 		status = "partially_applied"
 		code = "import_session_partially_applied"
 	}
-	if err := s.store.CompleteApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, status, s.now()); err != nil {
-		s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-		return nil
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: total, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:         code,
-			Message:      "Import session applied.",
-			ResourceRefs: importApplyResourceRefs(start.ImportSessionID, extensionRefs),
+	_, err = s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
+		FinalCommitID: "import.apply:" + jobID.String(),
+		Transition: jobs.TransitionParams{
+			JobID:    jobID,
+			Progress: jobs.Progress{Completed: total, Total: &total},
+			ResultSummary: &jobs.ResultSummary{
+				Code:         code,
+				Message:      "Import session applied.",
+				ResourceRefs: importApplyResourceRefs(start.ImportSessionID, extensionRefs),
+			},
+		},
+		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			return s.store.CompleteApplyTx(ctx, tx, start.ImportSessionID, start.SelectedUnitIDs, status, s.now())
 		},
 	})
-	return nil
+	return err
 }
 
 func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start ApplyStartResult, code string, err error) {
@@ -827,11 +905,22 @@ func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start Apply
 			Code:      code,
 			Message:   "Import apply failed.",
 			Retryable: false,
-			Details: map[string]any{
-				"error": err.Error(),
-			},
+			Details:   map[string]any{},
 		},
 	})
+	_ = err
+}
+
+func (s *Service) cancelApplySessionForTerminalJob(ctx context.Context, jobID uuid.UUID, start ApplyStartResult) {
+	job, err := s.jobManager.Get(ctx, jobID)
+	if err == nil && job.Status == jobs.StatusCanceled {
+		_ = s.store.CancelApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, s.now())
+	}
+}
+
+func (s *Service) jobCancelRequested(ctx context.Context, jobID uuid.UUID) bool {
+	job, err := s.jobManager.Get(ctx, jobID)
+	return err == nil && job.Status == jobs.StatusCancelRequested
 }
 
 func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData) ([]jobs.ResourceRef, error) {
@@ -1066,40 +1155,56 @@ func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, cl
 	return false
 }
 
-func (s *Service) discoverImportUnit(envelope httpapi.UploadEnvelope, sourceFileKind string) (DiscoveredUnit, *httpapi.APIError) {
-	var rows [][]tabularCell
-	var locatorKind string
-	var locator string
+func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFileKind string) ([]DiscoveredUnit, *httpapi.APIError) {
 	switch sourceFileKind {
 	case SourceFileKindCSV:
 		if int64(len(envelope.File)) > s.limits.MaxCSVSourceBytes {
-			return DiscoveredUnit{}, importSourceRejected("csv_source_too_large", int64(len(envelope.File)), s.limits.MaxCSVSourceBytes)
+			return nil, importSourceRejected("csv_source_too_large", int64(len(envelope.File)), s.limits.MaxCSVSourceBytes)
 		}
 		maxColumns := int(s.limits.MaxColumns)
 		parsedRows, err := tabularingest.ParseTableWithMaxColumns(string(envelope.File), "csv", maxColumns)
 		if err != nil {
 			if strings.Contains(err.Error(), "column count exceeded") {
-				return DiscoveredUnit{}, importSourceRejected("import_columns_exceeded", int64(maxColumns+1), s.limits.MaxColumns)
+				return nil, importSourceRejected("import_columns_exceeded", int64(maxColumns+1), s.limits.MaxColumns)
 			}
-			return DiscoveredUnit{}, importSourceUnsupported("encrypted_or_unparseable_workbook")
+			return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
 		}
-		rows = tabularCellsFromStrings(parsedRows)
-		locatorKind = "csv_file"
-		locator = "file"
+		unit, apiErr := s.discoveredImportUnit(tabularCellsFromStrings(parsedRows), "csv_file", "file")
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		return []DiscoveredUnit{unit}, nil
 	case SourceFileKindXLSX:
 		if int64(len(envelope.File)) > s.limits.MaxXLSXSourceBytes {
-			return DiscoveredUnit{}, importSourceRejected("xlsx_source_too_large", int64(len(envelope.File)), s.limits.MaxXLSXSourceBytes)
+			return nil, importSourceRejected("xlsx_source_too_large", int64(len(envelope.File)), s.limits.MaxXLSXSourceBytes)
 		}
-		parsedRows, apiErr := parseXLSXTable(envelope.File, s.limits, s.archiveLimits)
+		tables, apiErr := parseXLSXTables(envelope.File, s.limits, s.archiveLimits)
 		if apiErr != nil {
-			return DiscoveredUnit{}, apiErr
+			return nil, apiErr
 		}
-		rows = parsedRows
-		locatorKind = "xlsx_used_range"
-		locator = "first_visible_sheet"
+		units := make([]DiscoveredUnit, 0, len(tables))
+		for _, table := range tables {
+			rect := SourceRect(len(table.Rows), len(table.Rows[0]))
+			locatorBytes, err := json.Marshal(map[string]any{
+				"sheet_name": table.SheetName,
+				"rect_a1":    rect,
+			})
+			if err != nil {
+				return nil, internalAPIError(err)
+			}
+			unit, unitErr := s.discoveredImportUnit(table.Rows, "xlsx_used_range", string(locatorBytes))
+			if unitErr != nil {
+				return nil, unitErr
+			}
+			units = append(units, unit)
+		}
+		return units, nil
 	default:
-		return DiscoveredUnit{}, importSourceUnsupported("encrypted_or_unparseable_workbook")
+		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
 	}
+}
+
+func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string, locator string) (DiscoveredUnit, *httpapi.APIError) {
 	maxCols := 0
 	for _, row := range rows {
 		if len(row) > maxCols {
@@ -1215,30 +1320,32 @@ func (s *Service) executeDiscoveryJob(ctx context.Context, jobID uuid.UUID) erro
 func (s *Service) completeDiscoveryJob(ctx context.Context, jobID uuid.UUID, importSessionID uuid.UUID) error {
 	total := 1
 	if !s.markJobRunningOrResume(ctx, jobID, total) {
+		job, err := s.jobManager.Get(ctx, jobID)
+		if err == nil && job.Status == jobs.StatusCanceled {
+			return s.store.CancelDiscovery(ctx, importSessionID, s.now())
+		}
 		return nil
 	}
-	if err := s.store.MarkDiscovered(ctx, importSessionID, s.now()); err != nil {
-		if !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		if _, _, getErr := s.store.GetSession(ctx, importSessionID); getErr != nil {
-			return err
-		}
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    "import_session_discovered",
-			Message: "Import session discovered.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "import_session",
-				ID:    importSessionID.String(),
-				Route: "/api/v1/import-sessions/" + importSessionID.String(),
-			}},
+	_, err := s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
+		FinalCommitID: "import.discovery:" + jobID.String(),
+		Transition: jobs.TransitionParams{
+			JobID:    jobID,
+			Progress: jobs.Progress{Completed: 1, Total: &total},
+			ResultSummary: &jobs.ResultSummary{
+				Code:    "import_session_discovered",
+				Message: "Import session discovered.",
+				ResourceRefs: []jobs.ResourceRef{{
+					Kind:  "import_session",
+					ID:    importSessionID.String(),
+					Route: "/api/v1/import-sessions/" + importSessionID.String(),
+				}},
+			},
+		},
+		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			return s.store.MarkDiscoveredTx(ctx, tx, importSessionID, s.now())
 		},
 	})
-	return nil
+	return err
 }
 
 func (s *Service) decodeJobPayload(ctx context.Context, jobID uuid.UUID, target any) error {

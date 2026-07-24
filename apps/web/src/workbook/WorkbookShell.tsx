@@ -33,6 +33,10 @@ import {
 import { apiPath } from "../services/browserApi";
 import type { GeneratedExtensionProfileResource } from "../services/extensionContractAdapter";
 import { fetchWorkbookJSON, readEnvelope } from "../services/workbookApi";
+import {
+  importProfileId,
+  importRouteFamily,
+} from "../shared/importCoordinator";
 import { workbookSheetRefKey } from "../shared/workbookSheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,
@@ -163,6 +167,11 @@ const LazyNetworkFlowFeature = lazy(async () => {
   return { default: feature.NetworkFlowFeature };
 });
 
+const LazyImportAssistantFeature = lazy(async () => {
+  const feature = await import("./features/ImportAssistantFeature");
+  return { default: feature.ImportAssistantFeature };
+});
+
 function WorkbookShellContent({
   incidentId,
   apiBase,
@@ -259,13 +268,17 @@ function WorkbookShellContent({
       onIncidentSnapshot,
     });
   const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
+  const importAssistantAvailable = extensionAvailability.isRouteAvailable(
+    importProfileId,
+    importRouteFamily,
+  );
   const {
     accountIncidentControls,
     activeMenuItem: activeIncidentControlsMenuItem,
     closeButtonRef: incidentControlsCloseButtonRef,
     closeDrawer: closeIncidentControlsDrawer,
     drawerSection: incidentControlsDrawerSection,
-  } = useIncidentControlsDrawer();
+  } = useIncidentControlsDrawer(importAssistantAvailable);
   const {
     assessmentLoadState,
     assessmentRows,
@@ -396,17 +409,36 @@ function WorkbookShellContent({
     incidentControls: accountIncidentControls,
   });
   const incidentControlsDrawer =
-    incidentControlsDrawerSection === null
-      ? null
-      : (renderIncidentControls?.({
-          activeSection: incidentControlsDrawerSection,
-          apiBase,
-          currentIncidentRole,
-          incidentId,
-          onIncidentAccessLost,
-          onIncidentSnapshot,
-          onSessionRoleChange: loadSessionRole,
-        }) ?? null);
+    incidentControlsDrawerSection ===
+    null ? null : incidentControlsDrawerSection === "import-assistant" &&
+      importAssistantAvailable ? (
+      <Suspense fallback={<p role="status">Loading import assistant…</p>}>
+        <LazyImportAssistantFeature
+          apiBase={apiBase}
+          availability={extensionAvailability}
+          currentIncidentRole={currentIncidentRole}
+          incidentId={incidentId}
+          onNavigateToView={(viewSchemaId) => {
+            selectWorkbookSurface(viewSchemaId, {
+              focusFirstGridTarget: true,
+            });
+            closeIncidentControlsDrawer({
+              restoreTriggerFocus: false,
+            });
+          }}
+        />
+      </Suspense>
+    ) : (
+      (renderIncidentControls?.({
+        activeSection: incidentControlsDrawerSection,
+        apiBase,
+        currentIncidentRole,
+        incidentId,
+        onIncidentAccessLost,
+        onIncidentSnapshot,
+        onSessionRoleChange: loadSessionRole,
+      }) ?? null)
+    );
   const inspectorResetKey = `${surface}:${workbookSheetRefKey(startupSheetRef)}:${sheetReloadToken}`;
   const activeExtensionWorkspace = (() => {
     if (startupSheetRef.kind !== "extension_workspace") {

@@ -89,7 +89,12 @@ type xlsxInlineString struct {
 	Runs []xlsxStringRun `xml:"r"`
 }
 
-func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
+type xlsxDiscoveredTable struct {
+	SheetName string
+	Rows      [][]tabularCell
+}
+
+func parseXLSXTables(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([]xlsxDiscoveredTable, *httpapi.APIError) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
@@ -148,33 +153,58 @@ func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits
 		}
 	}
 
-	var worksheetPath string
-	for _, sheet := range workbook.Sheets {
-		if sheet.RID == "" || sheet.State == "hidden" || sheet.State == "veryHidden" {
-			continue
-		}
-		if target := relTargets[sheet.RID]; target != "" {
-			worksheetPath = target
-			break
-		}
-	}
-	if worksheetPath == "" {
-		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
-	}
-
 	sharedStrings, apiErr := parseXLSXSharedStrings(files)
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	worksheetBytes, ok := readZipFile(files, worksheetPath)
-	if !ok {
+	tables := make([]xlsxDiscoveredTable, 0, len(workbook.Sheets))
+	var totalRows int64
+	var totalCells int64
+	for _, sheet := range workbook.Sheets {
+		if sheet.RID == "" || sheet.Name == "" || sheet.State == "hidden" || sheet.State == "veryHidden" {
+			continue
+		}
+		worksheetPath := relTargets[sheet.RID]
+		if worksheetPath == "" {
+			return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
+		}
+		worksheetBytes, ok := readZipFile(files, worksheetPath)
+		if !ok {
+			return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
+		}
+		var worksheet xlsxWorksheet
+		if err := xml.Unmarshal(worksheetBytes, &worksheet); err != nil {
+			return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
+		}
+		rows, rowErr := xlsxRowsToTable(worksheet.Rows, sharedStrings, importLimits)
+		if rowErr != nil {
+			return nil, rowErr
+		}
+		if len(rows) == 0 {
+			continue
+		}
+		totalRows += int64(len(rows) - 1)
+		totalCells += int64((len(rows) - 1) * len(rows[0]))
+		if totalRows > importLimits.MaxRows {
+			return nil, importSourceRejected("import_rows_exceeded", totalRows, importLimits.MaxRows)
+		}
+		if totalCells > importLimits.MaxCells {
+			return nil, importSourceRejected("import_cells_exceeded", totalCells, importLimits.MaxCells)
+		}
+		tables = append(tables, xlsxDiscoveredTable{SheetName: sheet.Name, Rows: rows})
+	}
+	if len(tables) == 0 {
 		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
 	}
-	var worksheet xlsxWorksheet
-	if err := xml.Unmarshal(worksheetBytes, &worksheet); err != nil {
-		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
+	return tables, nil
+}
+
+func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
+	tables, apiErr := parseXLSXTables(data, importLimits, archiveLimits)
+	if apiErr != nil {
+		return nil, apiErr
 	}
-	return xlsxRowsToTable(worksheet.Rows, sharedStrings, importLimits)
+	return tables[0].Rows, nil
 }
 
 func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *httpapi.APIError) {
@@ -230,7 +260,7 @@ func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits config
 		}
 	}
 	if maxRow == 0 {
-		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
+		return nil, nil
 	}
 	dataRows := maxRow - 1
 	if int64(dataRows) > importLimits.MaxRows {

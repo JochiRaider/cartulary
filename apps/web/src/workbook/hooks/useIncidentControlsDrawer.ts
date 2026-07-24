@@ -5,7 +5,7 @@ import type {
   WorkbookIncidentControlsMenuItem,
 } from "../../shared/workbookShellContracts";
 
-const incidentControlsMenuItems = [
+const baseIncidentControlsMenuItems = [
   {
     section: "summary",
     label: "Summary and preferences",
@@ -28,18 +28,25 @@ const incidentControlsMenuItems = [
   },
 ] as const satisfies readonly WorkbookIncidentControlsMenuItem[];
 
-const defaultIncidentControlsMenuItem = incidentControlsMenuItems[0];
+const importAssistantMenuItem = {
+  section: "import-assistant",
+  label: "Import workbook",
+  description: "Discover, map, and apply CSV or XLSX data",
+} as const satisfies WorkbookIncidentControlsMenuItem;
+
+const defaultIncidentControlsMenuItem = baseIncidentControlsMenuItems[0];
 
 function requireIncidentControlsMenuItem(
   section: IncidentControlsSection,
+  items: readonly WorkbookIncidentControlsMenuItem[],
 ): WorkbookIncidentControlsMenuItem {
   return (
-    incidentControlsMenuItems.find((item) => item.section === section) ??
+    items.find((item) => item.section === section) ??
     defaultIncidentControlsMenuItem
   );
 }
 
-export function useIncidentControlsDrawer() {
+export function useIncidentControlsDrawer(importAssistantAvailable = false) {
   const [drawerSection, setDrawerSection] =
     useState<IncidentControlsSection | null>(null);
   const [lastSection, setLastSection] =
@@ -82,6 +89,28 @@ export function useIncidentControlsDrawer() {
     deferFocus(() => closeButtonRef.current);
   }, [drawerSection, deferFocus]);
 
+  useEffect(() => {
+    if (
+      !importAssistantAvailable &&
+      drawerSection === importAssistantMenuItem.section
+    ) {
+      setDrawerSection(null);
+      setLastSection("summary");
+    }
+  }, [drawerSection, importAssistantAvailable]);
+
+  const incidentControlsMenuItems = useMemo(
+    () =>
+      importAssistantAvailable
+        ? [
+            baseIncidentControlsMenuItems[0],
+            importAssistantMenuItem,
+            ...baseIncidentControlsMenuItems.slice(1),
+          ]
+        : baseIncidentControlsMenuItems,
+    [importAssistantAvailable],
+  );
+
   const accountIncidentControls = useMemo<
     WorkbookAccountApplicationMenuProps["incidentControls"]
   >(
@@ -90,11 +119,12 @@ export function useIncidentControlsDrawer() {
       items: incidentControlsMenuItems,
       onSelectSection: openDrawer,
     }),
-    [lastSection, openDrawer],
+    [incidentControlsMenuItems, lastSection, openDrawer],
   );
 
   const activeMenuItem = requireIncidentControlsMenuItem(
     drawerSection ?? lastSection,
+    incidentControlsMenuItems,
   );
 
   return {

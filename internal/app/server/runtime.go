@@ -225,6 +225,28 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("project Enterprise Authentication application plan: %w", err)
 	}
+	networkFlowRouteAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		networkflow.ProfileID,
+		"http_route_family",
+		[]string{networkflow.RouteContributionID},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Network Flow route application plan: %w", err)
+	}
+	networkFlowWorkspaceAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		networkflow.ProfileID,
+		"incident_workspace",
+		[]string{networkflow.WorkspaceContributionID},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Network Flow workspace application plan: %w", err)
+	}
+	if networkFlowRouteAdmitted != networkFlowWorkspaceAdmitted {
+		runtime.Close()
+		return nil, fmt.Errorf("project Network Flow application plan: route and workspace admission disagree")
+	}
 	publication := NewPublicationController(runtime.Lifecycle)
 	if err := publication.Prepare(extensionPlan); err != nil {
 		runtime.Close()
@@ -592,6 +614,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 	)
+	importRoutes := imports.RegisterRoutes(
+		imports.WithExtensionProfileAdmission(func(profileID string) bool {
+			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
+		}),
+		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(runtime.ExtensionJobFinalizer)),
+	)
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
@@ -627,9 +655,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			contributionIDs: []string{auth.EnterpriseUserAuthBindingsRouteContributionID},
 			baseRegistrarID: "auth",
 		},
-		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: imports.RegisterRoutes()},
+		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: importRoutes},
 		{id: "incident_portability", contributionIDs: []string{"incident_portability.bundles_route"}, registrar: incidentBundleRoutes},
-		{id: "network_flow_activity", contributionIDs: []string{"network_flow_activity.route_family"}, registrar: networkFlowModule.RegisterRoutes()},
+		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowModule.RegisterRoutes()},
 		{id: "reference_pack", contributionIDs: []string{"reference_pack.packs_route"}, registrar: reference_data.RegisterRoutes()},
 		{
 			id:              "snapshot_reporting_resources",

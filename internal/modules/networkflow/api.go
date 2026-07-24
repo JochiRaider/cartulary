@@ -9,6 +9,8 @@ import (
 const (
 	ProfileID                   = "network_flow_activity"
 	WorkspaceKeyNetworkAnalysis = "network_analysis"
+	RouteContributionID         = "network_flow_activity.route_family"
+	WorkspaceContributionID     = "network_flow_activity.network_analysis_workspace"
 
 	SourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v1"
 	ParserProfileRFC4180HeaderedCSV = "rfc4180_headered_csv_v1"

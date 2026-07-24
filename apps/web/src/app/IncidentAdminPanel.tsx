@@ -908,6 +908,11 @@ export function IncidentAdminPanel({
 }
 
 const incidentControlsSectionMeta = {
+  "import-assistant": {
+    title: "Import workbook",
+    description:
+      "Discover, map, select, and apply structured workbook source data.",
+  },
   summary: {
     title: "Summary and preferences",
     description:
