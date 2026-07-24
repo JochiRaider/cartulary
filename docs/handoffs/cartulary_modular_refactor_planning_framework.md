@@ -21,7 +21,15 @@ When owner documents conflict, mark `BLOCKED: owner contradiction` and do not pi
 
 ## 3. Refactor doctrine
 
-A refactor plan must preserve observable behavior unless the scoped task explicitly authorizes a behavior change. Observable behavior includes route shape, request and response envelopes, WebSocket paths and event semantics, workbook interaction behavior, storage semantics, authorization outcomes, generated contract surfaces, and harness accounting.
+A refactor plan must preserve observable behavior unless the scoped task explicitly
+authorizes a behavior change or an adopted owner requires a normative correction.
+Existing behavior is not a compatibility requirement merely because it exists.
+When correction is authorized, separate it from structural movement, identify the
+owner clause and migration impact, and characterize the intended behavior before
+removing the old path. Observable behavior includes route shape, request and
+response envelopes, WebSocket paths and event semantics, workbook interaction
+behavior, storage semantics, authorization outcomes, generated contract surfaces,
+and harness accounting.
 
 The implementation must move from phase-shaped or UI-shaped production code toward module-shaped production code. Test rows and visual fixtures use semantic owner/family identities; historical delivery phases are not an execution, accounting, or compatibility boundary.
 
@@ -40,6 +48,11 @@ Use this table as the default target-module registry. A local plan may split a r
 | `indicators` | Canonical indicators and observations. | Defanging, observation derivation, lifecycle intervals. |
 | `evidence` | Evidence records, object blobs, handles, preview/download, attach/finalize. | Object-store details, safe preview states, blocked states, blob lifecycle. |
 | `imports` | CSV/XLSX onboarding beyond ordinary clipboard paste. | Parser quirks, region detection, warnings, mapping fingerprints, provenance. |
+| `extensions` | Immutable extension registry admission, claim resolution, serving-epoch plan construction, state admission, validation-condition admission, and pure deadline policy. | Generated catalog integrity, dependency closure, collision checks, initialization/migration protocol, and typed projections for application composition. |
+| `incidentbundles` | Incident bundle export/import and extension portability orchestration. | State/claim blocking, participant admission, bounded preparation, scoped staging, and atomic target publication. |
+| `crossownertransaction` | Bounded multi-owner final-commit protocol. | Prepare/write separation, global serialization order, cancellation boundaries, typed capabilities, and closed commit outcomes. |
+| `stagedobjects` | Operation-scoped staged-byte lifecycle and reconciliation. | Allocation/readiness/abandon/transfer/publication, cutoff draining, retry policy, and readiness/fatal outcomes. |
+| `recovery` | Backup capture/catalog, restore, restore verification, and extension binding/codec proof validation. | Artifact integrity, stopped/pristine-target admission, exact codec selection, ordered restore, post-restore validation, and failed-target gating. |
 | `links` | Typed relationships, tags, analyst-work coordination links. | Relationship validation, confidence, link projection. |
 | `revisions` | Change sets, row revisions, rollback, restore. | Mutation grouping, rollback safety, destructive contention. |
 | `projections` | Grid projections, search, sort/filter/group materialization. | Caches, tokenization, disposable derived tables, cursor behavior. |
@@ -222,6 +235,11 @@ Default guardrails:
 - Direct `react-data-grid` imports must remain inside `/packages/grid-adapter`.
 - Generated files must not be hand-edited.
 - Modules must not import peer internals.
+- Shared semantic coordinators must depend on narrow typed owner ports, never a
+  broad peer-module facade or platform SQL/storage DTO.
+- Application composition is the edge that translates immutable owner catalogs
+  into executable adapters; profile owners and shared coordinators must not
+  import one another to discover implementations.
 - Public Make targets, output behavior, and artifacts must remain Make-owned when harness evidence is used.
 
 Acceptance:

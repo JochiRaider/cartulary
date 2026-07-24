@@ -3,6 +3,39 @@
   "owner_id": "module.incidentbundles",
   "rows": [
     {
+      "row_id": "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.crossownertransaction",
+        "module.extensions",
+        "module.networkflow",
+        "module.stagedobjects"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration",
+          "TestIncidentBundlePortabilityStateAndClaimMatrix_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-144",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-003"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.incident_bundle_descriptor_reads_reject_singleto_ea18aa4fe5",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -182,6 +215,60 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestNetworkFlowRetainedStateBlocksBundleExport_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-142"
+      ]
+    },
+    {
+      "row_id": "module.incidentbundles.unit.cross_owner_import_descriptor_is_closed_9f6d848f63",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "module.crossownertransaction"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestIncidentBundleImportDescriptorIsClosed_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"

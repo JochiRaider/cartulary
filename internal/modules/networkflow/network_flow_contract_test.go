@@ -718,7 +718,7 @@ func AssertAuthorizationBoundary(t *testing.T) {
 	routes := string(ReadFile(t, "internal/modules/networkflow/routes.go"))
 	module := string(ReadFile(t, "internal/modules/networkflow/module.go"))
 	boundary := module + "\n" + routes
-	for _, required := range []string{"ExtensionProfileClaimedIn", "requireIncidentMembership", "requireIncidentRole"} {
+	for _, required := range []string{"ExtensionProfileClaimedBy", "requireIncidentMembership", "requireIncidentRole"} {
 		if !strings.Contains(boundary, required) {
 			t.Fatalf("Network Flow routes missing authorization/admission hook %q", required)
 		}

@@ -329,6 +329,7 @@ The path tree below is an intended baseline shape, not an independently verified
       /server                        # Server assembly and lifecycle
       /migrate                       # Migration CLI facade
       /operator                      # Recovery operator CLI facade
+      /extensionassembly             # Typed extension-owner composition adapters
       /revisionassembly              # Revision contribution aggregation
       /serverprocess                 # Test-only process evidence
     /platform
@@ -346,6 +347,11 @@ The path tree below is an intended baseline shape, not an independently verified
       /entities                      # Hosts, identities, indicators, assessments, mentions, aliases
       /evidence                      # Evidence records, blob attachment, custody, access handles
       /imports                       # File-based import and shared tabular ingest
+      /extensions                    # Registry, claims, serving-plan construction, state admission
+      /incidentbundles               # Bundle export/import and extension portability
+      /crossownertransaction         # Bounded multi-owner final-commit protocol
+      /stagedobjects                 # Staged-byte lifecycle and reconciliation
+      /recovery                      # Backup, restore, and restore verification
       /links                         # Links, tags, notes, parties, tasks, decisions, coordination artifacts
       /revisions                     # Change sets, history, rollback
       /projections                   # Projection maintenance and rebuilds
@@ -575,7 +581,11 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 | `artifacts`      | Notes, communications log, handoff, status review, lesson, and optional artifact-backed workbook surfaces                                                    | Evidence blob lifecycle, party records, host/identity records            |
 | `evidence`       | Evidence records, blob-slot lifecycle, attach-blob finalization, custody events, preview/download handle issuance and redemption                             | Saved views, reference-pack activation                                   |
 | `imports`        | CSV and XLSX adapters, `import_session`, `import_unit`, preview, mapping, provenance, warning codes, import jobs                                             | Hot-path clipboard UI beyond the shared tabular-ingest contract          |
-| `extensions`     | Deployment-scoped extension-claim discovery and reserved extension-family route matching                                                                      | Incident-scoped resources inside claimed extension families              |
+| `extensions`     | Immutable registry admission, claim resolution, serving-plan construction, state admission, validation-condition admission, and pure deadline policy         | HTTP/auth/session delivery, profile-owned state algorithms, portability, staged bytes, backup/restore, and shared final transactions |
+| `incidentbundles` | Incident bundle export/import plus admitted extension portability orchestration                                                                              | Generic claim/catalog admission, physical object storage, unrelated recovery |
+| `crossownertransaction` | Bounded multi-owner final-commit protocol with typed capabilities and closed commit outcomes                                                         | Participant-owned business rules, ordinary single-owner transactions     |
+| `stagedobjects`  | Operation-scoped staged-byte allocation, transfer, publication, cleanup, retry, readiness, and fatal-integrity handling                                      | Bundle semantics, profile business rules, physical storage DTOs          |
+| `recovery`       | Backup capture/catalog, restore, restore verification, and exact extension binding/codec proof validation                                                    | Public application routes, inactive profile execution, best-effort historical decoding |
 | `links`          | Typed record links, tags, merge repoint helpers, and shared link/tag mutation policy                                                                          | Source-record ownership, object storage internals, pack verification     |
 | `revisions`      | Change sets, mutation entries, record revisions, rollback operations                                                                                         | Live presence and WS transport                                           |
 | `projections`    | `*_grid_projection` maintenance, rebuild commands, projection invalidation strategy                                                                          | Source-of-truth business decisions                                       |
@@ -1290,6 +1300,13 @@ Enterprise-auth provider definitions are not runtime resources in the current pr
 
 Runtime claim-state discovery for those deployment-gated families is `GET /api/v1/extensions`. That route returns the current extension registry plus reserved `route_families[]` roots. Requests under a reserved but unclaimed family fail with `404` and `error.code = extension_profile_not_claimed`; they are not treated as ordinary unknown routes. Frontend routing, deployment-gated feature flags, and integration tests SHOULD key off that discovery contract rather than ad hoc route probes.
 
+The Extensions module supplies the immutable discovery snapshot from the installed
+serving epoch. The focused `internal/platform/httpapi/extensiondiscovery` adapter
+owns route registration, authentication, session sliding, singleton-query
+rejection, and envelope serialization. Application-server composition is the only
+edge that binds that adapter, reserved-family dispatch, workspace and worker
+admission, and profile implementations to one installed plan.
+
 For claimed Reference Pack deployments, every `/api/v1/reference-packs/*` endpoint is deployment-admin-only. Clients and integration tests SHOULD combine `GET /api/v1/extensions` with the session `is_deployment_admin` value rather than probing reference-pack routes; a claimed non-admin receives `403` with `error.code = authorization_denied`, while an unclaimed family returns `extension_profile_not_claimed` first.
 
 ### 12.5 Backup, restore, and failure modes
@@ -1339,7 +1356,14 @@ Operational backup baseline:
 Restore and restore-verification baseline:
 
 - restore selects exactly one retained `backup_set` and restores Postgres and object-store contents from that same set and same declared `consistency_point_at`,
-- restore order remains Postgres, object storage, then projection rebuild,
+- restore order remains Postgres, object storage, exact extension-binding
+  validation, then projection rebuild,
+- the integrity manifest includes canonical extension binding, implementation
+  binding, physical binding, codec, item-count, byte-length, and digest proofs;
+  restore accepts only an exact packaged current or declared historical codec,
+- restore rejects a serving or semantically nonempty target before reading backup
+  artifacts; a freshly migrated target may contain only exact migration-owned
+  bootstrap metadata, and a failed target remains non-serving,
 - missing required Postgres or object-store artifacts, or missing required checksum or integrity proof for the chosen backup mechanism, fails restore before the environment is exposed as ready,
 - full restore verification runs in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding,
 - the deployment-local `operator restore-verify due` command is the implementation-owned cadence runner for backups due by age or verification-basis change; manual `operator restore-verify latest` remains a one-shot control,

@@ -284,6 +284,23 @@ func extensionFactsByProfile(fragments []map[string]any) map[string][]map[string
 	return result
 }
 
+func extensionMigrationFacts(indexed map[string]map[string]any, profileID string) []map[string]any {
+	result := []map[string]any{}
+	for _, object := range indexed {
+		if object["schema_id"] != "cartulary.extension_owner_fragment.v1" {
+			continue
+		}
+		facts, _ := object["facts"].([]any)
+		for _, rawFact := range facts {
+			fact, _ := rawFact.(map[string]any)
+			if fact["fact_kind"] == "migration_definition" && fact["profile_id"] == profileID {
+				result = append(result, fact)
+			}
+		}
+	}
+	return result
+}
+
 func extensionFactSortKey(fact map[string]any) string {
 	profileID, _ := fact["profile_id"].(string)
 	factKind, _ := fact["fact_kind"].(string)
@@ -527,8 +544,10 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 
 		state := descriptor["state_ownership"].(map[string]any)
 		var initializationDigest any
+		var initializationAlgorithmID any
 		var physicalDigest any
 		var finalValidation any
+		migrationBindings := []map[string]any{}
 		backupCodecBindings := []map[string]any{}
 		rebuildAlgorithms := []string{}
 		if state["kind"] == "extension_versioned" {
@@ -544,11 +563,45 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 			if initializationDigest != state["initialization_definition_sha256"] {
 				return nil, fmt.Errorf("profile %s initialization digest is stale", profileID)
 			}
+			initializationVariant, _ := initialization["initialization"].(map[string]any)
+			if initializationVariant["kind"] == "algorithm" {
+				initializationAlgorithmID = initializationVariant["algorithm_id"]
+			} else {
+				initializationAlgorithmID = nil
+			}
 			physicalDigest, err = extensionCanonicalDigest(physical)
 			if err != nil {
 				return nil, err
 			}
 			finalValidation = state["final_state_validation_algorithm_id"]
+			for _, fact := range extensionMigrationFacts(indexed, profileID) {
+				definition, _ := fact["migration_definition"].(map[string]any)
+				definitionDigest, digestErr := extensionCanonicalDigest(definition)
+				if digestErr != nil {
+					return nil, digestErr
+				}
+				migrationBindings = append(migrationBindings, map[string]any{
+					"migration_id":                definition["migration_id"],
+					"from_state_version":          definition["from_state_version"],
+					"to_state_version":            definition["to_state_version"],
+					"migration_definition_sha256": definitionDigest,
+					"apply_algorithm_id":          definition["apply_algorithm_id"],
+					"validation_algorithm_id":     definition["validation_algorithm_id"],
+				})
+			}
+			sort.Slice(migrationBindings, func(i, j int) bool {
+				leftFrom, _ := positiveJSONInt(migrationBindings[i]["from_state_version"], "migration from version")
+				rightFrom, _ := positiveJSONInt(migrationBindings[j]["from_state_version"], "migration from version")
+				if leftFrom != rightFrom {
+					return leftFrom < rightFrom
+				}
+				leftTo, _ := positiveJSONInt(migrationBindings[i]["to_state_version"], "migration to version")
+				rightTo, _ := positiveJSONInt(migrationBindings[j]["to_state_version"], "migration to version")
+				if leftTo != rightTo {
+					return leftTo < rightTo
+				}
+				return stringValue(migrationBindings[i]["migration_id"]) < stringValue(migrationBindings[j]["migration_id"])
+			})
 			rows, _ := objectArray(physical["bindings"], "physical state bindings")
 			for _, row := range rows {
 				backupCodecBindings = append(backupCodecBindings, map[string]any{
@@ -562,8 +615,29 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 			}
 		} else {
 			initializationDigest = nil
+			initializationAlgorithmID = nil
 			physicalDigest = nil
 			finalValidation = nil
+		}
+		implementedAlgorithms := map[string]struct{}{}
+		for _, algorithmID := range anyToStrings(bindingSource["algorithm_ids"]) {
+			implementedAlgorithms[algorithmID] = struct{}{}
+		}
+		for _, requiredAlgorithm := range []any{initializationAlgorithmID, finalValidation} {
+			if requiredAlgorithm == nil {
+				continue
+			}
+			if _, ok := implementedAlgorithms[stringValue(requiredAlgorithm)]; !ok {
+				return nil, fmt.Errorf("profile %s implementation omits state algorithm %s", profileID, requiredAlgorithm)
+			}
+		}
+		for _, migration := range migrationBindings {
+			for _, key := range []string{"apply_algorithm_id", "validation_algorithm_id"} {
+				algorithmID := stringValue(migration[key])
+				if _, ok := implementedAlgorithms[algorithmID]; !ok {
+					return nil, fmt.Errorf("profile %s implementation omits migration algorithm %s", profileID, algorithmID)
+				}
+			}
 		}
 		admission := descriptor["admission_validation"].(map[string]any)
 		dependencyProbeIDs := []string{}
@@ -582,10 +656,10 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 			"preflight_algorithm_id":              extensionAlgorithmID(admission["preflight_algorithm_ref"]),
 			"post_migration_algorithm_id":         extensionAlgorithmID(admission["post_migration_algorithm_ref"]),
 			"initialization_definition_sha256":    initializationDigest,
-			"initialization_algorithm_id":         nil,
+			"initialization_algorithm_id":         initializationAlgorithmID,
 			"final_state_validation_algorithm_id": finalValidation,
 			"dependency_probe_ids":                stringsToAny(dependencyProbeIDs),
-			"migration_definitions":               []any{},
+			"migration_definitions":               objectsToAny(migrationBindings),
 			"physical_state_binding_sha256":       physicalDigest,
 			"backup_codec_bindings":               objectsToAny(backupCodecBindings),
 			"rebuild_algorithm_ids":               stringsToAny(rebuildAlgorithms),
@@ -654,21 +728,37 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			return nil, nil, nil, fmt.Errorf("profile %s runtime state registry disagrees with admitted descriptor/binding", profileID)
 		}
 		initializationVariant, _ := initialization["initialization"].(map[string]any)
+		bindingDigest, err := extensionCanonicalDigest(binding)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		runtimeMigrations := []map[string]any{}
+		rawMigrations, _ := objectArray(binding["migration_definitions"], profileID+" migration bindings")
+		for _, rawMigration := range rawMigrations {
+			migration := cloneObject(rawMigration)
+			migration["migration_lineage_id"] = state["migration_lineage_id"]
+			migration["implementation_binding_profile_id"] = profileID
+			migration["implementation_binding_sha256"] = bindingDigest
+			runtimeMigrations = append(runtimeMigrations, migration)
+		}
 		stateRows = append(stateRows, map[string]any{
-			"profile_id":                          profileID,
-			"contract_major":                      descriptor["contract_major"],
-			"migration_lineage_id":                state["migration_lineage_id"],
-			"current_state_version":               state["current_state_version"],
-			"minimum_migratable_state_version":    state["minimum_migratable_state_version"],
-			"empty_state_policy":                  state["empty_state_policy"],
-			"database_family_ids":                 presence["database_family_ids"],
-			"object_reference_family_ids":         presence["object_reference_family_ids"],
-			"state_presence_manifest_sha256":      presenceDigest,
-			"initialization_kind":                 initializationVariant["kind"],
-			"initialization_definition_sha256":    initializationDigest,
-			"migration_definitions":               binding["migration_definitions"],
-			"final_state_validation_algorithm_id": binding["final_state_validation_algorithm_id"],
-			"physical_state_binding_sha256":       physicalDigest,
+			"profile_id":                                 profileID,
+			"contract_major":                             descriptor["contract_major"],
+			"migration_lineage_id":                       state["migration_lineage_id"],
+			"current_state_version":                      state["current_state_version"],
+			"minimum_migratable_state_version":           state["minimum_migratable_state_version"],
+			"empty_state_policy":                         state["empty_state_policy"],
+			"database_family_ids":                        presence["database_family_ids"],
+			"object_reference_family_ids":                presence["object_reference_family_ids"],
+			"state_presence_manifest_sha256":             presenceDigest,
+			"initialization_kind":                        initializationVariant["kind"],
+			"initialization_definition_sha256":           initializationDigest,
+			"initialization_algorithm_id":                initializationVariant["algorithm_id"],
+			"initialization_algorithm_definition_sha256": initializationVariant["algorithm_definition_sha256"],
+			"migration_definitions":                      objectsToAny(runtimeMigrations),
+			"final_state_validation_algorithm_id":        binding["final_state_validation_algorithm_id"],
+			"physical_state_binding_sha256":              physicalDigest,
+			"implementation_binding_sha256":              bindingDigest,
 		})
 
 		codecRows := []map[string]any{}

@@ -487,9 +487,9 @@ func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.Dependency
 		t.Fatalf("parse Network Flow route-test key rings: %v", err)
 	}
 	return httpapi.DependencySet{
-		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
-		ModuleOverrides:   map[string]any{KeyRingsOverrideKey: rings},
-		Now:               func() time.Time { return now },
+		ExtensionEpoch:  httpapi.NewStaticExtensionEpochProvider(claimedNetworkFlowProfilesForRouteTest()),
+		ModuleOverrides: map[string]any{KeyRingsOverrideKey: rings},
+		Now:             func() time.Time { return now },
 	}
 }
 

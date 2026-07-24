@@ -37,6 +37,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.crossownertransaction",
+      "manifest_path": "tools/test_families/module.crossownertransaction.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.entities",
       "manifest_path": "tools/test_families/module.entities.json",
       "status": "active"
@@ -124,6 +129,11 @@
     {
       "owner_id": "module.savedviews",
       "manifest_path": "tools/test_families/module.savedviews.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.stagedobjects",
+      "manifest_path": "tools/test_families/module.stagedobjects.json",
       "status": "active"
     },
     {

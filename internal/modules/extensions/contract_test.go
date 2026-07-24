@@ -19,6 +19,7 @@ import (
 	"time"
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
@@ -38,21 +39,78 @@ type extensionBoundaryExpectation struct {
 var extensionBoundaryExpectations = []extensionBoundaryExpectation{
 	{"BC-001", "EXT-AC-142", "module.extensions.unit.bc001_empty_state_7ca75ba0bc", "TestExtensionBC001EmptyStatePolicy_Unit"},
 	{"BC-002", "EXT-AC-143", "module.extensions.unit.bc002_validation_precedence_af944dca6e", "TestExtensionBC002ValidationPrecedence_Unit"},
-	{"BC-003", "EXT-AC-144", "module.extensions.integration.bc003_portability_separation_e4b6d361d2", "TestExtensionBC003PortabilitySeparation_Integration"},
 	{"BC-004", "EXT-AC-145", "module.extensions.static.bc004_dependency_declarations_7dd570e1e4", "TestExtensionBC004DependencyDeclarations_Static"},
 	{"BC-005", "EXT-AC-146", "module.extensions.unit.bc005_descriptor_provenance_1e0ea91df8", "TestExtensionBC005DescriptorProvenance_Unit"},
 	{"BC-006", "EXT-AC-147", "module.extensions.unit.bc006_validation_inventory_6e85895643", "TestExtensionBC006ValidationInventory_Unit"},
 	{"BC-007", "EXT-AC-148", "module.extensions.unit.bc007_closure_mapping_08c4e88841", "TestExtensionBC007ClosureMapping_Unit"},
 	{"BC-008", "EXT-AC-149", "module.extensions.static.bc008_clause_traceability_1991b482d2", "TestExtensionBC008ClauseTraceability_Static"},
-	{"BC-009", "EXT-AC-150", "module.extensions.unit.bc009_inactive_syntax_42f66761e3", "TestExtensionBC009InactiveSyntaxOnly_Unit"},
 	{"BC-010", "EXT-AC-151", "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d", "TestExtensionBC010LeaseLifecycle_Process"},
 	{"BC-011", "EXT-AC-152", "module.extensions.integration.bc011_deadline_precedence_ef23af86ac", "TestExtensionBC011DeadlinePrecedence_Integration"},
-	{"BC-012", "EXT-AC-153", "module.extensions.integration.bc012_participant_limits_2c63f740c8", "TestExtensionBC012ParticipantLimits_Integration"},
-	{"BC-013", "EXT-AC-154", "module.extensions.integration.bc013_staged_objects_2b44f1267c", "TestExtensionBC013StagedObjectLifecycle_Integration"},
-	{"BC-014", "EXT-AC-155", "module.extensions.integration.bc014_restore_ordering_bc05082e06", "TestExtensionBC014RestoreOrdering_Integration"},
 	{"BC-015", "EXT-AC-156", "module.extensions.integration.bc015_browser_availability_e0a71bee5d", "TestExtensionBC015BrowserAvailability_Integration"},
 	{"BC-016", "EXT-AC-157", "module.extensions.unit.bc016_capabilities_disabled_77bb995602", "TestExtensionBC016CapabilitiesDisabled_Unit"},
 	{"BC-017", "EXT-AC-158", "module.extensions.process.bc017_component_loss_755919c8d7", "TestExtensionBC017PublishedComponentLoss_Process"},
+}
+
+type movedExtensionBoundaryExpectation struct {
+	BoundaryID    string
+	AcceptanceID  string
+	OwnerID       string
+	ManifestPath  string
+	RowID         string
+	Verification  string
+	RequiredTests []string
+}
+
+var movedExtensionBoundaryExpectations = []movedExtensionBoundaryExpectation{
+	{
+		BoundaryID: "BC-003", AcceptanceID: "EXT-AC-144", OwnerID: "module.incidentbundles",
+		ManifestPath: "module.incidentbundles.json",
+		RowID:        "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
+		Verification: "module.incidentbundles.verification.extensions_portability",
+		RequiredTests: []string{
+			"TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration",
+			"TestIncidentBundlePortabilityStateAndClaimMatrix_Integration",
+		},
+	},
+	{
+		BoundaryID: "BC-009", AcceptanceID: "EXT-AC-150", OwnerID: "platform.config",
+		ManifestPath:  "platform.config.json",
+		RowID:         "platform.config.unit.inactive_extension_values_discarded_fa9b985016",
+		Verification:  "platform.config.verification.behavior_contract",
+		RequiredTests: []string{"TestInactiveExtensionConfiguration_Unit"},
+	},
+	{
+		BoundaryID: "BC-012", AcceptanceID: "EXT-AC-153", OwnerID: "module.crossownertransaction",
+		ManifestPath: "module.crossownertransaction.json",
+		RowID:        "module.crossownertransaction.integration.postgres_atomicity_7f6ad80724",
+		Verification: "module.crossownertransaction.verification.final_commit_protocol",
+		RequiredTests: []string{
+			"TestCrossOwnerTransaction_Integration_CommitAndRollbackAtomicity",
+			"TestCrossOwnerTransaction_Integration_OrderedAdvisoryLocks",
+		},
+	},
+	{
+		BoundaryID: "BC-013", AcceptanceID: "EXT-AC-154", OwnerID: "module.stagedobjects",
+		ManifestPath: "module.stagedobjects.json",
+		RowID:        "module.stagedobjects.integration.allocation_publication_cleanup_7f6ad80724",
+		Verification: "module.stagedobjects.verification.behavior_contract",
+		RequiredTests: []string{
+			"TestStagedObjects_Integration_AllocationPublicationAndCleanup",
+			"TestStagedObjects_Integration_PublicationRollbackLeavesReadyAndInaccessible",
+			"TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete",
+		},
+	},
+	{
+		BoundaryID: "BC-014", AcceptanceID: "EXT-AC-155", OwnerID: "module.recovery",
+		ManifestPath: "module.recovery.json",
+		RowID:        "module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a",
+		Verification: "module.recovery.verification.behavior_contract",
+		RequiredTests: []string{
+			"TestFailClosedRestoreVerificationBlocked_Unit",
+			"TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
+			"TestRestoreRejectsRunningOrNonemptyTargetBeforeArtifactRead_Integration",
+		},
+	},
 }
 
 func TestExtensionBC001EmptyStatePolicy_Unit(t *testing.T) {
@@ -99,11 +157,6 @@ func TestExtensionBC002ValidationPrecedence_Unit(t *testing.T) {
 	}
 	requireValidationDisposition(t, ClassifyOwnerValidationResult(nil, ownerValidationResult(t, 1, true)), OwnerValidationResultInvalid, "extension_validation_result_invalid")
 	requireValidationDisposition(t, ClassifyOwnerValidationResult(nil, ownerValidationResult(t, 4097, true)), OwnerValidationOverflow, "extension_diagnostic_overflow")
-}
-
-func TestExtensionBC003PortabilitySeparation_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-003", "EXT-AC-144")
-	assertBC003PortabilitySeparation(t)
 }
 
 func TestExtensionBC004DependencyDeclarations_Static(t *testing.T) {
@@ -337,50 +390,6 @@ func requireJSONStringsValue(t testing.TB, value any, label string) []string {
 	return result
 }
 
-func TestExtensionBC009InactiveSyntaxOnly_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-009", "EXT-AC-150")
-	schema := map[string]any{
-		"type":                 "object",
-		"additionalProperties": false,
-		"properties": map[string]any{
-			"mode": map[string]any{"type": "string", "enum": []any{"strict", "relaxed"}},
-		},
-	}
-	policies := []InactiveKeyPolicy{
-		{Key: "syntax", Policy: "syntax_only", Schema: schema},
-		{Key: "forbidden", Policy: "forbidden"},
-	}
-	if findings := ValidateInactiveConfiguration(nil, policies); len(findings) != 0 {
-		t.Fatalf("omitted inactive configuration defaulted or failed: %#v", findings)
-	}
-	if findings := ValidateInactiveConfiguration(map[string]any{"syntax": map[string]any{}}, policies); len(findings) != 0 {
-		t.Fatalf("valid inert syntax rejected: %#v", findings)
-	}
-	for name, values := range map[string]map[string]any{
-		"null":             {"syntax": nil},
-		"invalid_value":    {"syntax": map[string]any{"mode": "active"}},
-		"reference_shaped": {"syntax": map[string]any{"$ref": "vault://secret"}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			findings := ValidateInactiveConfiguration(values, policies)
-			if len(findings) != 1 || findings[0].Code != "extension_validation_result_invalid" || findings[0].Actual != "redacted" {
-				t.Fatalf("inactive syntax findings = %#v", findings)
-			}
-		})
-	}
-	for name, values := range map[string]map[string]any{
-		"forbidden": {"forbidden": "secret"},
-		"unknown":   {"unknown": "secret"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			findings := ValidateInactiveConfiguration(values, policies)
-			if len(findings) != 1 || findings[0].Code != "extension_config_without_claim" || findings[0].Actual != "redacted" {
-				t.Fatalf("inactive forbidden findings = %#v", findings)
-			}
-		})
-	}
-}
-
 func TestExtensionBC010LeaseLifecycle_Process(t *testing.T) {
 	requireExtensionBoundaryRoute(t, "BC-010", "EXT-AC-151")
 	session := newContractLeaseSession("original-session")
@@ -423,57 +432,42 @@ func TestExtensionBC010LeaseLifecycle_Process(t *testing.T) {
 
 func TestExtensionBC011DeadlinePrecedence_Integration(t *testing.T) {
 	requireExtensionBoundaryRoute(t, "BC-011", "EXT-AC-152")
-	local := NewDeadline(10, 2, nil)
-	if local.MonotonicNS != 2_000_000_010 || local.Source != DeadlineLocal || local.Expired(local.MonotonicNS-1) || !local.Expired(local.MonotonicNS) {
+	local := extensiondeadline.New(10, 2, nil)
+	if local.MonotonicNS != 2_000_000_010 || local.Source != extensiondeadline.SourceLocal || local.Expired(local.MonotonicNS-1) || !local.Expired(local.MonotonicNS) {
 		t.Fatalf("local deadline = %#v", local)
 	}
-	if saturated := NewDeadline(math.MaxInt64-5, 1, nil); saturated.MonotonicNS != math.MaxInt64 {
+	if saturated := extensiondeadline.New(math.MaxInt64-5, 1, nil); saturated.MonotonicNS != math.MaxInt64 {
 		t.Fatalf("addition did not saturate: %#v", saturated)
 	}
-	if saturated := NewDeadline(1, math.MaxInt64, nil); saturated.MonotonicNS != math.MaxInt64 {
+	if saturated := extensiondeadline.New(1, math.MaxInt64, nil); saturated.MonotonicNS != math.MaxInt64 {
 		t.Fatalf("multiplication did not saturate: %#v", saturated)
 	}
 	for name, inherited := range map[string]int64{"earlier": 100, "equal": 2_000_000_010, "later": 3_000_000_000} {
 		t.Run(name, func(t *testing.T) {
-			result := NewDeadline(10, 2, &Deadline{MonotonicNS: inherited, Source: DeadlineInherited})
-			if name == "later" && (result.Source != DeadlineLocal || result.MonotonicNS != local.MonotonicNS) {
+			result := extensiondeadline.New(10, 2, &extensiondeadline.Deadline{MonotonicNS: inherited, Source: extensiondeadline.SourceInherited})
+			if name == "later" && (result.Source != extensiondeadline.SourceLocal || result.MonotonicNS != local.MonotonicNS) {
 				t.Fatalf("later inherited deadline won: %#v", result)
 			}
-			if name != "later" && (result.Source != DeadlineInherited || result.MonotonicNS != inherited) {
+			if name != "later" && (result.Source != extensiondeadline.SourceInherited || result.MonotonicNS != inherited) {
 				t.Fatalf("inherited minimum lost: %#v", result)
 			}
 		})
 	}
 	cancelBefore, cancelEqual, cancelAfter, expiry := int64(9), int64(10), int64(11), int64(10)
-	if got := ClassifyDeadlineOutcome(CommitProvenAbsent, &cancelBefore, &expiry); got != DeadlineCanceled {
+	if got := extensiondeadline.Classify(extensiondeadline.CommitProvenAbsent, &cancelBefore, &expiry); got != extensiondeadline.OutcomeCanceled {
 		t.Fatalf("cancel before expiry = %s", got)
 	}
 	for _, sample := range []*int64{&cancelEqual, &cancelAfter, nil} {
-		if got := ClassifyDeadlineOutcome(CommitProvenAbsent, sample, &expiry); got != DeadlineTimedOut {
+		if got := extensiondeadline.Classify(extensiondeadline.CommitProvenAbsent, sample, &expiry); got != extensiondeadline.OutcomeTimedOut {
 			t.Fatalf("expiry precedence = %s", got)
 		}
 	}
-	if got := ClassifyDeadlineOutcome(CommitProvenSuccessful, &cancelBefore, &expiry); got != DeadlineCommitted {
+	if got := extensiondeadline.Classify(extensiondeadline.CommitProvenSuccessful, &cancelBefore, &expiry); got != extensiondeadline.OutcomeCommitted {
 		t.Fatalf("proven commit did not win: %s", got)
 	}
-	if got := ClassifyDeadlineOutcome(CommitIndeterminate, &cancelBefore, &expiry); got != DeadlineFatal {
+	if got := extensiondeadline.Classify(extensiondeadline.CommitIndeterminate, &cancelBefore, &expiry); got != extensiondeadline.OutcomeFatal {
 		t.Fatalf("indeterminate commit = %s", got)
 	}
-}
-
-func TestExtensionBC012ParticipantLimits_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-012", "EXT-AC-153")
-	assertBC012ParticipantLimits(t)
-}
-
-func TestExtensionBC013StagedObjectLifecycle_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-013", "EXT-AC-154")
-	assertBC013StagedObjectLifecycle(t)
-}
-
-func TestExtensionBC014RestoreOrdering_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-014", "EXT-AC-155")
-	assertBC014RestoreOrdering(t)
 }
 
 func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
@@ -707,6 +701,28 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		requireContains(t, row.DocumentationRefs, "docs/extension-subsystem-nlspec.md#"+strings.ToLower(expected.AcceptanceID))
 		requireContains(t, row.DocumentationRefs, "docs/handoffs/extensions-subsystem-implementation-tracker.md#"+strings.ToLower(expected.BoundaryID))
 	}
+	for _, expected := range movedExtensionBoundaryExpectations {
+		ownerManifest := readTestFamilyManifest(t, root, expected.ManifestPath)
+		if ownerManifest.OwnerID != expected.OwnerID {
+			t.Errorf("%s/%s owner manifest is %q; want %q", expected.BoundaryID, expected.AcceptanceID, ownerManifest.OwnerID, expected.OwnerID)
+			continue
+		}
+		var movedRow *extensionTestFamilyRow
+		for index := range ownerManifest.Rows {
+			if ownerManifest.Rows[index].RowID == expected.RowID {
+				movedRow = &ownerManifest.Rows[index]
+				break
+			}
+		}
+		if movedRow == nil {
+			t.Errorf("%s/%s has no owner row %q", expected.BoundaryID, expected.AcceptanceID, expected.RowID)
+			continue
+		}
+		requireExactStrings(t, movedRow.VerificationIDs, []string{expected.Verification}, expected.RowID+" verification_ids")
+		requireExactStrings(t, movedRow.Selector.Tests, expected.RequiredTests, expected.RowID+" selector.tests")
+		requireContains(t, movedRow.DocumentationRefs, "docs/extension-subsystem-nlspec.md#"+strings.ToLower(expected.AcceptanceID))
+		requireContains(t, movedRow.DocumentationRefs, "docs/handoffs/extensions-subsystem-implementation-tracker.md#"+strings.ToLower(expected.BoundaryID))
+	}
 
 	accounting, ok := rows["module.extensions.static.contract_accounting_e80c9e3dc7"]
 	if !ok {
@@ -714,20 +730,36 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 	}
 	requireExactStrings(t, accounting.VerificationIDs, []string{extensionsAccountingVerification}, "contract accounting verification_ids")
 	requireExactStrings(t, accounting.Selector.Tests, []string{"TestExtensionContractAccounting_Static"}, "contract accounting selector.tests")
-	coordinatorRows := map[string]string{
-		"module.extensions.unit.coordinator_binding_admission_c2d8beffdb":   "TestCoordinatorBindingAdmission_Unit",
-		"module.extensions.unit.coordinator_claim_resolution_6cfce6db24":    "TestCoordinatorClaimResolution_Unit",
-		"module.extensions.unit.coordinator_collision_admission_590bd27481": "TestCoordinatorCollisionAdmission_Unit",
-		"module.extensions.unit.coordinator_publication_plan_05ae1ed79d":    "TestCoordinatorPublicationPlan_Unit",
-		"module.extensions.unit.coordinator_registry_1dce9a539a":            "TestCoordinatorGeneratedRegistry_Unit",
+	coordinatorRows := map[string][]string{
+		"module.extensions.unit.coordinator_binding_admission_c2d8beffdb":   {"TestCoordinatorBindingAdmission_Unit"},
+		"module.extensions.unit.coordinator_claim_resolution_6cfce6db24":    {"TestCoordinatorClaimResolution_Unit"},
+		"module.extensions.unit.coordinator_collision_admission_590bd27481": {"TestCoordinatorCollisionAdmission_Unit"},
+		"module.extensions.unit.coordinator_publication_plan_05ae1ed79d":    {"TestCoordinatorPublicationPlan_Unit"},
+		"module.extensions.unit.coordinator_registry_1dce9a539a": {
+			"TestCoordinatorGeneratedRegistry_Unit",
+			"TestCoordinatorPortabilityPolicyProjection_Unit",
+		},
 	}
-	for rowID, testName := range coordinatorRows {
+	for rowID, testNames := range coordinatorRows {
 		row, exists := rows[rowID]
 		if !exists {
 			t.Fatalf("coordinator row %s is missing", rowID)
 		}
 		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, rowID+" verification_ids")
-		requireExactStrings(t, row.Selector.Tests, []string{testName}, rowID+" selector.tests")
+		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
+	}
+	characterizationRows := map[string]int{
+		"module.extensions.integration.state_admission_matrix_7f6ad80724": 21,
+	}
+	for rowID, selectorCount := range characterizationRows {
+		row, exists := rows[rowID]
+		if !exists {
+			t.Fatalf("characterization row %s is missing", rowID)
+		}
+		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, rowID+" verification_ids")
+		if len(row.Selector.Tests) != selectorCount {
+			t.Fatalf("%s selector count = %d, want %d", rowID, len(row.Selector.Tests), selectorCount)
+		}
 	}
 	browserAvailability, exists := rows["module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"]
 	if !exists {
@@ -737,7 +769,7 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 	if browserAvailability.Runner != "playwright" || browserAvailability.Selector.File != "apps/web/e2e/extensions.stateful.spec.ts" || browserAvailability.Selector.Stage != "stateful" {
 		t.Fatalf("browser availability selector is not exact: %#v", browserAvailability.Selector)
 	}
-	if got, want := len(rows), len(extensionBoundaryExpectations)+2+len(coordinatorRows); got != want {
+	if got, want := len(rows), len(extensionBoundaryExpectations)+2+len(coordinatorRows)+len(characterizationRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}
 
@@ -862,13 +894,18 @@ type extensionTestFamilyRow struct {
 
 func readExtensionsFamilyManifest(t testing.TB, root string) extensionTestFamilyManifest {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(root, "tools", "test_families", "module.extensions.json"))
+	return readTestFamilyManifest(t, root, "module.extensions.json")
+}
+
+func readTestFamilyManifest(t testing.TB, root string, name string) extensionTestFamilyManifest {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, "tools", "test_families", name))
 	if err != nil {
-		t.Fatalf("read Extensions family manifest: %v", err)
+		t.Fatalf("read test family manifest %s: %v", name, err)
 	}
 	var manifest extensionTestFamilyManifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		t.Fatalf("decode Extensions family manifest: %v", err)
+		t.Fatalf("decode test family manifest %s: %v", name, err)
 	}
 	return manifest
 }

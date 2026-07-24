@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:60ef6aea43f869ae5b74b5699729a6aae9b37c412915ea81c62a224715db6aa1",
+  "input_digest": "sha256:ef03f9e78f312499a86dcd1955d5438c50c1879626b10dc5467b77ed93be5e0f",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -12,7 +12,7 @@
     {
       "path": "contracts/verification/owners/app.server.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:acdf0191fdf2b6d6723482405a349b52e37e7acffb0d3bf96824ddd58a6dab40"
+      "hash": "sha256:113cfd9f99890e5ce6885e3f1943056822d5b9d1a426cf04641f920537a19119"
     },
     {
       "path": "contracts/verification/owners/harness.browser.json",
@@ -65,6 +65,11 @@
       "hash": "sha256:de3b4e7d22b7e5c7fa09b4d65ce18fc2cbc3ee24e95bba8f4480a6cdf22e62bc"
     },
     {
+      "path": "contracts/verification/owners/module.crossownertransaction.json",
+      "role": "verification_owner_contract",
+      "hash": "sha256:a7460e83c4c66f84c87dab8dcf2531e6e4e869829e724b15699dca153350a7b4"
+    },
+    {
       "path": "contracts/verification/owners/module.entities.json",
       "role": "verification_owner_contract",
       "hash": "sha256:ec009c14887546f7f2932285a19cd0a8694d2301803d603e6c29e48291642975"
@@ -92,7 +97,7 @@
     {
       "path": "contracts/verification/owners/module.incidentbundles.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:526fd7e3cc43bd236bf05226c0ac02520390805ca2efb5a0c1fb907cf5860beb"
+      "hash": "sha256:a92112cdff1e046f90a2c7d4efa3ee2962699a00ebdb18aeec212bbb5d142411"
     },
     {
       "path": "contracts/verification/owners/module.incidents.json",
@@ -153,6 +158,11 @@
       "path": "contracts/verification/owners/module.savedviews.json",
       "role": "verification_owner_contract",
       "hash": "sha256:5f681238e0107e41a7836f63286d917489079f801ac39619083b2310d42a8951"
+    },
+    {
+      "path": "contracts/verification/owners/module.stagedobjects.json",
+      "role": "verification_owner_contract",
+      "hash": "sha256:e1b5637e8a2e327632622cdaeda7d4804d62e52386c888bd10921c43abb19768"
     },
     {
       "path": "contracts/verification/owners/module.tabularingest.json",
@@ -277,7 +287,7 @@
     {
       "path": "contracts/verification/registry.json",
       "role": "verification_registry",
-      "hash": "sha256:176502af45795b495180837d58602f506de26229213015f13e7e09c9ae8b5a22"
+      "hash": "sha256:7255c29f3185f8e40fda61294569c0a845baee0a2795b6b5bf0c3490919ea1c4"
     },
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -292,7 +302,7 @@
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:47c284f726ba4be4214b7d98baff33377f8e7495a7f916fbee86f7df1067de64"
+      "hash": "sha256:826ab45943e91b58981c54bd5ca76e10933e214ec6f27fa99adc53291b23b8aa"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -972,7 +982,7 @@
     {
       "path": "tools/test_catalog_owner.json",
       "role": "test_owner_registry",
-      "hash": "sha256:a49e684c1e26522f8b08f1593c29fa8e099062912d78f3b386c0a137c67732ef"
+      "hash": "sha256:2a00c5edf4dfc523cc13d21cfc7b398c6e5f8dfad2aa5395109a488b1429f61a"
     },
     {
       "path": "tools/test_families/app.operator.json",
@@ -982,7 +992,7 @@
     {
       "path": "tools/test_families/app.server.json",
       "role": "test_family_manifest",
-      "hash": "sha256:33436f6ff3684790af9ecbe0a798d054dd9825d00ed832f1d34322385bdadd7a"
+      "hash": "sha256:6adf3351513a0ad833d9bf7d1372ea02fc48bb37ed7f33bff4247adbcf93351d"
     },
     {
       "path": "tools/test_families/harness.browser.json",
@@ -1010,6 +1020,11 @@
       "hash": "sha256:942b67375cfc0ff9bda8a3e16994102acb0b0fb5978bc96a41493db67b6d0138"
     },
     {
+      "path": "tools/test_families/module.crossownertransaction.json",
+      "role": "test_family_manifest",
+      "hash": "sha256:d1f82c45ac237ddc4974c26b7af205aedae97ed4c501c2f1c521bfd887c8f0bb"
+    },
+    {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
       "hash": "sha256:5dff5220060e57d9d7b738387493463ceb265d1fd272e5b134a4495409f32889"
@@ -1022,7 +1037,7 @@
     {
       "path": "tools/test_families/module.extensions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6f2f91b761c2ec9c7acf10215c4f0c437665e94d4e8e9b4e93d757549094985c"
+      "hash": "sha256:9deb71b6e93dfb3dec7e6761cf80d2a6779391ad971d2908ee28692edcb08bbb"
     },
     {
       "path": "tools/test_families/module.graphprojection.json",
@@ -1037,12 +1052,12 @@
     {
       "path": "tools/test_families/module.incidentbundles.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d45a2e488bfffc10b4537b6c2b4f87fc64bcbb993fecef0098dd2140dae7980a"
+      "hash": "sha256:95b9835373fb49d222f2cb515adefe34eda3d99d208dadd4bf6d6b8438c8950e"
     },
     {
       "path": "tools/test_families/module.incidents.json",
       "role": "test_family_manifest",
-      "hash": "sha256:34e11d343b7ef0c1eb1d43f4a8968e5c7146d96960b4eef5ad0d7469634f3df3"
+      "hash": "sha256:c70be411a72c32b14c67c2055c1f66a80538281c20e98ff14f23a1a8daa81f0a"
     },
     {
       "path": "tools/test_families/module.indicators.json",
@@ -1072,7 +1087,7 @@
     {
       "path": "tools/test_families/module.recovery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:dde15f4da3e7f2a0e3ff3186bc95acddb2f79bd2933c1c9eab92fba09f7c84ce"
+      "hash": "sha256:8872cd1df7d08b4775dc268022ef87f51adb8187e3af0b1e87edcffaf047a4e7"
     },
     {
       "path": "tools/test_families/module.reference_data.json",
@@ -1098,6 +1113,11 @@
       "path": "tools/test_families/module.savedviews.json",
       "role": "test_family_manifest",
       "hash": "sha256:c09c0b0686660891e295c762de495db9f3abcf886bf12ed363d8df9e74945912"
+    },
+    {
+      "path": "tools/test_families/module.stagedobjects.json",
+      "role": "test_family_manifest",
+      "hash": "sha256:4bfb357f59fed9ad1eca058b273c545afd998e78cb5449bdc5462ec74ea8dbeb"
     },
     {
       "path": "tools/test_families/module.tabularingest.json",
@@ -1152,7 +1172,7 @@
     {
       "path": "tools/test_families/platform.config.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c62dedc1dbd9c1e810d2357c71bfc91efd57400ba19393351ae40ba464e3f6c7"
+      "hash": "sha256:2260efea3a8ef32f266d6406be180fb8702cdd0836c5a781c9d5fb26a2bc48b5"
     },
     {
       "path": "tools/test_families/platform.httpruntime.json",
@@ -1221,8 +1241,8 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:7090a54c94077f9f385c17d6a5129951d679db1a65d740196e02374dee6dcb41",
-    "tools/scheduler_manifest.json": "sha256:694eab7de25d6408e717b86b7edc2f09e377fc829cc9ac814b37afd9923cf4b4",
+    "tools/browser_e2e_batch_manifest.json": "sha256:93cf923d98a127b7900d1034b547896caa6ad595f365cdc153d86919b5605a29",
+    "tools/scheduler_manifest.json": "sha256:fc969670bbb51e9f8aa5a3a9a0675bb65420453d9125eb62c73e76ee7e3c33a9",
     "tools/task_surface_manifest.json": "sha256:6584019fb4df859105cff0e6bd1375c64b8786f8cfbd31a0b392590820f9afdf",
     "tools/task_surface.generated.mk": "sha256:7ee3e0b4108493202aafe7b6f132fd15a3ef0c32af8be7901509a641d9baff90",
     "tools/task_surface.runtime.generated.mk": "sha256:9436faef6c0fb8ea6317f7f3eec44e7d45274bf81bade4a77854534bfeb91eb0"

@@ -1,9 +1,11 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -12,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
 )
 
 const (
@@ -42,8 +46,9 @@ const (
 )
 
 type LoadOptions struct {
-	Path string
-	Env  map[string]string
+	Path                     string
+	Env                      map[string]string
+	ExtensionInactiveCatalog extensioninactive.Catalog
 }
 
 type Diagnostic struct {
@@ -118,6 +123,7 @@ type TimeoutConfig struct {
 
 type ExtensionTimeoutConfig struct {
 	MigrationLockSeconds                int64 `toml:"migration_lock_seconds"`
+	MigrationStepSeconds                int64 `toml:"migration_step_seconds"`
 	ProfileMigrationSeconds             int64 `toml:"profile_migration_seconds"`
 	ValidationSeconds                   int64 `toml:"validation_seconds"`
 	ReconciliationSeconds               int64 `toml:"reconciliation_seconds"`
@@ -415,8 +421,41 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		return Config{}, newDiagnosticsError(diagnostics)
 	}
 
+	rawConfig := map[string]any{}
+	if _, rawErr := toml.Decode(string(data), &rawConfig); rawErr != nil {
+		return Config{}, newDiagnosticsError([]Diagnostic{{
+			ReasonCode: "config_parse_error",
+			Message:    rawErr.Error(),
+		}})
+	}
+
+	overlayKeys := sortedOverlayKeys(options.Env)
+	appliedClaimOverlays := map[string]struct{}{}
+	for _, key := range overlayKeys {
+		path := strings.Join(overlaySegments(key), ".")
+		if !strings.HasSuffix(path, ".claimed") {
+			continue
+		}
+		if diagnostic := applyOverlay(&cfg, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
+			diagnostics = append(diagnostics, *diagnostic)
+		} else {
+			appliedClaimOverlays[key] = struct{}{}
+		}
+	}
+
+	consumedInactivePaths, consumedInactiveOverlays, inactiveDiagnostics := discardUndecodedInactiveExtensionValues(
+		&cfg,
+		rawConfig,
+		options.Env,
+		options.ExtensionInactiveCatalog,
+	)
+	diagnostics = append(diagnostics, inactiveDiagnostics...)
+
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
 		for _, key := range undecoded {
+			if pathIsConsumedInactive(strings.Join(key, "."), consumedInactivePaths) {
+				continue
+			}
 			diagnostics = append(diagnostics, Diagnostic{
 				Path:       strings.Join(key, "."),
 				ReasonCode: "unknown_key",
@@ -425,18 +464,134 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		}
 	}
 
-	for _, key := range sortedOverlayKeys(options.Env) {
+	for _, key := range overlayKeys {
+		if _, alreadyApplied := appliedClaimOverlays[key]; alreadyApplied {
+			continue
+		}
+		if _, consumed := consumedInactiveOverlays[key]; consumed {
+			continue
+		}
 		if diagnostic := applyOverlay(&cfg, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
 			diagnostics = append(diagnostics, *diagnostic)
 		}
 	}
 
-	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env))...)
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.ExtensionInactiveCatalog)...)
 	if len(diagnostics) > 0 {
 		return Config{}, newDiagnosticsError(diagnostics)
 	}
 
 	return cfg, nil
+}
+
+func discardUndecodedInactiveExtensionValues(
+	cfg *Config,
+	rawConfig map[string]any,
+	env map[string]string,
+	catalog extensioninactive.Catalog,
+) (map[string]struct{}, map[string]struct{}, []Diagnostic) {
+	consumedPaths := map[string]struct{}{}
+	consumedOverlays := map[string]struct{}{}
+	diagnostics := make([]Diagnostic, 0)
+	for _, key := range catalog.Keys() {
+		policy, _ := catalog.Policy(key)
+		claimed, claimExists := configBoolAtPath(cfg, policy.ClaimKey)
+		if !claimExists || claimed {
+			continue
+		}
+		if _, typed := configFieldAtPath(cfg, key); !typed {
+			if value, present := rawValueAtPath(rawConfig, key); present {
+				consumedPaths[key] = struct{}{}
+				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(catalog.ValidateAndDiscard(map[string]any{key: value}))...)
+			}
+		}
+		overlayName := overlayPrefix + strings.ToUpper(strings.ReplaceAll(key, ".", "__"))
+		if raw, present := lookupEnv(env, overlayName); present {
+			if _, typed := configFieldAtPath(cfg, key); typed {
+				continue
+			}
+			consumedOverlays[overlayName] = struct{}{}
+			value, parseErr := parseInactiveOverlayValue(policy, raw)
+			if parseErr != nil {
+				diagnostics = append(diagnostics, Diagnostic{
+					Path:       key,
+					ReasonCode: "extension_validation_result_invalid",
+					Message:    "inactive extension configuration is not accepted",
+				})
+				continue
+			}
+			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(catalog.ValidateAndDiscard(map[string]any{key: value}))...)
+		}
+	}
+	return consumedPaths, consumedOverlays, diagnostics
+}
+
+func inactiveFindingsToDiagnostics(findings []extensioninactive.Finding) []Diagnostic {
+	diagnostics := make([]Diagnostic, len(findings))
+	for index, finding := range findings {
+		diagnostics[index] = Diagnostic{
+			Path:       finding.Key,
+			ReasonCode: finding.ReasonCode,
+			Message:    "inactive extension configuration is not accepted",
+		}
+	}
+	return diagnostics
+}
+
+func pathIsConsumedInactive(path string, consumed map[string]struct{}) bool {
+	for root := range consumed {
+		if path == root || strings.HasPrefix(path, root+".") || strings.HasPrefix(root, path+".") {
+			return true
+		}
+	}
+	return false
+}
+
+func rawValueAtPath(root map[string]any, path string) (any, bool) {
+	var current any = root
+	for _, segment := range strings.Split(path, ".") {
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = object[segment]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func parseInactiveOverlayValue(policy extensioninactive.Policy, raw string) (any, error) {
+	if policy.Kind == extensioninactive.PolicyForbidden {
+		return raw, nil
+	}
+	typeName, _ := policy.Schema["type"].(string)
+	switch typeName {
+	case "string":
+		return raw, nil
+	case "integer":
+		return strconv.ParseInt(raw, 10, 64)
+	case "boolean":
+		return strconv.ParseBool(raw)
+	case "object", "array":
+		decoder := json.NewDecoder(bytes.NewBufferString(raw))
+		decoder.UseNumber()
+		var value any
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+			if err == nil {
+				return nil, errors.New("multiple JSON values")
+			}
+			return nil, err
+		}
+		return value, nil
+	default:
+		return nil, fmt.Errorf("unsupported inactive overlay schema type %q", typeName)
+	}
 }
 
 func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {

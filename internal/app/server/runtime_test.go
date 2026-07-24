@@ -94,6 +94,31 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		}
 	})
 
+	t.Run("inactive extension configuration stops before dependency wiring", func(t *testing.T) {
+		cfg := RuntimeConfig(t)
+		cfg.EnterpriseAuthentication.Claimed = false
+		cfg.EnterpriseAuthentication.ProviderManifestPath = "/do-not-read/provider.json"
+
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		if err == nil {
+			t.Fatal("expected inactive extension configuration to fail closed")
+		}
+		diagnostics, ok := config.DiagnosticsFromError(err)
+		if !ok || len(diagnostics) != 1 ||
+			diagnostics[0].Path != "enterprise_authentication.provider_manifest_path" ||
+			diagnostics[0].ReasonCode != "extension_config_without_claim" {
+			t.Fatalf("inactive extension diagnostics = %#v / %v", diagnostics, err)
+		}
+		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("inactive extension configuration reached dependency wiring: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
 	t.Run("schema readiness failures stop before object store, bootstrap, jobs, websocket, and handler construction", func(t *testing.T) {
 		cfg := RuntimeConfig(t)
 

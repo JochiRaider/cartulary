@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -25,12 +26,14 @@ type incidentBundleWorker struct {
 	results         incidentBundleJobResultSink
 	files           bundleFileStore
 	importFinalizer incidents.IncidentBundleImportFinalizer
+	portability     *PortabilityOrchestrator
+	transactions    *crossownertransaction.Coordinator
 	deps            httpapi.DependencySet
 	now             func() time.Time
 	startHook       func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, now func() time.Time, startHook func(string)) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, now func() time.Time, startHook func(string)) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:           store,
 		jobManager:      deps.Jobs,
@@ -38,6 +41,8 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bun
 		results:         incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
 		files:           files,
 		importFinalizer: importFinalizer,
+		portability:     portability,
+		transactions:    transactions,
 		deps:            deps,
 		now:             now,
 		startHook:       startHook,
@@ -144,7 +149,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore}
+	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore, portability: w.portability}
 	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
@@ -171,6 +176,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		ManifestFiles:        built.Archive.Manifest.Files,
 	})
 	if err != nil {
+		w.files.remove(storagePath)
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
@@ -203,11 +209,12 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		finalizer:         w.importFinalizer,
 		projectionRebuild: projectionadapters.NewIncidentImportRebuilder(w.deps.Postgres),
 	}
-	incidentID, err := importer.Import(ctx, verified, ImportParams{
+	importParams := ImportParams{
 		ActorUserID: payload.ActorUserID,
 		PublishedAt: w.now().UTC(),
 		RequestID:   &requestID,
-	})
+	}
+	prepared, err := importer.PrepareImport(ctx, verified, importParams)
 	if err != nil {
 		var verificationErr *VerificationError
 		if errors.As(err, &verificationErr) {
@@ -217,11 +224,50 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	if err := w.store.MarkImportComplete(ctx, payload.JobID, incidentID, verified.ManifestSHA256, w.now()); err != nil {
+	committed := false
+	defer func() {
+		if !committed {
+			prepared.Cleanup(context.WithoutCancel(ctx))
+		}
+	}()
+	portability, err := w.portability.PrepareImport(ctx, payload.JobID.String(), prepared.IncidentID, verified.Files)
+	if err != nil {
+		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
+		return
+	}
+	defer func() {
+		if !committed {
+			_ = portability.Abandon(context.WithoutCancel(ctx))
+		}
+	}()
+	coreParticipant, err := NewImportTransactionParticipant(prepared, importParams, payload.JobID, verified.ManifestSHA256)
+	if err != nil {
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	w.results.completeImportSucceeded(ctx, payload.JobID, incidentID)
+	participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
+	result, err := w.transactions.Execute(ctx, crossownertransaction.Operation{
+		OperationID: payload.JobID.String(), NormalizedRequestSHA256: verified.ManifestSHA256,
+		Participants: participants,
+	})
+	if err != nil {
+		var verificationErr *VerificationError
+		if errors.As(err, &verificationErr) {
+			w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", verificationErr)
+			return
+		}
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		return
+	}
+	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(ImportTransactionResult)
+	if !ok || value.IncidentID != prepared.IncidentID {
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		return
+	}
+	committed = true
+	prepared.stagedObjectKeys = nil
+	portability.Committed()
+	w.jobManager.PublishProgress(value.Job)
 }
 
 func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
@@ -256,10 +302,6 @@ func (s incidentBundleJobResultSink) completeExportSucceeded(ctx context.Context
 	_, _ = s.manager.CompleteSucceeded(ctx, exportSuccessTransition(jobID, bundleID))
 }
 
-func (s incidentBundleJobResultSink) completeImportSucceeded(ctx context.Context, jobID uuid.UUID, incidentID uuid.UUID) {
-	_, _ = s.manager.CompleteSucceeded(ctx, importSuccessTransition(jobID, incidentID))
-}
-
 func (s incidentBundleJobResultSink) completeFailed(ctx context.Context, params jobs.TransitionParams) {
 	_, _ = s.manager.CompleteFailed(ctx, params)
 }
@@ -269,6 +311,15 @@ func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context
 	var verificationErr *VerificationError
 	if errors.As(err, &verificationErr) {
 		reason = verificationErr.ReasonCode
+	} else if code == "incident_bundle_import_rejected" &&
+		(errors.Is(err, ErrPortabilityUnavailable) ||
+			errors.Is(err, ErrPortabilityLimit) ||
+			errors.Is(err, ErrPortabilityPayload) ||
+			errors.Is(err, ErrPortabilityResult)) {
+		// Core 01's public contract major 1 exposes no extension-specific
+		// portability reason tokens. Preserve the closed public registry while
+		// the semantic owner retains the exact internal classification.
+		reason = "malformed_manifest"
 	}
 	s.store.MarkJobFailure(ctx, jobID, reason, s.now())
 	_, _ = s.manager.CompleteFailed(ctx, failedTransition(jobID, code, map[string]any{"reason_code": reason}))

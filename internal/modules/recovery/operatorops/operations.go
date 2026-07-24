@@ -46,6 +46,7 @@ type Service struct {
 	NewBackupStorage       BackupStorageFactory
 	NewProjectionRebuilder ProjectionRebuilderFactory
 	LoadJournalKey         JournalKeyLoader
+	ExtensionBackups       *recovery.ExtensionBackupCatalog
 	Now                    func() time.Time
 }
 
@@ -59,7 +60,7 @@ func (service Service) BackupInspectLatest(ctx context.Context, parsed operatorc
 	}
 	defer closeFn()
 	progress.Emit("catalog_select", 0, nil)
-	selection, err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage).RestoreCandidateBackupSelection(ctx, service.now())
+	selection, err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).RestoreCandidateBackupSelection(ctx, service.now())
 	if err != nil {
 		return operatorcli.Outcome{}, err
 	}
@@ -116,7 +117,7 @@ func (service Service) BackupCreate(ctx context.Context, parsed operatorcli.Comm
 		return operatorcli.OutcomeForCandidate(backupSetID, consistencyPointAt), fmt.Errorf("capture object-store artifacts: %w", err)
 	}
 	progress.Emit("attestation_write", 0, nil)
-	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 		BackupSetID:                       backupSetID,
 		ConsistencyPointAt:                consistencyPointAt,
 		CreatedAt:                         consistencyPointAt,
@@ -129,7 +130,7 @@ func (service Service) BackupCreate(ctx context.Context, parsed operatorcli.Comm
 	if err != nil {
 		return operatorcli.OutcomeForCandidate(backupSetID, consistencyPointAt), fmt.Errorf("capture backup set: %w", err)
 	}
-	if err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage).VerifyBackupSetDurability(ctx, backupSet); err != nil {
+	if err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).VerifyBackupSetDurability(ctx, backupSet); err != nil {
 		return operatorcli.OutcomeForBackupSet(backupSet, "backup_attestation", "cartulary.backup_attestation.v1"), fmt.Errorf("verify captured backup durability: %w", err)
 	}
 	progress.Emit("journal_write", 0, nil)
@@ -158,7 +159,7 @@ func (service Service) RestoreLatest(ctx context.Context, parsed operatorcli.Com
 	defer func() { service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err) }()
 
 	sourceStore := recovery.NewStore(sourcePool)
-	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage).RestoreCandidateBackup(ctx, service.now())
+	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).RestoreCandidateBackup(ctx, service.now())
 	if err != nil {
 		return operatorcli.Outcome{}, err
 	}
@@ -177,7 +178,7 @@ func (service Service) RestoreLatest(ctx context.Context, parsed operatorcli.Com
 	progress.Emit("object_restore", 0, nil)
 	progress.Emit("projection_rebuild", 0, nil)
 	progress.Emit("invariant_check", 0, nil)
-	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage).RestoreBackupSet(ctx, target, backupSet)
+	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups).RestoreBackupSet(ctx, target, backupSet)
 	if err != nil {
 		return operatorcli.OutcomeForStoredBackupSet(backupSet), err
 	}
@@ -222,7 +223,7 @@ func (service Service) RestoreVerifyLatest(ctx context.Context, parsed operatorc
 	progress.Emit("invariant_check", 0, nil)
 	progress.Emit("workbook_probe", 0, nil)
 	sourceStore := recovery.NewStore(sourcePool)
-	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage))
+	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups))
 	result, err := verify.VerifyLatestSuccessfulRetained(ctx, target, service.now(), basis)
 	outcome = operatorcli.OutcomeForStoredBackupSet(result.BackupSet)
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
@@ -264,14 +265,14 @@ func (service Service) RestoreVerifyDue(ctx context.Context, parsed operatorcli.
 		return operatorcli.Outcome{}, err
 	}
 	sourceStore := recovery.NewStore(sourcePool)
-	due, err := recovery.NewBackupCatalog(sourceStore, backupStorage).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
+	due, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
 	if err != nil {
 		return operatorcli.Outcome{}, err
 	}
 	if len(due) == 0 {
 		return operatorcli.Outcome{ArtifactRefs: []operatorcli.ArtifactRef{}, Result: "no_op"}, nil
 	}
-	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage))
+	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups))
 	for _, backupSet := range due {
 		target, err := service.restoreVerificationTarget(targetPool, targetObjectStore)
 		if err != nil {
@@ -292,6 +293,9 @@ func (service Service) RestoreVerifyDue(ctx context.Context, parsed operatorcli.
 		}
 		if verifyErr != nil {
 			return outcome, verifyErr
+		}
+		if err := recovery.ResetRestoreVerificationTarget(ctx, target.RestoreTarget, service.ExtensionBackups); err != nil {
+			return outcome, fmt.Errorf("reset disposable restore verification target: %w", err)
 		}
 		progress.Emit("attestation_update", 0, nil)
 	}
@@ -365,6 +369,7 @@ func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore o
 		return recovery.RestoreTarget{}, err
 	}
 	return recovery.RestoreTarget{
+		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
 		Projections: rebuilder,

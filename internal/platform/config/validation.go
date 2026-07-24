@@ -7,6 +7,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 
+	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
@@ -25,8 +27,12 @@ type filesystemRoot struct {
 const limitRegistryMaxInt64 = int64(^uint64(0) >> 1)
 
 func Validate(cfg Config) (Config, error) {
+	return ValidateWithExtensionInactiveCatalog(cfg, extensioninactive.Catalog{})
+}
+
+func ValidateWithExtensionInactiveCatalog(cfg Config, catalog extensioninactive.Catalog) (Config, error) {
 	normalized := cfg
-	diagnostics := validateConfigStructure(&normalized, configPresence{})
+	diagnostics := validateConfigStructure(&normalized, configPresence{}, catalog)
 	if len(diagnostics) > 0 {
 		return Config{}, newDiagnosticsError(diagnostics)
 	}
@@ -34,7 +40,11 @@ func Validate(cfg Config) (Config, error) {
 }
 
 func ValidateForStartup(cfg Config) (Config, error) {
-	normalized, err := Validate(cfg)
+	return ValidateForStartupWithExtensionInactiveCatalog(cfg, extensioninactive.Catalog{})
+}
+
+func ValidateForStartupWithExtensionInactiveCatalog(cfg Config, catalog extensioninactive.Catalog) (Config, error) {
+	normalized, err := ValidateWithExtensionInactiveCatalog(cfg, catalog)
 	if err != nil {
 		return Config{}, err
 	}
@@ -115,10 +125,11 @@ func ResolveTelemetryExporterHeaders(cfg Config, env map[string]string) (map[str
 	return resolved, nil
 }
 
-func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic {
+func validateConfigStructure(cfg *Config, presence configPresence, inactiveCatalog extensioninactive.Catalog) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 
 	applyDefaultLimitValues(cfg, presence)
+	diagnostics = append(diagnostics, validateAndDiscardInactiveExtensionConfiguration(cfg, presence, inactiveCatalog)...)
 
 	switch {
 	case cfg.ConfigSchemaID == "":
@@ -376,15 +387,7 @@ func validateBootstrapManifestPath(bootstrap *BootstrapConfig, presence configPr
 }
 
 func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthenticationConfig, presence configPresence, diagnostics *[]Diagnostic) {
-	manifestPathDefined := presence.isDefined("enterprise_authentication", "provider_manifest_path")
 	if !enterprise.Claimed {
-		if enterprise.ProviderManifestPath != "" || manifestPathDefined {
-			*diagnostics = append(*diagnostics, Diagnostic{
-				Path:       "enterprise_authentication.provider_manifest_path",
-				ReasonCode: "extension_config_without_claim",
-				Message:    "enterprise_authentication.provider_manifest_path requires enterprise_authentication.claimed=true",
-			})
-		}
 		return
 	}
 
@@ -405,15 +408,7 @@ func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthentication
 
 func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, presence configPresence, diagnostics *[]Diagnostic) {
 	const path = "network_flow_activity.key_ring_manifest_path"
-	pathDefined := presence.isDefined("network_flow_activity", "key_ring_manifest_path")
 	if !networkFlow.Claimed {
-		if networkFlow.KeyRingManifestPath != "" || pathDefined {
-			*diagnostics = append(*diagnostics, Diagnostic{
-				Path:       path,
-				ReasonCode: "extension_config_without_claim",
-				Message:    "network_flow_activity.key_ring_manifest_path requires network_flow_activity.claimed=true",
-			})
-		}
 		return
 	}
 
@@ -429,6 +424,58 @@ func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, p
 	} else {
 		networkFlow.KeyRingManifestPath = normalized
 	}
+}
+
+func validateAndDiscardInactiveExtensionConfiguration(cfg *Config, presence configPresence, catalog extensioninactive.Catalog) []Diagnostic {
+	diagnostics := make([]Diagnostic, 0)
+	for _, key := range catalog.Keys() {
+		policy, _ := catalog.Policy(key)
+		claimed, claimExists := configBoolAtPath(cfg, policy.ClaimKey)
+		if !claimExists || claimed {
+			continue
+		}
+		field, exists := configFieldAtPath(cfg, policy.Key)
+		if !exists {
+			continue
+		}
+		segments := strings.Split(policy.Key, ".")
+		if field.IsZero() && !presence.isDefined(segments...) {
+			continue
+		}
+		findings := catalog.ValidateAndDiscard(map[string]any{policy.Key: field.Interface()})
+		if len(findings) > 0 {
+			for _, finding := range findings {
+				diagnostics = append(diagnostics, Diagnostic{
+					Path:       finding.Key,
+					ReasonCode: finding.ReasonCode,
+					Message:    "inactive extension configuration is not accepted",
+				})
+			}
+			continue
+		}
+		field.Set(reflect.Zero(field.Type()))
+	}
+	return diagnostics
+}
+
+func configBoolAtPath(cfg *Config, path string) (bool, bool) {
+	field, ok := configFieldAtPath(cfg, path)
+	if !ok || field.Kind() != reflect.Bool {
+		return false, false
+	}
+	return field.Bool(), true
+}
+
+func configFieldAtPath(cfg *Config, path string) (reflect.Value, bool) {
+	value := reflect.ValueOf(cfg).Elem()
+	for _, segment := range strings.Split(path, ".") {
+		field, ok := findTaggedField(value, segment)
+		if !ok {
+			return reflect.Value{}, false
+		}
+		value = field
+	}
+	return value, value.CanSet()
 }
 
 func applyDefaultLimitValues(cfg *Config, presence configPresence) {
@@ -450,6 +497,7 @@ func applyDefaultLimitValues(cfg *Config, presence configPresence) {
 func applyDefaultExtensionRuntimeValues(cfg *Config, presence configPresence) {
 	timeouts := &cfg.Timeouts.Extensions
 	applyDefaultInt64(&timeouts.MigrationLockSeconds, 30, presence, "timeouts", "extensions", "migration_lock_seconds")
+	applyDefaultInt64(&timeouts.MigrationStepSeconds, 900, presence, "timeouts", "extensions", "migration_step_seconds")
 	applyDefaultInt64(&timeouts.ProfileMigrationSeconds, 900, presence, "timeouts", "extensions", "profile_migration_seconds")
 	applyDefaultInt64(&timeouts.ValidationSeconds, 30, presence, "timeouts", "extensions", "validation_seconds")
 	applyDefaultInt64(&timeouts.ReconciliationSeconds, 300, presence, "timeouts", "extensions", "reconciliation_seconds")
@@ -471,6 +519,7 @@ func applyDefaultExtensionRuntimeValues(cfg *Config, presence configPresence) {
 func validateExtensionRuntimeValues(cfg Config, diagnostics *[]Diagnostic) {
 	timeouts := cfg.Timeouts.Extensions
 	validateLimitValue(timeouts.MigrationLockSeconds, "timeouts.extensions.migration_lock_seconds", 1, 300, diagnostics)
+	validateLimitValue(timeouts.MigrationStepSeconds, "timeouts.extensions.migration_step_seconds", 1, 3600, diagnostics)
 	validateLimitValue(timeouts.ProfileMigrationSeconds, "timeouts.extensions.profile_migration_seconds", 1, 7200, diagnostics)
 	validateLimitValue(timeouts.ValidationSeconds, "timeouts.extensions.validation_seconds", 1, 300, diagnostics)
 	validateLimitValue(timeouts.ReconciliationSeconds, "timeouts.extensions.reconciliation_seconds", 1, 3600, diagnostics)

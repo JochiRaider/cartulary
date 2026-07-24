@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -29,7 +30,8 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	target := prepareRestoreTarget(t, "backup_restore-i-10-02-target")
 	gate := &RestoreReadinessGate{}
 
-	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		Stopped:     true,
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
 		Projections: projections.NewRestoreRebuilder(target.Postgres),
@@ -57,16 +59,18 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore verification basis: %v", err)
 	}
+	verificationTarget := prepareRestoreTarget(t, "backup_restore-i-10-02-verification-target")
 	verification, err := recovery.NewRestoreVerificationService(
 		fixture.SourceStore,
-		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage),
+		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
 	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Postgres:    target.Postgres,
-			ObjectStore: target.ObjectStore,
-			Projections: projections.NewRestoreRebuilder(target.Postgres),
+			Stopped:     true,
+			Postgres:    verificationTarget.Postgres,
+			ObjectStore: verificationTarget.ObjectStore,
+			Projections: projections.NewRestoreRebuilder(verificationTarget.Postgres),
 		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: target.Postgres},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres},
 	}, fixture.AsOf, basis)
 	if err != nil {
 		t.Fatalf("verify restored process fixture: %v", err)
@@ -244,7 +248,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 
 	backupRoot := t.TempDir()
 	backupStorage := EncryptedBackupStorage(t, backupRoot)
-	capture := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage)
+	capture := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage, RecoveryExtensionCatalog(t))
 	if _, err := capture.CaptureBackupSet(ctx, CaptureParams(recovery.CaptureBackupSetParams{
 		BackupSetID:        olderBackupSetID,
 		ConsistencyPointAt: olderConsistencyPointAt,
@@ -442,6 +446,15 @@ func CaptureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBacku
 		params.ObjectStoreRestoreAnchorRetainedUntil = params.RetainedUntil
 	}
 	return params
+}
+
+func RecoveryExtensionCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
+	t.Helper()
+	catalog, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		t.Fatalf("construct extension recovery catalog: %v", err)
+	}
+	return catalog
 }
 
 func TestPublicRouteInventoryAbsence_Process(t *testing.T) {

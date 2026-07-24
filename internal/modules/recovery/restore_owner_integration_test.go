@@ -30,6 +30,7 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 	if got, want := failingObserver.Steps, []recovery.RestoreStep{
 		recovery.RestoreStepPostgresRestore,
 		recovery.RestoreStepObjectStoreRestore,
+		recovery.RestoreStepExtensionBindings,
 		recovery.RestoreStepProjectionRebuild,
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("failing restore steps got %v want %v", got, want)
@@ -51,6 +52,7 @@ func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
 	if got, want := observer.Steps, []recovery.RestoreStep{
 		recovery.RestoreStepPostgresRestore,
 		recovery.RestoreStepObjectStoreRestore,
+		recovery.RestoreStepExtensionBindings,
 		recovery.RestoreStepProjectionRebuild,
 		recovery.RestoreStepConsistencyCheck,
 		recovery.RestoreStepReadiness,
@@ -71,7 +73,7 @@ func TestMissingArtifactFailsBeforeReadinessBlocked_Integration(t *testing.T) {
 	runner := recovery.NewRestoreRunner(fixture.Store, tamperedBackupStorage{
 		Inner:   fixture.BackupStorage,
 		Missing: map[string]bool{fixture.BackupSet.ObjectStoreArtifactKey: true},
-	})
+	}, testExtensionBackupCatalog(t))
 	_, err := runner.RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
 	if err == nil {
 		t.Fatal("restore with missing object artifact unexpectedly succeeded")
@@ -142,7 +144,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 			target.Projections = &recordingProjectionRebuilder{}
 			target.Readiness = readiness
 			target.Observer = observer
-			_, err := recovery.NewRestoreRunner(fixture.Store, tc.storage).RestoreBackupSet(ctx, target, fixture.BackupSet)
+			_, err := recovery.NewRestoreRunner(fixture.Store, tc.storage, testExtensionBackupCatalog(t)).RestoreBackupSet(ctx, target, fixture.BackupSet)
 			if err == nil {
 				t.Fatalf("tampered backup %q unexpectedly restored", tc.name)
 			}

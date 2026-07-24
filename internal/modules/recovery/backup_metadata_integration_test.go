@@ -32,7 +32,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	if err != nil {
 		t.Fatalf("create backup storage from runtime config: %v", err)
 	}
-	capture := recovery.NewCaptureService(store, backupStorage)
+	capture := recovery.NewCaptureService(store, backupStorage, testExtensionBackupCatalog(t))
 
 	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -172,7 +172,8 @@ INSERT INTO object_blobs (
 	} else if len(objects) != 0 {
 		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
 	}
-	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
 		Projections: projections.NewRestoreRebuilder(targetPool),

@@ -26,10 +26,43 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 	if descriptors[0].ProfileID != "enterprise_authentication" || descriptors[5].ProfileID != "snapshot_reporting" {
 		t.Fatalf("descriptors are not canonical: %#v", descriptors)
 	}
+	inactivePolicies := coordinator.InactiveConfigurationPolicies()
+	if len(inactivePolicies) != 2 ||
+		inactivePolicies[0].Key != "enterprise_authentication.provider_manifest_path" ||
+		inactivePolicies[0].Kind != "forbidden" ||
+		inactivePolicies[1].Key != "network_flow_activity.key_ring_manifest_path" ||
+		inactivePolicies[1].Kind != "forbidden" {
+		t.Fatalf("inactive configuration policies = %#v", inactivePolicies)
+	}
 	descriptors[0].RouteFamilies[0] = "mutated"
 	again, _ := coordinator.Descriptor("enterprise_authentication")
 	if again.RouteFamilies[0] == "mutated" {
 		t.Fatal("descriptor query leaked mutable coordinator state")
+	}
+}
+
+func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
+	coordinator := requireGeneratedCoordinator(t)
+	policies := coordinator.PortabilityPolicies()
+	if len(policies) != 6 {
+		t.Fatalf("portability policies = %d; want 6", len(policies))
+	}
+	byProfile := make(map[string]PortabilityPolicy, len(policies))
+	for _, policy := range policies {
+		byProfile[policy.ProfileID] = policy
+	}
+	networkFlow := byProfile["network_flow_activity"]
+	if networkFlow.Mode != PortabilityBlockedWhenPresent ||
+		!reflect.DeepEqual(networkFlow.BlockingFamilyIDs, []string{"network_flow_activity.tables"}) {
+		t.Fatalf("Network Flow portability policy = %#v", networkFlow)
+	}
+	reporting := byProfile["snapshot_reporting"]
+	if reporting.Mode != PortabilityNoAuthoritativeState || reporting.ParticipantID != "" {
+		t.Fatalf("Snapshot/Reporting portability policy = %#v", reporting)
+	}
+	policies[3].BlockingFamilyIDs[0] = "mutated"
+	if coordinator.PortabilityPolicies()[3].BlockingFamilyIDs[0] == "mutated" {
+		t.Fatal("portability policy projection leaked mutable state")
 	}
 }
 
@@ -131,10 +164,18 @@ func TestCoordinatorPublicationPlan_Unit(t *testing.T) {
 	if claimed != 2 || inactive != 9 || len(plan.Workspaces()) != 1 {
 		t.Fatalf("publication route/workspace counts = %d/%d/%d", claimed, inactive, len(plan.Workspaces()))
 	}
-	canonical := plan.CanonicalJSON()
-	canonical[0] = 'X'
-	if plan.CanonicalJSON()[0] == 'X' {
-		t.Fatal("publication plan leaked mutable canonical bytes")
+	discovery := plan.Discovery()
+	discovery[0].RouteFamilies[0] = "mutated"
+	if plan.Discovery()[0].RouteFamilies[0] == "mutated" {
+		t.Fatal("publication plan leaked mutable discovery rows")
+	}
+	if len(plan.Listeners()) != 3 {
+		t.Fatalf("publication listener projection = %#v", plan.Listeners())
+	}
+	for _, binding := range plan.ImplementationBindings() {
+		if len(binding.BindingSHA256) != 64 {
+			t.Fatalf("publication binding projection = %#v", binding)
+		}
 	}
 }
 

@@ -3,11 +3,14 @@ package networkflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -19,6 +22,10 @@ import (
 type ImportSourcePort interface {
 	OpenSourceStream(context.Context, string) (imports.ImportSourceStream, error)
 	GetSession(context.Context, uuid.UUID) (map[string]any, uuid.UUID, error)
+}
+
+type importTransactionPort interface {
+	ValidateExtensionApplyPreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string) error
 }
 
 type ModuleDependencies struct {
@@ -39,6 +46,9 @@ type ModuleDependencies struct {
 type Module struct {
 	store           *Store
 	importOwner     imports.ExtensionImportFacade
+	importSources   ImportSourcePort
+	importTx        importTransactionPort
+	transactions    *crossownertransaction.Coordinator
 	cursorProtector CursorProtector
 	safeDigester    SafeDigester
 	limits          Limits
@@ -84,11 +94,26 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		WithTransactionRunner(transactions),
 		WithSafeDigester(safeDigester),
 	)
-	module := &Module{store: store, cursorProtector: cursorProtector, safeDigester: safeDigester, limits: limits, now: now}
-	if dependencies.ImportSources != nil {
-		module.importOwner = newImportFacade(store, dependencies.ImportSources, limits, now, safeDigester)
+	module := &Module{store: store, importSources: dependencies.ImportSources, cursorProtector: cursorProtector, safeDigester: safeDigester, limits: limits, now: now}
+	if physical, ok := dependencies.ImportSources.(importTransactionPort); ok {
+		module.importTx = physical
 	}
 	return module, nil
+}
+
+// InstallCrossOwnerCoordinator completes the application-owned composition
+// edge while every route and worker remains quiescent. It is deliberately
+// single-assignment so a serving process cannot switch transaction epochs.
+func (m *Module) InstallCrossOwnerCoordinator(coordinator *crossownertransaction.Coordinator) error {
+	if m == nil || coordinator == nil || m.importSources == nil || m.importTx == nil {
+		return errors.New("network flow cross-owner transaction composition unavailable")
+	}
+	if m.transactions != nil {
+		return errors.New("network flow cross-owner transaction coordinator already installed")
+	}
+	m.transactions = coordinator
+	m.importOwner = newImportFacade(m.store, m.importSources, m.limits, m.now, m.safeDigester, coordinator)
+	return nil
 }
 
 func (m *Module) ImportOwner() imports.ExtensionImportFacade {
@@ -100,11 +125,14 @@ func (m *Module) ImportOwner() imports.ExtensionImportFacade {
 
 func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
+		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
 			return nil
 		}
 		if m == nil {
 			return errors.New("network flow module unavailable")
+		}
+		if m.transactions == nil {
+			return errors.New("network flow cross-owner transaction coordinator unavailable")
 		}
 		service, err := newRouteService(deps, m)
 		if err != nil {
@@ -113,6 +141,31 @@ func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 		registerNetworkFlowRoutes(mux, service)
 		return nil
 	}
+}
+
+// TransactionCapabilities is the physical composition adapter used only by
+// app-server's PostgreSQL backend. The returned values expose owner-logical
+// methods to participants and never expose pgx to the shared coordinator.
+func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {
+	if m == nil || m.store == nil || tx == nil {
+		return nil, nil, crossownertransaction.ErrUnavailable
+	}
+	switch participantID {
+	case ImportApplyParticipantID:
+		if m.importTx == nil {
+			return nil, nil, crossownertransaction.ErrUnavailable
+		}
+	case IndicatorLinkParticipantID:
+	default:
+		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
+	}
+	capability := &transactionCapability{
+		participantID: participantID,
+		tx:            tx,
+		store:         m.store,
+		imports:       m.importTx,
+	}
+	return capability, capability, nil
 }
 
 func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) {

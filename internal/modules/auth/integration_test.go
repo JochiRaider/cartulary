@@ -1507,7 +1507,7 @@ func startServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) 
 	t.Helper()
 
 	harness := runtime.StartServerWithDependencies(t, prefix, httpapi.DependencySet{
-		ExtensionProfiles: httpapi.CurrentExtensionProfiles(),
+		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(httpapi.CurrentExtensionProfiles()),
 		ModuleOverrides: map[string]any{
 			auth.EnterpriseOIDCVerifierOverrideKey: enterpriseauthtest.DeterministicOIDCVerifier{},
 			auth.EnterpriseSAMLVerifierOverrideKey: enterpriseauthtest.DeterministicSAMLVerifier{},

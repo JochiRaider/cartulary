@@ -341,6 +341,10 @@ func bundleOptionalSectionsAllowed(files map[string][]byte, manifest BundleManif
 			if _, ok := declared["snapshots"]; !ok {
 				return false
 			}
+		case strings.HasPrefix(pathName, "ext/extensions/"):
+			// Extension payload admission is owned by the immutable
+			// portability catalog after archive integrity verification.
+			continue
 		default:
 			return false
 		}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
-	extensionroutetest "github.com/JochiRaider/cartulary/internal/modules/extensions/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
@@ -203,10 +202,6 @@ func TestPublicRouteInventoryMembershipAdminEnvelopes(t *testing.T) {
 
 func TestPublicRouteInventoryWorkbookPreferencesEnvelopes(t *testing.T) {
 	requirePublicRouteInventoryEnvelopes(t, workbookroutetest.PublicPreferences())
-}
-
-func TestPublicRouteInventoryExtensionDiscoveryEnvelopes(t *testing.T) {
-	requirePublicRouteInventoryEnvelopes(t, extensionroutetest.PublicDiscovery())
 }
 
 func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []routeinventory.Entry) {

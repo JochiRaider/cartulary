@@ -798,6 +798,41 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 	assertImportFailureLeavesState(t, targetHarness, targetAdmin, incidentID, "txn-import-duplicate-incident", bundleBytes, "duplicate_incident_id")
 }
 
+func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
+	withIncidentPortabilityClaimed(t)
+	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-network-flow-block")
+	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
+		"client_txn_id": "txn-incident-bundle-network-flow-block",
+		"incident_key":  "BUNDLE-NF-BLOCK",
+		"title":         "Incident bundle Network Flow block",
+	})
+	incidentID := incident["incident_id"].(string)
+	tableID := seedIncidentBundleNetworkFlowTable(t, harness.DB, incidentID, adminID)
+
+	assertBlocked := func(clientTxnID string) {
+		job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, admin, map[string]any{
+			"incident_id": incidentID, "client_txn_id": clientTxnID,
+		}), http.StatusAccepted)["data"].(map[string]any)
+		terminal := waitFailedJob(t, harness.Server, admin, job["job_id"].(string))
+		requireFailedJobReason(t, terminal, "incident_bundle_export_rejected", "missing_required_file")
+		if countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE export_job_id = $1`, job["job_id"].(string)) != 0 {
+			t.Fatal("blocked Network Flow export published a bundle descriptor")
+		}
+	}
+	assertBlocked("txn-export-network-flow-active")
+	if _, err := harness.DB.Exec(`
+UPDATE network_flow_tables
+   SET table_status = 'soft_deleted',
+       deleted_at = now(),
+       updated_at = now()
+ WHERE network_flow_table_id = $1
+`, tableID); err != nil {
+		t.Fatalf("soft delete Network Flow table: %v", err)
+	}
+	assertBlocked("txn-export-network-flow-soft-deleted")
+}
+
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-descriptor-canonical")
@@ -860,6 +895,57 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	if manifest["reference_pack_mode"] != "embedded" || manifest["history_mode"] != "full" || manifest["blob_mode"] != "full" {
 		t.Fatalf("manifest modes mismatch: %#v", manifest)
 	}
+}
+
+func seedIncidentBundleNetworkFlowTable(t testing.TB, db *sql.DB, incidentID, actorID string) string {
+	t.Helper()
+	sessionID := uuid.New()
+	unitID := uuid.New()
+	tableID := "nft_" + strings.Repeat("a", 32)
+	digest := strings.Repeat("1", 64)
+	if _, err := db.Exec(`
+INSERT INTO import_sessions (
+    import_session_id, incident_id, created_by_user_id, client_txn_id, assistant_profile,
+    source_file_kind, original_filename, source_content_sha256, source_media_type, source_byte_size,
+    parser_profile_id, parser_version, session_status, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'network_flow_test', 'csv', 'flows.csv', $5, 'text/csv', 12,
+    'network_flow.rfc4180_headered_csv.v1', 'test', 'ready_to_apply', now(), now()
+)
+`, sessionID, incidentID, actorID, "txn-import-"+unitID.String(), digest); err != nil {
+		t.Fatalf("seed Network Flow import session: %v", err)
+	}
+	if _, err := db.Exec(`
+INSERT INTO import_units (
+    import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
+    header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
+    warning_codes, mapping_fingerprint, approved_mapping_json, columns_json, source_rows_json,
+    preview_rows_json, approved_target_kind, approved_extension_profile_id, created_at, updated_at
+) VALUES (
+    $1, $2, 'ready', 'csv', 'unit-1', 'A1:Z2', 1, 2, 1, 9,
+    '{}', $3, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+    'network_flow_table', 'network_flow_activity', now(), now()
+)
+`, unitID, sessionID, digest); err != nil {
+		t.Fatalf("seed Network Flow import unit: %v", err)
+	}
+	if _, err := db.Exec(`
+INSERT INTO network_flow_tables (
+    network_flow_table_id, incident_id, display_name, table_status,
+    source_import_session_id, source_import_unit_id, source_content_sha256,
+    source_filename_display, source_filename_digest, source_filename_digest_key_id,
+    mapping_fingerprint, source_profile_id, parser_profile_id,
+    row_count_accepted, row_count_rejected, created_by_user_id
+) VALUES (
+    $1, $2, 'Retained flows', 'active', $3, $4, $5,
+    'flows.csv', $5, 'nf-test-key', $5,
+    'network_flow.cisco_sna_netflow_csv.v1', 'network_flow.rfc4180_headered_csv.v1',
+    1, 0, $6
+)
+`, tableID, incidentID, sessionID, unitID, digest, actorID); err != nil {
+		t.Fatalf("seed Network Flow table: %v", err)
+	}
+	return tableID
 }
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {

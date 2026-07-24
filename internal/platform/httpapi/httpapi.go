@@ -35,7 +35,7 @@ type DependencySet struct {
 	JobRunner         *jobs.Runner
 	WSHub             *platformws.Hub
 	CursorCodec       *pagination.Codec
-	ExtensionProfiles []ExtensionProfile
+	ExtensionEpoch    ExtensionEpochProvider
 	Readiness         ReadinessChecker
 	Admission         AdmissionGate
 	PublicErrorFaults PublicErrorFaultStore
@@ -115,8 +115,6 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if len(options) > 0 {
 		option = options[0]
 	}
-	option.Dependencies.ExtensionProfiles = ResolveExtensionProfiles(option.Dependencies.ExtensionProfiles)
-
 	rootHTML, err := webassets.ReadBrowserRootHTML()
 	if err != nil {
 		return nil, fmt.Errorf("load embedded web root: %w", err)
@@ -172,7 +170,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 
 	handler := http.Handler(mux)
-	handler = withUnclaimedReservedExtensionFamilies(handler, option.Dependencies.ExtensionProfiles)
+	handler = withUnclaimedReservedExtensionFamilies(handler, option.Dependencies.ExtensionEpoch)
 	if option.Dependencies.PublicErrorFaults != nil {
 		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
 	}
@@ -203,9 +201,10 @@ func withAdmissionGate(next http.Handler, admission AdmissionGate) http.Handler 
 	})
 }
 
-func withUnclaimedReservedExtensionFamilies(next http.Handler, profiles []ExtensionProfile) http.Handler {
+func withUnclaimedReservedExtensionFamilies(next http.Handler, provider ExtensionEpochProvider) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
+			profiles := ExtensionProfilesFromEpoch(provider)
 			if match, ok := MatchReservedExtensionFamilyIn(profiles, r.URL.Path); ok && !match.Claimed {
 				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
 					"profile_id":   match.ProfileID,

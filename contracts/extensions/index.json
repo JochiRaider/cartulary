@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "schema_id": "cartulary.extension_authored_input_catalog.v1",
-  "extensions_document_version": "0.6.0",
-  "extensions_document_sha256": "1d10578b2d10df2bfa17e3ab48d0cd3ad0cf36a1f0c285b8875f5df4109e2440",
+  "extensions_document_version": "0.6.1",
+  "extensions_document_sha256": "e4251be03942465ffdf587776035011c0939fe753c43e2cfc1acefbd689d5fd2",
   "artifacts": [
     {"path": "build/base-route-reservations.json", "schema_id": "cartulary.base_route_reservation_registry.v1", "owner_id": "core01", "artifact_class": "build_input"},
     {"path": "build/client-support.json", "schema_id": "cartulary.extension_client_support_registry_source.v1", "owner_id": "web", "artifact_class": "build_input"},
@@ -41,7 +41,6 @@
     {"path": "profiles/network_flow_activity/tables-codec.json", "schema_id": "cartulary.extension_backup_binding_codec.v1", "owner_id": "network_flow_activity", "artifact_class": "profile_contract"},
     {"path": "profiles/reference_pack/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
     {"path": "profiles/snapshot_reporting/configuration.json", "schema_id": "cartulary.extension_profile_configuration_contract.v1", "owner_id": "core04", "artifact_class": "profile_contract"},
-    {"path": "profiles/snapshot_reporting/portability-participant.json", "schema_id": "cartulary.extension_participant_contract.v1", "owner_id": "reporting", "artifact_class": "profile_contract"},
     {"path": "profiles/snapshot_reporting/reporting-participant.json", "schema_id": "cartulary.extension_participant_contract.v1", "owner_id": "reporting", "artifact_class": "profile_contract"},
     {"path": "shared-owner-resolutions.json", "schema_id": "cartulary.extension_shared_owner_resolution_set.v1", "owner_id": "extensions", "artifact_class": "shared_owner_resolution"},
     {"path": "specification/canonicalization-vectors.json", "schema_id": "cartulary.extension_canonicalization_vector_set.v1", "owner_id": "extensions", "artifact_class": "specification_input"},

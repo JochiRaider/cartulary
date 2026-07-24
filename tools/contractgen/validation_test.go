@@ -159,6 +159,25 @@ func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
 	if !strings.HasSuffix(registry.JSON, "\n") || strings.HasSuffix(registry.JSON, "\n\n") {
 		t.Fatalf("registry does not use exactly one final LF")
 	}
+
+	var stateRegistry map[string]any
+	if err := json.Unmarshal([]byte(seen[generatedExtensionPrefix+"state-registry.json"].JSON), &stateRegistry); err != nil {
+		t.Fatalf("decode generated state registry: %v", err)
+	}
+	profiles, ok := stateRegistry["profiles"].([]any)
+	if !ok || len(profiles) != 1 {
+		t.Fatalf("generated state profiles = %#v", stateRegistry["profiles"])
+	}
+	networkFlow, ok := profiles[0].(map[string]any)
+	if !ok ||
+		networkFlow["profile_id"] != "network_flow_activity" ||
+		networkFlow["initialization_kind"] != "empty" ||
+		networkFlow["initialization_algorithm_id"] != nil ||
+		networkFlow["initialization_algorithm_definition_sha256"] != nil ||
+		networkFlow["initialization_definition_sha256"] == "" ||
+		networkFlow["implementation_binding_sha256"] == "" {
+		t.Fatalf("generated Network Flow state projection = %#v", profiles[0])
+	}
 }
 
 func validExtensionDependencyDeclarationSet() map[string]any {
@@ -182,7 +201,7 @@ func validExtensionDependencyDeclarationSet() map[string]any {
 	}
 	return map[string]any{
 		"schema_id":                   "cartulary.extension_dependency_declaration_set.v1",
-		"extensions_document_version": "0.6.0",
+		"extensions_document_version": "0.6.1",
 		"dependencies":                rows,
 	}
 }

@@ -538,14 +538,14 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 func TestRouteSetupRequiresImportFinalizerWhenClaimed_Unit(t *testing.T) {
 	registrar := RegisterRoutes()
 	err := registrar(http.NewServeMux(), httpapi.DependencySet{
-		ExtensionProfiles: []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}},
+		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}}),
 	})
 	if err == nil || !strings.Contains(err.Error(), "import finalizer") {
 		t.Fatalf("claimed incident portability setup must fail without import finalizer, got %v", err)
 	}
 
 	err = registrar(http.NewServeMux(), httpapi.DependencySet{
-		ExtensionProfiles: []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: false}},
+		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: false}}),
 	})
 	if err != nil {
 		t.Fatalf("unclaimed incident portability must not require route dependencies: %v", err)

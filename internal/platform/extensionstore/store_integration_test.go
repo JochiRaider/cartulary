@@ -67,7 +67,7 @@ func TestExtensionCoordinationStateAndStagedObjects_Integration(t *testing.T) {
 	if err != nil || len(batch) != 1 || batch[0].StagingID != staged.StagingID {
 		t.Fatalf("cleanup batch = %#v/%v", batch, err)
 	}
-	if err := store.RecordDeletionFailure(context.Background(), staged.StagingID, "delete_failed", now.Add(2*time.Minute)); err != nil {
+	if err := store.RecordDeletionFailure(context.Background(), staged.StagingID, 1, "delete_failed", now.Add(3*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	object, err = store.StagedObject(context.Background(), staged.StagingID)

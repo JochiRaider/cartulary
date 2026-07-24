@@ -170,6 +170,36 @@
       "status": "active"
     },
     {
+      "row_id": "platform.config.unit.inactive_extension_values_discarded_fa9b985016",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestInactiveExtensionConfiguration_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#req:EXT-REQ-224",
+        "docs/extension-subsystem-nlspec.md#ext-ac-150",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-009"
+      ]
+    },
+    {
       "row_id": "platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3",
       "owner_id": "platform.config",
       "family_id": "platform.config.unit",

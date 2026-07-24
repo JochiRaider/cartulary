@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -142,6 +143,21 @@ func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "setup runtime") {
 		t.Fatalf("missing runtime setup diagnostic: %q", stdout.String())
+	}
+}
+
+func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
+	var stderr bytes.Buffer
+	runner := newServerRunner(io.Discard, &stderr)
+	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
+	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+		return serverRuntime{}, &stagedobjects.FatalIntegrityError{Cause: errors.New("private contradiction detail")}
+	}
+	if exitCode := runner.run(context.Background()); exitCode != 70 {
+		t.Fatalf("exit code got %d want 70", exitCode)
+	}
+	if got := stderr.String(); got != "{\"code\":\"extension_integrity_failure\",\"reason_code\":\"staged_object_publication_mismatch\"}\n" {
+		t.Fatalf("fatal startup diagnostic = %q", got)
 	}
 }
 

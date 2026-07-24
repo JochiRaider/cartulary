@@ -167,7 +167,7 @@ func newMigrationPreservationFixture(t testing.TB, name string) migrationPreserv
 	if err != nil {
 		t.Fatalf("capture migration object-store artifacts: %v", err)
 	}
-	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage, testExtensionBackupCatalog(t)).CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
 		BackupSetID:                       backupSetID,
 		ConsistencyPointAt:                asOf.Add(-2 * time.Minute),
 		CreatedAt:                         asOf.Add(-3 * time.Minute),

@@ -142,7 +142,7 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 
 	sourceStore := recovery.NewStore(sourcePool)
 	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
-	capture := recovery.NewCaptureService(sourceStore, backupStorage)
+	capture := recovery.NewCaptureService(sourceStore, backupStorage, testExtensionBackupCatalog(t))
 	asOf := time.Date(2026, 7, 1, 14, 0, 0, 0, time.UTC)
 	backupSet, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
 		BackupSetID:        backupSetID,
@@ -163,12 +163,13 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 	}
 
 	return restoreProjectionContractFixture{
-		Runner:        recovery.NewRestoreRunner(sourceStore, backupStorage),
+		Runner:        recovery.NewRestoreRunner(sourceStore, backupStorage, testExtensionBackupCatalog(t)),
 		Store:         sourceStore,
 		BackupStorage: backupStorage,
 		BackupSet:     backupSet,
 		AsOf:          asOf,
 		Target: recovery.RestoreTarget{
+			Stopped:     true,
 			Postgres:    targetPool,
 			ObjectStore: targetObjectStore,
 		},

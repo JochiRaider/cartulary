@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
@@ -246,7 +247,10 @@ func TestExtensionRuntimeConfig_Unit(t *testing.T) {
 		if !cfg.Import.Claimed || !cfg.IncidentPortability.Claimed || !cfg.ReferencePack.Claimed || !cfg.SnapshotReporting.Claimed {
 			t.Fatalf("explicit claim set was not retained: import=%t portability=%t reference=%t reporting=%t", cfg.Import.Claimed, cfg.IncidentPortability.Claimed, cfg.ReferencePack.Claimed, cfg.SnapshotReporting.Claimed)
 		}
-		if cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds != 30 || cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds != 5 || cfg.Timeouts.Extensions.CancellationGraceSeconds != 2 {
+		if cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds != 30 ||
+			cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds != 5 ||
+			cfg.Timeouts.Extensions.CancellationGraceSeconds != 2 ||
+			cfg.Timeouts.Extensions.MigrationStepSeconds != 900 {
 			t.Fatalf("extension timeout defaults = %#v", cfg.Timeouts.Extensions)
 		}
 		if cfg.Intervals.Extensions.StagedObjectSweepSeconds != 300 || cfg.Limits.Extensions.StagedObjectCleanupBatch != 1000 || cfg.Limits.Extensions.MaxNonterminalJobsPerProfile != 100000 {
@@ -266,6 +270,12 @@ func TestExtensionRuntimeConfig_Unit(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[timeouts.extensions]\nprocess_lease_loss_detection_seconds = 31\n"
 		err := loadInvalidConfig(t, content, nil)
 		requireDiagnostic(t, err, "timeouts.extensions.process_lease_loss_detection_seconds", "value_above_maximum")
+	})
+
+	t.Run("rejects migration step timeout outside the normative range", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[timeouts.extensions]\nmigration_step_seconds = 3601\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "timeouts.extensions.migration_step_seconds", "value_above_maximum")
 	})
 }
 
@@ -637,8 +647,9 @@ func mustLoadConfig(t testing.TB, content string, env map[string]string) Config 
 	t.Helper()
 
 	cfg, err := LoadWithOptions(LoadOptions{
-		Path: writeTempConfig(t, content),
-		Env:  env,
+		Path:                     writeTempConfig(t, content),
+		Env:                      env,
+		ExtensionInactiveCatalog: testExtensionInactiveCatalog(t),
 	})
 	if err != nil {
 		t.Fatalf("load config: %v", err)
@@ -651,14 +662,37 @@ func loadInvalidConfig(t testing.TB, content string, env map[string]string) erro
 	t.Helper()
 
 	_, err := LoadWithOptions(LoadOptions{
-		Path: writeTempConfig(t, content),
-		Env:  env,
+		Path:                     writeTempConfig(t, content),
+		Env:                      env,
+		ExtensionInactiveCatalog: testExtensionInactiveCatalog(t),
 	})
 	if err == nil {
 		t.Fatal("expected invalid config to fail")
 	}
 
 	return err
+}
+
+func testExtensionInactiveCatalog(t testing.TB) extensioninactive.Catalog {
+	t.Helper()
+	catalog, err := extensioninactive.NewCatalog([]extensioninactive.Policy{
+		{
+			ProfileID: "enterprise_authentication",
+			ClaimKey:  "enterprise_authentication.claimed",
+			Key:       "enterprise_authentication.provider_manifest_path",
+			Kind:      extensioninactive.PolicyForbidden,
+		},
+		{
+			ProfileID: "network_flow_activity",
+			ClaimKey:  "network_flow_activity.claimed",
+			Key:       "network_flow_activity.key_ring_manifest_path",
+			Kind:      extensioninactive.PolicyForbidden,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build inactive extension policy catalog: %v", err)
+	}
+	return catalog
 }
 
 func writeTempConfig(t testing.TB, content string) string {

@@ -196,7 +196,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
-	profiles := httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles)
+	profiles := httpapi.ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
 	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})
 	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
 		oidcVerifier = enterpriseOIDCVerifier(enterpriseauth.ProductionOIDCVerifier{})

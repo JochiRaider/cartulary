@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -58,7 +57,7 @@ type ExtensionImportApplyResult struct {
 type ExtensionImportFacade interface {
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
-	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
+	ApplyImportUnit(context.Context, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
 }
 
 func extensionImportFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportFacade, error) {
@@ -92,30 +91,17 @@ func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserR
 	if facade == nil {
 		return nil, importApplyBlockedError("owner_apply_contract_unavailable")
 	}
-	tx, err := s.store.pool.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, start.IncidentID); err != nil {
-		return nil, err
-	}
-	sourceCapability, err := s.store.sourceCapabilityForUnitTx(ctx, tx, start.ImportSessionID, unit.UnitID)
-	if err != nil {
-		return nil, err
-	}
-	if sourceCapability.SourceContentSHA256 != unit.SourceContentSHA256 {
-		return nil, importApplyBlockedError("source_changed")
-	}
-	result, err := facade.ApplyImportUnitTx(ctx, tx, ExtensionImportApplyRequest{
-		IncidentID:                  start.IncidentID,
-		ActorUserID:                 actor.ID,
-		TargetKind:                  target.TargetKind,
-		ExtensionProfileID:          target.ExtensionProfileID,
-		ImportSessionID:             start.ImportSessionID,
-		ImportUnitID:                unit.UnitID,
-		SourceCapability:            sourceCapability,
+	result, err := facade.ApplyImportUnit(ctx, ExtensionImportApplyRequest{
+		IncidentID:         start.IncidentID,
+		ActorUserID:        actor.ID,
+		TargetKind:         target.TargetKind,
+		ExtensionProfileID: target.ExtensionProfileID,
+		ImportSessionID:    start.ImportSessionID,
+		ImportUnitID:       unit.UnitID,
+		SourceCapability: ImportSourceCapability{
+			SourceStreamRef:     unit.SourceStreamRef,
+			SourceContentSHA256: unit.SourceContentSHA256,
+		},
 		ExpectedSourceContentSHA256: unit.SourceContentSHA256,
 		MappingFingerprint:          unit.MappingFingerprint,
 		OwnerMappingSchemaID:        unit.ApprovedMapping.OwnerMappingSchemaID,
@@ -123,9 +109,6 @@ func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserR
 		ClientTxnID:                 start.ClientTxnID,
 	})
 	if err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return append([]jobs.ResourceRef(nil), result.ResourceRefs...), nil

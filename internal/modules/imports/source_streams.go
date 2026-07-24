@@ -82,6 +82,38 @@ SELECT source_stream_ref
 	return capability, err
 }
 
+// ValidateExtensionApplyPreconditionsTx is the Import owner's physical
+// application-composition adapter for a shared final transaction. The returned
+// capability is a fresh in-transaction read of the admitted unit; callers
+// cannot query Import storage directly.
+func (s *Store) ValidateExtensionApplyPreconditionsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	sessionID uuid.UUID,
+	unitID uuid.UUID,
+	expectedSourceStreamRef string,
+	expectedSourceContentSHA256 string,
+) error {
+	if s == nil || tx == nil {
+		return fmt.Errorf("import extension apply transaction unavailable")
+	}
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
+		return err
+	}
+	capability, err := s.sourceCapabilityForUnitTx(ctx, tx, sessionID, unitID)
+	if err != nil {
+		return err
+	}
+	if capability.ImportSessionID != sessionID ||
+		capability.ImportUnitID != unitID ||
+		capability.SourceStreamRef != expectedSourceStreamRef ||
+		capability.SourceContentSHA256 != expectedSourceContentSHA256 {
+		return importApplyBlockedError("source_changed")
+	}
+	return nil
+}
+
 type sourceStreamQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }

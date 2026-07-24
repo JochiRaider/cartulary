@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -62,10 +63,14 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 		stdout: normalizeOperatorWriter(stdout),
 		stderr: normalizeOperatorWriter(stderr),
 		loadConfig: func(path string) (config.Config, error) {
-			if strings.TrimSpace(path) == "" {
-				return config.Load()
+			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+			if err != nil {
+				return config.Config{}, err
 			}
-			return config.LoadWithOptions(config.LoadOptions{Path: path})
+			if strings.TrimSpace(path) == "" {
+				return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+			}
+			return config.LoadWithOptions(config.LoadOptions{Path: path, ExtensionInactiveCatalog: catalog})
 		},
 		setupPostgres: func(ctx context.Context, cfg config.Config) (operatorPostgresPool, error) {
 			return postgres.Setup(ctx, cfg)

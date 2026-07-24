@@ -34,6 +34,7 @@ import (
 type BundleBuilder struct {
 	pool        *pgxpool.Pool
 	objectStore objectstore.Store
+	portability *PortabilityOrchestrator
 }
 
 type Importer struct {
@@ -54,6 +55,22 @@ type ImportParams struct {
 	ActorUserID uuid.UUID
 	PublishedAt time.Time
 	RequestID   *string
+}
+
+type PreparedImport struct {
+	IncidentID       uuid.UUID
+	files            map[string][]byte
+	attributions     importedAttributionBuffer
+	stagedObjectKeys []string
+	blobPort         evidencemodule.IncidentBundleBlobPortability
+}
+
+func (p *PreparedImport) Cleanup(ctx context.Context) {
+	if p == nil || len(p.stagedObjectKeys) == 0 {
+		return
+	}
+	p.blobPort.CleanupStagedObjects(context.WithoutCancel(ctx), p.stagedObjectKeys)
+	p.stagedObjectKeys = nil
 }
 
 type importProjectionRebuilder interface {
@@ -94,6 +111,19 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 	blobPort := evidencemodule.IncidentBundleBlobPortability{ObjectStore: b.objectStore}
 	if err := blobPort.ExportBlobFiles(ctx, tx, incidentID, files); err != nil {
 		return BuiltIncidentBundle{}, verificationErrorFromPort(err)
+	}
+	if b.portability != nil {
+		payloads, err := b.portability.Export(ctx, incidentID)
+		if err != nil {
+			return BuiltIncidentBundle{}, err
+		}
+		for _, payload := range payloads {
+			filePath, encoded, err := EncodeExtensionPayload(payload)
+			if err != nil {
+				return BuiltIncidentBundle{}, err
+			}
+			files[filePath] = encoded
+		}
 	}
 	archive, err := BuildBundleArchive(ManifestInput{
 		BundleID:             bundleID.String(),
@@ -194,16 +224,41 @@ func collectActorIDs(row map[string]any, actorIDs map[string]struct{}) {
 	}
 }
 
-func (i Importer) Import(ctx context.Context, verified VerifiedBundle, params ImportParams) (uuid.UUID, error) {
+func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, params ImportParams) (*PreparedImport, error) {
 	incidentID, err := uuid.Parse(verified.Manifest.IncidentID)
 	if err != nil {
-		return uuid.UUID{}, &VerificationError{ReasonCode: "malformed_manifest"}
+		return nil, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
-	tx, err := i.pool.Begin(ctx)
+	var existing bool
+	if err := i.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM incidents WHERE id = $1)`, incidentID).Scan(&existing); err != nil {
+		return nil, err
+	}
+	if existing {
+		return nil, &VerificationError{ReasonCode: "duplicate_incident_id"}
+	}
+	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: params.ActorUserID}
+	blobPort := evidencemodule.IncidentBundleBlobPortability{ObjectStore: i.objectStore}
+	rewrittenObjectBlobs, writtenObjectKeys, err := blobPort.RewriteAndStageObjectBlobs(ctx, verified.Files, incidentID, params.ActorUserID, &attributions)
 	if err != nil {
-		return uuid.UUID{}, err
+		blobPort.CleanupStagedObjects(context.WithoutCancel(ctx), writtenObjectKeys)
+		return nil, verificationErrorFromPort(err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	importFiles := make(map[string][]byte, len(verified.Files))
+	for path, payload := range verified.Files {
+		importFiles[path] = append([]byte(nil), payload...)
+	}
+	importFiles["data/object_blobs.ndjson"] = rewrittenObjectBlobs
+	return &PreparedImport{
+		IncidentID: incidentID, files: importFiles, attributions: attributions,
+		stagedObjectKeys: writtenObjectKeys, blobPort: blobPort,
+	}, nil
+}
+
+func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared *PreparedImport, params ImportParams) (uuid.UUID, error) {
+	if tx == nil || prepared == nil || prepared.IncidentID == uuid.Nil {
+		return uuid.UUID{}, errors.New("prepared incident bundle import is required")
+	}
+	incidentID := prepared.IncidentID
 	var existing int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID).Scan(&existing); err != nil {
 		return uuid.UUID{}, err
@@ -211,32 +266,15 @@ func (i Importer) Import(ctx context.Context, verified VerifiedBundle, params Im
 	if existing > 0 {
 		return uuid.UUID{}, &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: params.ActorUserID}
-	if err := incidents.ImportIncidentBundleIncidentTx(ctx, tx, verified.Files["data/incident.json"], params.ActorUserID, &attributions); err != nil {
+	attributions := prepared.attributions
+	if err := incidents.ImportIncidentBundleIncidentTx(ctx, tx, prepared.files["data/incident.json"], params.ActorUserID, &attributions); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
-	if err := i.importActors(ctx, tx, verified.Files["data/actors.ndjson"], incidentID); err != nil {
+	if err := i.importActors(ctx, tx, prepared.files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
-	blobPort := evidencemodule.IncidentBundleBlobPortability{ObjectStore: i.objectStore}
-	rewrittenObjectBlobs, writtenObjectKeys, err := blobPort.RewriteAndStageObjectBlobs(ctx, verified.Files, incidentID, params.ActorUserID, &attributions)
-	if err != nil {
-		return uuid.UUID{}, verificationErrorFromPort(err)
-	}
-	committed := false
-	defer func() {
-		if committed {
-			return
-		}
-		blobPort.CleanupStagedObjects(ctx, writtenObjectKeys)
-	}()
-	importFiles := make(map[string][]byte, len(verified.Files))
-	for path, payload := range verified.Files {
-		importFiles[path] = payload
-	}
-	importFiles["data/object_blobs.ndjson"] = rewrittenObjectBlobs
 	for _, importPort := range incidentBundleImportPorts {
-		if err := importPort(ctx, tx, importFiles, params.ActorUserID, &attributions); err != nil {
+		if err := importPort(ctx, tx, prepared.files, params.ActorUserID, &attributions); err != nil {
 			return uuid.UUID{}, verificationErrorFromPort(err)
 		}
 	}
@@ -267,10 +305,7 @@ func (i Importer) Import(ctx context.Context, verified VerifiedBundle, params Im
 		}
 		return uuid.UUID{}, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.UUID{}, err
-	}
-	committed = true
+	prepared.attributions = attributions
 	return incidentID, nil
 }
 

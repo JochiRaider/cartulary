@@ -12,9 +12,20 @@
   ],
   "owner_port_only_imports": [
     {
+      "id": "extensions-facade-composition-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/extensions",
+      "allowed_importers": [
+        "internal/app/extensionassembly/**",
+        "internal/app/server/**",
+        "internal/modules/extensions/**",
+        "internal/modules/stagedobjects/janitor.go"
+      ]
+    },
+    {
       "id": "incidentbundles-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
       "allowed_importers": [
+        "internal/app/extensionassembly/**",
         "internal/app/server/runtime.go",
         "internal/modules/incidentbundles/**"
       ]
@@ -127,6 +138,50 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "extensions-no-transport-auth-or-platform-storage",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/sql",
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
+        "github.com/JochiRaider/cartulary/internal/platform/extensionstore",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi",
+        "github.com/JochiRaider/cartulary/internal/platform/httpauth",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres",
+        "github.com/jackc/pgx"
+      ],
+      "scan_paths": ["internal/modules/extensions/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "shared-extension-protocols-no-profile-owner-imports",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+      ],
+      "scan_paths": [
+        "internal/modules/crossownertransaction/**",
+        "internal/modules/incidentbundles/**",
+        "internal/modules/recovery/**",
+        "internal/modules/stagedobjects/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "extension-semantic-ports-no-platform-storage",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/sql",
+        "github.com/JochiRaider/cartulary/internal/platform/extensionstore",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres",
+        "github.com/jackc/pgx"
+      ],
+      "scan_paths": [
+        "internal/modules/crossownertransaction/**",
+        "internal/modules/stagedobjects/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "source-owners-no-workbook-mutation-conflict-imports",
       "imports": [
@@ -335,6 +390,25 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "retired-extensions-facades",
+      "tokens": [
+        "configuredExtensionClaimIDs",
+        "extensionHTTPProfiles",
+        "func (c *Coordinator) BackupPlan(",
+        "func (c *Coordinator) ParticipantContract(",
+        "BuildResponseData",
+        "BackupCoordinator",
+        "TransactionCoordinator",
+        "NewTransactionCoordinator",
+        "StagedObjectJanitor",
+        "NewStagedObjectJanitor",
+        "ValidateInactiveConfiguration"
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "retired-contextless-cli-wrappers",
       "tokens": [

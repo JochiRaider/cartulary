@@ -91,7 +91,9 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestFailClosedRestoreVerificationBlocked_Unit"
+          "TestFailClosedRestoreVerificationBlocked_Unit",
+          "TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
+          "TestRestoreRejectsRunningOrNonemptyTargetBeforeArtifactRead_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -100,7 +102,11 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-155",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-014"
+      ]
     },
     {
       "row_id": "module.recovery.integration.selecting_a_retained_backup_set_missing_a_requir_d6af667fba",
@@ -190,6 +196,7 @@
           "TestBackupMetadataShapeAndRetentionFloors_Unit",
           "TestCaptureRequiresArtifactProofs_Unit",
           "TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit",
+          "TestExtensionBackupManifestRecordsCanonicalBindingProofs_Integration",
           "TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit",
           "TestRetentionFloorRejectsShortMetadataAndArtifacts_Unit",
           "TestVerificationVocabularyAndTimestampRules_Unit"
@@ -239,6 +246,8 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestExtensionBackupCatalogCanonicalizesBindingsAndRejectsSharedTables",
+          "TestExtensionBackupCatalogUsesOnlyExactCurrentOrHistoricalCodec",
           "TestPublicRouteAbsenceStaticInventory_Unit"
         ]
       },

@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.6.0
+document_version: 0.6.1
 contract_major: 1
 ---
 
@@ -3083,9 +3083,9 @@ Verified by: EXT-AC-114
 
 | State metadata | Authoritative owner state | Required result |
 | --- | --- | --- |
-| Absent | Absent | Execute the exact EXT-REQ-234 initialization variant, create pending state and metadata, invoke final validation once, and commit once only when valid; no migration ledger row is created. |
+| Absent | Absent | Execute the exact EXT-REQ-234 initialization variant. `kind='empty'` is legal only for `empty_state_policy='allowed'`; an algorithm initializer may satisfy `forbidden` only by creating authoritative state. Create pending state and metadata, invoke final validation once, and commit once only when valid; no migration ledger row is created. |
 | Absent | Present | Fail `extension_state_metadata_missing`; do not infer or initialize a version. |
-| Present | Absent | Fail `extension_state_incomplete`; do not treat the profile as fresh. |
+| Present | Absent | With `empty_state_policy='allowed'`, continue to lineage and stored-version validation, migration when required, and final validation. With `forbidden`, fail `extension_state_incomplete`; do not treat the profile as fresh. |
 | Present | Present | Validate lineage and stored version; migrate when required. |
 
 `cartulary.extension_state_metadata.v1` MUST contain exactly:
@@ -3907,7 +3907,7 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `extension_dependency_incompatible` | Required dependency has a different current contract major or incompatible binding. |
 | `extension_config_without_claim` | Profile-local configuration is present while inactive and is not permitted by Table 21-B. |
 | `extension_state_metadata_missing` | Authoritative state exists but state metadata does not. |
-| `extension_state_incomplete` | State metadata exists but declared authoritative state does not. |
+| `extension_state_incomplete` | State metadata exists without declared authoritative state while `empty_state_policy='forbidden'`. |
 | `extension_state_version_unsupported` | Stored state is newer, too old, wrong-lineage, or has no complete forward path. |
 | `extension_migration_path_too_long` | Migration-definition count exceeds the static maximum. |
 | `extension_migration_definition_changed` | A committed migration identity has a different canonical definition digest. |
@@ -3961,7 +3961,7 @@ Verified by: EXT-AC-069, EXT-AC-084
 | `extension_dependency_incompatible` | `A required extension dependency is incompatible.` | `profile_id`, `dependency_profile_id`, `expected_contract_major`, `actual_contract_major`. |
 | `extension_config_without_claim` | `Extension configuration is present while the profile is inactive.` | `profile_id`, `config_path`. |
 | `extension_state_metadata_missing` | `Authoritative extension state is missing required state metadata.` | `profile_id`, `migration_lineage_id`. |
-| `extension_state_incomplete` | `Extension state metadata does not have matching authoritative state.` | `profile_id`, `migration_lineage_id`. |
+| `extension_state_incomplete` | `Extension state metadata requires authoritative state under the declared empty-state policy.` | `profile_id`, `migration_lineage_id`. |
 | `extension_state_version_unsupported` | `Stored extension state is not supported by the packaged implementation.` | `profile_id`, `migration_lineage_id`, `minimum_migratable_state_version`, `current_state_version`, `stored_state_version`. |
 | `extension_migration_path_too_long` | `The extension migration path exceeds the supported limit.` | `profile_id`, `limit`, `actual`. |
 | `extension_migration_definition_changed` | `A committed extension migration definition changed.` | `profile_id`, `migration_id`, `expected_digest`, `actual_digest`. |

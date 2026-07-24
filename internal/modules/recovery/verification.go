@@ -95,7 +95,7 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 		asOf = service.now()
 	}
 	asOf = asOf.UTC()
-	backupSet, err := NewBackupCatalog(service.store, service.runner.storage).RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(service.store, service.runner.storage, service.runner.extensionBackups).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}

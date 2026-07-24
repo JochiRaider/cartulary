@@ -280,6 +280,43 @@ func (m *Manager) CompleteCanceled(ctx context.Context, params TransitionParams)
 	return m.completeTerminal(ctx, params, StatusCanceled)
 }
 
+// CompleteSucceededTx joins terminal job-result publication to an
+// owner-controlled final transaction. Callers publish the returned resource to
+// live progress subscribers only after the enclosing commit is proven.
+func CompleteSucceededTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+	if tx == nil || params.JobID == uuid.Nil || now.IsZero() {
+		return Resource{}, ErrInvalidJobDefinition
+	}
+	resultJSON, errorJSON, err := marshalSummaries(params.ResultSummary, params.ErrorSummary, StatusSucceeded)
+	if err != nil {
+		return Resource{}, err
+	}
+	now = now.UTC()
+	record, err := scanJob(tx.QueryRow(ctx, `
+UPDATE jobs
+   SET status = 'succeeded',
+       cancelable = false,
+       updated_at = $2,
+       finished_at = $2,
+       retained_until = $3,
+       progress_completed = $4,
+       progress_total = $5,
+       result_summary_json = $6,
+       error_summary_json = $7,
+       message = $8
+ WHERE job_id = $1
+   AND status IN ('queued', 'running')
+RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+          auth_policy,
+          submitted_at, updated_at, progress_completed, progress_total, started_at,
+          finished_at, retained_until, result_summary_json, error_summary_json, message
+`, params.JobID, now, now.Add(7*24*time.Hour), params.Progress.Completed, params.Progress.Total, resultJSON, errorJSON, params.Message))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Resource{}, ErrInvalidTransition
+	}
+	return record, err
+}
+
 func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return CancelResult{}, err

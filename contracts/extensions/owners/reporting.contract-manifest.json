@@ -52,7 +52,7 @@
     {
       "owner_fragment_id": "snapshot_reporting.participation.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/snapshot_reporting.participation.json",
-      "owner_fragment_sha256": "ba715b67b140e7a0d36710ca7d513869739d499b2a71e95cbf3bca626252eaee"
+      "owner_fragment_sha256": "0a6e6c65bdb1c5fe698fca1e10104e7825d13abe9199f52bcfda0258726a25e6"
     }
   ],
   "owner_id": "reporting",

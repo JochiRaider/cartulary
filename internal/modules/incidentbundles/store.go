@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -290,8 +291,19 @@ SELECT p.job_id
 	return payloads, rows.Err()
 }
 
-func (s *Store) MarkImportComplete(ctx context.Context, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
-	_, err := s.pool.Exec(ctx, `
+func MarkImportCompleteTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
+	if tx == nil {
+		return errors.New("incident bundle import transaction unavailable")
+	}
+	return markImportComplete(ctx, tx, jobID, incidentID, manifestSHA, now)
+}
+
+type commandExecutor interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+func markImportComplete(ctx context.Context, executor commandExecutor, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
+	_, err := executor.Exec(ctx, `
 UPDATE incident_bundle_job_payloads
    SET imported_incident_id = $2,
        manifest_sha256 = $3,

@@ -27,27 +27,35 @@ type RestoreStep string
 const (
 	RestoreStepPostgresRestore    RestoreStep = "postgres_restore"
 	RestoreStepObjectStoreRestore RestoreStep = "object_store_restore"
+	RestoreStepExtensionBindings  RestoreStep = "extension_binding_validation"
 	RestoreStepProjectionRebuild  RestoreStep = "projection_rebuild"
 	RestoreStepConsistencyCheck   RestoreStep = "consistency_check"
 	RestoreStepReadiness          RestoreStep = "readiness"
 )
 
 type RestoreRunner struct {
-	store   *Store
-	storage BackupStorage
-	now     func() time.Time
+	store            *Store
+	storage          BackupStorage
+	extensionBackups *ExtensionBackupCatalog
+	now              func() time.Time
 }
 
 type RestoreTarget struct {
+	Stopped     bool
 	Postgres    postgres.DB
 	ObjectStore objectstore.Store
 	Projections restorecontract.ProjectionRebuilder
 	Readiness   RestoreReadinessGate
+	Failure     RestoreFailureGate
 	Observer    RestoreStepObserver
 }
 
 type RestoreReadinessGate interface {
 	MarkRestoreReady(ctx context.Context, result RestoreResult) error
+}
+
+type RestoreFailureGate interface {
+	MarkRestoreFailed(ctx context.Context, cause error)
 }
 
 type RestoreStepObserver interface {
@@ -59,6 +67,7 @@ type RestoreResult struct {
 	ConsistencyReport         RestoreConsistencyReport
 	ObjectStoreBackupManifest ObjectStoreBackupManifest
 	ProjectionRebuildResult   restorecontract.ProjectionRebuildResult
+	ExtensionBindings         []ExtensionBindingProof
 }
 
 type RestoreConsistencyReport struct {
@@ -74,12 +83,14 @@ type selectedRestoreArtifacts struct {
 	PostgresSnapshot          PostgresSnapshotArtifact
 	ObjectStoreSnapshot       ObjectStoreSnapshotArtifact
 	ObjectStoreBackupManifest ObjectStoreBackupManifest
+	ExtensionBindings         []ExtensionBindingProof
 }
 
-func NewRestoreRunner(store *Store, storage BackupStorage) *RestoreRunner {
+func NewRestoreRunner(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *RestoreRunner {
 	return &RestoreRunner{
-		store:   store,
-		storage: storage,
+		store:            store,
+		storage:          storage,
+		extensionBackups: extensionBackups,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -87,7 +98,7 @@ func NewRestoreRunner(store *Store, storage BackupStorage) *RestoreRunner {
 }
 
 func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context, target RestoreTarget, asOf time.Time) (RestoreResult, error) {
-	if runner == nil || runner.store == nil || runner.storage == nil {
+	if runner == nil || runner.store == nil || runner.storage == nil || runner.extensionBackups == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	if target.Postgres == nil {
@@ -102,15 +113,20 @@ func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context
 	if asOf.IsZero() {
 		asOf = runner.now()
 	}
-	backupSet, err := NewBackupCatalog(runner.store, runner.storage).RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(runner.store, runner.storage, runner.extensionBackups).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreResult{}, err
 	}
 	return runner.RestoreBackupSet(ctx, target, backupSet)
 }
 
-func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target RestoreTarget, backupSet BackupSet) (RestoreResult, error) {
-	if runner == nil || runner.store == nil || runner.storage == nil {
+func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target RestoreTarget, backupSet BackupSet) (result RestoreResult, restoreErr error) {
+	defer func() {
+		if restoreErr != nil && target.Failure != nil {
+			target.Failure.MarkRestoreFailed(context.WithoutCancel(ctx), restoreErr)
+		}
+	}()
+	if runner == nil || runner.store == nil || runner.storage == nil || runner.extensionBackups == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	if backupSet.BackupSetID == uuid.Nil {
@@ -125,6 +141,9 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if target.Projections == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore projection rebuilder is required", ErrInvalidBackupArtifact)
 	}
+	if err := requireStoppedEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
+		return RestoreResult{}, err
+	}
 	artifacts, err := runner.loadSelectedRestoreArtifacts(ctx, backupSet)
 	if err != nil {
 		return RestoreResult{}, err
@@ -132,6 +151,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	partialResult := RestoreResult{
 		BackupSet:                 backupSet,
 		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
+		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
 	}
 
 	recordStep(target.Observer, RestoreStepPostgresRestore)
@@ -141,6 +161,11 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restoreObjectStoreSnapshot(ctx, target.ObjectStore, artifacts.ObjectStoreSnapshot); err != nil {
+		return partialResult, err
+	}
+
+	recordStep(target.Observer, RestoreStepExtensionBindings)
+	if err := validateRestoredExtensionBindings(ctx, runner.extensionBackups, artifacts.ExtensionBindings, target.Postgres); err != nil {
 		return partialResult, err
 	}
 
@@ -159,11 +184,12 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if err != nil {
 		return partialResult, err
 	}
-	result := RestoreResult{
+	result = RestoreResult{
 		BackupSet:                 backupSet,
 		ConsistencyReport:         report,
 		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
 		ProjectionRebuildResult:   projectionResult,
+		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
 	}
 
 	if target.Readiness != nil {
@@ -186,6 +212,188 @@ func restoreProjectionRebuildRequest(backupSet BackupSet) restorecontract.Projec
 
 func restoreProjectionSourceStateRef(backupSet BackupSet) string {
 	return fmt.Sprintf("backup_set:%s/postgres_artifact:%s", backupSet.BackupSetID.String(), backupSet.PostgresArtifactSHA256)
+}
+
+func requireStoppedEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog) error {
+	if !target.Stopped {
+		return ErrRestoreTargetNotStopped
+	}
+	rows, err := target.Postgres.Query(ctx, `
+SELECT table_name
+  FROM information_schema.tables
+ WHERE table_schema = 'public'
+   AND table_type = 'BASE TABLE'
+ ORDER BY table_name ASC
+`)
+	if err != nil {
+		return fmt.Errorf("inspect restore target tables: %w", err)
+	}
+	tableNames := make([]string, 0)
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan restore target table: %w", err)
+		}
+		if IsAuthoritativePostgresSnapshotTable(tableName) {
+			tableNames = append(tableNames, tableName)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate restore target tables: %w", err)
+	}
+	rows.Close()
+	for _, tableName := range tableNames {
+		if tableName == "extension_state_metadata" {
+			if err := requirePristineExtensionMetadata(ctx, target.Postgres, extensionBackups); err != nil {
+				return err
+			}
+			continue
+		}
+		var count int64
+		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
+		if err := target.Postgres.QueryRow(ctx, query).Scan(&count); err != nil {
+			return fmt.Errorf("inspect restore target table %s: %w", tableName, err)
+		}
+		if count != 0 {
+			return fmt.Errorf("%w: table %s contains %d rows", ErrRestoreTargetNotEmpty, tableName, count)
+		}
+	}
+	objects, err := target.ObjectStore.ListObjects(ctx, "")
+	if err != nil {
+		return fmt.Errorf("inspect restore target object store: %w", err)
+	}
+	if len(objects) != 0 {
+		return fmt.Errorf("%w: object store contains %d objects", ErrRestoreTargetNotEmpty, len(objects))
+	}
+	return nil
+}
+
+func requirePristineExtensionMetadata(ctx context.Context, db postgres.DB, catalog *ExtensionBackupCatalog) error {
+	if catalog == nil {
+		return fmt.Errorf("%w: extension backup catalog is required", ErrRestoreTargetNotEmpty)
+	}
+	rows, err := db.Query(ctx, `
+SELECT profile_id, migration_lineage_id, state_version,
+       COALESCE(last_migration_id, ''), metadata_version
+  FROM extension_state_metadata
+ ORDER BY profile_id ASC
+`)
+	if err != nil {
+		return fmt.Errorf("inspect restore target extension metadata: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var actual ExtensionPristineMetadata
+		if err := rows.Scan(
+			&actual.ProfileID,
+			&actual.MigrationLineageID,
+			&actual.StateVersion,
+			&actual.LastMigrationID,
+			&actual.MetadataVersion,
+		); err != nil {
+			return fmt.Errorf("scan restore target extension metadata: %w", err)
+		}
+		expected, admitted := catalog.pristineMetadataRows[actual.ProfileID]
+		if !admitted || actual != expected {
+			return fmt.Errorf("%w: extension metadata for %s is not a pristine migration seed", ErrRestoreTargetNotEmpty, actual.ProfileID)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate restore target extension metadata: %w", err)
+	}
+	return nil
+}
+
+// ResetRestoreVerificationTarget returns a stopped, explicitly disposable
+// verification target to its migration-owned pristine state between successful
+// restore proofs. It is not part of ordinary restore and must never be used to
+// make a nonempty production target admissible.
+func ResetRestoreVerificationTarget(ctx context.Context, target RestoreTarget, catalog *ExtensionBackupCatalog) error {
+	if !target.Stopped {
+		return ErrRestoreTargetNotStopped
+	}
+	if target.Postgres == nil || target.ObjectStore == nil || catalog == nil {
+		return fmt.Errorf("%w: verification target and extension catalog are required", ErrInvalidBackupArtifact)
+	}
+	rows, err := target.Postgres.Query(ctx, `
+SELECT table_name
+  FROM information_schema.tables
+ WHERE table_schema = 'public'
+   AND table_type = 'BASE TABLE'
+ ORDER BY table_name ASC
+`)
+	if err != nil {
+		return fmt.Errorf("list restore verification target tables: %w", err)
+	}
+	tableNames := make([]string, 0)
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan restore verification target table: %w", err)
+		}
+		if IsAuthoritativePostgresSnapshotTable(tableName) {
+			tableNames = append(tableNames, tableName)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate restore verification target tables: %w", err)
+	}
+	rows.Close()
+
+	tx, err := target.Postgres.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin restore verification target reset: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+	if len(tableNames) > 0 {
+		query := "TRUNCATE " + sanitizedTableList(tableNames) + " RESTART IDENTITY CASCADE"
+		if _, err := tx.Exec(ctx, query); err != nil {
+			return fmt.Errorf("truncate restore verification target: %w", err)
+		}
+	}
+	profileIDs := make([]string, 0, len(catalog.pristineMetadataRows))
+	for profileID := range catalog.pristineMetadataRows {
+		profileIDs = append(profileIDs, profileID)
+	}
+	sort.Strings(profileIDs)
+	for _, profileID := range profileIDs {
+		row := catalog.pristineMetadataRows[profileID]
+		var lastMigrationID any
+		if row.LastMigrationID != "" {
+			lastMigrationID = row.LastMigrationID
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO extension_state_metadata (
+    profile_id, migration_lineage_id, state_version, last_migration_id,
+    metadata_version, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+`, row.ProfileID, row.MigrationLineageID, row.StateVersion, lastMigrationID, row.MetadataVersion); err != nil {
+			return fmt.Errorf("restore pristine extension metadata for %s: %w", profileID, err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit restore verification target reset: %w", err)
+	}
+
+	objects, err := target.ObjectStore.ListObjects(ctx, "")
+	if err != nil {
+		return fmt.Errorf("list restore verification target objects for reset: %w", err)
+	}
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].Key < objects[j].Key
+	})
+	for _, object := range objects {
+		if err := target.ObjectStore.DeleteObject(ctx, object.Key); err != nil {
+			return fmt.Errorf("delete restore verification target object %s: %w", object.Key, err)
+		}
+	}
+	return nil
 }
 
 func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, backupSet BackupSet) (selectedRestoreArtifacts, error) {
@@ -238,6 +446,9 @@ func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, b
 	if err := ValidateObjectStoreManifestAgainstSnapshot(objectManifest, objectSnapshot); err != nil {
 		return selectedRestoreArtifacts{}, err
 	}
+	if err := validateExtensionBindingProofs(runner.extensionBackups, manifest.ExtensionBindings, postgresSnapshot); err != nil {
+		return selectedRestoreArtifacts{}, err
+	}
 	if manifest.ObjectStoreBackupSummaryArtifact != nil {
 		summaryBody, err := VerifyArtifactProof(ctx, runner.storage, *manifest.ObjectStoreBackupSummaryArtifact)
 		if err != nil {
@@ -259,6 +470,7 @@ func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, b
 		PostgresSnapshot:          postgresSnapshot,
 		ObjectStoreSnapshot:       objectSnapshot,
 		ObjectStoreBackupManifest: objectManifest,
+		ExtensionBindings:         append([]ExtensionBindingProof(nil), manifest.ExtensionBindings...),
 	}, nil
 }
 

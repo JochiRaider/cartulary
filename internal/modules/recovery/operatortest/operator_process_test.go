@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/operator"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -182,7 +183,7 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	}
 
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage).RestoreCandidateBackup(ctx, time.Now().UTC().Add(time.Minute))
+	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage, operatorExtensionBackupCatalog(t)).RestoreCandidateBackup(ctx, time.Now().UTC().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("created backup did not remain selectable and durable: %v", err)
 	}
@@ -422,7 +423,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	}
 	objectManifestBody, objectSummaryBody := operatorObjectStoreBackupObjectArtifacts(t, backupSetID, consistencyPointAt, label, objectArtifact, nil)
 	createdAt := consistencyPointAt.Add(-time.Minute)
-	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage, operatorExtensionBackupCatalog(t)).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 		BackupSetID:                       backupSetID,
 		ConsistencyPointAt:                consistencyPointAt,
 		CreatedAt:                         createdAt,
@@ -436,6 +437,15 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 		t.Fatalf("capture recovery backup set %s: %v", backupSetID, err)
 	}
 	return backupSet
+}
+
+func operatorExtensionBackupCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
+	t.Helper()
+	catalog, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		t.Fatalf("construct extension recovery catalog: %v", err)
+	}
+	return catalog
 }
 
 func decodeOperatorRecoveryResult(t testing.TB, stdout string) operatorcli.Result {

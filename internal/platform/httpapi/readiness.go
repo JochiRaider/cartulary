@@ -54,9 +54,15 @@ type postgresReadinessPinger interface {
 	Ping(ctx context.Context) error
 }
 
+type DependencyReadinessProbe interface {
+	ReadinessName() string
+	CheckReadinessDependency(context.Context) error
+}
+
 type dependencyReadinessChecker struct {
 	postgres    postgresReadinessPinger
 	objectStore objectstore.Store
+	probes      []DependencyReadinessProbe
 }
 
 func ReadyReadinessState() ReadinessState {
@@ -66,7 +72,7 @@ func ReadyReadinessState() ReadinessState {
 	}
 }
 
-func NewDependencyReadinessChecker(postgres postgresReadinessPinger, objectStore objectstore.Store) ReadinessChecker {
+func NewDependencyReadinessChecker(postgres postgresReadinessPinger, objectStore objectstore.Store, probes ...DependencyReadinessProbe) ReadinessChecker {
 	if isNilReadinessDependency(postgres) {
 		postgres = nil
 	}
@@ -76,18 +82,19 @@ func NewDependencyReadinessChecker(postgres postgresReadinessPinger, objectStore
 	return dependencyReadinessChecker{
 		postgres:    postgres,
 		objectStore: objectStore,
+		probes:      append([]DependencyReadinessProbe(nil), probes...),
 	}
 }
 
 func (checker dependencyReadinessChecker) CheckReadiness(ctx context.Context) ReadinessState {
-	if checker.postgres == nil && checker.objectStore == nil {
+	if checker.postgres == nil && checker.objectStore == nil && len(checker.probes) == 0 {
 		return ReadyReadinessState()
 	}
 
 	checkCtx, cancel := context.WithTimeout(ctx, readinessCheckTimeout)
 	defer cancel()
 
-	dependencies := make([]ReadinessDependency, 0, 2)
+	dependencies := make([]ReadinessDependency, 0, 2+len(checker.probes))
 	ready := true
 	if checker.postgres != nil {
 		dependency := ReadinessDependency{
@@ -109,6 +116,22 @@ func (checker dependencyReadinessChecker) CheckReadiness(ctx context.Context) Re
 			ReasonCode: ReadinessReasonReady,
 		}
 		if _, err := checker.objectStore.ListObjects(checkCtx, ".cartulary/readiness/"); err != nil {
+			ready = false
+			dependency.Status = ReadinessStatusDegradedDependency
+			dependency.ReasonCode = readinessReasonCode(err)
+		}
+		dependencies = append(dependencies, dependency)
+	}
+	for _, probe := range checker.probes {
+		if probe == nil || probe.ReadinessName() == "" {
+			continue
+		}
+		dependency := ReadinessDependency{
+			Name:       probe.ReadinessName(),
+			Status:     ReadinessStatusReady,
+			ReasonCode: ReadinessReasonReady,
+		}
+		if err := probe.CheckReadinessDependency(checkCtx); err != nil {
 			ready = false
 			dependency.Status = ReadinessStatusDegradedDependency
 			dependency.ReasonCode = readinessReasonCode(err)

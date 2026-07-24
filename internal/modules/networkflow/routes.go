@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -38,6 +39,7 @@ type Service struct {
 	safeDigester    SafeDigester
 	now             func() time.Time
 	graphProjection graphProjectionPort
+	transactions    *crossownertransaction.Coordinator
 }
 
 func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {
@@ -62,6 +64,7 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 		safeDigester:    module.safeDigester,
 		now:             now,
 		graphProjection: newGraphProjectionAdapter(now),
+		transactions:    module.transactions,
 	}, nil
 }
 

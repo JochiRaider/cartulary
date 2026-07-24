@@ -1043,8 +1043,8 @@ func validateExtensionInputCatalog(value any) error {
 	}
 	if version, err := requiredString(object, "extensions_document_version", "contracts/extensions/index.json"); err != nil {
 		return err
-	} else if version != "0.6.0" {
-		return fmt.Errorf("contracts/extensions/index.json.extensions_document_version must be 0.6.0")
+	} else if version != "0.6.1" {
+		return fmt.Errorf("contracts/extensions/index.json.extensions_document_version must be 0.6.1")
 	}
 	if digest, err := requiredString(object, "extensions_document_sha256", "contracts/extensions/index.json"); err != nil {
 		return err

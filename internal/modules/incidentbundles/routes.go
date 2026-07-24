@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -29,6 +30,15 @@ type RouteOption func(*routeOptions)
 
 type routeOptions struct {
 	importFinalizer incidents.IncidentBundleImportFinalizer
+	portability     *PortabilityOrchestrator
+	transactions    *crossownertransaction.Coordinator
+}
+
+func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
+	return func(options *routeOptions) {
+		options.portability = orchestrator
+		options.transactions = transactions
+	}
 }
 
 func WithImportFinalizer(finalizer incidents.IncidentBundleImportFinalizer) RouteOption {
@@ -45,7 +55,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		}
 	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
+		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps, resolved)
@@ -66,6 +76,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.importFinalizer == nil {
 		return nil, fmt.Errorf("incident bundle import finalizer is required")
 	}
+	if options.portability == nil || options.transactions == nil {
+		return nil, fmt.Errorf("incident bundle portability composition is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -80,7 +93,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, now, workerStartHook)
+	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, options.portability, options.transactions, now, workerStartHook)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

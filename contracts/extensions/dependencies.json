@@ -135,10 +135,10 @@
       ],
       "owner_contract_manifest_id": "network_flow_activity.extensions_contract.v2",
       "owner_contract_manifest_ref": "contracts/extensions/owners/network_flow_activity.contract-manifest.json",
-      "owner_contract_manifest_sha256": "9fd000cd85cc085562cacf2081c78d2e569bfe3d440bed01abd8a3f826205f97",
+      "owner_contract_manifest_sha256": "95173c7080c22ffce4d17943b3dde76183df14457d694ffc7990205a2a3a4331",
       "owner_document_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
       "owner_document_schema_id": "cartulary.network_flow_activity.current.v2",
-      "owner_document_sha256": "14f8fdb92491ab60d567bae02fe8d5e9220a1edceb1699a644b8c9e91991973e",
+      "owner_document_sha256": "7bfe9fd2c5f7028819fc97136ee6a2e186ba1e4fddceab7ac22453d3a2a29f32",
       "owner_document_version": "2.0.0",
       "required_status": "adopted/current"
     },
@@ -189,7 +189,7 @@
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "reporting.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/reporting.contract-manifest.json",
-      "owner_contract_manifest_sha256": "22615f9da203ca8eebe951ea0195c238711b0f69b4b49e1b8785c0e120e7ec30",
+      "owner_contract_manifest_sha256": "655eadc8ed34bf5efe452f5739bc3d0c6295d597ee5ca6c8949d6ec753a2957b",
       "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
       "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
       "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
@@ -225,6 +225,6 @@
       "required_status": "adopted/current"
     }
   ],
-  "extensions_document_version": "0.6.0",
+  "extensions_document_version": "0.6.1",
   "schema_id": "cartulary.extension_dependency_declaration_set.v1"
 }

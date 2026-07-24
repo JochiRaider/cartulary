@@ -1,0 +1,104 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.stagedobjects",
+  "rows": [
+    {
+      "row_id": "module.stagedobjects.integration.allocation_publication_cleanup_7f6ad80724",
+      "owner_id": "module.stagedobjects",
+      "family_id": "module.stagedobjects.integration",
+      "collaborator_ids": [
+        "app.server",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.stagedobjects.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestStagedObjects_Integration_AllocationPublicationAndCleanup",
+          "TestStagedObjects_Integration_PublicationRollbackLeavesReadyAndInaccessible",
+          "TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-144",
+        "docs/extension-subsystem-nlspec.md#ext-ac-154",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-013"
+      ]
+    },
+    {
+      "row_id": "module.stagedobjects.unit.lifecycle_cleanup_outcomes_7f6ad80724",
+      "owner_id": "module.stagedobjects",
+      "family_id": "module.stagedobjects.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.stagedobjects.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/stagedobjects",
+        "tests": [
+          "TestJanitor_Unit_CapturedCutoffDrainsBoundedBatchesWithoutDeleteLock",
+          "TestJanitor_Unit_FatalContradictionAndCleanupTimeout",
+          "TestJanitor_Unit_PeriodicErrorsAreSurfacedWithoutStoppingRecovery",
+          "TestJanitor_Unit_RetryScheduleSaturatesAndDependencyRecovers",
+          "TestJanitor_Unit_SerializesAndCoalescesExactlyOneFollowUp",
+          "TestScope_Unit_OperationTransferAndFinalPublication",
+          "TestService_Unit_AllocationReadyAbandonAndFatalOutcomes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-144",
+        "docs/extension-subsystem-nlspec.md#ext-ac-154"
+      ]
+    },
+    {
+      "row_id": "module.stagedobjects.unit.server_readiness_and_fatal_routing_7f6ad80724",
+      "owner_id": "module.stagedobjects",
+      "family_id": "module.stagedobjects.unit",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.stagedobjects.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy",
+          "TestStagedCleanupFatal_Unit_UsesIntegrityExitReason",
+          "TestStagedCleanupReadiness_Unit_DegradesAndRecoversServingReadiness"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-134",
+        "docs/extension-subsystem-nlspec.md#ext-ac-154"
+      ]
+    }
+  ]
+}

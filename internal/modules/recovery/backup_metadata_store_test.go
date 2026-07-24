@@ -335,7 +335,7 @@ func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-durable-catalog")
 	store := recovery.NewStore(db)
 	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
-	capture := recovery.NewCaptureService(store, backupStorage)
+	capture := recovery.NewCaptureService(store, backupStorage, testExtensionBackupCatalog(t))
 	ctx := context.Background()
 
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
@@ -361,7 +361,7 @@ func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 	catalog := recovery.NewBackupCatalog(store, tamperedBackupStorage{
 		Inner:   backupStorage,
 		Missing: map[string]bool{newer.IntegrityManifestKey: true},
-	})
+	}, testExtensionBackupCatalog(t))
 	selection, err := catalog.RestoreCandidateBackupSelection(ctx, asOf)
 	if err != nil {
 		t.Fatalf("select latest durable backup: %v", err)
@@ -487,7 +487,7 @@ func TestCaptureRequiresEncryptedBackupStorage_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create raw backup storage: %v", err)
 	}
-	capture := recovery.NewCaptureService(store, rawStorage)
+	capture := recovery.NewCaptureService(store, rawStorage, testExtensionBackupCatalog(t))
 	createdAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
 	if _, err := capture.CaptureBackupSet(context.Background(), captureParams(recovery.CaptureBackupSetParams{
 		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100110"),
@@ -527,7 +527,7 @@ func TestEncryptedBackupStorageFailsClosedWithWrongKey_Unit(t *testing.T) {
 func newCaptureService(t *testing.T, store *recovery.Store) *recovery.CaptureService {
 	t.Helper()
 	storage := newEncryptedBackupStorage(t, t.TempDir())
-	return recovery.NewCaptureService(store, storage)
+	return recovery.NewCaptureService(store, storage, testExtensionBackupCatalog(t))
 }
 
 const RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -552,7 +552,7 @@ func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage
 func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBackupSetParams {
 	if params.PostgresArtifact.Body == nil {
 		params.PostgresArtifact = recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"backup_restore.test.postgres_artifact.v1","restore":"postgres"}`),
+			Body:        emptyExtensionPostgresArtifact(),
 			ContentType: "application/json",
 		}
 	}

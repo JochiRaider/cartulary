@@ -220,37 +220,6 @@
       "status": "active"
     },
     {
-      "row_id": "module.incidents.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.browser_support",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/incident.support.spec.ts",
-        "project_id": "chromium",
-        "stage": "support",
-        "scenario_ids": [
-          "scenario_92e9762b99a1"
-        ],
-        "titles": [
-          "supports zero-membership extension discovery and singleton pagination rejection through browser-authenticated request probes"
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.incidents.frontend.the_ordinary_incident_shell_emits_the_expected_m_21d3fe076b",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.frontend",
@@ -321,29 +290,6 @@
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.incidents.integration.extension_discovery_succeeds_for_an_authenticate_39cd96b3b3",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -711,7 +657,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.incidents.support_integration.public_route_inventory_extension_discovery_envel_d792370039",
+      "row_id": "module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.support_integration",
       "collaborator_ids": [],
@@ -722,7 +668,6 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestPublicRouteInventoryExtensionDiscoveryEnvelopes",
           "TestPublicRouteInventoryIncidentCoreEnvelopes",
           "TestPublicRouteInventoryMembershipAdminEnvelopes",
           "TestPublicRouteInventoryWorkbookPreferencesEnvelopes"
@@ -779,29 +724,6 @@
       "resource_profile_id": "go_balanced",
       "fixture_profile_id": "none",
       "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.incidents.unit.extension_discovery_keeps_the_singleton_route_sh_ae7e2bb619",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestExtensionDiscoveryReturnsExactSingletonProfileShape_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },

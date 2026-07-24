@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -280,7 +279,7 @@ UPDATE extension_staged_objects
 	return nil
 }
 
-func (s *Store) RecordDeletionFailure(ctx context.Context, stagingID, safeErrorCode string, now time.Time) error {
+func (s *Store) RecordDeletionFailure(ctx context.Context, stagingID string, attemptCount int32, safeErrorCode string, nextAttemptAt time.Time) error {
 	object, err := s.StagedObject(ctx, stagingID)
 	if err != nil {
 		return err
@@ -288,11 +287,13 @@ func (s *Store) RecordDeletionFailure(ctx context.Context, stagingID, safeErrorC
 	if object.State != StagedAbandoned || object.DeleteState != DeletePending {
 		return ErrIntegrity
 	}
-	nextAttempt := object.DeleteAttemptCount
-	if nextAttempt < math.MaxInt32 {
-		nextAttempt++
+	if attemptCount < object.DeleteAttemptCount ||
+		(object.DeleteAttemptCount < 1<<31-1 && attemptCount != object.DeleteAttemptCount+1) ||
+		(object.DeleteAttemptCount == 1<<31-1 && attemptCount != object.DeleteAttemptCount) ||
+		safeErrorCode == "" ||
+		nextAttemptAt.IsZero() {
+		return ErrInvalidTransition
 	}
-	delay := RetryDelay(nextAttempt)
 	tag, err := s.pool.Exec(ctx, `
 UPDATE extension_staged_objects
    SET delete_attempt_count = $2,
@@ -300,7 +301,7 @@ UPDATE extension_staged_objects
        next_delete_attempt_at = $4
  WHERE staging_id = $1 AND state = 'abandoned' AND delete_state = 'pending'
    AND delete_attempt_count = $5
-`, stagingID, nextAttempt, safeErrorCode, now.UTC().Add(delay), object.DeleteAttemptCount)
+`, stagingID, attemptCount, safeErrorCode, nextAttemptAt.UTC(), object.DeleteAttemptCount)
 	if err != nil {
 		return err
 	}
@@ -308,18 +309,4 @@ UPDATE extension_staged_objects
 		return ErrIntegrity
 	}
 	return nil
-}
-
-func RetryDelay(attempt int32) time.Duration {
-	if attempt <= 1 {
-		return time.Minute
-	}
-	if attempt >= 12 {
-		return 24 * time.Hour
-	}
-	seconds := int64(60) << (attempt - 1)
-	if seconds > 86400 {
-		seconds = 86400
-	}
-	return time.Duration(seconds) * time.Second
 }

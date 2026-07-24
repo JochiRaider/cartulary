@@ -62,6 +62,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.crossownertransaction",
+      "contract_path": "contracts/verification/owners/module.crossownertransaction.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.entities",
       "contract_path": "contracts/verification/owners/module.entities.json",
       "status": "active"
@@ -149,6 +154,11 @@
     {
       "owner_id": "module.savedviews",
       "contract_path": "contracts/verification/owners/module.savedviews.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.stagedobjects",
+      "contract_path": "contracts/verification/owners/module.stagedobjects.json",
       "status": "active"
     },
     {

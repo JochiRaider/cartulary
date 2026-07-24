@@ -35,6 +35,36 @@ type ReservedExtensionMatch struct {
 	RouteFamily string
 }
 
+// ExtensionEpochProvider is the read-only platform view of the application-owned
+// serving epoch. Production composition supplies a provider backed by the
+// installed immutable publication plan.
+type ExtensionEpochProvider interface {
+	ExtensionProfiles() []ExtensionProfile
+}
+
+type StaticExtensionEpochProvider struct {
+	profiles []ExtensionProfile
+}
+
+func NewStaticExtensionEpochProvider(profiles []ExtensionProfile) StaticExtensionEpochProvider {
+	return StaticExtensionEpochProvider{profiles: cloneExtensionProfiles(profiles)}
+}
+
+func (p StaticExtensionEpochProvider) ExtensionProfiles() []ExtensionProfile {
+	return cloneExtensionProfiles(p.profiles)
+}
+
+func ExtensionProfilesFromEpoch(provider ExtensionEpochProvider) []ExtensionProfile {
+	if provider == nil {
+		return nil
+	}
+	return cloneExtensionProfiles(provider.ExtensionProfiles())
+}
+
+func ExtensionProfileClaimedBy(provider ExtensionEpochProvider, profileID string) bool {
+	return ExtensionProfileClaimedIn(ExtensionProfilesFromEpoch(provider), profileID)
+}
+
 var (
 	extensionProfilesMu      = sync.RWMutex{}
 	currentProfileExtensions = mustGeneratedExtensionProfiles()

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -10,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
@@ -23,11 +26,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -38,6 +43,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/extensiondiscovery"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -69,21 +75,23 @@ type Options struct {
 }
 
 type Runtime struct {
-	Config         config.Config
-	Handler        http.Handler
-	Extensions     *extensions.Coordinator
-	ExtensionState *extensions.StateRuntime
-	StagedJanitor  *extensions.StagedObjectJanitor
-	ExtensionPlan  extensions.PublicationPlan
-	ResolvedClaims extensions.ResolvedClaimSet
-	Postgres       *pgxpool.Pool
-	ObjectStore    objectstore.Store
-	Jobs           *jobs.Manager
-	JobRunner      *jobs.Runner
-	WSHub          *platformws.Hub
-	Telemetry      *telemetry.Runtime
-	ProcessLease   *processlease.Lease
-	Lifecycle      *processlifecycle.Controller
+	Config                 config.Config
+	Handler                http.Handler
+	Extensions             *extensions.Coordinator
+	ExtensionState         *extensions.StateRuntime
+	StagedObjects          *stagedobjects.Service
+	StagedJanitor          *stagedobjects.Janitor
+	StagedHealth           *stagedobjects.Health
+	CrossOwnerTransactions *crossownertransaction.Coordinator
+	Postgres               *pgxpool.Pool
+	ObjectStore            objectstore.Store
+	Jobs                   *jobs.Manager
+	JobRunner              *jobs.Runner
+	WSHub                  *platformws.Hub
+	Telemetry              *telemetry.Runtime
+	ProcessLease           *processlease.Lease
+	Lifecycle              *processlifecycle.Controller
+	Publication            *PublicationController
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
@@ -92,7 +100,15 @@ type Runtime struct {
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
-	normalizedCfg, err := config.ValidateForStartup(cfg)
+	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
+	}
+	inactiveCatalog, err := extensionassembly.InactiveConfigurationCatalog(extensionCoordinator)
+	if err != nil {
+		return nil, fmt.Errorf("project extension configuration policy: %w", err)
+	}
+	normalizedCfg, err := config.ValidateForStartupWithExtensionInactiveCatalog(cfg, inactiveCatalog)
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +162,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		go runtime.watchProcessLease(monitorCtx)
 	}
 
-	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
-	}
 	if clientSupportDigest, present, digestErr := webassets.ClientSupportRegistrySHA256(); digestErr != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("admit packaged browser contracts: %w", digestErr)
@@ -161,7 +172,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			return nil, fmt.Errorf("bind packaged browser contracts: %w", err)
 		}
 	}
-	requestedClaims := configuredExtensionClaimIDs(extensionCoordinator.Descriptors(), normalizedCfg, options.HTTP.Dependencies.ExtensionProfiles)
+	var claimOverride []httpapi.ExtensionProfile
+	if options.HTTP.Dependencies.ExtensionEpoch != nil {
+		claimOverride = httpapi.ExtensionProfilesFromEpoch(options.HTTP.Dependencies.ExtensionEpoch)
+	}
+	requestedClaims := extensionClaimRequest(extensionCoordinator.Descriptors(), normalizedCfg, claimOverride)
 	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims)
 	if err != nil {
 		runtime.Close()
@@ -172,11 +187,15 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("prepare extension publication: %w", err)
 	}
-	resolvedClaims := claimResolution.Claims()
-	profiles := extensionHTTPProfiles(extensionCoordinator.Descriptors(), resolvedClaims.ProfileIDs())
+	publication := NewPublicationController(runtime.Lifecycle)
+	if err := publication.Prepare(extensionPlan); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	runtime.Publication = publication
+	resolvedClaims := publication.ResolvedClaims()
+	profiles := publicationHTTPProfiles(publication.Discovery())
 	runtime.Extensions = extensionCoordinator
-	runtime.ExtensionPlan = extensionPlan
-	runtime.ResolvedClaims = resolvedClaims
 
 	secretPurposes := secretpurpose.NewRegistry()
 	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
@@ -225,15 +244,41 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension state store: %w", stateStoreErr)
 		}
-		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(
-			stateStore,
-			map[string]extensions.StateValidator{
-				"network_flow_activity.validate_state_v1": networkflow.ValidateExtensionState,
+		logicalStateStore, stateStoreAdapterErr := extensionassembly.NewStateStore(stateStore)
+		if stateStoreAdapterErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose extension state store port: %w", stateStoreAdapterErr)
+		}
+		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
+			Store: logicalStateStore,
+			FinalValidators: map[string]extensions.FinalStateValidator{
+				"network_flow_activity.validate_state_v1": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
+						return extensions.StateValidationResult{
+							SchemaID: "cartulary.extension_final_state_validation_result.v1",
+							Status:   "invalid",
+							Findings: []extensions.StateFinding{{
+								Code: "network_flow_activity_state_invalid",
+								Path: "/",
+							}},
+						}, nil
+					}
+					return extensions.ValidFinalStateValidationResult(), nil
+				},
 			},
-			nil,
-			now,
-			time.Duration(normalizedCfg.Timeouts.Extensions.MigrationLockSeconds)*time.Second,
-		)
+			Now:               now,
+			LockTimeout:       time.Duration(normalizedCfg.Timeouts.Extensions.MigrationLockSeconds) * time.Second,
+			StepTimeout:       time.Duration(normalizedCfg.Timeouts.Extensions.MigrationStepSeconds) * time.Second,
+			ProfileTimeout:    time.Duration(normalizedCfg.Timeouts.Extensions.ProfileMigrationSeconds) * time.Second,
+			ValidationTimeout: time.Duration(normalizedCfg.Timeouts.Extensions.ValidationSeconds) * time.Second,
+			FatalIntegritySink: func(cause error) {
+				reason := "indeterminate_database_commit"
+				if errors.Is(cause, extensions.ErrStateReadbackMismatch) {
+					reason = "migration_ledger_state_mismatch"
+				}
+				runtime.Lifecycle.Fatal(reason)
+			},
+		})
 		if stateRuntimeErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension state runtime: %w", stateRuntimeErr)
@@ -260,13 +305,40 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		}
 	}
 	if extensionStateStore != nil && runtime.ObjectStore != nil {
-		janitor, janitorErr := extensions.NewStagedObjectJanitor(
-			extensionStateStore,
-			stagedObjectDeleter{store: runtime.ObjectStore},
-			nil,
-			now,
-			int(normalizedCfg.Limits.Extensions.StagedObjectCleanupBatch),
-		)
+		stagedRepository, stagedRepositoryErr := extensionassembly.NewStagedObjectRepository(extensionStateStore)
+		if stagedRepositoryErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose staged-object repository: %w", stagedRepositoryErr)
+		}
+		stagedBytes, stagedBytesErr := extensionassembly.NewStagedObjectBytes(runtime.ObjectStore)
+		if stagedBytesErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose staged-object byte store: %w", stagedBytesErr)
+		}
+		stagedService, stagedServiceErr := stagedobjects.NewService(stagedobjects.ServiceOptions{
+			Repository: stagedRepository,
+			Bytes:      stagedBytes,
+			Now:        now,
+			FatalSink: func(error) {
+				runtime.Lifecycle.Fatal("staged_object_publication_mismatch")
+			},
+		})
+		if stagedServiceErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose staged-object service: %w", stagedServiceErr)
+		}
+		stagedHealth := stagedobjects.NewHealth()
+		janitor, janitorErr := stagedobjects.NewJanitor(stagedobjects.JanitorOptions{
+			Repository:       stagedRepository,
+			Bytes:            stagedBytes,
+			Health:           stagedHealth,
+			Now:              now,
+			BatchLimit:       int(normalizedCfg.Limits.Extensions.StagedObjectCleanupBatch),
+			OperationTimeout: time.Duration(normalizedCfg.Timeouts.Extensions.StagedObjectCleanupSeconds) * time.Second,
+			FatalSink: func(error) {
+				runtime.Lifecycle.Fatal("staged_object_publication_mismatch")
+			},
+		})
 		if janitorErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object janitor: %w", janitorErr)
@@ -279,7 +351,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			return nil, fmt.Errorf("initial staged-object cleanup: %w", cleanupErr)
 		}
 		janitorCtx, cancelJanitor := context.WithCancel(context.Background())
+		runtime.StagedObjects = stagedService
 		runtime.StagedJanitor = janitor
+		runtime.StagedHealth = stagedHealth
 		runtime.stagedJanitorContext = janitorCtx
 		runtime.own(cancelJanitor)
 	}
@@ -319,6 +393,25 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs.ConfigureProgressHub(hub)
 	runtime.JobRunner.Configure(runtime.Jobs)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
+	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
+	if err := publication.Acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err := publication.Acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	for _, worker := range extensionPlan.Workers() {
+		if err := publication.Acknowledge(
+			"worker:"+worker.ProfileID+":"+worker.WorkerKind,
+			extensionPlan.Summary().WorkerPlanSHA256,
+			nil,
+		); err != nil {
+			runtime.Close()
+			return nil, err
+		}
+	}
 
 	httpOptions := options.HTTP
 	testRuntimeDeps := httpOptions.Dependencies
@@ -337,7 +430,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("register incident portability attribution resolver: %w", err)
 	}
-	if err := attributionResolvers.ValidateAttributionResolvers(revisionExtensionClaims(profiles)); err != nil {
+	if err := attributionResolvers.ValidateAttributionResolvers(revisionPublicationClaims(publication.Claims())); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
 	}
@@ -348,18 +441,16 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	incidentBundleImportFinalizer := incidents.NewStoreWithOptions(postgresHandle, incidents.StoreOptions{
 		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 	})
-	incidentBundleRoutes := incidentbundles.RegisterRoutes(
-		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
-	)
 	revisionCommands, err := revisionassembly.NewCommandService(postgresHandle, attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID))
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
+	importStore := imports.NewStore(runtime.Postgres)
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:      postgresHandle,
-		ImportSources: imports.NewStore(runtime.Postgres),
+		ImportSources: importStore,
 		KeyRings:      networkFlowKeyRings,
 		Now:           now,
 		Transactions:  postgres.NewTransactionRunner(postgresHandle),
@@ -371,12 +462,71 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("compose Network Flow module: %w", err)
 	}
+	incidentBundleImportTransactions, err := incidentbundles.NewImportTransactionProvider(
+		runtime.Postgres,
+		runtime.ObjectStore,
+		incidentBundleImportFinalizer,
+		projectionadapters.NewIncidentImportRebuilder(runtime.Postgres),
+		now,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Bundles import transaction provider: %w", err)
+	}
+	crossOwnerBackend, err := extensionassembly.NewCrossOwnerBackend(postgresHandle, extensionassembly.TransactionCapabilityMux{
+		NetworkFlow: networkFlowModule, IncidentBundles: incidentBundleImportTransactions,
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose cross-owner transaction backend: %w", err)
+	}
+	crossOwnerCoordinator, err := crossownertransaction.New(crossownertransaction.Options{
+		Backend: crossOwnerBackend,
+		Catalog: extensionassembly.CrossOwnerDescriptors(extensionCoordinator.ParticipantContracts()),
+		Timeout: time.Duration(normalizedCfg.Timeouts.Extensions.TransactionParticipantSeconds) * time.Second,
+		FatalSink: func(error) {
+			runtime.Lifecycle.Fatal("indeterminate_database_commit")
+		},
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose cross-owner transaction coordinator: %w", err)
+	}
+	if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+	}
+	runtime.CrossOwnerTransactions = crossOwnerCoordinator
+	networkFlowPortabilityState, err := networkflow.NewPortabilityStateBinding(postgresHandle)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Network Flow portability state binding: %w", err)
+	}
+	portabilityPresence, err := extensionassembly.NewIncidentPortabilityStatePresence(networkFlowPortabilityState)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Portability state presence: %w", err)
+	}
+	portability, err := incidentbundles.NewPortabilityOrchestrator(
+		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), publication.ResolvedClaims()),
+		portabilityPresence,
+		nil,
+		runtime.StagedObjects,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Portability: %w", err)
+	}
+	incidentBundleRoutes := incidentbundles.RegisterRoutes(
+		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
+		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
+	)
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	builtInRoutes, err := builtInRouteRegistrars([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes()},
 		{id: "incidents", registrar: incidentRoutes},
-		{id: "extensions", registrar: extensions.RegisterRoutes()},
+		{id: "extensions", registrar: extensiondiscovery.RegisterRoutes()},
 		{id: "jobs", registrar: jobapi.RegisterRoutes()},
 		{id: "imports", registrar: imports.RegisterRoutes()},
 		{id: "network_flow", registrar: networkFlowModule.RegisterRoutes()},
@@ -399,6 +549,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("compose built-in routes: %w", err)
 	}
 	httpOptions.AdditionalRoutes = append(builtInRoutes, httpOptions.AdditionalRoutes...)
+	readinessProbes := []httpapi.DependencyReadinessProbe{}
+	if runtime.StagedHealth != nil {
+		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: runtime.StagedHealth})
+	}
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,
@@ -409,11 +563,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		JobRunner:         runtime.JobRunner,
 		WSHub:             hub,
 		CursorCodec:       cursorCodec,
-		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
+		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore, readinessProbes...),
 		Admission:         runtime.Lifecycle,
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
 		ModuleOverrides:   moduleOverrides,
-		ExtensionProfiles: profiles,
+		ExtensionEpoch:    publicationExtensionEpoch{publication: publication},
 		Now:               now,
 	}
 
@@ -424,6 +578,14 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	runtime.Handler = handler
+	if err := publication.Acknowledge("http", listenerPlanSHA256, nil); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err := publication.Commit(); err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	if runtime.ProcessLease != nil && runtime.ProcessLease.State() == processlease.StateLost {
 		runtime.Close()
 		return nil, processlease.ErrLeaseLost
@@ -467,18 +629,26 @@ func instrumentedObjectStore(cfg config.Config, store objectstore.Store) objects
 	return objectstore.InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion)
 }
 
-type stagedObjectDeleter struct {
-	store objectstore.Store
+type stagedCleanupReadinessProbe struct {
+	health *stagedobjects.Health
 }
 
-func (deleter stagedObjectDeleter) DeleteStagedObject(ctx context.Context, storageIdentity string) error {
-	if deleter.store == nil {
-		return fmt.Errorf("object store unavailable")
+func (stagedCleanupReadinessProbe) ReadinessName() string {
+	return "staged_object_cleanup"
+}
+
+func (probe stagedCleanupReadinessProbe) CheckReadinessDependency(context.Context) error {
+	if probe.health == nil {
+		return nil
 	}
-	return deleter.store.DeleteObject(ctx, storageIdentity)
+	state := probe.health.State()
+	if state.Available {
+		return nil
+	}
+	return errors.New(state.ReasonCode)
 }
 
-func configuredExtensionClaimIDs(descriptors []extensions.Descriptor, cfg config.Config, override []httpapi.ExtensionProfile) []string {
+func extensionClaimRequest(descriptors []extensions.Descriptor, cfg config.Config, override []httpapi.ExtensionProfile) []string {
 	if override != nil {
 		claimed := make([]string, 0, len(override))
 		for _, profile := range override {
@@ -512,31 +682,36 @@ func configuredExtensionClaimIDs(descriptors []extensions.Descriptor, cfg config
 	return claimed
 }
 
-func extensionHTTPProfiles(descriptors []extensions.Descriptor, claimedProfileIDs []string) []httpapi.ExtensionProfile {
-	claimed := make(map[string]struct{}, len(claimedProfileIDs))
-	for _, profileID := range claimedProfileIDs {
-		claimed[profileID] = struct{}{}
-	}
-	profiles := make([]httpapi.ExtensionProfile, 0, len(descriptors))
-	for _, descriptor := range descriptors {
-		_, isClaimed := claimed[descriptor.ProfileID]
-		contractMajor := descriptor.ContractMajor
-		workspaces := make([]httpapi.ExtensionWorkspace, 0, len(descriptor.WorkspaceKeys))
-		for _, workspaceKey := range descriptor.WorkspaceKeys {
-			workspaces = append(workspaces, httpapi.ExtensionWorkspace{WorkspaceKey: workspaceKey, MinimumRole: "viewer"})
+func publicationHTTPProfiles(discovery []extensions.DiscoveryProfile) []httpapi.ExtensionProfile {
+	profiles := make([]httpapi.ExtensionProfile, 0, len(discovery))
+	for _, profile := range discovery {
+		workspaces := make([]httpapi.ExtensionWorkspace, len(profile.Workspaces))
+		for index, workspace := range profile.Workspaces {
+			workspaces[index] = httpapi.ExtensionWorkspace{WorkspaceKey: workspace.WorkspaceKey, MinimumRole: workspace.MinimumRole}
 		}
 		profiles = append(profiles, httpapi.ExtensionProfile{
-			ProfileID: descriptor.ProfileID, Claimable: descriptor.Claimable, Claimed: isClaimed,
-			ContractMajor: &contractMajor, RouteFamilies: descriptor.RouteFamilies,
-			WorkspaceKeys: descriptor.WorkspaceKeys, Capabilities: descriptor.CapabilityIDs, Workspaces: workspaces,
+			ProfileID: profile.ProfileID, Claimable: profile.Claimable, Claimed: profile.Claimed,
+			ContractMajor: profile.ContractMajor, RouteFamilies: profile.RouteFamilies,
+			WorkspaceKeys: profile.WorkspaceKeys, Capabilities: profile.Capabilities, Workspaces: workspaces,
 		})
 	}
 	return profiles
 }
 
-func revisionExtensionClaims(profiles []httpapi.ExtensionProfile) []revisions.ExtensionClaim {
-	claims := make([]revisions.ExtensionClaim, 0, len(profiles))
-	for _, profile := range profiles {
+type publicationExtensionEpoch struct {
+	publication *PublicationController
+}
+
+func (provider publicationExtensionEpoch) ExtensionProfiles() []httpapi.ExtensionProfile {
+	if provider.publication == nil {
+		return nil
+	}
+	return publicationHTTPProfiles(provider.publication.Discovery())
+}
+
+func revisionPublicationClaims(publication []extensions.ClaimPublication) []revisions.ExtensionClaim {
+	claims := make([]revisions.ExtensionClaim, 0, len(publication))
+	for _, profile := range publication {
 		claims = append(claims, revisions.ExtensionClaim{
 			ProfileID: profile.ProfileID,
 			Claimed:   profile.Claimed,
@@ -546,13 +721,13 @@ func revisionExtensionClaims(profiles []httpapi.ExtensionProfile) []revisions.Ex
 }
 
 func (r *Runtime) ActivatePublication() error {
-	if r == nil || r.Lifecycle == nil {
+	if r == nil || r.Publication == nil {
 		return fmt.Errorf("extension_publication_failed")
 	}
 	if r.ProcessLease != nil && r.ProcessLease.State() != processlease.StateHeld {
 		return fmt.Errorf("extension_publication_failed")
 	}
-	if err := r.Lifecycle.Publish(); err != nil {
+	if err := r.Publication.Serve(); err != nil {
 		return err
 	}
 	r.publicationOnce.Do(func() {
@@ -560,16 +735,23 @@ func (r *Runtime) ActivatePublication() error {
 			go func() {
 				defer func() {
 					if recovered := recover(); recovered != nil && r.Lifecycle != nil {
-						r.Lifecycle.Fatal("published_component_lost")
+						r.Publication.ComponentLost("staged_object_janitor")
 					}
 				}()
 				if err := r.StagedJanitor.Run(r.stagedJanitorContext, time.Duration(r.Config.Intervals.Extensions.StagedObjectSweepSeconds)*time.Second); err != nil && r.Lifecycle != nil {
-					r.Lifecycle.Fatal("published_component_lost")
+					r.Publication.ComponentLost("staged_object_janitor")
 				}
 			}()
 		}
 	})
 	return nil
+}
+
+func (r *Runtime) PublishedComponentLost(componentID string) bool {
+	if r == nil || r.Publication == nil {
+		return false
+	}
+	return r.Publication.ComponentLost(componentID)
 }
 
 func (r *Runtime) FatalEvents() <-chan processlifecycle.FatalSignal {
@@ -608,6 +790,9 @@ func (r *Runtime) Close() {
 		return
 	}
 	r.closeOnce.Do(func() {
+		if r.Publication != nil {
+			r.Publication.AbortStartup()
+		}
 		if r.Lifecycle != nil {
 			r.Lifecycle.MarkTerminating()
 		}

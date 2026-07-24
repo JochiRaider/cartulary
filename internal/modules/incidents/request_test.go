@@ -6,14 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	moduleextensions "github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -412,114 +410,6 @@ func TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *testing.T) {
 	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "UserWorkbookPreferencesEnvelope"), "UserWorkbookPreferencesResource")
 }
 
-func TestOpenAPIExtensionDiscoveryExposesClosedContract(t *testing.T) {
-	document := contracttest.OpenAPIDocument(t)
-
-	extensionsPath := openAPIObjectAt(t, document, "paths", "/api/v1/extensions")
-	requireOpenAPIOperation(t, extensionsPath, "get", "listDeploymentExtensions")
-	operation := openAPIObjectAt(t, extensionsPath, "get")
-	requireOpenAPIResponseSchemaRef(t, operation, "ExtensionDiscoveryEnvelope")
-	requireOpenAPIStatusResponseSchemaRef(t, operation, "400", "ErrorEnvelope")
-	requireOpenAPIStatusResponseSchemaRef(t, operation, "401", "ErrorEnvelope")
-
-	schemas := openAPIObjectAt(t, document, "components", "schemas")
-	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "ExtensionDiscoveryEnvelope"), "ExtensionDiscoveryData")
-
-	data := openAPIObjectAt(t, schemas, "ExtensionDiscoveryData")
-	if data["type"] != "object" || data["additionalProperties"] != false {
-		t.Fatalf("extension discovery data must be a closed object schema: %#v", data)
-	}
-	if required := toStrings(t, data["required"]); !equalStringSlices(required, []string{"extensions"}) {
-		t.Fatalf("unexpected extension discovery data required fields: %v", required)
-	}
-	extensionsItems := openAPIObjectAt(t, data, "properties", "extensions", "items")
-	if extensionsItems["$ref"] != "#/components/schemas/ExtensionProfileResource" {
-		t.Fatalf("unexpected extension discovery items ref: %#v", extensionsItems)
-	}
-
-	resource := openAPIObjectAt(t, schemas, "ExtensionProfileResource")
-	if resource["type"] != "object" || resource["additionalProperties"] != false {
-		t.Fatalf("extension profile resource must be a closed object schema: %#v", resource)
-	}
-	if required := toStrings(t, resource["required"]); !equalStringSlices(required, []string{"profile_id", "claimable", "claimed", "contract_major", "route_families", "workspace_keys", "capabilities"}) {
-		t.Fatalf("unexpected extension profile required fields: %v", required)
-	}
-	properties := openAPIObjectAt(t, resource, "properties")
-	if len(properties) != 7 {
-		t.Fatalf("extension profile resource must expose exactly seven members: %#v", properties)
-	}
-	if profileID := openAPIObjectAt(t, properties, "profile_id"); profileID["$ref"] != "#/components/schemas/ExtensionProfileID" {
-		t.Fatalf("unexpected extension profile_id schema: %#v", profileID)
-	}
-	if claimed := openAPIObjectAt(t, properties, "claimed"); claimed["type"] != "boolean" {
-		t.Fatalf("unexpected extension claimed schema: %#v", claimed)
-	}
-	if claimable := openAPIObjectAt(t, properties, "claimable"); claimable["type"] != "boolean" {
-		t.Fatalf("unexpected extension claimable schema: %#v", claimable)
-	}
-	if contractMajor := openAPIObjectAt(t, properties, "contract_major"); len(contractMajor["oneOf"].([]any)) != 2 {
-		t.Fatalf("unexpected extension contract_major schema: %#v", contractMajor)
-	}
-	routeFamilies := openAPIObjectAt(t, properties, "route_families", "items")
-	if routeFamilies["$ref"] != "#/components/schemas/ExtensionRouteFamily" {
-		t.Fatalf("unexpected extension route_families item schema: %#v", routeFamilies)
-	}
-
-	profileIDSchema := openAPIObjectAt(t, schemas, "ExtensionProfileID")
-	if profileIDSchema["type"] != "string" {
-		t.Fatalf("extension profile id schema must be string: %#v", profileIDSchema)
-	}
-	if profileIDSchema["pattern"] != "^[a-z][a-z0-9_]{0,63}$" {
-		t.Fatalf("extension profile id must remain forward-compatible: %#v", profileIDSchema)
-	}
-
-	routeFamilySchema := openAPIObjectAt(t, schemas, "ExtensionRouteFamily")
-	if routeFamilySchema["type"] != "string" {
-		t.Fatalf("extension route family schema must be string: %#v", routeFamilySchema)
-	}
-	if routeFamilySchema["pattern"] == nil {
-		t.Fatalf("extension route family must use an open grammar, not a current-value enum: %#v", routeFamilySchema)
-	}
-}
-
-func TestExtensionDiscoveryReturnsExactSingletonProfileShape_Unit(t *testing.T) {
-	query := url.Values{"cursor_token": []string{"opaque"}}
-	apiErr := httpapi.ValidateSingletonReadQuery(query)
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "", "pagination_not_supported")
-
-	data := moduleextensions.BuildResponseData(httpapi.CurrentExtensionProfiles())
-	extensions, ok := data["extensions"].([]map[string]any)
-	if !ok {
-		t.Fatalf("unexpected extensions response data: %#v", data)
-	}
-	wantProfiles := currentProfileExtensions(t)
-	if len(extensions) != len(wantProfiles) {
-		t.Fatalf("unexpected extension profile count: got %d want %d", len(extensions), len(wantProfiles))
-	}
-
-	for index, want := range wantProfiles {
-		got := extensions[index]
-		if len(got) != 7 {
-			t.Fatalf("extension resource must expose exactly seven members: %#v", got)
-		}
-		if got["profile_id"] != want.ProfileID || got["claimable"] != want.Claimable || got["claimed"] != httpapi.ExtensionProfileClaimed(want.ProfileID) {
-			t.Fatalf("unexpected extension resource at index %d: %#v", index, got)
-		}
-		if want.ContractMajor == nil || got["contract_major"] != *want.ContractMajor {
-			t.Fatalf("unexpected contract_major at index %d: got %v want %v", index, got["contract_major"], want.ContractMajor)
-		}
-		if families := toStrings(t, got["route_families"]); !equalStringSlices(families, want.RouteFamilies) {
-			t.Fatalf("unexpected route_families at index %d: got %v want %v", index, families, want.RouteFamilies)
-		}
-		if workspaces := toStrings(t, got["workspace_keys"]); !equalStringSlices(workspaces, want.WorkspaceKeys) {
-			t.Fatalf("unexpected workspace_keys at index %d: got %v want %v", index, workspaces, want.WorkspaceKeys)
-		}
-		if capabilities := toStrings(t, got["capabilities"]); len(capabilities) != 0 {
-			t.Fatalf("capabilities must remain disabled: %v", capabilities)
-		}
-	}
-}
-
 func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit(t *testing.T) {
 	importProfile := extensionContract(t, "import")
 	enterpriseProfile := extensionContract(t, "enterprise_authentication")
@@ -533,7 +423,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("expected base route to retain precedence, got status=%d body=%q", ready.Code, ready.Body.String())
 	}
 
-	restoreClaimed := httpapi.SetCurrentExtensionProfilesForTesting([]httpapi.ExtensionProfile{
+	claimedEpoch := httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       true,
@@ -541,6 +431,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		},
 	})
 	claimedHandler, err := httpapi.NewHandler(httpapi.Options{
+		Dependencies: httpapi.DependencySet{ExtensionEpoch: claimedEpoch},
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 				mux.HandleFunc(importProfile.RouteFamilies[0], func(w http.ResponseWriter, r *http.Request) {
@@ -553,7 +444,6 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 			},
 		},
 	})
-	restoreClaimed()
 	if err != nil {
 		t.Fatalf("build claimed handler: %v", err)
 	}
@@ -564,7 +454,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("claimed family descendant must dispatch to the registered route, got %d", got.Code)
 	}
 
-	restoreUnclaimed := httpapi.SetCurrentExtensionProfilesForTesting([]httpapi.ExtensionProfile{
+	unclaimedEpoch := httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       false,
@@ -576,8 +466,9 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 			RouteFamilies: append([]string(nil), enterpriseProfile.RouteFamilies...),
 		},
 	})
-	defer restoreUnclaimed()
-	unclaimedHandler, err := httpapi.NewHandler(httpapi.Options{})
+	unclaimedHandler, err := httpapi.NewHandler(httpapi.Options{
+		Dependencies: httpapi.DependencySet{ExtensionEpoch: unclaimedEpoch},
+	})
 	if err != nil {
 		t.Fatalf("build unclaimed handler: %v", err)
 	}

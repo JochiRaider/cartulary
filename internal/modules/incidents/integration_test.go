@@ -1,7 +1,6 @@
 package incidents_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -628,66 +627,6 @@ SELECT role, membership_version
 
 	if afterMutationArtifacts != beforeMutationArtifacts {
 		t.Fatalf("same-role membership patch must not write membership mutation artifacts: before=%d after=%d", beforeMutationArtifacts, afterMutationArtifacts)
-	}
-}
-
-func TestExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-i-2-05")
-
-	_, _ = flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
-	userID := flowtest.SeedLocalUserFlags(t, harness.DB, "extension-user@example.test", "Extension User", "ExtensionUser1!", false, false, true)
-	userSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "extension-user@example.test", "ExtensionUser1!", nil)
-
-	extensionsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, httptestx.WithCookies(userSession))
-	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensionsResp, http.StatusOK)
-	data := extensionsBody["data"].(map[string]any)
-	extensions := data["extensions"].([]any)
-	wantProfiles := contracttest.CurrentProfileExtensions(t)
-	if len(extensions) != len(wantProfiles) {
-		t.Fatalf("unexpected extensions payload: got %d want %d", len(extensions), len(wantProfiles))
-	}
-	for index, want := range wantProfiles {
-		raw := extensions[index]
-		item, ok := raw.(map[string]any)
-		if !ok {
-			t.Fatalf("unexpected extension item payload: %T", raw)
-		}
-		if len(item) != 7 {
-			t.Fatalf("extension discovery must not leak provider secrets or claim maps: %#v", item)
-		}
-		wantClaimed := want.ProfileID == "import" || want.ProfileID == "incident_portability" || want.ProfileID == "reference_pack" || want.ProfileID == "snapshot_reporting"
-		if item["profile_id"] != want.ProfileID || item["claimable"] != want.Claimable || item["claimed"] != wantClaimed {
-			t.Fatalf("unexpected extension item %d: %#v", index, item)
-		}
-		if want.ContractMajor == nil || item["contract_major"] != float64(*want.ContractMajor) {
-			t.Fatalf("unexpected extension contract major for %s: got %v want %v", want.ProfileID, item["contract_major"], want.ContractMajor)
-		}
-		if gotFamilies := OrderedRouteFamilies(t, item["route_families"]); strings.Join(gotFamilies, ",") != strings.Join(want.RouteFamilies, ",") {
-			t.Fatalf("unexpected route families for %s: got %v want %v", want.ProfileID, gotFamilies, want.RouteFamilies)
-		}
-		if gotWorkspaces := OrderedRouteFamilies(t, item["workspace_keys"]); strings.Join(gotWorkspaces, ",") != strings.Join(want.WorkspaceKeys, ",") {
-			t.Fatalf("unexpected workspace keys for %s: got %v want %v", want.ProfileID, gotWorkspaces, want.WorkspaceKeys)
-		}
-		if capabilities := OrderedRouteFamilies(t, item["capabilities"]); len(capabilities) != 0 {
-			t.Fatalf("capabilities must remain disabled for %s: %v", want.ProfileID, capabilities)
-		}
-	}
-	if got := OrderedProfileIDs(t, extensions); strings.Join(got, ",") != strings.Join(ContractProfileIDs(wantProfiles), ",") {
-		t.Fatalf("unexpected ordered extension profile set: %v", got)
-	}
-
-	encoded, err := json.Marshal(extensionsBody)
-	if err != nil {
-		t.Fatalf("marshal extensions body: %v", err)
-	}
-	for _, forbidden := range []string{"provider_secret", "claim_map", "live_payload", "provider_claims"} {
-		if strings.Contains(string(encoded), forbidden) {
-			t.Fatalf("extension discovery must not leak %q: %s", forbidden, encoded)
-		}
-	}
-	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id::text = $1`, userID); got != 0 {
-		t.Fatalf("zero-membership user must stay outside incident scope, got %d memberships", got)
 	}
 }
 

@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "module.crossownertransaction",
+  "rows": [
+    {
+      "row_id": "module.crossownertransaction.integration.postgres_atomicity_7f6ad80724",
+      "owner_id": "module.crossownertransaction",
+      "family_id": "module.crossownertransaction.integration",
+      "collaborator_ids": [
+        "app.server",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.crossownertransaction.verification.final_commit_protocol"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestCrossOwnerTransaction_Integration_CommitAndRollbackAtomicity",
+          "TestCrossOwnerTransaction_Integration_OrderedAdvisoryLocks"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-219",
+        "docs/extension-subsystem-nlspec.md#ext-ac-153",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-012"
+      ]
+    },
+    {
+      "row_id": "module.crossownertransaction.unit.protocol_boundaries_7f6ad80724",
+      "owner_id": "module.crossownertransaction",
+      "family_id": "module.crossownertransaction.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.crossownertransaction.verification.final_commit_protocol"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/crossownertransaction",
+        "tests": [
+          "TestCoordinator_Unit_CancellationValidationAndRollbackBoundaries",
+          "TestCoordinator_Unit_ClosedCommitOutcomesAndNoRetry",
+          "TestCoordinator_Unit_DeadlineOverflowAndBoundaryTie",
+          "TestCoordinator_Unit_ExecutesDeterministicBoundedProtocol",
+          "TestCoordinator_Unit_RejectsLimitsAndMalformedKeysBeforeTransaction"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-219",
+        "docs/extension-subsystem-nlspec.md#ext-ac-153"
+      ]
+    }
+  ]
+}

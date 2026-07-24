@@ -115,14 +115,16 @@ type profileRecord struct {
 // Coordinator is an immutable coordination facade over generated build inputs.
 // Construction performs registry, collision, and binding admission once.
 type Coordinator struct {
-	profiles             map[string]profileRecord
-	orderedProfileIDs    []string
-	registrySHA256       string
-	clientSupportSHA256  string
-	validationConditions map[string]ValidationCondition
-	statePlans           map[string]StatePlan
-	backupPlans          map[string]BackupPlan
-	participantContracts map[string]ParticipantContract
+	profiles                      map[string]profileRecord
+	orderedProfileIDs             []string
+	registrySHA256                string
+	clientSupportSHA256           string
+	validationConditions          map[string]ValidationCondition
+	statePlans                    map[string]StatePlan
+	backupPlans                   map[string]BackupPlan
+	participantContracts          map[string]ParticipantContract
+	portabilityPolicies           []PortabilityPolicy
+	inactiveConfigurationPolicies []InactiveConfigurationPolicy
 }
 
 // NewGeneratedCoordinator admits the repository-generated extension package.
@@ -212,6 +214,11 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 	if len(descriptorDigests) != len(coordinator.profiles) || len(bindingDigests) != len(coordinator.profiles) {
 		return nil, invalidArtifact("registry_integrity", errors.New("descriptor or binding digest set is incomplete or extra"))
 	}
+	inactivePolicies, err := admitInactiveConfigurationPolicies(source, coordinator.profiles, coordinator.orderedProfileIDs)
+	if err != nil {
+		return nil, err
+	}
+	coordinator.inactiveConfigurationPolicies = inactivePolicies
 	if err := coordinator.validateCollisions(source, supportDigests["build.base-route-reservations"]); err != nil {
 		return nil, err
 	}
@@ -386,6 +393,36 @@ type WorkerPublication struct {
 	WorkerKind string
 }
 
+type DiscoveryWorkspace struct {
+	WorkspaceKey string
+	MinimumRole  string
+}
+
+type DiscoveryProfile struct {
+	ProfileID     string
+	Claimable     bool
+	Claimed       bool
+	ContractMajor *int
+	RouteFamilies []string
+	WorkspaceKeys []string
+	Capabilities  []string
+	Workspaces    []DiscoveryWorkspace
+}
+
+type ClaimPublication struct {
+	ProfileID string
+	Claimed   bool
+}
+
+type ListenerPublication struct {
+	ComponentID string
+}
+
+type ImplementationBindingPublication struct {
+	ProfileID     string
+	BindingSHA256 string
+}
+
 // PublicationPlanSummary contains only canonical component identities. Component
 // rows are available through copy-returning methods on PublicationPlan.
 type PublicationPlanSummary struct {
@@ -402,11 +439,15 @@ type PublicationPlanSummary struct {
 }
 
 type PublicationPlan struct {
-	summary    PublicationPlanSummary
-	routes     []RouteDispatch
-	workspaces []WorkspacePublication
-	workers    []WorkerPublication
-	canonical  []byte
+	summary                PublicationPlanSummary
+	discovery              []DiscoveryProfile
+	claims                 []ClaimPublication
+	routes                 []RouteDispatch
+	workspaces             []WorkspacePublication
+	workers                []WorkerPublication
+	listeners              []ListenerPublication
+	implementationBindings []ImplementationBindingPublication
+	resolvedClaims         ResolvedClaimSet
 }
 
 func (p PublicationPlan) Summary() PublicationPlanSummary { return p.summary }
@@ -430,7 +471,47 @@ func (p PublicationPlan) Workers() []WorkerPublication {
 	return append([]WorkerPublication(nil), p.workers...)
 }
 
-func (p PublicationPlan) CanonicalJSON() []byte { return append([]byte(nil), p.canonical...) }
+func (p PublicationPlan) Discovery() []DiscoveryProfile {
+	result := make([]DiscoveryProfile, len(p.discovery))
+	for index, profile := range p.discovery {
+		result[index] = DiscoveryProfile{
+			ProfileID:     profile.ProfileID,
+			Claimable:     profile.Claimable,
+			Claimed:       profile.Claimed,
+			ContractMajor: cloneIntPointer(profile.ContractMajor),
+			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
+			WorkspaceKeys: append([]string(nil), profile.WorkspaceKeys...),
+			Capabilities:  append([]string(nil), profile.Capabilities...),
+			Workspaces:    append([]DiscoveryWorkspace(nil), profile.Workspaces...),
+		}
+	}
+	return result
+}
+
+func (p PublicationPlan) Claims() []ClaimPublication {
+	return append([]ClaimPublication(nil), p.claims...)
+}
+
+func (p PublicationPlan) Listeners() []ListenerPublication {
+	return append([]ListenerPublication(nil), p.listeners...)
+}
+
+func (p PublicationPlan) ImplementationBindings() []ImplementationBindingPublication {
+	return append([]ImplementationBindingPublication(nil), p.implementationBindings...)
+}
+
+func (p PublicationPlan) ResolvedClaims() ResolvedClaimSet {
+	claims, _ := NewResolvedClaimSet(p.resolvedClaims.ProfileIDs())
+	return claims
+}
+
+func cloneIntPointer(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
 
 // BuildPublicationPlan derives all Stage 6 component identities from one admitted
 // resolution. It starts no listener or worker and mutates no external state.
@@ -454,9 +535,24 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	routes := []RouteDispatch{}
 	workspaces := []WorkspacePublication{}
 	workers := []WorkerPublication{}
+	discovery := []DiscoveryProfile{}
+	claims := []ClaimPublication{}
+	implementationBindings := []ImplementationBindingPublication{}
 	for _, profileID := range c.orderedProfileIDs {
 		record := c.profiles[profileID]
 		_, isClaimed := claimed[profileID]
+		contractMajor := record.descriptor.ContractMajor
+		discoveryWorkspaces := make([]DiscoveryWorkspace, 0, len(record.descriptor.WorkspaceKeys))
+		for _, workspaceKey := range record.descriptor.WorkspaceKeys {
+			discoveryWorkspaces = append(discoveryWorkspaces, DiscoveryWorkspace{WorkspaceKey: workspaceKey, MinimumRole: "viewer"})
+		}
+		discovery = append(discovery, DiscoveryProfile{
+			ProfileID: profileID, Claimable: record.descriptor.Claimable, Claimed: isClaimed,
+			ContractMajor: &contractMajor, RouteFamilies: append([]string(nil), record.descriptor.RouteFamilies...),
+			WorkspaceKeys: append([]string(nil), record.descriptor.WorkspaceKeys...),
+			Capabilities:  append([]string(nil), record.descriptor.CapabilityIDs...), Workspaces: discoveryWorkspaces,
+		})
+		claims = append(claims, ClaimPublication{ProfileID: profileID, Claimed: isClaimed})
 		contributions, _ := objectSlice(record.descriptorObject["contributions"])
 		contributionByRoute := map[string]string{}
 		contributionByWorkspace := map[string]string{}
@@ -503,6 +599,7 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 			workers = append(workers, WorkerPublication{ProfileID: profileID, WorkerKind: workerKind})
 		}
 		bindingItems = append(bindingItems, map[string]any{"profile_id": profileID, "binding_sha256": record.bindingSHA256})
+		implementationBindings = append(implementationBindings, ImplementationBindingPublication{ProfileID: profileID, BindingSHA256: record.bindingSHA256})
 	}
 	sort.Slice(routeItems, func(i, j int) bool {
 		left, right := routeItems[i].(map[string]any), routeItems[j].(map[string]any)
@@ -539,7 +636,9 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 			WorkerPlanSHA256: componentDigests["worker_plan_sha256"], ListenerPlanSHA256: componentDigests["listener_plan_sha256"],
 			ClientSupportRegistrySHA256: c.clientSupportSHA256, ImplementationBindingSetSHA256: componentDigests["implementation_binding_set_sha256"],
 		},
-		routes: routes, workspaces: workspaces, workers: workers, canonical: canonical,
+		discovery: discovery, claims: claims, routes: routes, workspaces: workspaces, workers: workers,
+		listeners:              []ListenerPublication{{ComponentID: "http"}, {ComponentID: "job_dequeue"}, {ComponentID: "websocket"}},
+		implementationBindings: implementationBindings, resolvedClaims: resolution.Claims(),
 	}, nil
 }
 

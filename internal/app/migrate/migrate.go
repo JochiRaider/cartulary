@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -27,11 +28,17 @@ func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) 
 
 func newMigrateRunner(stderr io.Writer) migrateRunner {
 	return migrateRunner{
-		stderr:     normalizeMigrateWriter(stderr),
-		loadConfig: config.Load,
-		openSQL:    postgres.OpenSQL,
-		migrate:    postgres.Migrate,
-		source:     dbmigrations.Source(),
+		stderr: normalizeMigrateWriter(stderr),
+		loadConfig: func() (config.Config, error) {
+			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+			if err != nil {
+				return config.Config{}, err
+			}
+			return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+		},
+		openSQL: postgres.OpenSQL,
+		migrate: postgres.Migrate,
+		source:  dbmigrations.Source(),
 	}
 }
 

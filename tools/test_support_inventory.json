@@ -29,15 +29,6 @@
       "rationale": "Host/identity route inventory support without service-starting entrypoints."
     },
     {
-      "path": "internal/modules/extensions/testsupport",
-      "owner": "extensions",
-      "posture": "owner_local",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": false,
-      "rationale": "Extension route inventory support without service-starting entrypoints."
-    },
-    {
       "path": "internal/modules/incidents/testsupport",
       "owner": "incidents",
       "posture": "owner_local",
@@ -99,6 +90,15 @@
       "support_scan": "included",
       "service_starting": false,
       "rationale": "Approved generated-contract test facade; does not start services."
+    },
+    {
+      "path": "internal/platform/httpapi/extensiondiscovery/testsupport",
+      "owner": "app_server",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Extension discovery route inventory support for the app-server-owned HTTP adapter."
     },
     {
       "path": "internal/platform/postgres/testsupport",

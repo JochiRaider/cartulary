@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.verification_contract.v1",
+  "owner_id": "module.stagedobjects",
+  "verifications": [
+    {
+      "verification_id": "module.stagedobjects.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "requirement": "staged immutable bytes remain operation-scoped and logically inaccessible until atomic publication, while cleanup drains bounded cutoffs with exact retry, readiness, and fatal-integrity outcomes.",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -55,9 +56,15 @@ func RunServerContext(ctx context.Context, stdout io.Writer, stderr io.Writer) i
 
 func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 	return serverRunner{
-		stdout:     normalizeServerWriter(stdout),
-		stderr:     normalizeServerWriter(stderr),
-		loadConfig: config.Load,
+		stdout: normalizeServerWriter(stdout),
+		stderr: normalizeServerWriter(stderr),
+		loadConfig: func() (config.Config, error) {
+			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+			if err != nil {
+				return config.Config{}, err
+			}
+			return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+		},
 		buildRuntime: func(ctx context.Context, cfg config.Config, options Options) (serverRuntime, error) {
 			runtime, err := NewRuntime(ctx, cfg, options)
 			if err != nil {
@@ -65,7 +72,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 			}
 			return serverRuntime{
 				Handler: runtime.Handler, Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
-				FatalEvents: runtime.FatalEvents(), Fatal: runtime.Lifecycle.Fatal,
+				FatalEvents: runtime.FatalEvents(), Fatal: runtime.PublishedComponentLost,
 				ShutdownDrainSeconds: runtime.Config.Timeouts.Extensions.ShutdownDrainSeconds,
 			}, nil
 		},
@@ -97,6 +104,11 @@ func (runner serverRunner) run(ctx context.Context) int {
 		}
 		if errors.Is(err, processlease.ErrLeaseLost) {
 			runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: "application_process_lease_lost", ExitCode: 70})
+			return 70
+		}
+		var fatalStartup interface{ FatalReasonCode() string }
+		if errors.As(err, &fatalStartup) && fatalStartup.FatalReasonCode() != "" {
+			runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: fatalStartup.FatalReasonCode(), ExitCode: 70})
 			return 70
 		}
 		runner.writeStartupError(err, logger, "setup runtime")

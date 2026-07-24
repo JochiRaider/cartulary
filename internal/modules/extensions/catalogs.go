@@ -8,27 +8,35 @@ import (
 )
 
 type StatePlan struct {
-	ProfileID                      string
-	ContractMajor                  int
-	MigrationLineageID             string
-	CurrentStateVersion            int
-	MinimumMigratableStateVersion  int
-	EmptyStatePolicy               string
-	DatabaseFamilyIDs              []string
-	ObjectReferenceFamilyIDs       []string
-	InitializationKind             string
-	InitializationDefinitionSHA256 string
-	FinalValidationAlgorithmID     string
-	PhysicalStateBindingSHA256     string
-	StatePresenceManifestSHA256    string
-	MigrationDefinitions           []MigrationDefinition
+	ProfileID                               string
+	ContractMajor                           int
+	MigrationLineageID                      string
+	CurrentStateVersion                     int
+	MinimumMigratableStateVersion           int
+	EmptyStatePolicy                        string
+	DatabaseFamilyIDs                       []string
+	ObjectReferenceFamilyIDs                []string
+	InitializationKind                      string
+	InitializationDefinitionSHA256          string
+	InitializationAlgorithmID               string
+	InitializationAlgorithmDefinitionSHA256 string
+	FinalValidationAlgorithmID              string
+	PhysicalStateBindingSHA256              string
+	StatePresenceManifestSHA256             string
+	ImplementationBindingSHA256             string
+	MigrationDefinitions                    []MigrationDefinition
 }
 
 type MigrationDefinition struct {
-	MigrationID      string
-	FromVersion      int
-	ToVersion        int
-	DefinitionSHA256 string
+	MigrationLineageID             string
+	MigrationID                    string
+	FromVersion                    int
+	ToVersion                      int
+	DefinitionSHA256               string
+	ApplyAlgorithmID               string
+	ValidationAlgorithmID          string
+	ImplementationBindingProfileID string
+	ImplementationBindingSHA256    string
 }
 
 func cloneStatePlan(plan StatePlan) StatePlan {
@@ -53,21 +61,27 @@ type BackupBinding struct {
 }
 
 type BackupCodec struct {
-	CodecID                string
-	SHA256                 string
-	BindingID              string
-	StorageKind            string
-	MaxItems               int
-	MaxEntryBytes          int64
-	MaxBindingBytes        int64
-	HistoricalCodecDigests []string
+	CodecID          string
+	SHA256           string
+	BindingID        string
+	StorageKind      string
+	MaxItems         int
+	MaxEntryBytes    int64
+	MaxBindingBytes  int64
+	HistoricalCodecs []BackupCodecIdentity
+}
+
+type BackupCodecIdentity struct {
+	CodecID string
+	SHA256  string
 }
 
 type BackupPlan struct {
-	ProfileID                  string
-	PhysicalStateBindingSHA256 string
-	Bindings                   []BackupBinding
-	Codecs                     map[string]BackupCodec
+	ProfileID                   string
+	PhysicalStateBindingSHA256  string
+	ImplementationBindingSHA256 string
+	Bindings                    []BackupBinding
+	Codecs                      map[string]BackupCodec
 }
 
 func cloneBackupPlan(plan BackupPlan) BackupPlan {
@@ -79,7 +93,7 @@ func cloneBackupPlan(plan BackupPlan) BackupPlan {
 func cloneBackupCodecs(source map[string]BackupCodec) map[string]BackupCodec {
 	result := make(map[string]BackupCodec, len(source))
 	for key, codec := range source {
-		codec.HistoricalCodecDigests = append([]string(nil), codec.HistoricalCodecDigests...)
+		codec.HistoricalCodecs = append([]BackupCodecIdentity(nil), codec.HistoricalCodecs...)
 		result[key] = codec
 	}
 	return result
@@ -91,9 +105,42 @@ type ParticipantContract struct {
 	ContractSHA256        string
 	ContractKind          string
 	InputSchemaID         string
+	PrepareAlgorithmID    string
+	ValidationAlgorithmID string
+	WriteAlgorithmID      string
 	AlgorithmIDs          []string
 	SerializationKeyKinds []string
 	OwnedStateFamilyIDs   []string
+}
+
+const (
+	PortabilityNoAuthoritativeState = "no_authoritative_incident_state"
+	PortabilityParticipant          = "participant"
+	PortabilityBlockedWhenPresent   = "blocked_when_present"
+)
+
+// PortabilityPolicy is the immutable, transport-neutral projection consumed by
+// the Incident Bundles owner. It contains declarations and admitted contract
+// identities only; executable participants and physical state bindings are
+// supplied by application composition.
+type PortabilityPolicy struct {
+	ProfileID              string
+	Claimable              bool
+	ContractMajor          int
+	Mode                   string
+	ParticipantID          string
+	ParticipantSHA256      string
+	ParticipantSchemaID    string
+	MaximumInputBytes      int64
+	MaximumOutputBytes     int64
+	AuthoritativeFamilyIDs []string
+	BlockingFamilyIDs      []string
+}
+
+func clonePortabilityPolicy(policy PortabilityPolicy) PortabilityPolicy {
+	policy.AuthoritativeFamilyIDs = append([]string(nil), policy.AuthoritativeFamilyIDs...)
+	policy.BlockingFamilyIDs = append([]string(nil), policy.BlockingFamilyIDs...)
+	return policy
 }
 
 func cloneParticipantContract(contract ParticipantContract) ParticipantContract {
@@ -111,20 +158,52 @@ func (c *Coordinator) StatePlan(profileID string) (StatePlan, bool) {
 	return cloneStatePlan(plan), ok
 }
 
-func (c *Coordinator) BackupPlan(profileID string) (BackupPlan, bool) {
+// BackupPlans returns the immutable backup/restore catalog in profile order.
+// Application composition translates this projection into Recovery's physical
+// binding view; Recovery never imports the broad Extensions facade.
+func (c *Coordinator) BackupPlans() []BackupPlan {
 	if c == nil {
-		return BackupPlan{}, false
+		return nil
 	}
-	plan, ok := c.backupPlans[profileID]
-	return cloneBackupPlan(plan), ok
+	result := make([]BackupPlan, 0, len(c.backupPlans))
+	for _, profileID := range c.orderedProfileIDs {
+		if plan, present := c.backupPlans[profileID]; present {
+			result = append(result, cloneBackupPlan(plan))
+		}
+	}
+	return result
 }
 
-func (c *Coordinator) ParticipantContract(participantID string) (ParticipantContract, bool) {
+// ParticipantContracts returns the immutable, owner-admitted participant
+// catalog in participant-ID order. Application composition translates these
+// facts into an owner-local protocol catalog; profile and shared-protocol
+// packages never need the broad Extensions coordinator.
+func (c *Coordinator) ParticipantContracts() []ParticipantContract {
 	if c == nil {
-		return ParticipantContract{}, false
+		return nil
 	}
-	contract, ok := c.participantContracts[participantID]
-	return cloneParticipantContract(contract), ok
+	result := make([]ParticipantContract, 0, len(c.participantContracts))
+	for _, contract := range c.participantContracts {
+		result = append(result, cloneParticipantContract(contract))
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ParticipantID < result[j].ParticipantID
+	})
+	return result
+}
+
+// PortabilityPolicies returns the owner-admitted policy catalog in profile-ID
+// order. The result can be passed across application composition without
+// exposing registry objects or canonical artifact bytes.
+func (c *Coordinator) PortabilityPolicies() []PortabilityPolicy {
+	if c == nil {
+		return nil
+	}
+	result := make([]PortabilityPolicy, len(c.portabilityPolicies))
+	for index, policy := range c.portabilityPolicies {
+		result[index] = clonePortabilityPolicy(policy)
+	}
+	return result
 }
 
 func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests map[string]string) error {
@@ -176,6 +255,11 @@ func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests
 		if !exists || state.PhysicalStateBindingSHA256 != plan.PhysicalStateBindingSHA256 {
 			return unavailableBinding(plan.ProfileID, "backup_state_binding_mismatch")
 		}
+		record, exists := c.profiles[plan.ProfileID]
+		if !exists {
+			return unavailableBinding(plan.ProfileID, "backup_implementation_binding_missing")
+		}
+		plan.ImplementationBindingSHA256 = record.bindingSHA256
 		c.backupPlans[plan.ProfileID] = plan
 	}
 
@@ -204,24 +288,110 @@ func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests
 		}
 		c.participantContracts[contract.ParticipantID] = contract
 	}
+	if err := c.admitPortabilityPolicies(source, supportDigests); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (c *Coordinator) admitPortabilityPolicies(source ArtifactSource, supportDigests map[string]string) error {
+	c.portabilityPolicies = make([]PortabilityPolicy, 0, len(c.orderedProfileIDs))
+	for _, profileID := range c.orderedProfileIDs {
+		record := c.profiles[profileID]
+		mode := stringValue(record.descriptorObject["incident_portability_mode"])
+		policy := PortabilityPolicy{
+			ProfileID:     profileID,
+			Claimable:     record.descriptor.Claimable,
+			ContractMajor: record.descriptor.ContractMajor,
+			Mode:          mode,
+		}
+		if state, ok := c.statePlans[profileID]; ok {
+			policy.AuthoritativeFamilyIDs = append([]string(nil), state.DatabaseFamilyIDs...)
+			policy.AuthoritativeFamilyIDs = append(policy.AuthoritativeFamilyIDs, state.ObjectReferenceFamilyIDs...)
+			sort.Strings(policy.AuthoritativeFamilyIDs)
+		}
+		switch mode {
+		case PortabilityNoAuthoritativeState:
+		case PortabilityParticipant:
+			contributions, _ := objectSlice(record.descriptorObject["contributions"])
+			for _, contribution := range contributions {
+				if stringValue(contribution["kind"]) != "incident_portability_participant" {
+					continue
+				}
+				if policy.ParticipantID != "" {
+					return collisionFailure("incident_portability_participant", profileID)
+				}
+				policy.ParticipantID = stringValue(contribution["participant_id"])
+				policy.ParticipantSHA256 = stringValue(contribution["participant_contract_sha256"])
+			}
+			participant, ok := c.participantContracts[policy.ParticipantID]
+			if !ok || participant.OwnerProfileID != profileID || participant.ContractSHA256 != policy.ParticipantSHA256 {
+				return unavailableBinding(profileID, "portability_participant_mismatch")
+			}
+			policy.ParticipantSchemaID = participant.ContractKind
+			policy.MaximumInputBytes = 64 * 1024 * 1024
+			policy.MaximumOutputBytes = 64 * 1024 * 1024
+		case PortabilityBlockedWhenPresent:
+			path := "contracts/extensions/profiles/" + profileID + "/portability-blocking-predicate.json"
+			predicate, artifact, err := readArtifactObject(source, path)
+			if err != nil {
+				return unavailableBinding(profileID, "portability_blocking_predicate_missing")
+			}
+			digestID := "profiles." + profileID + ".portability-blocking-predicate"
+			if supportDigests[digestID] != artifact.SHA256 ||
+				stringValue(predicate["schema_id"]) != "cartulary.extension_state_blocking_predicate.v1" ||
+				stringValue(predicate["kind"]) != "any_authoritative_state_present" {
+				return unavailableBinding(profileID, "portability_blocking_predicate_invalid")
+			}
+			policy.BlockingFamilyIDs = catalogStrings(predicate["family_ids"])
+			if len(policy.BlockingFamilyIDs) == 0 || !sort.StringsAreSorted(policy.BlockingFamilyIDs) ||
+				!isSubset(policy.BlockingFamilyIDs, policy.AuthoritativeFamilyIDs) {
+				return unavailableBinding(profileID, "portability_blocking_families_invalid")
+			}
+		default:
+			return unavailableBinding(profileID, "portability_mode_invalid")
+		}
+		c.portabilityPolicies = append(c.portabilityPolicies, policy)
+	}
+	return nil
+}
+
+func isSubset(subset, superset []string) bool {
+	allowed := make(map[string]struct{}, len(superset))
+	for _, value := range superset {
+		allowed[value] = struct{}{}
+	}
+	previous := ""
+	for _, value := range subset {
+		if value == "" || value == previous {
+			return false
+		}
+		if _, ok := allowed[value]; !ok {
+			return false
+		}
+		previous = value
+	}
+	return true
 }
 
 func parseStatePlan(row map[string]any) (StatePlan, error) {
 	plan := StatePlan{
-		ProfileID:                      stringValue(row["profile_id"]),
-		ContractMajor:                  intValue(row["contract_major"]),
-		MigrationLineageID:             stringValue(row["migration_lineage_id"]),
-		CurrentStateVersion:            intValue(row["current_state_version"]),
-		MinimumMigratableStateVersion:  intValue(row["minimum_migratable_state_version"]),
-		EmptyStatePolicy:               stringValue(row["empty_state_policy"]),
-		DatabaseFamilyIDs:              catalogStrings(row["database_family_ids"]),
-		ObjectReferenceFamilyIDs:       catalogStrings(row["object_reference_family_ids"]),
-		InitializationKind:             stringValue(row["initialization_kind"]),
-		InitializationDefinitionSHA256: stringValue(row["initialization_definition_sha256"]),
-		FinalValidationAlgorithmID:     stringValue(row["final_state_validation_algorithm_id"]),
-		PhysicalStateBindingSHA256:     stringValue(row["physical_state_binding_sha256"]),
-		StatePresenceManifestSHA256:    stringValue(row["state_presence_manifest_sha256"]),
+		ProfileID:                               stringValue(row["profile_id"]),
+		ContractMajor:                           intValue(row["contract_major"]),
+		MigrationLineageID:                      stringValue(row["migration_lineage_id"]),
+		CurrentStateVersion:                     intValue(row["current_state_version"]),
+		MinimumMigratableStateVersion:           intValue(row["minimum_migratable_state_version"]),
+		EmptyStatePolicy:                        stringValue(row["empty_state_policy"]),
+		DatabaseFamilyIDs:                       catalogStrings(row["database_family_ids"]),
+		ObjectReferenceFamilyIDs:                catalogStrings(row["object_reference_family_ids"]),
+		InitializationKind:                      stringValue(row["initialization_kind"]),
+		InitializationDefinitionSHA256:          stringValue(row["initialization_definition_sha256"]),
+		InitializationAlgorithmID:               stringValue(row["initialization_algorithm_id"]),
+		InitializationAlgorithmDefinitionSHA256: stringValue(row["initialization_algorithm_definition_sha256"]),
+		FinalValidationAlgorithmID:              stringValue(row["final_state_validation_algorithm_id"]),
+		PhysicalStateBindingSHA256:              stringValue(row["physical_state_binding_sha256"]),
+		StatePresenceManifestSHA256:             stringValue(row["state_presence_manifest_sha256"]),
+		ImplementationBindingSHA256:             stringValue(row["implementation_binding_sha256"]),
 	}
 	if plan.ProfileID == "" || plan.ContractMajor < 1 || plan.CurrentStateVersion < 1 || plan.MinimumMigratableStateVersion < 1 || plan.MinimumMigratableStateVersion > plan.CurrentStateVersion || (plan.EmptyStatePolicy != "allowed" && plan.EmptyStatePolicy != "forbidden") || plan.MigrationLineageID == "" || plan.FinalValidationAlgorithmID == "" {
 		return StatePlan{}, fmt.Errorf("incomplete state plan %s", plan.ProfileID)
@@ -235,10 +405,15 @@ func parseStatePlan(row map[string]any) (StatePlan, error) {
 	}
 	for _, migration := range migrations {
 		plan.MigrationDefinitions = append(plan.MigrationDefinitions, MigrationDefinition{
-			MigrationID:      stringValue(migration["migration_id"]),
-			FromVersion:      intValue(migration["from_state_version"]),
-			ToVersion:        intValue(migration["to_state_version"]),
-			DefinitionSHA256: stringValue(migration["migration_definition_sha256"]),
+			MigrationLineageID:             stringValue(migration["migration_lineage_id"]),
+			MigrationID:                    stringValue(migration["migration_id"]),
+			FromVersion:                    intValue(migration["from_state_version"]),
+			ToVersion:                      intValue(migration["to_state_version"]),
+			DefinitionSHA256:               stringValue(migration["migration_definition_sha256"]),
+			ApplyAlgorithmID:               stringValue(migration["apply_algorithm_id"]),
+			ValidationAlgorithmID:          stringValue(migration["validation_algorithm_id"]),
+			ImplementationBindingProfileID: stringValue(migration["implementation_binding_profile_id"]),
+			ImplementationBindingSHA256:    stringValue(migration["implementation_binding_sha256"]),
 		})
 	}
 	return plan, nil
@@ -274,9 +449,28 @@ func parseBackupPlan(row map[string]any) (BackupPlan, error) {
 		if !ok {
 			return BackupPlan{}, errors.New("backup codec body missing")
 		}
-		codec := BackupCodec{CodecID: stringValue(encoded["backup_codec_id"]), SHA256: stringValue(encoded["backup_codec_sha256"]), BindingID: stringValue(body["binding_id"]), StorageKind: stringValue(body["storage_kind"]), MaxItems: intValue(body["max_items"]), MaxEntryBytes: int64Value(body["max_entry_bytes"]), MaxBindingBytes: int64Value(body["max_binding_bytes"]), HistoricalCodecDigests: catalogStrings(body["historical_restore_codecs"])}
+		codec := BackupCodec{
+			CodecID: stringValue(encoded["backup_codec_id"]), SHA256: stringValue(encoded["backup_codec_sha256"]),
+			BindingID: stringValue(body["binding_id"]), StorageKind: stringValue(body["storage_kind"]),
+			MaxItems: intValue(body["max_items"]), MaxEntryBytes: int64Value(body["max_entry_bytes"]),
+			MaxBindingBytes: int64Value(body["max_binding_bytes"]),
+		}
 		if codec.CodecID == "" || codec.SHA256 == "" || codec.BindingID == "" {
 			return BackupPlan{}, errors.New("backup codec is incomplete")
+		}
+		historical, ok := objectSlice(body["historical_restore_codecs"])
+		if !ok {
+			return BackupPlan{}, errors.New("backup historical codecs must be an array")
+		}
+		for _, identity := range historical {
+			historicalCodec := BackupCodecIdentity{
+				CodecID: stringValue(identity["backup_codec_id"]),
+				SHA256:  stringValue(identity["backup_codec_sha256"]),
+			}
+			if historicalCodec.CodecID == "" || historicalCodec.SHA256 == "" {
+				return BackupPlan{}, errors.New("backup historical codec identity is incomplete")
+			}
+			codec.HistoricalCodecs = append(codec.HistoricalCodecs, historicalCodec)
 		}
 		plan.Codecs[codec.CodecID] = codec
 	}
@@ -288,9 +482,21 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 	if !ok {
 		return ParticipantContract{}, errors.New("participant contract body missing")
 	}
-	contract := ParticipantContract{ParticipantID: stringValue(row["participant_id"]), OwnerProfileID: stringValue(row["profile_id"]), ContractSHA256: stringValue(row["participant_contract_sha256"]), ContractKind: stringValue(body["schema_id"]), InputSchemaID: stringValue(body["participant_input_schema_id"]), AlgorithmIDs: catalogStrings(body["algorithm_ids"]), SerializationKeyKinds: catalogStrings(body["serialization_key_kinds"]), OwnedStateFamilyIDs: catalogStrings(body["owned_state_family_ids"])}
+	contract := ParticipantContract{
+		ParticipantID:         stringValue(row["participant_id"]),
+		OwnerProfileID:        stringValue(row["profile_id"]),
+		ContractSHA256:        stringValue(row["participant_contract_sha256"]),
+		ContractKind:          stringValue(body["schema_id"]),
+		InputSchemaID:         stringValue(body["participant_input_schema_id"]),
+		PrepareAlgorithmID:    stringValue(body["prepare_algorithm_id"]),
+		ValidationAlgorithmID: stringValue(body["validation_algorithm_id"]),
+		WriteAlgorithmID:      stringValue(body["write_algorithm_id"]),
+		AlgorithmIDs:          catalogStrings(body["algorithm_ids"]),
+		SerializationKeyKinds: catalogStrings(body["serialization_key_kinds"]),
+		OwnedStateFamilyIDs:   catalogStrings(body["owned_state_family_ids"]),
+	}
 	if contract.ContractKind == "cartulary.extension_transaction_participant_contract.v1" {
-		contract.AlgorithmIDs = []string{stringValue(body["prepare_algorithm_id"]), stringValue(body["validation_algorithm_id"]), stringValue(body["write_algorithm_id"])}
+		contract.AlgorithmIDs = []string{contract.PrepareAlgorithmID, contract.ValidationAlgorithmID, contract.WriteAlgorithmID}
 		sort.Strings(contract.AlgorithmIDs)
 	}
 	if contract.ParticipantID == "" || contract.OwnerProfileID == "" || contract.ContractSHA256 == "" {

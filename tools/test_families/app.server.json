@@ -3,6 +3,42 @@
   "owner_id": "app.server",
   "rows": [
     {
+      "row_id": "app.server.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+      "owner_id": "app.server",
+      "family_id": "app.server.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.auth",
+        "module.extensions",
+        "web.application"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_92e9762b99a1"
+        ],
+        "titles": [
+          "supports zero-membership extension discovery and singleton pagination rejection through browser-authenticated request probes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-108"
+      ]
+    },
+    {
       "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -76,6 +112,67 @@
       "documentation_refs": [
         "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
         "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
+      ]
+    },
+    {
+      "row_id": "app.server.integration.extension_discovery_session_sliding_7f6ad80724",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "platform.httpruntime"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi/extensiondiscovery",
+        "tests": [
+          "TestExtensionDiscoverySessionSliding_ServiceBacked"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-108"
+      ]
+    },
+    {
+      "row_id": "app.server.integration.extension_state_logical_store_adapter_7f6ad80724",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestStateStore_Integration_LogicalPortAndScope",
+          "TestStateStore_Integration_MapsProfileLockTimeout"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-189",
+        "docs/extension-subsystem-nlspec.md#ext-req-217"
       ]
     },
     {
@@ -490,6 +587,39 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.unit.extension_discovery_transport_7f6ad80724",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.httpruntime"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi/extensiondiscovery",
+        "tests": [
+          "TestExtensionDiscoveryRejectsSingletonQueryBeforeAuthentication_Unit",
+          "TestExtensionDiscoveryRequiresAuthentication_Unit",
+          "TestExtensionDiscoveryResponseShapeAndOrder_Unit",
+          "TestOpenAPIExtensionDiscoveryExposesClosedContract_Unit",
+          "TestPublicRouteInventoryExtensionDiscovery_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-108"
+      ]
+    },
+    {
       "row_id": "app.server.unit.extension_process_lifecycle_f9457096a3",
       "owner_id": "app.server",
       "family_id": "app.server.unit",
@@ -521,6 +651,45 @@
         "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
         "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-146",
         "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
+      ]
+    },
+    {
+      "row_id": "app.server.unit.extension_publication_epoch_characterization_7f6ad80724",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestRuntime_ExtensionPublication_AcknowledgmentValidation",
+          "TestRuntime_ExtensionPublication_AtomicAdmissionGate",
+          "TestRuntime_ExtensionPublication_CurrentAssemblyParity",
+          "TestRuntime_ExtensionPublication_FailureNoExposure",
+          "TestRuntime_ExtensionPublication_NoIndependentRederivation",
+          "TestRuntime_ExtensionPublication_NoSecondPublicationPath",
+          "TestRuntime_ExtensionPublication_OneServingEpoch",
+          "TestRuntime_ExtensionPublication_PlanNotPersistedOrLogged",
+          "TestRuntime_ExtensionPublication_PreparedComponentsAreQuiescent",
+          "TestRuntime_ExtensionPublication_PublishedComponentLoss",
+          "TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-214",
+        "docs/handoffs/extensions-module-refactor-tracker.md#rb-004-app-server-publication-characterization-matrix"
       ]
     },
     {

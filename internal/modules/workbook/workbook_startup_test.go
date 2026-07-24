@@ -112,7 +112,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		}
 	}
 	harness := runtime.StartServerWithDependencies(t, "saved_view_query-workbook-startup-i-8-02", httpapi.DependencySet{
-		ExtensionProfiles: profiles,
+		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(profiles),
 		ModuleOverrides: map[string]any{
 			networkflow.KeyRingsOverrideKey: NetworkFlowHarnessKeyRings(t),
 		},

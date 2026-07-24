@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	BackupIntegrityManifestSchemaID     = "cartulary.backup_integrity_manifest.v1"
+	BackupIntegrityManifestSchemaID     = "cartulary.backup_integrity_manifest.v2"
 	PostgresSnapshotArtifactSchemaID    = "cartulary.postgres_snapshot_artifact.v1"
 	ObjectStoreSnapshotArtifactSchemaID = "cartulary.object_store_snapshot_artifact.v2"
 	backupStorageAnchorScheme           = "backup-storage://"
@@ -38,9 +38,10 @@ var (
 )
 
 type CaptureService struct {
-	store   *Store
-	storage BackupStorage
-	now     func() time.Time
+	store            *Store
+	storage          BackupStorage
+	extensionBackups *ExtensionBackupCatalog
+	now              func() time.Time
 }
 
 type BackupStorage interface {
@@ -92,6 +93,7 @@ type BackupIntegrityManifest struct {
 	ObjectStoreArtifact                   BackupArtifactProof          `json:"object_store_artifact"`
 	ObjectStoreBackupManifestArtifact     *BackupArtifactProof         `json:"object_store_backup_manifest_artifact,omitempty"`
 	ObjectStoreBackupSummaryArtifact      *BackupArtifactProof         `json:"object_store_backup_summary_artifact,omitempty"`
+	ExtensionBindings                     []ExtensionBindingProof      `json:"extension_bindings"`
 }
 
 type ObjectStoreSnapshotArtifact struct {
@@ -118,10 +120,11 @@ type PostgresSnapshotTable struct {
 	Rows      []json.RawMessage `json:"rows"`
 }
 
-func NewCaptureService(store *Store, storage BackupStorage) *CaptureService {
+func NewCaptureService(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *CaptureService {
 	return &CaptureService{
-		store:   store,
-		storage: storage,
+		store:            store,
+		storage:          storage,
+		extensionBackups: extensionBackups,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -238,7 +241,7 @@ func VerifyArtifactProof(ctx context.Context, storage BackupStorage, proof Backu
 }
 
 func (service *CaptureService) CaptureBackupSet(ctx context.Context, params CaptureBackupSetParams) (BackupSet, error) {
-	if service == nil || service.store == nil || service.storage == nil {
+	if service == nil || service.store == nil || service.storage == nil || service.extensionBackups == nil {
 		return BackupSet{}, fmt.Errorf("%w: capture service requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	storageEncryption, err := backupStorageEncryptionProof(service.storage)
@@ -273,6 +276,15 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 		params.ObjectStoreRestoreAnchorRetainedUntil = params.ObjectStoreRestoreAnchorRetainedUntil.UTC()
 	}
 	params.ObjectStoreRestoreAnchorRetainedUntil = backupTimestamp(params.ObjectStoreRestoreAnchorRetainedUntil)
+
+	postgresSnapshot, err := DecodePostgresSnapshotArtifact(params.PostgresArtifact.Body)
+	if err != nil {
+		return BackupSet{}, err
+	}
+	extensionBindings, err := captureExtensionBindingProofs(service.extensionBackups, postgresSnapshot)
+	if err != nil {
+		return BackupSet{}, err
+	}
 
 	prefix := "backup_sets/" + params.BackupSetID.String()
 	postgresProof, err := service.storage.WriteArtifact(ctx, prefix+"/postgres-artifact.json", params.PostgresArtifact.Body, artifactContentType(params.PostgresArtifact))
@@ -317,6 +329,7 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 		ObjectStoreArtifact:                   objectProof,
 		ObjectStoreBackupManifestArtifact:     objectManifestProof,
 		ObjectStoreBackupSummaryArtifact:      objectSummaryProof,
+		ExtensionBindings:                     extensionBindings,
 	}
 	manifestBody, err := json.Marshal(manifest)
 	if err != nil {
@@ -461,6 +474,7 @@ func IsAuthoritativePostgresSnapshotTable(tableName string) bool {
 		"pending_totp_enrollments",
 		"restore_verification_runs",
 		"route_idempotency",
+		"schema_migration_lineage",
 		"user_sessions":
 		return false
 	default:

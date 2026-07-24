@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -23,12 +23,13 @@ type importFacade struct {
 	limits       Limits
 	now          func() time.Time
 	safeDigester SafeDigester
+	transactions *crossownertransaction.Coordinator
 }
 
 const importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
 
-func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester) *importFacade {
-	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester}
+func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester, transactions *crossownertransaction.Coordinator) *importFacade {
+	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester, transactions: transactions}
 }
 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
@@ -168,8 +169,8 @@ func validLowerSHA256(value string) bool {
 	return true
 }
 
-func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
-	if f == nil || f.store == nil || f.sourceStore == nil {
+func (f *importFacade) ApplyImportUnit(ctx context.Context, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
+	if f == nil || f.store == nil || f.sourceStore == nil || f.transactions == nil {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
 	}
 	if f.safeDigester == nil {
@@ -181,50 +182,100 @@ func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
 	}
-	stream, err := f.sourceStore.OpenSourceStream(ctx, request.SourceCapability.SourceStreamRef)
+	canonical, err := json.Marshal(map[string]any{
+		"participant_id": ImportApplyParticipantID, "incident_id": request.IncidentID.String(),
+		"import_session_id": request.ImportSessionID.String(), "import_unit_id": request.ImportUnitID.String(),
+		"source_content_sha256": request.ExpectedSourceContentSHA256,
+		"mapping_fingerprint":   request.MappingFingerprint, "client_txn_id": request.ClientTxnID,
+	})
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
+	}
+	digest := sha256Hex(canonical)
+	result, err := f.transactions.Execute(ctx, crossownertransaction.Operation{
+		OperationID:             "network-flow-import:" + request.ImportSessionID.String() + ":" + request.ImportUnitID.String(),
+		NormalizedRequestSHA256: digest,
+		Participants:            []crossownertransaction.Participant{&importApplyParticipant{facade: f, request: request}},
+	})
+	if err != nil {
+		return imports.ExtensionImportApplyResult{}, err
+	}
+	return participantResult[imports.ExtensionImportApplyResult](result, ImportApplyParticipantID)
+}
+
+type preparedImportApply struct {
+	params  CreateTableParams
+	request imports.ExtensionImportApplyRequest
+	parsed  ParsedCSV
+	mapping ApprovedMapping
+}
+
+func (p preparedImportApply) result(table TableRecord) imports.ExtensionImportApplyResult {
+	ownerResponse := map[string]any{
+		"schema_id":             "cartulary.network_flow.import_unit_result.v1",
+		"import_session_id":     p.request.ImportSessionID.String(),
+		"import_unit_id":        p.request.ImportUnitID.String(),
+		"source_content_sha256": p.parsed.SourceContentSHA256,
+		"source_profile_id":     p.mapping.SourceProfileID,
+		"parser_profile_id":     p.mapping.ParserProfileID,
+		"mapping_fingerprint":   p.request.MappingFingerprint,
+		"table_ref":             tableResultRef(p.request.IncidentID.String(), table),
+	}
+	return imports.ExtensionImportApplyResult{
+		ResourceRefs: []jobs.ResourceRef{{
+			Kind:  TargetKindNetworkFlowTable,
+			ID:    table.TableID,
+			Route: networkFlowTableRoute(p.request.IncidentID.String(), table.TableID),
+		}},
+		OwnerResponse: ownerResponse,
+	}
+}
+
+func (f *importFacade) prepareImportApply(ctx context.Context, request imports.ExtensionImportApplyRequest) (preparedImportApply, error) {
+	stream, err := f.sourceStore.OpenSourceStream(ctx, request.SourceCapability.SourceStreamRef)
+	if err != nil {
+		return preparedImportApply{}, err
 	}
 	defer func() { _ = stream.Reader.Close() }()
 	parsed, err := ParseCSVApply(stream.Reader, request.ExpectedSourceContentSHA256, f.limits)
 	if err != nil {
-		return imports.ExtensionImportApplyResult{}, facadeError(err)
+		return preparedImportApply{}, facadeError(err)
 	}
 	mapping, err := DecodeApprovedMapping(request.OwnerMapping)
 	if err != nil {
-		return imports.ExtensionImportApplyResult{}, facadeError(err)
+		return preparedImportApply{}, facadeError(err)
 	}
 	if !sourceColumnsMatch(mapping.SourceColumns, parsed.SourceColumns) {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
+		return preparedImportApply{}, applyBlocked("source_changed")
 	}
 	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
 	if fingerprint != request.MappingFingerprint {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
+		return preparedImportApply{}, applyBlocked("source_changed")
 	}
 	rows, diagnostics, diagnosticsTruncated, err := ValidateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
-		return imports.ExtensionImportApplyResult{}, err
+		return preparedImportApply{}, err
 	}
 	if len(rows) == 0 {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("network_flow_all_rows_rejected")
+		return preparedImportApply{}, applyBlocked("network_flow_all_rows_rejected")
 	}
 	if int64(len(rows)) > f.limits.MaxAcceptedRowsPerTable {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("network_flow_resource_limit_exceeded")
+		return preparedImportApply{}, applyBlocked("network_flow_resource_limit_exceeded")
 	}
 	originalFilename, err := f.originalFilename(ctx, request.ImportSessionID)
 	if err != nil {
-		return imports.ExtensionImportApplyResult{}, err
+		return preparedImportApply{}, err
 	}
 	filenameDisplay := SanitizeSourceFilenameDisplay(originalFilename)
 	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
 	if err != nil {
-		return imports.ExtensionImportApplyResult{}, err
+		return preparedImportApply{}, err
 	}
 	now := f.now()
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	table, err := f.store.CreateTableTx(ctx, tx, CreateTableParams{
+	params := CreateTableParams{
 		IncidentID:                request.IncidentID,
 		ActorUserID:               request.ActorUserID,
 		ImportSessionID:           request.ImportSessionID,
@@ -242,28 +293,8 @@ func (f *importFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 		Diagnostics:               diagnostics,
 		DiagnosticsTruncated:      diagnosticsTruncated,
 		Now:                       now,
-	})
-	if err != nil {
-		return imports.ExtensionImportApplyResult{}, storeApplyError(err)
 	}
-	ownerResponse := map[string]any{
-		"schema_id":             "cartulary.network_flow.import_unit_result.v1",
-		"import_session_id":     request.ImportSessionID.String(),
-		"import_unit_id":        request.ImportUnitID.String(),
-		"source_content_sha256": parsed.SourceContentSHA256,
-		"source_profile_id":     mapping.SourceProfileID,
-		"parser_profile_id":     mapping.ParserProfileID,
-		"mapping_fingerprint":   fingerprint,
-		"table_ref":             tableResultRef(request.IncidentID.String(), table),
-	}
-	return imports.ExtensionImportApplyResult{
-		ResourceRefs: []jobs.ResourceRef{{
-			Kind:  TargetKindNetworkFlowTable,
-			ID:    table.TableID,
-			Route: networkFlowTableRoute(request.IncidentID.String(), table.TableID),
-		}},
-		OwnerResponse: ownerResponse,
-	}, nil
+	return preparedImportApply{params: params, request: request, parsed: parsed, mapping: mapping}, nil
 }
 
 func (f *importFacade) originalFilename(ctx context.Context, sessionID uuid.UUID) (string, error) {

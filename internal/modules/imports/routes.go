@@ -44,7 +44,7 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
+		if !httpapi.ExtensionProfileClaimedBy(deps.ExtensionEpoch, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps)
@@ -89,7 +89,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		limits:                 deps.Config.Limits.Imports,
 		archiveLimits:          deps.Config.Limits.Archives,
 		extensionImportFacades: extensionImportFacades,
-		extensionProfiles:      httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
+		extensionProfiles:      httpapi.ExtensionProfilesFromEpoch(deps.ExtensionEpoch),
 		now:                    now,
 	}
 	if err := service.registerJobHandlers(); err != nil {

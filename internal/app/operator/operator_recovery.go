@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
@@ -11,6 +12,11 @@ import (
 )
 
 func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
+	extensionBackups, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		runner.logger().Error("extension recovery catalog is invalid", "error", err)
+		return true, 1
+	}
 	return operatorcli.Runner{
 		Stdout: runner.stdout,
 		Stderr: runner.stderr,
@@ -26,7 +32,8 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
 				return recovery.LoadRecoveryEncryptionKey(nil)
 			},
-			Now: runner.now,
+			ExtensionBackups: extensionBackups,
+			Now:              runner.now,
 		},
 	}.Run(ctx, args)
 }

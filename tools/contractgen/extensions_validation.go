@@ -393,7 +393,7 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 	if err := requireAllowedKeys(object, allowed, "extension dependency declarations"); err != nil {
 		return err
 	}
-	if object["extensions_document_version"] != "0.6.0" {
+	if object["extensions_document_version"] != "0.6.1" {
 		return fmt.Errorf("extension dependency declarations have stale extensions_document_version")
 	}
 	dependencies, err := objectArray(object["dependencies"], "dependencies")

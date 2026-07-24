@@ -23,6 +23,13 @@ var networkFlowExtensionFamilies = []string{
 	ExtensionFamilyTables,
 }
 
+// ExtensionStateReader is the Network Flow owner's read-only logical view. The
+// caller may back it with PostgreSQL, but no platform transaction type crosses
+// this semantic validation boundary.
+type ExtensionStateReader interface {
+	FamilyCounts(context.Context, []string) (map[string]int64, error)
+}
+
 // ExtensionStateFamilyCounters is the Network Flow owner's physical adapter for
 // the generated logical-family identities. The generic Extensions coordinator
 // never receives table names or unrestricted SQL.
@@ -51,7 +58,7 @@ func countExtensionFamily(familyID, query string) extensionstore.FamilyCounter {
 // ValidateExtensionState is the digest-bound Network Flow final validator. The
 // database owns structural constraints; this owner-level check closes family
 // presence relationships without exposing physical storage to Extensions.
-func ValidateExtensionState(ctx context.Context, reader extensionstore.FamilyCountReader) error {
+func ValidateExtensionState(ctx context.Context, reader ExtensionStateReader) error {
 	if reader == nil {
 		return errors.New("network flow state reader unavailable")
 	}

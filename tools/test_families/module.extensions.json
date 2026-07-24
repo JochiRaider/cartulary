@@ -6,15 +6,25 @@
       "row_id": "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.browser_stateful",
-      "collaborator_ids": ["harness.browser", "module.networkflow", "web.workbook"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "harness.browser",
+        "module.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/extensions.stateful.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
-        "scenario_ids": ["scenario_156b00b5e12a"],
-        "titles": ["Verify extension availability bootstrap, no-store startup, lazy Network Analysis loading, and Base client identity continuity."]
+        "scenario_ids": [
+          "scenario_156b00b5e12a"
+        ],
+        "titles": [
+          "Verify extension availability bootstrap, no-store startup, lazy Network Analysis loading, and Base client identity continuity."
+        ]
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
@@ -23,33 +33,28 @@
       "default_check": false,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-156", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-015"]
-    },
-    {
-      "row_id": "module.extensions.integration.bc003_portability_separation_e4b6d361d2",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.integration",
-      "collaborator_ids": ["module.incidentbundles"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
-      "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC003PortabilitySeparation_Integration"]},
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-144", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-003"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-156",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-015"
+      ]
     },
     {
       "row_id": "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
-      "collaborator_ids": ["platform.config"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "platform.config"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC011DeadlinePrecedence_Integration"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC011DeadlinePrecedence_Integration"
+        ]
+      },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -57,67 +62,29 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-152", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-011"]
-    },
-    {
-      "row_id": "module.extensions.integration.bc012_participant_limits_2c63f740c8",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.integration",
-      "collaborator_ids": ["module.incidentbundles", "module.reporting"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
-      "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC012ParticipantLimits_Integration"]},
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-153", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-012"]
-    },
-    {
-      "row_id": "module.extensions.integration.bc013_staged_objects_2b44f1267c",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.integration",
-      "collaborator_ids": ["platform.objectstore"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
-      "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC013StagedObjectLifecycle_Integration"]},
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-154", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-013"]
-    },
-    {
-      "row_id": "module.extensions.integration.bc014_restore_ordering_bc05082e06",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.integration",
-      "collaborator_ids": ["module.networkflow"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
-      "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC014RestoreOrdering_Integration"]},
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-155", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-014"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-152",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-011"
+      ]
     },
     {
       "row_id": "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
-      "collaborator_ids": ["module.networkflow", "web.workbook"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "module.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC015BrowserAvailability_Integration"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC015BrowserAvailability_Integration"
+        ]
+      },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -125,16 +92,79 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-156", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-015"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-156",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-015"
+      ]
+    },
+    {
+      "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestStateRuntimeAdmit_ServiceBacked_AlgorithmInitialization",
+          "TestStateRuntimeAdmit_ServiceBacked_AllowedEmptyRestart",
+          "TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation",
+          "TestStateRuntimeAdmit_ServiceBacked_BorrowedSessionLifecycle",
+          "TestStateRuntimeAdmit_ServiceBacked_CancellationDeadlineTie",
+          "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeAbsent",
+          "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeCommitted",
+          "TestStateRuntimeAdmit_ServiceBacked_CommitOutcomeIndeterminate",
+          "TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime",
+          "TestStateRuntimeAdmit_ServiceBacked_CrashResumeLedger",
+          "TestStateRuntimeAdmit_ServiceBacked_FinalValidationFailureResumable",
+          "TestStateRuntimeAdmit_ServiceBacked_ForbiddenEmptyState",
+          "TestStateRuntimeAdmit_ServiceBacked_FreshEmptyInitialization",
+          "TestStateRuntimeAdmit_ServiceBacked_InitializationValidationRollback",
+          "TestStateRuntimeAdmit_ServiceBacked_LineageAndVersionPreflight",
+          "TestStateRuntimeAdmit_ServiceBacked_MigrationDefinitionClosure",
+          "TestStateRuntimeAdmit_ServiceBacked_MigrationSequence",
+          "TestStateRuntimeAdmit_ServiceBacked_MigrationStepRollback",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
+          "TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix",
+          "TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#table-21-a-state-metadata-and-authoritative-state-consistency",
+        "docs/handoffs/extensions-module-refactor-tracker.md#rb-003-service-backed-state-characterization-matrix"
+      ]
     },
     {
       "row_id": "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.process",
-      "collaborator_ids": ["app.server", "platform.postgres"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "app.server",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC010LeaseLifecycle_Process"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC010LeaseLifecycle_Process"
+        ]
+      },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -142,16 +172,28 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-151", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-010"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-151",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-010"
+      ]
     },
     {
       "row_id": "module.extensions.process.bc017_component_loss_755919c8d7",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.process",
-      "collaborator_ids": ["app.server"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC017PublishedComponentLoss_Process"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC017PublishedComponentLoss_Process"
+        ]
+      },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -159,16 +201,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-158", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-017"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-158",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-017"
+      ]
     },
     {
       "row_id": "module.extensions.static.bc004_dependency_declarations_7dd570e1e4",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.static",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC004DependencyDeclarations_Static"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC004DependencyDeclarations_Static"
+        ]
+      },
       "evidence_class": "static",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -176,16 +228,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-145", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-004"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-145",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-004"
+      ]
     },
     {
       "row_id": "module.extensions.static.bc008_clause_traceability_1991b482d2",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.static",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC008ClauseTraceability_Static"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC008ClauseTraceability_Static"
+        ]
+      },
       "evidence_class": "static",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -193,16 +255,27 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-141", "docs/extension-subsystem-nlspec.md#ext-ac-149", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-008"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-141",
+        "docs/extension-subsystem-nlspec.md#ext-ac-149",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-008"
+      ]
     },
     {
       "row_id": "module.extensions.static.contract_accounting_e80c9e3dc7",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.static",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.contract_accounting"],
+      "verification_ids": [
+        "module.extensions.verification.contract_accounting"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionContractAccounting_Static"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionContractAccounting_Static"
+        ]
+      },
       "evidence_class": "static",
       "runtime_profile_id": "default",
       "resource_profile_id": "go_balanced",
@@ -210,16 +283,27 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-gate-020"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-gate-020"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc001_empty_state_7ca75ba0bc",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
-      "collaborator_ids": ["module.networkflow"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC001EmptyStatePolicy_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC001EmptyStatePolicy_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -227,16 +311,28 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-142", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-001"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-142",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-001"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc002_validation_precedence_af944dca6e",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
-      "collaborator_ids": ["platform.config"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "platform.config"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC002ValidationPrecedence_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC002ValidationPrecedence_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -244,16 +340,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-143", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-002"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-143",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-002"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc005_descriptor_provenance_1e0ea91df8",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC005DescriptorProvenance_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC005DescriptorProvenance_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -261,16 +367,28 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-146", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-005"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-146",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-005"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc006_validation_inventory_6e85895643",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
-      "collaborator_ids": ["platform.config"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "platform.config"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC006ValidationInventory_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC006ValidationInventory_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -278,16 +396,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-147", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-006"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-147",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-006"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc007_closure_mapping_08c4e88841",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC007ClosureMapping_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC007ClosureMapping_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -295,33 +423,28 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-148", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-007"]
-    },
-    {
-      "row_id": "module.extensions.unit.bc009_inactive_syntax_42f66761e3",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.unit",
-      "collaborator_ids": ["platform.config"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
-      "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC009InactiveSyntaxOnly_Unit"]},
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-150", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-009"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-148",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-007"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc016_capabilities_disabled_77bb995602",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
-      "collaborator_ids": ["web.workbook"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestExtensionBC016CapabilitiesDisabled_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestExtensionBC016CapabilitiesDisabled_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -329,16 +452,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-157", "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-016"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-157",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-016"
+      ]
     },
     {
       "row_id": "module.extensions.unit.coordinator_binding_admission_c2d8beffdb",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestCoordinatorBindingAdmission_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorBindingAdmission_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -346,16 +479,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-018", "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-018",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
     },
     {
       "row_id": "module.extensions.unit.coordinator_claim_resolution_6cfce6db24",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestCoordinatorClaimResolution_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorClaimResolution_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -363,16 +506,26 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-016", "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-016",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
     },
     {
       "row_id": "module.extensions.unit.coordinator_collision_admission_590bd27481",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestCoordinatorCollisionAdmission_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorCollisionAdmission_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -380,16 +533,28 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-021", "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-021",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
     },
     {
       "row_id": "module.extensions.unit.coordinator_publication_plan_05ae1ed79d",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
-      "collaborator_ids": ["app.server"],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestCoordinatorPublicationPlan_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorPublicationPlan_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -397,16 +562,27 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-020", "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-020",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
     },
     {
       "row_id": "module.extensions.unit.coordinator_registry_1dce9a539a",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
-      "verification_ids": ["module.extensions.verification.behavior_contract"],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
       "runner": "go",
-      "selector": {"package": "./internal/modules/extensions", "tests": ["TestCoordinatorGeneratedRegistry_Unit"]},
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorGeneratedRegistry_Unit",
+          "TestCoordinatorPortabilityPolicyProjection_Unit"
+        ]
+      },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
@@ -414,7 +590,10 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active",
-      "documentation_refs": ["docs/extension-subsystem-nlspec.md#ext-ac-010", "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"]
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-ac-010",
+        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
     }
   ]
 }

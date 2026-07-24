@@ -12,8 +12,9 @@ import (
 )
 
 type BackupCatalog struct {
-	store   *Store
-	storage BackupStorage
+	store            *Store
+	storage          BackupStorage
+	extensionBackups *ExtensionBackupCatalog
 }
 
 type BackupCatalogSelection struct {
@@ -27,8 +28,8 @@ type BackupDurabilityDiagnostic struct {
 	Code               string
 }
 
-func NewBackupCatalog(store *Store, storage BackupStorage) *BackupCatalog {
-	return &BackupCatalog{store: store, storage: storage}
+func NewBackupCatalog(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *BackupCatalog {
+	return &BackupCatalog{store: store, storage: storage, extensionBackups: extensionBackups}
 }
 
 func (catalog *BackupCatalog) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
@@ -44,7 +45,7 @@ func (catalog *BackupCatalog) RestoreCandidateBackup(ctx context.Context, asOf t
 }
 
 func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Context, asOf time.Time) (BackupCatalogSelection, error) {
-	if catalog == nil || catalog.store == nil || catalog.storage == nil {
+	if catalog == nil || catalog.store == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return BackupCatalogSelection{}, fmt.Errorf("%w: backup catalog requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	asOf = normalizeAsOf(asOf)
@@ -88,7 +89,7 @@ func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Contex
 }
 
 func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, backupSet BackupSet) error {
-	if catalog == nil || catalog.storage == nil {
+	if catalog == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return fmt.Errorf("%w: backup catalog requires backup storage", ErrInvalidBackupMetadata)
 	}
 	manifestProof := BackupArtifactProof{
@@ -107,8 +108,16 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 	if err := validateSelectedRestoreManifest(backupSet, manifest); err != nil {
 		return err
 	}
-	if _, err := VerifyArtifactProof(ctx, catalog.storage, manifest.PostgresArtifact); err != nil {
+	postgresBody, err := VerifyArtifactProof(ctx, catalog.storage, manifest.PostgresArtifact)
+	if err != nil {
 		return fmt.Errorf("verify postgres backup artifact: %w", err)
+	}
+	postgresSnapshot, err := DecodePostgresSnapshotArtifact(postgresBody)
+	if err != nil {
+		return err
+	}
+	if err := validateExtensionBindingProofs(catalog.extensionBackups, manifest.ExtensionBindings, postgresSnapshot); err != nil {
+		return err
 	}
 	objectBody, err := VerifyArtifactProof(ctx, catalog.storage, manifest.ObjectStoreArtifact)
 	if err != nil {
@@ -148,7 +157,7 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 }
 
 func (catalog *BackupCatalog) ListBackupsDueForRestoreVerification(ctx context.Context, asOf time.Time, verificationBasisSHA256 string) ([]BackupSet, error) {
-	if catalog == nil || catalog.store == nil || catalog.storage == nil {
+	if catalog == nil || catalog.store == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return nil, fmt.Errorf("%w: backup catalog requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	backupSets, err := catalog.store.ListBackupsDueForRestoreVerification(ctx, asOf, verificationBasisSHA256)

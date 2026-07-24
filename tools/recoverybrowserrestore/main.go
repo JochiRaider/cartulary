@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -151,6 +152,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open encrypted backup storage: %w", err)
 	}
+	extensionBackups, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		return fmt.Errorf("construct extension recovery catalog: %w", err)
+	}
 
 	sourceStore := recovery.NewStore(sourcePool)
 	now := time.Now().UTC()
@@ -172,7 +177,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("capture source object artifact: %w", err)
 	}
-	backupSet, err := recovery.NewCaptureService(sourceStore, backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+	backupSet, err := recovery.NewCaptureService(sourceStore, backupStorage, extensionBackups).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 		BackupSetID:                       backupSetID,
 		ConsistencyPointAt:                now,
 		CreatedAt:                         now,
@@ -214,7 +219,8 @@ func run() error {
 		return fmt.Errorf("open target object store: %w", err)
 	}
 
-	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
 		Projections: projections.NewRestoreRebuilder(targetPool),
