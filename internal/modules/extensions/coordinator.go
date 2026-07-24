@@ -110,6 +110,7 @@ type profileRecord struct {
 	descriptorSHA256 string
 	bindingObject    map[string]any
 	bindingSHA256    string
+	jobContracts     []JobKindContract
 }
 
 // Coordinator is an immutable coordination facade over generated build inputs.
@@ -201,12 +202,28 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 		if bindingErr := validateBinding(descriptor, descriptorArtifact.SHA256, bindingObject); bindingErr != nil {
 			return nil, unavailableBinding(descriptor.ProfileID, bindingErr.Error())
 		}
+		jobContracts, parseErr := parseJobKindContracts(descriptor.ProfileID, bindingObject["job_kind_contracts"])
+		if parseErr != nil {
+			return nil, unavailableBinding(descriptor.ProfileID, parseErr.Error())
+		}
+		for _, jobContract := range jobContracts {
+			artifactID := "job-contracts/" + descriptor.ProfileID + "/" + jobContract.JobKind
+			jobObject, jobArtifact, readErr := readArtifactObject(source, generatedExtensionsRoot+artifactID+".json")
+			if readErr != nil {
+				return nil, unavailableBinding(descriptor.ProfileID, "job_contract_missing")
+			}
+			if supportDigests[artifactID] != jobArtifact.SHA256 ||
+				!equalCanonicalObjects(jobObject, jobContract.object()) {
+				return nil, unavailableBinding(descriptor.ProfileID, "job_contract_digest_mismatch")
+			}
+		}
 		coordinator.profiles[descriptor.ProfileID] = profileRecord{
 			descriptor:       descriptor,
 			descriptorObject: cloneObject(profileObject),
 			descriptorSHA256: descriptorArtifact.SHA256,
 			bindingObject:    cloneObject(bindingObject),
 			bindingSHA256:    bindingArtifact.SHA256,
+			jobContracts:     cloneJobKindContracts(jobContracts),
 		}
 		coordinator.orderedProfileIDs = append(coordinator.orderedProfileIDs, descriptor.ProfileID)
 	}
@@ -391,6 +408,72 @@ type WorkspacePublication struct {
 type WorkerPublication struct {
 	ProfileID  string
 	WorkerKind string
+}
+
+type JobResourceRefContract struct {
+	ResourceRefKind    string
+	ResourceIDSchemaID string
+	MaxRefs            int
+}
+
+type JobKindContract struct {
+	ProfileID                   string
+	JobKind                     string
+	OperationKind               string
+	ProofPolicy                 string
+	IdempotencyPolicy           string
+	IdempotencyIdentitySchemaID string
+	TerminalResultSchemaID      string
+	ResourceRefContracts        []JobResourceRefContract
+	CancellationPolicy          string
+	MaxProofBytes               int
+}
+
+func (contract JobKindContract) object() map[string]any {
+	resourceRefs := make([]any, len(contract.ResourceRefContracts))
+	for index, resourceRef := range contract.ResourceRefContracts {
+		resourceRefs[index] = map[string]any{
+			"resource_ref_kind":     resourceRef.ResourceRefKind,
+			"resource_id_schema_id": resourceRef.ResourceIDSchemaID,
+			"max_refs":              resourceRef.MaxRefs,
+		}
+	}
+	return map[string]any{
+		"schema_id":                      "cartulary.extension_job_kind_contract.v1",
+		"profile_id":                     contract.ProfileID,
+		"job_kind":                       contract.JobKind,
+		"operation_kind":                 contract.OperationKind,
+		"proof_policy":                   contract.ProofPolicy,
+		"idempotency_policy":             contract.IdempotencyPolicy,
+		"idempotency_identity_schema_id": contract.IdempotencyIdentitySchemaID,
+		"terminal_result_schema_id":      contract.TerminalResultSchemaID,
+		"resource_ref_contracts":         resourceRefs,
+		"cancellation_policy":            contract.CancellationPolicy,
+		"max_proof_bytes":                contract.MaxProofBytes,
+	}
+}
+
+func cloneJobKindContracts(source []JobKindContract) []JobKindContract {
+	result := make([]JobKindContract, len(source))
+	for index, contract := range source {
+		contract.ResourceRefContracts = append([]JobResourceRefContract(nil), contract.ResourceRefContracts...)
+		result[index] = contract
+	}
+	return result
+}
+
+// JobKindContracts returns the exact generated job catalog in profile and job
+// identity order. Internal ownership metadata is not part of the public job
+// resource and remains confined to this application-facing contract.
+func (c *Coordinator) JobKindContracts() []JobKindContract {
+	if c == nil {
+		return nil
+	}
+	result := []JobKindContract{}
+	for _, profileID := range c.orderedProfileIDs {
+		result = append(result, cloneJobKindContracts(c.profiles[profileID].jobContracts)...)
+	}
+	return result
 }
 
 type DiscoveryWorkspace struct {
@@ -790,7 +873,80 @@ func validateBinding(descriptor Descriptor, descriptorDigest string, binding map
 			return fmt.Errorf("binding %s is malformed", key)
 		}
 	}
+	if _, err := parseJobKindContracts(descriptor.ProfileID, binding["job_kind_contracts"]); err != nil {
+		return err
+	}
 	return nil
+}
+
+func parseJobKindContracts(profileID string, value any) ([]JobKindContract, error) {
+	rows, ok := objectSlice(value)
+	if !ok || len(rows) > 256 {
+		return nil, errors.New("binding job_kind_contracts is malformed")
+	}
+	result := make([]JobKindContract, len(rows))
+	previous := ""
+	for index, row := range rows {
+		if err := requireExactKeys(row,
+			"schema_id", "profile_id", "job_kind", "operation_kind", "proof_policy",
+			"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
+			"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
+		); err != nil {
+			return nil, err
+		}
+		contract := JobKindContract{
+			ProfileID:                   stringValue(row["profile_id"]),
+			JobKind:                     stringValue(row["job_kind"]),
+			OperationKind:               stringValue(row["operation_kind"]),
+			ProofPolicy:                 stringValue(row["proof_policy"]),
+			IdempotencyPolicy:           stringValue(row["idempotency_policy"]),
+			IdempotencyIdentitySchemaID: stringValue(row["idempotency_identity_schema_id"]),
+			TerminalResultSchemaID:      stringValue(row["terminal_result_schema_id"]),
+			CancellationPolicy:          stringValue(row["cancellation_policy"]),
+			MaxProofBytes:               intValue(row["max_proof_bytes"]),
+		}
+		if row["schema_id"] != "cartulary.extension_job_kind_contract.v1" ||
+			contract.ProfileID != profileID ||
+			!strings.HasPrefix(contract.JobKind, profileID+".") ||
+			strings.Contains(contract.JobKind, "/") ||
+			strings.Contains(contract.JobKind, `\`) ||
+			(previous != "" && previous >= contract.JobKind) ||
+			!strings.HasPrefix(contract.OperationKind, profileID+".") ||
+			contract.ProofPolicy != "required_on_terminal_success" ||
+			contract.IdempotencyPolicy != "required" ||
+			contract.IdempotencyIdentitySchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
+			contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" ||
+			contract.CancellationPolicy != "precommit_observable" ||
+			contract.MaxProofBytes < 1 || contract.MaxProofBytes > 1048576 {
+			return nil, errors.New("binding job kind contract is invalid")
+		}
+		previous = contract.JobKind
+		resourceRefs, ok := objectSlice(row["resource_ref_contracts"])
+		if !ok || len(resourceRefs) > 64 {
+			return nil, errors.New("binding job resource references are malformed")
+		}
+		previousRef := ""
+		for _, resourceRef := range resourceRefs {
+			if err := requireExactKeys(resourceRef, "resource_ref_kind", "resource_id_schema_id", "max_refs"); err != nil {
+				return nil, err
+			}
+			parsed := JobResourceRefContract{
+				ResourceRefKind:    stringValue(resourceRef["resource_ref_kind"]),
+				ResourceIDSchemaID: stringValue(resourceRef["resource_id_schema_id"]),
+				MaxRefs:            intValue(resourceRef["max_refs"]),
+			}
+			if parsed.ResourceRefKind == "" ||
+				(previousRef != "" && previousRef >= parsed.ResourceRefKind) ||
+				parsed.ResourceIDSchemaID != "cartulary.common_job_resource_ref_id.v1" ||
+				parsed.MaxRefs < 1 || parsed.MaxRefs > 1024 {
+				return nil, errors.New("binding job resource reference is invalid")
+			}
+			previousRef = parsed.ResourceRefKind
+			contract.ResourceRefContracts = append(contract.ResourceRefContracts, parsed)
+		}
+		result[index] = contract
+	}
+	return result, nil
 }
 
 func readArtifactObject(source ArtifactSource, path string) (map[string]any, PackagedArtifact, error) {

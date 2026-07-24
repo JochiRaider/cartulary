@@ -104,6 +104,7 @@ type ParticipantContract struct {
 	OwnerProfileID        string
 	ContractSHA256        string
 	ContractKind          string
+	ParticipantKind       string
 	InputSchemaID         string
 	PrepareAlgorithmID    string
 	ValidationAlgorithmID string
@@ -111,6 +112,22 @@ type ParticipantContract struct {
 	AlgorithmIDs          []string
 	SerializationKeyKinds []string
 	OwnedStateFamilyIDs   []string
+	Operations            []ParticipantOperation
+}
+
+type ParticipantOperation struct {
+	OperationKind            string
+	ResultSchemaID           string
+	AlgorithmID              string
+	OutputSchemaID           string
+	OrderingAlgorithmID      string
+	AuthorizationContractRef string
+	RedactionContractRef     string
+	ErrorContractRef         string
+	StateFamilyIDs           []string
+	MaxInputBytes            int64
+	MaxOutputBytes           int64
+	MaxItems                 int
 }
 
 const (
@@ -147,6 +164,10 @@ func cloneParticipantContract(contract ParticipantContract) ParticipantContract 
 	contract.AlgorithmIDs = append([]string(nil), contract.AlgorithmIDs...)
 	contract.SerializationKeyKinds = append([]string(nil), contract.SerializationKeyKinds...)
 	contract.OwnedStateFamilyIDs = append([]string(nil), contract.OwnedStateFamilyIDs...)
+	contract.Operations = append([]ParticipantOperation(nil), contract.Operations...)
+	for index := range contract.Operations {
+		contract.Operations[index].StateFamilyIDs = append([]string(nil), contract.Operations[index].StateFamilyIDs...)
+	}
 	return contract
 }
 
@@ -487,6 +508,7 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 		OwnerProfileID:        stringValue(row["profile_id"]),
 		ContractSHA256:        stringValue(row["participant_contract_sha256"]),
 		ContractKind:          stringValue(body["schema_id"]),
+		ParticipantKind:       stringValue(body["participant_kind"]),
 		InputSchemaID:         stringValue(body["participant_input_schema_id"]),
 		PrepareAlgorithmID:    stringValue(body["prepare_algorithm_id"]),
 		ValidationAlgorithmID: stringValue(body["validation_algorithm_id"]),
@@ -498,6 +520,53 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 	if contract.ContractKind == "cartulary.extension_transaction_participant_contract.v1" {
 		contract.AlgorithmIDs = []string{contract.PrepareAlgorithmID, contract.ValidationAlgorithmID, contract.WriteAlgorithmID}
 		sort.Strings(contract.AlgorithmIDs)
+	}
+	if contract.ContractKind == "cartulary.extension_participant_specialization.v1" {
+		contract.InputSchemaID = stringValue(body["shared_context_schema_id"])
+		operations, ok := objectSlice(body["operations"])
+		if !ok || len(operations) == 0 {
+			return ParticipantContract{}, errors.New("participant specialization operations are missing")
+		}
+		algorithmSet := map[string]struct{}{}
+		stateFamilySet := map[string]struct{}{}
+		for _, operation := range operations {
+			parsed := ParticipantOperation{
+				OperationKind:            stringValue(operation["operation_kind"]),
+				ResultSchemaID:           stringValue(operation["result_schema_id"]),
+				AlgorithmID:              stringValue(operation["algorithm_id"]),
+				OutputSchemaID:           stringValue(operation["output_schema_id"]),
+				OrderingAlgorithmID:      stringValue(operation["ordering_algorithm_id"]),
+				AuthorizationContractRef: stringValue(operation["authorization_contract_ref"]),
+				RedactionContractRef:     stringValue(operation["redaction_contract_ref"]),
+				ErrorContractRef:         stringValue(operation["error_contract_ref"]),
+				StateFamilyIDs:           catalogStrings(operation["state_family_ids"]),
+				MaxInputBytes:            int64Value(operation["max_input_bytes"]),
+				MaxOutputBytes:           int64Value(operation["max_output_bytes"]),
+				MaxItems:                 intValue(operation["max_items"]),
+			}
+			if parsed.OperationKind == "" || parsed.ResultSchemaID == "" || parsed.AlgorithmID == "" ||
+				parsed.OutputSchemaID == "" || parsed.OrderingAlgorithmID == "" ||
+				parsed.AuthorizationContractRef == "" || parsed.ErrorContractRef == "" ||
+				parsed.MaxInputBytes < 1 || parsed.MaxOutputBytes < 0 || parsed.MaxItems < 0 {
+				return ParticipantContract{}, errors.New("participant specialization operation is incomplete")
+			}
+			algorithmSet[parsed.AlgorithmID] = struct{}{}
+			algorithmSet[parsed.OrderingAlgorithmID] = struct{}{}
+			for _, stateFamilyID := range parsed.StateFamilyIDs {
+				stateFamilySet[stateFamilyID] = struct{}{}
+			}
+			contract.Operations = append(contract.Operations, parsed)
+		}
+		contract.AlgorithmIDs = make([]string, 0, len(algorithmSet))
+		for algorithmID := range algorithmSet {
+			contract.AlgorithmIDs = append(contract.AlgorithmIDs, algorithmID)
+		}
+		sort.Strings(contract.AlgorithmIDs)
+		contract.OwnedStateFamilyIDs = make([]string, 0, len(stateFamilySet))
+		for stateFamilyID := range stateFamilySet {
+			contract.OwnedStateFamilyIDs = append(contract.OwnedStateFamilyIDs, stateFamilyID)
+		}
+		sort.Strings(contract.OwnedStateFamilyIDs)
 	}
 	if contract.ParticipantID == "" || contract.OwnerProfileID == "" || contract.ContractSHA256 == "" {
 		return ParticipantContract{}, errors.New("participant contract is incomplete")

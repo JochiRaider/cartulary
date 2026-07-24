@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.6.1
+document_version: 0.6.2
 contract_major: 1
 ---
 
@@ -3238,6 +3238,16 @@ Verified by: EXT-AC-115
 
 **EXT-REQ-130**
 Every durable job owned by or producing an extension resource MUST carry internal `owner_profile_id` and `job_kind`. `owner_profile_id` MUST equal the exact profile ID, and `job_kind` MUST resolve to one `cartulary.extension_job_kind_contract.v1` whose digest is present in the implementation binding. These members are internal job ownership metadata and need not be public unless Core 01 adopts them in a public schema.
+
+The `0.6.2` adoption is a clean pre-release cutover. A database containing a
+nonterminal or retained job whose handler identity is `imports.discovery`,
+`imports.apply`, `incident_bundles.execute`, `reference_data.execute`, or
+`reporting.execute` is not a supported migration source. Before changing any
+job row or extension coordination state, startup or migration MUST reject that
+database with a reset-and-reseed diagnostic. Implementations MUST NOT provide a
+legacy handler alias, compatibility reader, metadata backfill, synthetic proof,
+or dual reconciliation path. A fresh database or a database with no such row is
+the only supported input to this adoption.
 
 Profiles: base
 Verified by: EXT-AC-051, EXT-AC-080

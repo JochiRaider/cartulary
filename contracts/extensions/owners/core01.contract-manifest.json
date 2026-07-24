@@ -3,9 +3,9 @@
     {
       "anchor_id": "cartulary.core01.current.v1",
       "anchor_kind": "document",
-      "anchor_sha256": "ae34ee625b8e4a12d2596554b779785c68bdeb6e264540b0d74efe23f7221df2",
+      "anchor_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
       "closure_categories": [],
-      "end_byte": 827217,
+      "end_byte": 830638,
       "start_byte": 0
     },
     {
@@ -154,26 +154,79 @@
       ],
       "end_byte": 827216,
       "start_byte": 826554
+    },
+    {
+      "anchor_id": "REQ-01-634",
+      "anchor_kind": "req",
+      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "idempotency_concurrency",
+        "identity_canonicalization_ordering",
+        "jobs_reconciliation",
+        "request_response_schemas",
+        "resource_lifecycle_retention",
+        "scalar_collection_bounds"
+      ],
+      "end_byte": 830637,
+      "start_byte": 827218
+    },
+    {
+      "anchor_id": "cartulary.common_job_resource_ref.v1",
+      "anchor_kind": "schema",
+      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "closure_categories": [],
+      "end_byte": 830637,
+      "start_byte": 827218
+    },
+    {
+      "anchor_id": "cartulary.common_job_resource_ref_id.v1",
+      "anchor_kind": "schema",
+      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "closure_categories": [],
+      "end_byte": 830637,
+      "start_byte": 827218
+    },
+    {
+      "anchor_id": "cartulary.common_job_terminal_success.v1",
+      "anchor_kind": "schema",
+      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "closure_categories": [],
+      "end_byte": 830637,
+      "start_byte": 827218
+    },
+    {
+      "anchor_id": "cartulary.route_scoped_idempotency_identity.v1",
+      "anchor_kind": "schema",
+      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "closure_categories": [],
+      "end_byte": 830637,
+      "start_byte": 827218
     }
   ],
   "owner_contract_manifest_id": "core01.extensions_contract.v1",
   "owner_document": {
-    "byte_length": 827217,
+    "byte_length": 830638,
     "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
     "owner_document_schema_id": "cartulary.core01.current.v1",
-    "owner_document_sha256": "ae34ee625b8e4a12d2596554b779785c68bdeb6e264540b0d74efe23f7221df2",
+    "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
     "owner_document_version": "extensions-adoption-1"
   },
   "owner_fragments": [
     {
       "owner_fragment_id": "core01.extension_discovery.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core01.discovery.json",
-      "owner_fragment_sha256": "751fff6f935ac73d1cac67dddcd32662041ba5a189fb9b4d67248b5a31521193"
+      "owner_fragment_sha256": "2cd8fe6115debe1eb55e670f90cc2962d4172a51e2a1acf426dfb94c30b1c7e2"
     },
     {
       "owner_fragment_id": "core01.extension_profile_classifications.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core01.profile-classifications.json",
-      "owner_fragment_sha256": "3c2c1a51914e6e16c5fdcdb742adca2382b9e6b5eea7c23acc1925fbbdc9b5bd"
+      "owner_fragment_sha256": "f07420db9cd3cb50cd701715fb1c715f0da96318270d06e99aea228bf89702e9"
+    },
+    {
+      "owner_fragment_id": "core01.extension_profile_jobs.v1",
+      "owner_fragment_ref": "contracts/extensions/fragments/core01.profile-jobs.json",
+      "owner_fragment_sha256": "f6b19077c5e83a4495bcef3ec0818a772ddbd694656ee583746c5bdc6bca4f22"
     }
   ],
   "owner_id": "core01",

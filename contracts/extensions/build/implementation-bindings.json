@@ -1,0 +1,162 @@
+{
+  "schema_id": "cartulary.extension_implementation_binding_source_set.v1",
+  "bindings": [
+    {
+      "profile_id": "enterprise_authentication",
+      "contract_major": 1,
+      "implementation_id": "cartulary.enterprise_authentication.builtin.v1",
+      "state_ownership_kind": "core_managed",
+      "implemented_contribution_ids": [
+        "enterprise_authentication.auth_oidc_route",
+        "enterprise_authentication.auth_providers_route",
+        "enterprise_authentication.auth_saml_route",
+        "enterprise_authentication.user_auth_bindings_route"
+      ],
+      "implemented_job_kinds": [],
+      "implemented_worker_kinds": [],
+      "algorithm_ids": [],
+      "participant_implementations": []
+    },
+    {
+      "profile_id": "import",
+      "contract_major": 1,
+      "implementation_id": "cartulary.import.builtin.v1",
+      "state_ownership_kind": "core_managed",
+      "implemented_contribution_ids": ["import.sessions_route"],
+      "implemented_job_kinds": [
+        "import.apply_v1",
+        "import.discovery_v1"
+      ],
+      "implemented_worker_kinds": [
+        "import.apply_worker_v1",
+        "import.discovery_worker_v1"
+      ],
+      "algorithm_ids": [],
+      "participant_implementations": []
+    },
+    {
+      "profile_id": "incident_portability",
+      "contract_major": 1,
+      "implementation_id": "cartulary.incident_portability.builtin.v1",
+      "state_ownership_kind": "core_managed",
+      "implemented_contribution_ids": ["incident_portability.bundles_route"],
+      "implemented_job_kinds": [
+        "incident_portability.export_v1",
+        "incident_portability.import_v1"
+      ],
+      "implemented_worker_kinds": [
+        "incident_portability.bundle_worker_v1"
+      ],
+      "algorithm_ids": [],
+      "participant_implementations": []
+    },
+    {
+      "profile_id": "network_flow_activity",
+      "contract_major": 2,
+      "implementation_id": "cartulary.network_flow_activity.builtin.v2",
+      "state_ownership_kind": "extension_versioned",
+      "implemented_contribution_ids": [
+        "network_flow_activity.backup_restore",
+        "network_flow_activity.import_apply",
+        "network_flow_activity.import_target",
+        "network_flow_activity.indicator_link",
+        "network_flow_activity.network_analysis_workspace",
+        "network_flow_activity.route_family"
+      ],
+      "implemented_job_kinds": [],
+      "implemented_worker_kinds": [],
+      "algorithm_ids": [
+        "network_flow_activity.backup_enumerate_v1",
+        "network_flow_activity.import_apply_prepare_v1",
+        "network_flow_activity.import_apply_validate_v1",
+        "network_flow_activity.import_apply_write_v1",
+        "network_flow_activity.indicator_bindings_identity_v1",
+        "network_flow_activity.indicator_link_prepare_v1",
+        "network_flow_activity.indicator_link_validate_v1",
+        "network_flow_activity.indicator_link_write_v1",
+        "network_flow_activity.rejected_row_diagnostics_identity_v1",
+        "network_flow_activity.restore_rebuild_v1",
+        "network_flow_activity.restore_validate_v1",
+        "network_flow_activity.rows_identity_v1",
+        "network_flow_activity.tables_identity_v1",
+        "network_flow_activity.validate_state_v1"
+      ],
+      "participant_implementations": [
+        {
+          "participant_id": "network_flow_activity.backup_restore_v1",
+          "algorithm_ids": [
+            "network_flow_activity.backup_enumerate_v1",
+            "network_flow_activity.restore_rebuild_v1",
+            "network_flow_activity.restore_validate_v1"
+          ]
+        },
+        {
+          "participant_id": "network_flow_activity.import_apply_v1",
+          "algorithm_ids": [
+            "network_flow_activity.import_apply_prepare_v1",
+            "network_flow_activity.import_apply_validate_v1",
+            "network_flow_activity.import_apply_write_v1"
+          ]
+        },
+        {
+          "participant_id": "network_flow_activity.indicator_link_v1",
+          "algorithm_ids": [
+            "network_flow_activity.indicator_link_prepare_v1",
+            "network_flow_activity.indicator_link_validate_v1",
+            "network_flow_activity.indicator_link_write_v1"
+          ]
+        }
+      ]
+    },
+    {
+      "profile_id": "reference_pack",
+      "contract_major": 1,
+      "implementation_id": "cartulary.reference_pack.builtin.v1",
+      "state_ownership_kind": "core_managed",
+      "implemented_contribution_ids": ["reference_pack.packs_route"],
+      "implemented_job_kinds": [
+        "reference_pack.import_v1",
+        "reference_pack.refresh_v1",
+        "reference_pack.reverify_v1"
+      ],
+      "implemented_worker_kinds": [
+        "reference_pack.lifecycle_worker_v1"
+      ],
+      "algorithm_ids": [],
+      "participant_implementations": []
+    },
+    {
+      "profile_id": "snapshot_reporting",
+      "contract_major": 1,
+      "implementation_id": "cartulary.snapshot_reporting.builtin.v1",
+      "state_ownership_kind": "core_managed",
+      "implemented_contribution_ids": [
+        "snapshot_reporting.releases_route",
+        "snapshot_reporting.render_export",
+        "snapshot_reporting.report_compositions_route",
+        "snapshot_reporting.snapshots_route"
+      ],
+      "implemented_job_kinds": [
+        "snapshot_reporting.composition_preview_v1",
+        "snapshot_reporting.release_create_v1",
+        "snapshot_reporting.snapshot_create_v1"
+      ],
+      "implemented_worker_kinds": [
+        "snapshot_reporting.job_worker_v1"
+      ],
+      "algorithm_ids": [
+        "materialize_reporting_export_model_v1",
+        "snapshot_reporting.render_export_v1"
+      ],
+      "participant_implementations": [
+        {
+          "participant_id": "snapshot_reporting.render_export_v1",
+          "algorithm_ids": [
+            "materialize_reporting_export_model_v1",
+            "snapshot_reporting.render_export_v1"
+          ]
+        }
+      ]
+    }
+  ]
+}

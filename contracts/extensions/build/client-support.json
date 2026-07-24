@@ -1,0 +1,7 @@
+{
+  "schema_id":"cartulary.extension_client_support_registry_source.v1",
+  "client_build_class":"standard",
+  "rows":[
+    {"profile_id":"network_flow_activity","contract_major":2,"workspace_keys":["network_analysis"],"capability_ids":[],"public_schema_ids":[],"client_asset_set_id":"network_flow_activity.standard.v2"}
+  ]
+}

@@ -29,7 +29,12 @@
         "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-630",
         "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
         "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-632",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-633"
+        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-633",
+        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_resource_ref.v1",
+        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_resource_ref_id.v1",
+        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_terminal_success.v1",
+        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.route_scoped_idempotency_identity.v1"
       ],
       "imported_artifacts": [
         {
@@ -40,14 +45,18 @@
         }
       ],
       "imported_schema_ids": [
-        "cartulary.base_route_reservation_registry.v1"
+        "cartulary.base_route_reservation_registry.v1",
+        "cartulary.common_job_resource_ref.v1",
+        "cartulary.common_job_resource_ref_id.v1",
+        "cartulary.common_job_terminal_success.v1",
+        "cartulary.route_scoped_idempotency_identity.v1"
       ],
       "owner_contract_manifest_id": "core01.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core01.contract-manifest.json",
-      "owner_contract_manifest_sha256": "e38f29e5a62b87a122eb4ccb0eb680820e79ed38bbdf89cd5d7ef1b4c28a5692",
+      "owner_contract_manifest_sha256": "5b47a1fcf75fb8bf69e6bb709c36f5cabb31c59a580a45bff71b2e37c163d836",
       "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
       "owner_document_schema_id": "cartulary.core01.current.v1",
-      "owner_document_sha256": "ae34ee625b8e4a12d2596554b779785c68bdeb6e264540b0d74efe23f7221df2",
+      "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
       "owner_document_version": "extensions-adoption-1",
       "required_status": "adopted/current"
     },
@@ -170,30 +179,42 @@
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "report_composition.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/report_composition.contract-manifest.json",
-      "owner_contract_manifest_sha256": "6c3bc1949de842d17162f3f4bf403f61a39a2f2a94747fd8eef86e0d5096e8cb",
+      "owner_contract_manifest_sha256": "bfd9d8120e5e356f047d64319773d44a2c3aca7f81b77193a958f41454d94a00",
       "owner_document_ref": "docs/report-composition-nlspec.md#document:cartulary.report_composition_nlspec.v1",
       "owner_document_schema_id": "cartulary.report_composition_nlspec.v1",
-      "owner_document_sha256": "489a839dbf57969111b1f633fc11833a3b2c4adccde847da32c85243c251f8ea",
-      "owner_document_version": "1.1.0",
+      "owner_document_sha256": "8f76e2482775621618353b7f6282a2f19b445ece38a17300d40bd62f1a7a02f2",
+      "owner_document_version": "1.1.1",
       "required_status": "adopted/current"
     },
     {
       "dependency_id": "reporting",
-      "imported_algorithm_ids": [],
+      "imported_algorithm_ids": [
+        "materialize_reporting_export_model_v1",
+        "snapshot_reporting.render_export_v1"
+      ],
       "imported_anchor_refs": [
         "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
         "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019b"
+        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019b",
+        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-039",
+        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-053",
+        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-059a",
+        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-114",
+        "docs/reporting-subsystem-nlspec.md#schema:cartulary.reporting_export_model.v1",
+        "docs/reporting-subsystem-nlspec.md#algorithm:materialize_reporting_export_model_v1",
+        "docs/reporting-subsystem-nlspec.md#algorithm:snapshot_reporting.render_export_v1"
       ],
       "imported_artifacts": [],
-      "imported_schema_ids": [],
+      "imported_schema_ids": [
+        "cartulary.reporting_export_model.v1"
+      ],
       "owner_contract_manifest_id": "reporting.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/reporting.contract-manifest.json",
-      "owner_contract_manifest_sha256": "655eadc8ed34bf5efe452f5739bc3d0c6295d597ee5ca6c8949d6ec753a2957b",
+      "owner_contract_manifest_sha256": "3fa938188629df3f692e72e7a514d5b98c56bc8aa46a2af3ba9f4829d0c2fd9b",
       "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
       "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
-      "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
-      "owner_document_version": "1.1.0",
+      "owner_document_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
+      "owner_document_version": "1.1.1",
       "required_status": "adopted/current"
     },
     {
@@ -225,6 +246,6 @@
       "required_status": "adopted/current"
     }
   ],
-  "extensions_document_version": "0.6.1",
+  "extensions_document_version": "0.6.2",
   "schema_id": "cartulary.extension_dependency_declaration_set.v1"
 }

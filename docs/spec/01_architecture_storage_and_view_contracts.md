@@ -8348,3 +8348,60 @@ Verified by: AC-428, EXT-AC-155
 Stage 6 publishes one immutable plan and opens one admission gate only after every mandatory listener, WebSocket gate, job-dequeue gate, and worker is ready. Unexpected termination of any such required component before bind, between bind and serving, or while serving is fatal `published_component_lost`; an individual handled operation failure is not component loss. Component loss closes readiness and admission, preserves committed state and durable queued jobs, drains under Core 04, exits `70`, and forbids in-process component restart or plan republish. Recovery is a new externally supervised process.
 Profiles: base
 Verified by: EXT-AC-158
+
+**REQ-01-634**
+The common job owner defines the following reusable closed schemas for
+proof-bearing extension jobs. These schemas do not add internal extension
+ownership metadata to the public job resource.
+
+`cartulary.route_scoped_idempotency_identity.v1` is a closed object containing
+exactly `schema_id`, `actor_user_id`, `route_identity`, `scope_kind`,
+`scope_id`, and `client_txn_id`. `schema_id` is exact. `route_identity` is the
+canonical initiating route identity including every path identity that scopes
+the route idempotency key; it is not a display path. `scope_kind` is
+`incident` or `deployment`; `scope_id` is the exact incident ID for
+`incident` and is `null` for `deployment`. The remaining identities use their
+existing Core scalar contracts.
+
+`cartulary.common_job_resource_ref_id.v1` is the non-empty canonical public
+identifier string carried by one common-job resource reference. Its exact
+kind-specific interpretation remains the rule in §3.3.9.1.
+`cartulary.common_job_resource_ref.v1` is a closed object containing required
+`kind` and `id` plus optional `route`. All three members use the exact
+allowlist, identifier, same-origin route, and ordering rules in §3.3.9.1.
+
+`cartulary.common_job_terminal_success.v1` is the closed successful
+`result_summary` object from §3.3.9.1: required `code` and `message`, with
+optional `resource_refs[]` containing only
+`cartulary.common_job_resource_ref.v1`. When serialized into an extension job
+proof it MUST be byte-for-byte the canonical object committed to the public job
+row; a proof, replay path, or worker MUST NOT reconstruct it from current
+resource state.
+
+The Core-owned profile job facts are the exact rows below. Every row uses
+required route-scoped idempotency, required proof on terminal success,
+precommit-observable cancellation,
+`cartulary.route_scoped_idempotency_identity.v1`, and
+`cartulary.common_job_terminal_success.v1`.
+
+| Profile | Job kind | Operation kind | Permitted resource-ref kinds |
+| --- | --- | --- | --- |
+| `import` | `import.discovery_v1` | `import.discovery` | `import_session` (maximum 1) |
+| `import` | `import.apply_v1` | `import.apply` | `import_session` (maximum 1), `network_flow_table` (maximum 1023) |
+| `incident_portability` | `incident_portability.export_v1` | `incident_portability.export` | `incident_bundle` (maximum 1) |
+| `incident_portability` | `incident_portability.import_v1` | `incident_portability.import` | `incident` (maximum 1) |
+| `reference_pack` | `reference_pack.import_v1` | `reference_pack.import` | `reference_pack_version` (maximum 1) |
+| `reference_pack` | `reference_pack.reverify_v1` | `reference_pack.reverify` | `reference_pack_version` (maximum 1) |
+| `reference_pack` | `reference_pack.refresh_v1` | `reference_pack.refresh` | `reference_pack_version` (maximum 1024) |
+
+Every resource-ref row above uses
+`cartulary.common_job_resource_ref_id.v1`. The exact Core-owned worker kinds
+are `import.discovery_worker_v1`, `import.apply_worker_v1`,
+`incident_portability.bundle_worker_v1`, and
+`reference_pack.lifecycle_worker_v1`. Network Flow Activity remains scheduled
+by Import and defines no worker kind of its own. Snapshot/Reporting owns its
+job and worker facts in the adopted Reporting NLSpec.
+
+Profiles: base, import, incident_portability, reference_pack, snapshot_reporting
+Verified by: EXT-AC-051, EXT-AC-052, EXT-AC-053, EXT-AC-080, EXT-AC-088,
+ EXT-AC-115, EXT-AC-158

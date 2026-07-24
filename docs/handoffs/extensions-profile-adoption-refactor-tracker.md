@@ -8,7 +8,7 @@
 | Planning baseline | Clean `main` at `c0c9c02aae53762d25316afaa8808aa5e424b0db`, observed on 2026-07-24 |
 | Upstream posture | `main` is one commit ahead of `origin/main` (`b796a9c5b80b43e7d8284cb1e96de971364e169b`) |
 | Task posture | Ordered remediation execution under the mandatory checkpoint protocol |
-| Execution status | `EPA-00` and `EPA-01` are `DONE`; `EPA-02` through `EPA-12` are `NOT_STARTED` |
+| Execution status | `EPA-00` through `EPA-02` are `DONE`; `EPA-03` through `EPA-12` are `NOT_STARTED` |
 | Controlling authority | Core 00 through Core 04, adopted profile-owner specifications, the Extensions NLSpec, `docs/domain.md`, and the Harness NLSpec |
 | Historical evidence | `docs/handoffs/extensions-module-refactor-tracker.md` and `docs/handoffs/extensions-subsystem-implementation-tracker.md`; neither is normative |
 | Domain posture | `domain vocabulary unchanged` |
@@ -655,6 +655,7 @@ independently deployable releases. No production rollout is permitted before
 | Generated/drift checks | `make generate`; `make generate-drift`; policy and JSON shape |
 | Exit criteria | authored facts match adopted owners; every live job kind and worker has one contract; participant schemas resolve; all generated outputs are clean |
 | Checkpoint | owner decisions, exact new identifiers/contracts, generated files, digest changes, commands/results, blocker status |
+| Completion checkpoint | Amended Core 01 REQ-01-634, Extensions EXT-REQ-130, Reporting REQ-RPT-019a, and Report Composition REQ-RC-076a; versions are Extensions `0.6.2`, Reporting `1.1.1`, and Report Composition `1.1.1`. Adopted exactly ten versioned job kinds and five canonical worker kinds, route-scoped idempotency, canonical terminal success/resource-ref schemas, required terminal proofs, precommit-observable cancellation, and the clean-cutover rejection rule. Replaced the obsolete Reporting participant contract with the `snapshot_reporting` `emit` specialization using the adopted shared context/result schemas, Reporting export model, ordering, authorization, redaction, errors, and closed limits. The generator now rejects binding, worker, job, participant, schema, algorithm, locator, and digest mismatches; emits ten standalone job-contract artifacts; marks Enterprise and Network Flow `job_contract` closure explicitly `not_applicable/no_jobs`; and admits exact job and participant catalogs at runtime. The previously ignored `contracts/extensions/build` authored inputs are now tracked so a clean checkout can regenerate the catalog. Generated embeddings and TypeScript projections were refreshed. `make test-slice OWNER=module.extensions` passed at `.cartulary/test-results/20260724T184421Z-p37560`; `make service-backed-test-slice OWNER=module.extensions` passed 5/5 work units and 9 tests at `.cartulary/test-results/20260724T184532Z-p56828`; `make test-fast` passed 716 tests at `.cartulary/test-results/20260724T184835Z-p86145`. Final `make generate` passed at `.cartulary/test-results/20260724T184816Z-p81293`; `make generate-drift` passed at `.cartulary/test-results/20260724T184822Z-p82925`; generated-artifact policy, JSON-shape, Markdown lint, formatting, and `git diff --check` passed. Two related generation failures were corrected: empty preview resource-ref arrays were initially rejected at `.cartulary/test-results/20260724T184005Z-p22932`, and empty participant-implementation arrays were initially rejected at `.cartulary/test-results/20260724T184036Z-p26646`; no unrelated failure remains. `BLOCK-002` is resolved. Remaining risk is deliberately deferred runtime adoption in EPA-03 onward; this contract-only intermediate is not deployable. Rollback is the EPA-02 commit plus regeneration and has no data mutation. Domain vocabulary unchanged. |
 
 The exact job and worker identities must use the canonical profile namespace and
 the already persisted operation vocabulary. The owner amendments, not
@@ -1049,7 +1050,7 @@ Every implementation session must follow this protocol:
 | --- | --- | --- | --- | --- |
 | EPA-00 | `DONE` | none | no behavior | baseline and clean-cutover decision recorded; tracker-only gates passed |
 | EPA-01 | `DONE` | EPA-00 | evidence only | exact target matrix and mixed-claim production characterization pass |
-| EPA-02 | `NOT_STARTED` | EPA-01 | non-deployable contract intermediate | pending |
+| EPA-02 | `DONE` | EPA-01 | non-deployable contract intermediate | exact owner jobs/workers, shared schemas, participant specialization, binding parity, and generated closure pass |
 | EPA-03 | `NOT_STARTED` | EPA-02 | non-deployable shared runtime intermediate | pending |
 | EPA-04 | `NOT_STARTED` | EPA-03 | non-deployable job intermediate | pending |
 | EPA-05 | `NOT_STARTED` | EPA-03 | wait for final rollout | pending |
@@ -1086,13 +1087,14 @@ Every implementation session must follow this protocol:
 | 2026-07-24 | Tracker research and planning | planning only | complete | this tracker only | documentation-only checks recorded at handoff | BLOCK-001 was open at planning handoff | activate EPA-00 |
 | 2026-07-24 | Remediation execution | EPA-00 | complete | this tracker only | tracker-only validation passed; run roots recorded in EPA-00 | BLOCK-001 resolved; BLOCK-002 remains for EPA-02 | commit EPA-00, then activate EPA-01 |
 | 2026-07-24 | Remediation execution | EPA-01 | complete | tracker; Extensions/app-server characterization tests; Harness manifests, generated embedding/render index, and count | focused and service-backed selectors plus generation/Harness drift passed; run roots recorded in EPA-01 | BLOCK-002 remains for EPA-02 | commit EPA-01, then execute EPA-02 |
+| 2026-07-24 | Remediation execution | EPA-02 | complete | owner specs/manifests/fragments; Extensions build/specification/traceability inputs; generator/runtime catalogs/tests; generated Go and TypeScript projections; tracker and `.gitignore` | exact job/worker and participant closure, focused/service-backed owner slices, 716-test fast suite, generation/drift/policy/shape/Markdown gates passed; run roots recorded in EPA-02 | none; BLOCK-002 resolved | commit EPA-02, then activate EPA-03 |
 
 ## 20. Open Contradictions and Blockers
 
 | ID | Kind | Exact issue | Required resolution | Blocks |
 | --- | --- | --- | --- | --- |
 | BLOCK-001 | resolved specification decision | pre-cutover profile-handler jobs have no trustworthy proof transition | clean pre-release cutover selected: reject affected databases and require reset/reseed; no reader, backfill, or synthetic proof | none; EPA-02 records the owner rule and EPA-04 enforces it |
-| BLOCK-002 | authored-contract contradiction | `reporting-participant.json` names context/result schema IDs not owned by the adopted Reporting or Extensions documents | correct the authored contract to the adopted specialization and regenerate all dependent digests | EPA-02 |
+| BLOCK-002 | resolved authored-contract contradiction | `reporting-participant.json` named context/result schema IDs without an admitted specialization implementation contract | adopted the exact shared Snapshot/Reporting context/result schemas and Reporting-owned `emit` specialization; regenerated all dependent digests and runtime catalogs | none |
 
 No contradiction remains about profile identity: Core 00 conclusively maps the
 two requested Snapshot and Reporting audits to `snapshot_reporting`.

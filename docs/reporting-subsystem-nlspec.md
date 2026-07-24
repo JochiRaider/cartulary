@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.1.0
+document_version: 1.1.1
 ---
 
 # 1. Status, scope, and authority
@@ -193,7 +193,19 @@ The companion edits in Table 5-C record the owner status required for this NLSpe
 Reporting imports the adopted Extensions Subsystem typed participant boundary
 without transferring report, snapshot, render, release, composition, or
 redaction ownership. Its shared-owner participant ID is
-`snapshot_reporting.render_export_v1`. The participant accepts only the
+`snapshot_reporting.render_export_v1`, and its implementation algorithm has
+that same exact identity. The participant specialization uses
+`participant_kind='snapshot_reporting'`,
+`shared_context_schema_id='cartulary.extension_snapshot_reporting_participant_context.v1'`,
+and exactly one `emit` operation. That operation returns only
+`cartulary.extension_snapshot_reporting_participant_result.v1`, emits only
+`cartulary.reporting_export_model.v1`, orders under
+`materialize_reporting_export_model_v1`, uses this requirement as its
+authorization contract, uses REQ-RPT-059a as its redaction contract, and uses
+REQ-RPT-114 as its error contract. It admits at most 67,108,864 input bytes,
+67,108,864 output bytes, and 1,048,576 selected or emitted items.
+
+The participant accepts only the
 digest-bound `cartulary.extension_snapshot_reporting_participant_context.v1`
 specialization and returns only its matching closed result. Reporting invokes a
 profile only when its canonical descriptor selects
@@ -209,6 +221,28 @@ participant result is admitted to a report model and rendered output. An absent,
 inactive, malformed, incompatible, over-limit, timed-out, or unregistered
 participant follows the adopted shared invocation matrix and never falls back to
 package scanning, profile callbacks, a compatibility reader, or silent omission.
+
+The exact durable job facts owned by this profile are
+`snapshot_reporting.snapshot_create_v1` ->
+`snapshot_reporting.snapshot_create`,
+`snapshot_reporting.release_create_v1` ->
+`snapshot_reporting.release_create`, and
+`snapshot_reporting.composition_preview_v1` ->
+`snapshot_reporting.composition_preview`. Their only worker kind is
+`snapshot_reporting.job_worker_v1`. All three jobs require route-scoped
+idempotency, a proof on terminal success, and precommit-observable
+cancellation under Core 01 REQ-01-634. Snapshot create permits one `snapshot`
+resource ref, release create permits one `release` resource ref, and
+composition preview permits no resource ref. Preview still commits a canonical
+terminal success and proof.
+
+The participant may read only the immutable snapshot/export-model view supplied
+through the scoped accessor. Reporting validates and admits the returned
+canonical model before redaction and rendering. Release creation and
+authoritative composition preview invoke only the admitted participant when
+the `snapshot_reporting` profile is claimed and the required immutable
+snapshot exists. Profile-local extension state metadata, migrations, codecs,
+and backup bindings are forbidden for this Core-managed profile.
 
 **REQ-RPT-019b**
 Every Reporting schema-validation rule used by the Extensions participant

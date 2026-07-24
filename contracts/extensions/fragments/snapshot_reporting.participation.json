@@ -36,10 +36,76 @@
       "profile_id": "snapshot_reporting"
     },
     {
-      "contribution": {"kind":"snapshot_reporting_participant","contribution_id":"snapshot_reporting.render_export","participant_id":"snapshot_reporting.render_export_v1","participant_contract_ref":"docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a","participant_contract_sha256":"e5b43d539a8ce0070b368d7c6fd06e643c6d3d78a4741d2ac687cc4307cdf8d1"},
+      "contribution": {"kind":"snapshot_reporting_participant","contribution_id":"snapshot_reporting.render_export","participant_id":"snapshot_reporting.render_export_v1","participant_contract_ref":"docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a","participant_contract_sha256":"d64b28a7242977afa5ebef50f50d4394e47559e196992eed237f07deaae6e1d7"},
       "fact_kind": "contribution",
       "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "snapshot_reporting",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "snapshot_reporting",
+        "job_kind": "snapshot_reporting.composition_preview_v1",
+        "operation_kind": "snapshot_reporting.composition_preview",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "snapshot_reporting",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "snapshot_reporting",
+        "job_kind": "snapshot_reporting.release_create_v1",
+        "operation_kind": "snapshot_reporting.release_create",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "release",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "snapshot_reporting",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "snapshot_reporting",
+        "job_kind": "snapshot_reporting.snapshot_create_v1",
+        "operation_kind": "snapshot_reporting.snapshot_create",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "snapshot",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
     },
     {
       "egress_contract_ref": null,
@@ -70,12 +136,18 @@
       "state_ownership": {
         "kind": "core_managed"
       }
+    },
+    {
+      "fact_kind": "worker_kind",
+      "profile_id": "snapshot_reporting",
+      "owner_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+      "worker_kind": "snapshot_reporting.job_worker_v1"
     }
   ],
   "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
   "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
-  "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
-  "owner_document_version": "1.1.0",
+  "owner_document_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
+  "owner_document_version": "1.1.1",
   "owner_fragment_id": "snapshot_reporting.participation.v1",
   "owner_id": "reporting",
   "schema_id": "cartulary.extension_owner_fragment.v1"

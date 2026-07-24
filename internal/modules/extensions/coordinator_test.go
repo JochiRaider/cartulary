@@ -99,6 +99,53 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	if len(jobKinds) != 10 || len(workerKinds) != 5 {
 		t.Fatalf("adoption identity totals = %d jobs/%d workers; want 10/5", len(jobKinds), len(workerKinds))
 	}
+	liveJobs := coordinator.JobKindContracts()
+	if len(liveJobs) != len(jobKinds) {
+		t.Fatalf("generated live job catalog = %d; want %d", len(liveJobs), len(jobKinds))
+	}
+	for _, liveJob := range liveJobs {
+		expectedProfile, ok := jobKinds[liveJob.JobKind]
+		if !ok || expectedProfile != liveJob.ProfileID {
+			t.Fatalf("unexpected live job contract %#v", liveJob)
+		}
+		foundOperation := false
+		for _, expectedJob := range adoption[liveJob.ProfileID] {
+			if expectedJob.jobKind == liveJob.JobKind && expectedJob.operationKind == liveJob.OperationKind {
+				foundOperation = true
+				break
+			}
+		}
+		if !foundOperation ||
+			liveJob.ProofPolicy != "required_on_terminal_success" ||
+			liveJob.IdempotencyPolicy != "required" ||
+			liveJob.CancellationPolicy != "precommit_observable" {
+			t.Fatalf("live job contract does not match adoption facts: %#v", liveJob)
+		}
+	}
+	allClaims, err := coordinator.ResolveClaims([]string{
+		"enterprise_authentication",
+		"import",
+		"incident_portability",
+		"network_flow_activity",
+		"reference_pack",
+		"snapshot_reporting",
+	})
+	if err != nil {
+		t.Fatalf("resolve complete claim set: %v", err)
+	}
+	plan, err := coordinator.BuildPublicationPlan(allClaims)
+	if err != nil {
+		t.Fatalf("build complete publication plan: %v", err)
+	}
+	liveWorkers := plan.Workers()
+	if len(liveWorkers) != len(workerKinds) {
+		t.Fatalf("generated live worker catalog = %d; want %d", len(liveWorkers), len(workerKinds))
+	}
+	for _, liveWorker := range liveWorkers {
+		if !workerKinds[liveWorker.WorkerKind] {
+			t.Fatalf("unexpected live worker %#v", liveWorker)
+		}
+	}
 	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable {
 		t.Fatalf("Network Flow regression profile = %#v/%t", networkFlow, ok)
 	}
@@ -116,6 +163,18 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	}
 	if participant == nil || participant.OwnerProfileID != "snapshot_reporting" {
 		t.Fatalf("Snapshot/Reporting participant identity = %#v", participant)
+	}
+	if participant.ContractKind != "cartulary.extension_participant_specialization.v1" ||
+		participant.InputSchemaID != "cartulary.extension_snapshot_reporting_participant_context.v1" ||
+		!reflect.DeepEqual(participant.AlgorithmIDs, []string{
+			"materialize_reporting_export_model_v1",
+			"snapshot_reporting.render_export_v1",
+		}) ||
+		len(participant.Operations) != 1 ||
+		participant.Operations[0].OperationKind != "emit" ||
+		participant.Operations[0].ResultSchemaID != "cartulary.extension_snapshot_reporting_participant_result.v1" ||
+		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v1" {
+		t.Fatalf("Snapshot/Reporting participant specialization = %#v", participant)
 	}
 }
 

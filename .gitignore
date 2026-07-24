@@ -67,6 +67,8 @@ go.work.sum
 # Monorepo / workspace outputs
 node_modules/
 build/
+!contracts/extensions/build/
+!contracts/extensions/build/*.json
 dist/
 out/
 coverage/

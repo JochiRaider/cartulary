@@ -72,6 +72,8 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 		return validateExtensionBindingSources(object)
 	case "cartulary.extension_participant_contract.v1":
 		return validateExtensionParticipantContract(object, relativePath)
+	case "cartulary.extension_participant_specialization.v1":
+		return validateExtensionParticipantSpecialization(object, relativePath)
 	case "cartulary.extension_transaction_participant_contract.v1":
 		return validateExtensionTransactionParticipantContract(object, relativePath)
 	case "cartulary.extension_physical_state_binding.v1":
@@ -176,7 +178,7 @@ func validateExtensionBindingSources(object map[string]any) error {
 	}
 	for index, binding := range bindings {
 		label := fmt.Sprintf("implementation binding sources[%d]", index)
-		if err := requireAllowedKeys(binding, stringSet("profile_id", "contract_major", "implementation_id", "state_ownership_kind", "implemented_contribution_ids", "algorithm_ids", "participant_implementations"), label); err != nil {
+		if err := requireAllowedKeys(binding, stringSet("profile_id", "contract_major", "implementation_id", "state_ownership_kind", "implemented_contribution_ids", "implemented_job_kinds", "implemented_worker_kinds", "algorithm_ids", "participant_implementations"), label); err != nil {
 			return err
 		}
 		profileID, err := requiredString(binding, "profile_id", label)
@@ -195,7 +197,7 @@ func validateExtensionBindingSources(object map[string]any) error {
 		if kind := binding["state_ownership_kind"]; kind != "none" && kind != "core_managed" && kind != "extension_versioned" {
 			return fmt.Errorf("%s.state_ownership_kind is invalid", label)
 		}
-		for _, key := range []string{"implemented_contribution_ids", "algorithm_ids"} {
+		for _, key := range []string{"implemented_contribution_ids", "implemented_job_kinds", "implemented_worker_kinds", "algorithm_ids"} {
 			values, err := sortedUniqueStringArray(binding[key], label+"."+key, true)
 			if err != nil {
 				return err
@@ -232,6 +234,105 @@ func validateExtensionBindingSources(object map[string]any) error {
 			if err != nil || len(algorithms) == 0 || len(algorithms) > 16 {
 				return fmt.Errorf("%s.algorithm_ids must contain 1..16 sorted unique values", participantLabel)
 			}
+		}
+	}
+	return nil
+}
+
+func validateExtensionParticipantSpecialization(object map[string]any, relativePath string) error {
+	if err := requireAllowedKeys(object, stringSet(
+		"schema_id", "profile_id", "participant_id", "participant_kind",
+		"shared_context_schema_id", "operations",
+	), relativePath); err != nil {
+		return err
+	}
+	profileID, err := requiredString(object, "profile_id", relativePath)
+	if err != nil {
+		return err
+	}
+	participantID, err := requiredString(object, "participant_id", relativePath)
+	if err != nil || !strings.HasPrefix(participantID, profileID+".") {
+		return fmt.Errorf("%s.participant_id must use the profile prefix", relativePath)
+	}
+	participantKind, err := requiredString(object, "participant_kind", relativePath)
+	if err != nil {
+		return err
+	}
+	contextByKind := map[string]string{
+		"incident_portability": "cartulary.extension_portability_participant_context.v1",
+		"snapshot_reporting":   "cartulary.extension_snapshot_reporting_participant_context.v1",
+		"backup_restore":       "cartulary.extension_backup_restore_participant_context.v1",
+	}
+	expectedContext, recognized := contextByKind[participantKind]
+	if !recognized || object["shared_context_schema_id"] != expectedContext {
+		return fmt.Errorf("%s has an invalid participant kind or shared context schema", relativePath)
+	}
+	resultByKindAndOperation := map[string]map[string]string{
+		"incident_portability": {
+			"export": "cartulary.extension_portability_export_result.v1",
+			"import": "cartulary.extension_portability_import_preparation_result.v1",
+		},
+		"snapshot_reporting": {
+			"emit": "cartulary.extension_snapshot_reporting_participant_result.v1",
+		},
+		"backup_restore": {
+			"backup_enumerate": "cartulary.extension_backup_restore_participant_result.v1",
+			"restore_rebuild":  "cartulary.extension_backup_restore_participant_result.v1",
+			"restore_validate": "cartulary.extension_backup_restore_participant_result.v1",
+		},
+	}
+	operations, err := objectArray(object["operations"], relativePath+".operations")
+	if err != nil || len(operations) != len(resultByKindAndOperation[participantKind]) {
+		return fmt.Errorf("%s.operations must contain the exact operation set", relativePath)
+	}
+	previous := ""
+	for index, operation := range operations {
+		label := fmt.Sprintf("%s.operations[%d]", relativePath, index)
+		if err := requireAllowedKeys(operation, stringSet(
+			"operation_kind", "result_schema_id", "algorithm_id", "output_schema_id",
+			"ordering_algorithm_id", "authorization_contract_ref", "redaction_contract_ref",
+			"error_contract_ref", "state_family_ids", "max_input_bytes", "max_output_bytes",
+			"max_items",
+		), label); err != nil {
+			return err
+		}
+		operationKind, err := requiredString(operation, "operation_kind", label)
+		if err != nil || (previous != "" && previous >= operationKind) {
+			return fmt.Errorf("%s operation identities must be sorted and unique", relativePath)
+		}
+		previous = operationKind
+		if operation["result_schema_id"] != resultByKindAndOperation[participantKind][operationKind] {
+			return fmt.Errorf("%s.result_schema_id does not match the participant operation", label)
+		}
+		for _, key := range []string{
+			"algorithm_id", "output_schema_id", "ordering_algorithm_id",
+			"authorization_contract_ref", "error_contract_ref",
+		} {
+			if _, err := requiredString(operation, key, label); err != nil {
+				return err
+			}
+		}
+		if participantKind == "snapshot_reporting" && operationKind == "emit" {
+			if _, err := requiredString(operation, "redaction_contract_ref", label); err != nil {
+				return err
+			}
+		} else if operation["redaction_contract_ref"] != nil {
+			return fmt.Errorf("%s.redaction_contract_ref must be null", label)
+		}
+		if _, err := sortedUniqueStringArray(operation["state_family_ids"], label+".state_family_ids", true); err != nil {
+			return err
+		}
+		inputBytes, err := positiveJSONInt(operation["max_input_bytes"], label+".max_input_bytes")
+		if err != nil || inputBytes > 67108864 {
+			return fmt.Errorf("%s.max_input_bytes must be in 1..67108864", label)
+		}
+		outputBytes, err := nonnegativeJSONInt(operation["max_output_bytes"], label+".max_output_bytes")
+		if err != nil || outputBytes > 67108864 {
+			return fmt.Errorf("%s.max_output_bytes must be in 0..67108864", label)
+		}
+		items, err := nonnegativeJSONInt(operation["max_items"], label+".max_items")
+		if err != nil || items > 1048576 {
+			return fmt.Errorf("%s.max_items must be in 0..1048576", label)
 		}
 	}
 	return nil
@@ -393,7 +494,7 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 	if err := requireAllowedKeys(object, allowed, "extension dependency declarations"); err != nil {
 		return err
 	}
-	if object["extensions_document_version"] != "0.6.1" {
+	if object["extensions_document_version"] != "0.6.2" {
 		return fmt.Errorf("extension dependency declarations have stale extensions_document_version")
 	}
 	dependencies, err := objectArray(object["dependencies"], "dependencies")
@@ -549,6 +650,88 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 		}
 		if fact["fact_kind"] == "capability" {
 			return fmt.Errorf("%s capability facts are prohibited in contract major 1", label)
+		}
+		switch fact["fact_kind"] {
+		case "job_kind":
+			contract, ok := fact["job_kind_contract"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("%s.job_kind_contract must be an object", label)
+			}
+			if err := validateExtensionJobKindContract(contract, stringValue(fact["profile_id"]), label+".job_kind_contract"); err != nil {
+				return err
+			}
+		case "worker_kind":
+			workerKind, err := requiredString(fact, "worker_kind", label)
+			if err != nil || !strings.HasPrefix(workerKind, stringValue(fact["profile_id"])+".") {
+				return fmt.Errorf("%s.worker_kind must use the profile prefix", label)
+			}
+		}
+	}
+	return nil
+}
+
+func validateExtensionJobKindContract(object map[string]any, profileID, label string) error {
+	if err := requireAllowedKeys(object, stringSet(
+		"schema_id", "profile_id", "job_kind", "operation_kind", "proof_policy",
+		"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
+		"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
+	), label); err != nil {
+		return err
+	}
+	if object["schema_id"] != "cartulary.extension_job_kind_contract.v1" || object["profile_id"] != profileID {
+		return fmt.Errorf("%s must bind the extension job schema and owner profile", label)
+	}
+	for _, key := range []string{"job_kind", "operation_kind", "idempotency_identity_schema_id", "terminal_result_schema_id"} {
+		if _, err := requiredString(object, key, label); err != nil {
+			return err
+		}
+	}
+	if !strings.HasPrefix(stringValue(object["job_kind"]), profileID+".") ||
+		!strings.HasPrefix(stringValue(object["operation_kind"]), profileID+".") {
+		return fmt.Errorf("%s job and operation identities must use the profile prefix", label)
+	}
+	if object["proof_policy"] != "required_on_terminal_success" ||
+		object["idempotency_policy"] != "required" ||
+		object["cancellation_policy"] != "precommit_observable" {
+		return fmt.Errorf("%s must use the canonical proof, idempotency, and cancellation policies", label)
+	}
+	if object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v1" ||
+		object["terminal_result_schema_id"] != "cartulary.common_job_terminal_success.v1" {
+		return fmt.Errorf("%s must use the Core common-job schemas", label)
+	}
+	proofBytes, err := positiveJSONInt(object["max_proof_bytes"], label+".max_proof_bytes")
+	if err != nil || proofBytes > 1048576 {
+		return fmt.Errorf("%s.max_proof_bytes must be in 1..1048576", label)
+	}
+	rawResourceRefs, ok := object["resource_ref_contracts"].([]any)
+	if !ok || len(rawResourceRefs) > 64 {
+		return fmt.Errorf("%s.resource_ref_contracts must contain 0..64 rows", label)
+	}
+	resourceRefs := make([]map[string]any, len(rawResourceRefs))
+	for index, rawResourceRef := range rawResourceRefs {
+		resourceRef, ok := rawResourceRef.(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s.resource_ref_contracts[%d] must be an object", label, index)
+		}
+		resourceRefs[index] = resourceRef
+	}
+	previous := ""
+	for index, resourceRef := range resourceRefs {
+		rowLabel := fmt.Sprintf("%s.resource_ref_contracts[%d]", label, index)
+		if err := requireAllowedKeys(resourceRef, stringSet("resource_ref_kind", "resource_id_schema_id", "max_refs"), rowLabel); err != nil {
+			return err
+		}
+		kind, err := requiredString(resourceRef, "resource_ref_kind", rowLabel)
+		if err != nil || (previous != "" && previous >= kind) {
+			return fmt.Errorf("%s resource reference kinds must be sorted and unique", label)
+		}
+		previous = kind
+		if resourceRef["resource_id_schema_id"] != "cartulary.common_job_resource_ref_id.v1" {
+			return fmt.Errorf("%s must use the Core resource-reference identity schema", rowLabel)
+		}
+		maxRefs, err := positiveJSONInt(resourceRef["max_refs"], rowLabel+".max_refs")
+		if err != nil || maxRefs > 1024 {
+			return fmt.Errorf("%s.max_refs must be in 1..1024", rowLabel)
 		}
 	}
 	return nil
@@ -881,9 +1064,30 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 	participantDigests := map[string]string{}
 	codecsByID := map[string]map[string]any{}
 	statePresenceByProfile := map[string]map[string]any{}
+	schemaIDs := map[string]struct{}{}
+	algorithmIDs := map[string]struct{}{}
+	ownerRefs := map[string]struct{}{}
+	definitionSet := indexed["specification/contract-definitions.json"]
+	definitions, _ := objectArray(definitionSet["definitions"], "extension contract definitions")
+	for _, definition := range definitions {
+		schemaIDs[stringValue(definition["schema_id"])] = struct{}{}
+	}
+	dependencies := indexed["dependencies.json"]
+	dependencyRows, _ := objectArray(dependencies["dependencies"], "extension dependencies")
+	for _, dependency := range dependencyRows {
+		for _, schemaID := range anyToStrings(dependency["imported_schema_ids"]) {
+			schemaIDs[schemaID] = struct{}{}
+		}
+		for _, algorithmID := range anyToStrings(dependency["imported_algorithm_ids"]) {
+			algorithmIDs[algorithmID] = struct{}{}
+		}
+		for _, ownerRef := range anyToStrings(dependency["imported_anchor_refs"]) {
+			ownerRefs[ownerRef] = struct{}{}
+		}
+	}
 	for _, object := range indexed {
 		switch object["schema_id"] {
-		case "cartulary.extension_participant_contract.v1", "cartulary.extension_transaction_participant_contract.v1":
+		case "cartulary.extension_participant_contract.v1", "cartulary.extension_participant_specialization.v1", "cartulary.extension_transaction_participant_contract.v1":
 			participantID := stringValue(object["participant_id"])
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -893,6 +1097,33 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 				return fmt.Errorf("duplicate participant contract %s", participantID)
 			}
 			participantDigests[participantID] = digest
+			if object["schema_id"] == "cartulary.extension_participant_specialization.v1" {
+				if _, exists := schemaIDs[stringValue(object["shared_context_schema_id"])]; !exists {
+					return fmt.Errorf("participant %s has unresolved shared context schema", participantID)
+				}
+				operations, _ := objectArray(object["operations"], "participant specialization operations")
+				for _, operation := range operations {
+					for _, key := range []string{"result_schema_id", "output_schema_id"} {
+						if _, exists := schemaIDs[stringValue(operation[key])]; !exists {
+							return fmt.Errorf("participant %s has unresolved %s", participantID, key)
+						}
+					}
+					for _, key := range []string{"algorithm_id", "ordering_algorithm_id"} {
+						if _, exists := algorithmIDs[stringValue(operation[key])]; !exists {
+							return fmt.Errorf("participant %s has unresolved %s", participantID, key)
+						}
+					}
+					for _, key := range []string{"authorization_contract_ref", "redaction_contract_ref", "error_contract_ref"} {
+						ref := stringValue(operation[key])
+						if ref == "" && key == "redaction_contract_ref" {
+							continue
+						}
+						if _, exists := ownerRefs[ref]; !exists {
+							return fmt.Errorf("participant %s has unresolved %s", participantID, key)
+						}
+					}
+				}
+			}
 		case "cartulary.extension_backup_binding_codec.v1":
 			codecID := stringValue(object["backup_codec_id"])
 			if _, duplicate := codecsByID[codecID]; duplicate {
@@ -911,6 +1142,9 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 		}
 		facts, _ := objectArray(object["facts"], "owner fragment facts")
 		for _, fact := range facts {
+			if _, exists := ownerRefs[stringValue(fact["owner_contract_ref"])]; !exists {
+				return fmt.Errorf("owner fact has unresolved owner contract ref %s", fact["owner_contract_ref"])
+			}
 			if fact["fact_kind"] != "contribution" {
 				continue
 			}

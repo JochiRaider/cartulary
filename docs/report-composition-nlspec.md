@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.report_composition_nlspec.v1
-document_version: 1.1.0
+document_version: 1.1.1
 ---
 
 # 1. Status, Scope, And Authority
@@ -867,7 +867,16 @@ Validation codes MUST use Table 12-E. A conforming implementation MAY add non-no
 Report Composition consumes no generic Extensions transaction, portability,
 backup/restore, Snapshot/Reporting participant, state-presence, or capability
 interface. Its authoring and validation boundaries remain those defined by this
-NLSpec. Every composition schema-validation rule MUST nevertheless carry its
+NLSpec. For an authoritative preview, Report Composition materializes and
+persists the exact `cartulary.report_composition_preview_source.v1`, then
+admits `snapshot_reporting.composition_preview_v1` through a narrow
+Reporting-owned transactional port. Reporting alone dequeues that job, renders
+it as `internal_draft`, and commits its terminal job result and proof. The
+composition owner MUST NOT invoke the extension participant, renderer, or
+common-job store directly. A preview source MUST never be admitted as approval,
+external-release, publication, or release-bundle evidence.
+
+Every composition schema-validation rule MUST nevertheless carry its
 complete condition annotation, and every procedural composition validator MUST
 publish a closed decision table for the generated Extensions
 validation-condition registry. A reachable undeclared condition, an extra or

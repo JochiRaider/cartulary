@@ -89,6 +89,8 @@ func TestValidateExtensionBindingSourcesRejectsUnsortedContributions(t *testing.
 			"implementation_id":            "cartulary." + profileID + ".v1",
 			"state_ownership_kind":         "core_managed",
 			"implemented_contribution_ids": []any{},
+			"implemented_job_kinds":        []any{},
+			"implemented_worker_kinds":     []any{},
 			"algorithm_ids":                []any{},
 			"participant_implementations":  []any{},
 		})
@@ -117,6 +119,31 @@ func TestValidateExtensionParticipantContractEnforcesAggregateCeiling(t *testing
 		"algorithm_ids":            []any{"test.prepare_v1"},
 	}
 	requireErrorContains(t, validateExtensionParticipantContract(contract, "participant.json"), "maximum_input_bytes must be in 1..67108864")
+}
+
+func TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult(t *testing.T) {
+	contract := map[string]any{
+		"schema_id":                "cartulary.extension_participant_specialization.v1",
+		"profile_id":               "snapshot_reporting",
+		"participant_id":           "snapshot_reporting.render_export_v1",
+		"participant_kind":         "snapshot_reporting",
+		"shared_context_schema_id": "cartulary.extension_snapshot_reporting_participant_context.v1",
+		"operations": []any{map[string]any{
+			"operation_kind":             "emit",
+			"result_schema_id":           "cartulary.obsolete_snapshot_reporting_result.v1",
+			"algorithm_id":               "snapshot_reporting.render_export_v1",
+			"output_schema_id":           "cartulary.reporting_export_model.v1",
+			"ordering_algorithm_id":      "materialize_reporting_export_model_v1",
+			"authorization_contract_ref": "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
+			"redaction_contract_ref":     "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-059a",
+			"error_contract_ref":         "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-114",
+			"state_family_ids":           []any{},
+			"max_input_bytes":            json.Number("67108864"),
+			"max_output_bytes":           json.Number("67108864"),
+			"max_items":                  json.Number("1048576"),
+		}},
+	}
+	requireErrorContains(t, validateExtensionParticipantSpecialization(contract, "participant.json"), "result_schema_id does not match")
 }
 
 func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
@@ -150,6 +177,16 @@ func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
 		generatedExtensionPrefix + "registry-integrity.json",
 		generatedExtensionPrefix + "validation-condition-registry.json",
 		generatedExtensionPrefix + "implementation-bindings/network_flow_activity.json",
+		generatedExtensionPrefix + "job-contracts/import/import.apply_v1.json",
+		generatedExtensionPrefix + "job-contracts/import/import.discovery_v1.json",
+		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.export_v1.json",
+		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.import_v1.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.import_v1.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.refresh_v1.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.reverify_v1.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.composition_preview_v1.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.release_create_v1.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.snapshot_create_v1.json",
 	} {
 		if _, exists := seen[requiredPath]; !exists {
 			t.Fatalf("missing generated artifact %s", requiredPath)
@@ -201,7 +238,7 @@ func validExtensionDependencyDeclarationSet() map[string]any {
 	}
 	return map[string]any{
 		"schema_id":                   "cartulary.extension_dependency_declaration_set.v1",
-		"extensions_document_version": "0.6.1",
+		"extensions_document_version": "0.6.2",
 		"dependencies":                rows,
 	}
 }

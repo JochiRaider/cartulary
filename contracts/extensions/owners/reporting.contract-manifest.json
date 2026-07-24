@@ -3,15 +3,15 @@
     {
       "anchor_id": "cartulary.reporting_subsystem_nlspec.v1",
       "anchor_kind": "document",
-      "anchor_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
+      "anchor_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
       "closure_categories": [],
-      "end_byte": 312573,
+      "end_byte": 314525,
       "start_byte": 0
     },
     {
       "anchor_id": "REQ-RPT-019a",
       "anchor_kind": "req",
-      "anchor_sha256": "e1b5aa3d13e24103d4f9aa42cfa6631686ddd9cb4e44af8af3fe0a4ebd138187",
+      "anchor_sha256": "73a7008fbd006f00f81f8223d6fc0293eaccb54f494f4daeee6341b97439bf62",
       "closure_categories": [
         "authorization",
         "conformance_evidence",
@@ -22,7 +22,7 @@
         "security_secrets_egress",
         "snapshot_reporting"
       ],
-      "end_byte": 21034,
+      "end_byte": 22986,
       "start_byte": 19681
     },
     {
@@ -36,23 +36,95 @@
         "scalar_collection_bounds",
         "security_secrets_egress"
       ],
-      "end_byte": 21835,
-      "start_byte": 21036
+      "end_byte": 23787,
+      "start_byte": 22988
+    },
+    {
+      "anchor_id": "REQ-RPT-039",
+      "anchor_kind": "req",
+      "anchor_sha256": "bc74125c0bd012573ffbfcab5a006f597e11f918991e136a67315e3741ce810d",
+      "closure_categories": [
+        "identity_canonicalization_ordering",
+        "request_response_schemas",
+        "scalar_collection_bounds"
+      ],
+      "end_byte": 69366,
+      "start_byte": 66385
+    },
+    {
+      "anchor_id": "REQ-RPT-053",
+      "anchor_kind": "req",
+      "anchor_sha256": "5eb45755d662872f016e46405ff9d43131f764d6958f1e3a0a40a2fba3c72f9a",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "identity_canonicalization_ordering",
+        "snapshot_reporting"
+      ],
+      "end_byte": 101252,
+      "start_byte": 98906
+    },
+    {
+      "anchor_id": "REQ-RPT-059a",
+      "anchor_kind": "req",
+      "anchor_sha256": "47a2384689a0cb71715f63f6895c3d6a7d72b054d7dc0789aebbddcaafdb05bc",
+      "closure_categories": [
+        "authorization",
+        "errors_precedence_retry",
+        "security_secrets_egress",
+        "snapshot_reporting"
+      ],
+      "end_byte": 111003,
+      "start_byte": 109693
+    },
+    {
+      "anchor_id": "REQ-RPT-114",
+      "anchor_kind": "req",
+      "anchor_sha256": "086c266e35eee3532c1a487753d5741084f6d27a9a380358cee2192a9b43d4c0",
+      "closure_categories": [
+        "errors_precedence_retry",
+        "request_response_schemas"
+      ],
+      "end_byte": 232989,
+      "start_byte": 231645
+    },
+    {
+      "anchor_id": "cartulary.reporting_export_model.v1",
+      "anchor_kind": "schema",
+      "anchor_sha256": "bc74125c0bd012573ffbfcab5a006f597e11f918991e136a67315e3741ce810d",
+      "closure_categories": [],
+      "end_byte": 69366,
+      "start_byte": 66385
+    },
+    {
+      "anchor_id": "materialize_reporting_export_model_v1",
+      "anchor_kind": "algorithm",
+      "anchor_sha256": "5eb45755d662872f016e46405ff9d43131f764d6958f1e3a0a40a2fba3c72f9a",
+      "closure_categories": [],
+      "end_byte": 101252,
+      "start_byte": 98906
+    },
+    {
+      "anchor_id": "snapshot_reporting.render_export_v1",
+      "anchor_kind": "algorithm",
+      "anchor_sha256": "73a7008fbd006f00f81f8223d6fc0293eaccb54f494f4daeee6341b97439bf62",
+      "closure_categories": [],
+      "end_byte": 22986,
+      "start_byte": 19681
     }
   ],
   "owner_contract_manifest_id": "reporting.extensions_contract.v1",
   "owner_document": {
-    "byte_length": 312573,
+    "byte_length": 314525,
     "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
     "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
-    "owner_document_sha256": "72f8948f5492264a198a6ffdfe3ec9c7bce820917361d728d400bafc9a139bc1",
-    "owner_document_version": "1.1.0"
+    "owner_document_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
+    "owner_document_version": "1.1.1"
   },
   "owner_fragments": [
     {
       "owner_fragment_id": "snapshot_reporting.participation.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/snapshot_reporting.participation.json",
-      "owner_fragment_sha256": "0a6e6c65bdb1c5fe698fca1e10104e7825d13abe9199f52bcfda0258726a25e6"
+      "owner_fragment_sha256": "77c25ed49994ed3f79e33499076313f7a26010957bacffec351424a0a8385095"
     }
   ],
   "owner_id": "reporting",

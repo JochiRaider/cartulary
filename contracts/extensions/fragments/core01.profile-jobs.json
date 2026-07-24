@@ -1,0 +1,208 @@
+{
+  "schema_id": "cartulary.extension_owner_fragment.v1",
+  "owner_fragment_id": "core01.extension_profile_jobs.v1",
+  "owner_id": "core01",
+  "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
+  "owner_document_schema_id": "cartulary.core01.current.v1",
+  "owner_document_version": "extensions-adoption-1",
+  "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
+  "facts": [
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "import",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "import",
+        "job_kind": "import.apply_v1",
+        "operation_kind": "import.apply",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "import_session",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          },
+          {
+            "resource_ref_kind": "network_flow_table",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1023
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "import",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "import",
+        "job_kind": "import.discovery_v1",
+        "operation_kind": "import.discovery",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "import_session",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "worker_kind",
+      "profile_id": "import",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "worker_kind": "import.apply_worker_v1"
+    },
+    {
+      "fact_kind": "worker_kind",
+      "profile_id": "import",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "worker_kind": "import.discovery_worker_v1"
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "incident_portability",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "incident_portability",
+        "job_kind": "incident_portability.export_v1",
+        "operation_kind": "incident_portability.export",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "incident_bundle",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "incident_portability",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "incident_portability",
+        "job_kind": "incident_portability.import_v1",
+        "operation_kind": "incident_portability.import",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "incident",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "worker_kind",
+      "profile_id": "incident_portability",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "worker_kind": "incident_portability.bundle_worker_v1"
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "reference_pack",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "reference_pack",
+        "job_kind": "reference_pack.import_v1",
+        "operation_kind": "reference_pack.import",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "reference_pack_version",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "reference_pack",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "reference_pack",
+        "job_kind": "reference_pack.refresh_v1",
+        "operation_kind": "reference_pack.refresh",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "reference_pack_version",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1024
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "job_kind",
+      "profile_id": "reference_pack",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "job_kind_contract": {
+        "schema_id": "cartulary.extension_job_kind_contract.v1",
+        "profile_id": "reference_pack",
+        "job_kind": "reference_pack.reverify_v1",
+        "operation_kind": "reference_pack.reverify",
+        "proof_policy": "required_on_terminal_success",
+        "idempotency_policy": "required",
+        "idempotency_identity_schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+        "terminal_result_schema_id": "cartulary.common_job_terminal_success.v1",
+        "resource_ref_contracts": [
+          {
+            "resource_ref_kind": "reference_pack_version",
+            "resource_id_schema_id": "cartulary.common_job_resource_ref_id.v1",
+            "max_refs": 1
+          }
+        ],
+        "cancellation_policy": "precommit_observable",
+        "max_proof_bytes": 1048576
+      }
+    },
+    {
+      "fact_kind": "worker_kind",
+      "profile_id": "reference_pack",
+      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
+      "worker_kind": "reference_pack.lifecycle_worker_v1"
+    }
+  ]
+}

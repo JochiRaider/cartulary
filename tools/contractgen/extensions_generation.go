@@ -62,7 +62,7 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 		"profiles":  objectsToAny(descriptors),
 	}
 
-	bindings, err := materializeExtensionBindings(indexed, descriptors, descriptorDigest)
+	bindings, err := materializeExtensionBindings(indexed, descriptors, descriptorDigest, factsByProfile)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +110,13 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 	for _, binding := range bindings {
 		if err := appendGenerated("implementation-bindings/"+binding["profile_id"].(string)+".json", binding); err != nil {
 			return nil, err
+		}
+	}
+	for _, profileID := range requiredExtensionProfiles {
+		for _, contract := range extensionJobKindContracts(factsByProfile[profileID]) {
+			if err := appendGenerated("job-contracts/"+profileID+"/"+stringValue(contract["job_kind"])+".json", contract); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := appendGenerated("state-registry.json", stateRegistry); err != nil {
@@ -467,7 +474,7 @@ func extensionContributionStrings(contributions []map[string]any, kind, key stri
 	return values
 }
 
-func materializeExtensionBindings(indexed map[string]map[string]any, descriptors []map[string]any, descriptorDigests map[string]string) ([]map[string]any, error) {
+func materializeExtensionBindings(indexed map[string]map[string]any, descriptors []map[string]any, descriptorDigests map[string]string, factsByProfile map[string][]map[string]any) ([]map[string]any, error) {
 	source := indexed["build/implementation-bindings.json"]
 	rawSources, err := objectArray(source["bindings"], "implementation binding sources")
 	if err != nil {
@@ -480,7 +487,9 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 	}
 	participantContracts := map[string]map[string]any{}
 	for _, object := range indexed {
-		if object["schema_id"] == "cartulary.extension_participant_contract.v1" || object["schema_id"] == "cartulary.extension_transaction_participant_contract.v1" {
+		if object["schema_id"] == "cartulary.extension_participant_contract.v1" ||
+			object["schema_id"] == "cartulary.extension_participant_specialization.v1" ||
+			object["schema_id"] == "cartulary.extension_transaction_participant_contract.v1" {
 			participantContracts[stringValue(object["participant_id"])] = object
 		}
 	}
@@ -519,6 +528,9 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 					return nil, fmt.Errorf("profile %s participant %s digest is stale", profileID, participantID)
 				}
 				algorithmIDs := anyToStrings(contract["algorithm_ids"])
+				if contract["schema_id"] == "cartulary.extension_participant_specialization.v1" {
+					algorithmIDs = extensionSpecializationAlgorithmIDs(contract)
+				}
 				if contract["schema_id"] == "cartulary.extension_transaction_participant_contract.v1" {
 					algorithmIDs = []string{
 						stringValue(contract["prepare_algorithm_id"]),
@@ -541,6 +553,25 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 		sort.Slice(participantBindings, func(i, j int) bool {
 			return participantBindings[i]["participant_id"].(string) < participantBindings[j]["participant_id"].(string)
 		})
+		rawParticipantSources, ok := bindingSource["participant_implementations"].([]any)
+		if !ok || len(rawParticipantSources) != len(participantBindings) {
+			return nil, fmt.Errorf("profile %s implementation participant set is incomplete or extra", profileID)
+		}
+		participantSources := make([]map[string]any, len(rawParticipantSources))
+		for index, rawParticipantSource := range rawParticipantSources {
+			participantSource, ok := rawParticipantSource.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("profile %s participant implementation source must be an object", profileID)
+			}
+			participantSources[index] = participantSource
+		}
+		for index, participantBinding := range participantBindings {
+			participantSource := participantSources[index]
+			if participantSource["participant_id"] != participantBinding["participant_id"] ||
+				!equalStringAny(anyToStrings(participantBinding["algorithm_ids"]), participantSource["algorithm_ids"]) {
+				return nil, fmt.Errorf("profile %s participant implementation binding is incomplete or extra", profileID)
+			}
+		}
 
 		state := descriptor["state_ownership"].(map[string]any)
 		var initializationDigest any
@@ -623,6 +654,13 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 		for _, algorithmID := range anyToStrings(bindingSource["algorithm_ids"]) {
 			implementedAlgorithms[algorithmID] = struct{}{}
 		}
+		for _, participant := range participantBindings {
+			for _, algorithmID := range anyToStrings(participant["algorithm_ids"]) {
+				if _, ok := implementedAlgorithms[algorithmID]; !ok {
+					return nil, fmt.Errorf("profile %s implementation omits participant algorithm %s", profileID, algorithmID)
+				}
+			}
+		}
 		for _, requiredAlgorithm := range []any{initializationAlgorithmID, finalValidation} {
 			if requiredAlgorithm == nil {
 				continue
@@ -644,7 +682,18 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 		for _, rawProbe := range admission["dependency_probes"].([]any) {
 			dependencyProbeIDs = append(dependencyProbeIDs, stringValue(rawProbe.(map[string]any)["probe_id"]))
 		}
-		workerKinds := []string{}
+		workerKinds := extensionFactStringsByKind(factsByProfile[profileID], "worker_kind", "worker_kind")
+		jobContracts := extensionJobKindContracts(factsByProfile[profileID])
+		jobKinds := make([]string, len(jobContracts))
+		for index, contract := range jobContracts {
+			jobKinds[index] = stringValue(contract["job_kind"])
+		}
+		if !equalStringAny(workerKinds, bindingSource["implemented_worker_kinds"]) {
+			return nil, fmt.Errorf("profile %s implementation worker set is incomplete or extra", profileID)
+		}
+		if !equalStringAny(jobKinds, bindingSource["implemented_job_kinds"]) {
+			return nil, fmt.Errorf("profile %s implementation job set is incomplete or extra", profileID)
+		}
 		bindings = append(bindings, map[string]any{
 			"schema_id":                           "cartulary.extension_implementation_binding.v1",
 			"profile_id":                          profileID,
@@ -671,13 +720,56 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 				"result_bytes":                       1048576,
 				"validation_findings":                256,
 			},
-			"supporting_schema_ids": stringsToAny(extensionSupportingSchemas(profileID, indexed, participantBindings)),
+			"supporting_schema_ids": stringsToAny(extensionSupportingSchemas(profileID, indexed, participantBindings, jobContracts)),
 			"worker_kinds":          stringsToAny(workerKinds),
-			"job_kind_contracts":    []any{},
+			"job_kind_contracts":    objectsToAny(jobContracts),
 			"participant_contracts": objectsToAny(participantBindings),
 		})
 	}
 	return bindings, nil
+}
+
+func extensionFactStringsByKind(facts []map[string]any, factKind, key string) []string {
+	values := []string{}
+	for _, fact := range facts {
+		if fact["fact_kind"] == factKind {
+			values = append(values, stringValue(fact[key]))
+		}
+	}
+	sort.Strings(values)
+	return values
+}
+
+func extensionJobKindContracts(facts []map[string]any) []map[string]any {
+	contracts := []map[string]any{}
+	for _, fact := range facts {
+		if fact["fact_kind"] != "job_kind" {
+			continue
+		}
+		if contract, ok := fact["job_kind_contract"].(map[string]any); ok {
+			contracts = append(contracts, cloneObject(contract))
+		}
+	}
+	sortObjectRows(contracts, "job_kind")
+	return contracts
+}
+
+func extensionSpecializationAlgorithmIDs(contract map[string]any) []string {
+	set := map[string]struct{}{}
+	operations, _ := objectArray(contract["operations"], "participant specialization operations")
+	for _, operation := range operations {
+		for _, key := range []string{"algorithm_id", "ordering_algorithm_id"} {
+			if algorithmID := stringValue(operation[key]); algorithmID != "" {
+				set[algorithmID] = struct{}{}
+			}
+		}
+	}
+	values := make([]string, 0, len(set))
+	for value := range set {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+	return values
 }
 
 func extensionContributionNeedsBinding(kind string) bool {
@@ -802,7 +894,9 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 	participantRows := []map[string]any{}
 	for _, contract := range indexed {
 		schemaID := stringValue(contract["schema_id"])
-		if schemaID != "cartulary.extension_participant_contract.v1" && schemaID != "cartulary.extension_transaction_participant_contract.v1" {
+		if schemaID != "cartulary.extension_participant_contract.v1" &&
+			schemaID != "cartulary.extension_participant_specialization.v1" &&
+			schemaID != "cartulary.extension_transaction_participant_contract.v1" {
 			continue
 		}
 		digest, err := extensionCanonicalDigest(contract)
@@ -849,7 +943,7 @@ func extensionAlgorithmID(value any) any {
 	return parts[1]
 }
 
-func extensionSupportingSchemas(profileID string, indexed map[string]map[string]any, participants []map[string]any) []string {
+func extensionSupportingSchemas(profileID string, indexed map[string]map[string]any, participants []map[string]any, jobContracts []map[string]any) []string {
 	set := map[string]struct{}{}
 	for _, object := range indexed {
 		if object["profile_id"] != profileID {
@@ -858,8 +952,31 @@ func extensionSupportingSchemas(profileID string, indexed map[string]map[string]
 		if schemaID, ok := object["schema_id"].(string); ok {
 			set[schemaID] = struct{}{}
 		}
-		for _, key := range []string{"context_schema_id", "result_schema_id"} {
+		for _, key := range []string{"context_schema_id", "result_schema_id", "shared_context_schema_id"} {
 			if schemaID, ok := object[key].(string); ok {
+				set[schemaID] = struct{}{}
+			}
+		}
+		if operations, ok := object["operations"].([]any); ok {
+			for _, rawOperation := range operations {
+				operation, _ := rawOperation.(map[string]any)
+				for _, key := range []string{"result_schema_id", "output_schema_id"} {
+					if schemaID, ok := operation[key].(string); ok {
+						set[schemaID] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	for _, contract := range jobContracts {
+		for _, key := range []string{"schema_id", "idempotency_identity_schema_id", "terminal_result_schema_id"} {
+			if schemaID, ok := contract[key].(string); ok {
+				set[schemaID] = struct{}{}
+			}
+		}
+		resourceRefs, _ := objectArray(contract["resource_ref_contracts"], "job resource reference contracts")
+		for _, resourceRef := range resourceRefs {
+			if schemaID, ok := resourceRef["resource_id_schema_id"].(string); ok {
 				set[schemaID] = struct{}{}
 			}
 		}
@@ -1001,6 +1118,8 @@ func materializeClientSupport(source map[string]any, descriptors []map[string]an
 type extensionClosureResolution struct {
 	item      map[string]any
 	ownerRefs []string
+	status    string
+	reason    any
 }
 
 func materializeExtensionConformance(indexed map[string]map[string]any, descriptors []map[string]any, factsByProfile map[string][]map[string]any) ([]map[string]any, []map[string]any, map[string]any, error) {
@@ -1060,12 +1179,21 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 			item["closure_item_id"] = "extclosure:" + hex.EncodeToString(digest[:])[:32]
 			item["allowed_not_applicable_reason_codes"] = stringsToAny(allowed)
 			refs = sortedUniqueStrings(refs)
-			resolutions = append(resolutions, extensionClosureResolution{item: item, ownerRefs: refs})
+			resolutions = append(resolutions, extensionClosureResolution{
+				item:      item,
+				ownerRefs: refs,
+				status:    "specified",
+				reason:    nil,
+			})
 			return nil
 		}
 		for _, baseline := range baselineItems {
 			if err := addItem("baseline", stringValue(baseline["subject_id"]), stringValue(baseline["category"]), anyToStrings(baseline["allowed_not_applicable_reason_codes"]), []string{primaryOwnerRef}); err != nil {
 				return nil, nil, nil, err
+			}
+			if baseline["subject_id"] == "job_contract" && len(factByKind["job_kind"]) == 0 {
+				resolutions[len(resolutions)-1].status = "not_applicable"
+				resolutions[len(resolutions)-1].reason = "no_jobs"
 			}
 		}
 		documentPath := strings.SplitN(stringValue(ownerDocument["owner_document_ref"]), "#", 2)[0]
@@ -1115,6 +1243,24 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 				if err := addItem("contribution", stringValue(contribution["contribution_id"]), category, nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
 					return nil, nil, nil, err
 				}
+			}
+		}
+		for _, fact := range factByKind["job_kind"] {
+			contract, _ := fact["job_kind_contract"].(map[string]any)
+			for _, category := range []string{
+				"jobs_reconciliation",
+				"identity_canonicalization_ordering",
+				"errors_precedence_retry",
+				"resource_lifecycle_retention",
+			} {
+				if err := addItem("job_kind", stringValue(contract["job_kind"]), category, nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+					return nil, nil, nil, err
+				}
+			}
+		}
+		for _, fact := range factByKind["worker_kind"] {
+			if err := addItem("worker_kind", stringValue(fact["worker_kind"]), "jobs_reconciliation", nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+				return nil, nil, nil, err
 			}
 		}
 		stateFact := factByKind["state_ownership"][0]
@@ -1179,9 +1325,9 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 			contractClosure[index] = map[string]any{
 				"closure_item_id":            resolution.item["closure_item_id"],
 				"category":                   resolution.item["category"],
-				"status":                     "specified",
+				"status":                     resolution.status,
 				"owner_contract_refs":        stringsToAny(resolution.ownerRefs),
-				"not_applicable_reason_code": nil,
+				"not_applicable_reason_code": resolution.reason,
 			}
 		}
 		catalog := map[string]any{
