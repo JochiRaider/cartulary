@@ -98,6 +98,68 @@
       ]
     },
     {
+      "row_id": "module.extensions.integration.clean_job_cutover_migration_4917a0cdef",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestExtensionJobCutoverMigration34FreshSchema_Integration",
+          "TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-130",
+        "docs/extension-subsystem-nlspec.md#ext-ac-080"
+      ]
+    },
+    {
+      "row_id": "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.jobapi",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/extensionstore",
+        "tests": [
+          "TestExtensionCancellationObservationIsAtomic_Integration",
+          "TestInactiveExtensionJobReconciliation_ServiceBacked",
+          "TestOwnerFinalizerAtomicSuccessAndFailure_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-191",
+        "docs/extension-subsystem-nlspec.md#ext-ac-088"
+      ]
+    },
+    {
       "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
@@ -594,6 +656,66 @@
       "documentation_refs": [
         "docs/extension-subsystem-nlspec.md#ext-ac-010",
         "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-08-pre-work-input-snapshot"
+      ]
+    },
+    {
+      "row_id": "module.extensions.unit.job_admission_and_terminal_contracts_64d299b374",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit",
+          "TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-130",
+        "docs/extension-subsystem-nlspec.md#ext-req-218"
+      ]
+    },
+    {
+      "row_id": "module.extensions.unit.job_inactive_reconciliation_49b5990495",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit",
+          "TestReconcileInactiveExtensionJobs_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-139",
+        "docs/extension-subsystem-nlspec.md#ext-ac-080"
       ]
     }
   ]

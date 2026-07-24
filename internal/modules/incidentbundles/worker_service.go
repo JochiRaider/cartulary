@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-const incidentBundleJobHandlerName = "incident_bundles.execute"
+const incidentBundleJobHandlerName = "incident_portability.bundle_worker_v1"
 
 type incidentBundleWorker struct {
 	store           *Store

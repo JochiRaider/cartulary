@@ -3,6 +3,40 @@
 -- Name: extension coordination state; Type: TABLES; Schema: public; Owner: -
 --
 
+-- The profile-job adoption is a clean pre-release cutover. Run this preflight
+-- before creating coordination tables or changing any job row so an old
+-- handler database receives a deterministic reset/reseed diagnostic without a
+-- partially applied migration.
+-- +goose StatementBegin
+DO $$
+DECLARE
+    retired_handler_count bigint;
+    retired_handler_sample text;
+BEGIN
+    SELECT count(*), min(handler_name)
+      INTO retired_handler_count, retired_handler_sample
+      FROM public.jobs
+     WHERE handler_name IN (
+        'imports.discovery',
+        'imports.apply',
+        'incident_bundles.execute',
+        'reference_data.execute',
+        'reporting.execute'
+     );
+    IF retired_handler_count > 0 THEN
+        RAISE EXCEPTION USING
+            ERRCODE = 'P0001',
+            MESSAGE = 'extension profile job cutover requires database reset/reseed',
+            DETAIL = format(
+                'retired_handler_job_count=%s retired_handler_sample=%s; run make db-reset and reseed; legacy readers and proof backfills are unsupported',
+                retired_handler_count,
+                retired_handler_sample
+            );
+    END IF;
+END
+$$;
+-- +goose StatementEnd
+
 CREATE TABLE public.extension_state_metadata (
     profile_id text PRIMARY KEY,
     migration_lineage_id text NOT NULL,
@@ -150,10 +184,23 @@ CREATE TABLE public.extension_staged_object_references (
 ALTER TABLE public.jobs
     ADD COLUMN extension_owner_profile_id text,
     ADD COLUMN extension_job_kind text,
-    ADD CONSTRAINT jobs_extension_ownership_pair_ck CHECK (
-        (extension_owner_profile_id IS NULL AND extension_job_kind IS NULL)
+    ADD COLUMN extension_idempotency_identity jsonb,
+    ADD COLUMN extension_idempotency_route_key text,
+    ADD COLUMN extension_idempotency_scope_key text,
+    ADD COLUMN extension_normalized_request_sha256 text,
+    ADD CONSTRAINT jobs_extension_ownership_ck CHECK (
+        (extension_owner_profile_id IS NULL
+            AND extension_job_kind IS NULL
+            AND extension_idempotency_identity IS NULL
+            AND extension_idempotency_route_key IS NULL
+            AND extension_idempotency_scope_key IS NULL
+            AND extension_normalized_request_sha256 IS NULL)
         OR (extension_owner_profile_id ~ '^[a-z][a-z0-9_]{0,127}$'
-            AND extension_job_kind ~ '^[a-z][a-z0-9_.]{0,159}$')
+            AND extension_job_kind ~ '^[a-z][a-z0-9_.]{0,159}$'
+            AND jsonb_typeof(extension_idempotency_identity) = 'object'
+            AND octet_length(extension_idempotency_route_key) BETWEEN 1 AND 256
+            AND octet_length(extension_idempotency_scope_key) BETWEEN 1 AND 512
+            AND extension_normalized_request_sha256 ~ '^[0-9a-f]{64}$')
     );
 
 CREATE INDEX jobs_extension_nonterminal_idx

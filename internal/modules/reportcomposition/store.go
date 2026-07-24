@@ -365,11 +365,24 @@ func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, 
 	if err != nil {
 		return PreviewResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		"snapshot_reporting",
+		"snapshot_reporting.composition_preview_v1",
+		key,
+		scope,
+		request.Normalized,
+	)
+	if err != nil {
+		return PreviewResult{}, err
+	}
 	renderAttempt, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		Scope:             scope,
 		SubmittedByUserID: actorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       "snapshot_reporting.job_worker_v1",
+		Extension:         admission,
 	}, now.UTC())
 	if err != nil {
 		return PreviewResult{}, err

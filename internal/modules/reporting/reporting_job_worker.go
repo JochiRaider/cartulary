@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	reportingJobHandlerName                = "reporting.execute"
+	reportingJobHandlerName                = "snapshot_reporting.job_worker_v1"
 	reportingJobDispatchDelay              = 25 * time.Millisecond
 	defaultReportingJobTimeout             = 2 * time.Minute
 	reportingJobTerminalTransitionTimeout  = 5 * time.Second

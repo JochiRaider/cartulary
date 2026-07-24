@@ -762,6 +762,33 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 			t.Fatalf("%s selector count = %d, want %d", rowID, len(row.Selector.Tests), selectorCount)
 		}
 	}
+	jobRows := map[string][]string{
+		"module.extensions.unit.job_admission_and_terminal_contracts_64d299b374": {
+			"TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit",
+			"TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit",
+		},
+		"module.extensions.unit.job_inactive_reconciliation_49b5990495": {
+			"TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit",
+			"TestReconcileInactiveExtensionJobs_Unit",
+		},
+		"module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2": {
+			"TestExtensionCancellationObservationIsAtomic_Integration",
+			"TestInactiveExtensionJobReconciliation_ServiceBacked",
+			"TestOwnerFinalizerAtomicSuccessAndFailure_Integration",
+		},
+		"module.extensions.integration.clean_job_cutover_migration_4917a0cdef": {
+			"TestExtensionJobCutoverMigration34FreshSchema_Integration",
+			"TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_Integration",
+		},
+	}
+	for rowID, testNames := range jobRows {
+		row, exists := rows[rowID]
+		if !exists {
+			t.Fatalf("extension job row %s is missing", rowID)
+		}
+		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, rowID+" verification_ids")
+		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
+	}
 	browserAvailability, exists := rows["module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"]
 	if !exists {
 		t.Fatal("Extensions browser availability continuity row is missing")
@@ -770,7 +797,7 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 	if browserAvailability.Runner != "playwright" || browserAvailability.Selector.File != "apps/web/e2e/extensions.stateful.spec.ts" || browserAvailability.Selector.Stage != "stateful" {
 		t.Fatalf("browser availability selector is not exact: %#v", browserAvailability.Selector)
 	}
-	if got, want := len(rows), len(extensionBoundaryExpectations)+2+len(coordinatorRows)+len(characterizationRows); got != want {
+	if got, want := len(rows), len(extensionBoundaryExpectations)+2+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}
 

@@ -30,8 +30,8 @@ const (
 	MediaTypeXLSX        = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	MediaTypeOctetStream = "application/octet-stream"
 
-	importDiscoveryJobHandlerName = "imports.discovery"
-	importApplyJobHandlerName     = "imports.apply"
+	importDiscoveryJobHandlerName = "import.discovery_worker_v1"
+	importApplyJobHandlerName     = "import.apply_worker_v1"
 
 	ImportTargetKindViewSchema       = "view_schema"
 	ImportTargetKindNetworkFlowTable = "network_flow_table"

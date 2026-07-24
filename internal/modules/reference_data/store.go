@@ -153,13 +153,25 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		return JobAcceptedResult{}, err
 	}
 
+	scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		"reference_pack.import_v1",
+		key,
+		scope,
+		params.NormalizedRequest,
+	)
+	if err != nil {
+		return JobAcceptedResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 		HandlerName:       referencePackJobHandlerName,
+		Extension:         admission,
 	}, params.Now)
 	if err != nil {
 		return JobAcceptedResult{}, err
@@ -564,13 +576,25 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return JobAcceptedResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		referencePackContractJobKind(params.JobKind),
+		key,
+		scope,
+		params.NormalizedRequest,
+	)
+	if err != nil {
+		return JobAcceptedResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 		HandlerName:       referencePackJobHandlerName,
+		Extension:         admission,
 	}, params.Now)
 	if err != nil {
 		return JobAcceptedResult{}, err
@@ -585,6 +609,19 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 		return JobAcceptedResult{}, err
 	}
 	return JobAcceptedResult{Job: job}, nil
+}
+
+func referencePackContractJobKind(localKind string) string {
+	switch localKind {
+	case "import":
+		return "reference_pack.import_v1"
+	case "reverify":
+		return "reference_pack.reverify_v1"
+	case "refresh":
+		return "reference_pack.refresh_v1"
+	default:
+		return ""
+	}
 }
 
 func versionSelectSQL() string {

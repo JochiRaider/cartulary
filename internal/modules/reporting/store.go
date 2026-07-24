@@ -336,12 +336,24 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		"snapshot_reporting.snapshot_create_v1",
+		key,
+		scope,
+		normalized,
+	)
+	if err != nil {
+		return CreateSnapshotResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
 		HandlerName:       reportingJobHandlerName,
+		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateSnapshotResult{}, err
@@ -490,12 +502,24 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		"snapshot_reporting.release_create_v1",
+		key,
+		scope,
+		params.Request.Normalized,
+	)
+	if err != nil {
+		return CreateReleaseResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
 		HandlerName:       reportingJobHandlerName,
+		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateReleaseResult{}, err

@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const referencePackJobHandlerName = "reference_data.execute"
+const referencePackJobHandlerName = "reference_pack.lifecycle_worker_v1"
 
 type Service struct {
 	store       *Store

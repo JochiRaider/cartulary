@@ -107,13 +107,25 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 		Key:         key,
 		RequestHash: requestHash,
 		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
+			scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
+			admission, err := jobs.NewExtensionJobAdmission(
+				IncidentPortabilityProfileID,
+				"incident_portability.export_v1",
+				key,
+				scope,
+				params.NormalizedRequest,
+			)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
 			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-				Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
+				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 				HandlerName:       incidentBundleJobHandlerName,
+				Extension:         admission,
 			}, params.Now)
 			if err != nil {
 				return jobs.Resource{}, err
@@ -142,13 +154,25 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		Key:         key,
 		RequestHash: requestHash,
 		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
+			scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
+			admission, err := jobs.NewExtensionJobAdmission(
+				IncidentPortabilityProfileID,
+				"incident_portability.import_v1",
+				key,
+				scope,
+				params.NormalizedRequest,
+			)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
 			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-				Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
+				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
 				HandlerName:       incidentBundleJobHandlerName,
+				Extension:         admission,
 			}, params.Now)
 			if err != nil {
 				return jobs.Resource{}, err

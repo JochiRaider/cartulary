@@ -225,13 +225,25 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		"import.discovery_v1",
+		key,
+		scope,
+		params.NormalizedRequest,
+	)
+	if err != nil {
+		return CreateAcceptedSessionResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
 		HandlerName:       importDiscoveryJobHandlerName,
 		HandlerPayload:    handlerPayload,
+		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
@@ -659,6 +671,10 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
+	normalizedRequest, err := normalizedApplyRequest(params.Request, selected)
+	if err != nil {
+		return ApplyStartResult{}, err
+	}
 	handlerPayload, err := json.Marshal(applyJobHandlerPayload{
 		IncidentID:      incidentID.String(),
 		ImportSessionID: params.SessionID.String(),
@@ -669,13 +685,25 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
+	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
+	admission, err := jobs.NewExtensionJobAdmission(
+		ProfileID,
+		"import.apply_v1",
+		key,
+		scope,
+		normalizedRequest,
+	)
+	if err != nil {
+		return ApplyStartResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(len(selected))},
 		HandlerName:       importApplyJobHandlerName,
 		HandlerPayload:    handlerPayload,
+		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
 		return ApplyStartResult{}, err
@@ -710,6 +738,15 @@ UPDATE import_units
 }
 
 func applyRequestHash(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
+	normalized, err := normalizedApplyRequest(request, resolvedSelected)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(normalized)
+	return sum[:], nil
+}
+
+func normalizedApplyRequest(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
 	normalized := request.Normalized
 	if request.SelectedUnitIDs == nil {
 		var err error
@@ -721,8 +758,7 @@ func applyRequestHash(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byt
 			return nil, err
 		}
 	}
-	sum := sha256.Sum256(normalized)
-	return sum[:], nil
+	return normalized, nil
 }
 
 func (s *Store) GetApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]ApplyUnitData, error) {

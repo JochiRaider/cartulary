@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -79,6 +80,7 @@ type Runtime struct {
 	Handler                http.Handler
 	Extensions             *extensions.Coordinator
 	ExtensionState         *extensions.StateRuntime
+	ExtensionJobFinalizer  *extensionstore.OwnerFinalizer
 	StagedObjects          *stagedobjects.Service
 	StagedJanitor          *stagedobjects.Janitor
 	StagedHealth           *stagedobjects.Health
@@ -317,6 +319,32 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.ExtensionState = stateRuntime
 		extensionStateStore = stateStore
 	}
+	if extensionStateStore != nil {
+		inactiveJobStore, err := extensionassembly.NewInactiveJobStore(extensionStateStore, now)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose inactive extension job reconciliation: %w", err)
+		}
+		reconciliationCtx, cancelReconciliation := context.WithTimeout(
+			ctx,
+			time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds)*time.Second,
+		)
+		reconciliationErr := extensions.ReconcileInactiveExtensionJobs(
+			reconciliationCtx,
+			inactiveJobStore,
+			inactiveExtensionProfileIDs(extensionPlan.Claims()),
+			extensionCoordinator.JobKindContracts(),
+			int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
+			func(error) {
+				runtime.Lifecycle.Fatal("indeterminate_database_commit")
+			},
+		)
+		cancelReconciliation()
+		if reconciliationErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("reconcile inactive extension jobs: %w", reconciliationErr)
+		}
+	}
 
 	if options.ObjectStore != nil {
 		runtime.ObjectStore = instrumentedObjectStore(normalizedCfg, options.ObjectStore)
@@ -419,6 +447,30 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.WSHub = hub
 	runtime.Jobs.Configure(runtime.Postgres, now)
 	runtime.Jobs.ConfigureProgressHub(hub)
+	extensionJobContracts, err := extensionassembly.JobContracts(publicationCatalog)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose extension job contracts: %w", err)
+	}
+	if err := runtime.Jobs.ConfigureExtensionContracts(extensionJobContracts); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("configure extension job contracts: %w", err)
+	}
+	if extensionStateStore != nil {
+		extensionJobFinalizer, err := extensionstore.NewOwnerFinalizer(
+			extensionStateStore,
+			runtime.Jobs,
+			now,
+			func(error) {
+				runtime.Lifecycle.Fatal("indeterminate_database_commit")
+			},
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose extension job finalizer: %w", err)
+		}
+		runtime.ExtensionJobFinalizer = extensionJobFinalizer
+	}
 	runtime.JobRunner.Configure(runtime.Jobs)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
@@ -804,6 +856,17 @@ func revisionPublicationClaims(publication []extensions.ClaimPublication) []revi
 		})
 	}
 	return claims
+}
+
+func inactiveExtensionProfileIDs(publication []extensions.ClaimPublication) []string {
+	profileIDs := make([]string, 0, len(publication))
+	for _, profile := range publication {
+		if !profile.Claimed {
+			profileIDs = append(profileIDs, profile.ProfileID)
+		}
+	}
+	sort.Strings(profileIDs)
+	return profileIDs
 }
 
 func (r *Runtime) ActivatePublication() error {

@@ -53,6 +53,7 @@ type Manager struct {
 	hub                   *platformws.Hub
 	serviceVersion        string
 	activeGaugeRegistered bool
+	extensionContracts    map[string]ExtensionJobContract
 }
 
 type Scope struct {
@@ -112,6 +113,63 @@ type CreateParams struct {
 	Message           *string
 	HandlerName       string
 	HandlerPayload    json.RawMessage
+	Extension         *ExtensionJobAdmission
+}
+
+// ExtensionJobAdmission is durable internal ownership and replay evidence. It
+// is intentionally absent from Resource and therefore never enters the public
+// common-job envelope.
+type ExtensionJobAdmission struct {
+	OwnerProfileID          string
+	JobKind                 string
+	IdempotencyIdentity     json.RawMessage
+	IdempotencyRouteKey     string
+	IdempotencyScopeKey     string
+	NormalizedRequestSHA256 string
+}
+
+type RouteScopedIdempotencyIdentity struct {
+	SchemaID      string  `json:"schema_id"`
+	ActorUserID   string  `json:"actor_user_id"`
+	RouteIdentity string  `json:"route_identity"`
+	ScopeKind     string  `json:"scope_kind"`
+	ScopeID       *string `json:"scope_id"`
+	ClientTxnID   string  `json:"client_txn_id"`
+}
+
+func NewExtensionJobAdmission(ownerProfileID string, jobKind string, key authn.RouteIdempotencyKey, scope Scope, normalizedRequest []byte) (*ExtensionJobAdmission, error) {
+	if ownerProfileID == "" || jobKind == "" || key.ActorUserID == uuid.Nil ||
+		key.RouteKey == "" || key.ScopeKey == "" || key.ClientTxnID == "" || len(normalizedRequest) == 0 {
+		return nil, fmt.Errorf("%w: incomplete extension job admission", ErrInvalidJobDefinition)
+	}
+	if err := validateScope(scope); err != nil {
+		return nil, err
+	}
+	var scopeID *string
+	if scope.Kind == ScopeKindIncident {
+		value := scope.IncidentID.String()
+		scopeID = &value
+	}
+	identity, err := json.Marshal(RouteScopedIdempotencyIdentity{
+		SchemaID:      "cartulary.route_scoped_idempotency_identity.v1",
+		ActorUserID:   key.ActorUserID.String(),
+		RouteIdentity: key.RouteKey + ":" + key.ScopeKey,
+		ScopeKind:     scope.Kind,
+		ScopeID:       scopeID,
+		ClientTxnID:   key.ClientTxnID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(normalizedRequest)
+	return &ExtensionJobAdmission{
+		OwnerProfileID:          ownerProfileID,
+		JobKind:                 jobKind,
+		IdempotencyIdentity:     identity,
+		IdempotencyRouteKey:     key.RouteKey,
+		IdempotencyScopeKey:     key.ScopeKey,
+		NormalizedRequestSHA256: fmt.Sprintf("%x", digest[:]),
+	}, nil
 }
 
 type TransitionParams struct {
@@ -189,6 +247,12 @@ func CreateQueuedTx(ctx context.Context, tx queuedJobInserter, params CreatePara
 	if params.SubmittedByUserID == uuid.Nil {
 		return Resource{}, fmt.Errorf("%w: missing submitted_by_user_id", ErrInvalidJobDefinition)
 	}
+	if retiredProfileHandler(params.HandlerName) {
+		return Resource{}, fmt.Errorf("%w: retired extension handler %q", ErrInvalidJobDefinition, params.HandlerName)
+	}
+	if err := validateExtensionAdmission(params); err != nil {
+		return Resource{}, err
+	}
 	var handlerPayload []byte
 	if len(params.HandlerPayload) > 0 {
 		if params.HandlerName == "" {
@@ -203,18 +267,127 @@ func CreateQueuedTx(ctx context.Context, tx queuedJobInserter, params CreatePara
 INSERT INTO jobs (
     scope_kind, incident_id, status, cancelable, auth_policy, submitted_by_user_id,
     submitted_at, updated_at, progress_completed, progress_total, message,
-    handler_name, handler_payload_json
+    handler_name, handler_payload_json, extension_owner_profile_id,
+    extension_job_kind, extension_idempotency_identity,
+    extension_idempotency_route_key, extension_idempotency_scope_key,
+    extension_normalized_request_sha256
 )
-VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
           auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
-`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, nullableText(params.HandlerName), handlerPayload))
+`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, nullableText(params.HandlerName), handlerPayload,
+		extensionOwner(params.Extension), extensionJobKind(params.Extension), extensionIdempotencyIdentity(params.Extension),
+		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension)))
 	if err != nil {
 		return Resource{}, err
 	}
 	return record, nil
+}
+
+func validateExtensionAdmission(params CreateParams) error {
+	if params.Extension == nil {
+		return nil
+	}
+	admission := params.Extension
+	if params.HandlerName == "" || admission.OwnerProfileID == "" || admission.JobKind == "" ||
+		admission.IdempotencyRouteKey == "" || admission.IdempotencyScopeKey == "" ||
+		len(admission.IdempotencyIdentity) == 0 || !json.Valid(admission.IdempotencyIdentity) ||
+		len(admission.NormalizedRequestSHA256) != 64 {
+		return fmt.Errorf("%w: incomplete extension job admission", ErrInvalidJobDefinition)
+	}
+	var identity RouteScopedIdempotencyIdentity
+	var identityMembers map[string]json.RawMessage
+	if err := json.Unmarshal(admission.IdempotencyIdentity, &identityMembers); err != nil ||
+		len(identityMembers) != 6 ||
+		!hasExactIdentityMembers(identityMembers) {
+		return fmt.Errorf("%w: invalid extension idempotency identity", ErrInvalidJobDefinition)
+	}
+	if err := json.Unmarshal(admission.IdempotencyIdentity, &identity); err != nil ||
+		identity.SchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
+		identity.ActorUserID != params.SubmittedByUserID.String() ||
+		identity.ScopeKind != params.Scope.Kind ||
+		identity.RouteIdentity != admission.IdempotencyRouteKey+":"+admission.IdempotencyScopeKey ||
+		identity.ClientTxnID == "" {
+		return fmt.Errorf("%w: invalid extension idempotency identity", ErrInvalidJobDefinition)
+	}
+	if params.Scope.Kind == ScopeKindIncident {
+		if identity.ScopeID == nil || params.Scope.IncidentID == nil || *identity.ScopeID != params.Scope.IncidentID.String() {
+			return fmt.Errorf("%w: extension incident scope mismatch", ErrInvalidJobDefinition)
+		}
+	} else if identity.ScopeID != nil {
+		return fmt.Errorf("%w: extension deployment scope must omit scope_id", ErrInvalidJobDefinition)
+	}
+	for _, character := range admission.NormalizedRequestSHA256 {
+		if !((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')) {
+			return fmt.Errorf("%w: invalid extension request digest", ErrInvalidJobDefinition)
+		}
+	}
+	return nil
+}
+
+func hasExactIdentityMembers(members map[string]json.RawMessage) bool {
+	for _, key := range []string{
+		"schema_id", "actor_user_id", "route_identity",
+		"scope_kind", "scope_id", "client_txn_id",
+	} {
+		if _, present := members[key]; !present {
+			return false
+		}
+	}
+	return true
+}
+
+func retiredProfileHandler(handlerName string) bool {
+	switch handlerName {
+	case "imports.discovery", "imports.apply", "incident_bundles.execute", "reference_data.execute", "reporting.execute":
+		return true
+	default:
+		return false
+	}
+}
+
+func extensionOwner(admission *ExtensionJobAdmission) *string {
+	if admission == nil {
+		return nil
+	}
+	return &admission.OwnerProfileID
+}
+
+func extensionJobKind(admission *ExtensionJobAdmission) *string {
+	if admission == nil {
+		return nil
+	}
+	return &admission.JobKind
+}
+
+func extensionIdempotencyIdentity(admission *ExtensionJobAdmission) json.RawMessage {
+	if admission == nil {
+		return nil
+	}
+	return admission.IdempotencyIdentity
+}
+
+func extensionRequestDigest(admission *ExtensionJobAdmission) *string {
+	if admission == nil {
+		return nil
+	}
+	return &admission.NormalizedRequestSHA256
+}
+
+func extensionIdempotencyRouteKey(admission *ExtensionJobAdmission) *string {
+	if admission == nil {
+		return nil
+	}
+	return &admission.IdempotencyRouteKey
+}
+
+func extensionIdempotencyScopeKey(admission *ExtensionJobAdmission) *string {
+	if admission == nil {
+		return nil
+	}
+	return &admission.IdempotencyScopeKey
 }
 
 func (m *Manager) Get(ctx context.Context, jobID uuid.UUID) (Resource, error) {
@@ -305,7 +478,7 @@ UPDATE jobs
        error_summary_json = $7,
        message = $8
  WHERE job_id = $1
-   AND status IN ('queued', 'running')
+   AND status IN ('queued', 'running', 'cancel_requested')
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
           auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
@@ -367,6 +540,9 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	if reason != "" {
 		return CancelResult{ReasonCode: reason}, ErrCancelRejected
 	}
+	if err := recordExtensionCancellationObservationTx(ctx, tx, key, params.JobID, resource.UpdatedAt); err != nil {
+		return CancelResult{}, err
+	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, 200, resource); err != nil {
 		return CancelResult{}, err
 	}
@@ -375,6 +551,30 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	}
 	m.PublishProgress(resource)
 	return CancelResult{Resource: resource}, nil
+}
+
+func recordExtensionCancellationObservationTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, jobID uuid.UUID, observedAt time.Time) error {
+	var ownerProfileID *string
+	if err := tx.QueryRow(ctx, `
+SELECT extension_owner_profile_id
+  FROM jobs
+ WHERE job_id = $1
+`, jobID).Scan(&ownerProfileID); err != nil {
+		return err
+	}
+	if ownerProfileID == nil {
+		return nil
+	}
+	identity := key.RouteKey + "\x00" + key.ActorUserID.String() + "\x00" +
+		key.ScopeKey + "\x00" + key.ClientTxnID
+	digest := sha256.Sum256([]byte(identity))
+	cancellationRequestID := fmt.Sprintf("cancel:%x", digest[:])
+	_, err := tx.Exec(ctx, `
+INSERT INTO extension_job_cancellation_observations (
+    cancellation_request_id, job_id, observed_at, observed_before_final_commit
+) VALUES ($1, $2, $3, TRUE)
+`, cancellationRequestID, jobID, observedAt.UTC())
+	return err
 }
 
 func (m *Manager) completeTerminal(ctx context.Context, params TransitionParams, status string) (Resource, error) {

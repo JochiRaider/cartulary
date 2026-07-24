@@ -440,6 +440,10 @@ type JobKindContract struct {
 	MaxProofBytes               int
 }
 
+func (contract JobKindContract) SHA256() string {
+	return canonicalDigest(contract.object())
+}
+
 func (contract JobKindContract) object() map[string]any {
 	resourceRefs := make([]any, len(contract.ResourceRefContracts))
 	for index, resourceRef := range contract.ResourceRefContracts {
