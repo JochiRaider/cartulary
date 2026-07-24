@@ -1,8 +1,4 @@
-import type {
-  GridColumn,
-  GridDataRow,
-  GridHandle,
-} from "@cartulary/grid-adapter";
+import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
 import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import { useCallback, useState } from "react";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
@@ -22,9 +18,6 @@ export type TimelineGridInteractionRefs = {
   readonly timelineAnchorColumnsRef: TimelineMutableRef<
     readonly GridColumn<WorkbookRow>[]
   >;
-  readonly timelineAnchorRowsRef: TimelineMutableRef<
-    readonly GridDataRow<WorkbookRow>[]
-  >;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
   readonly workbookFocusAnchorRef: TimelineMutableRef<WorkbookFocusAnchor | null>;
 };
@@ -42,7 +35,6 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
     rowInputRefs,
     rowInputTestIdsRef,
     timelineAnchorColumnsRef,
-    timelineAnchorRowsRef,
     viewportContinuityTokenRef,
     workbookFocusAnchorRef,
   } = refs;
@@ -91,7 +83,6 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
       rowInputRefs,
       rowInputTestIdsRef,
       timelineAnchorColumnsRef,
-      timelineAnchorRowsRef,
       viewportContinuityTokenRef,
       workbookFocusAnchorRef,
     },

@@ -99,6 +99,11 @@ import {
   WorkbookShell,
 } from "./WorkbookShell";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 const savedViewCopyId = "33333333-3333-4333-8333-333333333333";
 const testAccountMenuTriggerTestId = "test-account-menu-trigger";

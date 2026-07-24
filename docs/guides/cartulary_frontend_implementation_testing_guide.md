@@ -172,6 +172,22 @@ never mixes source, catalog, verification, or profile digests.
 - Frontend tests and validators may retain inert documentation references for human
   traceability, but must not open, stat, resolve, or hash those paths.
 
+Grid evidence uses the following ownership split:
+
+| Postcondition | Required implementation/evidence boundary |
+| --- | --- |
+| Stable identities, visible semantic positions, state precedence, callback payloads, and target rejection | Deterministic grid-adapter policy tests; the lightweight `./test-support` fake may share these policies and must retain consumer-contract parity. |
+| Workbook mutation submission, reconciliation, messaging, and decoded clipboard dispatch | Application tests that explicitly mock `@cartulary/grid-adapter` with `@cartulary/grid-adapter/test-support`. |
+| Non-virtualized DOM rendering needed to isolate a package-local unit postcondition | The immutable package-private DOM-unit binding, imported only by `packages/grid-adapter` test files. It is support evidence, not a production-path claim. |
+| RDG callbacks and lifecycle, virtualization, frozen columns, scrolling, offscreen semantic focus/targeting, and vendor choreography | The production root binding in package-local integration tests or live browser rows. The fake and DOM-unit binding cannot verify these postconditions. |
+| Accessibility and visual behavior | Their dedicated live browser evidence classes and owner rows. |
+| DOM bounds or timing measurements | The measurement class only; results remain informative unless Core 05 separately authorizes publication. |
+
+Production virtualization is an immutable root-component binding. Runtime code,
+application tests, shared setup files, the root facade, and `./test-support` must not
+import or expose the package-private DOM-unit binding. There is no mutable diagnostic
+setter, environment switch, storage switch, or consumer prop.
+
 ## 8. Change workflow
 
 1. Identify the normative postcondition and current semantic owner.

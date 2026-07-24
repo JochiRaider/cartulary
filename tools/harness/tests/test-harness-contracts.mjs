@@ -432,6 +432,38 @@ test("owner slice plan is deterministic and schema-valid for semantic inputs", a
   await validateSchema(processPlan.schema_id, processPlan);
 });
 
+test("source snapshots omit tracked files deleted from the worktree", () => {
+  const fixtureRoot = mkdtempSync(path.join(repoRoot, "tmp", "source-snapshot."));
+  try {
+    assert.equal(
+      spawnSync("git", ["init", "--quiet"], {
+        cwd: fixtureRoot,
+        encoding: "utf8",
+      }).status,
+      0,
+    );
+    writeFixtureFile(fixtureRoot, "retained.txt", "retained\n");
+    writeFixtureFile(fixtureRoot, "deleted.txt", "deleted\n");
+    assert.equal(
+      spawnSync("git", ["add", "retained.txt", "deleted.txt"], {
+        cwd: fixtureRoot,
+        encoding: "utf8",
+      }).status,
+      0,
+    );
+    const beforeDeletion = buildSourceSnapshot(fixtureRoot);
+
+    rmSync(path.join(fixtureRoot, "deleted.txt"));
+    const afterDeletion = buildSourceSnapshot(fixtureRoot);
+
+    assert.equal(beforeDeletion.file_count, 2);
+    assert.equal(afterDeletion.file_count, 1);
+    assert.notEqual(beforeDeletion.digest, afterDeletion.digest);
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test("runner adapters require one exact terminal observation per selected row", () => {
   const goInvocation = {
     rows: [

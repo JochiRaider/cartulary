@@ -56,6 +56,7 @@ function trackedExecutableSources(root) {
     .toString("utf8")
     .split("\0")
     .filter(Boolean)
+    .filter((file) => existsSync(path.join(root, file)))
     .filter((file) => {
       const normalized = normalize(file);
       const basename = path.posix.basename(normalized);

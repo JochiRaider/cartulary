@@ -1,6 +1,6 @@
 import type {
   GridCellAnchor,
-  GridCellMutationIntent,
+  GridCellPasteIntent,
   GridCellStateInput,
   GridColumn,
   GridDataRow,
@@ -82,7 +82,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import { parseClipboardTable } from "../../utils/workbookClipboard";
+import { workbookClipboardPasteContract } from "../../utils/workbookClipboard";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import {
   mapWorkbookKeyboardCommand,
@@ -173,7 +173,7 @@ import {
 } from "../models/workbookTimelineModel";
 
 function gridCoreRecordId(
-  anchor: GridCellAnchor | GridCellMutationIntent["target"],
+  anchor: GridCellAnchor | GridCellPasteIntent["target"],
 ): string | null {
   return anchor.rowIdentity.kind === "core_record"
     ? anchor.rowIdentity.recordId
@@ -679,7 +679,6 @@ function TimelineWorkbookContent({
   const timelineAnchorColumnsRef = useRef<readonly GridColumn<WorkbookRow>[]>(
     [],
   );
-  const timelineAnchorRowsRef = useRef<readonly GridDataRow<WorkbookRow>[]>([]);
   const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
@@ -691,7 +690,6 @@ function TimelineWorkbookContent({
     rowInputRefs,
     rowInputTestIdsRef,
     timelineAnchorColumnsRef,
-    timelineAnchorRowsRef,
     viewportContinuityTokenRef,
     workbookFocusAnchorRef,
   };
@@ -1000,10 +998,8 @@ function TimelineWorkbookContent({
     restoreTimelineFocusAnchor,
   } = useTimelineGridAnchorController({
     gridHandleRef: timelineGridHandleRef,
-    groupBy: queryState.groupBy,
     rowsRef,
     timelineAnchorColumnsRef,
-    timelineAnchorRowsRef,
     updateTimelineSurfaceFocusAnchor,
     updateWorkbookFocusAnchor,
   });
@@ -2296,14 +2292,13 @@ function TimelineWorkbookContent({
 
   const handleTimelineGridPaste = useCallback(
     (intent: Parameters<typeof handleGridPaste>[0]) => {
-      const values = parseClipboardTable(intent.clipboardText ?? "");
-      if (values.length === 1 && values[0]?.length === 1) {
+      if (intent.input.kind === "scalar") {
         const binding = timelineScalarBindingForField(intent.target.fieldKey);
         if (binding === null) return;
         void commitScalarGridEdit(
           gridCoreRecordId(intent.target) ?? "",
           binding.key,
-          values[0]?.[0] ?? "",
+          intent.input.value,
         ).then((outcome) => {
           if (outcome.kind !== "accepted") setRefreshError(outcome.message);
         });
@@ -2312,6 +2307,10 @@ function TimelineWorkbookContent({
       handleGridPaste(intent);
     },
     [commitScalarGridEdit, handleGridPaste, setRefreshError],
+  );
+  const timelineClipboardPaste = useMemo(
+    () => workbookClipboardPasteContract(handleTimelineGridPaste),
+    [handleTimelineGridPaste],
   );
 
   const handleFillCells = useCallback(
@@ -2599,8 +2598,7 @@ function TimelineWorkbookContent({
 
   useLayoutEffect(() => {
     timelineAnchorColumnsRef.current = visibleTimelineColumns;
-    timelineAnchorRowsRef.current = timelineGridRows;
-  }, [timelineGridRows, visibleTimelineColumns]);
+  }, [visibleTimelineColumns]);
 
   const getTimelineGroupLabel = useCallback(
     (row: WorkbookRow, fieldKey: string) => timelineGroupLabel(row, fieldKey),
@@ -2756,6 +2754,7 @@ function TimelineWorkbookContent({
         <TimelineGridSurface
           activeRecordId={selectedRowId}
           bulkSelection={timelineBulkSelection}
+          clipboardPaste={timelineClipboardPaste}
           columns={visibleTimelineColumns}
           columnWidths={layoutState.columnWidths}
           dataState={timelineDataState}
@@ -2775,7 +2774,6 @@ function TimelineWorkbookContent({
           onColumnReorder={handleColumnReorder}
           onColumnWidthChange={handleColumnWidthChange}
           onFillCells={handleFillCells}
-          onPasteCell={handleTimelineGridPaste}
           onSortChange={handleQuerySortChange}
           ref={timelineGridHandleRef}
           rowGutter={timelineRowGutter}

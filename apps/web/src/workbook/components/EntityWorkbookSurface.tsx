@@ -1,6 +1,6 @@
 import {
   type GridActionsColumn,
-  type GridCellMutationIntent,
+  type GridCellPasteIntent,
   type GridColumn,
   type GridDataRow,
   type GridDensity,
@@ -99,7 +99,7 @@ import {
 } from "../models/workbookSurfaceRegistry";
 import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
-import { parseClipboardTable } from "../utils/workbookClipboard";
+import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
@@ -438,8 +438,6 @@ export function EntityWorkbookSurface({
   const entityFocus = useWorkbookGridFocus({
     columns: visibleEntityAnchorColumns,
     gridHandleRef,
-    grouping,
-    rows: entityGridRows,
     surface,
   });
   const focusEntityDraft = useCallback(() => {
@@ -535,10 +533,13 @@ export function EntityWorkbookSurface({
     [apiBase, contract, onRefreshEntities, rows],
   );
   const handleEntityPaste = useCallback(
-    async (intent: GridCellMutationIntent) => {
-      const clipboardText = intent.clipboardText ?? "";
+    async (intent: GridCellPasteIntent) => {
+      const clipboardText = intent.input.rawText;
       const targetResolution = intent.targetResolution;
-      const values = parseClipboardTable(clipboardText);
+      const values =
+        intent.input.kind === "scalar"
+          ? [[intent.input.value]]
+          : intent.input.values;
       if (
         targetResolution === undefined ||
         targetResolution.columns.length === 0 ||
@@ -583,7 +584,7 @@ export function EntityWorkbookSurface({
             view_schema_id: contract.viewSchemaId,
             client_txn_id: clientTxnID(`${contract.viewSchemaId}-paste`),
             clipboard_text: clipboardText,
-            format: clipboardText.includes("\t") ? "tsv" : "csv",
+            format: intent.input.kind === "table" ? intent.input.format : "csv",
             start_field_key: intent.target.fieldKey,
             columns: targetResolution.columns,
             targets: targetResolution.rowTargets.map(() => ({
@@ -615,6 +616,13 @@ export function EntityWorkbookSurface({
       incidentId,
       onRefreshEntities,
     ],
+  );
+  const clipboardPaste = useMemo(
+    () =>
+      workbookClipboardPasteContract((intent) => {
+        void handleEntityPaste(intent);
+      }),
+    [handleEntityPaste],
   );
   const entityColumns: readonly GridColumn<EntityRow>[] =
     visibleEntityAnchorColumns.map((column) => {
@@ -1342,7 +1350,7 @@ export function EntityWorkbookSurface({
             }
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
-            onPasteCell={(intent) => void handleEntityPaste(intent)}
+            clipboardPaste={clipboardPaste}
             onSortChange={onSortChange}
             dataRows={entityGridRows}
             sort={queryState.sort}

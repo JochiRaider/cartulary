@@ -56,6 +56,27 @@
       ]
     },
     {
+      "id": "frontend-grid-dom-unit-binding-boundary",
+      "level": "error",
+      "message": "Import the non-virtualized grid binding only from package-local DOM-unit tests.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": [
+          "packages/grid-adapter/src/*.test.ts",
+          "packages/grid-adapter/src/*.test.tsx",
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/grid-adapter/src/domUnitBinding"
+        }
+      ]
+    },
+    {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",

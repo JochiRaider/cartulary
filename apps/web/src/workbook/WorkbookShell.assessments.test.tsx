@@ -28,6 +28,11 @@ import {
 } from "./timeline/models/workbookTimelineModel";
 import { WorkbookShell } from "./WorkbookShell";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";

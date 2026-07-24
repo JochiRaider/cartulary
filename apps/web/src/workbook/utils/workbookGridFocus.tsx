@@ -1,12 +1,8 @@
-import {
-  buildGridPresentationRows,
-  type GridCellAnchor,
-  type GridColumn,
-  type GridDataRow,
-  type GridGroupingDescriptor,
-  type GridHandle,
-  type GridNavigationIntent,
-  navigateGridCellAnchor,
+import type {
+  GridCellAnchor,
+  GridColumn,
+  GridHandle,
+  GridNavigationIntent,
 } from "@cartulary/grid-adapter";
 import { rowCellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
 import {
@@ -43,15 +39,11 @@ function formatWorkbookFocusAnchor(anchor: WorkbookFocusAnchor | null) {
 
 export function useWorkbookGridFocus<Row>({
   columns,
-  grouping,
-  rows,
   surface,
   gridHandleRef,
 }: {
   readonly columns: readonly GridColumn<Row>[];
   readonly gridHandleRef?: RefObject<GridHandle | null> | undefined;
-  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
-  readonly rows: readonly GridDataRow<Row>[];
   readonly surface: WorkbookSurface;
 }): WorkbookGridFocusRuntime {
   const [anchor, setAnchor] = useState<WorkbookFocusAnchor | null>(null);
@@ -73,15 +65,8 @@ export function useWorkbookGridFocus<Row>({
 
   const navigate = useCallback(
     (current: GridCellAnchor, intent: GridNavigationIntent) => {
-      const nextAnchor = navigateGridCellAnchor({
-        columns,
-        current,
-        intent,
-        presentationRows: buildGridPresentationRows({
-          grouping,
-          rows,
-        }),
-      });
+      const nextAnchor =
+        gridHandleRef?.current?.moveFocus(current, intent) ?? null;
       if (nextAnchor === null) {
         setAnchor(null);
         return;
@@ -96,11 +81,8 @@ export function useWorkbookGridFocus<Row>({
         surface,
         viewSchemaId: surface,
       });
-      window.setTimeout(() => {
-        gridHandleRef?.current?.focusAnchor(nextAnchor);
-      }, 0);
     },
-    [columns, gridHandleRef, grouping, rows, surface],
+    [gridHandleRef, surface],
   );
 
   return { anchor, navigate, update, viewSchemaId: surface };

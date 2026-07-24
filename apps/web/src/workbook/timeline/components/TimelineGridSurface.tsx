@@ -1,7 +1,7 @@
 import type {
   GridCellAnchor,
-  GridCellMutationIntent,
   GridCellStateInput,
+  GridClipboardPasteContract,
   GridColumn,
   GridCoreRecordBulkSelection,
   GridDataRow,
@@ -42,7 +42,7 @@ type TimelineGridSurfaceProps = {
   readonly onActiveCellChange: (anchor: GridCellAnchor | null) => void;
   readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
   readonly onFillCells: (intent: GridFillIntent) => void;
-  readonly onPasteCell: (intent: GridCellMutationIntent) => void;
+  readonly clipboardPaste: GridClipboardPasteContract;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly onSelectRecord: (recordId: string) => void;
   readonly rowGutter: GridRowGutter;
@@ -61,6 +61,7 @@ export const TimelineGridSurface = forwardRef<
   {
     activeRecordId,
     bulkSelection,
+    clipboardPaste,
     columns,
     columnWidths,
     dataState,
@@ -75,7 +76,6 @@ export const TimelineGridSurface = forwardRef<
     onColumnReorder,
     onColumnWidthChange,
     onFillCells,
-    onPasteCell,
     onSortChange,
     onSelectRecord,
     rowGutter,
@@ -92,6 +92,7 @@ export const TimelineGridSurface = forwardRef<
     <TimelineWorkbookGrid
       activeRecordId={activeRecordId}
       bulkSelection={bulkSelection}
+      clipboardPaste={clipboardPaste}
       columns={columns}
       columnWidths={columnWidths}
       dataState={dataState}
@@ -106,7 +107,6 @@ export const TimelineGridSurface = forwardRef<
       onColumnReorder={onColumnReorder}
       onColumnWidthChange={onColumnWidthChange}
       onFillCells={onFillCells}
-      onPasteCell={onPasteCell}
       onSortChange={onSortChange}
       onSelectRecord={onSelectRecord}
       ref={ref}

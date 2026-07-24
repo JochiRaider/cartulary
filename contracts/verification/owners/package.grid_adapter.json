@@ -6,7 +6,7 @@
       "verification_id": "package.grid_adapter.verification.adapter_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "The shared grid adapter preserves deterministic row, selection, presentation, editing, and accessibility behavior across consumers.",
+      "requirement": "The shared grid adapter preserves deterministic semantic identity, visible row and field targeting, navigation, ranges, clipboard targets, editing, and accessibility across consumers while RDG coordinates remain private.",
       "evidence_kinds": [
         "vitest"
       ],

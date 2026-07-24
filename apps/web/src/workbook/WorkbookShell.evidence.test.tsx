@@ -17,6 +17,11 @@ import {
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 describe("workbook evidence coverage", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let webSocketInstance: {

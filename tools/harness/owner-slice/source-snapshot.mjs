@@ -21,6 +21,15 @@ function repositoryPaths(root) {
   )
     .split("\0")
     .filter(Boolean)
+    .filter((relativePath) => {
+      try {
+        lstatSync(path.join(root, relativePath));
+        return true;
+      } catch (error) {
+        if (error?.code === "ENOENT") return false;
+        throw error;
+      }
+    })
     .sort(asciiCompare);
 }
 

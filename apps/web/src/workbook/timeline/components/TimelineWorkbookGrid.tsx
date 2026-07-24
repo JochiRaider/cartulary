@@ -1,7 +1,7 @@
 import {
   type GridCellAnchor,
-  type GridCellMutationIntent,
   type GridCellStateInput,
+  type GridClipboardPasteContract,
   type GridColumn,
   type GridCoreRecordBulkSelection,
   type GridDataRow,
@@ -42,6 +42,7 @@ export const TimelineWorkbookGrid = forwardRef<
   {
     readonly activeRecordId: string | null;
     readonly bulkSelection: GridCoreRecordBulkSelection<WorkbookRow>;
+    readonly clipboardPaste: GridClipboardPasteContract;
     readonly columns: readonly GridColumn<WorkbookRow>[];
     readonly columnWidths: Readonly<Record<string, number>>;
     readonly density: GridDensity;
@@ -62,7 +63,6 @@ export const TimelineWorkbookGrid = forwardRef<
     ) => void;
     readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
     readonly onFillCells: (intent: GridFillIntent) => void;
-    readonly onPasteCell: (intent: GridCellMutationIntent) => void;
     readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
     readonly onSelectRecord: (recordId: string) => void;
     readonly rowGutter: GridRowGutter;
@@ -77,6 +77,7 @@ export const TimelineWorkbookGrid = forwardRef<
   {
     activeRecordId,
     bulkSelection,
+    clipboardPaste,
     columns,
     columnWidths,
     dataState,
@@ -91,7 +92,6 @@ export const TimelineWorkbookGrid = forwardRef<
     onColumnReorder,
     onColumnWidthChange,
     onFillCells,
-    onPasteCell,
     onSortChange,
     onSelectRecord,
     rowGutter,
@@ -133,6 +133,7 @@ export const TimelineWorkbookGrid = forwardRef<
             : { kind: "core_record", recordId: activeRecordId }
         }
         allowPasteCreateRows
+        clipboardPaste={clipboardPaste}
         coreRecordBulkSelection={bulkSelection}
         columns={columns}
         columnWidths={columnWidths}
@@ -156,7 +157,6 @@ export const TimelineWorkbookGrid = forwardRef<
         onColumnReorder={onColumnReorder}
         onColumnWidthChange={onColumnWidthChange}
         onFillCells={onFillCells}
-        onPasteCell={onPasteCell}
         onSortChange={onSortChange}
         onSelectRow={(rowIdentity) => {
           if (rowIdentity.kind === "core_record") {

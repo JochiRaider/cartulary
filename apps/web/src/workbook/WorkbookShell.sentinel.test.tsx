@@ -1,9 +1,8 @@
 import {
-  buildGridPresentationRows,
   type GridColumn,
   type GridDataRow,
-  type GridDraftRow,
-  resolveGridPasteTargets,
+  type GridHandle,
+  SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
   conflictMarkerTestId,
@@ -19,7 +18,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createRef } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -38,6 +38,11 @@ import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { clipboardTextLooksTabular } from "./utils/workbookClipboard";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 type PasteHarnessRow = {
   readonly label: string;
   readonly state: string | null | undefined;
@@ -45,11 +50,23 @@ type PasteHarnessRow = {
 
 const pasteColumns: readonly GridColumn<PasteHarnessRow>[] = [
   {
+    contractWritable: true,
+    editor: {
+      commit: async () => ({ kind: "accepted" }),
+      initialDraftValue: (row) => row.label,
+      renderEditor: () => null,
+    },
     fieldKey: "summary",
     label: "Summary",
     renderCell: ({ row }) => row.label,
   },
   {
+    contractWritable: true,
+    editor: {
+      commit: async () => ({ kind: "accepted" }),
+      initialDraftValue: (row) => row.state,
+      renderEditor: () => null,
+    },
     fieldKey: "state",
     label: "State",
     renderCell: ({ row }) => row.state,
@@ -159,17 +176,36 @@ function pasteRecordTarget(recordId: string) {
   };
 }
 
-function pasteDraftRow(
-  key: string,
-  state: string | null | undefined,
-): GridDraftRow<PasteHarnessRow> {
-  return {
-    kind: "draft",
-    data: {
-      label: key,
-      state,
-    },
-  };
+function renderPastePlanner(
+  rows: readonly GridDataRow<PasteHarnessRow>[],
+  options?: {
+    readonly allowCreateRows?: boolean | undefined;
+    readonly grouped?: boolean | undefined;
+  },
+) {
+  const handle = createRef<GridHandle>();
+  render(
+    <SemanticDataGrid
+      ref={handle}
+      allowPasteCreateRows={options?.allowCreateRows}
+      columns={pasteColumns}
+      dataRows={rows}
+      grouping={
+        options?.grouped === true
+          ? {
+              fieldKey: "state",
+              formatLabel: (value) => (value === null ? null : String(value)),
+              getValue: (row) => row.state ?? null,
+            }
+          : null
+      }
+      surface={pasteSurface}
+    />,
+  );
+  if (handle.current === null) {
+    throw new Error("Expected the semantic paste planner handle");
+  }
+  return handle.current;
 }
 
 describe("keyboard and grid anchor coverage", () => {
@@ -560,21 +596,16 @@ describe("keyboard and grid anchor coverage", () => {
   });
 
   it("targets sorted paste rows by stable visible record identities", () => {
-    const presentationRows = buildGridPresentationRows({
-      rows: [
-        pasteGridRow("record-3", "closed"),
-        pasteGridRow("record-1", "open"),
-        pasteGridRow("record-2", "reviewed"),
-      ],
-    });
+    const handle = renderPastePlanner([
+      pasteGridRow("record-3", "closed"),
+      pasteGridRow("record-1", "open"),
+      pasteGridRow("record-2", "reviewed"),
+    ]);
 
     expect(
-      resolveGridPasteTargets({
-        columns: pasteColumns,
-        current: pasteAnchor("record-1", "summary"),
-        pastedColumnCount: 2,
-        pastedRowCount: 2,
-        presentationRows,
+      handle.planPasteTargets(pasteAnchor("record-1", "summary"), {
+        columnCount: 2,
+        rowCount: 2,
       }),
     ).toEqual({
       columns: ["summary", "state"],
@@ -591,7 +622,7 @@ describe("keyboard and grid anchor coverage", () => {
     expect(clipboardTextLooksTabular("alpha,beta\ngamma,delta")).toBe(true);
   });
 
-  it("dispatches single-line CSV pasted into the draft Time cell as a create-row paste", async () => {
+  it("keeps single-line comma text on the scalar draft-input path", async () => {
     const existingRows = Array.from({ length: 9 }, (_, index) => {
       const rowNumber = index + 1;
       return timelineRow({
@@ -602,33 +633,11 @@ describe("keyboard and grid anchor coverage", () => {
         captureState: "rough",
       });
     });
-    const createdRow = timelineRow({
-      recordId: "record-10",
-      rowVersion: 1,
-      occurredAt: "2026-06-14",
-      summary: "test1",
-      captureState: "rough",
-    });
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
         rows: existingRows,
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-draft-csv-paste",
-        rows: [createdRow],
-        conflicts: [],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [...existingRows, createdRow],
       }),
     );
 
@@ -648,24 +657,9 @@ describe("keyboard and grid anchor coverage", () => {
       },
     });
     fireEvent(draftTime, pasteEvent);
-    expect(pasteEvent.defaultPrevented).toBe(true);
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    expect(draftTime).not.toHaveProperty("value", "2026-06-14,test1,host2");
-    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
-      view_schema_id: timelineViewSchemaId,
-      clipboard_text: "2026-06-14,test1,host2",
-      format: "csv",
-      start_field_key: "timeline.activity_utc_text",
-      columns: [
-        "timeline.activity_utc_text",
-        "timeline.activity_local_text",
-        "timeline.raw_activity_text",
-      ],
-      targets: [{ kind: "create" }],
-    });
+    expect(pasteEvent.defaultPrevented).toBe(false);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("dispatches multi-row CSV pasted into the draft Time cell as create-row targets", async () => {
@@ -1060,18 +1054,15 @@ describe("keyboard and grid anchor coverage", () => {
     }, pasteConflictWait);
   });
 
-  it("maps filtered overflow to explicit create-row anchors", () => {
-    const presentationRows = buildGridPresentationRows({
-      rows: [pasteGridRow("record-2", "reviewed")],
+  it("maps filtered overflow to explicit create-row targets", () => {
+    const handle = renderPastePlanner([pasteGridRow("record-2", "reviewed")], {
+      allowCreateRows: true,
     });
 
     expect(
-      resolveGridPasteTargets({
-        columns: pasteColumns,
-        current: pasteAnchor("record-2", "state"),
-        pastedColumnCount: 1,
-        pastedRowCount: 3,
-        presentationRows,
+      handle.planPasteTargets(pasteAnchor("record-2", "state"), {
+        columnCount: 1,
+        rowCount: 3,
       }),
     ).toEqual({
       columns: ["state"],
@@ -1083,37 +1074,22 @@ describe("keyboard and grid anchor coverage", () => {
     });
   });
 
-  it("rejects group and presentation-only paste anchors", () => {
-    const groupedRows = buildGridPresentationRows({
-      grouping: {
-        fieldKey: "state",
-        formatLabel: (value) => (value === null ? null : String(value)),
-        getValue: (row) => row.state ?? null,
-      },
-      rows: [
-        pasteGridRow("record-1", "open"),
-        pasteDraftRow("draft-1", "rough"),
-        pasteGridRow("record-2", "reviewed"),
-      ],
-    });
+  it("rejects invalid anchors and create-disabled grouped overflow", () => {
+    const handle = renderPastePlanner(
+      [pasteGridRow("record-1", "open"), pasteGridRow("record-2", "reviewed")],
+      { grouped: true },
+    );
 
     expect(
-      resolveGridPasteTargets({
-        columns: pasteColumns,
-        current: pasteAnchor("record-1", "summary"),
-        pastedColumnCount: 1,
-        pastedRowCount: 2,
-        presentationRows: groupedRows,
+      handle.planPasteTargets(pasteAnchor("", "summary"), {
+        columnCount: 1,
+        rowCount: 1,
       }),
     ).toBeNull();
     expect(
-      resolveGridPasteTargets({
-        allowCreateRows: false,
-        columns: pasteColumns,
-        current: pasteAnchor("record-2", "summary"),
-        pastedColumnCount: 1,
-        pastedRowCount: 2,
-        presentationRows: groupedRows,
+      handle.planPasteTargets(pasteAnchor("record-2", "summary"), {
+        columnCount: 1,
+        rowCount: 2,
       }),
     ).toBeNull();
   });
@@ -1200,22 +1176,17 @@ describe("keyboard and grid anchor coverage", () => {
     expect(screen.getByText("2 selected")).toBeTruthy();
   });
 
-  it("requires a Cartulary anchor instead of vendor coordinates alone", () => {
-    const presentationRows = buildGridPresentationRows({
-      rows: [
-        pasteGridRow("record-1", "open"),
-        pasteGridRow("record-2", "closed"),
-      ],
-    });
+  it("requires a valid semantic anchor for paste planning", () => {
+    const handle = renderPastePlanner([
+      pasteGridRow("record-1", "open"),
+      pasteGridRow("record-2", "closed"),
+    ]);
     const vendorSelection = { fieldKey: "state", rowIndex: 1 };
 
     expect(
-      resolveGridPasteTargets({
-        columns: pasteColumns,
-        current: pasteAnchor("", vendorSelection.fieldKey),
-        pastedColumnCount: 1,
-        pastedRowCount: 1,
-        presentationRows,
+      handle.planPasteTargets(pasteAnchor("", vendorSelection.fieldKey), {
+        columnCount: 1,
+        rowCount: 1,
       }),
     ).toBeNull();
   });

@@ -211,8 +211,6 @@ export function AssessmentWorkbookSurface({
   const assessmentFocus = useWorkbookGridFocus({
     columns: anchorColumns,
     gridHandleRef,
-    grouping,
-    rows: gridRows,
     surface: assessmentsViewSchemaId,
   });
   const dataState = workbookGridDataState({

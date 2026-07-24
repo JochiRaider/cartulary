@@ -1,11 +1,13 @@
 import type {
   GridCellAnchor,
-  GridCellMutationIntent,
+  GridCellPasteIntent,
+  GridClipboardInput,
 } from "@cartulary/grid-adapter";
 import { type ClipboardEvent as ReactClipboardEvent, useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { decodeWorkbookClipboardInput } from "../../utils/workbookClipboard";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import type {
   PendingReplayRuntimeMeta,
@@ -99,7 +101,7 @@ export function useTimelineClipboardPasteController({
   readonly resolveTimelinePasteTargetResolution: (
     rowKey: string,
     fieldKey: string,
-    clipboardText: string,
+    input: GridClipboardInput,
   ) => TimelinePasteTargetResolution | null;
   readonly restoreTimelineFocusAnchor: (anchor: GridCellAnchor) => boolean;
   readonly rowInputRefs: TimelineMutableRef<
@@ -124,18 +126,30 @@ export function useTimelineClipboardPasteController({
       rowKey: string,
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
+      prepared?:
+        | (TimelinePasteTargetResolution & {
+            readonly input: GridClipboardInput;
+          })
+        | undefined,
     ) => {
-      const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+      const clipboardText =
+        prepared?.input.rawText ??
+        event.clipboardData?.getData("text/plain") ??
+        "";
+      const clipboardInput =
+        prepared?.input ?? decodeWorkbookClipboardInput(clipboardText);
       const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
       if (surface === "grid" && binding !== undefined) {
-        const pasteTargetResolution = resolveTimelinePasteTargetResolution(
-          rowKey,
-          fieldKey,
-          clipboardText,
-        );
+        const pasteTargetResolution =
+          prepared ??
+          resolveTimelinePasteTargetResolution(
+            rowKey,
+            fieldKey,
+            clipboardInput,
+          );
         if (pasteTargetResolution !== null) {
           event.preventDefault();
           const { anchor, targetResolution } = pasteTargetResolution;
@@ -193,7 +207,10 @@ export function useTimelineClipboardPasteController({
                         view_schema_id: timelineViewSchemaId,
                         client_txn_id: clientTxnId,
                         clipboard_text: clipboardText,
-                        format: clipboardText.includes("\t") ? "tsv" : "csv",
+                        format:
+                          clipboardInput.kind === "table"
+                            ? clipboardInput.format
+                            : "csv",
                         start_field_key: fieldKey,
                         columns: targetResolution.columns,
                         targets: rowTargetPayload,
@@ -294,9 +311,8 @@ export function useTimelineClipboardPasteController({
   );
 
   const handleGridPaste = useCallback(
-    (intent: GridCellMutationIntent) => {
-      const clipboardText = intent.clipboardText;
-      if (clipboardText === undefined) return;
+    (intent: GridCellPasteIntent) => {
+      const clipboardText = intent.input.rawText;
       const binding = timelineScalarBindingForField(intent.target.fieldKey);
       if (binding === null) return;
       handlePaste(
@@ -311,6 +327,11 @@ export function useTimelineClipboardPasteController({
           : "",
         binding.key,
         "grid",
+        {
+          anchor: intent.target,
+          input: intent.input,
+          targetResolution: intent.targetResolution,
+        },
       );
     },
     [handlePaste],

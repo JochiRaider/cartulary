@@ -1519,7 +1519,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "keyboard and grid anchor coverage dispatches single-line CSV pasted into the draft Time cell as a create-row paste"
+          "keyboard and grid anchor coverage keeps single-line comma text on the scalar draft-input path"
         ]
       },
       "evidence_class": "unit",

@@ -149,8 +149,6 @@ export type GridDraftRow<Row> = {
   readonly testId?: string | undefined;
 };
 
-export type GridSemanticRow<Row> = GridDraftRow<Row> | GridDataRow<Row>;
-
 export type GridRowGutter = {
   readonly headerTestId?: string | undefined;
   readonly label?: ReactNode | undefined;
@@ -211,7 +209,7 @@ type SemanticDataGridBaseProps<Row> = {
     | undefined;
   readonly onCopyCell?: ((intent: GridCellCopyIntent) => void) | undefined;
   readonly onFillCells?: ((intent: GridFillIntent) => void) | undefined;
-  readonly onPasteCell?: ((intent: GridCellMutationIntent) => void) | undefined;
+  readonly clipboardPaste?: GridClipboardPasteContract | undefined;
   readonly onSortChange?:
     | ((sort: readonly GridSortEntry[]) => void)
     | undefined;
@@ -243,7 +241,7 @@ export type SemanticDataGridProps<Row> =
       | "draftRow"
       | "interactionMode"
       | "onFillCells"
-      | "onPasteCell"
+      | "clipboardPaste"
     > & {
       readonly surface: Extract<
         GridSurfaceIdentity,
@@ -258,26 +256,8 @@ export type SemanticDataGridProps<Row> =
         readonly label: string;
       };
       readonly onFillCells?: never;
-      readonly onPasteCell?: never;
+      readonly clipboardPaste?: never;
     });
-
-export type GridPresentationGroupRow = {
-  readonly groupBy: string;
-  readonly groupLabel: string | null;
-  readonly key: string;
-  readonly kind: "group";
-  readonly testId?: string | undefined;
-};
-
-export type GridPresentationDataRow<Row> = {
-  readonly gridRow: GridDataRow<Row>;
-  readonly key: string;
-  readonly kind: "data";
-};
-
-export type GridPresentationRow<Row> =
-  | GridPresentationGroupRow
-  | GridPresentationDataRow<Row>;
 
 export type GridCellAnchor = {
   readonly surface: GridSurfaceIdentity;
@@ -390,6 +370,14 @@ export type GridHandle = {
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
   readonly focusRoot: () => boolean;
   readonly getScrollElement: () => HTMLDivElement | null;
+  readonly moveFocus: (
+    current: GridCellAnchor,
+    intent: GridNavigationIntent,
+  ) => GridCellAnchor | null;
+  readonly planPasteTargets: (
+    current: GridCellAnchor,
+    dimensions: GridClipboardDimensions,
+  ) => GridPasteTargetResolution | null;
   readonly scrollToAnchor: (anchor: GridCellAnchor) => boolean;
 };
 
@@ -399,11 +387,34 @@ export type GridCellCopyIntent = {
   readonly expandedRange: GridExpandedCellRange;
 };
 
-export type GridCellMutationIntent = {
-  readonly clipboardText?: string | undefined;
-  readonly range?: GridCellRange | undefined;
-  readonly targetResolution?: GridPasteTargetResolution | undefined;
+export type GridClipboardDimensions = {
+  readonly columnCount: number;
+  readonly rowCount: number;
+};
+
+export type GridClipboardInput =
+  | {
+      readonly kind: "scalar";
+      readonly rawText: string;
+      readonly value: string;
+    }
+  | {
+      readonly format: "csv" | "tsv";
+      readonly kind: "table";
+      readonly rawText: string;
+      readonly values: readonly (readonly string[])[];
+    };
+
+export type GridCellPasteIntent = {
+  readonly input: GridClipboardInput;
+  readonly range: GridCellRange;
+  readonly targetResolution: GridPasteTargetResolution;
   readonly target: GridCellTarget;
+};
+
+export type GridClipboardPasteContract = {
+  readonly decode: (rawText: string) => GridClipboardInput;
+  readonly onPaste: (intent: GridCellPasteIntent) => void;
 };
 
 export type GridFillIntent = {
@@ -411,17 +422,6 @@ export type GridFillIntent = {
   readonly source: GridCellTarget;
   readonly target: GridCellTarget;
   readonly targets: readonly GridCellTarget[];
-};
-
-export type ResolveGridCellRangeProps<Row> = {
-  readonly columns: readonly GridColumn<Row>[];
-  readonly presentationRows: readonly GridPresentationRow<Row>[];
-  readonly range: GridCellRange;
-};
-
-export type GridCellSelection = {
-  readonly fieldKey: string;
-  readonly rowIndex: number;
 };
 
 export type GridNavigationKey =
@@ -442,20 +442,6 @@ export type GridNavigationIntent = {
   /** Semantic page step, normally visible body rows minus one. */
   readonly pageSize?: number | undefined;
   readonly shiftKey?: boolean | undefined;
-};
-
-export type ResolveGridCellAnchorProps<Row> = {
-  readonly columns: readonly GridColumn<Row>[];
-  readonly presentationRows: readonly GridPresentationRow<Row>[];
-  readonly selection: GridCellSelection;
-  readonly surface: GridSurfaceIdentity;
-};
-
-export type NavigateGridCellAnchorProps<Row> = {
-  readonly columns: readonly GridColumn<Row>[];
-  readonly current: GridCellAnchor;
-  readonly intent: GridNavigationIntent;
-  readonly presentationRows: readonly GridPresentationRow<Row>[];
 };
 
 export type GridPasteCreateRowTarget = {
@@ -484,23 +470,9 @@ export type GridPasteRowTarget =
   | GridPasteCreateRowTarget
   | GridPasteRecordRowTarget;
 
-export type ResolveGridPasteTargetsProps<Row> = {
-  readonly allowCreateRows?: boolean | undefined;
-  readonly columns: readonly GridColumn<Row>[];
-  readonly current: GridCellAnchor;
-  readonly pastedColumnCount: number;
-  readonly pastedRowCount: number;
-  readonly presentationRows: readonly GridPresentationRow<Row>[];
-};
-
 export type GridPasteTargetResolution = {
   readonly columns: readonly string[];
   readonly rowTargets: readonly GridPasteRowTarget[];
-};
-
-type BuildGridPresentationRowsProps<Row> = {
-  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
-  readonly rows: readonly GridSemanticRow<Row>[];
 };
 
 export const gridUnassignedGroupLabel = "Unassigned";
@@ -527,251 +499,6 @@ export function assertGridRows<Row>(rows: readonly GridDataRow<Row>[]) {
   }
 }
 
-export function buildGridPresentationRows<Row>({
-  grouping,
-  rows,
-}: BuildGridPresentationRowsProps<Row>): readonly GridPresentationRow<Row>[] {
-  if (grouping === null || grouping === undefined) {
-    return rows.flatMap((row) =>
-      row.kind === "draft"
-        ? []
-        : [
-            {
-              gridRow: row,
-              key: gridRowIdentityKey(row.rowIdentity),
-              kind: "data" as const,
-            },
-          ],
-    );
-  }
-
-  const groupBy = grouping.fieldKey;
-  const buckets: Array<{
-    groupValue: GridGroupingScalar;
-    groupKeyValue: string;
-    groupLabel: string | null;
-    rows: Array<GridDataRow<Row>>;
-  }> = [];
-  const bucketsByKey = new Map<
-    string,
-    {
-      groupKeyValue: string;
-      groupLabel: string | null;
-      groupValue: GridGroupingScalar;
-      rows: Array<GridDataRow<Row>>;
-    }
-  >();
-  for (const row of rows) {
-    if (row.kind === "draft") {
-      continue;
-    }
-    const groupValue = grouping.getValue(row.data);
-    const nextGroupLabel = normalizeGroupLabel(
-      grouping.formatLabel(groupValue),
-    );
-    const bucketMapKey = encodeGridGroupingScalar(groupValue);
-    let bucket = bucketsByKey.get(bucketMapKey);
-    if (bucket === undefined) {
-      bucket = {
-        groupKeyValue: bucketMapKey,
-        groupLabel: nextGroupLabel,
-        groupValue,
-        rows: [],
-      };
-      bucketsByKey.set(bucketMapKey, bucket);
-      buckets.push(bucket);
-    }
-    bucket.rows.push(row);
-  }
-
-  const presentationRows: GridPresentationRow<Row>[] = [];
-  for (const bucket of buckets) {
-    presentationRows.push({
-      groupBy,
-      groupLabel: bucket.groupLabel,
-      key: `group:${groupBy}:${bucket.groupKeyValue}:0`,
-      kind: "group",
-      testId:
-        grouping.getTestId === undefined
-          ? undefined
-          : grouping.getTestId(groupBy, bucket.groupValue, bucket.groupLabel),
-    });
-    for (const row of bucket.rows) {
-      presentationRows.push({
-        gridRow: row,
-        key: gridRowIdentityKey(row.rowIdentity),
-        kind: "data",
-      });
-    }
-  }
-
-  return presentationRows;
-}
-
-export function resolveGridCellAnchor<Row>({
-  columns,
-  presentationRows,
-  selection,
-  surface,
-}: ResolveGridCellAnchorProps<Row>): GridCellAnchor | null {
-  if (
-    !Number.isInteger(selection.rowIndex) ||
-    selection.rowIndex < 0 ||
-    !columns.some((column) => column.fieldKey === selection.fieldKey)
-  ) {
-    return null;
-  }
-  const row = presentationRows[selection.rowIndex];
-  if (row === undefined || row.kind !== "data") {
-    return null;
-  }
-  if (!isValidGridRowIdentity(row.gridRow.rowIdentity)) {
-    return null;
-  }
-  return {
-    fieldKey: selection.fieldKey,
-    rowIdentity: row.gridRow.rowIdentity,
-    surface,
-  };
-}
-
-export function navigateGridCellAnchor<Row>({
-  columns,
-  current,
-  intent,
-  presentationRows,
-}: NavigateGridCellAnchorProps<Row>): GridCellAnchor | null {
-  const dataRows = presentationRows.filter((row) => row.kind === "data");
-  const currentRowIndex = dataRows.findIndex((row) =>
-    gridRowIdentitiesEqual(row.gridRow.rowIdentity, current.rowIdentity),
-  );
-  const currentColumnIndex = columns.findIndex(
-    (column) => column.fieldKey === current.fieldKey,
-  );
-  if (currentRowIndex < 0 || currentColumnIndex < 0) {
-    return null;
-  }
-
-  const target = navigateGridCellCoordinates({
-    columnIndex: currentColumnIndex,
-    columnCount: columns.length,
-    intent,
-    rowIndex: currentRowIndex,
-    rowCount: dataRows.length,
-  });
-  if (target === null) {
-    return null;
-  }
-  const targetColumn = columns[target.columnIndex];
-  if (targetColumn === undefined) {
-    return null;
-  }
-  const targetRow = dataRows[target.rowIndex];
-  if (targetRow === undefined) return null;
-  return {
-    fieldKey: targetColumn.fieldKey,
-    rowIdentity: targetRow.gridRow.rowIdentity,
-    surface: current.surface,
-  };
-}
-
-export function resolveGridCellRange<Row>({
-  columns,
-  presentationRows,
-  range,
-}: ResolveGridCellRangeProps<Row>): GridExpandedCellRange | null {
-  if (!gridSurfaceIdentitiesEqual(range.start.surface, range.end.surface)) {
-    return null;
-  }
-  const startColumnIndex = columns.findIndex(
-    (column) => column.fieldKey === range.start.fieldKey,
-  );
-  const endColumnIndex = columns.findIndex(
-    (column) => column.fieldKey === range.end.fieldKey,
-  );
-  const startRowIndex = presentationRows.findIndex(
-    (row) =>
-      row.kind === "data" &&
-      gridRowIdentitiesEqual(row.gridRow.rowIdentity, range.start.rowIdentity),
-  );
-  const endRowIndex = presentationRows.findIndex(
-    (row) =>
-      row.kind === "data" &&
-      gridRowIdentitiesEqual(row.gridRow.rowIdentity, range.end.rowIdentity),
-  );
-  if (
-    startColumnIndex < 0 ||
-    endColumnIndex < 0 ||
-    startRowIndex < 0 ||
-    endRowIndex < 0
-  ) {
-    return null;
-  }
-  const firstColumnIndex = Math.min(startColumnIndex, endColumnIndex);
-  const lastColumnIndex = Math.max(startColumnIndex, endColumnIndex);
-  const firstRowIndex = Math.min(startRowIndex, endRowIndex);
-  const lastRowIndex = Math.max(startRowIndex, endRowIndex);
-  const fieldKeys = columns
-    .slice(firstColumnIndex, lastColumnIndex + 1)
-    .map((column) => column.fieldKey);
-  const rowIdentities = presentationRows
-    .slice(firstRowIndex, lastRowIndex + 1)
-    .flatMap((row) => (row.kind === "group" ? [] : [row.gridRow.rowIdentity]));
-  return fieldKeys.length === 0 || rowIdentities.length === 0
-    ? null
-    : { fieldKeys, rowIdentities };
-}
-
-export function parseGridClipboardTable(text: string): string[][] {
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const trimmed = normalized.replace(/\n+$/u, "");
-  if (trimmed === "") return [[""]];
-  const delimiter = trimmed.includes("\t") ? "\t" : ",";
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let index = 0; index < trimmed.length; index += 1) {
-    const char = trimmed[index];
-    if (char === '"') {
-      if (quoted && trimmed[index + 1] === '"') {
-        cell += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-    if (!quoted && char === delimiter) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-    if (!quoted && char === "\n") {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-    cell += char;
-  }
-  row.push(cell);
-  rows.push(row);
-  return rows;
-}
-
-export function gridClipboardDimensions(text: string): {
-  readonly columnCount: number;
-  readonly rowCount: number;
-} {
-  const rows = parseGridClipboardTable(text);
-  return {
-    columnCount: rows.reduce((max, row) => Math.max(max, row.length), 1),
-    rowCount: Math.max(1, rows.length),
-  };
-}
-
 export function formatGridClipboardTSV(
   values: readonly (readonly unknown[])[],
 ): string {
@@ -788,89 +515,6 @@ function formatGridClipboardCell(value: unknown): string {
         ? String(value)
         : String(value);
   return /[\t\n\r"]/u.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-export function resolveGridPasteTargets<Row>({
-  allowCreateRows = true,
-  columns,
-  current,
-  pastedColumnCount,
-  pastedRowCount,
-  presentationRows,
-}: ResolveGridPasteTargetsProps<Row>): GridPasteTargetResolution | null {
-  if (
-    current.rowIdentity.kind !== "core_record" ||
-    current.surface.kind !== "view_schema" ||
-    current.rowIdentity.recordId.trim() === "" ||
-    current.fieldKey.trim() === "" ||
-    !Number.isInteger(pastedRowCount) ||
-    pastedRowCount < 1 ||
-    !Number.isInteger(pastedColumnCount) ||
-    pastedColumnCount < 1
-  ) {
-    return null;
-  }
-  const startColumnIndex = columns.findIndex(
-    (column) => column.fieldKey === current.fieldKey,
-  );
-  if (startColumnIndex < 0) {
-    return null;
-  }
-  const targetColumns = columns
-    .slice(startColumnIndex, startColumnIndex + pastedColumnCount)
-    .map((column) => column.fieldKey);
-  if (targetColumns.length !== pastedColumnCount) {
-    return null;
-  }
-
-  const startRowIndex = presentationRows.findIndex(
-    (row) =>
-      row.kind === "data" &&
-      gridRowIdentitiesEqual(row.gridRow.rowIdentity, current.rowIdentity),
-  );
-  if (startRowIndex < 0) {
-    return null;
-  }
-
-  const rowTargets: GridPasteRowTarget[] = [];
-  let createIndex = 0;
-  for (let offset = 0; offset < pastedRowCount; offset += 1) {
-    const presentationRow = presentationRows[startRowIndex + offset];
-    if (presentationRow === undefined) {
-      if (!allowCreateRows) {
-        return null;
-      }
-      rowTargets.push({
-        createIndex,
-        kind: "create",
-        surface: current.surface,
-      });
-      createIndex += 1;
-      continue;
-    }
-    if (presentationRow.kind !== "data") {
-      return null;
-    }
-    const { mutationIdentity, rowIdentity } = presentationRow.gridRow;
-    if (
-      rowIdentity.kind !== "core_record" ||
-      rowIdentity.recordId.trim() === "" ||
-      mutationIdentity === undefined
-    ) {
-      return null;
-    }
-    rowTargets.push({
-      kind: "record",
-      mutationIdentity,
-      rowIdentity,
-      surface: current.surface,
-    });
-  }
-
-  return {
-    columns: targetColumns,
-    rowTargets,
-  };
 }
 
 export function gridRowIdentitiesEqual(
@@ -917,92 +561,4 @@ function isValidGridRowIdentity(identity: GridRowIdentity): boolean {
     : identity.extensionProfileId.trim() !== "" &&
         identity.resourceKind.trim() !== "" &&
         identity.resourceId.trim() !== "";
-}
-
-function navigateGridCellCoordinates({
-  columnCount,
-  columnIndex,
-  intent,
-  rowCount,
-  rowIndex,
-}: {
-  readonly columnCount: number;
-  readonly columnIndex: number;
-  readonly intent: GridNavigationIntent;
-  readonly rowCount: number;
-  readonly rowIndex: number;
-}): { columnIndex: number; rowIndex: number } | null {
-  let nextColumnIndex = columnIndex;
-  let nextRowIndex = rowIndex;
-  const pageSize = Math.max(1, Math.floor(intent.pageSize ?? 1));
-  switch (intent.key) {
-    case "ArrowDown":
-      nextRowIndex += 1;
-      break;
-    case "ArrowUp":
-      nextRowIndex -= 1;
-      break;
-    case "ArrowLeft":
-      nextColumnIndex -= 1;
-      break;
-    case "ArrowRight":
-      nextColumnIndex += 1;
-      break;
-    case "PageDown":
-      nextRowIndex = Math.min(rowCount - 1, rowIndex + pageSize);
-      break;
-    case "PageUp":
-      nextRowIndex = Math.max(0, rowIndex - pageSize);
-      break;
-    case "Home":
-      if (intent.ctrlOrMetaKey === true) nextRowIndex = 0;
-      nextColumnIndex = 0;
-      break;
-    case "End":
-      if (intent.ctrlOrMetaKey === true) nextRowIndex = rowCount - 1;
-      nextColumnIndex = columnCount - 1;
-      break;
-    case "Enter":
-      nextRowIndex += intent.shiftKey === true ? -1 : 1;
-      break;
-    case "Tab":
-      nextColumnIndex += intent.shiftKey === true ? -1 : 1;
-      break;
-  }
-  if (
-    nextRowIndex < 0 ||
-    nextRowIndex >= rowCount ||
-    nextColumnIndex < 0 ||
-    nextColumnIndex >= columnCount
-  ) {
-    return null;
-  }
-  return {
-    columnIndex: nextColumnIndex,
-    rowIndex: nextRowIndex,
-  };
-}
-
-function normalizeGroupLabel(value: string | null | undefined): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized === "" ? null : normalized;
-}
-
-function encodeGridGroupingScalar(value: GridGroupingScalar): string {
-  if (value === null) {
-    return "n:null";
-  }
-  if (typeof value === "boolean") {
-    return value ? "b:true" : "b:false";
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new Error("Grid grouping values must be finite numbers.");
-    }
-    return `d:${String(value)}`;
-  }
-  return `s:${value}`;
 }

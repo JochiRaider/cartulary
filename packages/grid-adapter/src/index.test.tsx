@@ -8,9 +8,9 @@ import {
 } from "@testing-library/react";
 import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { assertGridRows } from "./core";
+import { SemanticDataGrid as SemanticDataGridDomUnit } from "./domUnitBinding";
 import {
-  assertGridRows,
   type GridColumn,
   type GridDataRow,
   type GridHandle,
@@ -19,7 +19,7 @@ import {
   SemanticDataGrid,
   type SemanticDataGridProps,
 } from "./index";
-import { setGridVirtualizationDisabledForDiagnostics } from "./virtualizationDiagnostics";
+import { SemanticDataGrid as SemanticDataGridTestSupport } from "./test-support";
 
 type HarnessRow = {
   readonly label: string;
@@ -47,6 +47,10 @@ const columns: readonly GridColumn<HarnessRow>[] = [
 
 const testSurface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
 
+function decodeTestClipboard(rawText: string) {
+  return { kind: "scalar" as const, rawText, value: rawText };
+}
+
 function gridAnchor(recordId: string, fieldKey: string) {
   return {
     fieldKey,
@@ -57,7 +61,6 @@ function gridAnchor(recordId: string, fieldKey: string) {
 
 describe("grid-adapter", () => {
   beforeEach(() => {
-    setGridVirtualizationDisabledForDiagnostics(false);
     vi.stubGlobal(
       "IntersectionObserver",
       class {
@@ -79,7 +82,6 @@ describe("grid-adapter", () => {
   });
 
   afterEach(() => {
-    setGridVirtualizationDisabledForDiagnostics(true);
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -360,6 +362,85 @@ describe("grid-adapter", () => {
         '[aria-label="Invalid State: Choose an allowed state"]',
       ),
     ).toBeTruthy();
+
+    const supportHandle = createRef<GridHandle>();
+    const onSupportAction = vi.fn();
+    const onSupportActiveCellChange = vi.fn();
+    const onSupportSelectRow = vi.fn();
+    render(
+      <SemanticDataGridTestSupport
+        ref={supportHandle}
+        actionsColumn={{
+          label: "Actions",
+          renderCell: () => (
+            <button
+              data-testid="support-row-action"
+              type="button"
+              onClick={onSupportAction}
+            >
+              Inspect
+            </button>
+          ),
+        }}
+        activeRowIdentity={{ kind: "core_record", recordId: "record-stateful" }}
+        coreRecordBulkSelection={{
+          onSelectedRecordIdsChange: vi.fn(),
+          selectedRecordIds: new Set(["record-stateful"]),
+        }}
+        columns={columns}
+        dataState={{ kind: "stale_error", message: "Refresh failed." }}
+        getCellState={({ anchor }) =>
+          anchor.fieldKey === "label"
+            ? { conflicted: true }
+            : { invalid: { message: "Choose an allowed state" } }
+        }
+        getRowState={() => ({ pending: true })}
+        onActiveCellChange={onSupportActiveCellChange}
+        onSelectRow={onSupportSelectRow}
+        dataRows={[{ ...statefulRow, testId: "stateful-row-test-support" }]}
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+      />,
+    );
+    const supportRow = screen.getByTestId("stateful-row-test-support");
+    const supportLabelCell = supportRow.querySelector<HTMLElement>(
+      '[role="gridcell"][data-grid-field-key="label"]',
+    );
+    const supportStateCell = supportRow.querySelector<HTMLElement>(
+      '[role="gridcell"][data-grid-field-key="state"]',
+    );
+    expect(supportRow.getAttribute("aria-busy")).toBe("true");
+    expect(supportRow.getAttribute("aria-current")).toBe("true");
+    expect(supportRow.getAttribute("aria-selected")).toBe("true");
+    expect(supportLabelCell?.dataset.gridPrimaryState).toBe("conflicted");
+    expect(supportStateCell?.dataset.gridPrimaryState).toBe("invalid");
+    const labelAnchor = gridAnchor("record-stateful", "label");
+    const stateAnchor = gridAnchor("record-stateful", "state");
+    expect(supportHandle.current?.focusAnchor(labelAnchor)).toBe(true);
+    expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(labelAnchor);
+    expect(
+      supportHandle.current?.moveFocus(labelAnchor, { key: "ArrowRight" }),
+    ).toEqual(stateAnchor);
+    expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(stateAnchor);
+    expect(
+      supportHandle.current?.planPasteTargets(labelAnchor, {
+        columnCount: 1,
+        rowCount: 1,
+      }),
+    ).toBeNull();
+    const wrongSurfaceAnchor = {
+      ...labelAnchor,
+      surface: { kind: "view_schema", viewSchemaId: "wrong.view" } as const,
+    };
+    expect(supportHandle.current?.focusAnchor(wrongSurfaceAnchor)).toBe(false);
+    expect(
+      supportHandle.current?.planPasteTargets(wrongSurfaceAnchor, {
+        columnCount: 1,
+        rowCount: 1,
+      }),
+    ).toBeNull();
+    fireEvent.click(screen.getByTestId("support-row-action"));
+    expect(onSupportAction).toHaveBeenCalledTimes(1);
+    expect(onSupportSelectRow).not.toHaveBeenCalled();
   });
 
   it("keeps inspector context distinct from opt-in record selection", async () => {
@@ -443,7 +524,10 @@ describe("grid-adapter", () => {
           kind: "draft",
           testId: "zero-row-create-draft",
         }}
-        onPasteCell={onPasteCell}
+        clipboardPaste={{
+          decode: decodeTestClipboard,
+          onPaste: onPasteCell,
+        }}
         dataRows={[]}
         surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
       />,
@@ -511,7 +595,10 @@ describe("grid-adapter", () => {
         ]}
         onActiveCellChange={onActiveCellChange}
         onCopyCell={onCopyCell}
-        onPasteCell={onPasteCell}
+        clipboardPaste={{
+          decode: decodeTestClipboard,
+          onPaste: onPasteCell,
+        }}
         dataRows={[
           {
             kind: "data",
@@ -555,9 +642,31 @@ describe("grid-adapter", () => {
       expect.objectContaining({ anchor }),
     );
     expect(onPasteCell).toHaveBeenCalledWith(
-      expect.objectContaining({ target }),
+      expect.objectContaining({
+        input: { kind: "scalar", rawText: "", value: "" },
+        target,
+      }),
     );
     expect(handle.current?.getScrollElement()).toBeTruthy();
+    expect(
+      handle.current?.planPasteTargets(anchor, {
+        columnCount: 1,
+        rowCount: 1,
+      }),
+    ).toEqual({
+      columns: ["label"],
+      rowTargets: [
+        {
+          kind: "record",
+          mutationIdentity: {
+            kind: "core_row_version",
+            baseRowVersion: 7,
+          },
+          rowIdentity: { kind: "core_record", recordId: "record-1" },
+          surface: testSurface,
+        },
+      ],
+    });
     expect(handle.current?.focusRoot()).toBe(true);
     expect(document.activeElement).toBe(handle.current?.getScrollElement());
     expect(handle.current?.scrollToAnchor(anchor)).toBe(true);
@@ -1183,6 +1292,11 @@ describe("grid-adapter", () => {
     expect(
       groupedHandle.current?.focusAnchor(gridAnchor("record-1", "label")),
     ).toBe(false);
+    expect(
+      groupedHandle.current?.moveFocus(gridAnchor("record-2", "label"), {
+        key: "ArrowUp",
+      }),
+    ).toBeNull();
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("row-record-1")).toBeTruthy();
@@ -1445,6 +1559,23 @@ describe("grid-adapter", () => {
       shell.querySelectorAll('[role="row"][data-grid-record-id]').length,
     ).toBeLessThan(rowCount);
     expect(handle.current?.scrollToAnchor(lastAnchor)).toBe(true);
+
+    render(
+      <GridViewport testId="dom-unit-grid-shell">
+        <SemanticDataGridDomUnit
+          surface={{ kind: "view_schema", viewSchemaId: "test.dom-unit" }}
+          columns={wideColumns}
+          dataRows={rows.slice(0, 50)}
+        />
+      </GridViewport>,
+    );
+    const domUnitShell = screen.getByTestId("dom-unit-grid-shell");
+    expect(
+      domUnitShell.querySelectorAll('[role="row"][data-grid-record-id]'),
+    ).toHaveLength(50);
+    expect(
+      shell.querySelectorAll('[role="row"][data-grid-record-id]').length,
+    ).toBeLessThan(rowCount);
   });
 
   it("keeps standalone block sizing by default and supports shell-owned fill block sizing", async () => {

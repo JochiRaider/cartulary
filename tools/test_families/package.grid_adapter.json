@@ -46,7 +46,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
+          "Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors."
         ]
       },
       "evidence_class": "unit",
@@ -69,7 +69,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "Translate vendor row and column coordinates to stable record_id and field_key anchors."
+          "Translate private RDG positions through stable record_id and field_key anchors."
         ]
       },
       "evidence_class": "unit",
@@ -138,7 +138,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows builds one group bucket per normalized committed label"
+          "semantic grouping model builds one typed bucket per normalized committed group value"
         ]
       },
       "evidence_class": "unit",
@@ -161,7 +161,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors clears anchors for invalid row, field, group, and recordless targets"
+          "semantic grid policies clears anchors for invalid row, field, group, and recordless targets"
         ]
       },
       "evidence_class": "unit",
@@ -184,7 +184,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows creates an unassigned group when empty labels follow a non-empty group"
+          "semantic grouping model preserves first-seen order when an unassigned bucket follows a named bucket"
         ]
       },
       "evidence_class": "unit",
@@ -207,7 +207,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors does not treat vendor selection changes alone as anchor updates"
+          "semantic grid policies does not change semantic anchors without an explicit adapter operation"
         ]
       },
       "evidence_class": "unit",
@@ -230,7 +230,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows keeps recordless draft rows outside grouped committed result buckets"
+          "semantic grouping model keeps recordless drafts outside semantic group buckets"
         ]
       },
       "evidence_class": "unit",
@@ -253,7 +253,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors maps filtered overflow to explicit create-row anchors"
+          "semantic grid policies maps filtered overflow to explicit create-row targets"
         ]
       },
       "evidence_class": "unit",
@@ -276,7 +276,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows maps rows directly to data presentation rows without grouping"
+          "semantic grouping model preserves ungrouped semantic row order"
         ]
       },
       "evidence_class": "unit",
@@ -322,7 +322,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows normalizes committed empty group labels to the unassigned group without test IDs"
+          "semantic grouping model groups committed empty values in the unassigned bucket without test IDs"
         ]
       },
       "evidence_class": "unit",
@@ -391,7 +391,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors rejects group and presentation-only paste anchors"
+          "semantic grid policies rejects invalid anchors and create-disabled grouped overflow"
         ]
       },
       "evidence_class": "unit",
@@ -414,7 +414,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors requires a Cartulary anchor instead of vendor coordinates alone"
+          "semantic grid policies requires a valid semantic anchor for paste planning"
         ]
       },
       "evidence_class": "unit",
@@ -437,7 +437,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "extension grid semantic identities resolves extension anchors, ranges, grouping, and navigation without Core aliases"
+          "extension grid semantic identities resolves extension semantic positions, ranges, grouping, and navigation without Core aliases"
         ]
       },
       "evidence_class": "unit",
@@ -483,7 +483,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors supports semantic page, row-edge, and grid-edge navigation"
+          "semantic grid policies supports semantic page, row-edge, and grid-edge navigation"
         ]
       },
       "evidence_class": "unit",
@@ -506,7 +506,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors targets sorted paste rows by stable visible record identities"
+          "semantic grid policies targets sorted paste rows by stable visible record identities"
         ]
       },
       "evidence_class": "unit",
@@ -529,7 +529,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors translates valid presentation coordinates into stable record_id and field_key anchors"
+          "semantic grid policies resolves valid semantic positions to stable record_id and field_key anchors"
         ]
       },
       "evidence_class": "unit",
@@ -552,7 +552,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid presentation rows trims labels before comparing groups and generating keys"
+          "semantic grouping model normalizes owner group values before typed bucket identity"
         ]
       },
       "evidence_class": "unit",
@@ -575,7 +575,7 @@
       "selector": {
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
-          "grid Cartulary anchors updates anchors for keyboard navigation and clears on presentation-only targets"
+          "semantic grid policies moves semantic anchors for keyboard navigation and rejects missing targets"
         ]
       },
       "evidence_class": "unit",

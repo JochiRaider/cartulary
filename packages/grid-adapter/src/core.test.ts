@@ -2,19 +2,26 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertGridRows,
-  buildGridPresentationRows,
   formatGridClipboardTSV,
   type GridCellAnchor,
+  type GridColumn,
   type GridDataRow,
   type GridDraftRow,
-  type GridPresentationRow,
+  type GridGroupingDescriptor,
+  type GridNavigationIntent,
+  type GridSurfaceIdentity,
+  gridRowIdentityKey,
+  gridSurfaceIdentitiesEqual,
   isGridColumnEditable,
-  navigateGridCellAnchor,
-  parseGridClipboardTable,
-  resolveGridCellAnchor,
-  resolveGridCellRange,
-  resolveGridPasteTargets,
 } from "./core";
+import {
+  buildSemanticGroupBuckets,
+  buildSemanticPresentationModel,
+  gridAnchorKey,
+  navigateSemanticPresentation,
+  planSemanticPasteTargets,
+  resolveVisibleGridCellRange,
+} from "./semanticPresentation";
 import {
   gridSemanticStateClassNames,
   mergeGridSemanticState,
@@ -25,6 +32,196 @@ type HarnessRow = {
   readonly label: string;
   readonly state: string | null | undefined;
 };
+
+type TestPresentationGroupRow = {
+  readonly groupLabel: string | null;
+  readonly key: string;
+  readonly kind: "group";
+  readonly testId?: string | undefined;
+};
+
+type TestPresentationDataRow<Row> = {
+  readonly gridRow: GridDataRow<Row>;
+  readonly key: string;
+  readonly kind: "data";
+};
+
+type GridPresentationRow<Row> =
+  | TestPresentationGroupRow
+  | TestPresentationDataRow<Row>;
+
+function buildGridPresentationRows<Row>({
+  grouping,
+  rows,
+}: {
+  readonly grouping?: GridGroupingDescriptor<Row> | null | undefined;
+  readonly rows: readonly (GridDataRow<Row> | GridDraftRow<Row>)[];
+}): readonly GridPresentationRow<Row>[] {
+  const dataRows = rows.filter(
+    (row): row is GridDataRow<Row> => row.kind === "data",
+  );
+  if (grouping === null || grouping === undefined) {
+    return dataRows.map((gridRow) => ({
+      gridRow,
+      key: gridRowIdentityKey(gridRow.rowIdentity),
+      kind: "data",
+    }));
+  }
+  return buildSemanticGroupBuckets(dataRows, grouping).flatMap((bucket) => [
+    {
+      groupLabel: bucket.label,
+      key: `group:${grouping.fieldKey}:${bucket.id}:0`,
+      kind: "group" as const,
+      testId: grouping.getTestId?.(
+        grouping.fieldKey,
+        bucket.value,
+        bucket.label,
+      ),
+    },
+    ...bucket.rows.map((gridRow) => ({
+      gridRow,
+      key: gridRowIdentityKey(gridRow.rowIdentity),
+      kind: "data" as const,
+    })),
+  ]);
+}
+
+function presentationDataRows<Row>(
+  presentationRows: readonly GridPresentationRow<Row>[],
+): readonly GridDataRow<Row>[] {
+  return presentationRows.flatMap((row) =>
+    row.kind === "data" ? [row.gridRow] : [],
+  );
+}
+
+function testSemanticModel<Row>({
+  allowCreateRows = false,
+  columns,
+  presentationRows,
+  surface,
+}: {
+  readonly allowCreateRows?: boolean | undefined;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+  readonly surface: GridSurfaceIdentity;
+}) {
+  const dataRows = presentationDataRows(presentationRows);
+  const fieldKeys = columns.map((column) => column.fieldKey);
+  return buildSemanticPresentationModel({
+    allowCreateRows,
+    columns,
+    columnKeys: fieldKeys,
+    dataRows,
+    fieldKeys,
+    surface,
+  });
+}
+
+function resolveGridCellAnchor<Row>({
+  columns,
+  presentationRows,
+  selection,
+  surface,
+}: {
+  readonly columns: readonly GridColumn<Row>[];
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+  readonly selection: { readonly fieldKey: string; readonly rowIndex: number };
+  readonly surface: GridSurfaceIdentity;
+}): GridCellAnchor | null {
+  if (
+    !Number.isInteger(selection.rowIndex) ||
+    selection.rowIndex < 0 ||
+    !columns.some((column) => column.fieldKey === selection.fieldKey)
+  ) {
+    return null;
+  }
+  const row = presentationRows[selection.rowIndex];
+  return row?.kind === "data"
+    ? {
+        fieldKey: selection.fieldKey,
+        rowIdentity: row.gridRow.rowIdentity,
+        surface,
+      }
+    : null;
+}
+
+function navigateGridCellAnchor<Row>({
+  columns,
+  current,
+  intent,
+  presentationRows,
+}: {
+  readonly columns: readonly GridColumn<Row>[];
+  readonly current: GridCellAnchor;
+  readonly intent: GridNavigationIntent;
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+}): GridCellAnchor | null {
+  return navigateSemanticPresentation(
+    testSemanticModel({
+      columns,
+      presentationRows,
+      surface: current.surface,
+    }),
+    current,
+    intent,
+  );
+}
+
+function resolveGridCellRange<Row>({
+  columns,
+  presentationRows,
+  range,
+}: {
+  readonly columns: readonly GridColumn<Row>[];
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+  readonly range: {
+    readonly end: GridCellAnchor;
+    readonly start: GridCellAnchor;
+  };
+}) {
+  if (!gridSurfaceIdentitiesEqual(range.start.surface, range.end.surface)) {
+    return null;
+  }
+  const dataRows = presentationDataRows(presentationRows);
+  const model = testSemanticModel({
+    columns,
+    presentationRows,
+    surface: range.start.surface,
+  });
+  return resolveVisibleGridCellRange({
+    columns,
+    dataRows,
+    positionMap: model,
+    range,
+  });
+}
+
+function resolveGridPasteTargets<Row>({
+  allowCreateRows = true,
+  columns,
+  current,
+  pastedColumnCount,
+  pastedRowCount,
+  presentationRows,
+}: {
+  readonly allowCreateRows?: boolean | undefined;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly current: GridCellAnchor;
+  readonly pastedColumnCount: number;
+  readonly pastedRowCount: number;
+  readonly presentationRows: readonly GridPresentationRow<Row>[];
+}) {
+  return planSemanticPasteTargets(
+    testSemanticModel({
+      allowCreateRows,
+      columns,
+      presentationRows,
+      surface: current.surface,
+    }),
+    current,
+    { columnCount: pastedColumnCount, rowCount: pastedRowCount },
+  );
+}
 
 function gridRow(
   key: string,
@@ -105,8 +302,8 @@ function summarizeRows(
   );
 }
 
-describe("grid presentation rows", () => {
-  it("maps rows directly to data presentation rows without grouping", () => {
+describe("semantic grouping model", () => {
+  it("preserves ungrouped semantic row order", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
 
     expect(
@@ -144,7 +341,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("builds one group bucket per normalized committed label", () => {
+  it("builds one typed bucket per normalized committed group value", () => {
     const rows = [
       gridRow("record-1", "open"),
       gridRow("record-2", "open"),
@@ -169,7 +366,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("normalizes committed empty group labels to the unassigned group without test IDs", () => {
+  it("groups committed empty values in the unassigned bucket without test IDs", () => {
     const rows = [
       gridRow("record-1", null),
       gridRow("record-2", undefined),
@@ -194,7 +391,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("creates an unassigned group when empty labels follow a non-empty group", () => {
+  it("preserves first-seen order when an unassigned bucket follows a named bucket", () => {
     const rows = [
       gridRow("record-1", "open"),
       gridRow("record-2", " "),
@@ -215,7 +412,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("keeps recordless draft rows outside grouped committed result buckets", () => {
+  it("keeps recordless drafts outside semantic group buckets", () => {
     const rows = [
       gridRow("record-1", "open"),
       draftRow("draft-1", "rough"),
@@ -238,7 +435,7 @@ describe("grid presentation rows", () => {
     ]);
   });
 
-  it("trims labels before comparing groups and generating keys", () => {
+  it("normalizes owner group values before typed bucket identity", () => {
     const rows = [
       gridRow("record-1", " open "),
       gridRow("record-2", "open"),
@@ -294,7 +491,7 @@ describe("extension grid semantic identities", () => {
     { fieldKey: "state", label: "State", renderCell: () => null },
   ] as const;
 
-  it("resolves extension anchors, ranges, grouping, and navigation without Core aliases", () => {
+  it("resolves extension semantic positions, ranges, grouping, and navigation without Core aliases", () => {
     const presentationRows = buildGridPresentationRows<HarnessRow>({
       grouping: stateGrouping(false),
       rows: extensionRows,
@@ -468,13 +665,30 @@ describe("semantic grid state precedence", () => {
   });
 });
 
-describe("grid Cartulary anchors", () => {
+describe("semantic grid policies", () => {
+  const acceptedEditor = {
+    commit: async () => ({ kind: "accepted" as const }),
+    initialDraftValue: () => "",
+    renderEditor: () => null,
+  };
   const columns = [
-    { fieldKey: "summary", label: "Summary", renderCell: () => null },
-    { fieldKey: "state", label: "State", renderCell: () => null },
+    {
+      contractWritable: true,
+      editor: acceptedEditor,
+      fieldKey: "summary",
+      label: "Summary",
+      renderCell: () => null,
+    },
+    {
+      contractWritable: true,
+      editor: acceptedEditor,
+      fieldKey: "state",
+      label: "State",
+      renderCell: () => null,
+    },
   ] as const;
 
-  it("Reject unsafe record identity and keep presentation rows from mutation-capable anchors.", () => {
+  it("Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors.", () => {
     expect(() =>
       assertGridRows([gridRow("record-1", "open"), gridRow(" ", "open")]),
     ).toThrow(/invalid semantic identity/i);
@@ -517,15 +731,6 @@ describe("grid Cartulary anchors", () => {
     ).toBeNull();
     expect(
       resolveGridPasteTargets({
-        columns,
-        current: gridAnchor("record-1", "summary"),
-        pastedColumnCount: 2,
-        pastedRowCount: 2,
-        presentationRows,
-      }),
-    ).toBeNull();
-    expect(
-      resolveGridPasteTargets({
         allowCreateRows: false,
         columns,
         current: gridAnchor("record-2", "summary"),
@@ -536,13 +741,30 @@ describe("grid Cartulary anchors", () => {
     ).toBeNull();
   });
 
-  it("Translate vendor row and column coordinates to stable record_id and field_key anchors.", () => {
+  it("Translate private RDG positions through stable record_id and field_key anchors.", () => {
     const rows = [
       gridRow("record-3", "closed"),
       gridRow("record-1", "open"),
       gridRow("record-2", "reviewed"),
     ];
     const presentationRows = buildGridPresentationRows({ rows });
+    const writableColumns = columns.map((column) => ({
+      ...column,
+      contractWritable: true,
+      editor: {
+        commit: async () => ({ kind: "accepted" as const }),
+        initialDraftValue: () => "",
+        renderEditor: () => null,
+      },
+    }));
+    const semanticPositions = buildSemanticPresentationModel({
+      allowCreateRows: false,
+      columns: writableColumns,
+      columnKeys: ["summary", "state"],
+      dataRows: rows,
+      fieldKeys: ["summary", "state"],
+      surface: testSurface,
+    });
 
     expect(
       resolveGridCellAnchor({
@@ -552,6 +774,55 @@ describe("grid Cartulary anchors", () => {
         selection: { rowIndex: 1, fieldKey: "state" },
       }),
     ).toEqual(gridAnchor("record-1", "state"));
+    expect(
+      semanticPositions.positions.get(
+        gridAnchorKey(gridAnchor("record-1", "state")),
+      ),
+    ).toEqual({ idx: 1, rowIdx: 1 });
+    expect(
+      navigateSemanticPresentation(
+        semanticPositions,
+        gridAnchor("record-1", "state"),
+        {
+          ctrlOrMetaKey: false,
+          key: "ArrowDown",
+          pageSize: 1,
+        },
+      ),
+    ).toEqual(gridAnchor("record-2", "state"));
+    expect(
+      planSemanticPasteTargets(
+        semanticPositions,
+        gridAnchor("record-1", "state"),
+        {
+          columnCount: 1,
+          rowCount: 2,
+        },
+      ),
+    ).toEqual({
+      columns: ["state"],
+      rowTargets: [
+        pasteRecordTarget("record-1"),
+        pasteRecordTarget("record-2"),
+      ],
+    });
+    expect(
+      resolveVisibleGridCellRange({
+        columns,
+        dataRows: rows,
+        positionMap: semanticPositions,
+        range: {
+          start: gridAnchor("record-2", "state"),
+          end: gridAnchor("record-1", "summary"),
+        },
+      }),
+    ).toEqual({
+      fieldKeys: ["summary", "state"],
+      rowIdentities: [
+        { kind: "core_record", recordId: "record-1" },
+        { kind: "core_record", recordId: "record-2" },
+      ],
+    });
     expect(
       navigateGridCellAnchor({
         columns,
@@ -606,10 +877,6 @@ describe("grid Cartulary anchors", () => {
     expect(clipboardText).toBe(
       'plain\t"has\ttab"\n"line\nbreak"\t"has ""quote"""',
     );
-    expect(parseGridClipboardTable(clipboardText)).toEqual([
-      ["plain", "has\ttab"],
-      ["line\nbreak", 'has "quote"'],
-    ]);
     expect(
       resolveGridPasteTargets({
         columns,
@@ -699,7 +966,7 @@ describe("grid Cartulary anchors", () => {
     expect(isGridColumnEditable(column)).toBe(true);
   });
 
-  it("translates valid presentation coordinates into stable record_id and field_key anchors", () => {
+  it("resolves valid semantic positions to stable record_id and field_key anchors", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
     const presentationRows = buildGridPresentationRows({ rows });
 
@@ -758,7 +1025,7 @@ describe("grid Cartulary anchors", () => {
     ).toBe(false);
   });
 
-  it("updates anchors for keyboard navigation and clears on presentation-only targets", () => {
+  it("moves semantic anchors for keyboard navigation and rejects missing targets", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
     const presentationRows = buildGridPresentationRows({ rows });
 
@@ -846,7 +1113,7 @@ describe("grid Cartulary anchors", () => {
     ).toEqual(gridAnchor("record-1", "summary"));
   });
 
-  it("does not treat vendor selection changes alone as anchor updates", () => {
+  it("does not change semantic anchors without an explicit adapter operation", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
     const presentationRows = buildGridPresentationRows({ rows });
     const current = { recordId: "record-1", fieldKey: "summary" };
@@ -888,7 +1155,7 @@ describe("grid Cartulary anchors", () => {
     });
   });
 
-  it("maps filtered overflow to explicit create-row anchors", () => {
+  it("maps filtered overflow to explicit create-row targets", () => {
     const rows = [gridRow("record-2", "reviewed")];
     const presentationRows = buildGridPresentationRows({ rows });
 
@@ -910,7 +1177,7 @@ describe("grid Cartulary anchors", () => {
     });
   });
 
-  it("rejects group and presentation-only paste anchors", () => {
+  it("rejects invalid anchors and create-disabled grouped overflow", () => {
     const rows = [
       gridRow("record-1", "open"),
       draftRow("draft-1", "rough"),
@@ -924,9 +1191,9 @@ describe("grid Cartulary anchors", () => {
     expect(
       resolveGridPasteTargets({
         columns,
-        current: gridAnchor("record-1", "summary"),
+        current: gridAnchor("", "summary"),
         pastedColumnCount: 1,
-        pastedRowCount: 2,
+        pastedRowCount: 1,
         presentationRows: groupedRows,
       }),
     ).toBeNull();
@@ -942,7 +1209,7 @@ describe("grid Cartulary anchors", () => {
     ).toBeNull();
   });
 
-  it("requires a Cartulary anchor instead of vendor coordinates alone", () => {
+  it("requires a valid semantic anchor for paste planning", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
     const presentationRows = buildGridPresentationRows({ rows });
     const vendorSelection = { rowIndex: 1, fieldKey: "state" };

@@ -1,13 +1,14 @@
-import {
-  buildGridPresentationRows,
-  type GridCellAnchor,
-  type GridColumn,
-  type GridDataRow,
-  type GridDraftRow,
-  navigateGridCellAnchor,
-  resolveGridCellAnchor,
+import type {
+  GridCellAnchor,
+  GridColumn,
+  GridDataRow,
+  GridDraftRow,
+  GridHandle,
 } from "@cartulary/grid-adapter";
-import { describe, expect, it } from "vitest";
+import { SemanticDataGrid } from "@cartulary/grid-adapter/test-support";
+import { cleanup, render } from "@testing-library/react";
+import { createElement, createRef } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 type AnchorRow = {
   readonly label: string;
@@ -36,6 +37,7 @@ function draftRow(key: string): GridDraftRow<AnchorRow> {
       label: key,
       state: "draft",
     },
+    testId: key,
   };
 }
 
@@ -55,126 +57,104 @@ function anchor(recordId: string, fieldKey: string): GridCellAnchor {
   };
 }
 
-describe("adapter-owned Cartulary anchor evidence", () => {
-  it("resolves vendor coordinates to stable record_id and field_key anchors", () => {
-    const rows = [savedRow("record-1", "open"), savedRow("record-2", "done")];
-    const presentationRows = buildGridPresentationRows({ rows });
+function renderConsumerGrid(options?: {
+  readonly draft?: GridDraftRow<AnchorRow> | undefined;
+  readonly grouped?: boolean | undefined;
+  readonly onActiveCellChange?:
+    | ((anchor: GridCellAnchor | null) => void)
+    | undefined;
+  readonly rows?: readonly GridDataRow<AnchorRow>[] | undefined;
+}) {
+  const handle = createRef<GridHandle>();
+  const rows = options?.rows ?? [
+    savedRow("record-1", "open"),
+    savedRow("record-2", "done"),
+  ];
+  render(
+    createElement(SemanticDataGrid<AnchorRow>, {
+      columns,
+      dataRows: rows,
+      draftRow: options?.draft,
+      grouping:
+        options?.grouped === true
+          ? {
+              fieldKey: "state",
+              formatLabel: (value) => (value === null ? null : String(value)),
+              getValue: (row) => row.state ?? null,
+            }
+          : null,
+      onActiveCellChange: options?.onActiveCellChange,
+      ref: handle,
+      surface,
+    }),
+  );
+  if (handle.current === null) {
+    throw new Error("Expected the grid consumer handle to be bound");
+  }
+  return handle.current;
+}
 
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface,
-        selection: { rowIndex: 1, fieldKey: "task.status" },
-      }),
-    ).toEqual(anchor("record-2", "task.status"));
+afterEach(cleanup);
+
+describe("adapter-owned semantic handle evidence", () => {
+  it("focuses stable record_id and field_key anchors through the consumer handle", () => {
+    const onActiveCellChange = vi.fn();
+    const handle = renderConsumerGrid({ onActiveCellChange });
+    const target = anchor("record-2", "task.status");
+
+    expect(handle.focusAnchor(target)).toBe(true);
+    expect(onActiveCellChange).toHaveBeenLastCalledWith(target);
   });
 
-  it("clears invalid row, field, group row, and recordless draft targets", () => {
-    const rows = [
-      savedRow("record-1", "open"),
-      savedRow("record-2", "done"),
-      draftRow("draft-1"),
-    ];
-    const presentationRows = buildGridPresentationRows({
-      grouping: {
-        fieldKey: "state",
-        formatLabel: (value) => (value === null ? null : String(value)),
-        getValue: (row) => row.state ?? null,
-      },
-      rows,
+  it("rejects invalid row, field, surface, and recordless targets", () => {
+    const handle = renderConsumerGrid({
+      draft: draftRow("draft-1"),
+      grouped: true,
     });
 
+    expect(handle.focusAnchor(anchor("missing", "task.status"))).toBe(false);
+    expect(handle.focusAnchor(anchor("record-1", "missing"))).toBe(false);
+    expect(handle.focusAnchor(anchor("", "task.title"))).toBe(false);
     expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface,
-        selection: { rowIndex: -1, fieldKey: "task.status" },
+      handle.focusAnchor({
+        ...anchor("record-1", "task.title"),
+        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
       }),
-    ).toBeNull();
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface,
-        selection: { rowIndex: 1, fieldKey: "__cartulary_actions__" },
-      }),
-    ).toBeNull();
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface,
-        selection: { rowIndex: 0, fieldKey: "task.title" },
-      }),
-    ).toBeNull();
-    expect(
-      presentationRows.every(
-        (row) =>
-          row.kind !== "data" ||
-          row.gridRow.rowIdentity.kind !== "core_record" ||
-          row.gridRow.rowIdentity.recordId !== "draft-1",
-      ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors", () => {
-    const rows = [
-      savedRow("record-1", "open"),
-      savedRow("record-2", "open"),
-      savedRow("record-3", "open"),
-    ];
-    const presentationRows = buildGridPresentationRows({ rows });
+    const handle = renderConsumerGrid({
+      rows: [
+        savedRow("record-1", "open"),
+        savedRow("record-2", "open"),
+        savedRow("record-3", "open"),
+      ],
+    });
 
     expect(
-      navigateGridCellAnchor({
-        columns,
-        current: anchor("record-1", "task.title"),
-        intent: { key: "ArrowRight" },
-        presentationRows,
+      handle.moveFocus(anchor("record-1", "task.title"), {
+        key: "ArrowRight",
       }),
     ).toEqual(anchor("record-1", "task.status"));
     expect(
-      navigateGridCellAnchor({
-        columns,
-        current: anchor("record-1", "task.status"),
-        intent: { key: "Tab" },
-        presentationRows,
-      }),
+      handle.moveFocus(anchor("record-1", "task.status"), { key: "Tab" }),
     ).toEqual(anchor("record-1", "task.priority"));
     expect(
-      navigateGridCellAnchor({
-        columns,
-        current: anchor("record-1", "task.status"),
-        intent: { key: "Enter" },
-        presentationRows,
-      }),
+      handle.moveFocus(anchor("record-1", "task.status"), { key: "Enter" }),
     ).toEqual(anchor("record-2", "task.status"));
     expect(
-      navigateGridCellAnchor({
-        columns,
-        current: anchor("record-2", "task.status"),
-        intent: { key: "Enter", shiftKey: true },
-        presentationRows,
+      handle.moveFocus(anchor("record-2", "task.status"), {
+        key: "Enter",
+        shiftKey: true,
       }),
     ).toEqual(anchor("record-1", "task.status"));
   });
 
-  it("keeps vendor selection separate until translated by the adapter contract", () => {
-    const rows = [savedRow("record-1", "open"), savedRow("record-2", "done")];
-    const presentationRows = buildGridPresentationRows({ rows });
-    const currentAnchor = anchor("record-1", "task.title");
-    const vendorSelection = { fieldKey: "task.status", rowIndex: 1 };
+  it("exposes no vendor-selection resolver on the semantic handle", () => {
+    const handle = renderConsumerGrid();
 
-    expect(currentAnchor).toEqual(anchor("record-1", "task.title"));
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface,
-        selection: vendorSelection,
-      }),
-    ).toEqual(anchor("record-2", "task.status"));
+    expect(Object.keys(handle)).not.toContain("resolveVendorSelection");
+    expect(handle.focusAnchor(anchor("record-2", "task.status"))).toBe(true);
   });
 });

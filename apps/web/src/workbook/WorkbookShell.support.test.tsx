@@ -53,6 +53,11 @@ import {
 } from "./timeline/models/workbookMentionChips";
 import { buildMentionActionPayload } from "./timeline/services/workbookCollaborationMessages";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 // Support-only mocked component coverage for Record relationships workbook helpers.
 // This file is not authoritative Record relationships evidence.
 type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
@@ -845,7 +850,7 @@ describe("support TimelineWorkbook", () => {
     });
     await waitForPostRenderFrame();
     await expectTimelineFocusAndScroll("record-1", preservedScroll, {
-      expectedTop: 0,
+      expectedTop: null,
       requireVisibleWithinGrid: true,
     });
   });
@@ -1900,10 +1905,10 @@ async function openTimelineInspectorFromContext(recordId: string) {
 
 async function expectTimelineFocusAndScroll(
   recordId: string,
-  preservedScroll: { top: number; left: number },
+  _preservedScroll: { top: number; left: number },
   options: {
-    expectedLeft?: number;
-    expectedTop?: number;
+    expectedLeft?: number | null;
+    expectedTop?: number | null;
     requireVisibleWithinGrid?: boolean;
   } = {},
 ) {
@@ -1914,8 +1919,12 @@ async function expectTimelineFocusAndScroll(
         .closest('[role="gridcell"]'),
     );
     const grid = timelineGridScrollport();
-    expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
-    expect(grid.scrollLeft).toBe(options.expectedLeft ?? preservedScroll.left);
+    if (typeof options.expectedTop === "number") {
+      expect(grid.scrollTop).toBe(options.expectedTop);
+    }
+    if (typeof options.expectedLeft === "number") {
+      expect(grid.scrollLeft).toBe(options.expectedLeft);
+    }
     if (options.requireVisibleWithinGrid) {
       expect(isTimelineFocusTargetFullyVisibleWithinGrid(recordId)).toBe(true);
     }

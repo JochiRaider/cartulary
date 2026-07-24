@@ -1,6 +1,6 @@
 import {
   type GridActionsColumn,
-  type GridCellMutationIntent,
+  type GridCellPasteIntent,
   type GridColumn,
   type GridDataRow,
   type GridDensity,
@@ -88,7 +88,7 @@ import type { WorkbookQueryState } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import { partiesViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
-import { parseClipboardTable } from "../utils/workbookClipboard";
+import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
@@ -381,8 +381,11 @@ export function ContractWorkbookSurface({
     [anchorColumns, contract, layoutState],
   );
   const handleGridPaste = useCallback(
-    async (intent: GridCellMutationIntent) => {
-      const values = parseClipboardTable(intent.clipboardText ?? "");
+    async (intent: GridCellPasteIntent) => {
+      const values =
+        intent.input.kind === "scalar"
+          ? [[intent.input.value]]
+          : intent.input.values;
       const resolution = intent.targetResolution;
       const rowTarget = resolution?.rowTargets[0];
       if (
@@ -408,6 +411,13 @@ export function ContractWorkbookSurface({
       if (outcome.kind !== "accepted") setValidationError(outcome.message);
     },
     [commitGridEdit, setValidationError],
+  );
+  const clipboardPaste = useMemo(
+    () =>
+      workbookClipboardPasteContract((intent) => {
+        void handleGridPaste(intent);
+      }),
+    [handleGridPaste],
   );
   const draftInspectorFields = useMemo(() => {
     const gridFieldKeys = new Set(
@@ -480,8 +490,6 @@ export function ContractWorkbookSurface({
   const genericFocus = useWorkbookGridFocus({
     columns: visibleAnchorColumns,
     gridHandleRef,
-    grouping,
-    rows: gridRecordRows,
     surface,
   });
   const columns: readonly GridColumn<EntityApiRow>[] = visibleAnchorColumns.map(
@@ -1151,7 +1159,7 @@ export function ContractWorkbookSurface({
             }
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
-            onPasteCell={(intent) => void handleGridPaste(intent)}
+            clipboardPaste={clipboardPaste}
             onSortChange={onSortChange}
             dataRows={gridRecordRows}
             sort={queryState.sort}

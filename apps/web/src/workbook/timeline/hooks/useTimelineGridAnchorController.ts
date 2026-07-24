@@ -1,43 +1,20 @@
-import {
-  buildGridPresentationRows,
-  type GridCellAnchor,
-  type GridColumn,
-  type GridDataRow,
-  type GridHandle,
-  type GridNavigationIntent,
-  type GridPasteTargetResolution,
-  navigateGridCellAnchor,
-  resolveGridPasteTargets,
+import type {
+  GridCellAnchor,
+  GridClipboardInput,
+  GridColumn,
+  GridHandle,
+  GridNavigationIntent,
+  GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
 import { useCallback } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import {
-  clipboardGridDimensions,
-  clipboardTextLooksTabular,
-} from "../../utils/workbookClipboard";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
-import {
-  timelineGroupLabel,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 type TimelineReadonlyRef<T> = {
   readonly current: T;
 };
-
-function timelineClipboardShouldDispatchTabular(
-  fieldKey: string,
-  clipboardText: string,
-) {
-  if (clipboardTextLooksTabular(clipboardText)) {
-    return true;
-  }
-  return (
-    fieldKey === "timeline.activity_utc_text" &&
-    clipboardGridDimensions(clipboardText).columnCount > 1
-  );
-}
 
 function timelinePasteColumnsFromStart(
   columns: readonly GridColumn<WorkbookRow>[],
@@ -89,21 +66,15 @@ function resolveDraftTimelinePasteTargets({
 
 export function useTimelineGridAnchorController({
   gridHandleRef,
-  groupBy,
   rowsRef,
   timelineAnchorColumnsRef,
-  timelineAnchorRowsRef,
   updateTimelineSurfaceFocusAnchor,
   updateWorkbookFocusAnchor,
 }: {
   readonly gridHandleRef: TimelineReadonlyRef<GridHandle | null>;
-  readonly groupBy: string | null;
   readonly rowsRef: TimelineReadonlyRef<readonly WorkbookRow[]>;
   readonly timelineAnchorColumnsRef: TimelineReadonlyRef<
     readonly GridColumn<WorkbookRow>[]
-  >;
-  readonly timelineAnchorRowsRef: TimelineReadonlyRef<
-    readonly GridDataRow<WorkbookRow>[]
   >;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -171,13 +142,16 @@ export function useTimelineGridAnchorController({
     (
       rowKey: string,
       fieldKey: string,
-      clipboardText: string,
+      input: GridClipboardInput,
     ): TimelinePasteTargetResolution | null => {
-      if (!timelineClipboardShouldDispatchTabular(fieldKey, clipboardText)) {
+      if (input.kind !== "table") {
         return null;
       }
 
-      const dimensions = clipboardGridDimensions(clipboardText);
+      const dimensions = {
+        columnCount: input.values[0]?.length ?? 0,
+        rowCount: input.values.length,
+      };
       const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
       const isDraftTarget =
         row?.recordId === null ||
@@ -210,24 +184,8 @@ export function useTimelineGridAnchorController({
           viewSchemaId: timelineViewSchemaId,
         },
       };
-      const presentationRows = buildGridPresentationRows({
-        grouping:
-          groupBy === null
-            ? null
-            : {
-                fieldKey: groupBy,
-                formatLabel: (value) => (value === null ? null : String(value)),
-                getValue: (candidate) => timelineGroupLabel(candidate, groupBy),
-              },
-        rows: timelineAnchorRowsRef.current,
-      });
-      const targetResolution = resolveGridPasteTargets({
-        columns: timelineAnchorColumnsRef.current,
-        current: anchor,
-        pastedColumnCount: dimensions.columnCount,
-        pastedRowCount: dimensions.rowCount,
-        presentationRows,
-      });
+      const targetResolution =
+        gridHandleRef.current?.planPasteTargets(anchor, dimensions) ?? null;
       if (targetResolution === null) {
         return null;
       }
@@ -239,10 +197,9 @@ export function useTimelineGridAnchorController({
       return { anchor, targetResolution };
     },
     [
-      groupBy,
+      gridHandleRef,
       rowsRef,
       timelineAnchorColumnsRef,
-      timelineAnchorRowsRef,
       updateTimelineSurfaceFocusAnchor,
       updateWorkbookFocusAnchor,
     ],
@@ -250,23 +207,8 @@ export function useTimelineGridAnchorController({
 
   const navigateTimelineFocusAnchor = useCallback(
     (current: GridCellAnchor, intent: GridNavigationIntent) => {
-      const nextAnchor = navigateGridCellAnchor({
-        columns: timelineAnchorColumnsRef.current,
-        current,
-        intent,
-        presentationRows: buildGridPresentationRows({
-          grouping:
-            groupBy === null
-              ? null
-              : {
-                  fieldKey: groupBy,
-                  formatLabel: (value) =>
-                    value === null ? null : String(value),
-                  getValue: (row) => timelineGroupLabel(row, groupBy),
-                },
-          rows: timelineAnchorRowsRef.current,
-        }),
-      });
+      const nextAnchor =
+        gridHandleRef.current?.moveFocus(current, intent) ?? null;
       if (nextAnchor === null) {
         updateWorkbookFocusAnchor(null);
         return;
@@ -277,19 +219,9 @@ export function useTimelineGridAnchorController({
           : null,
         nextAnchor.fieldKey,
       );
-      const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
-      window.setTimeout(() => {
-        if (restoredNow) {
-          return;
-        }
-        restoreTimelineFocusAnchor(nextAnchor);
-      }, 0);
     },
     [
-      groupBy,
-      restoreTimelineFocusAnchor,
-      timelineAnchorColumnsRef,
-      timelineAnchorRowsRef,
+      gridHandleRef,
       updateTimelineSurfaceFocusAnchor,
       updateWorkbookFocusAnchor,
     ],

@@ -18,7 +18,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred, requireFetchCall } from "../testing/fetchMockTestSupport";
 import {
   buildRecordChangedPayload,
@@ -43,6 +43,11 @@ import {
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { decideWorkbookRecordFreshness } from "./timeline/models/workbookTimelineModel";
+
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clipboardGridDimensions,
   clipboardTextLooksTabular,
+  decodeWorkbookClipboardInput,
   parseClipboardTable,
 } from "./workbookClipboard";
 
@@ -48,5 +49,22 @@ describe("workbookClipboard", () => {
     expect(clipboardTextLooksTabular("one\ttwo")).toBe(true);
     expect(clipboardTextLooksTabular("one\ntwo")).toBe(true);
     expect(clipboardTextLooksTabular("one\rtwo")).toBe(true);
+    expect(decodeWorkbookClipboardInput("Hello, world")).toEqual({
+      kind: "scalar",
+      rawText: "Hello, world",
+      value: "Hello, world",
+    });
+    expect(decodeWorkbookClipboardInput("one\ttwo")).toEqual({
+      format: "tsv",
+      kind: "table",
+      rawText: "one\ttwo",
+      values: [["one", "two"]],
+    });
+    expect(decodeWorkbookClipboardInput('"one,two"\nthree')).toEqual({
+      format: "csv",
+      kind: "table",
+      rawText: '"one,two"\nthree',
+      values: [["one,two"], ["three"]],
+    });
   });
 });

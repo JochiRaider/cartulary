@@ -856,10 +856,10 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "dispatches one versioned multi-row tag command from Timeline selection",
-          "maps filtered overflow to explicit create-row anchors",
-          "rejects group and presentation-only paste anchors",
+          "maps filtered overflow to explicit create-row targets",
+          "rejects invalid anchors and create-disabled grouped overflow",
           "rendered paste dispatch uses stable anchors and quote-aware dimensions",
-          "requires a Cartulary anchor instead of vendor coordinates alone",
+          "requires a valid semantic anchor for paste planning",
           "targets sorted paste rows by stable visible record identities",
           "treats single-line comma clipboard text as scalar paste input"
         ]
@@ -961,10 +961,10 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/GridAdapter.anchor.test.ts",
         "titles": [
-          "clears invalid row, field, group row, and recordless draft targets",
-          "keeps vendor selection separate until translated by the adapter contract",
-          "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors",
-          "resolves vendor coordinates to stable record_id and field_key anchors"
+          "exposes no vendor-selection resolver on the semantic handle",
+          "focuses stable record_id and field_key anchors through the consumer handle",
+          "rejects invalid row, field, surface, and recordless targets",
+          "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors"
         ]
       },
       "evidence_class": "unit",

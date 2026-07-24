@@ -119,6 +119,27 @@ write_config() {
       ]
     },
     {
+      "id": "frontend-grid-dom-unit-binding-boundary",
+      "level": "error",
+      "message": "Import the non-virtualized grid binding only from package-local DOM-unit tests.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": [
+          "packages/grid-adapter/src/*.test.ts",
+          "packages/grid-adapter/src/*.test.tsx",
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/grid-adapter/src/domUnitBinding"
+        }
+      ]
+    },
+    {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
@@ -462,6 +483,25 @@ TS
 blocked_grid_output="$(assert_fails "blocked app grid import" run_checker "$blocked_grid_root")"
 assert_contains "$blocked_grid_output" "frontend-grid-vendor-boundary" "blocked grid rule"
 assert_contains "$blocked_grid_output" "apps/web/src/GridLeak.tsx" "blocked grid file"
+
+allowed_dom_unit_root="$(prepare_case_root allowed-dom-unit)"
+cat >"$allowed_dom_unit_root/packages/grid-adapter/src/domUnitBinding.test.tsx" <<'TS'
+import { SemanticDataGrid } from "./domUnitBinding";
+
+export const grid = SemanticDataGrid;
+TS
+allowed_dom_unit_output="$(assert_passes "allowed package DOM-unit import" run_checker "$allowed_dom_unit_root")"
+assert_contains "$allowed_dom_unit_output" "frontend import boundaries verified" "allowed package DOM-unit output"
+
+blocked_dom_unit_root="$(prepare_case_root blocked-dom-unit)"
+cat >"$blocked_dom_unit_root/apps/web/src/GridDomUnitLeak.test.tsx" <<'TS'
+import { SemanticDataGrid } from "../../../packages/grid-adapter/src/domUnitBinding";
+
+export const grid = SemanticDataGrid;
+TS
+blocked_dom_unit_output="$(assert_fails "blocked app DOM-unit import" run_checker "$blocked_dom_unit_root")"
+assert_contains "$blocked_dom_unit_output" "frontend-grid-dom-unit-binding-boundary" "blocked DOM-unit rule"
+assert_contains "$blocked_dom_unit_output" "apps/web/src/GridDomUnitLeak.test.tsx" "blocked DOM-unit file"
 
 missing_stylesheet_root="$(prepare_case_root missing-stylesheet)"
 cat >"$missing_stylesheet_root/packages/grid-adapter/src/index.tsx" <<'TS'
