@@ -23,7 +23,18 @@ type ApplicationService struct {
 	now            func() time.Time
 }
 
-func NewApplicationService(store *Store, incidentAccess incidents.Access, jobManager *jobs.Manager, jobRunner *jobs.Runner, now func() time.Time) *ApplicationService {
+func NewApplicationService(
+	store *Store,
+	incidentAccess incidents.Access,
+	jobManager *jobs.Manager,
+	jobRunner *jobs.Runner,
+	jobFinalizer JobSuccessFinalizer,
+	renderExportInvoker RenderExportInvoker,
+	now func() time.Time,
+) (*ApplicationService, error) {
+	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderExportInvoker == nil {
+		return nil, errors.New("reporting application service requires store, jobs, runner, finalizer, and admitted render participant")
+	}
 	service := &ApplicationService{
 		store:          store,
 		incidentAccess: incidentAccess,
@@ -31,22 +42,19 @@ func NewApplicationService(store *Store, incidentAccess incidents.Access, jobMan
 		jobRunner:      jobRunner,
 		now:            now,
 	}
-	worker := newReportingJobWorker(store, jobManager, now)
-	if jobRunner != nil {
-		if err := jobRunner.RegisterHandler(reportingJobHandlerName, worker.Handle); err == nil || errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
-			service.jobDispatcher = newDurableReportingJobDispatcher(jobRunner)
-			return service
-		}
+	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, now)
+	if err := jobRunner.RegisterHandler(JobWorkerKind, worker.Handle); err != nil {
+		return nil, err
 	}
-	service.jobDispatcher = newAsyncReportingJobDispatcher(worker, reportingJobDispatchDelay)
-	return service
+	service.jobDispatcher = newDurableReportingJobDispatcher(jobRunner)
+	return service, nil
 }
 
 func (s *ApplicationService) recoverReportingJobs(ctx context.Context) error {
 	if s == nil || s.jobRunner == nil {
 		return nil
 	}
-	return s.jobRunner.RecoverHandler(ctx, reportingJobHandlerName)
+	return s.jobRunner.RecoverHandler(ctx, JobWorkerKind)
 }
 
 func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uuid.UUID, request CreateSnapshotRequest) (jobs.Resource, *httpapi.APIError) {

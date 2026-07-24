@@ -256,6 +256,32 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("project Reference Pack application plan: %w", err)
 	}
+	snapshotReportingRoutesAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		reporting.ProfileID,
+		"http_route_family",
+		[]string{
+			reporting.ReleasesRouteContributionID,
+			reporting.ReportCompositionsRouteContributionID,
+			reporting.SnapshotsRouteContributionID,
+		},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Snapshot/Reporting route application plan: %w", err)
+	}
+	snapshotReportingParticipantAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		reporting.ProfileID,
+		"snapshot_reporting_participant",
+		[]string{reporting.RenderExportContributionID},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Snapshot/Reporting participant application plan: %w", err)
+	}
+	if snapshotReportingRoutesAdmitted != snapshotReportingParticipantAdmitted {
+		runtime.Close()
+		return nil, fmt.Errorf("project Snapshot/Reporting application plan: routes and participant admission disagree")
+	}
 	publication := NewPublicationController(runtime.Lifecycle)
 	if err := publication.Prepare(extensionPlan); err != nil {
 		runtime.Close()
@@ -638,6 +664,33 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			extensionassembly.NewReferencePackJobSuccessFinalizer(runtime.ExtensionJobFinalizer),
 		),
 	)
+	var renderExportInvoker reporting.RenderExportInvoker
+	if snapshotReportingParticipantAdmitted {
+		renderExportInvoker, err = extensionassembly.NewAdmittedRenderExportInvoker(
+			publicationCatalog,
+			reporting.BuiltInRenderExportParticipant{},
+			time.Duration(normalizedCfg.Timeouts.Extensions.TransactionParticipantSeconds)*time.Second,
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Snapshot/Reporting participant: %w", err)
+		}
+	}
+	reportingRoutes := reporting.RegisterRoutes(reporting.RouteOptions{
+		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(runtime.ExtensionJobFinalizer),
+		RenderExportInvoker: renderExportInvoker,
+	})
+	var compositionPreviewJobs reportcomposition.PreviewJobPort
+	if snapshotReportingRoutesAdmitted {
+		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.JobRunner)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Report Composition preview job port: %w", err)
+		}
+	}
+	reportCompositionRoutes := reportcomposition.RegisterRoutes(reportcomposition.RouteOptions{
+		PreviewJobs: compositionPreviewJobs,
+	})
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
@@ -679,13 +732,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		{id: "reference_pack", contributionIDs: []string{reference_data.PacksRouteContributionID}, registrar: referencePackRoutes},
 		{
 			id:              "snapshot_reporting_resources",
-			contributionIDs: []string{"snapshot_reporting.releases_route", "snapshot_reporting.snapshots_route"},
-			registrar:       reporting.RegisterRoutes(),
+			contributionIDs: []string{reporting.ReleasesRouteContributionID, reporting.SnapshotsRouteContributionID},
+			registrar:       reportingRoutes,
 		},
 		{
 			id:              "snapshot_reporting_compositions",
-			contributionIDs: []string{"snapshot_reporting.report_compositions_route"},
-			registrar:       reportcomposition.RegisterRoutes(),
+			contributionIDs: []string{reporting.ReportCompositionsRouteContributionID},
+			registrar:       reportCompositionRoutes,
 		},
 	}, publicationCatalog)
 	if err != nil {

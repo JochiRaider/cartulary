@@ -120,3 +120,33 @@ type PreviewResult struct {
 	IncidentID uuid.UUID
 	Replayed   bool
 }
+
+// PreviewRenderSource is the immutable, typed projection Report Composition
+// exposes to the Reporting worker. It contains only the persisted source and
+// render-selection facts needed for an internal-draft render.
+type PreviewRenderSource struct {
+	PreviewAttemptID         uuid.UUID
+	RenderAttemptID          uuid.UUID
+	IncidentID               uuid.UUID
+	CompositionID            uuid.UUID
+	SourceKind               string
+	DraftVersion             *int64
+	CompositionVersion       *int64
+	PreviewSourceSHA256      string
+	CompositionSHA256        *string
+	PreviewSourceJSON        json.RawMessage
+	SnapshotID               string
+	DerivationVersion        string
+	TemplateID               string
+	TemplateVersion          string
+	RedactionProfileID       string
+	RedactionProfileVersion  string
+	RedactionProfileSHA256   string
+	RenderEnvironmentProfile string
+	OutputKind               string
+	OutputOptions            json.RawMessage
+	RecipientPartitionRefs   json.RawMessage
+	GraphProjectionRefs      json.RawMessage
+	CreatedByUserID          uuid.UUID
+	CreatedAt                time.Time
+}

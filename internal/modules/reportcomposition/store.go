@@ -327,7 +327,10 @@ UPDATE report_compositions
 	return MutationResult{Payload: payload, StatusCode: http.StatusCreated, IncidentID: incidentID}, nil
 }
 
-func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, compositionID uuid.UUID, actorUserID uuid.UUID, request PreviewRequest, now time.Time) (PreviewResult, error) {
+func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, compositionID uuid.UUID, actorUserID uuid.UUID, request PreviewRequest, previewJobs PreviewJobPort, now time.Time) (PreviewResult, error) {
+	if previewJobs == nil {
+		return PreviewResult{}, errors.New("reportcomposition: preview job port is unavailable")
+	}
 	requestHash := hashRequest(request.Normalized)
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "report_compositions.preview",
@@ -366,24 +369,13 @@ func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, 
 		return PreviewResult{}, err
 	}
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
-	admission, err := jobs.NewExtensionJobAdmission(
-		"snapshot_reporting",
-		"snapshot_reporting.composition_preview_v1",
-		key,
-		scope,
-		request.Normalized,
-	)
-	if err != nil {
-		return PreviewResult{}, err
-	}
-	renderAttempt, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             scope,
-		SubmittedByUserID: actorUserID,
-		Cancelable:        true,
-		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       "snapshot_reporting.job_worker_v1",
-		Extension:         admission,
-	}, now.UTC())
+	renderAttempt, err := previewJobs.AdmitPreviewJob(ctx, tx, PreviewJobAdmission{
+		IdempotencyKey: key,
+		Scope:          scope,
+		ActorUserID:    actorUserID,
+		Normalized:     request.Normalized,
+		Now:            now,
+	})
 	if err != nil {
 		return PreviewResult{}, err
 	}
@@ -414,6 +406,57 @@ RETURNING preview_attempt_id
 		return PreviewResult{}, err
 	}
 	return PreviewResult{Payload: payload, StatusCode: http.StatusAccepted, IncidentID: incidentID}, nil
+}
+
+func (s *Store) PreviewSourceForRender(ctx context.Context, renderAttemptID uuid.UUID) (PreviewRenderSource, error) {
+	row := s.db.QueryRow(ctx, `
+SELECT preview_attempt_id, render_attempt_id, incident_id, composition_id, source_kind,
+       draft_version, composition_version, preview_source_sha256, composition_sha256,
+       preview_source_bytes, snapshot_id, derivation_version, template_id, template_version,
+       redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
+       render_environment_profile_id, output_kind, output_options,
+       recipient_partition_refs, graph_projection_refs, created_by_user_id, created_at
+  FROM report_composition_preview_attempts
+ WHERE render_attempt_id = $1
+`, renderAttemptID)
+	var source PreviewRenderSource
+	if err := row.Scan(
+		&source.PreviewAttemptID,
+		&source.RenderAttemptID,
+		&source.IncidentID,
+		&source.CompositionID,
+		&source.SourceKind,
+		&source.DraftVersion,
+		&source.CompositionVersion,
+		&source.PreviewSourceSHA256,
+		&source.CompositionSHA256,
+		&source.PreviewSourceJSON,
+		&source.SnapshotID,
+		&source.DerivationVersion,
+		&source.TemplateID,
+		&source.TemplateVersion,
+		&source.RedactionProfileID,
+		&source.RedactionProfileVersion,
+		&source.RedactionProfileSHA256,
+		&source.RenderEnvironmentProfile,
+		&source.OutputKind,
+		&source.OutputOptions,
+		&source.RecipientPartitionRefs,
+		&source.GraphProjectionRefs,
+		&source.CreatedByUserID,
+		&source.CreatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PreviewRenderSource{}, ErrNotFound
+		}
+		return PreviewRenderSource{}, err
+	}
+	source.PreviewSourceJSON = cloneRaw(source.PreviewSourceJSON)
+	source.OutputOptions = cloneRaw(source.OutputOptions)
+	source.RecipientPartitionRefs = cloneRaw(source.RecipientPartitionRefs)
+	source.GraphProjectionRefs = cloneRaw(source.GraphProjectionRefs)
+	source.CreatedAt = source.CreatedAt.UTC()
+	return source, nil
 }
 
 func (s *Store) getResource(ctx context.Context, incidentID uuid.UUID, compositionID uuid.UUID) (ResourceRecord, error) {

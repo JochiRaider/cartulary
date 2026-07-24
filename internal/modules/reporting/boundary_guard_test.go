@@ -45,7 +45,8 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 			"export_materializer.go": true,
 		},
 		reportingRepoImportPrefix + "internal/modules/reportcomposition": {
-			"store.go": true,
+			"composition_preview_port.go": true,
+			"store.go":                    true,
 		},
 		reportingRepoImportPrefix + "internal/modules/reporting/exportprovider": {
 			"export_materializer.go": true,

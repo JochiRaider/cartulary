@@ -212,6 +212,12 @@
       "filename": "00035_import_unit_discovery_order.sql",
       "sha256": "87457b5a16cd6a82a40970082d8b9b00c6f32ca89409d5c69ae03b1f7ab348fa",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 36,
+      "filename": "00036_reporting_composition_preview_outputs.sql",
+      "sha256": "877736686485cb89fd0901a1b43be1e84092fecd6cd078f903d34855307ddcf4",
+      "historical_phase_shaped": false
     }
   ]
 }

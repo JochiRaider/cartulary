@@ -3,6 +3,26 @@
   "owner_id": "module.reportcomposition",
   "rows": [
     {
+      "row_id": "module.reportcomposition.integration.preview_reporting_delegation",
+      "owner_id": "module.reportcomposition",
+      "family_id": "module.reportcomposition.integration",
+      "collaborator_ids": ["module.reporting"],
+      "verification_ids": ["module.reportcomposition.verification.fixture_corpus"],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": ["TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration"]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": ["docs/report-composition-nlspec.md#15-acceptance-criteria"]
+    },
+    {
       "row_id": "module.reportcomposition.unit.traceability_fixture_corpus",
       "owner_id": "module.reportcomposition",
       "family_id": "module.reportcomposition.unit",

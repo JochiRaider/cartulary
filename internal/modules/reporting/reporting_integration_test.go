@@ -1589,7 +1589,11 @@ func contentClassForExportPath(path string) string {
 
 func requireSucceededJobResourceID(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantKind string) string {
 	t.Helper()
-	finalJob := requireJobStatus(t, harness, actor, job["job_id"].(string), "succeeded")
+	jobID := job["job_id"].(string)
+	finalJob := requireJobStatus(t, harness, actor, jobID, "succeeded")
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM extension_job_commit_proofs WHERE job_id::text = $1`, jobID); got != 1 {
+		t.Fatalf("successful Reporting job %s proof rows = %d want 1", jobID, got)
+	}
 	summary := finalJob["result_summary"].(map[string]any)
 	refs := summary["resource_refs"].([]any)
 	if len(refs) != 1 {

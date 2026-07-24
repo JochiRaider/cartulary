@@ -160,7 +160,7 @@ func (q *Queries) CreateReportingJobPayload(ctx context.Context, arg CreateRepor
 
 const createReportingRelease = `-- name: CreateReportingRelease :one
 INSERT INTO reporting_releases (
-    incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
+    release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
@@ -169,17 +169,18 @@ INSERT INTO reporting_releases (
     create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
 )
 VALUES (
-    $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10,
-    $11, $12, $13, $14, $15,
-    $16, $17, $18, $19, $20,
-    $21, $22, $23, $24, $25,
-    $26, $27, $28, $29, $30, $30
+    $1, $2, $3, $4, $5, $6, $7,
+    $8, $9, $10, $11,
+    $12, $13, $14, $15, $16,
+    $17, $18, $19, $20, $21,
+    $22, $23, $24, $25, $26,
+    $27, $28, $29, $30, $31, $31
 )
 RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type CreateReportingReleaseParams struct {
+	ReleaseID                    pgtype.UUID        `json:"release_id"`
 	IncidentID                   pgtype.UUID        `json:"incident_id"`
 	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
 	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
@@ -214,6 +215,7 @@ type CreateReportingReleaseParams struct {
 
 func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportingReleaseParams) (ReportingRelease, error) {
 	row := q.db.QueryRow(ctx, createReportingRelease,
+		arg.ReleaseID,
 		arg.IncidentID,
 		arg.SnapshotID,
 		arg.CreatedByUserID,
@@ -289,17 +291,18 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 
 const createReportingSnapshot = `-- name: CreateReportingSnapshot :one
 INSERT INTO reporting_snapshots (
-    incident_id, created_by_user_id, client_txn_id, snapshot_at,
+    snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
     source_change_set_high_watermark, derivation_version, export_model_sha256,
     source_boundary_json, export_model_json, create_job_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $5)
 RETURNING snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
           source_change_set_high_watermark, derivation_version, export_model_sha256,
           source_boundary_json, export_model_json, create_job_id, created_at
 `
 
 type CreateReportingSnapshotParams struct {
+	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
 	IncidentID                   pgtype.UUID        `json:"incident_id"`
 	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
 	ClientTxnID                  string             `json:"client_txn_id"`
@@ -329,6 +332,7 @@ type CreateReportingSnapshotRow struct {
 
 func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReportingSnapshotParams) (CreateReportingSnapshotRow, error) {
 	row := q.db.QueryRow(ctx, createReportingSnapshot,
+		arg.SnapshotID,
 		arg.IncidentID,
 		arg.CreatedByUserID,
 		arg.ClientTxnID,

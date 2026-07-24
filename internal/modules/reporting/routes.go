@@ -22,9 +22,14 @@ type Service struct {
 	now       func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOptions struct {
+	JobSuccessFinalizer JobSuccessFinalizer
+	RenderExportInvoker RenderExportInvoker
+}
+
+func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
@@ -36,7 +41,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -46,7 +51,18 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres)
-	app := NewApplicationService(store, incidents.NewAccess(deps.PostgresHandle()), deps.Jobs, deps.JobRunner, now)
+	app, err := NewApplicationService(
+		store,
+		incidents.NewAccess(deps.PostgresHandle()),
+		deps.Jobs,
+		deps.JobRunner,
+		options.JobSuccessFinalizer,
+		options.RenderExportInvoker,
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
 	if err := app.recoverReportingJobs(context.Background()); err != nil {
 		return nil, err
 	}

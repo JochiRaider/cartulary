@@ -314,11 +314,11 @@
       "owner": "reporting",
       "profiles": ["snapshot_reporting"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads|reporting_render_bundles|reporting_render_bundle_files)$" },
-        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_|reporting_render_).*$" }
+        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads|reporting_render_bundles|reporting_render_bundle_files|reporting_composition_preview_outputs|reporting_composition_preview_output_files)$" },
+        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_|reporting_render_|reporting_composition_preview_output).*$" }
       ],
-      "downstream_surfaces": ["snapshot reporting routes", "reporting jobs", "release approvals", "render bundle storage"],
-      "notes": "Snapshot-reporting extension schema, including release tuple and render bundle metadata."
+      "downstream_surfaces": ["snapshot reporting routes", "reporting jobs", "release approvals", "render bundle storage", "internal-draft composition preview output"],
+      "notes": "Snapshot-reporting extension schema, including release tuple, render bundle, and non-release preview output metadata."
     },
     {
       "id": "report-composition",

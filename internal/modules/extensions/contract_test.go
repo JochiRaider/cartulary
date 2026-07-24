@@ -492,11 +492,25 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 		t.Fatalf("client build class = %v; want standard", supportSource["client_build_class"])
 	}
 	rows := supportSource["rows"].([]any)
-	if len(rows) != 1 {
-		t.Fatalf("client support rows = %d; want 1", len(rows))
+	if len(rows) != 2 {
+		t.Fatalf("client support rows = %d; want 2", len(rows))
 	}
-	row := rows[0].(map[string]any)
-	if row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(2) {
+	rowsByProfile := map[string]map[string]any{}
+	for _, rawRow := range rows {
+		row := rawRow.(map[string]any)
+		rowsByProfile[row["profile_id"].(string)] = row
+	}
+	importRow := rowsByProfile["import"]
+	if importRow == nil || importRow["contract_major"] != float64(1) ||
+		importRow["client_asset_set_id"] != "import.standard.v1" {
+		t.Fatalf("client support row does not select Import major 1: %#v", importRow)
+	}
+	requireJSONStrings(t, importRow["workspace_keys"], []string{}, "Import client support workspaces")
+	requireJSONStrings(t, importRow["capability_ids"], []string{}, "Import client support capabilities")
+	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
+
+	row := rowsByProfile["network_flow_activity"]
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(2) {
 		t.Fatalf("client support row does not select Network Flow major 2: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")

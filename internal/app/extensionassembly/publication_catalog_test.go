@@ -1,10 +1,14 @@
 package extensionassembly
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 )
 
 func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
@@ -79,6 +83,72 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		participant.ContractKind != "cartulary.extension_participant_specialization.v1" {
 		t.Fatalf("Snapshot/Reporting participant = %#v/%t", participant, present)
 	}
+}
+
+func TestRenderExportInvokerRequiresExactAdmittedContract_Unit(t *testing.T) {
+	coordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	buildCatalog := func(claimed bool) PublicationCatalog {
+		t.Helper()
+		claims := []string{}
+		if claimed {
+			claims = []string{reporting.ProfileID}
+		}
+		resolution, err := coordinator.ResolveClaims(claims)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := coordinator.BuildPublicationPlan(resolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		catalog, err := NewPublicationCatalog(plan, coordinator.ParticipantContracts())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return catalog
+	}
+	if _, err := NewAdmittedRenderExportInvoker(
+		buildCatalog(false),
+		reporting.BuiltInRenderExportParticipant{},
+		time.Second,
+	); err == nil {
+		t.Fatal("unclaimed Snapshot/Reporting participant was admitted")
+	}
+	claimed := buildCatalog(true)
+	invoker, err := NewAdmittedRenderExportInvoker(
+		claimed,
+		blockingRenderExportParticipant{},
+		time.Millisecond,
+	)
+	if err != nil {
+		t.Fatalf("admit exact participant: %v", err)
+	}
+	if _, err := invoker.Invoke(context.Background(), reporting.RenderExportInvocation{}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("participant timeout err = %v", err)
+	}
+	contract := claimed.participants[reporting.RenderExportParticipantID]
+	contract.Operations[0].MaxOutputBytes--
+	claimed.participants[reporting.RenderExportParticipantID] = contract
+	if _, err := NewAdmittedRenderExportInvoker(
+		claimed,
+		reporting.BuiltInRenderExportParticipant{},
+		time.Second,
+	); err == nil {
+		t.Fatal("participant with mismatched output bounds was admitted")
+	}
+}
+
+type blockingRenderExportParticipant struct{}
+
+func (blockingRenderExportParticipant) Emit(
+	ctx context.Context,
+	_ reporting.RenderExportInvocation,
+) (reporting.RenderExportResult, error) {
+	<-ctx.Done()
+	return reporting.RenderExportResult{}, ctx.Err()
 }
 
 func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {

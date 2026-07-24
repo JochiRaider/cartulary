@@ -64,6 +64,12 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
     client_build_class: "standard",
     profiles: [
       {
+        profile_id: "import",
+        supported_contract_majors: [1],
+        workspace_keys: [],
+        capability_ids: [],
+      },
+      {
         profile_id: "network_flow_activity",
         supported_contract_majors: [2],
         workspace_keys: ["network_analysis"],

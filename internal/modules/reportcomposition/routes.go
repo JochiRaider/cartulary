@@ -23,11 +23,16 @@ type Service struct {
 	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
+	previewJobs    PreviewJobPort
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOptions struct {
+	PreviewJobs PreviewJobPort
+}
+
+func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
@@ -44,7 +49,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
+	if options.PreviewJobs == nil {
+		return nil, errors.New("report composition routes require Reporting preview job port")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -65,6 +73,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		keys:           keys,
 		cursorCodec:    cursorCodec,
 		now:            now,
+		previewJobs:    options.PreviewJobs,
 	}, nil
 }
 
@@ -327,7 +336,12 @@ func (s *Service) handlePreview(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CreatePreviewAttempt(r.Context(), incidentID, compositionID, principal.User.ID, request, s.now())
+	result, err := s.store.CreatePreviewAttempt(r.Context(), incidentID, compositionID, principal.User.ID, request, s.previewJobs, s.now())
+	if err == nil && !result.Replayed {
+		if jobID, ok := result.Payload["render_attempt_id"].(string); ok {
+			_ = s.previewJobs.DispatchPreviewJob(jobID)
+		}
+	}
 	s.writePreviewResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 

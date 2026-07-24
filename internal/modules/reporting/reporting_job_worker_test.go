@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -83,6 +84,43 @@ func TestReportingJobWorkerRenderFailureSummaryIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput(t *testing.T) {
+	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000308")
+	manager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate}
+	worker := newFakeReportingJobWorker(store, manager, succeedingReleaseRenderer{})
+	worker.renderExport = failingRenderExportInvoker{}
+
+	worker.Run(context.Background(), jobID)
+
+	if manager.status != jobs.StatusFailed {
+		t.Fatalf("job status = %q want failed", manager.status)
+	}
+	if store.completeReleaseCalls != 0 || store.renderFailedReleaseCalls != 0 {
+		t.Fatalf("participant failure persisted render output: complete=%d failed=%d", store.completeReleaseCalls, store.renderFailedReleaseCalls)
+	}
+}
+
+func TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure(t *testing.T) {
+	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000309")
+	canceledManager := &fakeReportingJobManager{status: jobs.StatusCancelRequested}
+	canceledStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
+	canceledWorker := newFakeReportingJobWorker(canceledStore, canceledManager, succeedingReleaseRenderer{})
+	canceledWorker.Run(context.Background(), jobID)
+	if canceledManager.status != jobs.StatusCanceled || canceledStore.completePreviewCalls != 0 {
+		t.Fatalf("canceled preview executed: status=%q complete=%d", canceledManager.status, canceledStore.completePreviewCalls)
+	}
+
+	failedManager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	failedStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
+	failedWorker := newFakeReportingJobWorker(failedStore, failedManager, succeedingReleaseRenderer{})
+	failedWorker.renderExport = failingRenderExportInvoker{}
+	failedWorker.Run(context.Background(), jobID)
+	if failedManager.status != jobs.StatusFailed || failedStore.completePreviewCalls != 0 {
+		t.Fatalf("failed preview published output: status=%q complete=%d", failedManager.status, failedStore.completePreviewCalls)
+	}
+}
+
 func newFakeReportingJobWorker(store *fakeReportingJobStore, manager *fakeReportingJobManager, renderer releaseCandidateRenderer) *reportingJobWorker {
 	if renderer == nil {
 		renderer = succeedingReleaseRenderer{releaseID: uuid.MustParse("00000000-0000-0000-0000-000000000399")}
@@ -90,6 +128,8 @@ func newFakeReportingJobWorker(store *fakeReportingJobStore, manager *fakeReport
 	return &reportingJobWorker{
 		store:           store,
 		jobManager:      manager,
+		jobFinalizer:    fakeReportingJobFinalizer{manager: manager},
+		renderExport:    fakeRenderExportInvoker{},
 		renderer:        renderer,
 		now:             func() time.Time { return time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC) },
 		timeout:         time.Second,
@@ -106,6 +146,7 @@ type fakeReportingJobStore struct {
 	releasePayloadCalls      int
 	renderFailedReleaseCalls int
 	completeReleaseCalls     int
+	completePreviewCalls     int
 }
 
 func (s *fakeReportingJobStore) ReportingJobKind(ctx context.Context, _ uuid.UUID) (string, error) {
@@ -115,15 +156,13 @@ func (s *fakeReportingJobStore) ReportingJobKind(ctx context.Context, _ uuid.UUI
 	return s.kind, nil
 }
 
-func (s *fakeReportingJobStore) CompleteSnapshotCreateJob(ctx context.Context, _ uuid.UUID) (uuid.UUID, error) {
+func (s *fakeReportingJobStore) CompleteSnapshotCreateJobTx(ctx context.Context, _ pgx.Tx, _ uuid.UUID, snapshotID uuid.UUID) error {
 	if err := ctx.Err(); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	s.completeSnapshotCalls++
-	if s.snapshotID == uuid.Nil {
-		s.snapshotID = uuid.MustParse("00000000-0000-0000-0000-000000000305")
-	}
-	return s.snapshotID, nil
+	s.snapshotID = snapshotID
+	return nil
 }
 
 func (s *fakeReportingJobStore) ReleasePayloadForJob(ctx context.Context, _ uuid.UUID) (releaseCreateJobPayload, error) {
@@ -131,7 +170,30 @@ func (s *fakeReportingJobStore) ReleasePayloadForJob(ctx context.Context, _ uuid
 		return releaseCreateJobPayload{}, err
 	}
 	s.releasePayloadCalls++
-	return releaseCreateJobPayload{}, nil
+	model := ExportModel{
+		SchemaID:          ExportModelSchemaID,
+		IncidentID:        "00000000-0000-0000-0000-000000000311",
+		SnapshotID:        "00000000-0000-0000-0000-000000000312",
+		DerivationVersion: DerivationVersion,
+	}
+	modelJSON, _ := canonicalJSON(model)
+	return releaseCreateJobPayload{
+		ActorUserID:             "00000000-0000-0000-0000-000000000313",
+		IncidentID:              model.IncidentID,
+		SnapshotID:              model.SnapshotID,
+		ExportModel:             model,
+		ExportModelSHA256:       hashHex(modelJSON),
+		RedactionProfileID:      InternalRedactionProfileID,
+		RedactionProfileVersion: "1",
+	}, nil
+}
+
+func (s *fakeReportingJobStore) CompositionPreviewPayloadForJob(ctx context.Context, _ uuid.UUID) (compositionPreviewJobPayload, error) {
+	payload, err := s.ReleasePayloadForJob(ctx, uuid.Nil)
+	return compositionPreviewJobPayload{
+		PreviewAttemptID: uuid.MustParse("00000000-0000-0000-0000-000000000314"),
+		Release:          payload,
+	}, err
 }
 
 func (s *fakeReportingJobStore) CompleteReleaseRenderFailedJob(ctx context.Context, _ uuid.UUID, _ RedactionProfile, _ string, _ string, _ time.Time) (uuid.UUID, error) {
@@ -145,15 +207,43 @@ func (s *fakeReportingJobStore) CompleteReleaseRenderFailedJob(ctx context.Conte
 	return s.renderFailedReleaseID, nil
 }
 
-func (s *fakeReportingJobStore) CompleteReleaseCreateJob(ctx context.Context, _ uuid.UUID, _ RenderedRelease, _ time.Time) (uuid.UUID, error) {
+func (s *fakeReportingJobStore) CompleteReleaseCreateJobTx(ctx context.Context, _ pgx.Tx, _ uuid.UUID, releaseID uuid.UUID, _ RenderedRelease, _ time.Time) error {
 	if err := ctx.Err(); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	s.completeReleaseCalls++
-	if s.releaseID == uuid.Nil {
-		s.releaseID = uuid.MustParse("00000000-0000-0000-0000-000000000307")
+	s.releaseID = releaseID
+	return nil
+}
+
+func (s *fakeReportingJobStore) CompleteCompositionPreviewJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, RenderedRelease, time.Time) error {
+	s.completePreviewCalls++
+	return nil
+}
+
+type fakeReportingJobFinalizer struct {
+	manager *fakeReportingJobManager
+}
+
+type fakeRenderExportInvoker struct{}
+
+func (fakeRenderExportInvoker) Invoke(ctx context.Context, invocation RenderExportInvocation) (RenderExportResult, error) {
+	return (BuiltInRenderExportParticipant{}).Emit(ctx, invocation)
+}
+
+type failingRenderExportInvoker struct{}
+
+func (failingRenderExportInvoker) Invoke(context.Context, RenderExportInvocation) (RenderExportResult, error) {
+	return RenderExportResult{}, errors.New("participant failed")
+}
+
+func (f fakeReportingJobFinalizer) FinalizeReportingJobSuccess(ctx context.Context, request JobSuccessFinalization) (jobs.Resource, error) {
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, nil); err != nil {
+			return jobs.Resource{}, err
+		}
 	}
-	return s.releaseID, nil
+	return f.manager.CompleteSucceeded(ctx, request.Transition)
 }
 
 type fakeReportingJobManager struct {

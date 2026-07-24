@@ -1394,6 +1394,38 @@ type ReportCompositionVersion struct {
 	CanonicalCompositionBytes []byte             `json:"canonical_composition_bytes"`
 }
 
+type ReportingCompositionPreviewOutput struct {
+	PreviewAttemptID        pgtype.UUID        `json:"preview_attempt_id"`
+	RenderAttemptID         pgtype.UUID        `json:"render_attempt_id"`
+	ReleaseScope            string             `json:"release_scope"`
+	OutputKind              string             `json:"output_kind"`
+	OutputMediaType         string             `json:"output_media_type"`
+	OutputSha256            string             `json:"output_sha256"`
+	RedactionProfileID      string             `json:"redaction_profile_id"`
+	RedactionProfileVersion string             `json:"redaction_profile_version"`
+	RedactionProfileSha256  string             `json:"redaction_profile_sha256"`
+	RedactionManifestSha256 string             `json:"redaction_manifest_sha256"`
+	RedactionManifestJson   []byte             `json:"redaction_manifest_json"`
+	BundleManifestSha256    string             `json:"bundle_manifest_sha256"`
+	BundleManifestJson      []byte             `json:"bundle_manifest_json"`
+	PrimaryBundlePath       string             `json:"primary_bundle_path"`
+	PrimaryMediaType        string             `json:"primary_media_type"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingCompositionPreviewOutputFile struct {
+	PreviewAttemptID pgtype.UUID        `json:"preview_attempt_id"`
+	BundlePath       string             `json:"bundle_path"`
+	Role             string             `json:"role"`
+	MediaType        string             `json:"media_type"`
+	FileSha256       string             `json:"file_sha256"`
+	SizeBytes        int64              `json:"size_bytes"`
+	StorageKind      string             `json:"storage_kind"`
+	ObjectRef        pgtype.Text        `json:"object_ref"`
+	InlineBytes      []byte             `json:"inline_bytes"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportingJobPayload struct {
 	JobID       pgtype.UUID        `json:"job_id"`
 	JobKind     string             `json:"job_kind"`

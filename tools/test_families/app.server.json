@@ -636,6 +636,7 @@
         "tests": [
           "TestPublicationCatalog_ExactGeneratedSets_Unit",
           "TestPublicationCatalog_RejectsParticipantMismatch_Unit",
+          "TestRenderExportInvokerRequiresExactAdmittedContract_Unit",
           "TestResolveClaimRequestRejectsIncompleteOrExtraProjection_Unit",
           "TestResolveClaimRequestUsesGeneratedClaimKeys_Unit"
         ]

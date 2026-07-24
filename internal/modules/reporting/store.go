@@ -223,6 +223,11 @@ type releaseCreateJobPayload struct {
 	Request                      CreateReleaseRequest `json:"-"`
 }
 
+type compositionPreviewJobPayload struct {
+	PreviewAttemptID uuid.UUID
+	Release          releaseCreateJobPayload
+}
+
 type sourceProjectionRef struct {
 	GraphViewID            string `json:"graph_view_id"`
 	ProjectionRunID        string `json:"projection_run_id"`
@@ -339,7 +344,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		"snapshot_reporting.snapshot_create_v1",
+		SnapshotCreateJobKind,
 		key,
 		scope,
 		normalized,
@@ -352,7 +357,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       reportingJobHandlerName,
+		HandlerName:       JobWorkerKind,
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
@@ -505,7 +510,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		"snapshot_reporting.release_create_v1",
+		ReleaseCreateJobKind,
 		key,
 		scope,
 		params.Request.Normalized,
@@ -518,7 +523,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       reportingJobHandlerName,
+		HandlerName:       JobWorkerKind,
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
@@ -552,34 +557,33 @@ func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string
 	return releaseResource(record), record.IncidentID, nil
 }
 
-func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+func (s *Store) CompleteSnapshotCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, snapshotID uuid.UUID) error {
 	if existing, err := getSnapshotRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		return existing.SnapshotID, tx.Commit(ctx)
+		if existing.SnapshotID != snapshotID {
+			return fmt.Errorf("reporting snapshot job %s has conflicting snapshot identity", jobID)
+		}
+		return nil
 	} else if !errors.Is(err, ErrNotFound) {
-		return uuid.UUID{}, err
+		return err
 	}
 	payload, err := getSnapshotPayloadTx(ctx, tx, jobID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	incidentID, err := uuid.Parse(payload.IncidentID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	actorID, err := uuid.Parse(payload.ActorUserID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	exportJSON, err := canonicalJSON(payload.ExportModel)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	row, err := sqlc.New(tx).CreateReportingSnapshot(ctx, sqlc.CreateReportingSnapshotParams{
+		SnapshotID:                   pgUUID(snapshotID),
 		IncidentID:                   pgUUID(incidentID),
 		CreatedByUserID:              pgUUID(actorID),
 		ClientTxnID:                  payload.ClientTxnID,
@@ -592,11 +596,11 @@ func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) 
 		CreateJobID:                  pgUUID(jobID),
 	})
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	record, err := snapshotRecordFromSQL(row)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	finalModel := payload.ExportModel
 	finalModel.SnapshotID = record.SnapshotID.String()
@@ -604,7 +608,7 @@ func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) 
 	finalModel.Fields = finalModel.RedactionFields()
 	finalExportJSON, err := canonicalJSON(finalModel)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	finalExportSHA := hashHex(finalExportJSON)
 	if _, err := tx.Exec(ctx, `
@@ -613,14 +617,9 @@ UPDATE reporting_snapshots
        export_model_json = $2
  WHERE snapshot_id = $3
 `, finalExportSHA, finalExportJSON, record.SnapshotID); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
-	record.ExportModelSHA256 = finalExportSHA
-	record.ExportModelJSON = finalExportJSON
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.UUID{}, err
-	}
-	return record.SnapshotID, nil
+	return nil
 }
 
 func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (releaseCreateJobPayload, error) {
@@ -674,7 +673,13 @@ func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (rele
 func (s *Store) ReportingJobKind(ctx context.Context, jobID uuid.UUID) (string, error) {
 	row, err := sqlc.New(s.pool).GetReportingJobPayload(ctx, pgUUID(jobID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrNotFound
+		if _, previewErr := reportcomposition.NewStore(s.pool).PreviewSourceForRender(ctx, jobID); previewErr == nil {
+			return reportingJobKindCompositionPreview, nil
+		} else if errors.Is(previewErr, reportcomposition.ErrNotFound) {
+			return "", ErrNotFound
+		} else {
+			return "", previewErr
+		}
 	}
 	if err != nil {
 		return "", err
@@ -682,24 +687,197 @@ func (s *Store) ReportingJobKind(ctx context.Context, jobID uuid.UUID) (string, 
 	return row.JobKind, nil
 }
 
-func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, rendered RenderedRelease, now time.Time) (uuid.UUID, error) {
+func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.UUID) (compositionPreviewJobPayload, error) {
+	source, err := reportcomposition.NewStore(s.pool).PreviewSourceForRender(ctx, jobID)
+	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	if source.RenderAttemptID != jobID ||
+		previewSourceDigest(source.PreviewSourceJSON) != source.PreviewSourceSHA256 ||
+		source.DerivationVersion != DerivationVersion {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview source binding is invalid")
+	}
+	snapshotID, err := uuid.Parse(source.SnapshotID)
+	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	snapshot, model, err := s.GetSnapshotForRender(ctx, snapshotID)
+	if err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	if snapshot.IncidentID != source.IncidentID || snapshot.DerivationVersion != source.DerivationVersion {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview snapshot binding is invalid")
+	}
+	var recipientPartitionRefs []string
+	if err := json.Unmarshal(source.RecipientPartitionRefs, &recipientPartitionRefs); err != nil || len(recipientPartitionRefs) != 0 {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview recipient partitions are invalid")
+	}
+	templateContract, ok := ResolveTemplateContract(source.TemplateID, source.TemplateVersion)
+	if !ok || !templateContract.SupportsOutputKind(source.OutputKind) ||
+		!templateContract.SupportsReleaseScope(ReleaseScopeInternalDraft) {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview template binding is invalid")
+	}
+	_, profileSHA, err := ResolveRedactionProfile(source.RedactionProfileID, source.RedactionProfileVersion, nil)
+	if err != nil || profileSHA != source.RedactionProfileSHA256 {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview redaction profile binding is invalid")
+	}
+	outputOptions, apiErr := materializeOutputOptions(source.OutputOptions, source.OutputKind, ReleaseScopeInternalDraft)
+	if apiErr != nil {
+		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview output options are invalid")
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return uuid.UUID{}, err
+		return compositionPreviewJobPayload{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := validateReleaseGraphProjectionRefsTx(ctx, tx, snapshot, source.GraphProjectionRefs); err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return compositionPreviewJobPayload{}, err
+	}
+	compositionID := source.CompositionID.String()
+	var compositionVersion *string
+	if source.CompositionVersion != nil {
+		formatted := fmt.Sprintf("v%d", *source.CompositionVersion)
+		compositionVersion = &formatted
+	}
+	request := CreateReleaseRequest{
+		SnapshotID:              snapshotID,
+		TemplateID:              source.TemplateID,
+		TemplateVersion:         source.TemplateVersion,
+		RedactionProfileID:      source.RedactionProfileID,
+		RedactionProfileVersion: source.RedactionProfileVersion,
+		OutputKind:              source.OutputKind,
+		ReleaseScope:            ReleaseScopeInternalDraft,
+		OutputOptions:           append(json.RawMessage(nil), outputOptions...),
+		GraphProjectionRefs:     cloneRawMessageWithDefault(source.GraphProjectionRefs, json.RawMessage(`[]`)),
+		CompositionJSON:         append(json.RawMessage(nil), source.PreviewSourceJSON...),
+		CompositionID:           &source.CompositionID,
+		CompositionVersion:      compositionVersion,
+		CompositionSHA256:       cloneStringPtr(source.CompositionSHA256),
+	}
+	return compositionPreviewJobPayload{
+		PreviewAttemptID: source.PreviewAttemptID,
+		Release: releaseCreateJobPayload{
+			ActorUserID:                  source.CreatedByUserID.String(),
+			SnapshotID:                   snapshot.SnapshotID.String(),
+			IncidentID:                   snapshot.IncidentID.String(),
+			SnapshotAt:                   snapshot.SnapshotAt.UTC(),
+			SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
+			DerivationVersion:            snapshot.DerivationVersion,
+			ExportModelSHA256:            snapshot.ExportModelSHA256,
+			ExportModel:                  model,
+			TemplateID:                   source.TemplateID,
+			TemplateVersion:              source.TemplateVersion,
+			TemplateContract:             templateContract,
+			RedactionProfileID:           source.RedactionProfileID,
+			RedactionProfileVersion:      source.RedactionProfileVersion,
+			OutputKind:                   source.OutputKind,
+			OutputOptions:                append(json.RawMessage(nil), outputOptions...),
+			ReleaseScope:                 ReleaseScopeInternalDraft,
+			RecipientPartitionRefs:       []string{},
+			GraphProjectionRefs:          append(json.RawMessage(nil), source.GraphProjectionRefs...),
+			CompositionJSON:              append(json.RawMessage(nil), source.PreviewSourceJSON...),
+			CompositionID:                &compositionID,
+			CompositionVersion:           compositionVersion,
+			CompositionSHA256:            cloneStringPtr(source.CompositionSHA256),
+			RenderAdmittedAt:             source.CreatedAt.UTC(),
+			Request:                      request,
+		},
+	}, nil
+}
+
+func (s *Store) CompleteCompositionPreviewJobTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	jobID uuid.UUID,
+	previewAttemptID uuid.UUID,
+	rendered RenderedRelease,
+	now time.Time,
+) error {
+	if rendered.RenderBundle.Manifest.ReleaseScope != ReleaseScopeInternalDraft {
+		return fmt.Errorf("reporting preview output must be internal_draft")
+	}
+	var existing uuid.UUID
+	err := tx.QueryRow(ctx, `
+SELECT preview_attempt_id
+  FROM reporting_composition_preview_outputs
+ WHERE render_attempt_id = $1
+`, jobID).Scan(&existing)
+	if err == nil {
+		if existing != previewAttemptID {
+			return fmt.Errorf("reporting preview job %s has conflicting preview identity", jobID)
+		}
+		return nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err := reportcomposition.LockPreviewAttemptForRenderTx(ctx, tx, previewAttemptID, jobID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+INSERT INTO reporting_composition_preview_outputs (
+    preview_attempt_id, render_attempt_id, release_scope, output_kind,
+    output_media_type, output_sha256, redaction_profile_id, redaction_profile_version,
+    redaction_profile_sha256, redaction_manifest_sha256, redaction_manifest_json,
+    bundle_manifest_sha256, bundle_manifest_json, primary_bundle_path,
+    primary_media_type, created_at
+)
+VALUES ($1, $2, 'internal_draft', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+`, previewAttemptID, jobID, rendered.RenderBundle.Manifest.OutputKind,
+		rendered.OutputMediaType, rendered.OutputSHA256, rendered.Profile.ProfileID,
+		rendered.Profile.Version, rendered.ProfileSHA256, rendered.RedactionManifestSHA256,
+		rendered.RedactionManifestJSON, rendered.RenderBundle.ManifestSHA256,
+		rendered.RenderBundle.ManifestJSON, rendered.RenderBundle.PrimaryPath,
+		rendered.RenderBundle.PrimaryMedia, now.UTC()); err != nil {
+		return err
+	}
+	for _, file := range rendered.RenderBundle.Files {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO reporting_composition_preview_output_files (
+    preview_attempt_id, bundle_path, role, media_type, file_sha256,
+    size_bytes, storage_kind, object_ref, inline_bytes, created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8, $9)
+`, previewAttemptID, file.Path, file.Role, file.MediaType, file.SHA256,
+			file.SizeBytes, file.StorageKind, file.Bytes, now.UTC()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func previewSourceDigest(raw json.RawMessage) string {
+	var source map[string]any
+	if err := json.Unmarshal(raw, &source); err != nil {
+		return ""
+	}
+	delete(source, "preview_source_sha256")
+	canonical, err := canonicalJSON(source)
+	if err != nil {
+		return ""
+	}
+	return hashHex(canonical)
+}
+
+func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, releaseID uuid.UUID, rendered RenderedRelease, now time.Time) error {
 	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		return existing.ReleaseID, tx.Commit(ctx)
+		if existing.ReleaseID != releaseID {
+			return fmt.Errorf("reporting release job %s has conflicting release identity", jobID)
+		}
+		return nil
 	} else if !errors.Is(err, ErrNotFound) {
-		return uuid.UUID{}, err
+		return err
 	}
 	payload, err := getReleasePayloadTx(ctx, tx, jobID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	initialState := ReleaseStatePendingApproval
 	var approvedAt *time.Time
@@ -710,7 +888,7 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 	}
 	partitionJSON, err := canonicalStringArrayJSON(payload.RecipientPartitionRefs)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
 	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
@@ -719,6 +897,7 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 		renderAdmittedAt = now.UTC()
 	}
 	row, err := sqlc.New(tx).CreateReportingRelease(ctx, sqlc.CreateReportingReleaseParams{
+		ReleaseID:                    pgUUID(releaseID),
 		IncidentID:                   pgUUID(incidentID),
 		SnapshotID:                   pgUUID(snapshotID),
 		CreatedByUserID:              pgUUID(actorID),
@@ -751,25 +930,25 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 		CreatedAt:                    pgTimestamptz(now),
 	})
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
-	releaseID, err := uuidFromPG(row.ReleaseID)
+	insertedReleaseID, err := uuidFromPG(row.ReleaseID)
 	if err != nil {
-		return uuid.UUID{}, err
+		return err
+	}
+	if insertedReleaseID != releaseID {
+		return fmt.Errorf("reporting release insert returned conflicting identity")
 	}
 	if err := insertRenderBundleTx(ctx, tx, releaseID, rendered.RenderBundle, now.UTC()); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
 	if err := invalidatePriorCandidateTx(ctx, tx, releaseID, snapshotID, payload.OutputKind, payload.ReleaseScope, payload.TemplateID, payload.TemplateVersion, rendered.Profile.ProfileID, rendered.Profile.Version, partitionJSON, outputOptions, graphProjectionRefs, payload.CompositionID, payload.CompositionVersion, payload.CompositionSHA256, now.UTC()); err != nil {
-		return uuid.UUID{}, err
+		return err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.UUID{}, err
-	}
-	return releaseID, nil
+	return nil
 }
 
 func insertRenderBundleTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, bundle RenderBundle, now time.Time) error {
