@@ -38,7 +38,6 @@ func ImportTransactionDescriptor() crossownertransaction.Descriptor {
 
 type ImportTransactionResult struct {
 	IncidentID uuid.UUID
-	Job        jobs.Resource
 }
 
 type ImportReadCapability interface {
@@ -127,11 +126,7 @@ func (c *importTransactionCapability) ApplyIncidentBundleImport(ctx context.Cont
 	if err := MarkImportCompleteTx(ctx, c.tx, jobID, incidentID, manifestSHA, now); err != nil {
 		return ImportTransactionResult{}, err
 	}
-	job, err := jobs.CompleteSucceededTx(ctx, c.tx, importSuccessTransition(jobID, incidentID), now)
-	if err != nil {
-		return ImportTransactionResult{}, err
-	}
-	return ImportTransactionResult{IncidentID: incidentID, Job: job}, nil
+	return ImportTransactionResult{IncidentID: incidentID}, nil
 }
 
 type ImportTransactionParticipant struct {

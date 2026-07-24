@@ -94,6 +94,12 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	if len(refs) != 1 || refs[0].(map[string]any)["kind"] != "incident_bundle" {
 		t.Fatalf("export summary must contain one incident_bundle ref: %#v", refs)
 	}
+	requireIncidentPortabilityProof(
+		t,
+		harness.DB,
+		job["job_id"].(string),
+		"incident_portability.export",
+	)
 	descriptorRoute := refs[0].(map[string]any)["route"].(string)
 	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
 	descriptor := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -201,6 +207,12 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	terminal := waitJobWithStatus(t, harness.Server, memberAdminLogin, jobID, "canceled")
 	if terminal["status"] != "canceled" {
 		t.Fatalf("export job must stop at canceled after authorized cancel: %#v", terminal)
+	}
+	if countRows(t, harness.DB, `SELECT count(*) FROM extension_job_cancellation_observations WHERE job_id = $1`, jobID) != 1 {
+		t.Fatal("accepted Incident Portability cancellation must retain one observation")
+	}
+	if countRows(t, harness.DB, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, jobID) != 0 {
+		t.Fatal("canceled Incident Portability job must not publish a success proof")
 	}
 }
 
@@ -321,6 +333,12 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if ref["kind"] != "incident" || ref["id"] != incidentID {
 		t.Fatalf("import summary must reference imported incident: %#v", ref)
 	}
+	requireIncidentPortabilityProof(
+		t,
+		targetHarness.DB,
+		importJob["job_id"].(string),
+		"incident_portability.import",
+	)
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID, "change_set count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID, "revision count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_links WHERE incident_id = $1`, incidentID, "record-link count")
@@ -1974,6 +1992,44 @@ func importBundleAndWait(t testing.TB, server *httptestx.Server, login flowtest.
 	resp := postImport(t, server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	return waitJob(t, server, login, job["job_id"].(string))
+}
+
+func requireIncidentPortabilityProof(
+	t testing.TB,
+	db *sql.DB,
+	jobID string,
+	operationKind string,
+) {
+	t.Helper()
+	var ownerProfileID string
+	var actualOperationKind string
+	var finalCommitID string
+	var terminalCode string
+	if err := db.QueryRow(`
+SELECT owner_profile_id, operation_kind, final_commit_id,
+       terminal_result->>'code'
+  FROM extension_job_commit_proofs
+ WHERE job_id::text = $1
+`, jobID).Scan(
+		&ownerProfileID,
+		&actualOperationKind,
+		&finalCommitID,
+		&terminalCode,
+	); err != nil {
+		t.Fatalf("read Incident Portability proof for job %s: %v", jobID, err)
+	}
+	if ownerProfileID != incidentbundles.ProfileID ||
+		actualOperationKind != operationKind ||
+		finalCommitID == "" ||
+		terminalCode == "" {
+		t.Fatalf(
+			"unexpected Incident Portability proof: owner=%q operation=%q commit=%q code=%q",
+			ownerProfileID,
+			actualOperationKind,
+			finalCommitID,
+			terminalCode,
+		)
+	}
 }
 
 func requireFailedJobReason(t testing.TB, job map[string]any, wantCode string, wantReason string) {

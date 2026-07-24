@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -17,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-const incidentBundleJobHandlerName = "incident_portability.bundle_worker_v1"
+const incidentBundleJobHandlerName = BundleWorkerKind
 
 type incidentBundleWorker struct {
 	store           *Store
@@ -26,6 +27,7 @@ type incidentBundleWorker struct {
 	results         incidentBundleJobResultSink
 	files           bundleFileStore
 	importFinalizer incidents.IncidentBundleImportFinalizer
+	jobFinalizer    JobSuccessFinalizer
 	portability     *PortabilityOrchestrator
 	transactions    *crossownertransaction.Coordinator
 	deps            httpapi.DependencySet
@@ -33,7 +35,7 @@ type incidentBundleWorker struct {
 	startHook       func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, now func() time.Time, startHook func(string)) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, now func() time.Time, startHook func(string)) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:           store,
 		jobManager:      deps.Jobs,
@@ -41,6 +43,7 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bun
 		results:         incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
 		files:           files,
 		importFinalizer: importFinalizer,
+		jobFinalizer:    jobFinalizer,
 		portability:     portability,
 		transactions:    transactions,
 		deps:            deps,
@@ -160,27 +163,37 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	record, err := w.store.CompleteExportDescriptor(ctx, ExportCompleteParams{
-		JobID:                payload.JobID,
-		ActorUserID:          payload.ActorUserID,
-		IncidentID:           *payload.IncidentID,
-		BundleID:             bundleID,
-		ExportedAt:           exportedAt,
+	completeParams := ExportCompleteParams{
+		JobID: payload.JobID, ActorUserID: payload.ActorUserID,
+		IncidentID: *payload.IncidentID, BundleID: bundleID, ExportedAt: exportedAt,
 		ManifestSHA256:       built.Archive.ManifestSHA256,
 		ReferencePackMode:    built.Archive.Manifest.ReferencePackMode,
 		OptionalSections:     built.Archive.Manifest.OptionalSections,
 		RequiredCapabilities: built.Archive.Manifest.RequiredCapabilities,
-		BundleSHA256:         built.BundleSHA256,
-		BundleByteSize:       built.BundleByteSize,
-		BundleStoragePath:    storagePath,
-		ManifestFiles:        built.Archive.Manifest.Files,
+		BundleSHA256:         built.BundleSHA256, BundleByteSize: built.BundleByteSize,
+		BundleStoragePath: storagePath, ManifestFiles: built.Archive.Manifest.Files,
+	}
+	var record DescriptorRecord
+	_, err = w.jobFinalizer.FinalizeIncidentBundleJobSuccess(ctx, JobSuccessFinalization{
+		Transition: exportSuccessTransition(payload.JobID, bundleID),
+		FinalCommitID: "incident_portability.export:" +
+			bundleID.String() + ":" + built.Archive.ManifestSHA256,
+		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			var mutationErr error
+			record, mutationErr = w.store.CompleteExportDescriptorTx(ctx, tx, completeParams)
+			return mutationErr
+		},
 	})
 	if err != nil {
-		w.files.remove(storagePath)
-		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		if !errors.Is(err, ErrJobFinalizationIndeterminate) {
+			w.files.remove(storagePath)
+			w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		}
 		return
 	}
-	w.results.completeExportSucceeded(ctx, payload.JobID, record.BundleID)
+	if record.BundleID != bundleID {
+		return
+	}
 }
 
 func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload JobPayload) {
@@ -225,8 +238,9 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		return
 	}
 	committed := false
+	finalityUnknown := false
 	defer func() {
-		if !committed {
+		if !committed && !finalityUnknown {
 			prepared.Cleanup(context.WithoutCancel(ctx))
 		}
 	}()
@@ -236,7 +250,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		return
 	}
 	defer func() {
-		if !committed {
+		if !committed && !finalityUnknown {
 			_ = portability.Abandon(context.WithoutCancel(ctx))
 		}
 	}()
@@ -249,8 +263,16 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	result, err := w.transactions.Execute(ctx, crossownertransaction.Operation{
 		OperationID: payload.JobID.String(), NormalizedRequestSHA256: verified.ManifestSHA256,
 		Participants: participants,
+		Finalizer: importJobTransactionFinalizer{
+			finalizer: w.jobFinalizer, jobID: payload.JobID,
+			manifestSHA256: verified.ManifestSHA256,
+		},
 	})
 	if err != nil {
+		if crossownertransaction.IsFatalIntegrity(err) {
+			finalityUnknown = true
+			return
+		}
 		var verificationErr *VerificationError
 		if errors.As(err, &verificationErr) {
 			w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", verificationErr)
@@ -267,7 +289,10 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	committed = true
 	prepared.stagedObjectKeys = nil
 	portability.Committed()
-	w.jobManager.PublishProgress(value.Job)
+	job, err := w.jobManager.Get(ctx, payload.JobID)
+	if err == nil {
+		w.jobManager.PublishProgress(job)
+	}
 }
 
 func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
@@ -296,10 +321,6 @@ type incidentBundleJobResultSink struct {
 	manager *jobs.Manager
 	store   *Store
 	now     func() time.Time
-}
-
-func (s incidentBundleJobResultSink) completeExportSucceeded(ctx context.Context, jobID uuid.UUID, bundleID uuid.UUID) {
-	_, _ = s.manager.CompleteSucceeded(ctx, exportSuccessTransition(jobID, bundleID))
 }
 
 func (s incidentBundleJobResultSink) completeFailed(ctx context.Context, params jobs.TransitionParams) {

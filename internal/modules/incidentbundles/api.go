@@ -16,7 +16,13 @@ import (
 )
 
 const (
-	ProfileID = "incident_portability"
+	ProfileID                  = "incident_portability"
+	BundlesRouteContributionID = "incident_portability.bundles_route"
+	BundleWorkerKind           = "incident_portability.bundle_worker_v1"
+	ExportJobKind              = "incident_portability.export_v1"
+	ImportJobKind              = "incident_portability.import_v1"
+	ExportOperationKind        = "incident_portability.export"
+	ImportOperationKind        = "incident_portability.import"
 
 	HistoryModeFull = "full"
 	BlobModeFull    = "full"

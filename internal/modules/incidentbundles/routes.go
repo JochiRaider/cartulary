@@ -30,6 +30,7 @@ type RouteOption func(*routeOptions)
 
 type routeOptions struct {
 	importFinalizer incidents.IncidentBundleImportFinalizer
+	jobFinalizer    JobSuccessFinalizer
 	portability     *PortabilityOrchestrator
 	transactions    *crossownertransaction.Coordinator
 }
@@ -44,6 +45,12 @@ func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crosso
 func WithImportFinalizer(finalizer incidents.IncidentBundleImportFinalizer) RouteOption {
 	return func(options *routeOptions) {
 		options.importFinalizer = finalizer
+	}
+}
+
+func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
+	return func(options *routeOptions) {
+		options.jobFinalizer = finalizer
 	}
 }
 
@@ -73,6 +80,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.importFinalizer == nil {
 		return nil, fmt.Errorf("incident bundle import finalizer is required")
 	}
+	if options.jobFinalizer == nil {
+		return nil, fmt.Errorf("incident bundle job success finalizer is required")
+	}
 	if options.portability == nil || options.transactions == nil {
 		return nil, fmt.Errorf("incident bundle portability composition is required")
 	}
@@ -90,7 +100,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, options.portability, options.transactions, now, workerStartHook)
+	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, now, workerStartHook)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

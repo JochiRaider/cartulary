@@ -612,6 +612,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
+		incidentbundles.WithJobSuccessFinalizer(
+			extensionassembly.NewIncidentBundleJobSuccessFinalizer(runtime.ExtensionJobFinalizer, now),
+		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 	)
 	importRoutes := imports.RegisterRoutes(
@@ -656,7 +659,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			baseRegistrarID: "auth",
 		},
 		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: importRoutes},
-		{id: "incident_portability", contributionIDs: []string{"incident_portability.bundles_route"}, registrar: incidentBundleRoutes},
+		{id: "incident_portability", contributionIDs: []string{incidentbundles.BundlesRouteContributionID}, registrar: incidentBundleRoutes},
 		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowModule.RegisterRoutes()},
 		{id: "reference_pack", contributionIDs: []string{"reference_pack.packs_route"}, registrar: reference_data.RegisterRoutes()},
 		{

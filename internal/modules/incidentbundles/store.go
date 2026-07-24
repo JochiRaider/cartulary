@@ -110,7 +110,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 			scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
-				"incident_portability.export_v1",
+				ExportJobKind,
 				key,
 				scope,
 				params.NormalizedRequest,
@@ -157,7 +157,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 			scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
-				"incident_portability.import_v1",
+				ImportJobKind,
 				key,
 				scope,
 				params.NormalizedRequest,
@@ -228,13 +228,11 @@ func (s *Store) acceptJob(ctx context.Context, params jobAdmissionParams) (JobAc
 	return JobAcceptedResult{Job: job}, nil
 }
 
-func (s *Store) CompleteExportDescriptor(ctx context.Context, params ExportCompleteParams) (DescriptorRecord, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return DescriptorRecord{}, err
+func (s *Store) CompleteExportDescriptorTx(ctx context.Context, tx pgx.Tx, params ExportCompleteParams) (DescriptorRecord, error) {
+	if tx == nil {
+		return DescriptorRecord{}, errors.New("incident bundle export transaction unavailable")
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_exports (
     bundle_id, incident_id, export_job_id, exported_by_user_id, exported_at, manifest_sha256,
     reference_pack_mode, history_mode, blob_mode, optional_sections, required_capabilities,
@@ -255,7 +253,7 @@ VALUES ($1, $2, $3, $4, $5)
 			return DescriptorRecord{}, err
 		}
 	}
-	_, err = tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 UPDATE incident_bundle_job_payloads
    SET bundle_id = $2,
        manifest_sha256 = $3,
@@ -265,11 +263,10 @@ UPDATE incident_bundle_job_payloads
 	if err != nil {
 		return DescriptorRecord{}, err
 	}
-	record, err := getDescriptorTx(ctx, tx, params.BundleID)
-	if err != nil {
-		return DescriptorRecord{}, err
+	if tag.RowsAffected() != 1 {
+		return DescriptorRecord{}, ErrNotFound
 	}
-	return record, tx.Commit(ctx)
+	return getDescriptorTx(ctx, tx, params.BundleID)
 }
 
 func (s *Store) GetDescriptor(ctx context.Context, bundleID uuid.UUID) (DescriptorRecord, error) {
@@ -327,14 +324,20 @@ type commandExecutor interface {
 }
 
 func markImportComplete(ctx context.Context, executor commandExecutor, jobID uuid.UUID, incidentID uuid.UUID, manifestSHA string, now time.Time) error {
-	_, err := executor.Exec(ctx, `
+	tag, err := executor.Exec(ctx, `
 UPDATE incident_bundle_job_payloads
    SET imported_incident_id = $2,
        manifest_sha256 = $3,
        updated_at = $4
  WHERE job_id = $1
 `, jobID, incidentID, manifestSHA, now)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) MarkJobFailure(ctx context.Context, jobID uuid.UUID, reason string, now time.Time) {

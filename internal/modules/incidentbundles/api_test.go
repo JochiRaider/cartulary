@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,7 +16,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"gopkg.in/yaml.v3"
@@ -536,13 +539,30 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 }
 
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
-	registrar := RegisterRoutes()
-	err := registrar(http.NewServeMux(), httpapi.DependencySet{
+	deps := httpapi.DependencySet{
 		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}}),
-	})
+	}
+	err := RegisterRoutes()(http.NewServeMux(), deps)
 	if err == nil || !strings.Contains(err.Error(), "import finalizer") {
 		t.Fatalf("admitted incident portability setup must fail without import finalizer, got %v", err)
 	}
+	err = RegisterRoutes(WithImportFinalizer(importFinalizerStub{}))(
+		http.NewServeMux(),
+		deps,
+	)
+	if err == nil || !strings.Contains(err.Error(), "job success finalizer") {
+		t.Fatalf("admitted incident portability setup must fail without job success finalizer, got %v", err)
+	}
+}
+
+type importFinalizerStub struct{}
+
+func (importFinalizerStub) FinalizeIncidentBundleImportTx(
+	context.Context,
+	pgx.Tx,
+	incidents.IncidentBundleImportFinalizationParams,
+) error {
+	return nil
 }
 
 func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
