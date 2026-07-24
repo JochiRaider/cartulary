@@ -21,6 +21,7 @@ import (
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -46,6 +47,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	if summary["code"] != reference_data.ResultReferencePackImported {
 		t.Fatalf("import job summary = %#v", summary)
 	}
+	requireReferencePackProof(t, harness.DB, jobID, reference_data.ImportJobKind, reference_data.ImportOperation)
 	refs := summary["resource_refs"].([]any)
 	if len(refs) != 1 || refs[0].(map[string]any)["kind"] != "reference_pack_version" || refs[0].(map[string]any)["id"] != "/api/v1/reference-packs/type_registry.process/1" {
 		t.Fatalf("import job refs = %#v", refs)
@@ -130,6 +132,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	if job["status"] != "succeeded" || job["result_summary"].(map[string]any)["code"] != reference_data.ResultReferencePackReverified {
 		t.Fatalf("reverify job = %#v", job)
 	}
+	requireReferencePackProof(t, harness.DB, reverifyJob["job_id"].(string), reference_data.ReverifyJobKind, reference_data.ReverifyOperation)
 	reverified := readReferencePack(t, harness, adminLogin, "type_registry.asset", "2")
 	requireReferencePackResource(t, reverified, "type_registry.asset", "2", reference_data.ConditionVerifiedAvailable, false)
 	requirePackMetadata(t, harness.DB, "type_registry.asset", "2")
@@ -143,6 +146,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	if refreshDone["status"] != "succeeded" || refreshDone["result_summary"].(map[string]any)["code"] != reference_data.ResultReferencePacksRefreshed {
 		t.Fatalf("refresh job = %#v", refreshDone)
 	}
+	requireReferencePackProof(t, harness.DB, refreshJob["job_id"].(string), reference_data.RefreshJobKind, reference_data.RefreshOperation)
 }
 
 func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
@@ -231,45 +235,67 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 		t.Fatalf("job should cancel before durable pack commit: %#v", done)
 	}
 	requirePackRowCount(t, harness.DB, "type_registry.queued", "1", 0)
+	if queryCount(t, harness.DB, `SELECT count(*) FROM extension_job_cancellation_observations WHERE job_id = $1`, jobID) != 1 {
+		t.Fatal("accepted Reference Pack cancellation must retain one observation")
+	}
+	if queryCount(t, harness.DB, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, jobID) != 0 {
+		t.Fatal("canceled Reference Pack job must not publish a success proof")
+	}
 }
 
 func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-minimum-disconnected")
-
-	rows, err := harness.DB.Query(`
+	t.Run("claimed profile seeds the exact minimum", func(t *testing.T) {
+		harness := runtime.StartServer(t, "extension_profile-reference-pack-minimum-disconnected")
+		rows, err := harness.DB.Query(`
 SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verification_method, rpas.active_version
   FROM reference_packs rp
   JOIN reference_pack_activation_state rpas ON rpas.pack_key = rp.pack_key AND rpas.active_version = rp.version
  ORDER BY rp.pack_key ASC
 `)
-	if err != nil {
-		t.Fatalf("query seeded packs: %v", err)
-	}
-	defer rows.Close()
-	var got []string
-	for rows.Next() {
-		var packKey, version, packKind, contractVersion, verificationMethod, activeVersion string
-		if err := rows.Scan(&packKey, &version, &packKind, &contractVersion, &verificationMethod, &activeVersion); err != nil {
-			t.Fatalf("scan seeded pack: %v", err)
+		if err != nil {
+			t.Fatalf("query seeded packs: %v", err)
 		}
-		if packKind != "type_registry" || contractVersion != reference_data.PackContractVersionV1 || verificationMethod != "manifest_sha256_v1" || activeVersion != "1" {
-			t.Fatalf("seeded pack metadata mismatch for %s: kind=%s contract=%s method=%s active=%s", packKey, packKind, contractVersion, verificationMethod, activeVersion)
+		defer rows.Close()
+		var got []string
+		for rows.Next() {
+			var packKey, version, packKind, contractVersion, verificationMethod, activeVersion string
+			if err := rows.Scan(&packKey, &version, &packKind, &contractVersion, &verificationMethod, &activeVersion); err != nil {
+				t.Fatalf("scan seeded pack: %v", err)
+			}
+			if packKind != "type_registry" || contractVersion != reference_data.PackContractVersionV1 || verificationMethod != "manifest_sha256_v1" || activeVersion != "1" {
+				t.Fatalf("seeded pack metadata mismatch for %s: kind=%s contract=%s method=%s active=%s", packKey, packKind, contractVersion, verificationMethod, activeVersion)
+			}
+			got = append(got, packKey+"@"+version)
 		}
-		got = append(got, packKey+"@"+version)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("seed rows: %v", err)
-	}
-	want := []string{"type_registry.evidence@1", "type_registry.host@1", "type_registry.indicator@1"}
-	if len(got) != len(want) {
-		t.Fatalf("seeded pack count = %#v, want %#v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("seeded packs = %#v, want %#v", got, want)
+		if err := rows.Err(); err != nil {
+			t.Fatalf("seed rows: %v", err)
 		}
-	}
+		want := []string{"type_registry.evidence@1", "type_registry.host@1", "type_registry.indicator@1"}
+		if len(got) != len(want) {
+			t.Fatalf("seeded pack count = %#v, want %#v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("seeded packs = %#v, want %#v", got, want)
+			}
+		}
+	})
+
+	t.Run("unclaimed profile stays quiescent", func(t *testing.T) {
+		unclaimed := runtime.Runtime.StartServer(t, appsupport.ServerOptions{
+			Prefix: "extension_profile-reference-pack-unclaimed",
+			Env: map[string]string{
+				"CARTULARY__REFERENCE_PACK__CLAIMED": "false",
+			},
+			TestRouteMode: httptestx.TestRouteModeDisabled,
+		})
+		if got := queryCount(t, unclaimed.DB, `SELECT count(*) FROM reference_packs`); got != 0 {
+			t.Fatalf("unclaimed Reference Pack profile seeded %d pack rows", got)
+		}
+		response := httptestx.DoJSON(t, http.MethodGet, unclaimed.Server.HTTP.URL+"/api/v1/reference-packs", nil)
+		httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "extension_profile_not_claimed")
+	})
 }
 
 func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
@@ -564,6 +590,46 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return got
+}
+
+func requireReferencePackProof(t testing.TB, db *sql.DB, jobID string, jobKind string, operationKind string) {
+	t.Helper()
+	var ownerProfileID string
+	var actualOperationKind string
+	var finalCommitID string
+	if err := db.QueryRow(`
+SELECT owner_profile_id, operation_kind, final_commit_id
+  FROM extension_job_commit_proofs
+ WHERE job_id::text = $1
+`, jobID).Scan(&ownerProfileID, &actualOperationKind, &finalCommitID); err != nil {
+		t.Fatalf("read Reference Pack proof for job %s: %v", jobID, err)
+	}
+	if ownerProfileID != reference_data.ProfileID || actualOperationKind != operationKind || finalCommitID != operationKind+":"+jobID {
+		t.Fatalf(
+			"unexpected Reference Pack proof: owner=%q operation=%q commit=%q",
+			ownerProfileID,
+			actualOperationKind,
+			finalCommitID,
+		)
+	}
+	var admittedProfileID string
+	var actualJobKind string
+	var workerKind string
+	if err := db.QueryRow(`
+SELECT extension_owner_profile_id, extension_job_kind, handler_name
+  FROM jobs
+ WHERE job_id::text = $1
+`, jobID).Scan(&admittedProfileID, &actualJobKind, &workerKind); err != nil {
+		t.Fatalf("read Reference Pack job binding for job %s: %v", jobID, err)
+	}
+	if admittedProfileID != reference_data.ProfileID || actualJobKind != jobKind || workerKind != reference_data.LifecycleWorkerKind {
+		t.Fatalf(
+			"unexpected Reference Pack job binding: owner=%q job=%q worker=%q",
+			admittedProfileID,
+			actualJobKind,
+			workerKind,
+		)
+	}
 }
 
 func requirePackMetadata(t testing.TB, db *sql.DB, packKey string, packVersion string) {

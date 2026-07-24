@@ -156,7 +156,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		"reference_pack.import_v1",
+		ImportJobKind,
 		key,
 		scope,
 		params.NormalizedRequest,
@@ -170,7 +170,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-		HandlerName:       referencePackJobHandlerName,
+		HandlerName:       LifecycleWorkerKind,
 		Extension:         admission,
 	}, params.Now)
 	if err != nil {
@@ -363,35 +363,7 @@ func (s *Store) JobPayload(ctx context.Context, jobID uuid.UUID) (JobPayload, er
 	return getJobPayloadTx(ctx, s.pool, jobID)
 }
 
-func (s *Store) PendingJobIDs(ctx context.Context) ([]uuid.UUID, error) {
-	rows, err := s.pool.Query(ctx, `
-SELECT rpjp.job_id
-  FROM reference_pack_job_payloads rpjp
-  JOIN jobs j ON j.job_id = rpjp.job_id
- WHERE j.status IN ('queued', 'running', 'cancel_requested')
- ORDER BY rpjp.created_at ASC, rpjp.job_id ASC
-`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []uuid.UUID
-	for rows.Next() {
-		var jobID uuid.UUID
-		if err := rows.Scan(&jobID); err != nil {
-			return nil, err
-		}
-		out = append(out, jobID)
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) CompleteImportVerification(ctx context.Context, jobID uuid.UUID, actorUserID uuid.UUID, verification VerificationResult, bundleStoragePath string, now time.Time) (VersionRecord, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return VersionRecord{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+func (s *Store) CompleteImportVerificationTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, actorUserID uuid.UUID, verification VerificationResult, bundleStoragePath string, now time.Time) (VersionRecord, error) {
 	if err := upsertVerifiedPackTx(ctx, tx, actorUserID, verification, bundleStoragePath, now); err != nil {
 		return VersionRecord{}, err
 	}
@@ -404,7 +376,7 @@ func (s *Store) CompleteImportVerification(ctx context.Context, jobID uuid.UUID,
 	}); err != nil {
 		return VersionRecord{}, err
 	}
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 UPDATE reference_pack_job_payloads
    SET pack_key = $2,
        pack_version = $3,
@@ -414,7 +386,16 @@ UPDATE reference_pack_job_payloads
 	if err != nil {
 		return VersionRecord{}, err
 	}
-	updated, err := getVersionTx(ctx, tx, verification.PackKey, verification.PackVersion)
+	return getVersionTx(ctx, tx, verification.PackKey, verification.PackVersion)
+}
+
+func (s *Store) ApplyVerificationResult(ctx context.Context, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return VersionRecord{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	updated, err := s.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, eventKind, actorUserID, jobID, now)
 	if err != nil {
 		return VersionRecord{}, err
 	}
@@ -424,18 +405,13 @@ UPDATE reference_pack_job_payloads
 	return updated, nil
 }
 
-func (s *Store) ApplyVerificationResult(ctx context.Context, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return VersionRecord{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+func (s *Store) ApplyVerificationResultTx(ctx context.Context, tx pgx.Tx, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
 	if verificationErr != nil {
 		status := "failed"
 		if verificationErr.ReasonCode == "payload_missing" {
 			status = "missing"
 		}
-		_, err = tx.Exec(ctx, `
+		_, err := tx.Exec(ctx, `
 UPDATE reference_packs
    SET status = $3,
        verification_result = 'failed'
@@ -461,15 +437,12 @@ UPDATE reference_pack_activation_state
 		if err := insertAttestationTx(ctx, tx, attestationFromRecord(updated, eventKind, actorUserID, &jobID, now, nil, meta)); err != nil {
 			return VersionRecord{}, err
 		}
-		if err := tx.Commit(ctx); err != nil {
-			return VersionRecord{}, err
-		}
 		return updated, nil
 	}
 	if verification == nil {
 		return VersionRecord{}, fmt.Errorf("missing verification result")
 	}
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 UPDATE reference_packs
    SET pack_kind = $3,
        source_identifier = $4,
@@ -492,9 +465,6 @@ UPDATE reference_packs
 		return VersionRecord{}, err
 	}
 	if err := insertAttestationTx(ctx, tx, attestationFromRecord(updated, eventKind, actorUserID, &jobID, now, nil)); err != nil {
-		return VersionRecord{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return VersionRecord{}, err
 	}
 	return updated, nil
@@ -593,7 +563,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-		HandlerName:       referencePackJobHandlerName,
+		HandlerName:       LifecycleWorkerKind,
 		Extension:         admission,
 	}, params.Now)
 	if err != nil {
@@ -614,11 +584,11 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 func referencePackContractJobKind(localKind string) string {
 	switch localKind {
 	case "import":
-		return "reference_pack.import_v1"
+		return ImportJobKind
 	case "reverify":
-		return "reference_pack.reverify_v1"
+		return ReverifyJobKind
 	case "refresh":
-		return "reference_pack.refresh_v1"
+		return RefreshJobKind
 	default:
 		return ""
 	}

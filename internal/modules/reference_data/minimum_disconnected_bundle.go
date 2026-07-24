@@ -30,8 +30,8 @@ var minimumDisconnectedPacks = []minimumDisconnectedPack{
 	{PackKey: "type_registry.indicator", Version: "1"},
 }
 
-func EnsureMinimumDisconnectedBundle(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, profiles []httpapi.ExtensionProfile, now time.Time) error {
-	if cfg.DeploymentProfile != "disconnected" || !httpapi.ExtensionProfileClaimedIn(profiles, ProfileID) {
+func EnsureMinimumDisconnectedBundle(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, now time.Time) error {
+	if cfg.DeploymentProfile != "disconnected" {
 		return nil
 	}
 	var existing int

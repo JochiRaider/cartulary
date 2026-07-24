@@ -19,6 +19,16 @@ import (
 const (
 	ProfileID = "reference_pack"
 
+	PacksRouteContributionID = "reference_pack.packs_route"
+	LifecycleWorkerKind      = "reference_pack.lifecycle_worker_v1"
+
+	ImportJobKind     = "reference_pack.import_v1"
+	ReverifyJobKind   = "reference_pack.reverify_v1"
+	RefreshJobKind    = "reference_pack.refresh_v1"
+	ImportOperation   = "reference_pack.import"
+	ReverifyOperation = "reference_pack.reverify"
+	RefreshOperation  = "reference_pack.refresh"
+
 	PackContractVersionV1 = "cartulary.reference_pack.v1"
 
 	MediaTypeZip         = "application/zip"

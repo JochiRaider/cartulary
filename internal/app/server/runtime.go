@@ -247,6 +247,15 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("project Network Flow application plan: route and workspace admission disagree")
 	}
+	referencePackRouteAdmitted, err := publicationCatalog.ExactProfileContributionSet(
+		reference_data.ProfileID,
+		"http_route_family",
+		[]string{reference_data.PacksRouteContributionID},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Reference Pack application plan: %w", err)
+	}
 	publication := NewPublicationController(runtime.Lifecycle)
 	if err := publication.Prepare(extensionPlan); err != nil {
 		runtime.Close()
@@ -254,7 +263,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	runtime.Publication = publication
 	resolvedClaims := extensionPlan.ResolvedClaims()
-	profiles := publicationHTTPProfiles(extensionPlan.Discovery())
 	runtime.Extensions = extensionCoordinator
 
 	secretPurposes := secretpurpose.NewRegistry()
@@ -460,9 +468,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, profiles, now()); err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
+	if referencePackRouteAdmitted {
+		if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, now()); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
+		}
 	}
 	runtime.Jobs = newJobsManager()
 	runtime.Jobs.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
@@ -623,6 +633,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		}),
 		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(runtime.ExtensionJobFinalizer)),
 	)
+	referencePackRoutes := reference_data.RegisterRoutes(
+		reference_data.WithJobSuccessFinalizer(
+			extensionassembly.NewReferencePackJobSuccessFinalizer(runtime.ExtensionJobFinalizer),
+		),
+	)
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
@@ -661,7 +676,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: importRoutes},
 		{id: "incident_portability", contributionIDs: []string{incidentbundles.BundlesRouteContributionID}, registrar: incidentBundleRoutes},
 		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowModule.RegisterRoutes()},
-		{id: "reference_pack", contributionIDs: []string{"reference_pack.packs_route"}, registrar: reference_data.RegisterRoutes()},
+		{id: "reference_pack", contributionIDs: []string{reference_data.PacksRouteContributionID}, registrar: referencePackRoutes},
 		{
 			id:              "snapshot_reporting_resources",
 			contributionIDs: []string{"snapshot_reporting.releases_route", "snapshot_reporting.snapshots_route"},
