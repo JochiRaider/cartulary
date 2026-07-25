@@ -2,8 +2,6 @@ package extensions
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -43,7 +40,7 @@ var extensionBoundaryExpectations = []extensionBoundaryExpectation{
 	{"BC-005", "EXT-AC-146", "module.extensions.unit.bc005_descriptor_provenance_1e0ea91df8", "TestExtensionBC005DescriptorProvenance_Unit"},
 	{"BC-006", "EXT-AC-147", "module.extensions.unit.bc006_validation_inventory_6e85895643", "TestExtensionBC006ValidationInventory_Unit"},
 	{"BC-007", "EXT-AC-148", "module.extensions.unit.bc007_closure_mapping_08c4e88841", "TestExtensionBC007ClosureMapping_Unit"},
-	{"BC-008", "EXT-AC-149", "module.extensions.static.bc008_clause_traceability_1991b482d2", "TestExtensionBC008ClauseTraceability_Static"},
+	{"BC-008", "EXT-AC-149", "module.extensions.static.bc008_clause_traceability_1991b482d2", "TestExtensionBC008RequirementCoverage_Static"},
 	{"BC-010", "EXT-AC-151", "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d", "TestExtensionBC010LeaseLifecycle_Process"},
 	{"BC-011", "EXT-AC-152", "module.extensions.integration.bc011_deadline_precedence_ef23af86ac", "TestExtensionBC011DeadlinePrecedence_Integration"},
 	{"BC-015", "EXT-AC-156", "module.extensions.integration.bc015_browser_availability_e0a71bee5d", "TestExtensionBC015BrowserAvailability_Integration"},
@@ -114,12 +111,10 @@ var movedExtensionBoundaryExpectations = []movedExtensionBoundaryExpectation{
 }
 
 func TestExtensionBC001EmptyStatePolicy_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-001", "EXT-AC-142")
 	assertBC001EmptyStatePolicy(t)
 }
 
 func TestExtensionBC002ValidationPrecedence_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-002", "EXT-AC-143")
 	invocation := ClassifyOwnerValidationResult(errors.New("owner failed with secret"), []byte(`{"findings":[]}`))
 	requireValidationDisposition(t, invocation, OwnerValidationInvocationFailure, "extension_admission_validation_failed")
 
@@ -160,14 +155,13 @@ func TestExtensionBC002ValidationPrecedence_Unit(t *testing.T) {
 }
 
 func TestExtensionBC004DependencyDeclarations_Static(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-004", "EXT-AC-145")
 	authored := readGeneratedExtensionObject(t, "contracts/extensions/dependencies.json")
 	generated := readGeneratedExtensionObject(t, "contracts/extensions/generated/dependency-snapshot.json")
-	if authored["schema_id"] != "cartulary.extension_dependency_declaration_set.v1" || generated["schema_id"] != "cartulary.extension_dependency_snapshot.v1" {
+	if authored["schema_id"] != "cartulary.extension_dependency_declaration_set.v2" || generated["schema_id"] != "cartulary.extension_dependency_snapshot.v2" {
 		t.Fatalf("unexpected dependency schema transition %v -> %v", authored["schema_id"], generated["schema_id"])
 	}
-	if authored["extensions_document_version"] != generated["extensions_document_version"] {
-		t.Fatal("dependency snapshot changed the authored Extensions version")
+	if authored["requirement_registry_sha256"] != generated["requirement_registry_sha256"] {
+		t.Fatal("dependency snapshot changed the machine requirement registry digest")
 	}
 	authoredRows := authored["dependencies"].([]any)
 	generatedRows := generated["dependencies"].([]any)
@@ -179,7 +173,7 @@ func TestExtensionBC004DependencyDeclarations_Static(t *testing.T) {
 			t.Fatalf("generated dependency %d does not exactly preserve the declaration", index)
 		}
 		row := generatedRows[index].(map[string]any)
-		for _, key := range []string{"imported_anchor_refs", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
+		for _, key := range []string{"imported_requirement_ids", "imported_contract_ids", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
 			if _, ok := row[key].([]any); !ok {
 				t.Fatalf("dependency %v does not carry present array %s", row["dependency_id"], key)
 			}
@@ -188,7 +182,6 @@ func TestExtensionBC004DependencyDeclarations_Static(t *testing.T) {
 }
 
 func TestExtensionBC005DescriptorProvenance_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-005", "EXT-AC-146")
 	ownerInput := readGeneratedExtensionObject(t, "contracts/extensions/generated/owner-input-registry.json")
 	registry := readGeneratedExtensionObject(t, "contracts/extensions/generated/profile-registry.json")
 	fragments := ownerInput["owner_fragments"].([]any)
@@ -217,7 +210,7 @@ func TestExtensionBC005DescriptorProvenance_Unit(t *testing.T) {
 			t.Fatalf("profile %s has %d recognition sources; want exactly one", profileID, len(facts))
 		}
 		fact := facts[0]
-		for descriptorKey, factKey := range map[string]string{"claimable": "claimable", "contract_major": "contract_major", "owner_contract_ref": "primary_owner_contract_ref"} {
+		for descriptorKey, factKey := range map[string]string{"claimable": "claimable", "contract_major": "contract_major", "owner_id": "primary_owner_id"} {
 			if !jsonEqual(descriptor[descriptorKey], fact[factKey]) {
 				t.Fatalf("profile %s descriptor %s is not sourced from recognition fact %s", profileID, descriptorKey, factKey)
 			}
@@ -229,7 +222,6 @@ func TestExtensionBC005DescriptorProvenance_Unit(t *testing.T) {
 }
 
 func TestExtensionBC006ValidationInventory_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-006", "EXT-AC-147")
 	source := readGeneratedExtensionObject(t, "contracts/extensions/validation/surfaces.json")
 	registry := readGeneratedExtensionObject(t, "contracts/extensions/generated/validation-condition-registry.json")
 	want := map[string]struct{}{}
@@ -279,7 +271,6 @@ func TestExtensionBC006ValidationInventory_Unit(t *testing.T) {
 }
 
 func TestExtensionBC007ClosureMapping_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-007", "EXT-AC-148")
 	source := readGeneratedExtensionObject(t, "contracts/extensions/specification/closure-mapping.json")
 	registry := readGeneratedExtensionObject(t, "contracts/extensions/generated/profile-registry.json")
 	categoryMapping := source["contribution_categories"].(map[string]any)
@@ -319,44 +310,33 @@ func TestExtensionBC007ClosureMapping_Unit(t *testing.T) {
 	}
 }
 
-func TestExtensionBC008ClauseTraceability_Static(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-008", "EXT-AC-149")
+func TestExtensionBC008RequirementCoverage_Static(t *testing.T) {
 	source := readGeneratedExtensionObject(t, "contracts/extensions/traceability/mapping-source.json")
-	trace := readGeneratedExtensionObject(t, "contracts/extensions/generated/clause-traceability.json")
-	if trace["extensions_document_sha256"] != source["extensions_document_sha256"] {
-		t.Fatal("traceability output is bound to a different Extensions source digest")
+	coverage := readGeneratedExtensionObject(t, "contracts/extensions/generated/requirement-coverage.json")
+	if coverage["requirement_catalog_sha256"] != source["requirement_catalog_sha256"] {
+		t.Fatal("requirement coverage is bound to a different machine catalog digest")
 	}
 	mappings := source["mappings"].([]any)
-	clauses := trace["clauses"].([]any)
-	if len(clauses) != len(mappings) || len(clauses) < 394 {
-		t.Fatalf("traceability clauses/mappings = %d/%d; want equal complete requirement/criterion coverage", len(clauses), len(mappings))
+	requirements := coverage["requirements"].([]any)
+	if len(requirements) != len(mappings) || len(requirements) < 394 {
+		t.Fatalf("requirement coverage/mappings = %d/%d; want equal complete coverage", len(requirements), len(mappings))
 	}
-	document := []byte(readExtensionContractFile(t, filepath.Join(extensionsRepoRoot(t), "docs", "extension-subsystem-nlspec.md")))
 	seenRequirements := map[string]bool{}
 	seenAcceptance := map[string]bool{}
-	for index, rawClause := range clauses {
-		clause := rawClause.(map[string]any)
+	for index, rawRequirement := range requirements {
+		requirement := rawRequirement.(map[string]any)
 		mapping := mappings[index].(map[string]any)
-		start := int(mapping["source_start_byte"].(float64))
-		end := int(mapping["source_end_byte"].(float64))
-		textDigest := sha256.Sum256(document[start:end])
-		if clause["clause_text_sha256"] != hex.EncodeToString(textDigest[:]) {
-			t.Fatalf("clause %d text digest does not match its half-open source range", index)
+		if !jsonEqual(requirement, mapping) {
+			t.Fatalf("requirement coverage row %d changed the authored machine mapping", index)
 		}
-		if int(clause["document_ordinal"].(float64)) != index || clause["source_start_byte"] != mapping["source_start_byte"] || clause["source_end_byte"] != mapping["source_end_byte"] {
-			t.Fatalf("clause %d changed mapping identity or ordinal", index)
-		}
-		if !strings.HasPrefix(clause["clause_id"].(string), "extcl:") || len(clause["clause_id"].(string)) != 38 {
-			t.Fatalf("clause %d has invalid deterministic ID %v", index, clause["clause_id"])
-		}
-		for _, requirementID := range requireJSONStringsValue(t, clause["requirement_ids"], "requirement_ids") {
+		for _, requirementID := range requireJSONStringsValue(t, requirement["requirement_ids"], "requirement_ids") {
 			seenRequirements[requirementID] = true
 		}
-		for _, acceptanceID := range requireJSONStringsValue(t, clause["acceptance_criterion_ids"], "acceptance_criterion_ids") {
+		for _, acceptanceID := range requireJSONStringsValue(t, requirement["acceptance_criterion_ids"], "acceptance_criterion_ids") {
 			seenAcceptance[acceptanceID] = true
 		}
-		if len(requireJSONStringsValue(t, clause["verification_ids"], "verification_ids")) == 0 {
-			t.Fatalf("clause %d has no active verification mapping", index)
+		if len(requireJSONStringsValue(t, requirement["verification_ids"], "verification_ids")) == 0 {
+			t.Fatalf("requirement mapping %d has no active verification", index)
 		}
 	}
 	for value := 1; value <= 236; value++ {
@@ -391,7 +371,6 @@ func requireJSONStringsValue(t testing.TB, value any, label string) []string {
 }
 
 func TestExtensionBC010LeaseLifecycle_Process(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-010", "EXT-AC-151")
 	session := newContractLeaseSession("original-session")
 	lease, err := processlease.Acquire(context.Background(), contractLeaseBackend{session: session}, 100*time.Millisecond, 20*time.Millisecond)
 	if err != nil || lease.State() != processlease.StateHeld || lease.SessionIdentity() != "original-session" {
@@ -431,7 +410,6 @@ func TestExtensionBC010LeaseLifecycle_Process(t *testing.T) {
 }
 
 func TestExtensionBC011DeadlinePrecedence_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-011", "EXT-AC-152")
 	local := extensiondeadline.New(10, 2, nil)
 	if local.MonotonicNS != 2_000_000_010 || local.Source != extensiondeadline.SourceLocal || local.Expired(local.MonotonicNS-1) || !local.Expired(local.MonotonicNS) {
 		t.Fatalf("local deadline = %#v", local)
@@ -471,7 +449,6 @@ func TestExtensionBC011DeadlinePrecedence_Integration(t *testing.T) {
 }
 
 func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-015", "EXT-AC-156")
 	registry := readGeneratedExtensionObject(t, "contracts/extensions/generated/profile-registry.json")
 	var networkFlow map[string]any
 	for _, rawProfile := range registry["profiles"].([]any) {
@@ -538,7 +515,6 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 }
 
 func TestExtensionBC016CapabilitiesDisabled_Unit(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-016", "EXT-AC-157")
 	registry := readGeneratedExtensionObject(t, "contracts/extensions/generated/profile-registry.json")
 	for _, rawProfile := range registry["profiles"].([]any) {
 		profile := rawProfile.(map[string]any)
@@ -560,7 +536,6 @@ func TestExtensionBC016CapabilitiesDisabled_Unit(t *testing.T) {
 }
 
 func TestExtensionBC017PublishedComponentLoss_Process(t *testing.T) {
-	requireExtensionBoundaryRoute(t, "BC-017", "EXT-AC-158")
 	lifecycle := processlifecycle.New()
 	if lifecycle.AdmissionOpen() {
 		t.Fatal("admission opened before atomic publication")
@@ -690,7 +665,7 @@ func waitForLeaseState(t *testing.T, lease *processlease.Lease, want processleas
 func TestExtensionContractAccounting_Static(t *testing.T) {
 	root := extensionsRepoRoot(t)
 	manifest := readExtensionsFamilyManifest(t, root)
-	if manifest.SchemaID != "cartulary.test_family_manifest.v1" || manifest.OwnerID != "module.extensions" {
+	if manifest.SchemaID != "cartulary.test_family_manifest.v2" || manifest.OwnerID != "module.extensions" {
 		t.Fatalf("unexpected Extensions family identity %q/%q", manifest.SchemaID, manifest.OwnerID)
 	}
 
@@ -712,8 +687,6 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		}
 		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, expected.RowID+" verification_ids")
 		requireExactStrings(t, row.Selector.Tests, []string{expected.TestName}, expected.RowID+" selector.tests")
-		requireContains(t, row.DocumentationRefs, "docs/extension-subsystem-nlspec.md#"+strings.ToLower(expected.AcceptanceID))
-		requireContains(t, row.DocumentationRefs, "docs/handoffs/extensions-subsystem-implementation-tracker.md#"+strings.ToLower(expected.BoundaryID))
 	}
 	for _, expected := range movedExtensionBoundaryExpectations {
 		ownerManifest := readTestFamilyManifest(t, root, expected.ManifestPath)
@@ -734,8 +707,6 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		}
 		requireExactStrings(t, movedRow.VerificationIDs, []string{expected.Verification}, expected.RowID+" verification_ids")
 		requireExactStrings(t, movedRow.Selector.Tests, expected.RequiredTests, expected.RowID+" selector.tests")
-		requireContains(t, movedRow.DocumentationRefs, "docs/extension-subsystem-nlspec.md#"+strings.ToLower(expected.AcceptanceID))
-		requireContains(t, movedRow.DocumentationRefs, "docs/handoffs/extensions-subsystem-implementation-tracker.md#"+strings.ToLower(expected.BoundaryID))
 	}
 
 	accounting, ok := rows["module.extensions.static.contract_accounting_e80c9e3dc7"]
@@ -823,43 +794,10 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}
 
-	traceability := readGeneratedExtensionObject(t, "contracts/extensions/generated/clause-traceability.json")
-	criteriaByVerification := map[string]map[string]bool{}
-	for _, rawClause := range traceability["clauses"].([]any) {
-		clause := rawClause.(map[string]any)
-		criteria := requireJSONStringsValue(t, clause["acceptance_criterion_ids"], "acceptance_criterion_ids")
-		for _, verificationID := range requireJSONStringsValue(t, clause["verification_ids"], "verification_ids") {
-			if criteriaByVerification[verificationID] == nil {
-				criteriaByVerification[verificationID] = map[string]bool{}
-			}
-			for _, acceptanceID := range criteria {
-				criteriaByVerification[verificationID][acceptanceID] = true
-			}
-		}
-	}
-	coveredCriteria := map[string]bool{}
-	for verificationID, criteria := range criteriaByVerification {
-		hasExactRow := false
-		for _, row := range rows {
-			if slices.Contains(row.VerificationIDs, verificationID) {
-				hasExactRow = true
-				break
-			}
-		}
-		if !hasExactRow {
-			t.Errorf("traceability verification %s has no active exact implementation row", verificationID)
-		}
-		for acceptanceID := range criteria {
-			coveredCriteria[acceptanceID] = true
-		}
-	}
 	allAcceptanceIDs := make([]string, 158)
 	for value := 1; value <= 158; value++ {
 		acceptanceID := fmt.Sprintf("EXT-AC-%03d", value)
 		allAcceptanceIDs[value-1] = acceptanceID
-		if !coveredCriteria[acceptanceID] {
-			t.Errorf("%s has no active verification and exact implementation-row path", acceptanceID)
-		}
 	}
 	for _, profileID := range []string{"enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting"} {
 		conformance := readGeneratedExtensionObject(t, "contracts/extensions/generated/conformance-manifests/"+profileID+".json")
@@ -907,22 +845,6 @@ func requireJSONStrings(t testing.TB, value any, want []string, label string) {
 	}
 }
 
-func requireExtensionBoundaryRoute(t *testing.T, boundaryID, acceptanceID string) {
-	t.Helper()
-	root := extensionsRepoRoot(t)
-	spec := readExtensionContractFile(t, filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
-	tracker := readExtensionContractFile(t, filepath.Join(root, "docs", "handoffs", "extensions-subsystem-implementation-tracker.md"))
-	if !strings.Contains(spec, "| `"+acceptanceID+"` |") {
-		t.Fatalf("Extensions NLSpec omits exact acceptance criterion %s", acceptanceID)
-	}
-	if !strings.Contains(tracker, "| "+boundaryID+" | "+acceptanceID+" |") {
-		t.Fatalf("implementation tracker omits exact %s to %s mapping", boundaryID, acceptanceID)
-	}
-	if !strings.Contains(tracker, "| "+boundaryID+" | Minimum executable scenarios") && !strings.Contains(tracker, "| "+boundaryID+" |") {
-		t.Fatalf("implementation tracker omits the %s scenario inventory", boundaryID)
-	}
-}
-
 type extensionTestFamilyManifest struct {
 	SchemaID string                   `json:"schema_id"`
 	OwnerID  string                   `json:"owner_id"`
@@ -930,12 +852,11 @@ type extensionTestFamilyManifest struct {
 }
 
 type extensionTestFamilyRow struct {
-	RowID             string   `json:"row_id"`
-	Runner            string   `json:"runner"`
-	ClaimPosture      string   `json:"claim_posture"`
-	VerificationIDs   []string `json:"verification_ids"`
-	DocumentationRefs []string `json:"documentation_refs"`
-	Selector          struct {
+	RowID           string   `json:"row_id"`
+	Runner          string   `json:"runner"`
+	ClaimPosture    string   `json:"claim_posture"`
+	VerificationIDs []string `json:"verification_ids"`
+	Selector        struct {
 		File  string   `json:"file"`
 		Stage string   `json:"stage"`
 		Tests []string `json:"tests"`
@@ -958,15 +879,6 @@ func readTestFamilyManifest(t testing.TB, root string, name string) extensionTes
 		t.Fatalf("decode test family manifest %s: %v", name, err)
 	}
 	return manifest
-}
-
-func readExtensionContractFile(t testing.TB, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return string(data)
 }
 
 func readGeneratedExtensionObject(t testing.TB, path string) map[string]any {

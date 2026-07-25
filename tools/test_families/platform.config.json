@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "platform.config",
   "rows": [
     {
@@ -46,10 +46,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/handoffs/platform-config-module-refactor-tracker.md#7-permanent-architecture-and-slice-rules"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90",
@@ -143,11 +140,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-115",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-116"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.every_supported_deployment_profile_requires_the_53e1336e64",
@@ -197,11 +190,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-144",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.filesystem_root_validation_rejects_non_absolute_ed2c3e652c",
@@ -249,12 +238,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#req:EXT-REQ-224",
-        "docs/extension-subsystem-nlspec.md#ext-ac-150",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-009"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.network_flow_claim_admission",
@@ -280,12 +264,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
-        "docs/extension-subsystem-nlspec.md#req:EXT-REQ-207",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.network_flow_owner_projection",
@@ -310,11 +289,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.platform_adapter_settings_projection",
@@ -338,11 +313,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-115",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-116"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3",
@@ -388,10 +359,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-023"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.telemetry_environment_binding_parser",
@@ -414,10 +382,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-122"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.telemetry_secret_references",
@@ -440,11 +405,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-144",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-077"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.config.unit.telemetry_validation",
@@ -467,10 +428,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-029"
-      ]
+      "status": "active"
     }
   ]
 }

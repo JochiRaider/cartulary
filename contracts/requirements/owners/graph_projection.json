@@ -1,0 +1,351 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "graph_projection",
+  "requirements": [
+    {
+      "requirement_id": "GP-AC-001",
+      "statement": "Graph projection acceptance criterion GP-AC-001.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-002",
+      "statement": "Graph projection acceptance criterion GP-AC-002.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-003",
+      "statement": "Graph projection acceptance criterion GP-AC-003.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-004",
+      "statement": "Graph projection acceptance criterion GP-AC-004.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-005",
+      "statement": "Graph projection acceptance criterion GP-AC-005.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-006",
+      "statement": "Graph projection acceptance criterion GP-AC-006.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-007",
+      "statement": "Graph projection acceptance criterion GP-AC-007.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-008",
+      "statement": "Graph projection acceptance criterion GP-AC-008.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-009",
+      "statement": "Graph projection acceptance criterion GP-AC-009.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-010",
+      "statement": "Graph projection acceptance criterion GP-AC-010.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-011",
+      "statement": "Graph projection acceptance criterion GP-AC-011.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-012",
+      "statement": "Graph projection acceptance criterion GP-AC-012.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-013",
+      "statement": "Graph projection acceptance criterion GP-AC-013.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-014",
+      "statement": "Graph projection acceptance criterion GP-AC-014.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-015",
+      "statement": "Graph projection acceptance criterion GP-AC-015.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-016",
+      "statement": "Graph projection acceptance criterion GP-AC-016.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-017",
+      "statement": "Graph projection acceptance criterion GP-AC-017.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-018",
+      "statement": "Graph projection acceptance criterion GP-AC-018.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-019",
+      "statement": "Graph projection acceptance criterion GP-AC-019.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-020",
+      "statement": "Graph projection acceptance criterion GP-AC-020.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-021",
+      "statement": "Graph projection acceptance criterion GP-AC-021.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-022",
+      "statement": "Graph projection acceptance criterion GP-AC-022.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-023",
+      "statement": "Graph projection acceptance criterion GP-AC-023.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-024",
+      "statement": "Graph projection acceptance criterion GP-AC-024.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-025",
+      "statement": "Graph projection acceptance criterion GP-AC-025.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-026",
+      "statement": "Graph projection acceptance criterion GP-AC-026.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-027",
+      "statement": "Graph projection acceptance criterion GP-AC-027.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-028",
+      "statement": "Graph projection acceptance criterion GP-AC-028.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-029",
+      "statement": "Graph projection acceptance criterion GP-AC-029.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-030",
+      "statement": "Graph projection acceptance criterion GP-AC-030.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-031",
+      "statement": "Graph projection acceptance criterion GP-AC-031.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-032",
+      "statement": "Graph projection acceptance criterion GP-AC-032.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-033",
+      "statement": "Graph projection acceptance criterion GP-AC-033.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-034",
+      "statement": "Graph projection acceptance criterion GP-AC-034.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-035",
+      "statement": "Graph projection acceptance criterion GP-AC-035.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-036",
+      "statement": "Graph projection acceptance criterion GP-AC-036.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-037",
+      "statement": "Graph projection acceptance criterion GP-AC-037.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-038",
+      "statement": "Graph projection acceptance criterion GP-AC-038.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-039",
+      "statement": "Graph projection acceptance criterion GP-AC-039.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-040",
+      "statement": "Graph projection acceptance criterion GP-AC-040.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-041",
+      "statement": "Graph projection acceptance criterion GP-AC-041.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-042",
+      "statement": "Graph projection acceptance criterion GP-AC-042.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-043",
+      "statement": "Graph projection acceptance criterion GP-AC-043.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-044",
+      "statement": "Graph projection acceptance criterion GP-AC-044.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-045",
+      "statement": "Graph projection acceptance criterion GP-AC-045.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-046",
+      "statement": "Graph projection acceptance criterion GP-AC-046.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-047",
+      "statement": "Graph projection acceptance criterion GP-AC-047.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-048",
+      "statement": "Graph projection acceptance criterion GP-AC-048.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-049",
+      "statement": "Graph projection acceptance criterion GP-AC-049.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-050",
+      "statement": "Graph projection acceptance criterion GP-AC-050.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-051",
+      "statement": "Graph projection acceptance criterion GP-AC-051.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-052",
+      "statement": "Graph projection acceptance criterion GP-AC-052.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-053",
+      "statement": "Graph projection acceptance criterion GP-AC-053.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-054",
+      "statement": "Graph projection acceptance criterion GP-AC-054.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-055",
+      "statement": "Graph projection acceptance criterion GP-AC-055.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-056",
+      "statement": "Graph projection acceptance criterion GP-AC-056.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-057",
+      "statement": "Graph projection acceptance criterion GP-AC-057.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-058",
+      "statement": "Graph projection acceptance criterion GP-AC-058.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-059",
+      "statement": "Graph projection acceptance criterion GP-AC-059.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-060",
+      "statement": "Graph projection acceptance criterion GP-AC-060.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-061",
+      "statement": "Graph projection acceptance criterion GP-AC-061.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-062",
+      "statement": "Graph projection acceptance criterion GP-AC-062.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-063",
+      "statement": "Graph projection acceptance criterion GP-AC-063.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-064",
+      "statement": "Graph projection acceptance criterion GP-AC-064.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-065",
+      "statement": "Graph projection acceptance criterion GP-AC-065.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-066",
+      "statement": "Graph projection acceptance criterion GP-AC-066.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-067",
+      "statement": "Graph projection acceptance criterion GP-AC-067.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-068",
+      "statement": "Graph projection acceptance criterion GP-AC-068.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "GP-AC-069",
+      "statement": "Graph projection acceptance criterion GP-AC-069.",
+      "status": "active"
+    }
+  ]
+}

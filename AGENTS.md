@@ -2,11 +2,11 @@
 
 ## Authority
 
-- Product behavior is owned by the normative core: `docs/spec/00_document_set_status_and_precedence.md` through Core 04. Core 05 is only for claim-bearing timed, benchmark, fixture-sensitive, or publication evidence.
-- `docs/testing-harness-nlspec.md` owns harness mechanics: command invocation, target selection, scheduling, fixture lifecycle, artifact emission, cleanup, and verification gates.
-- `docs/domain.md` is the domain vocabulary and concept-boundary reference. Consult it before domain-facing changes, terminology-sensitive changes, view-schema work, record-model work, workbook-surface work, or docs that touch project vocabulary.
-- `docs/design.md` owns frontend design-direction constraints and token definitions. It is not product-conformance evidence by itself, and design evidence must not be represented as Base Profile or extension-profile conformance.
-- Guides under `docs/guides/` are implementation-support inputs unless an adopted owner document explicitly promotes a narrower rule.
+- Executable requirement authority lives in `contracts/requirements/registry.json` and the owner catalogs under `contracts/requirements/owners/`. Typed limits, enums, schemas, mappings, and algorithms live under `contracts/<subsystem>/**`.
+- Verification routing is owned by `contracts/verification/**`, `tools/test_catalog_owner.json`, and `tools/test_families/**`. Active requirements need executable coverage; planned requirements cannot count as passing evidence.
+- Harness mechanics are owned by machine-readable inputs under `tools/`, including the authored task surface, execution topology, schemas, and policy registries.
+- Files under `docs/`, plus README and other Markdown guidance, are human-facing explanation. Tests, generators, runtime metadata, conformance, and release evidence must not read, stat, hash, or otherwise depend on them.
+- `docs/domain.md` and `docs/design.md` remain useful vocabulary and design-direction references for people, but machine contracts own testable behavior and values.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 
 ## Repository Boundaries
@@ -18,7 +18,7 @@
 - Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed. The server runtime closes only resources it creates, in reverse acquisition order, and `Runtime.Close` is idempotent.
 - `internal/platform/*` owns transport, runtime plumbing, configuration, storage adapters, auth primitives, and job shells.
 - `internal/modules/*` owns domain and application logic inside the modular monolith.
-- `contracts/*` is the repo-local derived contract layer, downstream of owner specs and upstream of generated code.
+- `contracts/*` is the repo-local machine authority for requirements and production contracts and is upstream of generated code.
 - `db/migrations` and `db/queries` are authored SQL inputs.
 - `apps/web` is the top-level web app in the pnpm workspace.
 - `packages/*` contains shared TypeScript packages.
@@ -37,7 +37,7 @@
 ## Commands
 
 - Run repository commands from the repository root through public Make targets. Direct `go`, `pnpm`, Vitest, Playwright, Biome, and raw script commands are developer conveniences unless a Make-owned wrapper invokes them.
-- Canonical repo-control pin values live in `tools/toolchain_pins.json`; mirrored toolchain text is checked by `make toolchain-drift`.
+- Canonical repo-control pin values live in `tools/toolchain_pins.json`; `make toolchain-drift` checks production and bootstrap inputs, not prose mirrors.
 - Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, `github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0`, `github.com/anchore/syft/cmd/syft@v1.44.0`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 - Use `make help` for the compact task surface and `make help-all` for the current public target inventory. Do not copy target lists into new docs when a pointer is sufficient.
 - Use `make task-guide ROLE=module-author OWNER=<owner-id>` to choose narrow owner verification. Use `make help` and `make help-all` for the current role and target inventory.
@@ -53,7 +53,7 @@
 
 - Choose the narrowest target that covers the change, then broaden only when risk or ownership requires it. Prefer `make test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` and `make service-backed-test-slice OWNER=<owner-id> [ROWS=<row-id,...>]` after checking `make task-guide ROLE=module-author OWNER=<owner-id>`.
 - Run `make agent-finalize` before broader end-of-run verification. If using retained successful run evidence, pass `RESULTS_DIR=<successful full warm check run root>`; otherwise report that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
-- For docs-only changes, use documentation/harness validation targets such as `make generated-artifact-policy-check`, `make json-shape-check`, and command-surface inspection before considering broad `make check`.
+- For docs-only changes, use `make lint-markdown` when documentation maintenance is desired. Documentation-only edits must not change product checks, generated artifacts, conformance, or release evidence.
 - `make format` rewrites authored Go and frontend sources; do not run it solely for Markdown-only edits unless another touched file needs that formatter.
 - When a command fails, report the failing target, the relevant summary artifact or run root when available, and whether the failure appears related to the change.
 - Final reports should state the planning summary, files inspected or changed, substantive edits, verification commands and results, and any skipped checks with the reason.

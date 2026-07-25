@@ -1,17 +1,22 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "core01.extensions_contract.v1",
+  "owner_id": "core01",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/core01.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "core01",
+    "catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.core01.current.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
-      "closure_categories": [],
-      "end_byte": 830638,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.core01.current.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-01-151.1",
-      "anchor_kind": "req",
-      "anchor_sha256": "4c452d16226fdca7fd4d6f0f4f05714c82a7e22fd6208d0e12c22c2ec4e9024f",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-151.1",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -25,14 +30,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 231822,
-      "start_byte": 225913
+      ]
     },
     {
-      "anchor_id": "REQ-01-542",
-      "anchor_kind": "req",
-      "anchor_sha256": "d5dc3703444a3765b471ade43bb481853d9ca1776bb4cbca300a45d26626dc01",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-542",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -46,14 +48,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 73152,
-      "start_byte": 72166
+      ]
     },
     {
-      "anchor_id": "REQ-01-629",
-      "anchor_kind": "req",
-      "anchor_sha256": "44e552b7a1083322a441b0ae84acfb5be5d99c2d62892f000cbd942cbe060f5c",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-629",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -67,14 +66,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 824075,
-      "start_byte": 823007
+      ]
     },
     {
-      "anchor_id": "REQ-01-630",
-      "anchor_kind": "req",
-      "anchor_sha256": "ea4c9b6c498074dabd519c3713959bc17858cb877b13d86de778babd046e05f4",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-630",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -88,14 +84,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 824868,
-      "start_byte": 824077
+      ]
     },
     {
-      "anchor_id": "REQ-01-631",
-      "anchor_kind": "req",
-      "anchor_sha256": "154b381be068d29c278d82583bbbcecca1575a2d94f2ecb42657ba00e883e993",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-631",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -109,14 +102,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 825774,
-      "start_byte": 824870
+      ]
     },
     {
-      "anchor_id": "REQ-01-632",
-      "anchor_kind": "req",
-      "anchor_sha256": "7f20abe52f2df06f71df12113465df6be74c813a9a5496aad3f7e0eb1a9667fd",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-632",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -130,14 +120,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 826552,
-      "start_byte": 825776
+      ]
     },
     {
-      "anchor_id": "REQ-01-633",
-      "anchor_kind": "req",
-      "anchor_sha256": "6d1e817917d59f38d0359292f55b9df6516b43ad8f5c95611c354ad8d6fb0b9f",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-633",
       "closure_categories": [
         "authorization",
         "backup_restore",
@@ -151,14 +138,11 @@
         "resource_lifecycle_retention",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 827216,
-      "start_byte": 826554
+      ]
     },
     {
-      "anchor_id": "REQ-01-634",
-      "anchor_kind": "req",
-      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-01-634",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
@@ -167,68 +151,44 @@
         "request_response_schemas",
         "resource_lifecycle_retention",
         "scalar_collection_bounds"
-      ],
-      "end_byte": 830637,
-      "start_byte": 827218
+      ]
     },
     {
-      "anchor_id": "cartulary.common_job_resource_ref.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
-      "closure_categories": [],
-      "end_byte": 830637,
-      "start_byte": 827218
+      "binding_kind": "schema",
+      "machine_id": "cartulary.common_job_resource_ref.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.common_job_resource_ref_id.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
-      "closure_categories": [],
-      "end_byte": 830637,
-      "start_byte": 827218
+      "binding_kind": "schema",
+      "machine_id": "cartulary.common_job_resource_ref_id.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.common_job_terminal_success.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
-      "closure_categories": [],
-      "end_byte": 830637,
-      "start_byte": 827218
+      "binding_kind": "schema",
+      "machine_id": "cartulary.common_job_terminal_success.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.route_scoped_idempotency_identity.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "4f7c49dfdace346f44bef709cdc8de7760990e40216dc6d452ec8654324bc2bb",
-      "closure_categories": [],
-      "end_byte": 830637,
-      "start_byte": 827218
+      "binding_kind": "schema",
+      "machine_id": "cartulary.route_scoped_idempotency_identity.v1",
+      "closure_categories": []
     }
   ],
-  "owner_contract_manifest_id": "core01.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 830638,
-    "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
-    "owner_document_schema_id": "cartulary.core01.current.v1",
-    "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
-    "owner_document_version": "extensions-adoption-1"
-  },
   "owner_fragments": [
     {
       "owner_fragment_id": "core01.extension_discovery.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core01.discovery.json",
-      "owner_fragment_sha256": "2cd8fe6115debe1eb55e670f90cc2962d4172a51e2a1acf426dfb94c30b1c7e2"
+      "owner_fragment_sha256": "a10b9021cede58b2d15ede8943e6a70634d98ad2d7c875d00c43bf1fd93bd097"
     },
     {
       "owner_fragment_id": "core01.extension_profile_classifications.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core01.profile-classifications.json",
-      "owner_fragment_sha256": "f07420db9cd3cb50cd701715fb1c715f0da96318270d06e99aea228bf89702e9"
+      "owner_fragment_sha256": "510635b33cb6f56eeaf2a524d37b24678db0ea430563a073aeda6955bc297a00"
     },
     {
       "owner_fragment_id": "core01.extension_profile_jobs.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core01.profile-jobs.json",
-      "owner_fragment_sha256": "f6b19077c5e83a4495bcef3ec0818a772ddbd694656ee583746c5bdc6bca4f22"
+      "owner_fragment_sha256": "fb6e0a6f91bee54247900b9f2a5b87b070bddd9a3fa74f7e1a82988c4daa4995"
     }
-  ],
-  "owner_id": "core01",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  ]
 }

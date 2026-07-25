@@ -609,7 +609,6 @@ const expectedCheckWorkUnitPriorities = [
   ["otel-conformance", 12940],
   ["json-shape-check", 12925],
   ["lint-scripts", 12900],
-  ["lint-markdown", 12875],
   ["lint-shell", 12850],
   ["semantic-identity-check", 12000],
   ["test-catalog-check", 11500],
@@ -1032,7 +1031,7 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   copyFileSync(path.join(root, "tools/service_backed_make_target_duration_baselines.json"), renderIndexBaselinePath);
   const familyFixturePath = path.join(catalogRoot, catalogOwnerRegistry.owners[0].manifest_path);
   const familyFixture = JSON.parse(readFileSync(familyFixturePath, "utf8"));
-  familyFixture.rows[0].documentation_refs = ["render index drift fixture"];
+  familyFixture.rows[0].default_check = !familyFixture.rows[0].default_check;
   writeFileSync(familyFixturePath, `${JSON.stringify(familyFixture, null, 2)}\n`);
   assert.throws(
     () => topologyRendererModule.quickCheckRenderIndex({ topology: renderIndexTopologyPath, catalogRoot }),

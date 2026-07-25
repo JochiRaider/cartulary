@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.executable_input_policy.v1",
+  "restricted_roots": [
+    "docs"
+  ],
+  "documentation_only_sources": [
+    "tools/harness/static-analysis/markdownlint-runner.sh",
+    "tools/harness/static-analysis/markdownlint.sh"
+  ],
+  "machine_evidence_roots": [
+    "contracts",
+    "tools/test_families"
+  ]
+}

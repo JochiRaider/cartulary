@@ -64,7 +64,7 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 		if readErr != nil {
 			return nil, readErr
 		}
-		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v1" || stringValue(contract["profile_id"]) != profileID {
+		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v2" || stringValue(contract["profile_id"]) != profileID {
 			return nil, invalidArtifact("configuration_contract", fmt.Errorf("profile mismatch for %s", profileID))
 		}
 		keys, ok := objectSlice(contract["keys"])
@@ -89,14 +89,14 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 				Kind:      kind,
 			}
 			if kind == "syntax_only" {
-				schemaID := stringValue(row["inactive_value_schema_ref"])
+				schemaID := stringValue(row["inactive_value_schema_id"])
 				schema, exists := schemas[schemaID]
 				if !exists {
 					return nil, invalidArtifact("configuration_contract", fmt.Errorf("inactive schema %s is unavailable", schemaID))
 				}
 				policy.Schema = cloneObject(schema)
 				prestage = append(prestage, key)
-			} else if row["inactive_value_schema_ref"] != nil {
+			} else if row["inactive_value_schema_id"] != nil {
 				return nil, invalidArtifact("configuration_contract", fmt.Errorf("forbidden policy %s has an inactive schema", key))
 			}
 			policies = append(policies, policy)

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.auth",
   "rows": [
     {
@@ -1113,15 +1113,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-115",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-116",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-117",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-118",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-119",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-120"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.auth.unit.login_request_shape_validation_rejects_unknown_t_3a3eb47266",

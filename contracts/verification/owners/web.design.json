@@ -1,17 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "web.design",
   "verifications": [
     {
       "verification_id": "web.design.verification.readiness_direction",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "Visual and accessibility readiness uses machine fixture and scenario identity while remaining design-direction evidence outside product conformance.",
       "evidence_kinds": [
         "playwright",
         "static_check"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "web.design.requirement.readiness_direction"
+      ]
     }
   ]
 }

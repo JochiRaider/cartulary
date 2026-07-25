@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.jobapi",
+  "requirements": [
+    {
+      "requirement_id": "module.jobapi.requirement.behavior_contract",
+      "statement": "job API lifecycle and cancellation postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

@@ -1,12 +1,74 @@
 {
-  "schema_id": "cartulary.extension_shared_protocol_contract_set.v1",
-  "owner_contract_ref": "docs/extension-subsystem-nlspec.md#req:EXT-REQ-232",
-  "portability": {"export_result_schema_id":"cartulary.incident_portability_extension_export_result.v1","import_result_schema_id":"cartulary.incident_portability_extension_import_result.v1","import_preparation_side_effects":"forbidden","mutation_protocol":"shared_transaction_only","staged_output_capability":"operation_scoped","participant_input_max_bytes":67108864,"aggregate_input_max_bytes":67108864},
-  "transaction": {"minimum_participants":1,"maximum_participants":16384,"per_participant_input_max_bytes":67108864,"aggregate_input_max_bytes":67108864,"aggregate_prepare_result_max_bytes":67108864,"validation_order":"participant_order_stop_first_invalid","cancellation_sampling":"before_and_after_each_step","automatic_retry":false},
-  "deadline": {"local_calculation":"checked_then_saturating","effective_selection":"minimum_inherited_and_local","expired_predicate":"now_greater_than_or_equal_deadline","equal_deadline_tie":"inherited","grace_nanoseconds":0,"proven_commit_precedence":true},
-  "lease": {"states":["unacquired","acquiring","held","uncertain","lost"],"initial_timeout_exit":2,"confirmed_loss_exit":70,"uncertainty_closes_admission":true,"recovery_proof":"original_session_only","loss_irreversible":true},
-  "staged_object": {"expiry_access":"immediate","upload_abandonment":"immediate","deletion_transaction":"forbidden","sweep_serialization":"single","missed_interval_policy":"coalesce_one"},
-  "restore": {"target_state":"stopped_empty","group_order":"numeric_ascending","binding_order":"sequential","validate_before_advance":true,"serve_failed_target":false,"inactive_profile_invocation":false,"derived_rebuild":"after_successful_claim"},
-  "publication": {"stages":6,"publish_atomically":true,"component_loss_reason":"published_component_lost","fatal_exit":70,"in_process_restart":false,"preserve_committed_state":true},
-  "capabilities": {"enabled":false,"wire_shape":"empty_array","activation_error":"extension_capability_not_supported"}
+  "schema_id": "cartulary.extension_shared_protocol_contract_set.v2",
+  "owner_requirement_id": "EXT-REQ-232",
+  "portability": {
+    "export_result_schema_id": "cartulary.incident_portability_extension_export_result.v1",
+    "import_result_schema_id": "cartulary.incident_portability_extension_import_result.v1",
+    "import_preparation_side_effects": "forbidden",
+    "mutation_protocol": "shared_transaction_only",
+    "staged_output_capability": "operation_scoped",
+    "participant_input_max_bytes": 67108864,
+    "aggregate_input_max_bytes": 67108864
+  },
+  "transaction": {
+    "minimum_participants": 1,
+    "maximum_participants": 16384,
+    "per_participant_input_max_bytes": 67108864,
+    "aggregate_input_max_bytes": 67108864,
+    "aggregate_prepare_result_max_bytes": 67108864,
+    "validation_order": "participant_order_stop_first_invalid",
+    "cancellation_sampling": "before_and_after_each_step",
+    "automatic_retry": false
+  },
+  "deadline": {
+    "local_calculation": "checked_then_saturating",
+    "effective_selection": "minimum_inherited_and_local",
+    "expired_predicate": "now_greater_than_or_equal_deadline",
+    "equal_deadline_tie": "inherited",
+    "grace_nanoseconds": 0,
+    "proven_commit_precedence": true
+  },
+  "lease": {
+    "states": [
+      "unacquired",
+      "acquiring",
+      "held",
+      "uncertain",
+      "lost"
+    ],
+    "initial_timeout_exit": 2,
+    "confirmed_loss_exit": 70,
+    "uncertainty_closes_admission": true,
+    "recovery_proof": "original_session_only",
+    "loss_irreversible": true
+  },
+  "staged_object": {
+    "expiry_access": "immediate",
+    "upload_abandonment": "immediate",
+    "deletion_transaction": "forbidden",
+    "sweep_serialization": "single",
+    "missed_interval_policy": "coalesce_one"
+  },
+  "restore": {
+    "target_state": "stopped_empty",
+    "group_order": "numeric_ascending",
+    "binding_order": "sequential",
+    "validate_before_advance": true,
+    "serve_failed_target": false,
+    "inactive_profile_invocation": false,
+    "derived_rebuild": "after_successful_claim"
+  },
+  "publication": {
+    "stages": 6,
+    "publish_atomically": true,
+    "component_loss_reason": "published_component_lost",
+    "fatal_exit": 70,
+    "in_process_restart": false,
+    "preserve_committed_state": true
+  },
+  "capabilities": {
+    "enabled": false,
+    "wire_shape": "empty_array",
+    "activation_error": "extension_capability_not_supported"
+  }
 }

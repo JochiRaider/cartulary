@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.assessments",
+  "requirements": [
+    {
+      "requirement_id": "module.assessments.requirement.behavior_contract",
+      "statement": "assessment creation, history, filtering, and presentation postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

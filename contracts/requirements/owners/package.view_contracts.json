@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "package.view_contracts",
+  "requirements": [
+    {
+      "requirement_id": "package.view_contracts.requirement.behavior_contract",
+      "statement": "package.view_contracts frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "package.view_contracts.requirement.shared_contract",
+      "statement": "Shared view contracts retain closed stable types and deterministic helpers at the package boundary.",
+      "status": "active"
+    }
+  ]
+}

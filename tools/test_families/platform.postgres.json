@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "platform.postgres",
   "rows": [
     {
@@ -8,7 +8,8 @@
       "family_id": "platform.postgres.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "platform.postgres.verification.behavior_contract"
+        "platform.postgres.verification.behavior_contract",
+        "platform.postgres.verification.migration_mechanics"
       ],
       "runner": "go",
       "selector": {
@@ -101,10 +102,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-075"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.postgres.support_unit.schema_bootstrap_migration_guard_22ed444261",

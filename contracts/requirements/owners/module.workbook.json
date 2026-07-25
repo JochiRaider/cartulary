@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.workbook",
+  "requirements": [
+    {
+      "requirement_id": "module.workbook.requirement.behavior_contract",
+      "statement": "module.workbook frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    }
+  ]
+}

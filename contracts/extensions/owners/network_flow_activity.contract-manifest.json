@@ -1,17 +1,22 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "network_flow_activity.extensions_contract.v2",
+  "owner_id": "network_flow_activity",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/network_flow_activity.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "network_flow_activity",
+    "catalog_sha256": "91783f77694ae89fabe520a065b77fa5029e9bb32499d76044e6f1e07a5c5203"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.network_flow_activity.current.v2",
-      "anchor_kind": "document",
-      "anchor_sha256": "111a81c3067e8cc100a13866c37c9307364d7e879f5e1013e3f713a908215f9b",
-      "closure_categories": [],
-      "end_byte": 275400,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.network_flow_activity.current.v2",
+      "closure_categories": []
     },
     {
-      "anchor_id": "NF-REQ-006a",
-      "anchor_kind": "req",
-      "anchor_sha256": "9a9d1e30ea4571ab942636dd6e0d4147b00839b9fe3704ab3c977ceb7c61ac19",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-006a",
       "closure_categories": [
         "client_ui_states",
         "conformance_evidence",
@@ -19,66 +24,51 @@
         "identity_canonicalization_ordering",
         "public_interfaces",
         "request_response_schemas"
-      ],
-      "end_byte": 6581,
-      "start_byte": 4479
+      ]
     },
     {
-      "anchor_id": "NF-REQ-172a",
-      "anchor_kind": "req",
-      "anchor_sha256": "eb797e5333e0b33fa4087c58e572a9c1ca082d90e8bafec2783aa3777e3a8cb3",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-172a",
       "closure_categories": [
         "conformance_evidence",
         "defaults_omission_null",
         "errors_precedence_retry",
         "security_secrets_egress"
-      ],
-      "end_byte": 212138,
-      "start_byte": 210612
+      ]
     },
     {
-      "anchor_id": "NF-REQ-181",
-      "anchor_kind": "req",
-      "anchor_sha256": "ddabae2046b979886f78475711ef05406a72f9647e6e452520e277eab5137a43",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-181",
       "closure_categories": [
         "conformance_evidence",
         "identity_canonicalization_ordering",
         "public_interfaces"
-      ],
-      "end_byte": 265536,
-      "start_byte": 264792
+      ]
     },
     {
-      "anchor_id": "NF-REQ-182",
-      "anchor_kind": "req",
-      "anchor_sha256": "813e967180bdbba3b2511b365fb87aff2cbbb83ce61adeac311edba1329906f8",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-182",
       "closure_categories": [
         "backup_restore",
         "conformance_evidence",
         "portability",
         "resource_lifecycle_retention",
         "state_migration"
-      ],
-      "end_byte": 266977,
-      "start_byte": 265538
+      ]
     },
     {
-      "anchor_id": "NF-REQ-183",
-      "anchor_kind": "req",
-      "anchor_sha256": "275487dd3762f829ba489c20b42e98f86fe066cd8adfaf27f9e6bb73161af228",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-183",
       "closure_categories": [
         "conformance_evidence",
         "defaults_omission_null",
         "errors_precedence_retry",
         "security_secrets_egress"
-      ],
-      "end_byte": 268348,
-      "start_byte": 266979
+      ]
     },
     {
-      "anchor_id": "NF-REQ-184",
-      "anchor_kind": "req",
-      "anchor_sha256": "81eea7881c3210abbaff76ee3c2dc56f71ad63a010a5be501ec30ff5207d2b1f",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-184",
       "closure_categories": [
         "backup_restore",
         "conformance_evidence",
@@ -86,14 +76,11 @@
         "scalar_collection_bounds",
         "security_secrets_egress",
         "state_migration"
-      ],
-      "end_byte": 269296,
-      "start_byte": 268350
+      ]
     },
     {
-      "anchor_id": "NF-REQ-185",
-      "anchor_kind": "req",
-      "anchor_sha256": "9b405b717df71f1ec47d97f91b1b56a6cbe17d2f04840a525e548b6d8040d953",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-185",
       "closure_categories": [
         "audit_observability",
         "authorization",
@@ -112,14 +99,11 @@
         "security_secrets_egress",
         "snapshot_reporting",
         "state_migration"
-      ],
-      "end_byte": 270519,
-      "start_byte": 269298
+      ]
     },
     {
-      "anchor_id": "NF-REQ-186",
-      "anchor_kind": "req",
-      "anchor_sha256": "5e215c4c54eb13c4eaa6b63ff2cf01cac3e3ffc536eee01c6504bc57dc57cdbc",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-186",
       "closure_categories": [
         "audit_observability",
         "conformance_evidence",
@@ -127,14 +111,11 @@
         "scalar_collection_bounds",
         "security_secrets_egress",
         "state_migration"
-      ],
-      "end_byte": 271314,
-      "start_byte": 270521
+      ]
     },
     {
-      "anchor_id": "NF-REQ-187",
-      "anchor_kind": "req",
-      "anchor_sha256": "d176568df4840ae54b8768fc414fa72ec05138d7f4cc912ddb0951c3eba2cc2e",
+      "binding_kind": "requirement",
+      "machine_id": "NF-REQ-187",
       "closure_categories": [
         "authorization",
         "client_ui_states",
@@ -142,82 +123,49 @@
         "errors_precedence_retry",
         "public_interfaces",
         "security_secrets_egress"
-      ],
-      "end_byte": 275399,
-      "start_byte": 271316
+      ]
     },
     {
-      "anchor_id": "cartulary.extension_profile_configuration_contract.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "275487dd3762f829ba489c20b42e98f86fe066cd8adfaf27f9e6bb73161af228",
-      "closure_categories": [],
-      "end_byte": 268348,
-      "start_byte": 266979
+      "binding_kind": "schema",
+      "machine_id": "cartulary.extension_profile_configuration_contract.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.extension_state_blocking_predicate.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "9b405b717df71f1ec47d97f91b1b56a6cbe17d2f04840a525e548b6d8040d953",
-      "closure_categories": [],
-      "end_byte": 270519,
-      "start_byte": 269298
+      "binding_kind": "schema",
+      "machine_id": "cartulary.extension_state_blocking_predicate.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.extension_state_initialization_definition.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "813e967180bdbba3b2511b365fb87aff2cbbb83ce61adeac311edba1329906f8",
-      "closure_categories": [],
-      "end_byte": 266977,
-      "start_byte": 265538
+      "binding_kind": "schema",
+      "machine_id": "cartulary.extension_state_initialization_definition.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.extension_state_presence_manifest.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "813e967180bdbba3b2511b365fb87aff2cbbb83ce61adeac311edba1329906f8",
-      "closure_categories": [],
-      "end_byte": 266977,
-      "start_byte": 265538
+      "binding_kind": "schema",
+      "machine_id": "cartulary.extension_state_presence_manifest.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.network_flow_activity.configuration_namespace.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "275487dd3762f829ba489c20b42e98f86fe066cd8adfaf27f9e6bb73161af228",
-      "closure_categories": [],
-      "end_byte": 268348,
-      "start_byte": 266979
+      "binding_kind": "schema",
+      "machine_id": "cartulary.network_flow_activity.configuration_namespace.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "cartulary.network_flow_key_ring_manifest_path.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "275487dd3762f829ba489c20b42e98f86fe066cd8adfaf27f9e6bb73161af228",
-      "closure_categories": [],
-      "end_byte": 268348,
-      "start_byte": 266979
+      "binding_kind": "schema",
+      "machine_id": "cartulary.network_flow_key_ring_manifest_path.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "network_flow_activity.validate_state_v1",
-      "anchor_kind": "algorithm",
-      "anchor_sha256": "813e967180bdbba3b2511b365fb87aff2cbbb83ce61adeac311edba1329906f8",
-      "closure_categories": [],
-      "end_byte": 266977,
-      "start_byte": 265538
+      "binding_kind": "algorithm",
+      "machine_id": "network_flow_activity.validate_state_v1",
+      "closure_categories": []
     }
   ],
-  "owner_contract_manifest_id": "network_flow_activity.extensions_contract.v2",
-  "owner_document": {
-    "byte_length": 275400,
-    "owner_document_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
-    "owner_document_schema_id": "cartulary.network_flow_activity.current.v2",
-    "owner_document_sha256": "111a81c3067e8cc100a13866c37c9307364d7e879f5e1013e3f713a908215f9b",
-    "owner_document_version": "2.0.1"
-  },
   "owner_fragments": [
     {
       "owner_fragment_id": "network_flow_activity.profile.v2",
       "owner_fragment_ref": "contracts/extensions/fragments/network_flow_activity.profile.json",
-      "owner_fragment_sha256": "60a406163bc55c126b0853dddc91cd6f895a44c4ef9dc5303ce4ced8f887e7c8"
+      "owner_fragment_sha256": "14b040613408a9a502ab00cba86be01f95d72fc9111f5eb6558635d5a012626a"
     }
-  ],
-  "owner_id": "network_flow_activity",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  ]
 }

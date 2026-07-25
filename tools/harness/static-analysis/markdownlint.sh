@@ -55,10 +55,4 @@ env \
   COREPACK_HOME="${COREPACK_HOME:-$NODE_RUNTIME_DIR/corepack}" \
   "$CACHE_ARTIFACT_SCRIPT" "${cache_args[@]}" -- "$ROOT_DIR/tools/harness/static-analysis/markdownlint-runner.sh" "$@" || status=$?
 
-if [[ "$status" -eq 0 && "${CARTULARY_TEST_TARGET:-}" == "lint-markdown" ]]; then
-  NODE_BIN="${NODE_BIN:-$NODE_RUNTIME_DIR/bin/node}"
-  TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/tools/harness/output/test-output.mjs}"
-  "$NODE_BIN" "$TEST_OUTPUT_SCRIPT" target-summary lint-markdown pass --quiet-success --suppress-machine-output || status=$?
-fi
-
 exit "$status"

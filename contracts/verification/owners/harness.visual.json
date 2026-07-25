@@ -1,15 +1,20 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.visual",
   "verifications": [
     {
       "verification_id": "harness.visual.verification.stable_fixture_identity",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "Visual fixtures use stable owner and scenario identity, path-only moves preserve golden bytes, and visual evidence remains implementation support unless claim-authorized.",
-      "evidence_kinds": ["playwright", "static_check"],
+      "evidence_kinds": [
+        "playwright",
+        "static_check"
+      ],
       "public_target": "browser-e2e-visual",
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "harness.visual.requirement.stable_fixture_identity"
+      ]
     }
   ]
 }

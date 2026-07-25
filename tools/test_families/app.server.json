@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "app.server",
   "rows": [
     {
@@ -33,10 +33,7 @@
       "fixture_profile_id": "service_stack",
       "default_check": false,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-108"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
@@ -108,11 +105,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.integration.extension_discovery_session_sliding_7f6ad80724",
@@ -138,10 +131,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-108"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.integration.extension_state_logical_store_adapter_7f6ad80724",
@@ -169,11 +159,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-189",
-        "docs/extension-subsystem-nlspec.md#ext-req-217"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
@@ -615,10 +601,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-108"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.unit.extension_policy_catalog_7f6ad80724",
@@ -648,10 +631,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-214"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.unit.extension_process_lifecycle_f9457096a3",
@@ -680,12 +660,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-146",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.unit.extension_publication_epoch_characterization_7f6ad80724",
@@ -722,11 +697,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-214",
-        "docs/handoffs/extensions-module-refactor-tracker.md#rb-004-app-server-publication-characterization-matrix"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.unit.extension_readiness_admission_gate_05faff0b60",
@@ -751,11 +722,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#es-10"
-      ]
+      "status": "active"
     },
     {
       "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",

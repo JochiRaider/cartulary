@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.crossownertransaction",
   "rows": [
     {
@@ -27,12 +27,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-219",
-        "docs/extension-subsystem-nlspec.md#ext-ac-153",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-012"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.crossownertransaction.unit.protocol_boundaries_7f6ad80724",
@@ -59,11 +54,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-219",
-        "docs/extension-subsystem-nlspec.md#ext-ac-153"
-      ]
+      "status": "active"
     }
   ]
 }

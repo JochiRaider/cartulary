@@ -1,14 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.test_catalog",
   "verifications": [
     {
       "verification_id": "harness.test_catalog.verification.closed_owner_catalog",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "The unified catalog has one primary owner for every active row, fully resolves verification and profile references, and rejects ambiguous or overlapping selectors.",
-      "evidence_kinds": ["static_check"],
-      "status": "active"
+      "evidence_kinds": [
+        "static_check"
+      ],
+      "public_target": "harness-contract",
+      "status": "active",
+      "requirement_ids": [
+        "harness.test_catalog.requirement.closed_owner_catalog"
+      ]
     }
   ]
 }

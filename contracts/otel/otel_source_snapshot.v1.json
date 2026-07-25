@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.otel_source_snapshot.v1",
+  "schema_id": "cartulary.otel_source_snapshot.v2",
   "otel_spec_version": "1.57.0",
   "otel_spec_ref": "v1.57.0",
   "otel_spec_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88",
@@ -16,7 +16,7 @@
     "generator_name": "cartulary-otel-contract-generator",
     "generator_version": "1.0.0",
     "generator_source_ref": "tools/otel/generate-otel-contracts.mjs",
-    "generator_source_sha": "b9bec2dd48c7df17eeaf23a60714a026603bb41c",
+    "generator_source_sha": "2a1d82d817203fa698dfd944310246f7178f6c3c",
     "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
     "output_package_or_path": "contracts/otel/semantic_conventions_constants.v1.json"
   },
@@ -139,116 +139,6 @@
       "absence_source": "frontend package manifests and browser bundle boundary"
     }
   ],
-  "source_paths": [
-    {
-      "family": "Specification overview",
-      "path": "specification/overview.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Configuration overview",
-      "path": "specification/configuration/README.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Configuration data model",
-      "path": "specification/configuration/data-model.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Configuration API",
-      "path": "specification/configuration/api.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Configuration SDK",
-      "path": "specification/configuration/sdk.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Common configuration parsing",
-      "path": "specification/configuration/common.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "SDK environment variables",
-      "path": "specification/configuration/sdk-environment-variables.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Trace SDK",
-      "path": "specification/trace/sdk.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Metrics API",
-      "path": "specification/metrics/api.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Metrics SDK",
-      "path": "specification/metrics/sdk.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Logs API",
-      "path": "specification/logs/api.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Logs data model",
-      "path": "specification/logs/data-model.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Resource SDK",
-      "path": "specification/resource/sdk.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Protocol exporter",
-      "path": "specification/protocol/exporter.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Common concepts",
-      "path": "specification/common/README.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Versioning and stability",
-      "path": "specification/versioning-and-stability.md",
-      "status": "adopted",
-      "source_commit_sha": "d4a91bddb53b4c308df3e40171a60059183efd88"
-    },
-    {
-      "family": "Semantic conventions model",
-      "path": "semantic-conventions/model/**",
-      "status": "adopted",
-      "source_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784"
-    },
-    {
-      "family": "Semantic conventions docs",
-      "path": "semantic-conventions/docs/**",
-      "status": "adopted",
-      "source_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784"
-    }
-  ],
   "created_at": "2026-05-23T00:00:00Z",
-  "created_by_tool": "cartulary.otel_source_snapshot.v1"
+  "created_by_tool": "cartulary.otel_source_snapshot.v2"
 }

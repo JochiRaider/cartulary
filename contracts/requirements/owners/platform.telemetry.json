@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.telemetry",
+  "requirements": [
+    {
+      "requirement_id": "platform.telemetry.requirement.current_conformance",
+      "statement": "Telemetry hooks, privacy controls, resource identity, configuration, and exported error families satisfy the current telemetry contract.",
+      "status": "active"
+    }
+  ]
+}

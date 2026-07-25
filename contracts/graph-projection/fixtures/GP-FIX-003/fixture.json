@@ -1,21 +1,8 @@
 {
-  "schema_id": "cartulary.graph_projection_fixture_manifest.v1",
-  "fixture_version": 1,
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v2",
+  "fixture_version": 2,
   "fixture_id": "GP-FIX-003",
   "execution_layer": "backend_unit",
-  "owner_sections": [
-    "4",
-    "5",
-    "9",
-    "10",
-    "11"
-  ],
-  "acceptance_ids": [
-    "GP-AC-002",
-    "GP-AC-004",
-    "GP-AC-051",
-    "GP-AC-056"
-  ],
   "test_symbol": "TestGPFIX003Remediation",
   "determinism": {
     "clock": "2026-05-30T00:00:00Z",
@@ -43,7 +30,6 @@
     }
   ],
   "golden": {
-    "provenance": "nlspec_derived",
     "review_status": "reviewed"
   },
   "comparison": {
@@ -53,5 +39,11 @@
   },
   "state_effects": {
     "mode": "no_retained_state_change"
-  }
+  },
+  "requirement_ids": [
+    "GP-AC-002",
+    "GP-AC-004",
+    "GP-AC-051",
+    "GP-AC-056"
+  ]
 }

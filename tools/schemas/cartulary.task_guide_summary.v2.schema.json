@@ -7,7 +7,7 @@
   "properties": {
     "schema_id": { "const": "cartulary.task_guide_summary.v2" },
     "role": { "const": "module-author" },
-    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id" },
     "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "focused_commands": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^make (?:service-backed-)?test-slice OWNER=" } },

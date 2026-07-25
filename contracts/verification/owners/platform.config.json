@@ -1,66 +1,78 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "platform.config",
   "verifications": [
     {
       "verification_id": "platform.config.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "base",
-      "requirement": "configuration discovery and validation postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "platform.config.verification.network_flow_claim_admission",
       "behavior_class": "architecture",
       "profile": "extension.network_flow_activity",
-      "requirement": "Network Flow claim defaults and inactive key admission use the generic Extensions diagnostic before any active-value or file work.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.network_flow_claim_admission"
+      ]
     },
     {
       "verification_id": "platform.config.verification.telemetry_defaults_namespace",
       "behavior_class": "architecture",
       "profile": "base",
-      "requirement": "Telemetry deployment defaults and the closed telemetry namespace remain exact.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.telemetry_defaults_namespace"
+      ]
     },
     {
       "verification_id": "platform.config.verification.telemetry_environment_parser",
       "behavior_class": "security",
       "profile": "base",
-      "requirement": "Only declared Cartulary telemetry environment bindings are parsed and hostile upstream telemetry environment variables remain inert.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.telemetry_environment_parser"
+      ]
     },
     {
       "verification_id": "platform.config.verification.telemetry_secret_references",
       "behavior_class": "security",
       "profile": "base",
-      "requirement": "Telemetry secret references preserve purpose isolation, bounded headers, and diagnostic redaction before readiness.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.telemetry_secret_references"
+      ]
     },
     {
       "verification_id": "platform.config.verification.telemetry_validation",
       "behavior_class": "architecture",
       "profile": "base",
-      "requirement": "Telemetry cross-key, endpoint, sampler, and exporter validation remains exact.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.config.requirement.telemetry_validation"
+      ]
     }
   ]
 }

@@ -3,49 +3,35 @@
     {
       "dependency_id": "core00",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/spec/00_document_set_status_and_precedence.md#document:cartulary.core00.current.v1",
-        "docs/spec/00_document_set_status_and_precedence.md#req:REQ-00-065"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "core00.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core00.contract-manifest.json",
-      "owner_contract_manifest_sha256": "c2145ecae16a31577ed42f4015c64cd18156421dbaef2139224b409760fb38f5",
-      "owner_document_ref": "docs/spec/00_document_set_status_and_precedence.md#document:cartulary.core00.current.v1",
-      "owner_document_schema_id": "cartulary.core00.current.v1",
-      "owner_document_sha256": "5eed112b45bc23bd7aad07010100fb0bc3b08417c772589caf9df5cc3919f0f3",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "1e2fc80dd73f27b2b9645d8f42338ecc60b0621f2592ddc98a2a2806ddf73db1",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/core00.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "ed97b6f76f8b8106f1464561d5f6ebf3ce182d56da98f864661841817a4ab422",
+      "imported_requirement_ids": [
+        "REQ-00-065"
+      ],
+      "imported_contract_ids": [
+        "cartulary.core00.current.v1"
+      ]
     },
     {
       "dependency_id": "core01",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-542",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-629",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-630",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-632",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-633",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-634",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_resource_ref.v1",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_resource_ref_id.v1",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.common_job_terminal_success.v1",
-        "docs/spec/01_architecture_storage_and_view_contracts.md#schema:cartulary.route_scoped_idempotency_identity.v1"
-      ],
       "imported_artifacts": [
         {
           "artifact_id": "cartulary.base_route_reservation_registry.current",
           "artifact_sha256": "0ed764b8e75eb0dfe4ef53bd865bd566a716d7b3ed33d8fe24085b63472c3fd8",
           "safe_ref": "artifact:cartulary.base_route_reservation_registry.current",
-          "schema_id": "cartulary.base_route_reservation_registry.v1"
+          "schema_id": "cartulary.base_route_reservation_registry.v2"
         }
       ],
       "imported_schema_ids": [
-        "cartulary.base_route_reservation_registry.v1",
+        "cartulary.base_route_reservation_registry.v2",
         "cartulary.common_job_resource_ref.v1",
         "cartulary.common_job_resource_ref_id.v1",
         "cartulary.common_job_terminal_success.v1",
@@ -53,138 +39,155 @@
       ],
       "owner_contract_manifest_id": "core01.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core01.contract-manifest.json",
-      "owner_contract_manifest_sha256": "5b47a1fcf75fb8bf69e6bb709c36f5cabb31c59a580a45bff71b2e37c163d836",
-      "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
-      "owner_document_schema_id": "cartulary.core01.current.v1",
-      "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "9222136c7d3f5fa7bcbf74deb571baedaf1c09c975b012cc15e43ae3470315a5",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/core01.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d",
+      "imported_requirement_ids": [
+        "REQ-01-151.1",
+        "REQ-01-542",
+        "REQ-01-629",
+        "REQ-01-630",
+        "REQ-01-631",
+        "REQ-01-632",
+        "REQ-01-633",
+        "REQ-01-634"
+      ],
+      "imported_contract_ids": [
+        "cartulary.core01.current.v1"
+      ]
     },
     {
       "dependency_id": "core02",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/spec/02_domain_model_schema_and_history.md#document:cartulary.core02.current.v1",
-        "docs/spec/02_domain_model_schema_and_history.md#req:REQ-02-261"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "core02.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core02.contract-manifest.json",
-      "owner_contract_manifest_sha256": "c04331aaddae67c762546b373ef1192ec6f7e3ee6a8d05b49cb33d13c652c8cd",
-      "owner_document_ref": "docs/spec/02_domain_model_schema_and_history.md#document:cartulary.core02.current.v1",
-      "owner_document_schema_id": "cartulary.core02.current.v1",
-      "owner_document_sha256": "85d0f16ceca81d0222ccaa96c55c0e8c4eab39e190e9e1801058bf7d6989651e",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "888bc920c88b4b7fd4055ab68880e75745f5ad4509c4ec95839642dd5ec3cadc",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/core02.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "ab545b6bf576ff05f7f9d7af18056d2577262ac364ccf36c0d68e17f5e5532d8",
+      "imported_requirement_ids": [
+        "REQ-02-261"
+      ],
+      "imported_contract_ids": [
+        "cartulary.core02.current.v1"
+      ]
     },
     {
       "dependency_id": "core03",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/spec/03_workbook_interaction_collaboration_and_workflows.md#document:cartulary.core03.current.v1",
-        "docs/spec/03_workbook_interaction_collaboration_and_workflows.md#req:REQ-03-011A",
-        "docs/spec/03_workbook_interaction_collaboration_and_workflows.md#req:REQ-03-303"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "core03.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core03.contract-manifest.json",
-      "owner_contract_manifest_sha256": "8b11ab7fafdc9f9439988d15456418edfb9ad7a2c9ec32269a23b406b9ab0a40",
-      "owner_document_ref": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md#document:cartulary.core03.current.v1",
-      "owner_document_schema_id": "cartulary.core03.current.v1",
-      "owner_document_sha256": "7ec2ddf522549eaf5faa9c42fa1dcc2293bae2a541248731732685f30bc8bfa9",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "c137b3c9b3a173f8d45ba2be255006a9300af49a86feeac0a9de2569ab0ed282",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/core03.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "6629cb64ac40461a88ed0df0cdda647f0709afb35493ffc6f07ffd33965d5b93",
+      "imported_requirement_ids": [
+        "REQ-03-011A",
+        "REQ-03-303"
+      ],
+      "imported_contract_ids": [
+        "cartulary.core03.current.v1"
+      ]
     },
     {
       "dependency_id": "core04",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-144",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-145",
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-146"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "core04.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/core04.contract-manifest.json",
-      "owner_contract_manifest_sha256": "a45365f61c11e12cc90a01f1cae912dcecfa565bd64d6fb90f217fc326b86adb",
-      "owner_document_ref": "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
-      "owner_document_schema_id": "cartulary.core04.current.v1",
-      "owner_document_sha256": "069fab755850caa854647222d3a59c95733fbd8f14066e0ba544a4d76d929aa4",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "ff0acea3c0bd0d31c7b41875d23af1ac2a4b1874144ee432a9f44c6a190b8482",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/core04.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "02d4c1874e68ddde15acd4dfef6c318f3da0f0bd254a99a0d4910bd9e91a3f28",
+      "imported_requirement_ids": [
+        "REQ-04-143",
+        "REQ-04-144",
+        "REQ-04-145",
+        "REQ-04-146"
+      ],
+      "imported_contract_ids": [
+        "cartulary.core04.current.v1"
+      ]
     },
     {
       "dependency_id": "network_flow_activity",
       "imported_algorithm_ids": [
         "network_flow_activity.validate_state_v1"
       ],
-      "imported_anchor_refs": [
-        "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-006a",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-172a",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-181",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-182",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-184",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-185",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-186",
-        "docs/network-flow-activity-nlspec.md#req:NF-REQ-187"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [
-        "cartulary.extension_profile_configuration_contract.v1",
+        "cartulary.extension_profile_configuration_contract.v2",
         "cartulary.extension_state_blocking_predicate.v1",
         "cartulary.extension_state_initialization_definition.v1",
         "cartulary.extension_state_presence_manifest.v1"
       ],
       "owner_contract_manifest_id": "network_flow_activity.extensions_contract.v2",
       "owner_contract_manifest_ref": "contracts/extensions/owners/network_flow_activity.contract-manifest.json",
-      "owner_contract_manifest_sha256": "0dc664f9540020a64215eb5838414036298696df5d5cbe85419bfcc8b5d6b536",
-      "owner_document_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
-      "owner_document_schema_id": "cartulary.network_flow_activity.current.v2",
-      "owner_document_sha256": "111a81c3067e8cc100a13866c37c9307364d7e879f5e1013e3f713a908215f9b",
-      "owner_document_version": "2.0.1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "fcc77905264ab0cf39387d907f05d67d36ad883e42c8800dbba4406e66652b27",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/network_flow_activity.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "91783f77694ae89fabe520a065b77fa5029e9bb32499d76044e6f1e07a5c5203",
+      "imported_requirement_ids": [
+        "NF-REQ-006a",
+        "NF-REQ-172a",
+        "NF-REQ-181",
+        "NF-REQ-182",
+        "NF-REQ-183",
+        "NF-REQ-184",
+        "NF-REQ-185",
+        "NF-REQ-186",
+        "NF-REQ-187"
+      ],
+      "imported_contract_ids": [
+        "cartulary.network_flow_activity.current.v2"
+      ]
     },
     {
       "dependency_id": "opentelemetry",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/opentelemetry-instrumentation-nlspec.md#document:cartulary.opentelemetry_instrumentation.current.v1"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "opentelemetry.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/opentelemetry.contract-manifest.json",
-      "owner_contract_manifest_sha256": "58dff7bf037aca2e67c2546feecb767a81427991f0eb6e718f0b28d53250bf30",
-      "owner_document_ref": "docs/opentelemetry-instrumentation-nlspec.md#document:cartulary.opentelemetry_instrumentation.current.v1",
-      "owner_document_schema_id": "cartulary.opentelemetry_instrumentation.current.v1",
-      "owner_document_sha256": "925c579ace3a154496f0fa9b725df6de37bb6f7a5d86faa8cb6616b52db43b9e",
-      "owner_document_version": "extensions-adoption-1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "720efa933372c4d7e0b4accd9522f816426e32dda0638f7effd24b24c473cd01",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/opentelemetry.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "ac0d1829294df15cb65aacb40687e5c07f512451ff9d8673415d35bd2703beee",
+      "imported_requirement_ids": [],
+      "imported_contract_ids": [
+        "cartulary.opentelemetry_instrumentation.current.v1"
+      ]
     },
     {
       "dependency_id": "report_composition",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/report-composition-nlspec.md#document:cartulary.report_composition_nlspec.v1",
-        "docs/report-composition-nlspec.md#req:REQ-RC-076a"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [],
       "owner_contract_manifest_id": "report_composition.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/report_composition.contract-manifest.json",
-      "owner_contract_manifest_sha256": "bfd9d8120e5e356f047d64319773d44a2c3aca7f81b77193a958f41454d94a00",
-      "owner_document_ref": "docs/report-composition-nlspec.md#document:cartulary.report_composition_nlspec.v1",
-      "owner_document_schema_id": "cartulary.report_composition_nlspec.v1",
-      "owner_document_sha256": "8f76e2482775621618353b7f6282a2f19b445ece38a17300d40bd62f1a7a02f2",
-      "owner_document_version": "1.1.1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "28c0fda73e3ee2b48846baeb02e220576c84dd98023b86cf6b39e0c46bb8757e",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/report_composition.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "e1b9e70970792a6c8a6932f625dd3863b819998fb24c6c2831bbedfecc5bd1f8",
+      "imported_requirement_ids": [
+        "REQ-RC-076a"
+      ],
+      "imported_contract_ids": [
+        "cartulary.report_composition_nlspec.v1"
+      ]
     },
     {
       "dependency_id": "reporting",
@@ -192,60 +195,60 @@
         "materialize_reporting_export_model_v1",
         "snapshot_reporting.render_export_v1"
       ],
-      "imported_anchor_refs": [
-        "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019a",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019b",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-039",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-053",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-059a",
-        "docs/reporting-subsystem-nlspec.md#req:REQ-RPT-114",
-        "docs/reporting-subsystem-nlspec.md#schema:cartulary.reporting_export_model.v1",
-        "docs/reporting-subsystem-nlspec.md#algorithm:materialize_reporting_export_model_v1",
-        "docs/reporting-subsystem-nlspec.md#algorithm:snapshot_reporting.render_export_v1"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [
         "cartulary.reporting_export_model.v1"
       ],
       "owner_contract_manifest_id": "reporting.extensions_contract.v1",
       "owner_contract_manifest_ref": "contracts/extensions/owners/reporting.contract-manifest.json",
-      "owner_contract_manifest_sha256": "3fa938188629df3f692e72e7a514d5b98c56bc8aa46a2af3ba9f4829d0c2fd9b",
-      "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
-      "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
-      "owner_document_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
-      "owner_document_version": "1.1.1",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "010cf53ddafa968b3268b07358832c3ce6ca8805e32aff89414f87107c559952",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/reporting.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "82bcf59e0fbb48a50204401fc4857af08a25e539b42cd269a94dac077ffd8a08",
+      "imported_requirement_ids": [
+        "REQ-RPT-019a",
+        "REQ-RPT-019b",
+        "REQ-RPT-039",
+        "REQ-RPT-053",
+        "REQ-RPT-059a",
+        "REQ-RPT-114"
+      ],
+      "imported_contract_ids": [
+        "cartulary.reporting_subsystem_nlspec.v1"
+      ]
     },
     {
       "dependency_id": "testing_harness",
       "imported_algorithm_ids": [],
-      "imported_anchor_refs": [
-        "docs/testing-harness-nlspec.md#document:cartulary.testing_harness.v2"
-      ],
       "imported_artifacts": [],
       "imported_schema_ids": [
         "cartulary.test_evidence_accounting.v1",
         "cartulary.test_evidence_audit_summary.v1",
         "cartulary.test_evidence_root_manifest.v1",
-        "cartulary.test_family_manifest.v1",
+        "cartulary.test_family_manifest.v2",
         "cartulary.test_owner_registry.v1",
         "cartulary.test_owner_summary.v1",
         "cartulary.test_runner_registry.v1",
         "cartulary.test_slice_plan.v2",
-        "cartulary.verification_contract.v1",
-        "cartulary.verification_registry.v1"
+        "cartulary.verification_contract.v2",
+        "cartulary.verification_registry.v2"
       ],
       "owner_contract_manifest_id": "testing_harness.extensions_contract.v2",
       "owner_contract_manifest_ref": "contracts/extensions/owners/testing_harness.contract-manifest.json",
-      "owner_contract_manifest_sha256": "90ac5bb453f9d94fb3cc2f1b763eea6f94c3a0bbc69d77e16b0b42db667c51c2",
-      "owner_document_ref": "docs/testing-harness-nlspec.md#document:cartulary.testing_harness.v2",
-      "owner_document_schema_id": "cartulary.testing_harness.v2",
-      "owner_document_sha256": "c0acdfcc3c6e481cef3c91aafa88340b8b85527b45beeec3ad64007249c584cc",
-      "owner_document_version": "2.0.0",
-      "required_status": "adopted/current"
+      "owner_contract_manifest_sha256": "99f328d214ea15b80013f714d9a581c54ec4f54b3b2d5ed7da6ba1a854ddf686",
+      "required_status": "adopted/current",
+      "requirement_catalog_ref": "contracts/requirements/owners/testing_harness.json",
+      "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+      "requirement_catalog_sha256": "0923697dd14bda51e17c26444532013da04dea3d969264e17b9b6339b03dba97",
+      "imported_requirement_ids": [],
+      "imported_contract_ids": [
+        "cartulary.testing_harness.v2"
+      ]
     }
   ],
-  "extensions_document_version": "0.6.2",
-  "schema_id": "cartulary.extension_dependency_declaration_set.v1"
+  "schema_id": "cartulary.extension_dependency_declaration_set.v2",
+  "requirement_registry_ref": "contracts/requirements/registry.json",
+  "requirement_registry_schema_id": "cartulary.requirement_registry.v1",
+  "requirement_registry_sha256": "152c5596870e6deb22e8a30d68c1683a7c1c4d19229fbefb7c160e1d141e1142"
 }

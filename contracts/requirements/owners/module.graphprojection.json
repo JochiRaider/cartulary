@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.graphprojection",
+  "requirements": [
+    {
+      "requirement_id": "module.graphprojection.requirement.engine_and_storage",
+      "statement": "Graph Projection engine, fixtures, persistence, migration, and binding behavior preserve canonical projection semantics and safe ownership boundaries.",
+      "status": "active"
+    }
+  ]
+}

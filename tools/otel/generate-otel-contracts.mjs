@@ -46,7 +46,6 @@ const sourceSnapshotTopLevelKeys = [
   "probability_sampler_status",
   "semconv_generated_constants",
   "language_sdk_versions",
-  "source_paths",
   "created_at",
   "created_by_tool",
 ];
@@ -333,8 +332,8 @@ function validateBuiltOtelContracts(root, contracts, { requireTrackedGenerator =
   const boundary = contracts[otelContractPaths.importBoundary];
 
   errors.push(...objectKeyErrors(snapshot, sourceSnapshotTopLevelKeys, "source_snapshot"));
-  if (snapshot?.schema_id !== "cartulary.otel_source_snapshot.v1") {
-    errors.push("source_snapshot.schema_id must be cartulary.otel_source_snapshot.v1");
+  if (snapshot?.schema_id !== "cartulary.otel_source_snapshot.v2") {
+    errors.push("source_snapshot.schema_id must be cartulary.otel_source_snapshot.v2");
   }
   errors.push(...objectKeyErrors(snapshot?.semconv_generated_constants, generatedConstantsKeys, "source_snapshot.semconv_generated_constants"));
   errors.push(...validateOtelGeneratorReference({

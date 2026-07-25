@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.requirement_registry.v1",
+  "title": "Cartulary requirement registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "owners"],
+  "properties": {
+    "schema_id": { "const": "cartulary.requirement_registry.v1" },
+    "owners": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner_id", "catalog_path", "status"],
+        "properties": {
+          "owner_id": { "$ref": "#/$defs/ownerId" },
+          "catalog_path": {
+            "type": "string",
+            "pattern": "^contracts/requirements/owners/[a-z][a-z0-9_.-]*\\.json$"
+          },
+          "status": { "const": "active" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ownerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 191,
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    }
+  }
+}

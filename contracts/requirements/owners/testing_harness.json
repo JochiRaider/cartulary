@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "testing_harness",
+  "requirements": [
+    {
+      "requirement_id": "testing_harness.requirement.extension_contract",
+      "statement": "Testing-harness extension integration is represented by machine-readable contracts.",
+      "contract_ids": [
+        "cartulary.testing_harness.v2"
+      ],
+      "status": "planned"
+    }
+  ]
+}

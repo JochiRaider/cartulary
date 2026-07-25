@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.entities",
+  "requirements": [
+    {
+      "requirement_id": "module.entities.requirement.behavior_contract",
+      "statement": "entity, mention, resolution, and merge postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

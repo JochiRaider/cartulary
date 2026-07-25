@@ -24,10 +24,12 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 
 	declarations := indexed["dependencies.json"]
 	dependencySnapshot := cloneObject(declarations)
-	dependencySnapshot["schema_id"] = "cartulary.extension_dependency_snapshot.v1"
+	dependencySnapshot["schema_id"] = "cartulary.extension_dependency_snapshot.v2"
+	delete(dependencySnapshot, "requirement_registry_ref")
+	delete(dependencySnapshot, "requirement_registry_schema_id")
 
-	manifests := collectExtensionObjects(indexed, "cartulary.extension_owner_contract_manifest.v1", "owner_contract_manifest_id")
-	fragments := collectExtensionObjects(indexed, "cartulary.extension_owner_fragment.v1", "owner_fragment_id")
+	manifests := collectExtensionObjects(indexed, "cartulary.extension_owner_contract_manifest.v2", "owner_contract_manifest_id")
+	fragments := collectExtensionObjects(indexed, "cartulary.extension_owner_fragment.v2", "owner_fragment_id")
 	for _, fragment := range fragments {
 		facts, _ := fragment["facts"].([]any)
 		sort.Slice(facts, func(i, j int) bool {
@@ -42,7 +44,7 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 	}
 
 	factsByProfile := extensionFactsByProfile(fragments)
-	configsByProfile := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v1")
+	configsByProfile := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v2")
 	descriptors := make([]map[string]any, 0, len(requiredExtensionProfiles))
 	descriptorDigest := map[string]string{}
 	for _, profileID := range requiredExtensionProfiles {
@@ -134,7 +136,7 @@ func deriveExtensionArtifacts(root string) ([]artifact, error) {
 	if err := appendGenerated("client-support-registry.json", clientSupport); err != nil {
 		return nil, err
 	}
-	if err := appendGenerated("clause-traceability.json", traceability); err != nil {
+	if err := appendGenerated("requirement-coverage.json", traceability); err != nil {
 		return nil, err
 	}
 	closureCatalogs, conformanceManifests, conformanceIndex, err := materializeExtensionConformance(indexed, descriptors, factsByProfile)
@@ -294,7 +296,7 @@ func extensionFactsByProfile(fragments []map[string]any) map[string][]map[string
 func extensionMigrationFacts(indexed map[string]map[string]any, profileID string) []map[string]any {
 	result := []map[string]any{}
 	for _, object := range indexed {
-		if object["schema_id"] != "cartulary.extension_owner_fragment.v1" {
+		if object["schema_id"] != "cartulary.extension_owner_fragment.v2" {
 			continue
 		}
 		facts, _ := object["facts"].([]any)
@@ -432,11 +434,11 @@ func materializeExtensionDescriptor(profileID string, facts []map[string]any, co
 		return nil, fmt.Errorf("profile %s claim key is not canonical", profileID)
 	}
 	return map[string]any{
-		"schema_id":                 "cartulary.extension_profile_descriptor.v1",
+		"schema_id":                 "cartulary.extension_profile_descriptor.v2",
 		"profile_id":                profileID,
 		"claimable":                 recognized["claimable"],
 		"contract_major":            recognized["contract_major"],
-		"owner_contract_ref":        recognized["primary_owner_contract_ref"],
+		"owner_id":                  recognized["primary_owner_id"],
 		"claim_config_key":          claim["claim_config_key"],
 		"route_families":            stringsToAny(routes),
 		"workspace_keys":            stringsToAny(workspaces),
@@ -488,8 +490,8 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 	participantContracts := map[string]map[string]any{}
 	for _, object := range indexed {
 		if object["schema_id"] == "cartulary.extension_participant_contract.v1" ||
-			object["schema_id"] == "cartulary.extension_participant_specialization.v1" ||
-			object["schema_id"] == "cartulary.extension_transaction_participant_contract.v1" {
+			object["schema_id"] == "cartulary.extension_participant_specialization.v2" ||
+			object["schema_id"] == "cartulary.extension_transaction_participant_contract.v2" {
 			participantContracts[stringValue(object["participant_id"])] = object
 		}
 	}
@@ -528,10 +530,10 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 					return nil, fmt.Errorf("profile %s participant %s digest is stale", profileID, participantID)
 				}
 				algorithmIDs := anyToStrings(contract["algorithm_ids"])
-				if contract["schema_id"] == "cartulary.extension_participant_specialization.v1" {
+				if contract["schema_id"] == "cartulary.extension_participant_specialization.v2" {
 					algorithmIDs = extensionSpecializationAlgorithmIDs(contract)
 				}
-				if contract["schema_id"] == "cartulary.extension_transaction_participant_contract.v1" {
+				if contract["schema_id"] == "cartulary.extension_transaction_participant_contract.v2" {
 					algorithmIDs = []string{
 						stringValue(contract["prepare_algorithm_id"]),
 						stringValue(contract["validation_algorithm_id"]),
@@ -859,7 +861,7 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			codecID := stringValue(physicalBinding["backup_codec_id"])
 			var codec map[string]any
 			for _, candidate := range indexed {
-				if candidate["schema_id"] == "cartulary.extension_backup_binding_codec.v1" && candidate["backup_codec_id"] == codecID {
+				if candidate["schema_id"] == "cartulary.extension_backup_binding_codec.v2" && candidate["backup_codec_id"] == codecID {
 					codec = candidate
 					break
 				}
@@ -895,8 +897,8 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 	for _, contract := range indexed {
 		schemaID := stringValue(contract["schema_id"])
 		if schemaID != "cartulary.extension_participant_contract.v1" &&
-			schemaID != "cartulary.extension_participant_specialization.v1" &&
-			schemaID != "cartulary.extension_transaction_participant_contract.v1" {
+			schemaID != "cartulary.extension_participant_specialization.v2" &&
+			schemaID != "cartulary.extension_transaction_participant_contract.v2" {
 			continue
 		}
 		digest, err := extensionCanonicalDigest(contract)
@@ -904,7 +906,7 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			return nil, nil, nil, err
 		}
 		profileID := stringValue(contract["profile_id"])
-		if schemaID == "cartulary.extension_transaction_participant_contract.v1" {
+		if schemaID == "cartulary.extension_transaction_participant_contract.v2" {
 			profileID = stringValue(contract["owner_profile_id"])
 		}
 		participantRows = append(participantRows, map[string]any{
@@ -996,7 +998,7 @@ func materializeValidationConditionRegistry(source map[string]any) (map[string]a
 	}
 	conditions := []map[string]any{}
 	for _, declaration := range declarations {
-		ownerRef := declaration["owner_contract_ref"]
+		ownerRequirementID := declaration["owner_requirement_id"]
 		for _, surfaceFamily := range []string{"schema_surfaces", "procedural_surfaces"} {
 			surfaces, _ := declaration[surfaceFamily].([]any)
 			for _, rawSurface := range surfaces {
@@ -1004,7 +1006,7 @@ func materializeValidationConditionRegistry(source map[string]any) (map[string]a
 				rawConditions, _ := surface["conditions"].([]any)
 				for _, rawCondition := range rawConditions {
 					condition := cloneObject(rawCondition.(map[string]any))
-					condition["owner_contract_ref"] = ownerRef
+					condition["owner_requirement_id"] = ownerRequirementID
 					condition["surface_id"] = surface["surface_id"]
 					conditions = append(conditions, condition)
 				}
@@ -1015,56 +1017,24 @@ func materializeValidationConditionRegistry(source map[string]any) (map[string]a
 		return conditions[i]["condition_id"].(string) < conditions[j]["condition_id"].(string)
 	})
 	return map[string]any{
-		"schema_id":  "cartulary.extension_validation_condition_registry.v1",
+		"schema_id":  "cartulary.extension_validation_condition_registry.v2",
 		"conditions": objectsToAny(conditions),
 	}, nil
 }
 
-func materializeExtensionTraceability(root string, source map[string]any) (map[string]any, error) {
-	document, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
+func materializeExtensionTraceability(_ string, source map[string]any) (map[string]any, error) {
+	mappings, err := objectArray(source["mappings"], "requirement mappings")
 	if err != nil {
 		return nil, err
 	}
-	mappings, err := objectArray(source["mappings"], "traceability mappings")
-	if err != nil {
-		return nil, err
-	}
-	clauses := make([]map[string]any, 0, len(mappings))
-	parentOrdinals := map[string]int{}
-	for documentOrdinal, mapping := range mappings {
-		start, _ := nonnegativeJSONInt(mapping["source_start_byte"], "traceability source start")
-		end, _ := positiveJSONInt(mapping["source_end_byte"], "traceability source end")
-		textDigest := sha256.Sum256(document[start:end])
-		parentKey := stringValue(mapping["parent_anchor_kind"]) + "\x00" + stringValue(mapping["parent_anchor_id"])
-		clauseOrdinal := parentOrdinals[parentKey]
-		parentOrdinals[parentKey]++
-		identity := map[string]any{
-			"extensions_document_sha256": source["extensions_document_sha256"],
-			"document_ordinal":           documentOrdinal,
-			"parent_anchor_kind":         mapping["parent_anchor_kind"],
-			"parent_anchor_id":           mapping["parent_anchor_id"],
-			"clause_kind":                mapping["clause_kind"],
-			"clause_ordinal":             clauseOrdinal,
-			"source_start_byte":          mapping["source_start_byte"],
-			"source_end_byte":            mapping["source_end_byte"],
-			"clause_text_sha256":         hex.EncodeToString(textDigest[:]),
-		}
-		canonical, err := canonicalizeDecoded(identity)
-		if err != nil {
-			return nil, err
-		}
-		identityDigest := sha256.Sum256([]byte(canonical))
-		clause := cloneObject(identity)
-		clause["clause_id"] = "extcl:" + hex.EncodeToString(identityDigest[:])[:32]
-		clause["requirement_ids"] = mapping["requirement_ids"]
-		clause["acceptance_criterion_ids"] = mapping["acceptance_criterion_ids"]
-		clause["verification_ids"] = mapping["verification_ids"]
-		clauses = append(clauses, clause)
+	coverage := make([]map[string]any, 0, len(mappings))
+	for _, mapping := range mappings {
+		coverage = append(coverage, cloneObject(mapping))
 	}
 	return map[string]any{
-		"schema_id":                  "cartulary.extension_clause_traceability.v1",
-		"extensions_document_sha256": source["extensions_document_sha256"],
-		"clauses":                    objectsToAny(clauses),
+		"schema_id":                  "cartulary.extension_requirement_coverage.v2",
+		"requirement_catalog_sha256": source["requirement_catalog_sha256"],
+		"requirements":               objectsToAny(coverage),
 	}, nil
 }
 
@@ -1116,10 +1086,10 @@ func materializeClientSupport(source map[string]any, descriptors []map[string]an
 }
 
 type extensionClosureResolution struct {
-	item      map[string]any
-	ownerRefs []string
-	status    string
-	reason    any
+	item           map[string]any
+	requirementIDs []string
+	status         string
+	reason         any
 }
 
 func materializeExtensionConformance(indexed map[string]map[string]any, descriptors []map[string]any, factsByProfile map[string][]map[string]any) ([]map[string]any, []map[string]any, map[string]any, error) {
@@ -1134,11 +1104,11 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 	}
 	manifestByOwner := map[string]map[string]any{}
 	for _, object := range indexed {
-		if object["schema_id"] == "cartulary.extension_owner_contract_manifest.v1" {
+		if object["schema_id"] == "cartulary.extension_owner_contract_manifest.v2" {
 			manifestByOwner[stringValue(object["owner_id"])] = object
 		}
 	}
-	configs := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v1")
+	configs := extensionObjectsByProfile(indexed, "cartulary.extension_profile_configuration_contract.v2")
 	statePresence := extensionObjectsByProfile(indexed, "cartulary.extension_state_presence_manifest.v1")
 	physicalBindings := extensionObjectsByProfile(indexed, "cartulary.extension_physical_state_binding.v1")
 
@@ -1159,8 +1129,8 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 		if primaryManifest == nil {
 			return nil, nil, nil, fmt.Errorf("profile %s primary owner %s has no manifest", profileID, primaryOwnerID)
 		}
-		ownerDocument := primaryManifest["owner_document"].(map[string]any)
-		primaryOwnerRef := stringValue(recognized["primary_owner_contract_ref"])
+		requirementCatalog := primaryManifest["requirement_catalog"].(map[string]any)
+		primaryOwnerRequirementID := stringValue(recognized["owner_requirement_id"])
 		resolutions := []extensionClosureResolution{}
 		addItem := func(subjectKind, subjectID, category string, allowed []string, refs []string) error {
 			identity := map[string]any{
@@ -1180,15 +1150,15 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 			item["allowed_not_applicable_reason_codes"] = stringsToAny(allowed)
 			refs = sortedUniqueStrings(refs)
 			resolutions = append(resolutions, extensionClosureResolution{
-				item:      item,
-				ownerRefs: refs,
-				status:    "specified",
-				reason:    nil,
+				item:           item,
+				requirementIDs: refs,
+				status:         "specified",
+				reason:         nil,
 			})
 			return nil
 		}
 		for _, baseline := range baselineItems {
-			if err := addItem("baseline", stringValue(baseline["subject_id"]), stringValue(baseline["category"]), anyToStrings(baseline["allowed_not_applicable_reason_codes"]), []string{primaryOwnerRef}); err != nil {
+			if err := addItem("baseline", stringValue(baseline["subject_id"]), stringValue(baseline["category"]), anyToStrings(baseline["allowed_not_applicable_reason_codes"]), []string{primaryOwnerRequirementID}); err != nil {
 				return nil, nil, nil, err
 			}
 			if baseline["subject_id"] == "job_contract" && len(factByKind["job_kind"]) == 0 {
@@ -1196,18 +1166,16 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 				resolutions[len(resolutions)-1].reason = "no_jobs"
 			}
 		}
-		documentPath := strings.SplitN(stringValue(ownerDocument["owner_document_ref"]), "#", 2)[0]
-		ownerRequirementIDs := []string{}
-		anchors, _ := objectArray(primaryManifest["anchors"], "primary owner anchors")
-		for _, anchor := range anchors {
-			if anchor["anchor_kind"] != "req" {
+		ownerRequirementIDs := []string{primaryOwnerRequirementID}
+		bindings, _ := objectArray(primaryManifest["bindings"], "primary owner bindings")
+		for _, binding := range bindings {
+			if binding["binding_kind"] != "requirement" {
 				continue
 			}
-			anchorID := stringValue(anchor["anchor_id"])
-			ownerRequirementIDs = append(ownerRequirementIDs, anchorID)
-			ref := documentPath + "#req:" + anchorID
-			for _, category := range anyToStrings(anchor["closure_categories"]) {
-				if err := addItem("owner_requirement", ref, category, nil, []string{ref}); err != nil {
+			requirementID := stringValue(binding["machine_id"])
+			ownerRequirementIDs = append(ownerRequirementIDs, requirementID)
+			for _, category := range anyToStrings(binding["closure_categories"]) {
+				if err := addItem("owner_requirement", requirementID, category, nil, []string{requirementID}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
@@ -1216,18 +1184,18 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 		if config == nil {
 			return nil, nil, nil, fmt.Errorf("profile %s has no configuration contract", profileID)
 		}
-		claimOwnerRef := stringValue(factByKind["claim_configuration"][0]["owner_contract_ref"])
+		claimRequirementID := stringValue(factByKind["claim_configuration"][0]["owner_requirement_id"])
 		for _, rawKey := range config["keys"].([]any) {
 			key := rawKey.(map[string]any)
 			for _, category := range []string{"defaults_omission_null", "scalar_collection_bounds", "security_secrets_egress"} {
-				if err := addItem("configuration_key", stringValue(key["key"]), category, nil, []string{claimOwnerRef}); err != nil {
+				if err := addItem("configuration_key", stringValue(key["key"]), category, nil, []string{claimRequirementID}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
 		}
 		for _, fact := range factByKind["public_schema"] {
 			for _, category := range []string{"request_response_schemas", "defaults_omission_null", "scalar_collection_bounds", "identity_canonicalization_ordering"} {
-				if err := addItem("public_schema", stringValue(fact["public_schema_id"]), category, nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+				if err := addItem("public_schema", stringValue(fact["public_schema_id"]), category, nil, []string{stringValue(fact["owner_requirement_id"])}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
@@ -1240,7 +1208,7 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 				return nil, nil, nil, fmt.Errorf("contribution kind %s has no closed closure mapping", kind)
 			}
 			for _, category := range anyToStrings(categories) {
-				if err := addItem("contribution", stringValue(contribution["contribution_id"]), category, nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+				if err := addItem("contribution", stringValue(contribution["contribution_id"]), category, nil, []string{stringValue(fact["owner_requirement_id"])}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
@@ -1253,20 +1221,20 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 				"errors_precedence_retry",
 				"resource_lifecycle_retention",
 			} {
-				if err := addItem("job_kind", stringValue(contract["job_kind"]), category, nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+				if err := addItem("job_kind", stringValue(contract["job_kind"]), category, nil, []string{stringValue(fact["owner_requirement_id"])}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
 		}
 		for _, fact := range factByKind["worker_kind"] {
-			if err := addItem("worker_kind", stringValue(fact["worker_kind"]), "jobs_reconciliation", nil, []string{stringValue(fact["owner_contract_ref"])}); err != nil {
+			if err := addItem("worker_kind", stringValue(fact["worker_kind"]), "jobs_reconciliation", nil, []string{stringValue(fact["owner_requirement_id"])}); err != nil {
 				return nil, nil, nil, err
 			}
 		}
 		stateFact := factByKind["state_ownership"][0]
 		if descriptor["state_ownership"].(map[string]any)["kind"] == "extension_versioned" {
 			for _, category := range []string{"state_migration", "defaults_omission_null", "scalar_collection_bounds", "security_secrets_egress"} {
-				if err := addItem("initialization", profileID+".state_initialization", category, nil, []string{stringValue(stateFact["owner_contract_ref"])}); err != nil {
+				if err := addItem("initialization", profileID+".state_initialization", category, nil, []string{stringValue(stateFact["owner_requirement_id"])}); err != nil {
 					return nil, nil, nil, err
 				}
 			}
@@ -1281,7 +1249,7 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 						categories = append(categories, "snapshot_reporting")
 					}
 					for _, category := range categories {
-						if err := addItem("state_family", familyID, category, nil, []string{stringValue(stateFact["owner_contract_ref"])}); err != nil {
+						if err := addItem("state_family", familyID, category, nil, []string{stringValue(stateFact["owner_requirement_id"])}); err != nil {
 							return nil, nil, nil, err
 						}
 					}
@@ -1291,14 +1259,14 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 			physicalRows, _ := objectArray(physical["bindings"], "physical bindings")
 			for _, row := range physicalRows {
 				codecID := stringValue(row["backup_codec_id"])
-				codecRef := stringValue(stateFact["owner_contract_ref"])
+				codecRequirementID := stringValue(stateFact["owner_requirement_id"])
 				for _, object := range indexed {
-					if object["schema_id"] == "cartulary.extension_backup_binding_codec.v1" && object["backup_codec_id"] == codecID {
-						codecRef = stringValue(object["codec_contract_ref"])
+					if object["schema_id"] == "cartulary.extension_backup_binding_codec.v2" && object["backup_codec_id"] == codecID {
+						codecRequirementID = stringValue(object["codec_requirement_id"])
 					}
 				}
 				for _, category := range []string{"backup_restore", "identity_canonicalization_ordering", "scalar_collection_bounds", "errors_precedence_retry"} {
-					if err := addItem("backup_codec", codecID, category, nil, []string{codecRef}); err != nil {
+					if err := addItem("backup_codec", codecID, category, nil, []string{codecRequirementID}); err != nil {
 						return nil, nil, nil, err
 					}
 				}
@@ -1306,7 +1274,7 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 		}
 		verificationIDs := []string{"module.extensions.verification.behavior_contract", "module.extensions.verification.contract_accounting"}
 		for _, verificationID := range verificationIDs {
-			if err := addItem("verification_contract", verificationID, "conformance_evidence", nil, []string{"docs/extension-subsystem-nlspec.md#req:EXT-REQ-165"}); err != nil {
+			if err := addItem("verification_contract", verificationID, "conformance_evidence", nil, []string{"EXT-REQ-165"}); err != nil {
 				return nil, nil, nil, err
 			}
 		}
@@ -1318,32 +1286,32 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 		})
 		items := make([]map[string]any, len(resolutions))
 		contractClosure := make([]map[string]any, len(resolutions))
-		ownerRefs := []string{}
+		requirementIDs := []string{}
 		for index, resolution := range resolutions {
 			items[index] = resolution.item
-			ownerRefs = append(ownerRefs, resolution.ownerRefs...)
+			requirementIDs = append(requirementIDs, resolution.requirementIDs...)
 			contractClosure[index] = map[string]any{
 				"closure_item_id":            resolution.item["closure_item_id"],
 				"category":                   resolution.item["category"],
 				"status":                     resolution.status,
-				"owner_contract_refs":        stringsToAny(resolution.ownerRefs),
+				"requirement_ids":            stringsToAny(resolution.requirementIDs),
 				"not_applicable_reason_code": resolution.reason,
 			}
 		}
 		catalog := map[string]any{
-			"schema_id":             "cartulary.extension_contract_closure_catalog.v1",
-			"profile_id":            profileID,
-			"contract_major":        contractMajor,
-			"owner_document_sha256": ownerDocument["owner_document_sha256"],
-			"items":                 objectsToAny(items),
+			"schema_id":                        "cartulary.extension_contract_closure_catalog.v2",
+			"profile_id":                       profileID,
+			"contract_major":                   contractMajor,
+			"owner_requirement_catalog_sha256": requirementCatalog["catalog_sha256"],
+			"items":                            objectsToAny(items),
 		}
 		catalogDigest, err := extensionCanonicalDigest(catalog)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		descriptorDigest, _ := extensionCanonicalDigest(descriptor)
-		ownerRefs = sortedUniqueStrings(ownerRefs)
-		ownerRequirementIDs = sortedUniqueStrings(ownerRequirementIDs)
+		requirementIDs = sortedUniqueStrings(requirementIDs)
+		ownerRequirementIDs = sortedUniqueStrings(append(ownerRequirementIDs, requirementIDs...))
 		acceptanceIDs := make([]string, 0, 158)
 		for value := 1; value <= 158; value++ {
 			acceptanceIDs = append(acceptanceIDs, fmt.Sprintf("EXT-AC-%03d", value))
@@ -1353,13 +1321,12 @@ func materializeExtensionConformance(indexed map[string]map[string]any, descript
 			contributionIDs = append(contributionIDs, stringValue(rawContribution.(map[string]any)["contribution_id"]))
 		}
 		manifest := map[string]any{
-			"schema_id":                       "cartulary.extension_conformance_manifest.v1",
+			"schema_id":                       "cartulary.extension_conformance_manifest.v2",
 			"conformance_manifest_id":         descriptor["conformance_manifest_id"],
 			"profile_id":                      profileID,
 			"contract_major":                  contractMajor,
 			"descriptor_sha256":               descriptorDigest,
 			"contract_closure_catalog_sha256": catalogDigest,
-			"owner_contract_refs":             stringsToAny(ownerRefs),
 			"requirement_ids":                 stringsToAny(ownerRequirementIDs),
 			"acceptance_criterion_ids":        stringsToAny(acceptanceIDs),
 			"verification_ids":                stringsToAny(verificationIDs),
@@ -1533,9 +1500,7 @@ func extensionHarnessSemanticDigests(root string) (string, string, error) {
 		verifications, _ := objectArray(contract["verifications"], contractPath+" verifications")
 		semanticVerifications := make([]map[string]any, len(verifications))
 		for index, verification := range verifications {
-			semantic := cloneObject(verification)
-			delete(semantic, "documentation_refs")
-			semanticVerifications[index] = semantic
+			semanticVerifications[index] = cloneObject(verification)
 		}
 		semanticVerificationOwners = append(semanticVerificationOwners, map[string]any{
 			"owner_id":      owner["owner_id"],
@@ -1569,9 +1534,7 @@ func extensionHarnessSemanticDigests(root string) (string, string, error) {
 		rows, _ := objectArray(manifest["rows"], manifestPath+" rows")
 		semanticRows := make([]map[string]any, len(rows))
 		for index, row := range rows {
-			semantic := cloneObject(row)
-			delete(semantic, "documentation_refs")
-			semanticRows[index] = semantic
+			semanticRows[index] = cloneObject(row)
 		}
 		semanticOwners = append(semanticOwners, map[string]any{
 			"owner_id":      owner["owner_id"],
@@ -1642,9 +1605,9 @@ func materializeRegistryIntegrity(root string, indexed map[string]map[string]any
 			return nil, err
 		}
 		switch object["schema_id"] {
-		case "cartulary.extension_owner_contract_manifest.v1":
+		case "cartulary.extension_owner_contract_manifest.v2":
 			manifestRows = append(manifestRows, map[string]any{"owner_contract_manifest_id": object["owner_contract_manifest_id"], "owner_contract_manifest_sha256": digest})
-		case "cartulary.extension_owner_fragment.v1":
+		case "cartulary.extension_owner_fragment.v2":
 			fragmentRows = append(fragmentRows, map[string]any{"owner_fragment_id": object["owner_fragment_id"], "owner_fragment_sha256": digest})
 		default:
 			if path == "dependencies.json" || strings.HasPrefix(path, "specification/") || strings.HasPrefix(path, "traceability/") || strings.HasPrefix(path, "validation/") || path == "build/implementation-bindings.json" {
@@ -1669,7 +1632,7 @@ func materializeRegistryIntegrity(root string, indexed map[string]map[string]any
 		if generatedRelative == "dependency-snapshot.json" ||
 			generatedRelative == "owner-input-registry.json" ||
 			generatedRelative == "profile-registry.json" ||
-			generatedRelative == "clause-traceability.json" ||
+			generatedRelative == "requirement-coverage.json" ||
 			strings.HasPrefix(generatedRelative, "descriptors/") ||
 			strings.HasPrefix(generatedRelative, "implementation-bindings/") {
 			continue
@@ -1685,7 +1648,7 @@ func materializeRegistryIntegrity(root string, indexed map[string]map[string]any
 	sortObjectRows(supportRows, "artifact_id")
 	sortObjectRows(generatedSchemaRows, "schema_id")
 	generatorSources := []map[string]any{}
-	for _, sourceRef := range []string{"tools/contractgen/extensions_generation.go", "tools/contractgen/extensions_traceability.go", "tools/contractgen/extensions_validation.go", "tools/contractgen/main.go", "tools/contractgen/validation.go"} {
+	for _, sourceRef := range []string{"tools/contractgen/extensions_generation.go", "tools/contractgen/extensions_validation.go", "tools/contractgen/main.go", "tools/contractgen/validation.go"} {
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(sourceRef)))
 		if err != nil {
 			return nil, err

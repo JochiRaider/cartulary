@@ -20,23 +20,19 @@ func TestReportCompositionTraceabilityAndFixtureCorpus(t *testing.T) {
 		if !strings.HasPrefix(id, "RC-FIX-") {
 			t.Fatalf("fixture corpus contains invalid fixture id %q", id)
 		}
-		if row.Status != "accepted" && row.Status != "future_only" {
+		if row.Status != "implemented" && row.Status != "planned" {
 			t.Fatalf("fixture %s has unsupported status %q", id, row.Status)
 		}
-		if row.Status == "future_only" && strings.TrimSpace(row.OwnerApproval) == "" {
-			t.Fatalf("future-only fixture %s must record owner approval", id)
-		}
-		if len(row.Evidence) == 0 {
-			t.Fatalf("fixture %s must list evidence selectors or inert traceability references", id)
+		if !reflect.DeepEqual(row.RequirementIDs, []string{id}) {
+			t.Fatalf("fixture %s requirement_ids = %v, want [%s]", id, row.RequirementIDs, id)
 		}
 	}
 }
 
 type reportCompositionFixtureRow struct {
-	ID            string   `json:"id"`
-	Status        string   `json:"status"`
-	OwnerApproval string   `json:"owner_approval"`
-	Evidence      []string `json:"evidence"`
+	ID             string   `json:"id"`
+	Status         string   `json:"status"`
+	RequirementIDs []string `json:"requirement_ids"`
 }
 
 func readReportCompositionFixtureCorpus(t testing.TB, root string) map[string]reportCompositionFixtureRow {
@@ -48,20 +44,16 @@ func readReportCompositionFixtureCorpus(t testing.TB, root string) map[string]re
 	var payload struct {
 		SchemaID    string                        `json:"schema_id"`
 		Owner       string                        `json:"owner"`
-		StatusVocab []string                      `json:"status_vocab"`
 		FixtureRows []reportCompositionFixtureRow `json:"fixture_rows"`
 	}
 	if err := json.Unmarshal(corpusBytes, &payload); err != nil {
 		t.Fatalf("decode report composition fixture corpus: %v", err)
 	}
-	if payload.SchemaID != "cartulary.report_composition_fixture_corpus.v1" {
+	if payload.SchemaID != "cartulary.report_composition_fixture_corpus.v2" {
 		t.Fatalf("unexpected fixture corpus schema_id %q", payload.SchemaID)
 	}
 	if payload.Owner != "reportcomposition" {
 		t.Fatalf("unexpected fixture corpus owner %q", payload.Owner)
-	}
-	if !reflect.DeepEqual(payload.StatusVocab, []string{"accepted", "future_only"}) {
-		t.Fatalf("unexpected fixture status vocabulary: %v", payload.StatusVocab)
 	}
 	rows := make(map[string]reportCompositionFixtureRow, len(payload.FixtureRows))
 	for _, row := range payload.FixtureRows {
@@ -94,7 +86,7 @@ func requireReportCompositionVerificationOwner(t testing.TB, root string) {
 	if err := json.Unmarshal(data, &contract); err != nil {
 		t.Fatalf("decode report-composition verification contract: %v", err)
 	}
-	if contract.SchemaID != "cartulary.verification_contract.v1" || contract.OwnerID != "module.reportcomposition" {
+	if contract.SchemaID != "cartulary.verification_contract.v2" || contract.OwnerID != "module.reportcomposition" {
 		t.Fatalf("unexpected report-composition verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
 	}
 	for _, verification := range contract.Verifications {

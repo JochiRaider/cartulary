@@ -1,32 +1,44 @@
 {
   "schema_id": "cartulary.generated_artifact_policy.v1",
-  "ignored_sentinel_filenames": [".gitkeep"],
+  "ignored_sentinel_filenames": [
+    ".gitkeep"
+  ],
   "generated_roots": [
     {
       "path": "internal/gen",
-      "allowed_extensions": [".go"],
+      "allowed_extensions": [
+        ".go"
+      ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
       "path": "packages/protocol-ts/src/generated",
-      "allowed_extensions": [".ts"],
+      "allowed_extensions": [
+        ".ts"
+      ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
       "path": "packages/ui-contracts/src/generated",
-      "allowed_extensions": [".ts"],
+      "allowed_extensions": [
+        ".ts"
+      ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "generated_files": [
     {
       "path": "tools/task_surface.generated.mk",
-      "allowed_extensions": [".mk"],
+      "allowed_extensions": [
+        ".mk"
+      ],
       "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
     },
     {
       "path": "tools/task_surface.runtime.generated.mk",
-      "allowed_extensions": [".mk"],
+      "allowed_extensions": [
+        ".mk"
+      ],
       "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
     }
   ],
@@ -96,55 +108,6 @@
       "required_restricted_paths": [
         "packages/protocol-ts/src/generated",
         "packages/ui-contracts/src/generated"
-      ]
-    },
-    "markdownlint": {
-      "path": ".markdownlint-cli2.jsonc",
-      "required_globs": [
-        "*.md",
-        "docs/*.md",
-        "docs/spec/**/*.md",
-        "docs/guides/**/*.md",
-        "docs/research/**/*.md",
-        "docs/user_guides/**/*.md",
-        "apps/web/public/assets/fonts/*.md"
-      ],
-      "required_ignores": [
-        "docs/archive/**",
-        "docs/testing-harness-spec-recovery-docs/**",
-        "internal/gen/**",
-        "packages/protocol-ts/src/generated/**",
-        "packages/ui-contracts/src/generated/**"
-      ],
-      "forbidden_globs": [
-        "docs/testing/**/*.md",
-        "docs/archive/**/*.md",
-        "docs/testing-harness-spec-recovery-docs/**/*.md",
-        "internal/gen/**/*.md",
-        "packages/protocol-ts/src/generated/**/*.md",
-        "packages/ui-contracts/src/generated/**/*.md"
-      ],
-      "required_rules": [
-        "MD001",
-        "MD009",
-        "MD010",
-        "MD011",
-        "MD018",
-        "MD019",
-        "MD020",
-        "MD021",
-        "MD023",
-        "MD024",
-        "MD040",
-        "MD042",
-        "MD047",
-        "MD051",
-        "MD052",
-        "MD053",
-        "MD056"
-      ],
-      "disabled_rules": [
-        "MD013"
       ]
     }
   }

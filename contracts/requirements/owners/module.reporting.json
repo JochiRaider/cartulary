@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.reporting",
+  "requirements": [
+    {
+      "requirement_id": "module.reporting.requirement.behavior_contract",
+      "statement": "snapshot reporting postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "module.reporting.requirement.fixture_corpus",
+      "statement": "The reporting fixture corpus covers current snapshot, render, redaction, deterministic output, and release-admission behavior.",
+      "status": "active"
+    }
+  ]
+}

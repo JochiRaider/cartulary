@@ -3,9 +3,10 @@ import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
 import { parseStrictJSON, semanticJSONDigest } from "./semantic-json.mjs";
+import { loadRequirements } from "./requirements.mjs";
 
-const registrySchemaID = "cartulary.verification_registry.v1";
-const contractSchemaID = "cartulary.verification_contract.v1";
+const registrySchemaID = "cartulary.verification_registry.v2";
+const contractSchemaID = "cartulary.verification_contract.v2";
 const registryPath = "contracts/verification/registry.json";
 const contractRootPath = "contracts/verification/owners";
 
@@ -70,17 +71,6 @@ function validateProfile(verification, label) {
   }
 }
 
-function semanticContract(contract) {
-  return {
-    schema_id: contract.schema_id,
-    owner_id: contract.owner_id,
-    verifications: contract.verifications.map((verification) => {
-      const { documentation_refs: _documentationRefs, ...semantic } = verification;
-      return semantic;
-    }),
-  };
-}
-
 export function loadVerificationContracts(root) {
   const registryFile = path.join(root, registryPath);
   const registry = readJSON(registryFile);
@@ -91,8 +81,10 @@ export function loadVerificationContracts(root) {
   assertSortedUnique(ownerIDs, `${registryPath}.owners.owner_id`);
   assertSortedUnique(contractPaths, `${registryPath}.owners.contract_path`);
 
+  const requirements = loadRequirements(root);
   const contracts = [];
   const verificationByID = new Map();
+  const verificationIDsByRequirementID = new Map();
   for (const owner of registry.owners) {
     const file = assertContainedRegularFile(
       root,
@@ -120,7 +112,21 @@ export function loadVerificationContracts(root) {
         throw new Error(`${label}.verification_id must be owner-qualified`);
       }
       assertSortedUnique(verification.evidence_kinds, `${label}.evidence_kinds`);
+      assertSortedUnique(verification.requirement_ids, `${label}.requirement_ids`);
       validateProfile(verification, label);
+      for (const requirementID of verification.requirement_ids) {
+        const resolvedRequirement = requirements.requirementByID.get(requirementID);
+        if (!resolvedRequirement) {
+          throw new Error(`${label}.requirement_ids references unknown ${requirementID}`);
+        }
+        if (resolvedRequirement.requirement.status !== "active") {
+          throw new Error(`${label}.requirement_ids references planned ${requirementID}`);
+        }
+        const verificationIDs =
+          verificationIDsByRequirementID.get(requirementID) ?? new Set();
+        verificationIDs.add(verification.verification_id);
+        verificationIDsByRequirementID.set(requirementID, verificationIDs);
+      }
       if (verificationByID.has(verification.verification_id)) {
         throw new Error(
           `duplicate verification_id ${verification.verification_id}`,
@@ -141,13 +147,24 @@ export function loadVerificationContracts(root) {
       owner_id: owner.owner_id,
       contract_path: owner.contract_path,
       status: owner.status,
-      contract: semanticContract(contracts[index]),
+      contract: contracts[index],
     })),
+    requirement_catalog_semantic_digest: requirements.semantic_digest,
   });
+  for (const [requirementID, resolved] of requirements.requirementByID) {
+    if (
+      resolved.requirement.status === "active" &&
+      !verificationIDsByRequirementID.has(requirementID)
+    ) {
+      throw new Error(`active requirement ${requirementID} has no verification`);
+    }
+  }
   return {
     registry,
     contracts,
     verificationByID,
+    verificationIDsByRequirementID,
+    requirements,
     semantic_digest: semanticDigest,
   };
 }

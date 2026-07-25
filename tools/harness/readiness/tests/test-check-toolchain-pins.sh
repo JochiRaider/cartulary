@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Single-quoted literals below intentionally assert text containing shell/Markdown metacharacters.
-# shellcheck disable=SC2016
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
@@ -74,8 +72,6 @@ copy_minimal_repo() {
     ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"
   fi
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
-  cp "${ROOT_DIR}/README.md" "${dest}/README.md"
-  cp "${ROOT_DIR}/AGENTS.md" "${dest}/AGENTS.md"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface.runtime.generated.mk" "${dest}/tools/task_surface.runtime.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
@@ -225,16 +221,10 @@ testcontainers_go_version="$(pin_value testcontainers_go_version)"
 testcontainers_go_version_alt="$(bump_dotted_version "$testcontainers_go_version")"
 staticcheck_tool="$(pin_value tools.staticcheck)"
 staticcheck_tool_alt="$(bump_tool_spec "$staticcheck_tool")"
-staticcheck_version="${staticcheck_tool##*@}"
-staticcheck_version_alt="${staticcheck_tool_alt##*@}"
 govulncheck_tool="$(pin_value tools.govulncheck)"
 govulncheck_tool_alt="$(bump_tool_spec "$govulncheck_tool")"
-govulncheck_version="${govulncheck_tool##*@}"
-govulncheck_version_alt="${govulncheck_tool_alt##*@}"
 gosec_tool="$(pin_value tools.gosec)"
 gosec_tool_alt="$(bump_tool_spec "$gosec_tool")"
-gosec_version="${gosec_tool##*@}"
-gosec_version_alt="${gosec_tool_alt##*@}"
 shellcheck_version="$(pin_value shellcheck_version)"
 shellcheck_version_alt="$(bump_dotted_version "$shellcheck_version")"
 
@@ -271,39 +261,8 @@ mutate_shellcheck_version() {
 }
 
 mutate_bootstrap_shellcheck_version() {
+  # shellcheck disable=SC2016
   replace_text "$1/tools/harness/readiness/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
-}
-
-mutate_readme_node() {
-  replace_text "$1/README.md" "- Node.js \`$node_version\`" "- Node.js \`$node_version_alt\`"
-}
-
-mutate_readme_staticcheck() {
-  replace_text "$1/README.md" "- Staticcheck \`$staticcheck_version\`" "- Staticcheck \`$staticcheck_version_alt\`"
-}
-
-mutate_readme_govulncheck() {
-  replace_text "$1/README.md" "- Govulncheck \`$govulncheck_version\`" "- Govulncheck \`$govulncheck_version_alt\`"
-}
-
-mutate_readme_gosec() {
-  replace_text "$1/README.md" "- Gosec \`$gosec_version\`" "- Gosec \`$gosec_version_alt\`"
-}
-
-mutate_readme_shellcheck() {
-  replace_text "$1/README.md" "- ShellCheck \`$shellcheck_version\`" "- ShellCheck \`$shellcheck_version_alt\`"
-}
-
-mutate_agents_govulncheck() {
-  replace_text "$1/AGENTS.md" "$govulncheck_tool" "$govulncheck_tool_alt"
-}
-
-mutate_agents_gosec() {
-  replace_text "$1/AGENTS.md" "$gosec_tool" "$gosec_tool_alt"
-}
-
-mutate_agents_shellcheck() {
-  replace_text "$1/AGENTS.md" "ShellCheck \`$shellcheck_version\`" "ShellCheck \`$shellcheck_version_alt\`"
 }
 
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
@@ -344,38 +303,6 @@ expect_drift "shellcheck-version" \
 expect_drift "bootstrap-shellcheck-version" \
   "tools/harness/readiness/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
   mutate_bootstrap_shellcheck_version
-
-expect_drift "readme-node" \
-  "README.md: Node.js pin line mismatch: expected - Node.js \`$node_version\`, got - Node.js \`$node_version_alt\`" \
-  mutate_readme_node
-
-expect_drift "readme-staticcheck" \
-  "README.md: Staticcheck pin line mismatch: expected - Staticcheck \`$staticcheck_version\`, got - Staticcheck \`$staticcheck_version_alt\`" \
-  mutate_readme_staticcheck
-
-expect_drift "readme-govulncheck" \
-  "README.md: Govulncheck pin line mismatch: expected - Govulncheck \`$govulncheck_version\`, got - Govulncheck \`$govulncheck_version_alt\`" \
-  mutate_readme_govulncheck
-
-expect_drift "readme-gosec" \
-  "README.md: Gosec pin line mismatch: expected - Gosec \`$gosec_version\`, got - Gosec \`$gosec_version_alt\`" \
-  mutate_readme_gosec
-
-expect_drift "readme-shellcheck" \
-  "README.md: ShellCheck pin line mismatch: expected - ShellCheck \`$shellcheck_version\`, got - ShellCheck \`$shellcheck_version_alt\`" \
-  mutate_readme_shellcheck
-
-expect_drift "agents-govulncheck" \
-  "AGENTS.md: Pinned bootstrap tools line mismatch" \
-  mutate_agents_govulncheck
-
-expect_drift "agents-gosec" \
-  "AGENTS.md: Pinned bootstrap tools line mismatch" \
-  mutate_agents_gosec
-
-expect_drift "agents-shellcheck" \
-  "AGENTS.md: Pinned bootstrap tools line mismatch" \
-  mutate_agents_shellcheck
 
 preflight_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight.XXXXXX")"
 preflight_results_root="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight-results.XXXXXX")"

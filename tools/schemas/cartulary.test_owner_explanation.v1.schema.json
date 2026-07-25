@@ -6,8 +6,8 @@
   "required": ["schema_id", "owner_id", "manifest_path", "catalog_semantic_digest", "verification_semantic_digest", "row_count", "service_backed_row_count", "families", "runner_counts", "evidence_counts", "runtime_profile_counts", "resource_profile_counts", "fixture_profile_counts", "target_counts", "default_check", "commands"],
   "properties": {
     "schema_id": { "const": "cartulary.test_owner_explanation.v1" },
-    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
-    "manifest_path": { "$ref": "cartulary.test_family_manifest.v1#/$defs/repo_path" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id" },
+    "manifest_path": { "$ref": "cartulary.test_family_manifest.v2#/$defs/repo_path" },
     "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "verification_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "row_count": { "type": "integer", "minimum": 1 },
@@ -20,7 +20,7 @@
         "additionalProperties": false,
         "required": ["family_id", "row_count"],
         "properties": {
-          "family_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/family_id" },
+          "family_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/family_id" },
           "row_count": { "type": "integer", "minimum": 1 }
         }
       }

@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "opentelemetry",
+  "requirements": [
+    {
+      "requirement_id": "opentelemetry.requirement.extension_contract",
+      "statement": "OpenTelemetry extension integration is represented by machine-readable contracts.",
+      "contract_ids": [
+        "cartulary.opentelemetry_instrumentation.current.v1"
+      ],
+      "status": "planned"
+    }
+  ]
+}

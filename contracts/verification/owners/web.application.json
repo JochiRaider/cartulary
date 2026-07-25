@@ -1,14 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "web.application",
   "verifications": [
     {
       "verification_id": "web.application.verification.frontend_regression",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "The web application shell, route state, service clients, shared import coordination, and administration surfaces preserve supported product behavior.",
-      "evidence_kinds": ["vitest"],
-      "status": "active"
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "web.application.requirement.frontend_regression"
+      ]
     }
   ]
 }

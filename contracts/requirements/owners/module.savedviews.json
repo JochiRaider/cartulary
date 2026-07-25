@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.savedviews",
+  "requirements": [
+    {
+      "requirement_id": "module.savedviews.requirement.behavior_contract",
+      "statement": "module.savedviews frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    }
+  ]
+}

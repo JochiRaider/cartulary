@@ -1,16 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.crossownertransaction",
   "verifications": [
     {
       "verification_id": "module.crossownertransaction.verification.final_commit_protocol",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "cross-owner mutations use one bounded, ordered, cancellation-aware final transaction with typed capabilities and closed commit outcomes.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.crossownertransaction.requirement.final_commit_protocol"
+      ]
     }
   ]
 }

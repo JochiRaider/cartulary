@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "web.collaboration",
+  "requirements": [
+    {
+      "requirement_id": "web.collaboration.requirement.session_regression",
+      "statement": "Frontend collaboration sessions preserve supported connection, lifecycle, reconciliation, and failure behavior.",
+      "status": "active"
+    }
+  ]
+}

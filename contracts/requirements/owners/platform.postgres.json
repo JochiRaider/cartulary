@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.postgres",
+  "requirements": [
+    {
+      "requirement_id": "platform.postgres.requirement.behavior_contract",
+      "statement": "PostgreSQL bootstrap, migrations, and fixture boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.postgres.requirement.migration_mechanics",
+      "statement": "PostgreSQL migration and fixture mechanics preserve safe transactional and scratch-database isolation for owning modules.",
+      "status": "active"
+    }
+  ]
+}

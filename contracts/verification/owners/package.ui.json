@@ -1,37 +1,43 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "package.ui",
   "verifications": [
     {
       "verification_id": "package.ui.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "package.ui frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "package.ui.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "package.ui.verification.machine_owned_tokens",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "Frontend design tokens are machine-owned, schema-validated, generated reproducibly, and consumed without runtime documentation parsing.",
       "evidence_kinds": [
         "static_check"
       ],
       "public_target": "generate-drift",
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "package.ui.requirement.machine_owned_tokens"
+      ]
     },
     {
       "verification_id": "package.ui.verification.shared_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "Shared UI contracts preserve generated token, selector, and presentation helper behavior without delivery-phase aliases.",
       "evidence_kinds": [
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "package.ui.requirement.shared_contract"
+      ]
     }
   ]
 }

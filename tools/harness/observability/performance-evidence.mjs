@@ -655,7 +655,6 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
         ["frontend-import-boundary-check", [], "small_check"],
         ["backend-module-boundary-check", [], "small_check"],
         ["lint-scripts", [], "script"],
-        ["lint-markdown", [], "script"],
         ["lint-shell", [], "script"],
         ["frontend-typecheck", [], "cpu_analysis"],
       ],

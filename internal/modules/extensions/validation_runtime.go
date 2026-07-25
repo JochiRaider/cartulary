@@ -15,16 +15,16 @@ const (
 )
 
 type ValidationCondition struct {
-	ConditionID       string
-	Phase             string
-	ConditionClass    string
-	PathAlgorithmID   string
-	ReasonCode        string
-	ExpectedFormatter string
-	ActualFormatter   string
-	Multiplicity      string
-	SecretPolicy      string
-	OwnerContractRef  string
+	ConditionID        string
+	Phase              string
+	ConditionClass     string
+	PathAlgorithmID    string
+	ReasonCode         string
+	ExpectedFormatter  string
+	ActualFormatter    string
+	Multiplicity       string
+	SecretPolicy       string
+	OwnerRequirementID string
 }
 
 type OwnerFinding struct {
@@ -136,7 +136,7 @@ func normalizeOwnerFinding(raw any) (OwnerFinding, bool) {
 }
 
 func parseValidationConditions(registry map[string]any) (map[string]ValidationCondition, error) {
-	if registry["schema_id"] != "cartulary.extension_validation_condition_registry.v1" {
+	if registry["schema_id"] != "cartulary.extension_validation_condition_registry.v2" {
 		return nil, errors.New("unexpected schema_id")
 	}
 	rows, ok := objectSlice(registry["conditions"])
@@ -147,16 +147,16 @@ func parseValidationConditions(registry map[string]any) (map[string]ValidationCo
 	previous := ""
 	for _, row := range rows {
 		condition := ValidationCondition{
-			ConditionID:       stringValue(row["condition_id"]),
-			Phase:             stringValue(row["phase"]),
-			ConditionClass:    stringValue(row["condition_class"]),
-			PathAlgorithmID:   stringValue(row["path_algorithm_id"]),
-			ReasonCode:        stringValue(row["reason_code"]),
-			ExpectedFormatter: stringValue(row["expected_formatter_id"]),
-			ActualFormatter:   stringValue(row["actual_formatter_id"]),
-			Multiplicity:      stringValue(row["multiplicity"]),
-			SecretPolicy:      stringValue(row["secret_policy"]),
-			OwnerContractRef:  stringValue(row["owner_contract_ref"]),
+			ConditionID:        stringValue(row["condition_id"]),
+			Phase:              stringValue(row["phase"]),
+			ConditionClass:     stringValue(row["condition_class"]),
+			PathAlgorithmID:    stringValue(row["path_algorithm_id"]),
+			ReasonCode:         stringValue(row["reason_code"]),
+			ExpectedFormatter:  stringValue(row["expected_formatter_id"]),
+			ActualFormatter:    stringValue(row["actual_formatter_id"]),
+			Multiplicity:       stringValue(row["multiplicity"]),
+			SecretPolicy:       stringValue(row["secret_policy"]),
+			OwnerRequirementID: stringValue(row["owner_requirement_id"]),
 		}
 		orderKey := condition.ConditionID
 		if orderKey == "" || orderKey <= previous {

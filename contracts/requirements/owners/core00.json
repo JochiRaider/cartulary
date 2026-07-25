@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "core00",
+  "requirements": [
+    {
+      "requirement_id": "REQ-00-065",
+      "statement": "Machine requirement REQ-00-065 imported by repository contracts.",
+      "status": "planned"
+    }
+  ]
+}

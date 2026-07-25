@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "harness.generated_artifacts",
+  "requirements": [
+    {
+      "requirement_id": "harness.generated_artifacts.requirement.behavior_contract",
+      "statement": "harness.generated_artifacts frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "harness.generated_artifacts.requirement.schema_attachment_closure",
+      "statement": "Every current machine schema is registered once by the authored attachment owner and generated artifacts are reproduced only from authored inputs.",
+      "status": "active"
+    }
+  ]
+}

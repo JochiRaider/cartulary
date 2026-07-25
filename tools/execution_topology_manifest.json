@@ -3,13 +3,19 @@
   "runtime_profiles": [
     {
       "id": "default",
-      "managed_service_ids": ["object_store", "postgres"],
+      "managed_service_ids": [
+        "object_store",
+        "postgres"
+      ],
       "browser_capable": true,
       "startup_contract": "ordinary_unclaimed_configuration"
     },
     {
       "id": "network_flow_claimed",
-      "managed_service_ids": ["object_store", "postgres"],
+      "managed_service_ids": [
+        "object_store",
+        "postgres"
+      ],
       "browser_capable": true,
       "startup_contract": "network_flow_claimed_configuration"
     },
@@ -23,31 +29,63 @@
   "resource_profiles": [
     {
       "id": "browser_exclusive",
-      "resource_claims": { "browser_stack": 1, "process": 1 }
+      "resource_claims": {
+        "browser_stack": 1,
+        "process": 1
+      }
     },
     {
       "id": "go_balanced",
-      "resource_claims": { "go_cpu": 1, "go_io": 1, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "process": 1
+      }
     },
     {
       "id": "go_clone_heavy",
-      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "postgres_clone": 1, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "postgres": 1,
+        "postgres_clone": 1,
+        "process": 1
+      }
     },
     {
       "id": "go_cpu_heavy",
-      "resource_claims": { "go_cpu": 2, "go_io": 1, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 2,
+        "go_io": 1,
+        "process": 1
+      }
     },
     {
       "id": "go_io_heavy",
-      "resource_claims": { "go_cpu": 1, "go_io": 2, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 2,
+        "process": 1
+      }
     },
     {
       "id": "go_reset_heavy",
-      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "postgres_reset": 1, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "postgres": 1,
+        "postgres_reset": 1,
+        "process": 1
+      }
     },
     {
       "id": "go_transaction_heavy",
-      "resource_claims": { "go_cpu": 1, "go_io": 1, "postgres": 1, "process": 1 }
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "postgres": 1,
+        "process": 1
+      }
     },
     {
       "id": "none",
@@ -65,43 +103,57 @@
       "id": "object_store_isolated",
       "fixture_kind": "object_store",
       "isolation_scope": "row",
-      "budget": { "max_buckets_or_prefixes": 1 }
+      "budget": {
+        "max_buckets_or_prefixes": 1
+      }
     },
     {
       "id": "postgres_group_clone",
       "fixture_kind": "postgres",
       "isolation_scope": "execution_group",
-      "budget": { "max_group_clones": 1 }
+      "budget": {
+        "max_group_clones": 1
+      }
     },
     {
       "id": "postgres_migration_scratch",
       "fixture_kind": "postgres",
       "isolation_scope": "row",
-      "budget": { "max_migration_scratch": 2 }
+      "budget": {
+        "max_migration_scratch": 2
+      }
     },
     {
       "id": "postgres_package_reset",
       "fixture_kind": "postgres",
       "isolation_scope": "package",
-      "budget": { "max_resets": 4 }
+      "budget": {
+        "max_resets": 4
+      }
     },
     {
       "id": "postgres_template_clone",
       "fixture_kind": "postgres",
       "isolation_scope": "package",
-      "budget": { "max_template_clones": 20 }
+      "budget": {
+        "max_template_clones": 20
+      }
     },
     {
       "id": "postgres_transaction",
       "fixture_kind": "postgres",
       "isolation_scope": "row",
-      "budget": { "max_transactions": 32 }
+      "budget": {
+        "max_transactions": 32
+      }
     },
     {
       "id": "service_stack",
       "fixture_kind": "managed_services",
       "isolation_scope": "execution_group",
-      "budget": { "max_stacks": 1 }
+      "budget": {
+        "max_stacks": 1
+      }
     }
   ],
   "generated_outputs": {
@@ -144,45 +196,85 @@
   ],
   "sequence_resource_profiles": {
     "small_check": {
-      "resource_claims": { "host_cpu": 1, "host_io": 1, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 1,
+        "host_io": 1,
+        "process": 1
+      },
       "make_jobs": 1
     },
     "script": {
-      "resource_claims": { "host_cpu": 2, "host_io": 2, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 2,
+        "host_io": 2,
+        "process": 1
+      },
       "make_jobs": "host_cpu"
     },
     "cpu_analysis": {
-      "resource_claims": { "host_cpu": 4, "host_io": 1, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 4,
+        "host_io": 1,
+        "process": 1
+      },
       "make_jobs": "host_cpu"
     },
     "security_analysis": {
-      "resource_claims": { "host_cpu": "limit", "host_io": 1, "process": 1 },
+      "resource_claims": {
+        "host_cpu": "limit",
+        "host_io": 1,
+        "process": 1
+      },
       "make_jobs": "host_cpu"
     },
     "artifact_generation": {
-      "resource_claims": { "host_cpu": 2, "host_io": 4, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 2,
+        "host_io": 4,
+        "process": 1
+      },
       "make_jobs": "host_cpu"
     },
     "build": {
-      "resource_claims": { "host_cpu": 6, "host_io": 3, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 6,
+        "host_io": 3,
+        "process": 1
+      },
       "make_jobs": "host_cpu"
     },
     "service_validation": {
-      "resource_claims": { "host_cpu": 2, "host_io": 4, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 2,
+        "host_io": 4,
+        "process": 1
+      },
       "make_jobs": 1
     },
     "nested_check": {
-      "resource_claims": { "host_cpu": "limit", "host_io": "limit", "process": 1 },
+      "resource_claims": {
+        "host_cpu": "limit",
+        "host_io": "limit",
+        "process": 1
+      },
       "make_jobs": 1,
       "forwarding": "sequence_to_check"
     },
     "nested_service_validation": {
-      "resource_claims": { "host_cpu": 2, "host_io": 4, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 2,
+        "host_io": 4,
+        "process": 1
+      },
       "make_jobs": 1,
       "forwarding": "sequence_to_service_backed"
     },
     "nested_browser_validation": {
-      "resource_claims": { "host_cpu": 4, "host_io": 4, "process": 1 },
+      "resource_claims": {
+        "host_cpu": 4,
+        "host_io": 4,
+        "process": 1
+      },
       "make_jobs": 1,
       "forwarding": "sequence_to_service_backed"
     }
@@ -192,20 +284,56 @@
       "target": "test-fast",
       "execution_mode": "serial",
       "max_jobs": 1,
-      "resource_limits": { "process": 1 },
+      "resource_limits": {
+        "process": 1
+      },
       "steps": [
-        { "target": "test-local", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "test-fast-service-backed", "needs": ["test-local"], "resource_claims": { "process": 1 }, "priority": 0 }
+        {
+          "target": "test-local",
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
+        },
+        {
+          "target": "test-fast-service-backed",
+          "needs": [
+            "test-local"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
+        }
       ]
     },
     {
       "target": "test",
       "execution_mode": "serial",
       "max_jobs": 1,
-      "resource_limits": { "process": 1 },
+      "resource_limits": {
+        "process": 1
+      },
       "steps": [
-        { "target": "test-local", "needs": [], "resource_claims": { "process": 1 }, "priority": 0 },
-        { "target": "test-service-backed", "needs": ["test-local"], "resource_claims": { "process": 1 }, "priority": 0 }
+        {
+          "target": "test-local",
+          "needs": [],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
+        },
+        {
+          "target": "test-service-backed",
+          "needs": [
+            "test-local"
+          ],
+          "resource_claims": {
+            "process": 1
+          },
+          "priority": 0
+        }
       ]
     },
     {
@@ -214,14 +342,48 @@
       "max_jobs": 8,
       "capacity_profile": "sequence_adaptive",
       "steps": [
-        { "target": "lint-go", "needs": [], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "lint-biome", "needs": [], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "frontend-import-boundary-check", "needs": [], "profile": "small_check", "priority": 0 },
-        { "target": "backend-module-boundary-check", "needs": [], "profile": "small_check", "priority": 0 },
-        { "target": "lint-scripts", "needs": [], "profile": "script", "priority": 0 },
-        { "target": "lint-markdown", "needs": [], "profile": "script", "priority": 0 },
-        { "target": "lint-shell", "needs": [], "profile": "script", "priority": 0 },
-        { "target": "frontend-typecheck", "needs": [], "profile": "cpu_analysis", "priority": 0 }
+        {
+          "target": "lint-go",
+          "needs": [],
+          "profile": "cpu_analysis",
+          "priority": 0
+        },
+        {
+          "target": "lint-biome",
+          "needs": [],
+          "profile": "cpu_analysis",
+          "priority": 0
+        },
+        {
+          "target": "frontend-import-boundary-check",
+          "needs": [],
+          "profile": "small_check",
+          "priority": 0
+        },
+        {
+          "target": "backend-module-boundary-check",
+          "needs": [],
+          "profile": "small_check",
+          "priority": 0
+        },
+        {
+          "target": "lint-scripts",
+          "needs": [],
+          "profile": "script",
+          "priority": 0
+        },
+        {
+          "target": "lint-shell",
+          "needs": [],
+          "profile": "script",
+          "priority": 0
+        },
+        {
+          "target": "frontend-typecheck",
+          "needs": [],
+          "profile": "cpu_analysis",
+          "priority": 0
+        }
       ]
     },
     {
@@ -230,11 +392,44 @@
       "max_jobs": 8,
       "capacity_profile": "sequence_adaptive",
       "steps": [
-        { "target": "check", "needs": [], "profile": "nested_check", "priority": 100 },
-        { "target": "harness-contract", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "profile": "security_analysis", "priority": 0 },
-        { "target": "deployable-shape", "needs": ["check"], "profile": "small_check", "priority": 0 },
-        { "target": "duration-baseline-drift-suite", "needs": ["check"], "profile": "artifact_generation", "priority": 0 }
+        {
+          "target": "check",
+          "needs": [],
+          "profile": "nested_check",
+          "priority": 100
+        },
+        {
+          "target": "harness-contract",
+          "needs": [
+            "check"
+          ],
+          "profile": "cpu_analysis",
+          "priority": 0
+        },
+        {
+          "target": "go-gosec-audit",
+          "needs": [
+            "check"
+          ],
+          "profile": "security_analysis",
+          "priority": 0
+        },
+        {
+          "target": "deployable-shape",
+          "needs": [
+            "check"
+          ],
+          "profile": "small_check",
+          "priority": 0
+        },
+        {
+          "target": "duration-baseline-drift-suite",
+          "needs": [
+            "check"
+          ],
+          "profile": "artifact_generation",
+          "priority": 0
+        }
       ]
     },
     {
@@ -243,18 +438,112 @@
       "max_jobs": 8,
       "capacity_profile": "sequence_adaptive",
       "steps": [
-        { "target": "check", "needs": [], "profile": "nested_check", "priority": 100 },
-        { "target": "harness-contract", "needs": ["check"], "profile": "cpu_analysis", "priority": 0 },
-        { "target": "go-gosec-audit", "needs": ["check"], "profile": "security_analysis", "priority": 0 },
-        { "target": "license-report", "needs": ["check"], "profile": "artifact_generation", "priority": 0 },
-        { "target": "sbom", "needs": ["license-report"], "profile": "artifact_generation", "priority": 0 },
-        { "target": "seaweedfs-compatibility", "needs": ["check"], "profile": "service_validation", "priority": 0 },
-        { "target": "seaweedfs-migration-preservation", "needs": ["check"], "profile": "service_validation", "priority": 0 },
-        { "target": "seaweedfs-release-gate", "needs": ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "profile": "small_check", "priority": 0 },
-        { "target": "build", "needs": ["check"], "profile": "build", "priority": 0 },
-        { "target": "deployable-shape", "needs": ["build"], "profile": "small_check", "priority": 0 },
-        { "target": "release-browser-readiness", "needs": ["check"], "profile": "nested_browser_validation", "priority": 0 },
-        { "target": "release-readiness-evidence", "needs": ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-migration-preservation", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "profile": "small_check", "priority": 0 }
+        {
+          "target": "check",
+          "needs": [],
+          "profile": "nested_check",
+          "priority": 100
+        },
+        {
+          "target": "harness-contract",
+          "needs": [
+            "check"
+          ],
+          "profile": "cpu_analysis",
+          "priority": 0
+        },
+        {
+          "target": "go-gosec-audit",
+          "needs": [
+            "check"
+          ],
+          "profile": "security_analysis",
+          "priority": 0
+        },
+        {
+          "target": "license-report",
+          "needs": [
+            "check"
+          ],
+          "profile": "artifact_generation",
+          "priority": 0
+        },
+        {
+          "target": "sbom",
+          "needs": [
+            "license-report"
+          ],
+          "profile": "artifact_generation",
+          "priority": 0
+        },
+        {
+          "target": "seaweedfs-compatibility",
+          "needs": [
+            "check"
+          ],
+          "profile": "service_validation",
+          "priority": 0
+        },
+        {
+          "target": "seaweedfs-migration-preservation",
+          "needs": [
+            "check"
+          ],
+          "profile": "service_validation",
+          "priority": 0
+        },
+        {
+          "target": "seaweedfs-release-gate",
+          "needs": [
+            "seaweedfs-compatibility",
+            "seaweedfs-migration-preservation",
+            "license-report",
+            "sbom"
+          ],
+          "profile": "small_check",
+          "priority": 0
+        },
+        {
+          "target": "build",
+          "needs": [
+            "check"
+          ],
+          "profile": "build",
+          "priority": 0
+        },
+        {
+          "target": "deployable-shape",
+          "needs": [
+            "build"
+          ],
+          "profile": "small_check",
+          "priority": 0
+        },
+        {
+          "target": "release-browser-readiness",
+          "needs": [
+            "check"
+          ],
+          "profile": "nested_browser_validation",
+          "priority": 0
+        },
+        {
+          "target": "release-readiness-evidence",
+          "needs": [
+            "harness-contract",
+            "go-gosec-audit",
+            "license-report",
+            "sbom",
+            "seaweedfs-compatibility",
+            "seaweedfs-migration-preservation",
+            "seaweedfs-release-gate",
+            "build",
+            "deployable-shape",
+            "release-browser-readiness"
+          ],
+          "profile": "small_check",
+          "priority": 0
+        }
       ]
     }
   ],
@@ -427,11 +716,15 @@
     "family_runtime_binaries": [
       {
         "family_id": "app.server.process",
-        "runtime_binary_ids": ["server-harness"]
+        "runtime_binary_ids": [
+          "server-harness"
+        ]
       },
       {
         "family_id": "module.recovery.process",
-        "runtime_binary_ids": ["operator"]
+        "runtime_binary_ids": [
+          "operator"
+        ]
       }
     ],
     "raw_go_aggregates": [
@@ -934,18 +1227,6 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "lint-markdown": {
-        "schedules": [
-          "check"
-        ],
-        "profile": "after_setup_cpu_io",
-        "priority_band": "static_validation",
-        "order": 125,
-        "needs": [
-          "check-frontend-install"
-        ],
-        "make_prerequisite_policy": "skip"
-      },
       "lint-shell": {
         "schedules": [
           "check"
@@ -1249,10 +1530,10 @@
       },
       {
         "target": "release-browser-readiness",
-      "capacity_profile": "service_backed_full",
-      "resource_limits": {
-        "browser_stack": 2
-      },
+        "capacity_profile": "service_backed_full",
+        "resource_limits": {
+          "browser_stack": 2
+        },
         "selectors": {
           "backend": {
             "enabled": false

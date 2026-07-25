@@ -211,7 +211,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make otel-conformance               run OpenTelemetry source, boundary, and golden-path conformance checks' \
 	'  make frontend-typecheck             run TypeScript type checking' \
 	'  make frontend-unit                  run the frontend unit suite' \
-	'  make lint                           run backend, frontend, script, Markdown, and shell lint/type checks' \
+	'  make lint                           run backend, frontend, script, and shell lint/type checks' \
 	'  make lint-biome                     run authored frontend Biome checks' \
 	'  make frontend-import-boundary-check enforce frontend import ownership boundaries' \
 	'  make backend-module-boundary-check  enforce backend module ownership boundaries' \
@@ -808,13 +808,11 @@ lint-scripts:
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint scripts" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/scripts-biome.sh $(BIOME_SCRIPT_CHECK_FLAGS); status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,lint-scripts,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,lint-scripts,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
 lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-markdown: export CARTULARY_TEST_TARGET ?= lint-markdown
 lint-markdown:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-markdown)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/markdownlint.sh; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,lint-markdown,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,lint-markdown,fail); summary_status=$$?; fi; if [ "$$summary_status" \
-	  -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
+	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/harness/static-analysis/markdownlint.sh
 
 harness-contract-tests: export CARTULARY_TEST_TARGET ?= harness-contract-tests
 harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

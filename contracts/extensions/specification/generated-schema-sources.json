@@ -1,27 +1,272 @@
 {
-  "schema_id": "cartulary.extension_generated_schema_source_set.v1",
+  "schema_id": "cartulary.extension_generated_schema_source_set.v2",
   "schemas": [
-    {"target_schema_id":"cartulary.client_asset_set_manifest.v1","members":{"schema_id":"string","assets":"array"}},
-    {"target_schema_id":"cartulary.client_extension_support_registry.v1","members":{"schema_id":"string","client_build_id":"string","client_build_class":"string","asset_set_sha256":"string","profiles":"array"}},
-    {"target_schema_id":"cartulary.extension_backup_registry.v1","members":{"schema_id":"string","profiles":"array"}},
-    {"target_schema_id":"cartulary.extension_clause_traceability.v1","members":{"schema_id":"string","extensions_document_sha256":"string","clauses":"array"}},
-    {"target_schema_id":"cartulary.extension_conformance_manifest.v1","members":{"schema_id":"string","conformance_manifest_id":"string","profile_id":"string","contract_major":"integer","descriptor_sha256":"string","contract_closure_catalog_sha256":"string","owner_contract_refs":"array","requirement_ids":"array","acceptance_criterion_ids":"array","verification_ids":"array","public_schema_ids":"array","contribution_ids":"array","contract_closure":"array"}},
-    {"target_schema_id":"cartulary.extension_conformance_manifest_index.v1","members":{"schema_id":"string","manifests":"array"}},
-    {"target_schema_id":"cartulary.extension_contract_closure_catalog.v1","members":{"schema_id":"string","profile_id":"string","contract_major":"integer","owner_document_sha256":"string","items":"array"}},
-    {"target_schema_id":"cartulary.extension_dependency_snapshot.v1","members":{"schema_id":"string","extensions_document_version":"string","dependencies":"array"}},
-    {"target_schema_id":"cartulary.extension_implementation_binding.v1","members":{"schema_id":"string","profile_id":"string","contract_major":"integer","descriptor_sha256":"string","implemented_contribution_ids":"array","supported_capability_ids":"array","state_ownership_kind":"string","preflight_algorithm_id":"string_or_null","post_migration_algorithm_id":"string_or_null","initialization_definition_sha256":"string_or_null","initialization_algorithm_id":"string_or_null","final_state_validation_algorithm_id":"string_or_null","dependency_probe_ids":"array","migration_definitions":"array","physical_state_binding_sha256":"string_or_null","backup_codec_bindings":"array","rebuild_algorithm_ids":"array","transaction_participant_limits":"object","supporting_schema_ids":"array","worker_kinds":"array","job_kind_contracts":"array","participant_contracts":"array"}},
-    {"target_schema_id":"cartulary.extension_job_cancellation_observation.v1","members":{"schema_id":"string","cancellation_request_id":"string","job_id":"string","observed_at":"string","observed_before_final_commit":"boolean"}},
-    {"target_schema_id":"cartulary.extension_job_commit_proof.v1","members":{"schema_id":"string","job_id":"string","owner_profile_id":"string","operation_kind":"string","final_commit_id":"string","idempotency_identity":"object_or_null","normalized_request_sha256":"string","terminal_result":"object","terminal_result_sha256":"string","resource_refs":"array","audit_correlation_id":"string_or_null","committed_at":"string"}},
-    {"target_schema_id":"cartulary.extension_migration_ledger_entry.v1","members":{"schema_id":"string","profile_id":"string","migration_lineage_id":"string","migration_id":"string","from_state_version":"integer","to_state_version":"integer","migration_definition_sha256":"string","committed_at":"string","resulting_state_version":"integer"}},
-    {"target_schema_id":"cartulary.extension_owner_input_registry.v1","members":{"schema_id":"string","dependency_snapshot":"object","owner_contract_manifests":"array","owner_fragments":"array"}},
-    {"target_schema_id":"cartulary.extension_participant_registry.v1","members":{"schema_id":"string","participants":"array"}},
-    {"target_schema_id":"cartulary.extension_profile_descriptor.v1","members":{"schema_id":"string","profile_id":"string","claimable":"boolean","contract_major":"integer_or_null","owner_contract_ref":"string_or_null","claim_config_key":"string","route_families":"array","workspace_keys":"array","capability_ids":"array","runtime_dependencies":"array","contributions":"array","public_schema_ids":"array","prestage_config_keys":"array","state_ownership":"object","admission_validation":"object","egress_mode":"string","incident_portability_mode":"string","snapshot_reporting_mode":"string","conformance_manifest_id":"string_or_null"}},
-    {"target_schema_id":"cartulary.extension_profile_registry.v1","members":{"schema_id":"string","profiles":"array"}},
-    {"target_schema_id":"cartulary.extension_registry_accounting.v1","members":{"schema_id":"string","registry_sha256":"string","registry_integrity_sha256":"string","verification_semantic_digest":"string","catalog_semantic_digest":"string","status":"string","checks":"array","findings":"array"}},
-    {"target_schema_id":"cartulary.extension_registry_integrity.v1","members":{"schema_id":"string","canonicalization_algorithm_id":"string","dependency_snapshot_sha256":"string","owner_input_registry_sha256":"string","registry_schema_id":"string","registry_sha256":"string","descriptor_digests":"array","owner_contract_manifest_digests":"array","owner_fragment_digests":"array","implementation_binding_digests":"array","supporting_contract_artifact_digests":"array","generator_id":"string","generator_sources":"array","generated_schema_digests":"array"}},
-    {"target_schema_id":"cartulary.extension_staged_object.v1","members":{"schema_id":"string","staging_id":"string","owner_profile_id":"string","storage_identity":"string","expected_byte_size":"integer","expected_sha256":"string","staged_at":"string","staging_expires_at":"string","ready_at":"string_or_null","published_at":"string_or_null","abandoned_at":"string_or_null","state":"string","delete_state":"string","delete_attempt_count":"integer","next_delete_attempt_at":"string_or_null","last_delete_error_code":"string_or_null"}},
-    {"target_schema_id":"cartulary.extension_state_metadata.v1","members":{"schema_id":"string","profile_id":"string","migration_lineage_id":"string","state_version":"integer","last_migration_id":"string_or_null","metadata_version":"integer"}},
-    {"target_schema_id":"cartulary.extension_state_registry.v1","members":{"schema_id":"string","profiles":"array"}},
-    {"target_schema_id":"cartulary.extension_validation_condition_registry.v1","members":{"schema_id":"string","conditions":"array"}}
+    {
+      "target_schema_id": "cartulary.client_asset_set_manifest.v1",
+      "members": {
+        "schema_id": "string",
+        "assets": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.client_extension_support_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "client_build_id": "string",
+        "client_build_class": "string",
+        "asset_set_sha256": "string",
+        "profiles": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_backup_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "profiles": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_conformance_manifest.v2",
+      "members": {
+        "schema_id": "string",
+        "conformance_manifest_id": "string",
+        "profile_id": "string",
+        "contract_major": "integer",
+        "descriptor_sha256": "string",
+        "contract_closure_catalog_sha256": "string",
+        "requirement_ids": "array",
+        "acceptance_criterion_ids": "array",
+        "verification_ids": "array",
+        "public_schema_ids": "array",
+        "contribution_ids": "array",
+        "contract_closure": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_conformance_manifest_index.v1",
+      "members": {
+        "schema_id": "string",
+        "manifests": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_contract_closure_catalog.v2",
+      "members": {
+        "schema_id": "string",
+        "profile_id": "string",
+        "contract_major": "integer",
+        "items": "array",
+        "owner_requirement_catalog_sha256": "string"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_dependency_snapshot.v2",
+      "members": {
+        "schema_id": "string",
+        "dependencies": "array",
+        "requirement_registry_sha256": "string"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_implementation_binding.v1",
+      "members": {
+        "schema_id": "string",
+        "profile_id": "string",
+        "contract_major": "integer",
+        "descriptor_sha256": "string",
+        "implemented_contribution_ids": "array",
+        "supported_capability_ids": "array",
+        "state_ownership_kind": "string",
+        "preflight_algorithm_id": "string_or_null",
+        "post_migration_algorithm_id": "string_or_null",
+        "initialization_definition_sha256": "string_or_null",
+        "initialization_algorithm_id": "string_or_null",
+        "final_state_validation_algorithm_id": "string_or_null",
+        "dependency_probe_ids": "array",
+        "migration_definitions": "array",
+        "physical_state_binding_sha256": "string_or_null",
+        "backup_codec_bindings": "array",
+        "rebuild_algorithm_ids": "array",
+        "transaction_participant_limits": "object",
+        "supporting_schema_ids": "array",
+        "worker_kinds": "array",
+        "job_kind_contracts": "array",
+        "participant_contracts": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_job_cancellation_observation.v1",
+      "members": {
+        "schema_id": "string",
+        "cancellation_request_id": "string",
+        "job_id": "string",
+        "observed_at": "string",
+        "observed_before_final_commit": "boolean"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_job_commit_proof.v1",
+      "members": {
+        "schema_id": "string",
+        "job_id": "string",
+        "owner_profile_id": "string",
+        "operation_kind": "string",
+        "final_commit_id": "string",
+        "idempotency_identity": "object_or_null",
+        "normalized_request_sha256": "string",
+        "terminal_result": "object",
+        "terminal_result_sha256": "string",
+        "resource_refs": "array",
+        "audit_correlation_id": "string_or_null",
+        "committed_at": "string"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_migration_ledger_entry.v1",
+      "members": {
+        "schema_id": "string",
+        "profile_id": "string",
+        "migration_lineage_id": "string",
+        "migration_id": "string",
+        "from_state_version": "integer",
+        "to_state_version": "integer",
+        "migration_definition_sha256": "string",
+        "committed_at": "string",
+        "resulting_state_version": "integer"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_owner_input_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "dependency_snapshot": "object",
+        "owner_contract_manifests": "array",
+        "owner_fragments": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_participant_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "participants": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_profile_descriptor.v2",
+      "members": {
+        "schema_id": "string",
+        "profile_id": "string",
+        "claimable": "boolean",
+        "contract_major": "integer_or_null",
+        "claim_config_key": "string",
+        "route_families": "array",
+        "workspace_keys": "array",
+        "capability_ids": "array",
+        "runtime_dependencies": "array",
+        "contributions": "array",
+        "public_schema_ids": "array",
+        "prestage_config_keys": "array",
+        "state_ownership": "object",
+        "admission_validation": "object",
+        "egress_mode": "string",
+        "incident_portability_mode": "string",
+        "snapshot_reporting_mode": "string",
+        "conformance_manifest_id": "string_or_null",
+        "owner_id": "string"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_profile_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "profiles": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_registry_accounting.v1",
+      "members": {
+        "schema_id": "string",
+        "registry_sha256": "string",
+        "registry_integrity_sha256": "string",
+        "verification_semantic_digest": "string",
+        "catalog_semantic_digest": "string",
+        "status": "string",
+        "checks": "array",
+        "findings": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_registry_integrity.v1",
+      "members": {
+        "schema_id": "string",
+        "canonicalization_algorithm_id": "string",
+        "dependency_snapshot_sha256": "string",
+        "owner_input_registry_sha256": "string",
+        "registry_schema_id": "string",
+        "registry_sha256": "string",
+        "descriptor_digests": "array",
+        "owner_contract_manifest_digests": "array",
+        "owner_fragment_digests": "array",
+        "implementation_binding_digests": "array",
+        "supporting_contract_artifact_digests": "array",
+        "generator_id": "string",
+        "generator_sources": "array",
+        "generated_schema_digests": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_requirement_coverage.v2",
+      "members": {
+        "schema_id": "string",
+        "requirement_catalog_sha256": "string",
+        "requirements": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_staged_object.v1",
+      "members": {
+        "schema_id": "string",
+        "staging_id": "string",
+        "owner_profile_id": "string",
+        "storage_identity": "string",
+        "expected_byte_size": "integer",
+        "expected_sha256": "string",
+        "staged_at": "string",
+        "staging_expires_at": "string",
+        "ready_at": "string_or_null",
+        "published_at": "string_or_null",
+        "abandoned_at": "string_or_null",
+        "state": "string",
+        "delete_state": "string",
+        "delete_attempt_count": "integer",
+        "next_delete_attempt_at": "string_or_null",
+        "last_delete_error_code": "string_or_null"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_state_metadata.v1",
+      "members": {
+        "schema_id": "string",
+        "profile_id": "string",
+        "migration_lineage_id": "string",
+        "state_version": "integer",
+        "last_migration_id": "string_or_null",
+        "metadata_version": "integer"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_state_registry.v1",
+      "members": {
+        "schema_id": "string",
+        "profiles": "array"
+      }
+    },
+    {
+      "target_schema_id": "cartulary.extension_validation_condition_registry.v2",
+      "members": {
+        "schema_id": "string",
+        "conditions": "array"
+      }
+    }
   ]
 }

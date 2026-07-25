@@ -1,36 +1,191 @@
 {
-  "schema_id": "cartulary.base_route_reservation_registry.v1",
+  "schema_id": "cartulary.base_route_reservation_registry.v2",
   "reservations": [
-    {"reservation_id":"base.account.preferences","path_template":"/api/v1/account/preferences","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.account.profile","path_template":"/api/v1/account/profile","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.credential_state","path_template":"/api/v1/auth/credential-state","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.login","path_template":"/api/v1/auth/login","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.logout","path_template":"/api/v1/auth/logout","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.mfa_totp_begin","path_template":"/api/v1/auth/mfa/totp/begin","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.mfa_totp_complete","path_template":"/api/v1/auth/mfa/totp/complete","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.password_change","path_template":"/api/v1/auth/password/change","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.auth.session","path_template":"/api/v1/auth/session","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.entity_mentions","path_template":"/api/v1/entity-mentions/{entity_mention_id}/resolve","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.evidence_handles","path_template":"/api/v1/evidence-handles/{handle_token}","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.evidence_records","path_template":"/api/v1/evidence-records/{record_id}","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.extensions","path_template":"/api/v1/extensions","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.collection","path_template":"/api/v1/incidents","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.item","path_template":"/api/v1/incidents/{incident_id}","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.memberships","path_template":"/api/v1/incidents/{incident_id}/memberships","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.saved_views","path_template":"/api/v1/incidents/{incident_id}/saved-views","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.timeline_time_conversion","path_template":"/api/v1/incidents/{incident_id}/timeline-time-conversion-profile","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.views","path_template":"/api/v1/incidents/{incident_id}/views","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.workbook_preferences","path_template":"/api/v1/incidents/{incident_id}/workbook-preferences","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.incidents.workbook_startup","path_template":"/api/v1/incidents/{incident_id}/workbook-startup","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.jobs","path_template":"/api/v1/jobs/{job_id}","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.object_blobs","path_template":"/api/v1/object-blobs","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.object_uploads","path_template":"/api/v1/object-uploads/{upload_token}","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.records","path_template":"/api/v1/records/{record_id}","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.users.collection","path_template":"/api/v1/users","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.users.item","path_template":"/api/v1/users/{user_id}","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.users.mfa_reset","path_template":"/api/v1/users/{user_id}/mfa/totp/reset","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.users.password_reset","path_template":"/api/v1/users/{user_id}/password/reset","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.users.sessions_revoke","path_template":"/api/v1/users/{user_id}/sessions/revoke-all","match_scope":"exact","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"},
-    {"reservation_id":"base.view_schemas","path_template":"/api/v1/view-schemas","match_scope":"descendants","owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1"}
+    {
+      "reservation_id": "base.account.preferences",
+      "path_template": "/api/v1/account/preferences",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.account.profile",
+      "path_template": "/api/v1/account/profile",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.credential_state",
+      "path_template": "/api/v1/auth/credential-state",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.login",
+      "path_template": "/api/v1/auth/login",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.logout",
+      "path_template": "/api/v1/auth/logout",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.mfa_totp_begin",
+      "path_template": "/api/v1/auth/mfa/totp/begin",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.mfa_totp_complete",
+      "path_template": "/api/v1/auth/mfa/totp/complete",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.password_change",
+      "path_template": "/api/v1/auth/password/change",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.auth.session",
+      "path_template": "/api/v1/auth/session",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.entity_mentions",
+      "path_template": "/api/v1/entity-mentions/{entity_mention_id}/resolve",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.evidence_handles",
+      "path_template": "/api/v1/evidence-handles/{handle_token}",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.evidence_records",
+      "path_template": "/api/v1/evidence-records/{record_id}",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.extensions",
+      "path_template": "/api/v1/extensions",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.collection",
+      "path_template": "/api/v1/incidents",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.item",
+      "path_template": "/api/v1/incidents/{incident_id}",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.memberships",
+      "path_template": "/api/v1/incidents/{incident_id}/memberships",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.saved_views",
+      "path_template": "/api/v1/incidents/{incident_id}/saved-views",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.timeline_time_conversion",
+      "path_template": "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.views",
+      "path_template": "/api/v1/incidents/{incident_id}/views",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.workbook_preferences",
+      "path_template": "/api/v1/incidents/{incident_id}/workbook-preferences",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.incidents.workbook_startup",
+      "path_template": "/api/v1/incidents/{incident_id}/workbook-startup",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.jobs",
+      "path_template": "/api/v1/jobs/{job_id}",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.object_blobs",
+      "path_template": "/api/v1/object-blobs",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.object_uploads",
+      "path_template": "/api/v1/object-uploads/{upload_token}",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.records",
+      "path_template": "/api/v1/records/{record_id}",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.users.collection",
+      "path_template": "/api/v1/users",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.users.item",
+      "path_template": "/api/v1/users/{user_id}",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.users.mfa_reset",
+      "path_template": "/api/v1/users/{user_id}/mfa/totp/reset",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.users.password_reset",
+      "path_template": "/api/v1/users/{user_id}/password/reset",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.users.sessions_revoke",
+      "path_template": "/api/v1/users/{user_id}/sessions/revoke-all",
+      "match_scope": "exact",
+      "owner_requirement_id": "REQ-01-151.1"
+    },
+    {
+      "reservation_id": "base.view_schemas",
+      "path_template": "/api/v1/view-schemas",
+      "match_scope": "descendants",
+      "owner_requirement_id": "REQ-01-151.1"
+    }
   ]
 }

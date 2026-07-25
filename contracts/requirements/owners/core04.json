@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "core04",
+  "requirements": [
+    {
+      "requirement_id": "REQ-04-115",
+      "statement": "Machine requirement REQ-04-115 imported by repository contracts.",
+      "status": "planned"
+    },
+    {
+      "requirement_id": "REQ-04-143",
+      "statement": "Machine requirement REQ-04-143 imported by repository contracts.",
+      "status": "planned"
+    },
+    {
+      "requirement_id": "REQ-04-144",
+      "statement": "Machine requirement REQ-04-144 imported by repository contracts.",
+      "status": "planned"
+    },
+    {
+      "requirement_id": "REQ-04-145",
+      "statement": "Machine requirement REQ-04-145 imported by repository contracts.",
+      "status": "planned"
+    },
+    {
+      "requirement_id": "REQ-04-146",
+      "statement": "Machine requirement REQ-04-146 imported by repository contracts.",
+      "status": "planned"
+    }
+  ]
+}

@@ -1,21 +1,14 @@
 {
-  "schema_id": "cartulary.graph_projection_conformance_matrix.v1",
-  "spec_path": "docs/graph_projection_nlspec.md",
-  "spec_status": "adopted/current",
-  "matrix_version": 1,
-  "authority": "adopted_graph_projection_nlspec",
+  "schema_id": "cartulary.graph_projection_conformance_matrix.v2",
+  "matrix_version": 2,
   "acceptance_criteria": [
     {
       "id": "GP-AC-001",
       "owner": "graphprojection",
       "coverage_status": "implemented",
       "areas": [
-        "specification",
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestAdmissionAndNormalization"
       ],
       "fixture_ids": [
         "GP-FIX-022"
@@ -26,12 +19,8 @@
       "owner": "graphprojection",
       "coverage_status": "implemented",
       "areas": [
-        "specification",
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestAdmissionAndNormalization"
       ],
       "fixture_ids": [
         "GP-FIX-003"
@@ -42,12 +31,8 @@
       "owner": "graphprojection",
       "coverage_status": "implemented",
       "areas": [
-        "specification",
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
       ],
       "fixture_ids": [
         "GP-FIX-022",
@@ -62,9 +47,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"
-      ],
       "fixture_ids": [
         "GP-FIX-003"
       ]
@@ -77,9 +59,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
-      ],
       "fixture_ids": [
         "GP-FIX-028"
       ]
@@ -91,9 +70,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
       ],
       "fixture_ids": [
         "GP-FIX-015",
@@ -108,9 +84,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
-      ],
       "fixture_ids": [
         "GP-FIX-004"
       ]
@@ -123,9 +96,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
-      ],
       "fixture_ids": []
     },
     {
@@ -136,9 +106,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFilterTruthTable"
-      ],
       "fixture_ids": []
     },
     {
@@ -148,9 +115,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-015",
@@ -165,9 +129,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": []
     },
     {
@@ -177,9 +138,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": []
     },
@@ -191,9 +149,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": []
     },
     {
@@ -203,9 +158,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-006",
@@ -221,9 +173,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": [
         "GP-FIX-012"
       ]
@@ -235,9 +184,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-012",
@@ -252,9 +198,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": []
     },
     {
@@ -264,9 +207,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
       ],
       "fixture_ids": [
         "GP-FIX-022",
@@ -281,9 +221,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
-      ],
       "fixture_ids": [
         "GP-FIX-005"
       ]
@@ -295,9 +232,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
       ],
       "fixture_ids": [
         "GP-FIX-004"
@@ -311,9 +245,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFilterTruthTable"
-      ],
       "fixture_ids": []
     },
     {
@@ -324,10 +255,6 @@
         "implementation",
         "tests",
         "migration"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
       ],
       "fixture_ids": [
         "GP-FIX-020"
@@ -342,9 +269,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
-      ],
       "fixture_ids": [
         "GP-FIX-004"
       ]
@@ -358,9 +282,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
-      ],
       "fixture_ids": [
         "GP-FIX-021"
       ]
@@ -372,9 +293,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
       ],
       "fixture_ids": [
         "GP-FIX-020"
@@ -388,9 +306,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestTraverseDeterminism"
-      ],
       "fixture_ids": []
     },
     {
@@ -401,9 +316,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
-      ],
       "fixture_ids": []
     },
     {
@@ -413,9 +325,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalJSON"
       ],
       "fixture_ids": [
         "GP-FIX-014"
@@ -429,10 +338,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestGraphProjectionProductionImportBoundaries",
-        "internal/modules/graphprojection::TestNoPublicGraphProjectionRoutes"
-      ],
       "fixture_ids": []
     },
     {
@@ -440,12 +345,8 @@
       "owner": "graphprojection",
       "coverage_status": "implemented",
       "areas": [
-        "specification",
         "contracts",
         "tests"
-      ],
-      "evidence_selectors": [
-        "docs/graph_projection_nlspec.md::GP-AC-030"
       ],
       "fixture_ids": []
     },
@@ -456,9 +357,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected"
       ],
       "fixture_ids": [
         "GP-FIX-002"
@@ -471,9 +369,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
       ],
       "fixture_ids": [
         "GP-FIX-022",
@@ -489,10 +384,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation",
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
-      ],
       "fixture_ids": [
         "GP-FIX-018",
         "GP-FIX-019"
@@ -507,9 +398,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
-      ],
       "fixture_ids": [
         "GP-FIX-021"
       ]
@@ -523,9 +411,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
-      ],
       "fixture_ids": [
         "GP-FIX-019"
       ]
@@ -537,9 +422,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
       ],
       "fixture_ids": [
         "GP-FIX-005"
@@ -553,9 +435,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
-      ],
       "fixture_ids": [
         "GP-FIX-005"
       ]
@@ -568,9 +447,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
-      ],
       "fixture_ids": []
     },
     {
@@ -580,9 +456,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-013"
@@ -596,9 +469,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": []
     },
     {
@@ -608,9 +478,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": []
     },
@@ -622,9 +489,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape"
-      ],
       "fixture_ids": []
     },
     {
@@ -634,9 +498,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-009",
@@ -652,9 +513,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": [
         "GP-FIX-006",
         "GP-FIX-007",
@@ -669,9 +527,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": [
         "GP-FIX-027",
         "GP-FIX-028"
@@ -685,10 +540,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
-        "internal/modules/graphprojection::TestTraverseDeterminism"
-      ],
       "fixture_ids": []
     },
     {
@@ -698,9 +549,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
       ],
       "fixture_ids": [
         "GP-FIX-020"
@@ -714,9 +562,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
-      ],
       "fixture_ids": [
         "GP-FIX-035"
       ]
@@ -729,9 +574,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestTraverseDeterminism"
-      ],
       "fixture_ids": []
     },
     {
@@ -741,9 +583,6 @@
       "areas": [
         "contracts",
         "tests"
-      ],
-      "evidence_selectors": [
-        "contracts/graph-projection/fixtures/corpus.v1.json"
       ],
       "fixture_ids": [
         "GP-FIX-022",
@@ -758,11 +597,6 @@
         "implementation",
         "tests",
         "migration"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState",
-        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected",
-        "internal/modules/graphprojection::TestAdmissionRejectsInvalidGraphViewID"
       ],
       "fixture_ids": [
         "GP-FIX-001",
@@ -779,9 +613,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
-      ],
       "fixture_ids": [
         "GP-FIX-004"
       ]
@@ -794,10 +625,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation",
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
-      ],
       "fixture_ids": [
         "GP-FIX-018"
       ]
@@ -809,9 +636,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
       ],
       "fixture_ids": [
         "GP-FIX-019"
@@ -826,9 +650,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
-      ],
       "fixture_ids": [
         "GP-FIX-018"
       ]
@@ -840,10 +661,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStorePreAdmissionFailureTouchesNoState",
-        "internal/modules/graphprojection::TestDuplicateObjectMembersRejected"
       ],
       "fixture_ids": [
         "GP-FIX-001",
@@ -859,9 +676,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": [
         "GP-FIX-006"
       ]
@@ -873,9 +687,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-009",
@@ -891,9 +702,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
-      ],
       "fixture_ids": [
         "GP-FIX-006"
       ]
@@ -905,9 +713,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestProjectDirectReverseAndAggregation"
       ],
       "fixture_ids": [
         "GP-FIX-012",
@@ -922,10 +727,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestFailedRunInspectionShape",
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix"
-      ],
       "fixture_ids": [
         "GP-FIX-004",
         "GP-FIX-005"
@@ -939,9 +740,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalJSON"
-      ],
       "fixture_ids": [
         "GP-FIX-014",
         "GP-FIX-036"
@@ -954,9 +752,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestScalarAndFieldPathValidation"
       ],
       "fixture_ids": [
         "GP-FIX-015",
@@ -973,9 +768,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
-      ],
       "fixture_ids": []
     },
     {
@@ -985,10 +777,6 @@
       "areas": [
         "implementation",
         "tests"
-      ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestQueryLifecycleStateMatrix",
-        "internal/modules/graphprojection::TestListGraphViewsPagination"
       ],
       "fixture_ids": [
         "GP-FIX-020"
@@ -1003,9 +791,6 @@
         "tests",
         "migration"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestStoreLifecycleRetentionAndInvalidation"
-      ],
       "fixture_ids": [
         "GP-FIX-021",
         "GP-FIX-032"
@@ -1019,9 +804,6 @@
         "implementation",
         "tests"
       ],
-      "evidence_selectors": [
-        "internal/modules/graphprojection::TestCanonicalDigestAndIDs"
-      ],
       "fixture_ids": [
         "GP-FIX-022",
         "GP-FIX-023"
@@ -1034,9 +816,6 @@
       "areas": [
         "contracts",
         "tests"
-      ],
-      "evidence_selectors": [
-        "docs/graph_projection_nlspec.md::GP-AC-068"
       ],
       "fixture_ids": [
         "GP-FIX-024",
@@ -1052,13 +831,6 @@
         "contracts",
         "tests",
         "migration"
-      ],
-      "evidence_selectors": [
-        "docs/graph_projection_nlspec.md::GP-AC-069",
-        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-029",
-        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-030",
-        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-031",
-        "contracts/graph-projection/fixtures/corpus.v1.json::GP-FIX-033"
       ],
       "fixture_ids": [
         "GP-FIX-029",

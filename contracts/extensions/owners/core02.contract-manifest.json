@@ -1,35 +1,28 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "core02.extensions_contract.v1",
+  "owner_id": "core02",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/core02.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "core02",
+    "catalog_sha256": "ab545b6bf576ff05f7f9d7af18056d2577262ac364ccf36c0d68e17f5e5532d8"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.core02.current.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "85d0f16ceca81d0222ccaa96c55c0e8c4eab39e190e9e1801058bf7d6989651e",
-      "closure_categories": [],
-      "end_byte": 159733,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.core02.current.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-02-261",
-      "anchor_kind": "req",
-      "anchor_sha256": "f0a9463a35bb937348d43ade4eee16bad84d7f58ec05956e61f1184ab596f972",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-02-261",
       "closure_categories": [
         "backup_restore",
         "resource_lifecycle_retention",
         "state_migration"
-      ],
-      "end_byte": 158408,
-      "start_byte": 157420
+      ]
     }
   ],
-  "owner_contract_manifest_id": "core02.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 159733,
-    "owner_document_ref": "docs/spec/02_domain_model_schema_and_history.md#document:cartulary.core02.current.v1",
-    "owner_document_schema_id": "cartulary.core02.current.v1",
-    "owner_document_sha256": "85d0f16ceca81d0222ccaa96c55c0e8c4eab39e190e9e1801058bf7d6989651e",
-    "owner_document_version": "extensions-adoption-1"
-  },
-  "owner_fragments": [],
-  "owner_id": "core02",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  "owner_fragments": []
 }

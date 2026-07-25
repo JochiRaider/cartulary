@@ -231,7 +231,7 @@
     "github.com/JochiRaider/cartulary/internal/modules/evidence::TestQuarantineBoundaryPreservesTwoStepAttach_Integration": 3040,
     "github.com/JochiRaider/cartulary/internal/modules/evidence::TestSanitizeFilenameRemovesNUL_Unit": 560,
     "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC004DependencyDeclarations_Static": 1,
-    "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC008ClauseTraceability_Static": 30,
+    "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC008RequirementCoverage_Static": 30,
     "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC010LeaseLifecycle_Process": 40,
     "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC011DeadlinePrecedence_Integration": 1,
     "github.com/JochiRaider/cartulary/internal/modules/extensions::TestExtensionBC015BrowserAvailability_Integration": 1,

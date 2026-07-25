@@ -54,33 +54,33 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 		return err
 	}
 	switch schemaID {
-	case "cartulary.extension_dependency_declaration_set.v1":
+	case "cartulary.extension_dependency_declaration_set.v2":
 		return validateExtensionDependencyDeclarations(object)
-	case "cartulary.extension_owner_contract_manifest.v1":
+	case "cartulary.extension_owner_contract_manifest.v2":
 		return validateExtensionOwnerManifest(object, relativePath)
-	case "cartulary.extension_owner_fragment.v1":
+	case "cartulary.extension_owner_fragment.v2":
 		return validateExtensionOwnerFragment(object, relativePath)
-	case "cartulary.extension_profile_configuration_contract.v1":
+	case "cartulary.extension_profile_configuration_contract.v2":
 		return validateExtensionConfigurationContract(object, relativePath)
-	case "cartulary.extension_traceability_mapping_source.v1":
+	case "cartulary.extension_requirement_mapping_source.v2":
 		return validateExtensionTraceabilitySource(object)
-	case "cartulary.extension_validation_surface_declaration_set.v1":
+	case "cartulary.extension_validation_surface_declaration_set.v2":
 		return validateExtensionValidationDeclarations(object)
-	case "cartulary.base_route_reservation_registry.v1":
+	case "cartulary.base_route_reservation_registry.v2":
 		return validateExtensionBaseReservations(object)
 	case "cartulary.extension_implementation_binding_source_set.v1":
 		return validateExtensionBindingSources(object)
 	case "cartulary.extension_participant_contract.v1":
 		return validateExtensionParticipantContract(object, relativePath)
-	case "cartulary.extension_participant_specialization.v1":
+	case "cartulary.extension_participant_specialization.v2":
 		return validateExtensionParticipantSpecialization(object, relativePath)
-	case "cartulary.extension_transaction_participant_contract.v1":
+	case "cartulary.extension_transaction_participant_contract.v2":
 		return validateExtensionTransactionParticipantContract(object, relativePath)
 	case "cartulary.extension_physical_state_binding.v1":
 		return validateExtensionPhysicalStateBinding(object, relativePath)
-	case "cartulary.extension_backup_binding_codec.v1":
+	case "cartulary.extension_backup_binding_codec.v2":
 		return validateExtensionBackupCodec(object, relativePath)
-	case "cartulary.extension_generated_schema_source_set.v1":
+	case "cartulary.extension_generated_schema_source_set.v2":
 		return validateExtensionGeneratedSchemaSources(object)
 	default:
 		return nil
@@ -91,7 +91,7 @@ func validateExtensionTransactionParticipantContract(object map[string]any, rela
 	if err := requireAllowedKeys(object, stringSet(
 		"schema_id", "participant_id", "owner_profile_id", "participant_input_schema_id",
 		"prepare_algorithm_id", "validation_algorithm_id", "write_algorithm_id",
-		"serialization_key_kinds", "owned_state_family_ids", "error_contract_ref",
+		"serialization_key_kinds", "owned_state_family_ids", "error_requirement_id",
 	), relativePath); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func validateExtensionTransactionParticipantContract(object map[string]any, rela
 	if err != nil || !strings.HasPrefix(participantID, profileID+".") {
 		return fmt.Errorf("%s.participant_id must use the owner profile prefix", relativePath)
 	}
-	for _, key := range []string{"participant_input_schema_id", "prepare_algorithm_id", "validation_algorithm_id", "write_algorithm_id", "error_contract_ref"} {
+	for _, key := range []string{"participant_input_schema_id", "prepare_algorithm_id", "validation_algorithm_id", "write_algorithm_id", "error_requirement_id"} {
 		if _, err := requiredString(object, key, relativePath); err != nil {
 			return err
 		}
@@ -290,8 +290,8 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 		label := fmt.Sprintf("%s.operations[%d]", relativePath, index)
 		if err := requireAllowedKeys(operation, stringSet(
 			"operation_kind", "result_schema_id", "algorithm_id", "output_schema_id",
-			"ordering_algorithm_id", "authorization_contract_ref", "redaction_contract_ref",
-			"error_contract_ref", "state_family_ids", "max_input_bytes", "max_output_bytes",
+			"ordering_algorithm_id", "authorization_requirement_id", "redaction_requirement_id",
+			"error_requirement_id", "state_family_ids", "max_input_bytes", "max_output_bytes",
 			"max_items",
 		), label); err != nil {
 			return err
@@ -306,18 +306,18 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 		}
 		for _, key := range []string{
 			"algorithm_id", "output_schema_id", "ordering_algorithm_id",
-			"authorization_contract_ref", "error_contract_ref",
+			"authorization_requirement_id", "error_requirement_id",
 		} {
 			if _, err := requiredString(operation, key, label); err != nil {
 				return err
 			}
 		}
 		if participantKind == "snapshot_reporting" && operationKind == "emit" {
-			if _, err := requiredString(operation, "redaction_contract_ref", label); err != nil {
+			if _, err := requiredString(operation, "redaction_requirement_id", label); err != nil {
 				return err
 			}
-		} else if operation["redaction_contract_ref"] != nil {
-			return fmt.Errorf("%s.redaction_contract_ref must be null", label)
+		} else if operation["redaction_requirement_id"] != nil {
+			return fmt.Errorf("%s.redaction_requirement_id must be null", label)
 		}
 		if _, err := sortedUniqueStringArray(operation["state_family_ids"], label+".state_family_ids", true); err != nil {
 			return err
@@ -440,10 +440,10 @@ func validateExtensionPhysicalStateBinding(object map[string]any, relativePath s
 }
 
 func validateExtensionBackupCodec(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "backup_codec_id", "binding_id", "storage_kind", "codec_contract_ref", "logical_identity_algorithm_id", "content_encoding_algorithm_id", "max_items", "max_entry_bytes", "max_binding_bytes", "historical_restore_codecs"), relativePath); err != nil {
+	if err := requireAllowedKeys(object, stringSet("schema_id", "backup_codec_id", "binding_id", "storage_kind", "codec_requirement_id", "logical_identity_algorithm_id", "content_encoding_algorithm_id", "max_items", "max_entry_bytes", "max_binding_bytes", "historical_restore_codecs"), relativePath); err != nil {
 		return err
 	}
-	for _, key := range []string{"backup_codec_id", "binding_id", "storage_kind", "codec_contract_ref", "logical_identity_algorithm_id", "content_encoding_algorithm_id"} {
+	for _, key := range []string{"backup_codec_id", "binding_id", "storage_kind", "codec_requirement_id", "logical_identity_algorithm_id", "content_encoding_algorithm_id"} {
 		if _, err := requiredString(object, key, relativePath); err != nil {
 			return err
 		}
@@ -490,12 +490,14 @@ func sortedUniqueStringArray(value any, label string, allowEmpty bool) ([]string
 }
 
 func validateExtensionDependencyDeclarations(object map[string]any) error {
-	allowed := stringSet("schema_id", "extensions_document_version", "dependencies")
+	allowed := stringSet("schema_id", "requirement_registry_ref", "requirement_registry_schema_id", "requirement_registry_sha256", "dependencies")
 	if err := requireAllowedKeys(object, allowed, "extension dependency declarations"); err != nil {
 		return err
 	}
-	if object["extensions_document_version"] != "0.6.2" {
-		return fmt.Errorf("extension dependency declarations have stale extensions_document_version")
+	if object["requirement_registry_ref"] != "contracts/requirements/registry.json" ||
+		object["requirement_registry_schema_id"] != "cartulary.requirement_registry.v1" ||
+		!isLowerSHA256(stringValue(object["requirement_registry_sha256"])) {
+		return fmt.Errorf("extension dependency declarations must bind the canonical requirement registry")
 	}
 	dependencies, err := objectArray(object["dependencies"], "dependencies")
 	if err != nil {
@@ -505,10 +507,10 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 		return fmt.Errorf("dependencies must contain exactly %d rows", len(requiredExtensionDependencies))
 	}
 	rowKeys := stringSet(
-		"dependency_id", "owner_document_ref", "owner_document_schema_id", "owner_document_version",
-		"owner_document_sha256", "owner_contract_manifest_ref", "owner_contract_manifest_id",
-		"owner_contract_manifest_sha256", "imported_anchor_refs", "imported_schema_ids",
-		"imported_algorithm_ids", "imported_artifacts", "required_status",
+		"dependency_id", "requirement_catalog_ref", "requirement_catalog_schema_id",
+		"requirement_catalog_sha256", "owner_contract_manifest_ref", "owner_contract_manifest_id",
+		"owner_contract_manifest_sha256", "imported_requirement_ids", "imported_contract_ids",
+		"imported_schema_ids", "imported_algorithm_ids", "imported_artifacts", "required_status",
 	)
 	for index, dependency := range dependencies {
 		label := fmt.Sprintf("dependencies[%d]", index)
@@ -522,12 +524,12 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 		if dependencyID != requiredExtensionDependencies[index] {
 			return fmt.Errorf("dependencies must contain the exact sorted Table 1-B identities")
 		}
-		for _, key := range []string{"owner_document_ref", "owner_document_schema_id", "owner_document_version", "owner_contract_manifest_ref", "owner_contract_manifest_id"} {
+		for _, key := range []string{"requirement_catalog_ref", "requirement_catalog_schema_id", "owner_contract_manifest_ref", "owner_contract_manifest_id"} {
 			if _, err := requiredString(dependency, key, label); err != nil {
 				return err
 			}
 		}
-		for _, key := range []string{"owner_document_sha256", "owner_contract_manifest_sha256"} {
+		for _, key := range []string{"requirement_catalog_sha256", "owner_contract_manifest_sha256"} {
 			digest, err := requiredString(dependency, key, label)
 			if err != nil {
 				return err
@@ -539,13 +541,10 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 		if dependency["required_status"] != "adopted/current" {
 			return fmt.Errorf("%s.required_status must be adopted/current", label)
 		}
-		for _, key := range []string{"imported_anchor_refs", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
-			array, ok := dependency[key].([]any)
+		for _, key := range []string{"imported_requirement_ids", "imported_contract_ids", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
+			_, ok := dependency[key].([]any)
 			if !ok {
 				return fmt.Errorf("%s.%s must be a present non-null array", label, key)
-			}
-			if key == "imported_anchor_refs" && len(array) == 0 {
-				return fmt.Errorf("%s.imported_anchor_refs must not be empty", label)
 			}
 		}
 	}
@@ -553,7 +552,7 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 }
 
 func validateExtensionOwnerManifest(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "owner_contract_manifest_id", "owner_id", "owner_document", "anchors", "owner_fragments"), relativePath); err != nil {
+	if err := requireAllowedKeys(object, stringSet("schema_id", "owner_contract_manifest_id", "owner_id", "requirement_catalog", "bindings", "owner_fragments"), relativePath); err != nil {
 		return err
 	}
 	for _, key := range []string{"owner_contract_manifest_id", "owner_id"} {
@@ -561,31 +560,43 @@ func validateExtensionOwnerManifest(object map[string]any, relativePath string) 
 			return err
 		}
 	}
-	document, err := asObject(object["owner_document"], relativePath+".owner_document")
+	catalog, err := asObject(object["requirement_catalog"], relativePath+".requirement_catalog")
 	if err != nil {
 		return err
 	}
-	if err := requireAllowedKeys(document, stringSet("owner_document_ref", "owner_document_schema_id", "owner_document_version", "owner_document_sha256", "byte_length"), relativePath+".owner_document"); err != nil {
+	if err := requireAllowedKeys(catalog, stringSet("catalog_ref", "schema_id", "owner_id", "catalog_sha256"), relativePath+".requirement_catalog"); err != nil {
 		return err
 	}
-	for _, key := range []string{"owner_document_ref", "owner_document_schema_id", "owner_document_version"} {
-		if _, err := requiredString(document, key, relativePath+".owner_document"); err != nil {
+	for _, key := range []string{"catalog_ref", "schema_id", "owner_id"} {
+		if _, err := requiredString(catalog, key, relativePath+".requirement_catalog"); err != nil {
 			return err
 		}
 	}
-	digest, err := requiredString(document, "owner_document_sha256", relativePath+".owner_document")
+	digest, err := requiredString(catalog, "catalog_sha256", relativePath+".requirement_catalog")
 	if err != nil || !isLowerSHA256(digest) {
-		return fmt.Errorf("%s.owner_document.owner_document_sha256 must be lowercase SHA-256", relativePath)
+		return fmt.Errorf("%s.requirement_catalog.catalog_sha256 must be lowercase SHA-256", relativePath)
 	}
-	if _, err := positiveJSONInt(document["byte_length"], relativePath+".owner_document.byte_length"); err != nil {
-		return err
-	}
-	anchors, err := objectArray(object["anchors"], relativePath+".anchors")
+	bindings, err := objectArray(object["bindings"], relativePath+".bindings")
 	if err != nil {
 		return err
 	}
-	if len(anchors) == 0 || len(anchors) > 4096 {
-		return fmt.Errorf("%s.anchors must contain 1..4096 rows", relativePath)
+	if len(bindings) == 0 || len(bindings) > 4096 {
+		return fmt.Errorf("%s.bindings must contain 1..4096 rows", relativePath)
+	}
+	for index, binding := range bindings {
+		label := fmt.Sprintf("%s.bindings[%d]", relativePath, index)
+		if err := requireAllowedKeys(binding, stringSet("binding_kind", "machine_id", "closure_categories"), label); err != nil {
+			return err
+		}
+		if _, err := requiredString(binding, "binding_kind", label); err != nil {
+			return err
+		}
+		if _, err := requiredString(binding, "machine_id", label); err != nil {
+			return err
+		}
+		if _, err := sortedUniqueStringArray(binding["closure_categories"], label+".closure_categories", true); err != nil {
+			return err
+		}
 	}
 	fragments, ok := object["owner_fragments"].([]any)
 	if !ok {
@@ -622,17 +633,17 @@ func validateExtensionOwnerManifest(object map[string]any, relativePath string) 
 }
 
 func validateExtensionOwnerFragment(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "owner_fragment_id", "owner_id", "owner_document_ref", "owner_document_schema_id", "owner_document_version", "owner_document_sha256", "facts"), relativePath); err != nil {
+	if err := requireAllowedKeys(object, stringSet("schema_id", "owner_fragment_id", "owner_id", "requirement_catalog_ref", "requirement_catalog_schema_id", "requirement_catalog_sha256", "facts"), relativePath); err != nil {
 		return err
 	}
-	for _, key := range []string{"owner_fragment_id", "owner_id", "owner_document_ref", "owner_document_schema_id", "owner_document_version"} {
+	for _, key := range []string{"owner_fragment_id", "owner_id", "requirement_catalog_ref", "requirement_catalog_schema_id"} {
 		if _, err := requiredString(object, key, relativePath); err != nil {
 			return err
 		}
 	}
-	digest, err := requiredString(object, "owner_document_sha256", relativePath)
+	digest, err := requiredString(object, "requirement_catalog_sha256", relativePath)
 	if err != nil || !isLowerSHA256(digest) {
-		return fmt.Errorf("%s.owner_document_sha256 must be lowercase SHA-256", relativePath)
+		return fmt.Errorf("%s.requirement_catalog_sha256 must be lowercase SHA-256", relativePath)
 	}
 	facts, err := objectArray(object["facts"], relativePath+".facts")
 	if err != nil {
@@ -643,7 +654,7 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 	}
 	for index, fact := range facts {
 		label := fmt.Sprintf("%s.facts[%d]", relativePath, index)
-		for _, key := range []string{"fact_kind", "profile_id", "owner_contract_ref"} {
+		for _, key := range []string{"fact_kind", "profile_id", "owner_requirement_id"} {
 			if _, err := requiredString(fact, key, label); err != nil {
 				return err
 			}
@@ -763,25 +774,25 @@ func validateExtensionConfigurationContract(object map[string]any, relativePath 
 		if err != nil {
 			return err
 		}
-		ref, hasRef := key["inactive_value_schema_ref"]
+		ref, hasRef := key["inactive_value_schema_id"]
 		if policy == "syntax_only" {
 			if !hasRef || ref == nil {
-				return fmt.Errorf("%s syntax_only requires a non-null inactive_value_schema_ref", label)
+				return fmt.Errorf("%s syntax_only requires a non-null inactive_value_schema_id", label)
 			}
 		} else if policy == "forbidden" && (!hasRef || ref != nil) {
-			return fmt.Errorf("%s forbidden requires explicit null inactive_value_schema_ref", label)
+			return fmt.Errorf("%s forbidden requires explicit null inactive_value_schema_id", label)
 		}
 	}
 	return nil
 }
 
 func validateExtensionTraceabilitySource(object map[string]any) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "extensions_document_sha256", "mappings"), "extension traceability source"); err != nil {
+	if err := requireAllowedKeys(object, stringSet("schema_id", "requirement_catalog_ref", "requirement_catalog_schema_id", "requirement_catalog_sha256", "mappings"), "extension requirement mapping source"); err != nil {
 		return err
 	}
-	digest, err := requiredString(object, "extensions_document_sha256", "extension traceability source")
+	digest, err := requiredString(object, "requirement_catalog_sha256", "extension requirement mapping source")
 	if err != nil || !isLowerSHA256(digest) {
-		return fmt.Errorf("extension traceability source digest must be lowercase SHA-256")
+		return fmt.Errorf("extension requirement catalog digest must be lowercase SHA-256")
 	}
 	mappings, err := objectArray(object["mappings"], "traceability mappings")
 	if err != nil {
@@ -790,34 +801,13 @@ func validateExtensionTraceabilitySource(object map[string]any) error {
 	if len(mappings) == 0 || len(mappings) > 65536 {
 		return fmt.Errorf("traceability mappings must contain 1..65536 clauses")
 	}
-	previousEnd := int64(-1)
 	for index, mapping := range mappings {
-		label := fmt.Sprintf("traceability mappings[%d]", index)
-		if err := requireAllowedKeys(mapping, stringSet("source_start_byte", "source_end_byte", "parent_anchor_kind", "parent_anchor_id", "clause_kind", "requirement_ids", "acceptance_criterion_ids", "verification_ids"), label); err != nil {
+		label := fmt.Sprintf("requirement mappings[%d]", index)
+		if err := requireAllowedKeys(mapping, stringSet("mapping_id", "requirement_ids", "acceptance_criterion_ids", "verification_ids"), label); err != nil {
 			return err
 		}
-		start, err := nonnegativeJSONInt(mapping["source_start_byte"], "mapping source_start_byte")
-		if err != nil {
+		if _, err := requiredString(mapping, "mapping_id", label); err != nil {
 			return err
-		}
-		end, err := positiveJSONInt(mapping["source_end_byte"], "mapping source_end_byte")
-		if err != nil {
-			return err
-		}
-		if start >= end || (previousEnd >= 0 && start < previousEnd) {
-			return fmt.Errorf("traceability mapping ranges must be nonempty, sorted, and nonoverlapping")
-		}
-		previousEnd = end
-		parentKind, err := requiredString(mapping, "parent_anchor_kind", label)
-		if err != nil || !extensionStringIn(parentKind, "document", "h1", "requirement") {
-			return fmt.Errorf("%s.parent_anchor_kind is invalid", label)
-		}
-		if _, err := requiredString(mapping, "parent_anchor_id", label); err != nil {
-			return err
-		}
-		clauseKind, err := requiredString(mapping, "clause_kind", label)
-		if err != nil || !extensionStringIn(clauseKind, "frontmatter_member", "normative_table_caption", "normative_table_row", "list_item", "fenced_literal", "prose_block", "acceptance_row") {
-			return fmt.Errorf("%s.clause_kind is invalid", label)
 		}
 		requirements, err := sortedUniqueStringArray(mapping["requirement_ids"], label+".requirement_ids", false)
 		if err != nil {
@@ -863,13 +853,13 @@ func validateExtensionValidationDeclarations(object map[string]any) error {
 	seenReasons := map[string]struct{}{}
 	for declarationIndex, declaration := range declarations {
 		label := fmt.Sprintf("declarations[%d]", declarationIndex)
-		if err := requireAllowedKeys(declaration, stringSet("schema_id", "owner_contract_ref", "schema_surfaces", "procedural_surfaces"), label); err != nil {
+		if err := requireAllowedKeys(declaration, stringSet("schema_id", "owner_requirement_id", "schema_surfaces", "procedural_surfaces"), label); err != nil {
 			return err
 		}
-		if declaration["schema_id"] != "cartulary.extension_validation_surface_declaration.v1" {
+		if declaration["schema_id"] != "cartulary.extension_validation_surface_declaration.v2" {
 			return fmt.Errorf("%s.schema_id is invalid", label)
 		}
-		if _, err := requiredString(declaration, "owner_contract_ref", label); err != nil {
+		if _, err := requiredString(declaration, "owner_requirement_id", label); err != nil {
 			return err
 		}
 		for _, surfaceKey := range []string{"schema_surfaces", "procedural_surfaces"} {
@@ -963,15 +953,19 @@ func validateExtensionOwnerBindings(root string, indexed map[string]map[string]a
 	manifestByRef := map[string]map[string]any{}
 	fragmentRefs := map[string]string{}
 	for relativePath, object := range indexed {
-		if object["schema_id"] != "cartulary.extension_owner_contract_manifest.v1" {
+		if object["schema_id"] != "cartulary.extension_owner_contract_manifest.v2" {
 			continue
 		}
 		manifestRef := "contracts/extensions/" + relativePath
 		manifestByRef[manifestRef] = object
-		if err := validateExtensionManifestDocument(root, relativePath, object); err != nil {
+		catalog, _ := asObject(object["requirement_catalog"], relativePath+".requirement_catalog")
+		if err := validateRequirementCatalogBinding(root, catalog, relativePath+".requirement_catalog"); err != nil {
 			return err
 		}
 		ownerID, _ := requiredString(object, "owner_id", relativePath)
+		if catalog["owner_id"] != ownerID {
+			return fmt.Errorf("%s requirement catalog owner does not match manifest owner", relativePath)
+		}
 		fragments, ok := object["owner_fragments"].([]any)
 		if !ok {
 			return fmt.Errorf("%s.owner_fragments must be a present non-null array", relativePath)
@@ -1005,7 +999,7 @@ func validateExtensionOwnerBindings(root string, indexed map[string]map[string]a
 		}
 	}
 	for relativePath, object := range indexed {
-		if object["schema_id"] == "cartulary.extension_owner_fragment.v1" {
+		if object["schema_id"] == "cartulary.extension_owner_fragment.v2" {
 			ref := "contracts/extensions/" + relativePath
 			if _, ok := fragmentRefs[ref]; !ok {
 				return fmt.Errorf("owner fragment %s is not adopted by a manifest", ref)
@@ -1027,31 +1021,18 @@ func validateExtensionOwnerBindings(root string, indexed map[string]map[string]a
 		if dependency["owner_contract_manifest_sha256"] != manifestDigest {
 			return fmt.Errorf("dependency manifest digest is stale for %s", dependency["dependency_id"])
 		}
-		document, _ := asObject(manifest["owner_document"], manifestRef+".owner_document")
-		for _, key := range []string{"owner_document_ref", "owner_document_schema_id", "owner_document_version", "owner_document_sha256"} {
-			if dependency[key] != document[key] {
-				return fmt.Errorf("dependency %s does not match its owner manifest %s", dependency["dependency_id"], key)
+		catalog, _ := asObject(manifest["requirement_catalog"], manifestRef+".requirement_catalog")
+		for dependencyKey, catalogKey := range map[string]string{
+			"requirement_catalog_ref":       "catalog_ref",
+			"requirement_catalog_schema_id": "schema_id",
+			"requirement_catalog_sha256":    "catalog_sha256",
+		} {
+			if dependency[dependencyKey] != catalog[catalogKey] {
+				return fmt.Errorf("dependency %s does not match its owner manifest %s", dependency["dependency_id"], dependencyKey)
 			}
 		}
 		if dependency["owner_contract_manifest_id"] != manifest["owner_contract_manifest_id"] {
 			return fmt.Errorf("dependency %s manifest ID mismatch", dependency["dependency_id"])
-		}
-		anchors, _ := objectArray(manifest["anchors"], manifestRef+".anchors")
-		anchorSet := map[string]struct{}{}
-		for _, anchor := range anchors {
-			ownerRef, _ := requiredString(document, "owner_document_ref", manifestRef)
-			pathPart := strings.SplitN(ownerRef, "#", 2)[0]
-			anchorSet[pathPart+"#"+anchor["anchor_kind"].(string)+":"+anchor["anchor_id"].(string)] = struct{}{}
-		}
-		importedAnchors, _ := dependency["imported_anchor_refs"].([]any)
-		for _, rawRef := range importedAnchors {
-			ref, ok := rawRef.(string)
-			if !ok {
-				return fmt.Errorf("dependency imported anchor must be a string")
-			}
-			if _, ok := anchorSet[ref]; !ok {
-				return fmt.Errorf("dependency imported anchor %s is absent from its manifest", ref)
-			}
 		}
 	}
 	if err := validateExtensionProfileFactClosure(indexed); err != nil {
@@ -1060,13 +1041,46 @@ func validateExtensionOwnerBindings(root string, indexed map[string]map[string]a
 	return validateExtensionSupportingContractParity(indexed)
 }
 
+func validateRequirementCatalogBinding(root string, binding map[string]any, label string) error {
+	ref, err := requiredString(binding, "catalog_ref", label)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(ref, "contracts/requirements/owners/") || !validRepositoryRelativePath(ref) {
+		return fmt.Errorf("%s.catalog_ref must name a machine requirement catalog", label)
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", label, err)
+	}
+	value, err := decodeContract(data)
+	if err != nil {
+		return fmt.Errorf("decode %s: %w", label, err)
+	}
+	catalog, err := asObject(value, label)
+	if err != nil {
+		return err
+	}
+	if catalog["schema_id"] != binding["schema_id"] || catalog["owner_id"] != binding["owner_id"] {
+		return fmt.Errorf("%s identity does not match its catalog", label)
+	}
+	actualDigest, err := extensionCanonicalDigest(catalog)
+	if err != nil {
+		return err
+	}
+	if binding["catalog_sha256"] != actualDigest {
+		return fmt.Errorf("%s.catalog_sha256 is stale", label)
+	}
+	return nil
+}
+
 func validateExtensionSupportingContractParity(indexed map[string]map[string]any) error {
 	participantDigests := map[string]string{}
 	codecsByID := map[string]map[string]any{}
 	statePresenceByProfile := map[string]map[string]any{}
 	schemaIDs := map[string]struct{}{}
 	algorithmIDs := map[string]struct{}{}
-	ownerRefs := map[string]struct{}{}
+	requirementIDs := map[string]struct{}{}
 	definitionSet := indexed["specification/contract-definitions.json"]
 	definitions, _ := objectArray(definitionSet["definitions"], "extension contract definitions")
 	for _, definition := range definitions {
@@ -1081,13 +1095,13 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 		for _, algorithmID := range anyToStrings(dependency["imported_algorithm_ids"]) {
 			algorithmIDs[algorithmID] = struct{}{}
 		}
-		for _, ownerRef := range anyToStrings(dependency["imported_anchor_refs"]) {
-			ownerRefs[ownerRef] = struct{}{}
+		for _, requirementID := range anyToStrings(dependency["imported_requirement_ids"]) {
+			requirementIDs[requirementID] = struct{}{}
 		}
 	}
 	for _, object := range indexed {
 		switch object["schema_id"] {
-		case "cartulary.extension_participant_contract.v1", "cartulary.extension_participant_specialization.v1", "cartulary.extension_transaction_participant_contract.v1":
+		case "cartulary.extension_participant_contract.v1", "cartulary.extension_participant_specialization.v2", "cartulary.extension_transaction_participant_contract.v2":
 			participantID := stringValue(object["participant_id"])
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -1097,7 +1111,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 				return fmt.Errorf("duplicate participant contract %s", participantID)
 			}
 			participantDigests[participantID] = digest
-			if object["schema_id"] == "cartulary.extension_participant_specialization.v1" {
+			if object["schema_id"] == "cartulary.extension_participant_specialization.v2" {
 				if _, exists := schemaIDs[stringValue(object["shared_context_schema_id"])]; !exists {
 					return fmt.Errorf("participant %s has unresolved shared context schema", participantID)
 				}
@@ -1113,18 +1127,18 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 							return fmt.Errorf("participant %s has unresolved %s", participantID, key)
 						}
 					}
-					for _, key := range []string{"authorization_contract_ref", "redaction_contract_ref", "error_contract_ref"} {
+					for _, key := range []string{"authorization_requirement_id", "redaction_requirement_id", "error_requirement_id"} {
 						ref := stringValue(operation[key])
-						if ref == "" && key == "redaction_contract_ref" {
+						if ref == "" && key == "redaction_requirement_id" {
 							continue
 						}
-						if _, exists := ownerRefs[ref]; !exists {
+						if _, exists := requirementIDs[ref]; !exists {
 							return fmt.Errorf("participant %s has unresolved %s", participantID, key)
 						}
 					}
 				}
 			}
-		case "cartulary.extension_backup_binding_codec.v1":
+		case "cartulary.extension_backup_binding_codec.v2":
 			codecID := stringValue(object["backup_codec_id"])
 			if _, duplicate := codecsByID[codecID]; duplicate {
 				return fmt.Errorf("duplicate backup codec %s", codecID)
@@ -1137,13 +1151,13 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 	}
 	usedParticipants := map[string]struct{}{}
 	for _, object := range indexed {
-		if object["schema_id"] != "cartulary.extension_owner_fragment.v1" {
+		if object["schema_id"] != "cartulary.extension_owner_fragment.v2" {
 			continue
 		}
 		facts, _ := objectArray(object["facts"], "owner fragment facts")
 		for _, fact := range facts {
-			if _, exists := ownerRefs[stringValue(fact["owner_contract_ref"])]; !exists {
-				return fmt.Errorf("owner fact has unresolved owner contract ref %s", fact["owner_contract_ref"])
+			if _, exists := requirementIDs[stringValue(fact["owner_requirement_id"])]; !exists {
+				return fmt.Errorf("owner fact has unresolved owner requirement ID %s", fact["owner_requirement_id"])
 			}
 			if fact["fact_kind"] != "contribution" {
 				continue
@@ -1227,81 +1241,6 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 	return nil
 }
 
-func validateExtensionManifestDocument(root, relativePath string, manifest map[string]any) error {
-	document, _ := asObject(manifest["owner_document"], relativePath+".owner_document")
-	ownerRef, _ := requiredString(document, "owner_document_ref", relativePath)
-	documentPath := strings.SplitN(ownerRef, "#", 2)[0]
-	if !validRepositoryRelativePath(documentPath) {
-		return fmt.Errorf("%s has invalid owner document path", relativePath)
-	}
-	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(documentPath)))
-	if err != nil {
-		return fmt.Errorf("read owner document for %s: %w", relativePath, err)
-	}
-	actualDigest := sha256.Sum256(data)
-	if document["owner_document_sha256"] != hex.EncodeToString(actualDigest[:]) {
-		return fmt.Errorf("%s owner document digest is stale", relativePath)
-	}
-	byteLength, _ := positiveJSONInt(document["byte_length"], relativePath+".byte_length")
-	if byteLength != int64(len(data)) {
-		return fmt.Errorf("%s owner document byte length is stale", relativePath)
-	}
-	anchors, _ := objectArray(manifest["anchors"], relativePath+".anchors")
-	documentAnchors := 0
-	seen := map[string]struct{}{}
-	previousOrder := -1
-	previousID := ""
-	kindOrder := map[string]int{"document": 0, "req": 1, "table": 2, "schema": 3, "algorithm": 4}
-	for index, anchor := range anchors {
-		kind, err := requiredString(anchor, "anchor_kind", relativePath+".anchor")
-		if err != nil {
-			return err
-		}
-		order, ok := kindOrder[kind]
-		if !ok {
-			return fmt.Errorf("%s anchor kind is invalid", relativePath)
-		}
-		id, err := requiredString(anchor, "anchor_id", relativePath+".anchor")
-		if err != nil {
-			return err
-		}
-		if order < previousOrder || (order == previousOrder && previousID >= id) {
-			return fmt.Errorf("%s anchors are not in canonical order", relativePath)
-		}
-		previousOrder, previousID = order, id
-		identity := kind + "\x00" + id
-		if _, duplicate := seen[identity]; duplicate {
-			return fmt.Errorf("%s has duplicate anchor %s", relativePath, identity)
-		}
-		seen[identity] = struct{}{}
-		start, err := nonnegativeJSONInt(anchor["start_byte"], relativePath+".anchor.start_byte")
-		if err != nil {
-			return err
-		}
-		end, err := positiveJSONInt(anchor["end_byte"], relativePath+".anchor.end_byte")
-		if err != nil {
-			return err
-		}
-		if start >= end || end > int64(len(data)) {
-			return fmt.Errorf("%s anchor %d range is invalid", relativePath, index)
-		}
-		anchorDigest := sha256.Sum256(data[start:end])
-		if anchor["anchor_sha256"] != hex.EncodeToString(anchorDigest[:]) {
-			return fmt.Errorf("%s anchor %s digest is stale", relativePath, id)
-		}
-		if kind == "document" {
-			documentAnchors++
-			if start != 0 || end != int64(len(data)) || id != document["owner_document_schema_id"] {
-				return fmt.Errorf("%s document anchor is not the exact whole document", relativePath)
-			}
-		}
-	}
-	if documentAnchors != 1 {
-		return fmt.Errorf("%s must contain exactly one document anchor", relativePath)
-	}
-	return nil
-}
-
 func validateExtensionProfileFactClosure(indexed map[string]map[string]any) error {
 	counts := map[string]map[string]int{}
 	configDigests := map[string]string{}
@@ -1310,7 +1249,7 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 	}
 	for relativePath, object := range indexed {
 		schemaID, _ := object["schema_id"].(string)
-		if schemaID == "cartulary.extension_profile_configuration_contract.v1" {
+		if schemaID == "cartulary.extension_profile_configuration_contract.v2" {
 			profileID, _ := object["profile_id"].(string)
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -1321,7 +1260,7 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 			}
 			configDigests[profileID] = digest
 		}
-		if schemaID != "cartulary.extension_owner_fragment.v1" {
+		if schemaID != "cartulary.extension_owner_fragment.v2" {
 			continue
 		}
 		facts, _ := objectArray(object["facts"], relativePath+".facts")
@@ -1355,29 +1294,46 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 	return nil
 }
 
-func validateExtensionTraceabilityRanges(root string, indexed map[string]map[string]any) error {
+func validateExtensionRequirementCoverage(root string, indexed map[string]map[string]any) error {
 	object := indexed["traceability/mapping-source.json"]
 	if object == nil {
-		return fmt.Errorf("extension traceability mapping source is missing")
+		return fmt.Errorf("extension requirement mapping source is missing")
 	}
-	data, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
+	ref, err := requiredString(object, "requirement_catalog_ref", "extension requirement mapping source")
 	if err != nil {
 		return err
 	}
-	expected, err := buildExtensionTraceabilityMappingSource(data)
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
+	if err != nil {
+		return fmt.Errorf("read extension requirement catalog: %w", err)
+	}
+	value, err := decodeContract(data)
 	if err != nil {
 		return err
 	}
-	expectedCanonical, err := canonicalizeDecoded(expected)
+	catalog, err := asObject(value, "extension requirement catalog")
 	if err != nil {
 		return err
 	}
-	actualCanonical, err := canonicalizeDecoded(object)
+	actualDigest, err := extensionCanonicalDigest(catalog)
 	if err != nil {
 		return err
 	}
-	if actualCanonical != expectedCanonical {
-		return fmt.Errorf("extension traceability mapping source does not exactly cover the normative clause extraction")
+	if object["requirement_catalog_sha256"] != actualDigest {
+		return fmt.Errorf("extension requirement mapping source has a stale catalog digest")
+	}
+	known := map[string]struct{}{}
+	rows, _ := objectArray(catalog["requirements"], "extension requirements")
+	for _, row := range rows {
+		known[stringValue(row["requirement_id"])] = struct{}{}
+	}
+	mappings, _ := objectArray(object["mappings"], "extension requirement mappings")
+	for _, mapping := range mappings {
+		for _, requirementID := range append(anyToStrings(mapping["requirement_ids"]), anyToStrings(mapping["acceptance_criterion_ids"])...) {
+			if _, ok := known[requirementID]; !ok {
+				return fmt.Errorf("extension requirement mapping references unknown requirement %s", requirementID)
+			}
+		}
 	}
 	return nil
 }

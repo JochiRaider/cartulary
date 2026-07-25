@@ -106,10 +106,7 @@ import {
   selectedBrowserGroupRowIDs,
 } from "../browser/index.mjs";
 import { resolveBrowserBatchStage } from "../browser/browser-batch-manifest.mjs";
-import {
-  assertDocumentationAccessAllowed,
-  scanDocumentationReadSource,
-} from "../test-catalog/documentation-boundary.mjs";
+import { scanRestrictedReadSource } from "../test-catalog/restricted-input-boundary.mjs";
 import {
   buildOwnerSlicePlan,
   OwnerSliceUsageError,
@@ -142,8 +139,55 @@ function writeFixtureFile(root, relativePath, content) {
 }
 
 function writeOwnerCatalogFixture(root, mutate = () => {}) {
+  const requirementRegistry = {
+    schema_id: "cartulary.requirement_registry.v1",
+    owners: [
+      {
+        owner_id: "module.fixture",
+        catalog_path: "contracts/requirements/owners/module.fixture.json",
+        status: "active",
+      },
+    ],
+  };
+  const requirementCatalog = {
+    schema_id: "cartulary.requirement_catalog.v1",
+    owner_id: "module.fixture",
+    requirements: [
+      {
+        requirement_id: "module.fixture.requirement.behavior",
+        statement: "Fixture-owned behavior remains exact.",
+        contract_ids: ["cartulary.fixture.behavior.v1"],
+        status: "active",
+      },
+    ],
+  };
+  const contractFamilyRegistry = {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    schema_id: "cartulary.contract_family_registry.v2",
+    registry_id: "cartulary.contract_families.v1",
+    note: "Fixture machine contract family.",
+    families: [
+      {
+        family_id: "fixture",
+        contract_root: "contracts/fixture",
+        generation_status: "active",
+        go_name: "FixtureArtifacts",
+        ts_name: "fixtureArtifacts",
+        output_order: 0,
+        owner_requirement_ids: ["module.fixture.requirement.behavior"],
+        owner_contract_ids: ["cartulary.fixture.behavior.v1"],
+        generated_outputs: [
+          "internal/gen/contracts/contracts_gen.go",
+          "packages/protocol-ts/src/generated/contracts.ts",
+        ],
+        typescript_runtime_artifact_prefixes: ["contracts/fixture/"],
+        activation_dependency_ids: [],
+        description: "Fixture machine contract artifacts.",
+      },
+    ],
+  };
   const verificationRegistry = {
-    schema_id: "cartulary.verification_registry.v1",
+    schema_id: "cartulary.verification_registry.v2",
     owners: [
       {
         owner_id: "module.fixture",
@@ -153,14 +197,14 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
     ],
   };
   const verificationContract = {
-    schema_id: "cartulary.verification_contract.v1",
+    schema_id: "cartulary.verification_contract.v2",
     owner_id: "module.fixture",
     verifications: [
       {
         verification_id: "module.fixture.verification.behavior",
         behavior_class: "product",
         profile: "base",
-        requirement: "Fixture-owned behavior remains exact.",
+        requirement_ids: ["module.fixture.requirement.behavior"],
         evidence_kinds: ["go_test"],
         status: "active",
       },
@@ -193,7 +237,7 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
     status: "active",
   };
   const familyManifest = {
-    schema_id: "cartulary.test_family_manifest.v1",
+    schema_id: "cartulary.test_family_manifest.v2",
     owner_id: "module.fixture",
     rows: [row],
   };
@@ -201,6 +245,9 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   const topology = readJSON("tools/execution_topology_manifest.json");
   const schedulerResources = readJSON("tools/scheduler_resource_registry.json");
   const fixture = {
+    requirementRegistry,
+    requirementCatalog,
+    contractFamilyRegistry,
     verificationRegistry,
     verificationContract,
     ownerRegistry,
@@ -216,6 +263,18 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
     taskSurface: { targets: [] },
   };
   mutate(fixture);
+  writeJSONFile(
+    path.join(root, "contracts/requirements/registry.json"),
+    fixture.requirementRegistry,
+  );
+  writeJSONFile(
+    path.join(root, "contracts/requirements/owners/module.fixture.json"),
+    fixture.requirementCatalog,
+  );
+  writeJSONFile(
+    path.join(root, "contracts/index.json"),
+    fixture.contractFamilyRegistry,
+  );
   writeJSONFile(path.join(root, "contracts/verification/registry.json"), fixture.verificationRegistry);
   writeJSONFile(
     path.join(root, "contracts/verification/owners/module.fixture.json"),
@@ -1366,6 +1425,58 @@ test("runner selector resolvers preserve exact closed shapes across all runners"
 test("owner catalog rejects structural, reference, selector, and path ambiguity", () => {
   const cases = [
     {
+      name: "duplicate requirement ID",
+      mutate: ({ requirementCatalog }) => {
+        requirementCatalog.requirements.push(
+          structuredClone(requirementCatalog.requirements[0]),
+        );
+      },
+      pattern: /must not contain duplicates|duplicate requirement_id/iu,
+    },
+    {
+      name: "unknown verification requirement",
+      mutate: ({ verificationContract }) => {
+        verificationContract.verifications[0].requirement_ids = [
+          "module.fixture.requirement.missing",
+        ];
+      },
+      pattern: /requirement_ids references unknown/iu,
+    },
+    {
+      name: "planned requirement claimed as evidence",
+      mutate: ({ requirementCatalog, verificationContract }) => {
+        requirementCatalog.requirements.push({
+          requirement_id: "module.fixture.requirement.planned",
+          statement: "Incomplete fixture behavior remains explicitly planned.",
+          status: "planned",
+        });
+        verificationContract.verifications[0].requirement_ids = [
+          "module.fixture.requirement.planned",
+        ];
+      },
+      pattern: /requirement_ids references planned/iu,
+    },
+    {
+      name: "active requirement missing verification",
+      mutate: ({ requirementCatalog }) => {
+        requirementCatalog.requirements.push({
+          requirement_id: "module.fixture.requirement.uncovered",
+          statement: "Active fixture behavior requires executable evidence.",
+          status: "active",
+        });
+      },
+      pattern: /active requirement .* has no verification/iu,
+    },
+    {
+      name: "undeclared machine contract",
+      mutate: ({ contractFamilyRegistry }) => {
+        contractFamilyRegistry.families[0].owner_contract_ids = [
+          "cartulary.fixture.undeclared.v1",
+        ];
+      },
+      pattern: /owner_contract_ids references undeclared/iu,
+    },
+    {
       name: "zero-row owner",
       mutate: ({ familyManifest }) => { familyManifest.rows = []; },
       pattern: /must NOT have fewer than 1 items|must not be empty/iu,
@@ -1607,75 +1718,27 @@ test("test catalog implementation cannot depend on execution or accounting layer
   }
 });
 
-test("documentation boundary rejects direct, computed, and symlinked reads", () => {
-  const documentationDir = ["do", "cs"].join("");
-  const direct = scanDocumentationReadSource(
+test("restricted input boundary detects direct and joined root references", () => {
+  const restrictedRoot = ["restricted", "-input"].join("");
+  const direct = scanRestrictedReadSource(
     "tools/fixture/direct.mjs",
-    `readFileSync(path.join(root, "${documentationDir}", "spec", "owner.md"), "utf8");`,
+    `readFileSync("${restrictedRoot}/owner.json", "utf8");`,
+    [restrictedRoot],
   );
   assert.equal(direct.length, 1);
-  assert.equal(direct[0].operation, "read_file");
-
-  const computed = scanDocumentationReadSource(
+  assert.equal(direct[0].restricted_root, restrictedRoot);
+  const joined = scanRestrictedReadSource(
     "tools/fixture/computed.mjs",
-    `const ownerPath = path.join(root, "${documentationDir}", "owner.md");\nstatSync(ownerPath);`,
+    `const ownerPath = path.join(root, "${restrictedRoot}", "owner.json");`,
+    [restrictedRoot],
   );
-  assert.equal(computed.length, 1);
-  assert.equal(computed[0].operation, "stat_path");
-
-  const helperMediated = scanDocumentationReadSource(
-    "tools/fixture/helper.mjs",
-    `function loadOwner(file) { return readFileSync(file, "utf8"); }\nconst ownerPath = path.join(root, "${documentationDir}", "owner.md");\nloadOwner(ownerPath);`,
+  assert.ok(joined.length >= 1);
+  const allowed = scanRestrictedReadSource(
+    "tools/fixture/allowed.mjs",
+    'readFileSync("contracts/owner.json", "utf8");',
+    [restrictedRoot],
   );
-  assert.equal(helperMediated.length, 1);
-  assert.equal(helperMediated[0].operation, "read_file");
-
-  const root = mkdtempSync(path.join(repoRoot, "tmp", "documentation-boundary."));
-  try {
-    writeFixtureFile(root, `${documentationDir}/spec/owner.md`, "# Owner\n");
-    symlinkSync(path.join(root, documentationDir), path.join(root, "machine-link"));
-    assert.throws(
-      () =>
-        assertDocumentationAccessAllowed({
-          root,
-          consumerPath: "tools/fixture/reader.mjs",
-          operation: "read_file",
-          candidatePath: `${documentationDir}/spec/owner.md`,
-          exceptions: { exceptions: [] },
-        }),
-      /boundary_policy_violation/u,
-    );
-    assert.throws(
-      () =>
-        assertDocumentationAccessAllowed({
-          root,
-          consumerPath: "tools/fixture/reader.mjs",
-          operation: "resolve_realpath",
-          candidatePath: "machine-link/spec/owner.md",
-          exceptions: { exceptions: [] },
-        }),
-      /boundary_policy_violation/u,
-    );
-    assert.doesNotThrow(() =>
-      assertDocumentationAccessAllowed({
-        root,
-        consumerPath: "tools/docs/lint.mjs",
-        operation: "read_file",
-        candidatePath: `${documentationDir}/spec/owner.md`,
-        exceptions: {
-          exceptions: [
-            {
-              consumer_path: "tools/docs/lint.mjs",
-              documentation_pattern: `^${documentationDir}/.*$`,
-              operations: ["read_file"],
-            },
-          ],
-        },
-      }),
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  assert.deepEqual(allowed, []);
 });
 
 const fixtureImportKeyword = ["im", "port"].join("");
@@ -1832,10 +1895,10 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
 test("contract family registry schema is closed and restricts planned families", async () => {
   const registry = readJSON("contracts/index.json");
 
-  await validateSchema("cartulary.contract_family_registry.v1", registry);
+  await validateSchema("cartulary.contract_family_registry.v2", registry);
 
   await assert.rejects(
-    validateSchema("cartulary.contract_family_registry.v1", {
+    validateSchema("cartulary.contract_family_registry.v2", {
       ...registry,
       unexpected: true,
     }),
@@ -1849,7 +1912,7 @@ test("contract family registry schema is closed and restricts planned families",
       : family,
   );
   await validateSchema(
-    "cartulary.contract_family_registry.v1",
+    "cartulary.contract_family_registry.v2",
     activatedNetworkFlow,
   );
 

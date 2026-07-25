@@ -598,7 +598,7 @@ func AssertMachineVerificationContract(t *testing.T) {
 	); err != nil {
 		t.Fatalf("decode Network Flow verification contract: %v", err)
 	}
-	if contract.SchemaID != "cartulary.verification_contract.v1" || contract.OwnerID != "module.networkflow" {
+	if contract.SchemaID != "cartulary.verification_contract.v2" || contract.OwnerID != "module.networkflow" {
 		t.Fatalf("unexpected Network Flow verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
 	}
 	for _, verification := range contract.Verifications {

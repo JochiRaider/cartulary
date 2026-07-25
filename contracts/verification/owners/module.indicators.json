@@ -1,16 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.indicators",
   "verifications": [
     {
       "verification_id": "module.indicators.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "indicator lifecycle and projection postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.indicators.requirement.behavior_contract"
+      ]
     }
   ]
 }

@@ -1,37 +1,43 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "web.architecture",
   "verifications": [
     {
       "verification_id": "web.architecture.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "web.architecture frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "shell"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "web.architecture.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "web.architecture.verification.import_boundaries",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "Frontend imports follow registered application and package boundaries and runtime code consumes generated contracts instead of documentation.",
       "evidence_kinds": [
         "static_check"
       ],
       "public_target": "frontend-import-boundary-check",
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "web.architecture.requirement.import_boundaries"
+      ]
     },
     {
       "verification_id": "web.architecture.verification.test_boundaries",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "Frontend structural policy tests preserve transport, selector, telemetry, and module import ownership boundaries.",
       "evidence_kinds": [
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "web.architecture.requirement.test_boundaries"
+      ]
     }
   ]
 }

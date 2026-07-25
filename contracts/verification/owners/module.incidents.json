@@ -1,18 +1,20 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.incidents",
   "verifications": [
     {
       "verification_id": "module.incidents.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "incident identity, membership, lifecycle, and discovery postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test",
         "playwright",
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.incidents.requirement.behavior_contract"
+      ]
     }
   ]
 }

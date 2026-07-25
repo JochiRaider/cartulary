@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.viewschema",
+  "requirements": [
+    {
+      "requirement_id": "platform.viewschema.requirement.behavior_contract",
+      "statement": "view-schema registry and validation boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

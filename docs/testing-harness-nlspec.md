@@ -1,20 +1,32 @@
 ---
 doc_id: cartulary.testing_harness.v2
-title: Testing Harness NLSpec
+title: Testing Harness Human Reference
 conformance_profile_id: cartulary.testing_harness.current.v2
-doc_type: nlspec
-status: adopted/current
-authority_boundary: Harness mechanics only; command invocation, target selection, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, cleanup, and harness verification gates.
+doc_type: human_reference
+status: maintained/non-executable
+authority_boundary: Human explanation of machine-owned harness mechanics.
 ---
 
 ## 1. Status, Scope, and Authority
 
-This NLSpec defines the Cartulary testing harness subsystem. It is the sole adopted current authority for the harness mechanics identified in `authority_boundary`, including owner and row selection, catalog validation, runner adaptation, retained-evidence auditing, and the existing scheduler, fixture, service, artifact, cleanup, and verification-gate contracts. Adoption does not make harness readiness evidence product conformance or Core 05 claim-publication evidence.
+This document explains the Cartulary testing harness subsystem for maintainers.
+Executable authority lives in machine-readable requirement catalogs,
+verification contracts, test family manifests, schemas, task-surface inputs,
+execution topology, and policy registries. No harness test, generator,
+conformance command, or release command consumes this file or any other
+documentation file as evidence.
 
 **TH-HARNESS-REQ-001**
-This NLSpec owns only harness mechanics: command invocation, owner and row selection, catalog and runner validation, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, retained-evidence auditing, cleanup, and harness verification gates. Core 00 through Core 04 remain the sole owners of product behavior and product-profile authority. Core 05 remains the sole owner of claim-publication and benchmark-publication activation.
+The machine contracts described here own harness mechanics: command invocation,
+owner and row selection, catalog and runner validation, scheduling, fixture
+lifecycle, service ownership, artifact emission, summary emission,
+retained-evidence auditing, cleanup, and harness verification gates.
 
-Owner catalogs, verification contracts, schemas, task-surface inputs, and execution-topology inputs are reviewed derived contracts. They MUST implement this NLSpec and their cited product or support owners, but they MUST NOT supersede either source. Migration trackers and handoffs are implementation authorities only; they MUST NOT create lasting harness behavior. Guides, generated outputs, repository source, tests, and retained artifacts MUST NOT become alternate behavior owners.
+Requirement catalogs, verification contracts, schemas, task-surface inputs, and
+execution-topology inputs are the executable contracts. Documentation,
+migration trackers, and handoffs may explain them but cannot create or close
+testable behavior. Generated outputs, repository source, tests, and retained
+artifacts also do not become alternate requirement owners.
 
 Frontend readiness mechanics introduced by `browser-e2e-visual`, `browser-e2e-a11y`, `test-evidence-audit`, owner test-family manifests, `tools/frontend_visual_fixture_registry.json`, `cartulary.test_evidence_accounting.v1`, `cartulary.frontend_visual_fixture_registry.v4`, `cartulary.frontend_accessibility_summary.v4`, and `cartulary.frontend_claim_publication_review.v1` are harness and implementation-readiness mechanics only. They MUST NOT define Core product behavior, MUST NOT promote visual or accessibility evidence into product-conformance evidence, and MUST NOT activate Core 05 claim-publication review unless a claim-bearing publication predicate is active.
 
@@ -95,10 +107,10 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-071
 Repository test-harness observability is a harness diagnostic subsystem, not
 application runtime telemetry. This NLSpec owns harness trace reconstruction,
 harness performance metrics, retained diagnostic artifacts, explicit post-run
-OTLP export, and the public commands that inspect or export them. The adopted
-OpenTelemetry source and protocol baseline is consumed from
-`docs/opentelemetry-instrumentation-nlspec.md`; this NLSpec MUST NOT duplicate or
-silently rebaseline it. Application telemetry scopes, application
+OTLP export, and the public commands that inspect or export them. The pinned
+OpenTelemetry source and protocol baseline is consumed from machine snapshot
+and dependency contracts under `contracts/otel/`; this reference MUST NOT
+duplicate or silently rebaseline it. Application telemetry scopes, application
 `cartulary.module` attributes, deployment telemetry configuration, and the
 server telemetry bootstrap MUST NOT become harness configuration or harness
 evidence owners.
@@ -179,7 +191,21 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-068
 ### 3.2 Owner, verification, and family contracts
 
 **TH-HARNESS-REQ-013**
-The current owner inputs are `contracts/verification/registry.json`, `contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and `tools/test_families/*.json`. They MUST validate respectively as `cartulary.verification_registry.v1`, `cartulary.verification_contract.v1`, `cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v1`. Every schema MUST use JSON Schema Draft 2020-12, require its exact `schema_id`, reject unknown properties, and close every current enum.
+The current owner inputs are `contracts/requirements/registry.json`,
+`contracts/requirements/owners/*.json`,
+`contracts/verification/registry.json`,
+`contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and
+`tools/test_families/*.json`. They validate respectively as
+`cartulary.requirement_registry.v1`, `cartulary.requirement_catalog.v1`,
+`cartulary.verification_registry.v2`, `cartulary.verification_contract.v2`,
+`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v2`.
+Every schema uses JSON Schema Draft 2020-12, requires its exact `schema_id`,
+rejects unknown properties, and closes every current enum.
+
+Requirement IDs are globally unique. Every active requirement resolves through
+at least one active verification and then to an active catalog row or registered
+public target. Planned requirements describe incomplete work and cannot be
+claimed by verification, conformance, release, or publication evidence.
 
 An active owner registry row MUST contain `owner_id`, `manifest_path`, and `status="active"`; it MAY contain display metadata. `manifest_path` MUST be a normalized repository-relative path under the matching owner root, MUST resolve exactly once, and MUST remain inside the repository after realpath resolution. Every active owner MUST own at least one active executable row.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-067
@@ -187,7 +213,13 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-067
 **TH-HARNESS-REQ-014**
 Every active catalog row MUST contain `row_id`, `owner_id`, `family_id`, `collaborator_ids`, `verification_ids`, `runner`, `selector`, `evidence_class`, `runtime_profile_id`, `resource_profile_id`, `fixture_profile_id`, `default_check`, `claim_posture`, and `status="active"`.
 
-`collaborator_ids` is required and MAY be empty. `verification_ids` is required and MUST be nonempty. Reference arrays MUST be sorted and duplicate-free, and every reference MUST resolve exactly once. `owner_id` MUST equal the containing manifest owner. A row MUST NOT embed commands, ports, capacities, service topology, child environment variables, fixture paths, or document-derived behavior. Optional `documentation_refs` are inert strings: consumers MAY display or compare them but MUST NOT open, stat, resolve, or hash their targets.
+`collaborator_ids` is required and MAY be empty. `verification_ids` is required
+and MUST be nonempty. Verification contracts contain required
+`requirement_ids`; documentation references are not accepted. Reference arrays
+MUST be sorted and duplicate-free, and every reference MUST resolve exactly
+once. `owner_id` MUST equal the containing manifest owner. A row MUST NOT embed
+commands, ports, capacities, service topology, child environment variables,
+fixture paths, documentation paths, or document-derived behavior.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-015**
@@ -1431,7 +1463,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
 | `cartulary.same_run_helper_artifact_ref.v2`     | `tools/schemas/cartulary.same_run_helper_artifact_ref.v2.schema.json`     | present           | Run summary generator    | Before an aggregate reports same-run helper artifact reuse. |
 | `cartulary.task_surface_owner.v1`               | `tools/schemas/cartulary.task_surface_owner.v1.schema.json`               | present           | Authored task-surface owner validation | Before task-surface, scheduler, or generated Make projection. |
-| `cartulary.contract_family_registry.v1`         | `tools/schemas/cartulary.contract_family_registry.v1.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
+| `cartulary.contract_family_registry.v2`         | `tools/schemas/cartulary.contract_family_registry.v2.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
 | `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
 | `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.test_slice_scheduler_summary.v1`     | `tools/schemas/cartulary.test_slice_scheduler_summary.v1.schema.json`     | present           | Owner-slice scheduler    | Before an owner-slice scheduler target succeeds. |
@@ -1440,17 +1472,19 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.fixture_tier_proof.v2`               | `tools/schemas/cartulary.fixture_tier_proof.v2.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
 | `cartulary.test_slice_plan.v2`                  | `tools/schemas/cartulary.test_slice_plan.v2.schema.json`                  | present           | Owner-slice planner      | Before setup, retained plan emission, or owner-slice JSON output is accepted. |
 | `cartulary.test_evidence_root_manifest.v1`      | `tools/schemas/cartulary.test_evidence_root_manifest.v1.schema.json`      | present           | Evidence-audit caller    | Before any retained root is opened. |
-| `cartulary.verification_registry.v1`            | `tools/schemas/cartulary.verification_registry.v1.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
-| `cartulary.verification_contract.v1`            | `tools/schemas/cartulary.verification_contract.v1.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
+| `cartulary.requirement_registry.v1`             | `tools/schemas/cartulary.requirement_registry.v1.schema.json`             | present           | Requirement registry     | Before verification loading or coverage validation. |
+| `cartulary.requirement_catalog.v1`              | `tools/schemas/cartulary.requirement_catalog.v1.schema.json`              | present           | Requirement owner        | Before verification loading or coverage validation. |
+| `cartulary.verification_registry.v2`            | `tools/schemas/cartulary.verification_registry.v2.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
+| `cartulary.verification_contract.v2`            | `tools/schemas/cartulary.verification_contract.v2.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
-| `cartulary.test_family_manifest.v1`             | `tools/schemas/cartulary.test_family_manifest.v1.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
+| `cartulary.test_family_manifest.v2`             | `tools/schemas/cartulary.test_family_manifest.v2.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
 | `cartulary.test_runner_registry.v1`             | `tools/schemas/cartulary.test_runner_registry.v1.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
 | `cartulary.test_evidence_accounting.v1`         | `tools/schemas/cartulary.test_evidence_accounting.v1.schema.json`         | present           | Owner-aware target summaries | Before target-summary success. |
 | `cartulary.test_evidence_audit_summary.v1`      | `tools/schemas/cartulary.test_evidence_audit_summary.v1.schema.json`      | present           | Owner evidence audit     | Before audit success. |
 | `cartulary.test_owner_explanation.v1`           | `tools/schemas/cartulary.test_owner_explanation.v1.schema.json`           | present           | Owner diagnostics        | Before target-local JSON output. |
 | `cartulary.task_guide_summary.v2`               | `tools/schemas/cartulary.task_guide_summary.v2.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v1`       | `tools/schemas/cartulary.test_catalog_check_summary.v1.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
-| `cartulary.documentation_read_exceptions.v1`    | `tools/schemas/cartulary.documentation_read_exceptions.v1.schema.json`    | present           | Documentation boundary owner | Before documentation-read policy validation. |
+| `cartulary.executable_input_policy.v1`          | `tools/schemas/cartulary.executable_input_policy.v1.schema.json`          | present           | Executable input boundary owner | Before executable-input policy validation. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v2`          | `tools/schemas/cartulary.test_services.lifecycle.v2.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
@@ -1467,7 +1501,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test.network_flow_audit_assertion_control.v1` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.network_flow_fixture_manifest.v1`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for conformance execution. |
-| `cartulary.graph_projection_fixture_manifest.v1` | `tools/schemas/cartulary.graph_projection_fixture_manifest.v1.schema.json` | present | Graph Projection fixture manifest validator | Before a Graph Projection fixture is selected for conformance execution. |
+| `cartulary.graph_projection_fixture_manifest.v2` | `tools/schemas/cartulary.graph_projection_fixture_manifest.v2.schema.json` | present | Graph Projection fixture manifest validator | Before a Graph Projection fixture is selected for conformance execution. |
 | `cartulary.network_flow_activity_accounting.v2` | `tools/schemas/cartulary.network_flow_activity_accounting.v2.schema.json` | present           | Network Flow acceptance-to-runtime accounting validator | During JSON shape checks and before Network Flow generated-contract or catalog drift evidence is accepted. |
 | `cartulary.network_flow_timezone_ruleset_provenance.v1` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v1.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
@@ -1596,7 +1630,19 @@ Operator runtime-binary consumers MUST retain a bounded provenance artifact for 
 Verified by: TH-HARNESS-AC-037
 
 **TH-HARNESS-REQ-268**
-The owner-first schema families are `cartulary.verification_registry.v1`, `cartulary.verification_contract.v1`, `cartulary.test_owner_registry.v1`, `cartulary.test_family_manifest.v1`, `cartulary.test_runner_registry.v1`, `cartulary.test_slice_plan.v2`, `cartulary.test_slice_scheduler_summary.v1`, `cartulary.test_evidence_root_manifest.v1`, `cartulary.test_evidence_accounting.v1`, `cartulary.test_evidence_audit_summary.v1`, `cartulary.test_owner_summary.v1`, `cartulary.test_owner_explanation.v1`, `cartulary.task_guide_summary.v2`, and `cartulary.test_catalog_check_summary.v1`. Each is a required current attachment and MUST reject old-family schema IDs.
+The owner-first schema families are `cartulary.requirement_registry.v1`,
+`cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v2`,
+`cartulary.verification_contract.v2`, `cartulary.test_owner_registry.v1`,
+`cartulary.test_family_manifest.v2`, `cartulary.test_runner_registry.v1`,
+`cartulary.test_slice_plan.v2`,
+`cartulary.test_slice_scheduler_summary.v1`,
+`cartulary.test_evidence_root_manifest.v1`,
+`cartulary.test_evidence_accounting.v1`,
+`cartulary.test_evidence_audit_summary.v1`,
+`cartulary.test_owner_summary.v1`,
+`cartulary.test_owner_explanation.v1`, `cartulary.task_guide_summary.v2`, and
+`cartulary.test_catalog_check_summary.v1`. Each is a required current
+attachment and rejects old-family schema IDs.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-269**
@@ -1650,7 +1696,11 @@ Verified by: TH-HARNESS-AC-066
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-275**
-`cartulary.documentation_read_exceptions.v1` is a required current schema attachment. It MUST use Draft 2020-12, constant `schema_id`, closed enums, required fields, and `additionalProperties=false`; its policy validator MUST reject an unknown field, purpose, operation, missing owner, or unsafe path before scanning executable behavior.
+`cartulary.executable_input_policy.v1` is a required current schema attachment.
+It uses Draft 2020-12, a constant `schema_id`, closed keys, required fields, and
+`additionalProperties=false`; its policy validator rejects unknown fields,
+unsorted inputs, or unsafe restricted-root declarations before scanning
+executable behavior.
 Verified by: TH-HARNESS-AC-067, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-277**
@@ -3724,15 +3774,26 @@ Screenshots, videos, traces, visual geometry diagnostics, and Playwright HTML re
 Workbook visual regression tests that capture an outer grid shell while driving an inner grid scrollport MUST normalize and verify both layers before assertion. The screenshot-target shell MUST be reset to `scrollLeft=0` and `scrollTop=0` for left/default viewport captures unless a test explicitly declares a different shell-scroll contract, while the owned grid scrollport MUST be normalized to the test's declared scroll or anchor state. Anchor-based captures that intentionally frame off-screen workbook columns are explicit shell-scroll contracts and MUST still reset stale shell state before computing their deterministic offset. The diagnostic record MUST identify the screenshot target and both shell and scrollport metrics; exact human wording is non-normative. This normalization is harness mechanics only; it does not promote refresh output into product conformance, design conformance, release, or Core 05 publication evidence.
 
 **TH-HARNESS-REQ-606**
-`tools/documentation_read_exceptions.json` MUST validate as `cartulary.documentation_read_exceptions.v1`. Each exception contains `command_id`, one normalized repository-relative `consumer_path`, one anchored repository-relative `documentation_pattern`, a nonempty sorted duplicate-free `operations` array, `purpose`, and `owner_id`. Operations are exactly `read_file`, `stat_path`, `resolve_realpath`, or `enumerate_directory`; purpose is exactly `documentation_lint`, `documentation_link_check`, or `documentation_generation`. Patterns MUST reject absolute paths, NUL, `.` or `..` segments, and unanchored matching. Product, catalog, security, release, and conformance validators MUST NOT receive an exception.
+`tools/executable_input_policy.json` validates as
+`cartulary.executable_input_policy.v1`. It declares closed restricted roots,
+standalone documentation-maintenance sources, and machine evidence roots.
+Product, catalog, security, release, conformance, and generation commands have
+no documentation-read exception mechanism.
 Verified by: TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-607**
-The documentation-read boundary scans executable and validation sources under `cmd/**`, `internal/**`, `apps/**`, `packages/**`, `scripts/**`, `tools/**`, root Makefiles, workspace package scripts, and executable configuration. It MUST detect direct reads, stat or realpath probes, imported helper reads, computed repository-local documentation paths, and symlink traversal. Catalog `documentation_refs` MAY be emitted or compared as strings only.
+The executable-input boundary scans executable and validation sources plus
+machine evidence configuration without opening, statting, resolving, hashing,
+or enumerating a restricted documentation root. Direct and joined restricted
+paths fail the gate. Verification contracts, test-family manifests, generated
+artifacts, and production fixtures do not accept documentation references.
 Verified by: TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-608**
-Documentation-read enforcement MUST contain static fixtures, runtime negative fixtures, indirect-helper fixtures, and realpath/symlink-escape fixtures. An allowed documentation tool may read only paths and operations matched by one exception row. Comments, file ownership, current behavior, or a guide reference do not authorize a read.
+Boundary tests use neutral synthetic root names and files. Standalone
+documentation maintenance may read documentation only through the explicitly
+classified `lint-markdown` command, which is excluded from product, CI,
+conformance, release, performance, and claim-publication aggregates.
 Verified by: TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-609**
@@ -4072,7 +4133,7 @@ A later step MUST NOT compensate for an earlier failure, and evidence from diffe
 | TH-HARNESS-AC-064 | Sections 4, 5, 7 | Owner command inputs and output | Missing/valid owners; omitted/blank/duplicate/cross-owner rows; worker `0`, `1`, `16`, `17`; JSON omitted, empty, `1`, invalid; retired inputs | Public command contract fixtures for all five owner commands | Exact Section 5 success or exit `2` before setup | Human output or exact command JSON plus LF | Bounded usage diagnostic | Plan, explanation, guide, or audit artifacts exactly where required | Default-check narrows omitted rows, JSON and machine combine, or old input is ignored | no setup for rejected inputs |
 | TH-HARNESS-AC-065 | Sections 9, 10 | Terminal row accounting | Pass, assertion, setup, dependency, cancellation, authorized/expired skip, duplicate/missing record, concurrent failure, and cleanup fixtures | Owner-slice scheduler matrix | Success only for passed or authorized-skipped rows; exact Section 9 exits otherwise | Bounded scheduler summary | Bounded primary diagnostic | One terminal record per resolved row, all attempts, finalizer evidence | Unauthorized skip passes, cleanup masks primary, retry hides failure, or selected row lacks record | finalizers always run |
 | TH-HARNESS-AC-066 | Sections 6, 8, 16 | Evidence compatibility and freshness | Matching and mismatched source/catalog/verification/profile digests; missing, duplicate, extra, mixed, old, dirty, and unsafe roots | `test-evidence-audit` fixtures | `0` only for one compatible complete owner evidence set | Bounded audit result | Bounded usage or artifact diagnostic | `cartulary.test_evidence_audit_summary.v1` with used/unused/rejected roots | TTL, newest fallback, mixed snapshot, duplicate candidate, or broad-check inference passes | retained inputs unchanged |
-| TH-HARNESS-AC-067 | Sections 3, 6, 15 | Documentation and semantic boundaries | Direct, indirect, stat, realpath, symlink, allowed documentation tool, product-phase, execution-step, delivery-phase, and ambiguous fixtures | Documentation-read guard and semantic identity scan | `0` only for exact registered reads and classified legitimate terms | Bounded policy summary | Bounded boundary or configuration diagnostic | Exception and allowlist validation summaries | Validator reads docs, line-only exception passes, or live selector retains delivery identity | no document mutation |
+| TH-HARNESS-AC-067 | Sections 3, 6, 15 | Executable-input and semantic boundaries | Neutral direct/joined restricted-root fixtures plus product-phase, execution-step, delivery-phase, and ambiguous fixtures | Executable-input policy and semantic identity scan | `0` only when executable sources and machine evidence contain no restricted input | Bounded policy summary | Bounded boundary or configuration diagnostic | Closed policy validation summary | Validator consumes a restricted root, machine evidence contains a documentation path, or a live selector retains delivery identity | no document inspection or mutation |
 | TH-HARNESS-AC-068 | Sections 3, 4, 16 | Migration reconciliation | Frozen 456 backend, 87 frontend, and 5 Graph identities plus duplicate, missing, consolidation, deletion, and new-row fixtures | Baseline/crosswalk validator and final totals report | `0` only when all 548 identities have one terminal disposition and every new row has authorization | Bounded totals by source, disposition, and owner | Bounded reconciliation diagnostic | Baseline digest, crosswalk digest, assertion-preservation and owner-review evidence | Graph row omitted, old identity repeated, unauthorized row added, or deletion lacks owner proof | temporary crosswalk removed only after report retention |
 | TH-HARNESS-AC-069 | Sections 3, 16 | Evidence-to-gate applicability | Owners with each evidence class, zero-row classes, informative measurement, claim measurement, and unknown target fixtures | Generated applicability matrix and owner audit | `0` only when every active row maps to exact required gates | Bounded applicability summary | Bounded routing diagnostic | Generated owner/evidence/gate matrix | Human applicability skip, informative evidence closes release, or private target satisfies gate | none |
 | TH-HARNESS-AC-070 | Sections 1, 4, 15, 16 | Atomic v1 retirement | Current tree plus old target, variable, schema, artifact, reader, alias, dual-write, and delivery-identity fixtures | Task-surface parity, semantic scan, schema attachment validation, and repository reference scan | `0` only when no active v1 surface remains | Bounded retirement summary | Bounded compatibility diagnostic | Removed-identity report and v2 registry parity | Any v1 public command, reader, fallback, phase catalog, or ledger remains live | generated outputs regenerated through Make |

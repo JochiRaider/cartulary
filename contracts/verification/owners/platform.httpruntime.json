@@ -1,16 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "platform.httpruntime",
   "verifications": [
     {
       "verification_id": "platform.httpruntime.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "base",
-      "requirement": "HTTP runtime decoding, errors, and safety boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.httpruntime.requirement.behavior_contract"
+      ]
     }
   ]
 }

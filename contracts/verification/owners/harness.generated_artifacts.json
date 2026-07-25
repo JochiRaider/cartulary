@@ -1,27 +1,37 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.generated_artifacts",
   "verifications": [
     {
       "verification_id": "harness.generated_artifacts.verification.behavior_contract",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "harness.generated_artifacts frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "shell"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "contract-family:errors",
+        "contract-family:extensions",
+        "contract-family:network-flow",
+        "contract-family:openapi",
+        "contract-family:view-schemas",
+        "contract-family:ws",
+        "harness.generated_artifacts.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "harness.generated_artifacts.verification.schema_attachment_closure",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "Every current machine schema is registered once by the authored attachment owner and generated artifacts are reproduced only from authored inputs.",
       "evidence_kinds": [
         "static_check"
       ],
       "public_target": "json-shape-check",
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "harness.generated_artifacts.requirement.schema_attachment_closure"
+      ]
     }
   ]
 }

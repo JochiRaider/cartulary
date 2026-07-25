@@ -1,1 +1,20 @@
-{"configuration_contract_id":"network_flow_activity.configuration.v1","configuration_contract_major":1,"keys":[{"diagnostic_policy":"name_only","inactive_policy":"forbidden","inactive_value_schema_ref":null,"key":"network_flow_activity.key_ring_manifest_path","omission_policy":{"kind":"required"},"resolution_kind":"regular_file_ref","value_schema_ref":"docs/network-flow-activity-nlspec.md#schema:cartulary.network_flow_key_ring_manifest_path.v1"}],"namespace_schema_id":"cartulary.network_flow_activity.configuration_namespace.v1","profile_id":"network_flow_activity","schema_id":"cartulary.extension_profile_configuration_contract.v1"}
+{
+  "configuration_contract_id": "network_flow_activity.configuration.v1",
+  "configuration_contract_major": 1,
+  "keys": [
+    {
+      "diagnostic_policy": "name_only",
+      "inactive_policy": "forbidden",
+      "key": "network_flow_activity.key_ring_manifest_path",
+      "omission_policy": {
+        "kind": "required"
+      },
+      "resolution_kind": "regular_file_ref",
+      "value_schema_id": "cartulary.network_flow_key_ring_manifest_path.v1",
+      "inactive_value_schema_id": null
+    }
+  ],
+  "namespace_schema_id": "cartulary.network_flow_activity.configuration_namespace.v1",
+  "profile_id": "network_flow_activity",
+  "schema_id": "cartulary.extension_profile_configuration_contract.v2"
+}

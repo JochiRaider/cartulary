@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.reporting",
   "rows": [
     {
@@ -114,6 +114,29 @@
         ]
       },
       "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.reporting.unit.fixture_corpus_machine_contract",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.fixture_corpus"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingTraceabilityAndFixtureCorpus"
+        ]
+      },
+      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
       "fixture_profile_id": "none",

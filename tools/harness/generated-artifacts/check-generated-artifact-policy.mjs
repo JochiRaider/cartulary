@@ -269,74 +269,11 @@ function checkFrontendBoundaryScope(root, check, failures) {
   }
 }
 
-function checkMarkdownlintScope(root, check, failures) {
-  if (!check) {
-    return;
-  }
-  const relPath = repoPath(check.path, "lint_scope_checks.markdownlint.path");
-  const fullPath = path.join(root, relPath);
-  if (!existsSync(fullPath)) {
-    failures.push(`${relPath}: markdownlint config is missing`);
-    return;
-  }
-  const config = readJSON(fullPath);
-  if (config.fix === true) {
-    failures.push(`${relPath}: fix must not be enabled`);
-  }
-  if (config.gitignore !== true) {
-    failures.push(`${relPath}: gitignore must be enabled`);
-  }
-  const globs = config.globs;
-  if (!Array.isArray(globs)) {
-    failures.push(`${relPath}: globs must be declared`);
-    return;
-  }
-  const ignores = config.ignores;
-  if (!Array.isArray(ignores)) {
-    failures.push(`${relPath}: ignores must be declared`);
-    return;
-  }
-  for (const required of stringArray(check.required_globs ?? [], `${relPath}.required_globs`)) {
-    if (!globs.includes(required)) {
-      failures.push(`${relPath}: globs must include ${required}`);
-    }
-  }
-  for (const required of stringArray(check.required_ignores ?? [], `${relPath}.required_ignores`)) {
-    if (!ignores.includes(required)) {
-      failures.push(`${relPath}: ignores must exclude ${required}`);
-    }
-  }
-  for (const forbidden of stringArray(check.forbidden_globs ?? [], `${relPath}.forbidden_globs`)) {
-    if (globs.includes(forbidden)) {
-      failures.push(`${relPath}: globs must not include ${forbidden}`);
-    }
-  }
-  const ruleConfig = config.config;
-  if (!ruleConfig || typeof ruleConfig !== "object" || Array.isArray(ruleConfig)) {
-    failures.push(`${relPath}: config must be declared`);
-    return;
-  }
-  if (ruleConfig.default !== false) {
-    failures.push(`${relPath}: config.default must be false`);
-  }
-  for (const required of stringArray(check.required_rules ?? [], `${relPath}.required_rules`)) {
-    if (ruleConfig[required] === undefined || ruleConfig[required] === false) {
-      failures.push(`${relPath}: config.${required} must be enabled`);
-    }
-  }
-  for (const disabled of stringArray(check.disabled_rules ?? [], `${relPath}.disabled_rules`)) {
-    if (ruleConfig[disabled] !== false) {
-      failures.push(`${relPath}: config.${disabled} must be disabled`);
-    }
-  }
-}
-
 function checkLintScopes(root, checks, failures) {
   checkShellScopeSources(root, checks.shell_sources, failures);
   requireStringInFile(root, "tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_is_generated_artifact_path", failures);
   checkBiomeScope(root, checks.biome, failures);
   checkFrontendBoundaryScope(root, checks.frontend_import_boundaries, failures);
-  checkMarkdownlintScope(root, checks.markdownlint, failures);
 }
 
 function main() {

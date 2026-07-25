@@ -1,27 +1,32 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.reporting",
   "verifications": [
     {
       "verification_id": "module.reporting.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "extension.snapshot_reporting",
-      "requirement": "snapshot reporting postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.reporting.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "module.reporting.verification.fixture_corpus",
       "behavior_class": "product",
       "profile": "extension.snapshot_reporting",
-      "requirement": "The reporting fixture corpus covers current snapshot, render, redaction, deterministic output, and release-admission behavior.",
       "evidence_kinds": [
         "go_test",
         "static_check"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "RPT-FIX-003",
+        "module.reporting.requirement.fixture_corpus"
+      ]
     }
   ]
 }

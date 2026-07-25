@@ -17,7 +17,7 @@ import {
 } from "./semantic-json.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v1";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v2";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 const expectedRunners = Object.freeze({
   go: "go_exact_tests",
@@ -227,11 +227,6 @@ function loadRunnerRegistry(root) {
   return { registry, byID };
 }
 
-function semanticRow(row) {
-  const { documentation_refs: _documentationRefs, ...semantic } = row;
-  return semantic;
-}
-
 function validateRowSemantics({ row, manifest, verification, runners, profiles, label }) {
   if (row.owner_id !== manifest.owner_id) {
     throw new Error(`${label}.owner_id must equal ${manifest.owner_id}`);
@@ -411,7 +406,7 @@ export function loadTestCatalog(root) {
       manifest: {
         schema_id: manifests[index].schema_id,
         owner_id: manifests[index].owner_id,
-        rows: manifests[index].rows.map(semanticRow),
+        rows: manifests[index].rows,
       },
     })),
     runner_registry: runners.registry,
@@ -429,6 +424,19 @@ export function loadTestCatalog(root) {
     verification_semantic_digest: verification.semantic_digest,
   };
   validateSchemaSync(summary.schema_id, summary);
+  const coveredVerificationIDs = new Set(
+    rows.flatMap((row) => row.verification_ids),
+  );
+  for (const [verificationID, resolved] of verification.verificationByID) {
+    if (
+      !coveredVerificationIDs.has(verificationID) &&
+      !resolved.verification.public_target
+    ) {
+      throw new Error(
+        `active verification ${verificationID} has neither a test catalog row nor a public target`,
+      );
+    }
+  }
   return {
     registry,
     manifests,

@@ -1,17 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "platform.rootedfs",
   "verifications": [
     {
       "verification_id": "platform.rootedfs.verification.operation_containment",
       "behavior_class": "security",
       "profile": "base",
-      "requirement": "Root-anchored filesystem effects reject hostile references and symlinks, verify opened object types and root identity, publish atomically, clean partial state, and disclose no storage internals.",
       "evidence_kinds": [
         "go_test",
         "static_check"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "platform.rootedfs.requirement.operation_containment"
+      ]
     }
   ]
 }

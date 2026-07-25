@@ -59,13 +59,13 @@ import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs
 import { validateVerificationContracts } from "../test-catalog/verification-contracts.mjs";
 import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
-import { scanExecutableDocumentationReads } from "../test-catalog/documentation-boundary.mjs";
+import { validateExecutableInputPolicy } from "../test-catalog/restricted-input-boundary.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
-const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v1";
+const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v2";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
@@ -80,11 +80,11 @@ const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v4";
 const graphProjectionConformanceMatrixSchemaID =
-  "cartulary.graph_projection_conformance_matrix.v1";
+  "cartulary.graph_projection_conformance_matrix.v2";
 const graphProjectionFixtureCorpusSchemaID =
-  "cartulary.graph_projection_fixture_corpus.v1";
+  "cartulary.graph_projection_fixture_corpus.v2";
 const graphProjectionFixtureManifestSchemaID =
-  "cartulary.graph_projection_fixture_manifest.v1";
+  "cartulary.graph_projection_fixture_manifest.v2";
 const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v1";
 const networkFlowActivityAccountingSchemaID =
@@ -143,8 +143,8 @@ const contractFamilyEntryKeys = new Set([
   "go_name",
   "ts_name",
   "output_order",
-  "owner_document",
-  "owner_sections",
+  "owner_requirement_ids",
+  "owner_contract_ids",
   "generated_outputs",
   "typescript_runtime_artifact_prefixes",
   "activation_dependency_ids",
@@ -394,10 +394,7 @@ const projectionProviderRestoreRebuildValues = new Set([
 ]);
 const graphProjectionMatrixKeys = new Set([
   "schema_id",
-  "spec_path",
-  "spec_status",
   "matrix_version",
-  "authority",
   "acceptance_criteria",
   "fixture_registry",
 ]);
@@ -406,7 +403,6 @@ const graphProjectionAcceptanceKeys = new Set([
   "owner",
   "coverage_status",
   "areas",
-  "evidence_selectors",
   "fixture_ids",
 ]);
 const graphProjectionFixtureKeys = new Set([
@@ -416,7 +412,6 @@ const graphProjectionFixtureKeys = new Set([
 ]);
 const graphProjectionFixtureCorpusKeys = new Set([
   "schema_id",
-  "spec_path",
   "fixtures",
 ]);
 const graphProjectionCorpusFixtureKeys = new Set([
@@ -530,10 +525,8 @@ const graphProjectionCoverageStatuses = new Set([
   "deferred",
 ]);
 const graphProjectionAreas = new Set([
-  "specification",
   "implementation",
   "tests",
-  "documentation",
   "contracts",
   "migration",
 ]);
@@ -669,7 +662,6 @@ const lintScopeCheckKeys = new Set([
   "shell_sources",
   "biome",
   "frontend_import_boundaries",
-  "markdownlint",
 ]);
 const lintShellSourceKeys = new Set([
   "path",
@@ -681,14 +673,6 @@ const lintBiomeKeys = new Set([
   "required_files_includes",
   "forbidden_files_includes",
   "required_override_includes",
-]);
-const lintMarkdownlintKeys = new Set([
-  "path",
-  "required_globs",
-  "required_ignores",
-  "forbidden_globs",
-  "required_rules",
-  "disabled_rules",
 ]);
 const lintFrontendBoundaryKeys = new Set([
   "path",
@@ -981,43 +965,6 @@ function validateGeneratedArtifactPolicyShape(file) {
     frontendBoundaries.required_restricted_paths,
     `${file}.lint_scope_checks.frontend_import_boundaries.required_restricted_paths`,
   );
-  const markdownlint = requireObject(
-    lintScope.markdownlint,
-    `${file}.lint_scope_checks.markdownlint`,
-  );
-  assertObjectKeys(
-    markdownlint,
-    lintMarkdownlintKeys,
-    `${file}.lint_scope_checks.markdownlint`,
-  );
-  requireRepoRelativePath(
-    markdownlint.path,
-    `${file}.lint_scope_checks.markdownlint.path`,
-  );
-  requireStringArray(
-    markdownlint.required_globs,
-    `${file}.lint_scope_checks.markdownlint.required_globs`,
-    { nonEmpty: true },
-  );
-  requireStringArray(
-    markdownlint.required_ignores,
-    `${file}.lint_scope_checks.markdownlint.required_ignores`,
-    { nonEmpty: true },
-  );
-  requireStringArray(
-    markdownlint.forbidden_globs ?? [],
-    `${file}.lint_scope_checks.markdownlint.forbidden_globs`,
-  );
-  requireStringArray(
-    markdownlint.required_rules,
-    `${file}.lint_scope_checks.markdownlint.required_rules`,
-    { nonEmpty: true },
-  );
-  requireStringArray(
-    markdownlint.disabled_rules,
-    `${file}.lint_scope_checks.markdownlint.disabled_rules`,
-    { nonEmpty: true },
-  );
 }
 
 function validateContractFamilyRegistryShape(file) {
@@ -1078,13 +1025,14 @@ function validateContractFamilyRegistryShape(file) {
         min: 0,
       });
       outputOrders.push(String(outputOrder).padStart(4, "0"));
-      const ownerDocument = requireRepoRelativePath(
-        entry.owner_document,
-        `${label}.owner_document`,
-        { extension: ".md" },
+      requireStringArray(
+        entry.owner_requirement_ids,
+        `${label}.owner_requirement_ids`,
+        {
+          nonEmpty: true,
+        },
       );
-      void ownerDocument;
-      requireStringArray(entry.owner_sections, `${label}.owner_sections`, {
+      requireStringArray(entry.owner_contract_ids, `${label}.owner_contract_ids`, {
         nonEmpty: true,
       });
       const generatedOutputs = requireStringArray(
@@ -1225,36 +1173,6 @@ function extractNetworkFlowFixtureBaseIDs(source) {
     baseIDs.add(baseID);
   }
   return baseIDs;
-}
-
-function extractMarkdownTableByCaption(source, caption) {
-  const marker = `**${caption}**`;
-  const markerIndex = source.indexOf(marker);
-  if (markerIndex === -1) {
-    throw new Error(`missing Markdown table caption ${caption}`);
-  }
-  const lines = source.slice(markerIndex + marker.length).split(/\r?\n/u);
-  const tableLines = [];
-  let inTable = false;
-  for (const line of lines) {
-    if (line.trim().startsWith("|")) {
-      inTable = true;
-      tableLines.push(line.trim());
-      continue;
-    }
-    if (inTable) {
-      break;
-    }
-  }
-  if (tableLines.length < 3) {
-    throw new Error(`Markdown table ${caption} is missing header or data rows`);
-  }
-  return tableLines.slice(2).map((line) =>
-    line
-      .slice(1, -1)
-      .split("|")
-      .map((cell) => cell.trim()),
-  );
 }
 
 function pathIsCoveredByAny(pathValue, candidates) {
@@ -3342,10 +3260,6 @@ function validateGraphProjectionFixtureCorpusShape(file, expectedFixtureIDs) {
   assertObjectKeys(corpus, graphProjectionFixtureCorpusKeys, file);
   assertRequiredKeys(corpus, graphProjectionFixtureCorpusKeys, file);
   requireSchemaID(corpus, graphProjectionFixtureCorpusSchemaID, file);
-  requireRepoRelativePath(corpus.spec_path, `${file}.spec_path`, {
-    extension: ".md",
-  });
-
   const corpusFixtureIDs = [];
   validateObjectArray(
     corpus.fixtures,
@@ -3385,16 +3299,7 @@ function validateGraphProjectionConformanceMatrixShape(file) {
   assertObjectKeys(matrix, graphProjectionMatrixKeys, file);
   assertRequiredKeys(matrix, graphProjectionMatrixKeys, file);
   requireSchemaID(matrix, graphProjectionConformanceMatrixSchemaID, file);
-  requireRepoRelativePath(matrix.spec_path, `${file}.spec_path`, {
-    extension: ".md",
-  });
-  if (matrix.spec_status !== "adopted/current") {
-    throw new Error(`${file}.spec_status must be adopted/current`);
-  }
   requirePositiveInteger(matrix.matrix_version, `${file}.matrix_version`);
-  if (matrix.authority !== "adopted_graph_projection_nlspec") {
-    throw new Error(`${file}.authority must be adopted_graph_projection_nlspec`);
-  }
 
   const acceptanceIDs = [];
   const seenFixtureIDs = new Set();
@@ -3426,15 +3331,6 @@ function validateGraphProjectionConformanceMatrixShape(file) {
         if (!graphProjectionAreas.has(area)) {
           throw new Error(`${label}.areas contains invalid area ${area}`);
         }
-      }
-      const selectors = requireStringArray(entry.evidence_selectors, `${label}.evidence_selectors`, {
-        nonEmpty: true,
-      });
-      for (const [selectorIndex, selector] of selectors.entries()) {
-        validateGraphProjectionEvidenceSelector(
-          selector,
-          `${label}.evidence_selectors[${selectorIndex + 1}]`,
-        );
       }
       for (const fixtureID of requireStringArray(
         entry.fixture_ids,
@@ -3575,19 +3471,19 @@ function validateGraphProjectionFixtureManifests(root) {
     const manifest = readShapeFile(manifestPath, manifestPath);
     validateSchemaSync(graphProjectionFixtureManifestSchemaID, manifest);
     requireExact(manifest.fixture_id, fixtureID, `${manifestPath}.fixture_id`);
-    const declaredAcceptance = new Set(manifest.acceptance_ids);
+    const declaredAcceptance = new Set(manifest.requirement_ids);
     const matrixAcceptance = matrixFixtureAcceptance.get(fixtureID) ?? new Set();
     for (const acceptanceID of declaredAcceptance) {
       if (!matrixAcceptance.has(acceptanceID)) {
         throw new Error(
-          `${manifestPath}.acceptance_ids contains ${acceptanceID}, but the matrix does not attach ${fixtureID} to it`,
+          `${manifestPath}.requirement_ids contains ${acceptanceID}, but the matrix does not attach ${fixtureID} to it`,
         );
       }
     }
     for (const acceptanceID of matrixAcceptance) {
       if (!declaredAcceptance.has(acceptanceID)) {
         throw new Error(
-          `${manifestPath}.acceptance_ids omits matrix attachment ${acceptanceID}`,
+          `${manifestPath}.requirement_ids omits matrix attachment ${acceptanceID}`,
         );
       }
     }
@@ -4245,7 +4141,7 @@ function validateAll(root) {
   validateVerificationContracts(root);
   const testCatalog = validateTestCatalog(root);
   validateTestCatalogImportBoundary(root);
-  scanExecutableDocumentationReads(root);
+  validateExecutableInputPolicy(root);
   const visualFixtureRegistry = readShapeFile(
     repoFile(root, "tools/frontend_visual_fixture_registry.json"),
   );

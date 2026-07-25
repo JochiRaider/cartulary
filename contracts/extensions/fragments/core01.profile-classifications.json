@@ -2,7 +2,7 @@
   "facts": [
     {
       "fact_kind": "state_ownership",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "state_ownership": {
         "kind": "core_managed"
@@ -11,32 +11,32 @@
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithm_ref": null,
-        "preflight_algorithm_ref": null,
+        "post_migration_algorithmid": null,
+        "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
-      "egress_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "egress_requirement_id": "REQ-04-143",
       "egress_mode": "owner_declared",
       "fact_kind": "egress",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "enterprise_authentication"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "enterprise_authentication",
       "snapshot_reporting_mode": "no_participation"
@@ -44,7 +44,7 @@
     {
       "conformance_manifest_id": "enterprise_authentication.conformance.v1",
       "fact_kind": "conformance_manifest",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -54,7 +54,7 @@
         "route_family": "/api/v1/auth/oidc"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -64,7 +64,7 @@
         "route_family": "/api/v1/auth/providers"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -74,7 +74,7 @@
         "route_family": "/api/v1/auth/saml"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -84,12 +84,12 @@
         "route_family": "/api/v1/users/{user_id}/auth-bindings"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import",
       "state_ownership": {
         "kind": "core_managed"
@@ -98,32 +98,32 @@
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithm_ref": null,
-        "preflight_algorithm_ref": null,
+        "post_migration_algorithmid": null,
+        "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import"
     },
     {
-      "egress_contract_ref": null,
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
-      "profile_id": "import"
+      "owner_requirement_id": "REQ-01-151.1",
+      "profile_id": "import",
+      "egress_requirement_id": null
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "import"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "import",
       "snapshot_reporting_mode": "no_participation"
@@ -131,7 +131,7 @@
     {
       "conformance_manifest_id": "import.conformance.v1",
       "fact_kind": "conformance_manifest",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import"
     },
     {
@@ -141,12 +141,12 @@
         "route_family": "/api/v1/import-sessions"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability",
       "state_ownership": {
         "kind": "core_managed"
@@ -155,32 +155,32 @@
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithm_ref": null,
-        "preflight_algorithm_ref": null,
+        "post_migration_algorithmid": null,
+        "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability"
     },
     {
-      "egress_contract_ref": null,
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
-      "profile_id": "incident_portability"
+      "owner_requirement_id": "REQ-01-631",
+      "profile_id": "incident_portability",
+      "egress_requirement_id": null
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "participant_id": null,
       "profile_id": "incident_portability"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "participant_id": null,
       "profile_id": "incident_portability",
       "snapshot_reporting_mode": "no_participation"
@@ -188,7 +188,7 @@
     {
       "conformance_manifest_id": "incident_portability.conformance.v1",
       "fact_kind": "conformance_manifest",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability"
     },
     {
@@ -198,12 +198,12 @@
         "route_family": "/api/v1/incident-bundles"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
+      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack",
       "state_ownership": {
         "kind": "core_managed"
@@ -212,32 +212,32 @@
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithm_ref": null,
-        "preflight_algorithm_ref": null,
+        "post_migration_algorithmid": null,
+        "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     },
     {
-      "egress_contract_ref": "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+      "egress_requirement_id": "REQ-04-143",
       "egress_mode": "owner_declared",
       "fact_kind": "egress",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "reference_pack"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "reference_pack",
       "snapshot_reporting_mode": "no_participation"
@@ -245,7 +245,7 @@
     {
       "conformance_manifest_id": "reference_pack.conformance.v1",
       "fact_kind": "conformance_manifest",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     },
     {
@@ -255,15 +255,14 @@
         "route_family": "/api/v1/reference-packs"
       },
       "fact_kind": "contribution",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     }
   ],
-  "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
-  "owner_document_schema_id": "cartulary.core01.current.v1",
-  "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
-  "owner_document_version": "extensions-adoption-1",
   "owner_fragment_id": "core01.extension_profile_classifications.v1",
   "owner_id": "core01",
-  "schema_id": "cartulary.extension_owner_fragment.v1"
+  "schema_id": "cartulary.extension_owner_fragment.v2",
+  "requirement_catalog_ref": "contracts/requirements/owners/core01.json",
+  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+  "requirement_catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d"
 }

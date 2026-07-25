@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.tasksdecisions",
+  "requirements": [
+    {
+      "requirement_id": "module.tasksdecisions.requirement.behavior_contract",
+      "statement": "task and decision lifecycle and relationships postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

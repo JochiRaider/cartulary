@@ -1,16 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.jobapi",
   "verifications": [
     {
       "verification_id": "module.jobapi.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "job API lifecycle and cancellation postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.jobapi.requirement.behavior_contract"
+      ]
     }
   ]
 }

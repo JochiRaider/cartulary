@@ -123,32 +123,6 @@ write_policy() {
         "packages/protocol-ts/src/generated",
         "packages/ui-contracts/src/generated"
       ]
-    },
-    "markdownlint": {
-      "path": ".markdownlint-cli2.jsonc",
-      "required_globs": [
-        "*.md",
-        "docs/*.md"
-      ],
-      "required_ignores": [
-        "internal/gen/**",
-        "packages/protocol-ts/src/generated/**",
-        "packages/ui-contracts/src/generated/**"
-      ],
-      "forbidden_globs": [
-        "docs/testing/**/*.md",
-        "internal/gen/**/*.md",
-        "packages/protocol-ts/src/generated/**/*.md",
-        "packages/ui-contracts/src/generated/**/*.md"
-      ],
-      "required_rules": [
-        "MD001",
-        "MD040",
-        "MD056"
-      ],
-      "disabled_rules": [
-        "MD013"
-      ]
     }
   }
 }
@@ -247,28 +221,6 @@ JSON
   ]
 }
 JSON
-  cat >"$repo/.markdownlint-cli2.jsonc" <<'JSON'
-{
-  "fix": false,
-  "gitignore": true,
-  "globs": [
-    "*.md",
-    "docs/*.md"
-  ],
-  "ignores": [
-    "internal/gen/**",
-    "packages/protocol-ts/src/generated/**",
-    "packages/ui-contracts/src/generated/**"
-  ],
-  "config": {
-    "default": false,
-    "MD001": true,
-    "MD013": false,
-    "MD040": true,
-    "MD056": true
-  }
-}
-JSON
 }
 
 make_policy_repo() {
@@ -361,26 +313,6 @@ source tools/harness/generated-artifacts/generated-artifacts.sh
 go list ./internal/...
 EOF
 expect_policy_failure "$go_scope_repo" "tools/harness/static-analysis/go-vet.sh: missing lint scope guard \"cartulary_filter_authored_go_packages\"" "go vet generated package filter"
-
-markdown_fix_repo="$(make_policy_repo)"
-node - "$markdown_fix_repo/.markdownlint-cli2.jsonc" <<'NODE'
-const fs = require("node:fs");
-const file = process.argv[2];
-const config = JSON.parse(fs.readFileSync(file, "utf8"));
-config.fix = true;
-fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-NODE
-expect_policy_failure "$markdown_fix_repo" ".markdownlint-cli2.jsonc: fix must not be enabled" "Markdown lint fix disabled"
-
-markdown_line_length_repo="$(make_policy_repo)"
-node - "$markdown_line_length_repo/.markdownlint-cli2.jsonc" <<'NODE'
-const fs = require("node:fs");
-const file = process.argv[2];
-const config = JSON.parse(fs.readFileSync(file, "utf8"));
-config.config.MD013 = true;
-fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-NODE
-expect_policy_failure "$markdown_line_length_repo" ".markdownlint-cli2.jsonc: config.MD013 must be disabled" "Markdown line length disabled"
 
 broad_policy_repo="$(make_policy_repo)"
 cat >"$broad_policy_repo/tools/generated_artifact_policy.json" <<'JSON'

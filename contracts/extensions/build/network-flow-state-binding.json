@@ -12,7 +12,7 @@
       "backup_inclusion": "required",
       "restore_order_group": 100,
       "backup_codec_id": "network_flow_activity.tables_codec.v1",
-      "backup_codec_sha256": "7bb085d8358d1b10a0d307a3ade5109fedd55ed8a76aff4f0ac938353fdda8d1",
+      "backup_codec_sha256": "10dff90da3399919cf10690c3682a037621f2377fabf9b67655d5aeef9eac6bf",
       "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
       "rebuild_algorithm_id": null
     },
@@ -25,7 +25,7 @@
       "backup_inclusion": "required",
       "restore_order_group": 200,
       "backup_codec_id": "network_flow_activity.rows_codec.v1",
-      "backup_codec_sha256": "e65df1ba1c5fddb65fd936a938b2ffc05362fd80c1d6fb8871ad06c5984c7e61",
+      "backup_codec_sha256": "b25d4ca57cc4224b8005bf314f604f314a2ffbcc5b58c8170cf08db58ce7c3a7",
       "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
       "rebuild_algorithm_id": null
     },
@@ -38,7 +38,7 @@
       "backup_inclusion": "required",
       "restore_order_group": 300,
       "backup_codec_id": "network_flow_activity.rejected_row_diagnostics_codec.v1",
-      "backup_codec_sha256": "5edfa4ba1d8506df61f35e77bf514ae652d9e092a33c7d302cefdcd5ed0f0de3",
+      "backup_codec_sha256": "d199a65a8fb7a7aa23ce8895e418af8589b34633645e904f8af58a88d8779682",
       "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
       "rebuild_algorithm_id": null
     },
@@ -51,7 +51,7 @@
       "backup_inclusion": "required",
       "restore_order_group": 400,
       "backup_codec_id": "network_flow_activity.indicator_bindings_codec.v1",
-      "backup_codec_sha256": "f4b3f57ccf5ad38027bbbe4c4416826764006abfc023cb7cc56447e626a0617f",
+      "backup_codec_sha256": "4d53ee7a24bf0515d413fc334e4064b259d8e4ed8a5020eac4358362b9da7ab2",
       "post_restore_validation_algorithm_id": "extension_validate_postgres_binding_restore_v1",
       "rebuild_algorithm_id": null
     }

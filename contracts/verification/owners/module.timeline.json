@@ -1,18 +1,20 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.timeline",
   "verifications": [
     {
       "verification_id": "module.timeline.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "Timeline record, mutation, query, and workbook behavior postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test",
         "playwright",
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.timeline.requirement.behavior_contract"
+      ]
     }
   ]
 }

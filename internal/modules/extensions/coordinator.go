@@ -85,15 +85,15 @@ type Dependency struct {
 // descriptor. Executable algorithms and profile-owned contract bodies stay in the
 // immutable packaged artifacts.
 type Descriptor struct {
-	ProfileID        string
-	Claimable        bool
-	ContractMajor    int
-	OwnerContractRef string
-	ClaimConfigKey   string
-	RouteFamilies    []string
-	WorkspaceKeys    []string
-	CapabilityIDs    []string
-	Dependencies     []Dependency
+	ProfileID      string
+	Claimable      bool
+	ContractMajor  int
+	OwnerID        string
+	ClaimConfigKey string
+	RouteFamilies  []string
+	WorkspaceKeys  []string
+	CapabilityIDs  []string
+	Dependencies   []Dependency
 }
 
 func cloneDescriptor(descriptor Descriptor) Descriptor {
@@ -868,7 +868,7 @@ func (c *Coordinator) validateCollisions(source ArtifactSource, expectedBaseRese
 }
 
 func parseDescriptor(object map[string]any) (Descriptor, error) {
-	if err := requireExactKeys(object, "schema_id", "profile_id", "claimable", "contract_major", "owner_contract_ref", "claim_config_key", "route_families", "workspace_keys", "capability_ids", "runtime_dependencies", "contributions", "public_schema_ids", "prestage_config_keys", "state_ownership", "admission_validation", "egress_mode", "incident_portability_mode", "snapshot_reporting_mode", "conformance_manifest_id"); err != nil {
+	if err := requireExactKeys(object, "schema_id", "profile_id", "claimable", "contract_major", "owner_id", "claim_config_key", "route_families", "workspace_keys", "capability_ids", "runtime_dependencies", "contributions", "public_schema_ids", "prestage_config_keys", "state_ownership", "admission_validation", "egress_mode", "incident_portability_mode", "snapshot_reporting_mode", "conformance_manifest_id"); err != nil {
 		return Descriptor{}, err
 	}
 	profileID := stringValue(object["profile_id"])
@@ -878,7 +878,7 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 	workspaces, workspacesOK := stringSlice(object["workspace_keys"])
 	capabilities, capabilitiesOK := stringSlice(object["capability_ids"])
 	dependenciesObjects, dependenciesOK := objectSlice(object["runtime_dependencies"])
-	if object["schema_id"] != "cartulary.extension_profile_descriptor.v1" || !extensionProfileIDPattern.MatchString(profileID) || !ok || major < 1 || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
+	if object["schema_id"] != "cartulary.extension_profile_descriptor.v2" || !extensionProfileIDPattern.MatchString(profileID) || !ok || major < 1 || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
 		return Descriptor{}, errors.New("descriptor identity, scalar, collection, or capability contract is invalid")
 	}
 	dependencies := make([]Dependency, 0, len(dependenciesObjects))
@@ -900,7 +900,7 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 	}
 	return Descriptor{
 		ProfileID: profileID, Claimable: claimable, ContractMajor: major,
-		OwnerContractRef: stringValue(object["owner_contract_ref"]), ClaimConfigKey: stringValue(object["claim_config_key"]),
+		OwnerID: stringValue(object["owner_id"]), ClaimConfigKey: stringValue(object["claim_config_key"]),
 		RouteFamilies: routes, WorkspaceKeys: workspaces, CapabilityIDs: capabilities, Dependencies: dependencies,
 	}, nil
 }

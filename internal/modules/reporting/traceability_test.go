@@ -25,8 +25,8 @@ func TestReportingTraceabilityAndFixtureCorpus(t *testing.T) {
 		if !reportingFixtureStatusAllowed(row.Status) {
 			t.Fatalf("fixture %s has unsupported status %q", id, row.Status)
 		}
-		if len(row.Evidence) == 0 {
-			t.Fatalf("fixture %s must list evidence selectors or inert traceability references", id)
+		if !reflect.DeepEqual(row.RequirementIDs, []string{id}) {
+			t.Fatalf("fixture %s requirement_ids = %v, want [%s]", id, row.RequirementIDs, id)
 		}
 	}
 
@@ -39,9 +39,9 @@ func TestReportingTraceabilityAndFixtureCorpus(t *testing.T) {
 }
 
 type reportingFixtureRow struct {
-	ID       string   `json:"id"`
-	Status   string   `json:"status"`
-	Evidence []string `json:"evidence"`
+	ID             string   `json:"id"`
+	Status         string   `json:"status"`
+	RequirementIDs []string `json:"requirement_ids"`
 }
 
 func readReportingFixtureCorpus(t testing.TB, root string) map[string]reportingFixtureRow {
@@ -53,22 +53,16 @@ func readReportingFixtureCorpus(t testing.TB, root string) map[string]reportingF
 	var payload struct {
 		SchemaID    string                `json:"schema_id"`
 		Owner       string                `json:"owner"`
-		StatusVocab []string              `json:"status_vocab"`
 		FixtureRows []reportingFixtureRow `json:"fixture_rows"`
 	}
 	if err := json.Unmarshal(corpusBytes, &payload); err != nil {
 		t.Fatalf("decode reporting fixture corpus: %v", err)
 	}
-	if payload.SchemaID != "cartulary.reporting_fixture_corpus.v1" {
+	if payload.SchemaID != "cartulary.reporting_fixture_corpus.v2" {
 		t.Fatalf("unexpected fixture corpus schema_id %q", payload.SchemaID)
 	}
 	if payload.Owner != "reporting" {
 		t.Fatalf("unexpected fixture corpus owner %q", payload.Owner)
-	}
-	declared := uniqueSortedStrings(payload.StatusVocab)
-	want := []string{"blocked_core_dependency", "future_only", "implemented", "specified"}
-	if !reflect.DeepEqual(declared, want) {
-		t.Fatalf("unexpected fixture status vocabulary: got %v want %v", declared, want)
 	}
 	rows := make(map[string]reportingFixtureRow, len(payload.FixtureRows))
 	for _, row := range payload.FixtureRows {
@@ -101,7 +95,7 @@ func requireReportingVerificationOwner(t testing.TB, root string) {
 	if err := json.Unmarshal(data, &contract); err != nil {
 		t.Fatalf("decode reporting verification contract: %v", err)
 	}
-	if contract.SchemaID != "cartulary.verification_contract.v1" || contract.OwnerID != "module.reporting" {
+	if contract.SchemaID != "cartulary.verification_contract.v2" || contract.OwnerID != "module.reporting" {
 		t.Fatalf("unexpected reporting verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
 	}
 	for _, verification := range contract.Verifications {
@@ -116,24 +110,11 @@ func requireReportingVerificationOwner(t testing.TB, root string) {
 
 func reportingFixtureStatusAllowed(status string) bool {
 	switch status {
-	case "specified", "implemented", "blocked_core_dependency", "future_only":
+	case "implemented", "planned":
 		return true
 	default:
 		return false
 	}
-}
-
-func uniqueSortedStrings(values []string) []string {
-	seen := map[string]struct{}{}
-	for _, value := range values {
-		seen[value] = struct{}{}
-	}
-	result := make([]string, 0, len(seen))
-	for value := range seen {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func reportingRepoRoot(t testing.TB) string {

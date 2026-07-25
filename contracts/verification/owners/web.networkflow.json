@@ -1,14 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "web.networkflow",
   "verifications": [
     {
       "verification_id": "web.networkflow.verification.extension_regression",
       "behavior_class": "product",
       "profile": "extension.network_flow_activity",
-      "requirement": "The Network Flow frontend preserves the adopted extension's query, presentation, authorization, collaboration, controller, and layout behavior.",
-      "evidence_kinds": ["vitest"],
-      "status": "active"
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "web.networkflow.requirement.extension_regression"
+      ]
     }
   ]
 }

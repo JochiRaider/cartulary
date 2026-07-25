@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.links",
+  "requirements": [
+    {
+      "requirement_id": "module.links.requirement.behavior_contract",
+      "statement": "record link lifecycle and projection postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

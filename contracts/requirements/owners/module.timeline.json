@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.timeline",
+  "requirements": [
+    {
+      "requirement_id": "module.timeline.requirement.behavior_contract",
+      "statement": "Timeline record, mutation, query, and workbook behavior postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

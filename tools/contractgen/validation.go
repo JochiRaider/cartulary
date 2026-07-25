@@ -79,7 +79,7 @@ var (
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
 	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
 	reasonCodeEntryKeys       = stringSet("code", "summary")
-	extensionInputCatalogKeys = stringSet("$schema", "schema_id", "extensions_document_version", "extensions_document_sha256", "artifacts")
+	extensionInputCatalogKeys = stringSet("$schema", "schema_id", "requirement_registry_ref", "requirement_registry_schema_id", "requirement_registry_sha256", "artifacts")
 	extensionInputEntryKeys   = stringSet("path", "schema_id", "owner_id", "artifact_class")
 	extensionArtifactClasses  = stringSet("owner_contract_manifest", "owner_fragment", "profile_contract", "shared_owner_resolution", "specification_input", "build_input", "validation_input", "traceability_input")
 	wsIndexKeys               = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
@@ -1038,18 +1038,23 @@ func validateExtensionInputCatalog(value any) error {
 	}
 	if schemaID, err := requiredString(object, "schema_id", "contracts/extensions/index.json"); err != nil {
 		return err
-	} else if schemaID != "cartulary.extension_authored_input_catalog.v1" {
-		return fmt.Errorf("contracts/extensions/index.json.schema_id must be cartulary.extension_authored_input_catalog.v1")
+	} else if schemaID != "cartulary.extension_authored_input_catalog.v2" {
+		return fmt.Errorf("contracts/extensions/index.json.schema_id must be cartulary.extension_authored_input_catalog.v2")
 	}
-	if version, err := requiredString(object, "extensions_document_version", "contracts/extensions/index.json"); err != nil {
+	if registryRef, err := requiredString(object, "requirement_registry_ref", "contracts/extensions/index.json"); err != nil {
 		return err
-	} else if version != "0.6.2" {
-		return fmt.Errorf("contracts/extensions/index.json.extensions_document_version must be 0.6.2")
+	} else if registryRef != "contracts/requirements/registry.json" {
+		return fmt.Errorf("contracts/extensions/index.json.requirement_registry_ref must name the canonical registry")
 	}
-	if digest, err := requiredString(object, "extensions_document_sha256", "contracts/extensions/index.json"); err != nil {
+	if schemaID, err := requiredString(object, "requirement_registry_schema_id", "contracts/extensions/index.json"); err != nil {
+		return err
+	} else if schemaID != "cartulary.requirement_registry.v1" {
+		return fmt.Errorf("contracts/extensions/index.json.requirement_registry_schema_id is invalid")
+	}
+	if digest, err := requiredString(object, "requirement_registry_sha256", "contracts/extensions/index.json"); err != nil {
 		return err
 	} else if !isLowerSHA256(digest) {
-		return fmt.Errorf("contracts/extensions/index.json.extensions_document_sha256 must be lowercase SHA-256")
+		return fmt.Errorf("contracts/extensions/index.json.requirement_registry_sha256 must be lowercase SHA-256")
 	}
 	artifacts, err := objectArray(object["artifacts"], "artifacts")
 	if err != nil {
@@ -1130,14 +1135,21 @@ func validateExtensionContractFamily(root string) error {
 	if err != nil {
 		return err
 	}
-	documentDigest, _ := requiredString(index, "extensions_document_sha256", "contracts/extensions/index.json")
-	documentBytes, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
+	registryRef, _ := requiredString(index, "requirement_registry_ref", "contracts/extensions/index.json")
+	registryBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(registryRef)))
 	if err != nil {
-		return fmt.Errorf("read Extensions NLSpec for authored-input binding: %w", err)
+		return fmt.Errorf("read extension requirement registry: %w", err)
 	}
-	actualDocumentDigest := sha256.Sum256(documentBytes)
-	if hex.EncodeToString(actualDocumentDigest[:]) != documentDigest {
-		return fmt.Errorf("contracts/extensions/index.json.extensions_document_sha256 is stale")
+	registryValue, err := decodeContract(registryBytes)
+	if err != nil {
+		return fmt.Errorf("decode extension requirement registry: %w", err)
+	}
+	actualRegistryDigest, err := extensionCanonicalDigest(registryValue)
+	if err != nil {
+		return err
+	}
+	if index["requirement_registry_sha256"] != actualRegistryDigest {
+		return fmt.Errorf("contracts/extensions/index.json.requirement_registry_sha256 is stale")
 	}
 
 	entries, _ := objectArray(index["artifacts"], "artifacts")
@@ -1203,7 +1215,7 @@ func validateExtensionContractFamily(root string) error {
 	if err := validateExtensionOwnerBindings(root, indexedObjects); err != nil {
 		return err
 	}
-	if err := validateExtensionTraceabilityRanges(root, indexedObjects); err != nil {
+	if err := validateExtensionRequirementCoverage(root, indexedObjects); err != nil {
 		return err
 	}
 	return nil

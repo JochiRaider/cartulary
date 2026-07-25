@@ -1,76 +1,378 @@
 {
-  "schema_id":"cartulary.extension_validation_surface_declaration_set.v1",
-  "declarations":[
+  "schema_id": "cartulary.extension_validation_surface_declaration_set.v2",
+  "declarations": [
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/extension-subsystem-nlspec.md#req:EXT-REQ-224",
-      "schema_surfaces":[
-        {"surface_id":"extensions.owner_input","schema_ids":["cartulary.extension_dependency_declaration_set.v1","cartulary.extension_owner_contract_manifest.v1","cartulary.extension_owner_fragment.v1"],"conditions":[
-          {"condition_id":"extension_owner_input_missing_member","location":"$","constraint":"required","condition_class":"missing_required_member","phase":"owner_fragment","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_registry_invalid","expected_formatter_id":"diagnostic_missing_v1","actual_formatter_id":"diagnostic_json_type_v1","multiplicity":"one_per_occurrence","secret_policy":"safe_value"},
-          {"condition_id":"extension_owner_input_duplicate_identity","location":"$.facts","constraint":"unique_identity","condition_class":"duplicate_identity","phase":"owner_input_registry","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_registry_conflict","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_count_v1","multiplicity":"one_per_identity","secret_policy":"safe_value"},
-          {"condition_id":"extension_owner_input_digest_mismatch","location":"$","constraint":"sha256_binding","condition_class":"digest_mismatch","phase":"owner_contract_manifest","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_registry_invalid","expected_formatter_id":"diagnostic_sha256_v1","actual_formatter_id":"diagnostic_sha256_v1","multiplicity":"one_per_identity","secret_policy":"safe_value"}
-        ]},
-        {"surface_id":"extensions.validation_result","schema_ids":["cartulary.extension_admission_validation_result.v1","cartulary.extension_participant_result.v1"],"conditions":[
-          {"condition_id":"extension_validation_result_structural_invalid","location":"$","constraint":"closed_result_schema","condition_class":"algorithm_result_invalid","phase":"profile_preflight","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_validation_result_invalid","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_json_type_v1","multiplicity":"single","secret_policy":"safe_value"},
-          {"condition_id":"extension_validation_result_overflow","location":"$.findings","constraint":"maximum_4096","condition_class":"limit_exceeded","phase":"profile_preflight","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_diagnostic_overflow","expected_formatter_id":"diagnostic_integer_range_v1","actual_formatter_id":"diagnostic_count_v1","multiplicity":"single","secret_policy":"safe_value"}
-        ]}
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "EXT-REQ-224",
+      "schema_surfaces": [
+        {
+          "surface_id": "extensions.owner_input",
+          "schema_ids": [
+            "cartulary.extension_dependency_declaration_set.v2",
+            "cartulary.extension_owner_contract_manifest.v2",
+            "cartulary.extension_owner_fragment.v2"
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_owner_input_missing_member",
+              "location": "$",
+              "constraint": "required",
+              "condition_class": "missing_required_member",
+              "phase": "owner_fragment",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_missing_v1",
+              "actual_formatter_id": "diagnostic_json_type_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_owner_input_duplicate_identity",
+              "location": "$.facts",
+              "constraint": "unique_identity",
+              "condition_class": "duplicate_identity",
+              "phase": "owner_input_registry",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_registry_conflict",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "one_per_identity",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_owner_input_digest_mismatch",
+              "location": "$",
+              "constraint": "sha256_binding",
+              "condition_class": "digest_mismatch",
+              "phase": "owner_contract_manifest",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_sha256_v1",
+              "actual_formatter_id": "diagnostic_sha256_v1",
+              "multiplicity": "one_per_identity",
+              "secret_policy": "safe_value"
+            }
+          ]
+        },
+        {
+          "surface_id": "extensions.validation_result",
+          "schema_ids": [
+            "cartulary.extension_admission_validation_result.v1",
+            "cartulary.extension_participant_result.v1"
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_validation_result_structural_invalid",
+              "location": "$",
+              "constraint": "closed_result_schema",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_json_type_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow",
+              "location": "$.findings",
+              "constraint": "maximum_4096",
+              "condition_class": "limit_exceeded",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            }
+          ]
+        }
       ],
-      "procedural_surfaces":[
-        {"surface_id":"extensions.validation_precedence","decision_rows":[
-          {"predicate":"invocation_failed","outcome":"registered_invocation_failure","condition_id":"extension_validation_invocation_failure"},
-          {"predicate":"structural_invalid","outcome":"extension_validation_result_invalid","condition_id":"extension_validation_result_structural_invalid"},
-          {"predicate":"findings_count_at_least_4097","outcome":"extension_diagnostic_overflow","condition_id":"extension_validation_result_overflow"},
-          {"predicate":"remaining_schema_defect","outcome":"extension_validation_result_invalid","condition_id":"extension_validation_remaining_schema_defect"},
-          {"predicate":"valid_nonempty_findings","outcome":"valid_findings","condition_id":null},
-          {"predicate":"valid_empty_findings","outcome":"valid_empty","condition_id":null}
-        ],"conditions":[
-          {"condition_id":"extension_validation_invocation_failure","condition_class":"algorithm_result_invalid","phase":"profile_preflight","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_admission_validation_failed","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"single","secret_policy":"redacted"},
-          {"condition_id":"extension_validation_remaining_schema_defect","condition_class":"algorithm_result_invalid","phase":"profile_preflight","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_validation_result_invalid","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"single","secret_policy":"redacted"}
-        ]}
+      "procedural_surfaces": [
+        {
+          "surface_id": "extensions.validation_precedence",
+          "decision_rows": [
+            {
+              "predicate": "invocation_failed",
+              "outcome": "registered_invocation_failure",
+              "condition_id": "extension_validation_invocation_failure"
+            },
+            {
+              "predicate": "structural_invalid",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid"
+            },
+            {
+              "predicate": "findings_count_at_least_4097",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow"
+            },
+            {
+              "predicate": "remaining_schema_defect",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect"
+            },
+            {
+              "predicate": "valid_nonempty_findings",
+              "outcome": "valid_findings",
+              "condition_id": null
+            },
+            {
+              "predicate": "valid_empty_findings",
+              "outcome": "valid_empty",
+              "condition_id": null
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_validation_invocation_failure",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_admission_validation_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
       ]
     },
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-631",
-      "schema_surfaces":[],
-      "procedural_surfaces":[
-        {"surface_id":"core01.transaction","decision_rows":[{"predicate":"deadline_expired_and_commit_absent","outcome":"extension_transaction_timeout","condition_id":"extension_transaction_deadline_expired"}],"conditions":[{"condition_id":"extension_transaction_deadline_expired","condition_class":"timeout","phase":"transaction","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_transaction_timeout","expected_formatter_id":"diagnostic_integer_range_v1","actual_formatter_id":"diagnostic_count_v1","multiplicity":"single","secret_policy":"safe_value"}]},
-        {"surface_id":"core01.backup_codec","decision_rows":[{"predicate":"codec_not_packaged_or_digest_mismatch","outcome":"backup_binding_codec_unsupported","condition_id":"extension_backup_codec_unsupported"}],"conditions":[{"condition_id":"extension_backup_codec_unsupported","condition_class":"dependency_unavailable","phase":"backup_restore","path_algorithm_id":"extension_json_pointer_v1","reason_code":"backup_binding_codec_unsupported","expected_formatter_id":"diagnostic_sha256_v1","actual_formatter_id":"diagnostic_sha256_v1","multiplicity":"one_per_profile","secret_policy":"safe_value"}]},
-        {"surface_id":"core01.staged_cleanup","decision_rows":[{"predicate":"authorization_or_storage_configuration_unavailable","outcome":"extension_staged_object_cleanup_dependency_failed","condition_id":"extension_staged_cleanup_dependency_failed"}],"conditions":[{"condition_id":"extension_staged_cleanup_dependency_failed","condition_class":"dependency_unavailable","phase":"staged_object_cleanup","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_staged_object_cleanup_dependency_failed","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"single","secret_policy":"redacted"}]}
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "REQ-01-631",
+      "schema_surfaces": [],
+      "procedural_surfaces": [
+        {
+          "surface_id": "core01.transaction",
+          "decision_rows": [
+            {
+              "predicate": "deadline_expired_and_commit_absent",
+              "outcome": "extension_transaction_timeout",
+              "condition_id": "extension_transaction_deadline_expired"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_transaction_deadline_expired",
+              "condition_class": "timeout",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_transaction_timeout",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            }
+          ]
+        },
+        {
+          "surface_id": "core01.backup_codec",
+          "decision_rows": [
+            {
+              "predicate": "codec_not_packaged_or_digest_mismatch",
+              "outcome": "backup_binding_codec_unsupported",
+              "condition_id": "extension_backup_codec_unsupported"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_backup_codec_unsupported",
+              "condition_class": "dependency_unavailable",
+              "phase": "backup_restore",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "backup_binding_codec_unsupported",
+              "expected_formatter_id": "diagnostic_sha256_v1",
+              "actual_formatter_id": "diagnostic_sha256_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "safe_value"
+            }
+          ]
+        },
+        {
+          "surface_id": "core01.staged_cleanup",
+          "decision_rows": [
+            {
+              "predicate": "authorization_or_storage_configuration_unavailable",
+              "outcome": "extension_staged_object_cleanup_dependency_failed",
+              "condition_id": "extension_staged_cleanup_dependency_failed"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_staged_cleanup_dependency_failed",
+              "condition_class": "dependency_unavailable",
+              "phase": "staged_object_cleanup",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_staged_object_cleanup_dependency_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
       ]
     },
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-144",
-      "schema_surfaces":[{"surface_id":"core04.inactive_configuration","schema_ids":["cartulary.extension_profile_configuration_contract.v1"],"conditions":[
-        {"condition_id":"extension_inactive_schema_ref_missing","location":"$.keys[*].inactive_value_schema_ref","constraint":"required_when_syntax_only","condition_class":"missing_required_member","phase":"configuration_contract","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_registry_invalid","expected_formatter_id":"diagnostic_missing_v1","actual_formatter_id":"diagnostic_json_type_v1","multiplicity":"one_per_occurrence","secret_policy":"safe_value"},
-        {"condition_id":"extension_inactive_value_forbidden","location":"$.profiles","constraint":"inactive_policy_forbidden","condition_class":"invalid_scalar","phase":"claim_configuration","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_config_without_claim","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"one_per_profile","secret_policy":"redacted"}
-      ]}],
-      "procedural_surfaces":[{"surface_id":"core04.process_lease","decision_rows":[
-        {"predicate":"initial_acquisition_timeout","outcome":"exit_2","condition_id":"extension_application_lease_timeout"},
-        {"predicate":"held_session_confirmed_lost","outcome":"exit_70","condition_id":"extension_application_lease_lost"}
-      ],"conditions":[
-        {"condition_id":"extension_application_lease_timeout","condition_class":"timeout","phase":"process_lease","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_application_process_active","expected_formatter_id":"diagnostic_integer_range_v1","actual_formatter_id":"diagnostic_count_v1","multiplicity":"single","secret_policy":"safe_value"},
-        {"condition_id":"extension_application_lease_lost","condition_class":"dependency_unavailable","phase":"process_lease","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_integrity_failure","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"single","secret_policy":"redacted"}
-      ]}]
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "REQ-04-144",
+      "schema_surfaces": [
+        {
+          "surface_id": "core04.inactive_configuration",
+          "schema_ids": [
+            "cartulary.extension_profile_configuration_contract.v2"
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_inactive_schema_ref_missing",
+              "location": "$.keys[*].inactive_value_schema_id",
+              "constraint": "required_when_syntax_only",
+              "condition_class": "missing_required_member",
+              "phase": "configuration_contract",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_missing_v1",
+              "actual_formatter_id": "diagnostic_json_type_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_inactive_value_forbidden",
+              "location": "$.profiles",
+              "constraint": "inactive_policy_forbidden",
+              "condition_class": "invalid_scalar",
+              "phase": "claim_configuration",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_config_without_claim",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
+      ],
+      "procedural_surfaces": [
+        {
+          "surface_id": "core04.process_lease",
+          "decision_rows": [
+            {
+              "predicate": "initial_acquisition_timeout",
+              "outcome": "exit_2",
+              "condition_id": "extension_application_lease_timeout"
+            },
+            {
+              "predicate": "held_session_confirmed_lost",
+              "outcome": "exit_70",
+              "condition_id": "extension_application_lease_lost"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_application_lease_timeout",
+              "condition_class": "timeout",
+              "phase": "process_lease",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_application_process_active",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_application_lease_lost",
+              "condition_class": "dependency_unavailable",
+              "phase": "process_lease",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_integrity_failure",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
+      ]
     },
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/network-flow-activity-nlspec.md#req:NF-REQ-186",
-      "schema_surfaces":[{"surface_id":"network_flow_activity.state","schema_ids":["cartulary.extension_state_presence_manifest.v1","cartulary.extension_state_initialization_definition.v1"],"conditions":[{"condition_id":"network_flow_activity_state_invalid","location":"$","constraint":"authoritative_state_invariants","condition_class":"algorithm_result_invalid","phase":"state_validation","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_state_validation_failed","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"one_per_profile","secret_policy":"redacted"}]}],
-      "procedural_surfaces":[]
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "NF-REQ-186",
+      "schema_surfaces": [
+        {
+          "surface_id": "network_flow_activity.state",
+          "schema_ids": [
+            "cartulary.extension_state_presence_manifest.v1",
+            "cartulary.extension_state_initialization_definition.v1"
+          ],
+          "conditions": [
+            {
+              "condition_id": "network_flow_activity_state_invalid",
+              "location": "$",
+              "constraint": "authoritative_state_invariants",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "state_validation",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_state_validation_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
+      ],
+      "procedural_surfaces": []
     },
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/reporting-subsystem-nlspec.md#req:REQ-RPT-019b",
-      "schema_surfaces":[],
-      "procedural_surfaces":[{"surface_id":"snapshot_reporting.participant","decision_rows":[{"predicate":"participant_result_invalid","outcome":"extension_validation_result_invalid","condition_id":"snapshot_reporting_participant_invalid"}],"conditions":[{"condition_id":"snapshot_reporting_participant_invalid","condition_class":"algorithm_result_invalid","phase":"transaction","path_algorithm_id":"extension_json_pointer_v1","reason_code":"extension_validation_result_invalid","expected_formatter_id":"diagnostic_exact_token_v1","actual_formatter_id":"diagnostic_redacted_v1","multiplicity":"single","secret_policy":"redacted"}]}]
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "REQ-RPT-019b",
+      "schema_surfaces": [],
+      "procedural_surfaces": [
+        {
+          "surface_id": "snapshot_reporting.participant",
+          "decision_rows": [
+            {
+              "predicate": "participant_result_invalid",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "snapshot_reporting_participant_invalid"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "snapshot_reporting_participant_invalid",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            }
+          ]
+        }
+      ]
     },
     {
-      "schema_id":"cartulary.extension_validation_surface_declaration.v1",
-      "owner_contract_ref":"docs/report-composition-nlspec.md#req:REQ-RC-076a",
-      "schema_surfaces":[],
-      "procedural_surfaces":[]
+      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "owner_requirement_id": "REQ-RC-076a",
+      "schema_surfaces": [],
+      "procedural_surfaces": []
     }
   ]
 }

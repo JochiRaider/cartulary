@@ -1,17 +1,22 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "reporting.extensions_contract.v1",
+  "owner_id": "reporting",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/reporting.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "reporting",
+    "catalog_sha256": "82bcf59e0fbb48a50204401fc4857af08a25e539b42cd269a94dac077ffd8a08"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.reporting_subsystem_nlspec.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
-      "closure_categories": [],
-      "end_byte": 314525,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.reporting_subsystem_nlspec.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-RPT-019a",
-      "anchor_kind": "req",
-      "anchor_sha256": "73a7008fbd006f00f81f8223d6fc0293eaccb54f494f4daeee6341b97439bf62",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-019a",
       "closure_categories": [
         "authorization",
         "conformance_evidence",
@@ -21,112 +26,76 @@
         "scalar_collection_bounds",
         "security_secrets_egress",
         "snapshot_reporting"
-      ],
-      "end_byte": 22986,
-      "start_byte": 19681
+      ]
     },
     {
-      "anchor_id": "REQ-RPT-019b",
-      "anchor_kind": "req",
-      "anchor_sha256": "a27561594456312bc9190a54692004b4f1e89e23668338e2120b800e77f167d1",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-019b",
       "closure_categories": [
         "conformance_evidence",
         "errors_precedence_retry",
         "request_response_schemas",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 23787,
-      "start_byte": 22988
+      ]
     },
     {
-      "anchor_id": "REQ-RPT-039",
-      "anchor_kind": "req",
-      "anchor_sha256": "bc74125c0bd012573ffbfcab5a006f597e11f918991e136a67315e3741ce810d",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-039",
       "closure_categories": [
         "identity_canonicalization_ordering",
         "request_response_schemas",
         "scalar_collection_bounds"
-      ],
-      "end_byte": 69366,
-      "start_byte": 66385
+      ]
     },
     {
-      "anchor_id": "REQ-RPT-053",
-      "anchor_kind": "req",
-      "anchor_sha256": "5eb45755d662872f016e46405ff9d43131f764d6958f1e3a0a40a2fba3c72f9a",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-053",
       "closure_categories": [
         "errors_precedence_retry",
         "identity_canonicalization_ordering",
         "snapshot_reporting"
-      ],
-      "end_byte": 101252,
-      "start_byte": 98906
+      ]
     },
     {
-      "anchor_id": "REQ-RPT-059a",
-      "anchor_kind": "req",
-      "anchor_sha256": "47a2384689a0cb71715f63f6895c3d6a7d72b054d7dc0789aebbddcaafdb05bc",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-059a",
       "closure_categories": [
         "authorization",
         "errors_precedence_retry",
         "security_secrets_egress",
         "snapshot_reporting"
-      ],
-      "end_byte": 111003,
-      "start_byte": 109693
+      ]
     },
     {
-      "anchor_id": "REQ-RPT-114",
-      "anchor_kind": "req",
-      "anchor_sha256": "086c266e35eee3532c1a487753d5741084f6d27a9a380358cee2192a9b43d4c0",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-RPT-114",
       "closure_categories": [
         "errors_precedence_retry",
         "request_response_schemas"
-      ],
-      "end_byte": 232989,
-      "start_byte": 231645
+      ]
     },
     {
-      "anchor_id": "cartulary.reporting_export_model.v1",
-      "anchor_kind": "schema",
-      "anchor_sha256": "bc74125c0bd012573ffbfcab5a006f597e11f918991e136a67315e3741ce810d",
-      "closure_categories": [],
-      "end_byte": 69366,
-      "start_byte": 66385
+      "binding_kind": "schema",
+      "machine_id": "cartulary.reporting_export_model.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "materialize_reporting_export_model_v1",
-      "anchor_kind": "algorithm",
-      "anchor_sha256": "5eb45755d662872f016e46405ff9d43131f764d6958f1e3a0a40a2fba3c72f9a",
-      "closure_categories": [],
-      "end_byte": 101252,
-      "start_byte": 98906
+      "binding_kind": "algorithm",
+      "machine_id": "materialize_reporting_export_model_v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "snapshot_reporting.render_export_v1",
-      "anchor_kind": "algorithm",
-      "anchor_sha256": "73a7008fbd006f00f81f8223d6fc0293eaccb54f494f4daeee6341b97439bf62",
-      "closure_categories": [],
-      "end_byte": 22986,
-      "start_byte": 19681
+      "binding_kind": "algorithm",
+      "machine_id": "snapshot_reporting.render_export_v1",
+      "closure_categories": []
     }
   ],
-  "owner_contract_manifest_id": "reporting.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 314525,
-    "owner_document_ref": "docs/reporting-subsystem-nlspec.md#document:cartulary.reporting_subsystem_nlspec.v1",
-    "owner_document_schema_id": "cartulary.reporting_subsystem_nlspec.v1",
-    "owner_document_sha256": "5cd805ce9e3c24a2c75f217a458319f54fc4b6616280c048b689c9c9f35580c5",
-    "owner_document_version": "1.1.1"
-  },
   "owner_fragments": [
     {
       "owner_fragment_id": "snapshot_reporting.participation.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/snapshot_reporting.participation.json",
-      "owner_fragment_sha256": "77c25ed49994ed3f79e33499076313f7a26010957bacffec351424a0a8385095"
+      "owner_fragment_sha256": "267c4787be737cba7b8389e7a4eff89ff4f9c158e3333fdf7b7bad54d759ac67"
     }
-  ],
-  "owner_id": "reporting",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  ]
 }

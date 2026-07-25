@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "harness.test_catalog",
+  "requirements": [
+    {
+      "requirement_id": "harness.test_catalog.requirement.closed_owner_catalog",
+      "statement": "The unified catalog has one primary owner for every active row, fully resolves verification and profile references, and rejects ambiguous or overlapping selectors.",
+      "status": "active"
+    }
+  ]
+}

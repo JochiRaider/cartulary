@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.incidentbundles",
+  "requirements": [
+    {
+      "requirement_id": "module.incidentbundles.requirement.behavior_contract",
+      "statement": "incident bundle export and import postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "module.incidentbundles.requirement.extensions_portability",
+      "statement": "Incident Bundles applies the complete extension portability state and claim matrix, distinct export/import-preparation results, bounded scoped staging, and one final publication transaction.",
+      "status": "active"
+    }
+  ]
+}

@@ -7,7 +7,7 @@
   "properties": {
     "schema_id": { "const": "cartulary.test_evidence_audit_summary.v1" },
     "command_id": { "const": "cartulary.harness.command.test_evidence_audit.v1" },
-    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id" },
     "status": { "enum": ["pass", "fail"] },
     "started_at": { "$ref": "cartulary.test_slice_plan.v2#/$defs/timestamp" },
     "finished_at": { "$ref": "cartulary.test_slice_plan.v2#/$defs/timestamp" },

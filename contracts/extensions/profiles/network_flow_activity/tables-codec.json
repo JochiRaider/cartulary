@@ -1,1 +1,13 @@
-{"schema_id":"cartulary.extension_backup_binding_codec.v1","backup_codec_id":"network_flow_activity.tables_codec.v1","binding_id":"network_flow_activity.tables","storage_kind":"postgres","codec_contract_ref":"docs/network-flow-activity-nlspec.md#req:NF-REQ-184","logical_identity_algorithm_id":"network_flow_activity.tables_identity_v1","content_encoding_algorithm_id":"extension_registry_canonical_json_v1","max_items":1048576,"max_entry_bytes":67108864,"max_binding_bytes":9223372036854775807,"historical_restore_codecs":[]}
+{
+  "schema_id": "cartulary.extension_backup_binding_codec.v2",
+  "backup_codec_id": "network_flow_activity.tables_codec.v1",
+  "binding_id": "network_flow_activity.tables",
+  "storage_kind": "postgres",
+  "codec_requirement_id": "NF-REQ-184",
+  "logical_identity_algorithm_id": "network_flow_activity.tables_identity_v1",
+  "content_encoding_algorithm_id": "extension_registry_canonical_json_v1",
+  "max_items": 1048576,
+  "max_entry_bytes": 67108864,
+  "max_binding_bytes": 9223372036854775807,
+  "historical_restore_codecs": []
+}

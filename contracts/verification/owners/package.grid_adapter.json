@@ -1,27 +1,31 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "package.grid_adapter",
   "verifications": [
     {
       "verification_id": "package.grid_adapter.verification.adapter_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "The shared grid adapter preserves deterministic semantic identity, visible row and field targeting, navigation, ranges, clipboard targets, editing, and accessibility across consumers while RDG coordinates remain private.",
       "evidence_kinds": [
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "package.grid_adapter.requirement.adapter_contract"
+      ]
     },
     {
       "verification_id": "package.grid_adapter.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "support",
-      "requirement": "package.grid_adapter frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "evidence_kinds": [
         "playwright",
         "vitest"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "package.grid_adapter.requirement.behavior_contract"
+      ]
     }
   ]
 }

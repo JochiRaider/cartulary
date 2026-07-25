@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "web.application",
+  "requirements": [
+    {
+      "requirement_id": "web.application.requirement.frontend_regression",
+      "statement": "The web application shell, route state, service clients, shared import coordination, and administration surfaces preserve supported product behavior.",
+      "status": "active"
+    }
+  ]
+}

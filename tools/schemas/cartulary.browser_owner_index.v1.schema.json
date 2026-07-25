@@ -25,7 +25,7 @@
         "additionalProperties": false,
         "required": ["owner_id", "status", "selected_rows", "evidence_accounting", "owner_summary"],
         "properties": {
-          "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+          "owner_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id" },
           "status": { "enum": ["pass", "fail"] },
           "selected_rows": { "$ref": "cartulary.test_slice_plan.v2#/$defs/row_ids" },
           "evidence_accounting": { "type": "string", "minLength": 1 },

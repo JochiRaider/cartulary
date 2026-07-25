@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.incidentbundles",
   "rows": [
     {
@@ -29,11 +29,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-ac-144",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-003"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_descriptor_reads_reject_singleto_ea18aa4fe5",
@@ -243,10 +239,7 @@
       "fixture_profile_id": "postgres_migration_scratch",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/guides/cartulary-dev-guide.md#73-development-workflow"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
@@ -272,10 +265,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-142"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.incidentbundles.unit.cross_owner_import_descriptor_is_closed_9f6d848f63",

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "web.application",
   "rows": [
     {
@@ -176,29 +176,6 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects missingLicense fixture"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.application.boundary_support.fontbundle_rejects_missingnotice_fixture_70096761eb",
-      "owner_id": "web.application",
-      "family_id": "web.application.boundary_support",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/fontBundle.test.ts",
-        "titles": [
-          "vendored font bundle rejects missingNotice fixture"
         ]
       },
       "evidence_class": "static",

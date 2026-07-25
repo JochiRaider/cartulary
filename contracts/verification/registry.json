@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_registry.v1",
+  "schema_id": "cartulary.verification_registry.v2",
   "owners": [
     {
       "owner_id": "app.operator",

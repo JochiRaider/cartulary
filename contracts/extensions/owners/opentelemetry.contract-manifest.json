@@ -1,1 +1,19 @@
-{"schema_id":"cartulary.extension_owner_contract_manifest.v1","owner_contract_manifest_id":"opentelemetry.extensions_contract.v1","owner_id":"opentelemetry","owner_document":{"owner_document_ref":"docs/opentelemetry-instrumentation-nlspec.md#document:cartulary.opentelemetry_instrumentation.current.v1","owner_document_schema_id":"cartulary.opentelemetry_instrumentation.current.v1","owner_document_version":"extensions-adoption-1","owner_document_sha256":"925c579ace3a154496f0fa9b725df6de37bb6f7a5d86faa8cb6616b52db43b9e","byte_length":151192},"anchors":[{"anchor_kind":"document","anchor_id":"cartulary.opentelemetry_instrumentation.current.v1","start_byte":0,"end_byte":151192,"anchor_sha256":"925c579ace3a154496f0fa9b725df6de37bb6f7a5d86faa8cb6616b52db43b9e","closure_categories":[]}],"owner_fragments":[]}
+{
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "opentelemetry.extensions_contract.v1",
+  "owner_id": "opentelemetry",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/opentelemetry.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "opentelemetry",
+    "catalog_sha256": "ac0d1829294df15cb65aacb40687e5c07f512451ff9d8673415d35bd2703beee"
+  },
+  "bindings": [
+    {
+      "binding_kind": "document",
+      "machine_id": "cartulary.opentelemetry_instrumentation.current.v1",
+      "closure_categories": []
+    }
+  ],
+  "owner_fragments": []
+}

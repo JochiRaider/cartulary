@@ -1,0 +1,21 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "web.architecture",
+  "requirements": [
+    {
+      "requirement_id": "web.architecture.requirement.behavior_contract",
+      "statement": "web.architecture frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "web.architecture.requirement.import_boundaries",
+      "statement": "Frontend imports follow registered application and package boundaries and runtime code consumes generated contracts instead of documentation.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "web.architecture.requirement.test_boundaries",
+      "statement": "Frontend structural policy tests preserve transport, selector, telemetry, and module import ownership boundaries.",
+      "status": "active"
+    }
+  ]
+}

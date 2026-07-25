@@ -1,0 +1,355 @@
+{
+  "schema_id": "cartulary.requirement_registry.v1",
+  "owners": [
+    {
+      "owner_id": "app.operator",
+      "catalog_path": "contracts/requirements/owners/app.operator.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "app.server",
+      "catalog_path": "contracts/requirements/owners/app.server.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "contract_families",
+      "catalog_path": "contracts/requirements/owners/contract_families.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "core00",
+      "catalog_path": "contracts/requirements/owners/core00.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "core01",
+      "catalog_path": "contracts/requirements/owners/core01.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "core02",
+      "catalog_path": "contracts/requirements/owners/core02.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "core03",
+      "catalog_path": "contracts/requirements/owners/core03.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "core04",
+      "catalog_path": "contracts/requirements/owners/core04.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "extensions",
+      "catalog_path": "contracts/requirements/owners/extensions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "graph_projection",
+      "catalog_path": "contracts/requirements/owners/graph_projection.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.browser",
+      "catalog_path": "contracts/requirements/owners/harness.browser.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.command_surface",
+      "catalog_path": "contracts/requirements/owners/harness.command_surface.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.evidence_accounting",
+      "catalog_path": "contracts/requirements/owners/harness.evidence_accounting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.generated_artifacts",
+      "catalog_path": "contracts/requirements/owners/harness.generated_artifacts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.release",
+      "catalog_path": "contracts/requirements/owners/harness.release.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.test_catalog",
+      "catalog_path": "contracts/requirements/owners/harness.test_catalog.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.visual",
+      "catalog_path": "contracts/requirements/owners/harness.visual.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.assessments",
+      "catalog_path": "contracts/requirements/owners/module.assessments.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.auth",
+      "catalog_path": "contracts/requirements/owners/module.auth.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.collaboration",
+      "catalog_path": "contracts/requirements/owners/module.collaboration.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.crossownertransaction",
+      "catalog_path": "contracts/requirements/owners/module.crossownertransaction.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.entities",
+      "catalog_path": "contracts/requirements/owners/module.entities.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.evidence",
+      "catalog_path": "contracts/requirements/owners/module.evidence.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.extensions",
+      "catalog_path": "contracts/requirements/owners/module.extensions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.graphprojection",
+      "catalog_path": "contracts/requirements/owners/module.graphprojection.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.imports",
+      "catalog_path": "contracts/requirements/owners/module.imports.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "catalog_path": "contracts/requirements/owners/module.incidentbundles.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.incidents",
+      "catalog_path": "contracts/requirements/owners/module.incidents.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.indicators",
+      "catalog_path": "contracts/requirements/owners/module.indicators.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.jobapi",
+      "catalog_path": "contracts/requirements/owners/module.jobapi.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.links",
+      "catalog_path": "contracts/requirements/owners/module.links.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.networkflow",
+      "catalog_path": "contracts/requirements/owners/module.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.parties",
+      "catalog_path": "contracts/requirements/owners/module.parties.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.recovery",
+      "catalog_path": "contracts/requirements/owners/module.recovery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "catalog_path": "contracts/requirements/owners/module.reference_data.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "catalog_path": "contracts/requirements/owners/module.reportcomposition.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.reporting",
+      "catalog_path": "contracts/requirements/owners/module.reporting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.revisions",
+      "catalog_path": "contracts/requirements/owners/module.revisions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "catalog_path": "contracts/requirements/owners/module.savedviews.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.stagedobjects",
+      "catalog_path": "contracts/requirements/owners/module.stagedobjects.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tabularingest",
+      "catalog_path": "contracts/requirements/owners/module.tabularingest.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.tasksdecisions",
+      "catalog_path": "contracts/requirements/owners/module.tasksdecisions.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.timeline",
+      "catalog_path": "contracts/requirements/owners/module.timeline.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.workbook",
+      "catalog_path": "contracts/requirements/owners/module.workbook.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "network_flow_activity",
+      "catalog_path": "contracts/requirements/owners/network_flow_activity.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "opentelemetry",
+      "catalog_path": "contracts/requirements/owners/opentelemetry.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.grid_adapter",
+      "catalog_path": "contracts/requirements/owners/package.grid_adapter.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.protocol_ts",
+      "catalog_path": "contracts/requirements/owners/package.protocol_ts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.test_utils",
+      "catalog_path": "contracts/requirements/owners/package.test_utils.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.ui",
+      "catalog_path": "contracts/requirements/owners/package.ui.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "package.view_contracts",
+      "catalog_path": "contracts/requirements/owners/package.view_contracts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.bootstrap",
+      "catalog_path": "contracts/requirements/owners/platform.bootstrap.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.config",
+      "catalog_path": "contracts/requirements/owners/platform.config.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.httpruntime",
+      "catalog_path": "contracts/requirements/owners/platform.httpruntime.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.objectstore",
+      "catalog_path": "contracts/requirements/owners/platform.objectstore.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.postgres",
+      "catalog_path": "contracts/requirements/owners/platform.postgres.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.rootedfs",
+      "catalog_path": "contracts/requirements/owners/platform.rootedfs.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.telemetry",
+      "catalog_path": "contracts/requirements/owners/platform.telemetry.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewquery",
+      "catalog_path": "contracts/requirements/owners/platform.viewquery.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.viewschema",
+      "catalog_path": "contracts/requirements/owners/platform.viewschema.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.ws",
+      "catalog_path": "contracts/requirements/owners/platform.ws.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "report_composition",
+      "catalog_path": "contracts/requirements/owners/report_composition.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "reporting",
+      "catalog_path": "contracts/requirements/owners/reporting.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "testing_harness",
+      "catalog_path": "contracts/requirements/owners/testing_harness.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.application",
+      "catalog_path": "contracts/requirements/owners/web.application.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.architecture",
+      "catalog_path": "contracts/requirements/owners/web.architecture.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.collaboration",
+      "catalog_path": "contracts/requirements/owners/web.collaboration.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.design",
+      "catalog_path": "contracts/requirements/owners/web.design.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.networkflow",
+      "catalog_path": "contracts/requirements/owners/web.networkflow.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "web.workbook",
+      "catalog_path": "contracts/requirements/owners/web.workbook.json",
+      "status": "active"
+    }
+  ]
+}

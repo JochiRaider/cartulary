@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "web.design",
+  "requirements": [
+    {
+      "requirement_id": "web.design.requirement.readiness_direction",
+      "statement": "Visual and accessibility readiness uses machine fixture and scenario identity while remaining design-direction evidence outside product conformance.",
+      "status": "active"
+    }
+  ]
+}

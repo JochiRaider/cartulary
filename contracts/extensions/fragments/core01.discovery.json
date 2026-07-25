@@ -2,82 +2,81 @@
   "facts": [
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "route_family": "/api/v1/auth/oidc"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "route_family": "/api/v1/auth/providers"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "route_family": "/api/v1/auth/saml"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "route_family": "/api/v1/users/{user_id}/auth-bindings"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import",
       "route_family": "/api/v1/import-sessions"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "incident_portability",
       "route_family": "/api/v1/incident-bundles"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "network_flow_activity",
       "route_family": "/api/v1/incidents/{incident_id}/network-flow"
     },
     {
       "fact_kind": "workspace",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "network_flow_activity",
       "workspace_key": "network_analysis"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack",
       "route_family": "/api/v1/reference-packs"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "snapshot_reporting",
       "route_family": "/api/v1/incidents/{incident_id}/report-compositions"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "snapshot_reporting",
       "route_family": "/api/v1/releases"
     },
     {
       "fact_kind": "route_family",
-      "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "snapshot_reporting",
       "route_family": "/api/v1/snapshots"
     }
   ],
-  "owner_document_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#document:cartulary.core01.current.v1",
-  "owner_document_schema_id": "cartulary.core01.current.v1",
-  "owner_document_sha256": "95ff75a9517a33d8a23e1ca530357a93df5d1eeaa2231691054e309550c3c81d",
-  "owner_document_version": "extensions-adoption-1",
   "owner_fragment_id": "core01.extension_discovery.v1",
   "owner_id": "core01",
-  "schema_id": "cartulary.extension_owner_fragment.v1"
+  "schema_id": "cartulary.extension_owner_fragment.v2",
+  "requirement_catalog_ref": "contracts/requirements/owners/core01.json",
+  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
+  "requirement_catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d"
 }

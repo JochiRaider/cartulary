@@ -34,26 +34,6 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if outputPath := os.Getenv("CARTULARY_EXTENSION_TRACEABILITY_OUTPUT"); outputPath != "" {
-		document, err := os.ReadFile(filepath.Join(root, "docs", "extension-subsystem-nlspec.md"))
-		if err != nil {
-			fatal(err)
-		}
-		output, err := marshalExtensionTraceabilityMappingSource(document)
-		if err != nil {
-			fatal(err)
-		}
-		if err := os.WriteFile(outputPath, output, 0o600); err != nil {
-			fatal(err)
-		}
-		return
-	}
-	if outputRoot := os.Getenv("CARTULARY_EXTENSION_MANIFEST_OUTPUT"); outputRoot != "" {
-		if err := refreshExtensionOwnerInputs(root, outputRoot); err != nil {
-			fatal(err)
-		}
-		return
-	}
 
 	families, err := loadFamilies(root)
 	if err != nil {

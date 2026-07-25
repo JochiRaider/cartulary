@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.reference_data",
   "rows": [
     {
@@ -291,10 +291,7 @@
       "fixture_profile_id": "postgres_migration_scratch",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/guides/cartulary-dev-guide.md#73-development-workflow"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f",

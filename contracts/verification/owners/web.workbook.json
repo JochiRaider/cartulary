@@ -1,14 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "web.workbook",
   "verifications": [
     {
       "verification_id": "web.workbook.verification.frontend_regression",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "Workbook shells, models, policies, controllers, queries, timelines, and utilities preserve supported authoring and investigation behavior.",
-      "evidence_kinds": ["vitest"],
-      "status": "active"
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "web.workbook.requirement.frontend_regression"
+      ]
     }
   ]
 }

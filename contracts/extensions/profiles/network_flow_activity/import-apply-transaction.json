@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.extension_transaction_participant_contract.v1",
+  "schema_id": "cartulary.extension_transaction_participant_contract.v2",
   "participant_id": "network_flow_activity.import_apply_v1",
   "owner_profile_id": "network_flow_activity",
   "participant_input_schema_id": "cartulary.network_flow_activity.import_apply_transaction_input.v1",
@@ -15,5 +15,5 @@
     "network_flow_activity.rows",
     "network_flow_activity.tables"
   ],
-  "error_contract_ref": "docs/network-flow-activity-nlspec.md#req:NF-REQ-185"
+  "error_requirement_id": "NF-REQ-185"
 }

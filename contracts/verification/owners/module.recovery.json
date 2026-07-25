@@ -1,17 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.recovery",
   "verifications": [
     {
       "verification_id": "module.recovery.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "backup, restore, recovery, and integrity postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test",
         "playwright"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.recovery.requirement.behavior_contract"
+      ]
     }
   ]
 }

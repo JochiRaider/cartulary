@@ -1,15 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.release",
   "verifications": [
     {
       "verification_id": "harness.release.verification.current_owner_evidence_only",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "Release-readiness aggregation consumes only compatible current owner evidence and preserves implementation, informative, conformance, and claim-publication effects.",
-      "evidence_kinds": ["release_check"],
+      "evidence_kinds": [
+        "release_check"
+      ],
       "public_target": "release-check",
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "harness.release.requirement.current_owner_evidence_only"
+      ]
     }
   ]
 }

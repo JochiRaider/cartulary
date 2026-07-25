@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "package.test_utils",
+  "requirements": [
+    {
+      "requirement_id": "package.test_utils.requirement.shared_contract",
+      "statement": "Shared frontend test utilities preserve deterministic isolated setup and public helper behavior.",
+      "status": "active"
+    }
+  ]
+}

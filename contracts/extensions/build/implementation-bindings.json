@@ -22,7 +22,9 @@
       "contract_major": 1,
       "implementation_id": "cartulary.import.builtin.v1",
       "state_ownership_kind": "core_managed",
-      "implemented_contribution_ids": ["import.sessions_route"],
+      "implemented_contribution_ids": [
+        "import.sessions_route"
+      ],
       "implemented_job_kinds": [
         "import.apply_v1",
         "import.discovery_v1"
@@ -39,7 +41,9 @@
       "contract_major": 1,
       "implementation_id": "cartulary.incident_portability.builtin.v1",
       "state_ownership_kind": "core_managed",
-      "implemented_contribution_ids": ["incident_portability.bundles_route"],
+      "implemented_contribution_ids": [
+        "incident_portability.bundles_route"
+      ],
       "implemented_job_kinds": [
         "incident_portability.export_v1",
         "incident_portability.import_v1"
@@ -113,7 +117,9 @@
       "contract_major": 1,
       "implementation_id": "cartulary.reference_pack.builtin.v1",
       "state_ownership_kind": "core_managed",
-      "implemented_contribution_ids": ["reference_pack.packs_route"],
+      "implemented_contribution_ids": [
+        "reference_pack.packs_route"
+      ],
       "implemented_job_kinds": [
         "reference_pack.import_v1",
         "reference_pack.refresh_v1",

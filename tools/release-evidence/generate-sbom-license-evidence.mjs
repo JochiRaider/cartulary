@@ -709,7 +709,6 @@ function loadFontEvidence(ctx) {
       evidence: [
         "apps/web/public/assets/fonts/FONT_MANIFEST.json",
         `apps/web/public/assets/fonts/${family.directory}/SOURCE.json`,
-        "apps/web/public/assets/fonts/NOTICE.fonts.md",
       ],
     };
     records.set(ref, record);

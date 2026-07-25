@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.auth",
+  "requirements": [
+    {
+      "requirement_id": "module.auth.requirement.behavior_contract",
+      "statement": "Authentication configuration, enterprise-provider admission, runtime, transport, and frontend postconditions remain exact across retained selectors and declared execution profiles.",
+      "status": "active"
+    }
+  ]
+}

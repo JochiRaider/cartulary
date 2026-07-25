@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "module.stagedobjects",
   "rows": [
     {
@@ -29,12 +29,7 @@
       "fixture_profile_id": "postgres_template_clone",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-144",
-        "docs/extension-subsystem-nlspec.md#ext-ac-154",
-        "docs/handoffs/extensions-subsystem-implementation-tracker.md#bc-013"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.stagedobjects.unit.lifecycle_cleanup_outcomes_7f6ad80724",
@@ -63,11 +58,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-144",
-        "docs/extension-subsystem-nlspec.md#ext-ac-154"
-      ]
+      "status": "active"
     },
     {
       "row_id": "module.stagedobjects.unit.server_readiness_and_fatal_routing_7f6ad80724",
@@ -94,11 +85,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-req-134",
-        "docs/extension-subsystem-nlspec.md#ext-ac-154"
-      ]
+      "status": "active"
     }
   ]
 }

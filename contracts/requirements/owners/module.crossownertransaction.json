@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.crossownertransaction",
+  "requirements": [
+    {
+      "requirement_id": "module.crossownertransaction.requirement.final_commit_protocol",
+      "statement": "cross-owner mutations use one bounded, ordered, cancellation-aware final transaction with typed capabilities and closed commit outcomes.",
+      "status": "active"
+    }
+  ]
+}

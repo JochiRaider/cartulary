@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "harness.visual",
+  "requirements": [
+    {
+      "requirement_id": "harness.visual.requirement.stable_fixture_identity",
+      "statement": "Visual fixtures use stable owner and scenario identity, path-only moves preserve golden bytes, and visual evidence remains implementation support unless claim-authorized.",
+      "status": "active"
+    }
+  ]
+}

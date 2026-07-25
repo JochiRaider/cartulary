@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.objectstore",
+  "requirements": [
+    {
+      "requirement_id": "platform.objectstore.requirement.behavior_contract",
+      "statement": "object-store lifecycle and access boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.objectstore.requirement.release_threat_policy",
+      "statement": "Object-store compatibility and migration-preservation release evidence is current-run, redacted, path-safe, and bound to the active storage threat policy.",
+      "status": "active"
+    }
+  ]
+}

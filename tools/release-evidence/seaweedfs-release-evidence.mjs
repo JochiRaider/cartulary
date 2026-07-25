@@ -29,6 +29,7 @@ const sdkModule = `github.com/${legacyStem}/${legacyStem}-go/v7`;
 const sdkCredentialModule = `${sdkModule}/pkg/credentials`;
 const serverImageNeedle = `${legacyStem}/${legacyStem}`;
 const generatedPolicyPath = "tools/generated_artifact_policy.json";
+const executableInputPolicyPath = "tools/executable_input_policy.json";
 const defaultClassificationPath =
   "tools/seaweedfs_migration_occurrence_classifications.json";
 const defaultReleaseArtifactDir = ".cartulary/release-artifacts";
@@ -63,6 +64,9 @@ const allowedClassifications = new Set([
   "invalid",
   "unclassified",
 ]);
+const restrictedInputPrefixes = JSON.parse(
+  readFileSync(path.join(repoRoot, executableInputPolicyPath), "utf8"),
+).restricted_roots.map((root) => `${root}/`);
 const alwaysExcludedPrefixes = Object.freeze([
   ".git/",
   ".cartulary/",
@@ -77,6 +81,7 @@ const alwaysExcludedPrefixes = Object.freeze([
   "build/",
   "out/",
   "target/",
+  ...restrictedInputPrefixes,
 ]);
 const releaseManifestPathPatterns = Object.freeze([
   /^docker-compose(?:\.[^.]+)?\.ya?ml$/,

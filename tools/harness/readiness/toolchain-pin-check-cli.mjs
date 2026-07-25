@@ -266,80 +266,6 @@ function checkBootstrapShellcheck(root, mismatches, expected) {
   );
 }
 
-function checkReadme(root, mismatches, expected) {
-  const file = "README.md";
-  const readme = readRepoFile(root, file);
-  const goLine = `- Go \`${expected.goVersion}\` with toolchain \`${expected.goToolchain}\``;
-  const nodeLine = `- Node.js \`${expected.nodeVersion}\``;
-  const pnpmLine = `- pnpm \`${expected.pnpmVersion}\``;
-  const staticcheckLine = `- Staticcheck \`${expected.staticcheckTool.split("@")[1]}\``;
-  const govulncheckLine = `- Govulncheck \`${expected.govulncheckTool.split("@")[1]}\``;
-  const gosecLine = `- Gosec \`${expected.gosecTool.split("@")[1]}\``;
-  const shellcheckLine = `- ShellCheck \`${expected.shellcheckVersion}\``;
-  checkEqual(
-    mismatches,
-    file,
-    "Go pin line",
-    goLine,
-    readme.split("\n").find((line) => line.startsWith("- Go `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "Node.js pin line",
-    nodeLine,
-    readme.split("\n").find((line) => line.startsWith("- Node.js `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "pnpm pin line",
-    pnpmLine,
-    readme.split("\n").find((line) => line.startsWith("- pnpm `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "Staticcheck pin line",
-    staticcheckLine,
-    readme.split("\n").find((line) => line.startsWith("- Staticcheck `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "Govulncheck pin line",
-    govulncheckLine,
-    readme.split("\n").find((line) => line.startsWith("- Govulncheck `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "Gosec pin line",
-    gosecLine,
-    readme.split("\n").find((line) => line.startsWith("- Gosec `")),
-  );
-  checkEqual(
-    mismatches,
-    file,
-    "ShellCheck pin line",
-    shellcheckLine,
-    readme.split("\n").find((line) => line.startsWith("- ShellCheck `")),
-  );
-}
-
-function checkAgents(root, mismatches, expected) {
-  const file = "AGENTS.md";
-  const agents = readRepoFile(root, file);
-  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, \`${expected.cyclonedxGomodTool}\`, \`${expected.syftTool}\`, ShellCheck \`${expected.shellcheckVersion}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
-  checkEqual(
-    mismatches,
-    file,
-    "Pinned bootstrap tools line",
-    pinnedToolsLine,
-    agents.split("\n").find((line) => line.startsWith("- Pinned bootstrap tools:")),
-  );
-}
-
 function main() {
   const root = parseArgs(process.argv.slice(2));
   const expected = loadExpected(root);
@@ -350,8 +276,6 @@ function main() {
   checkGoMod(root, mismatches, expected);
   checkBootstrapNodeRuntime(root, mismatches, expected);
   checkBootstrapShellcheck(root, mismatches, expected);
-  checkReadme(root, mismatches, expected);
-  checkAgents(root, mismatches, expected);
 
   if (mismatches.length > 0) {
     for (const mismatch of mismatches) {

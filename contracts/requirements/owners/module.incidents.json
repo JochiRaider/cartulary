@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "module.incidents",
+  "requirements": [
+    {
+      "requirement_id": "module.incidents.requirement.behavior_contract",
+      "statement": "incident identity, membership, lifecycle, and discovery postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}

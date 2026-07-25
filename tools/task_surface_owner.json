@@ -32,7 +32,6 @@
       "json-shape-check",
       "lint",
       "lint-biome",
-      "lint-markdown",
       "lint-scripts",
       "lint-shell",
       "migration-drift",
@@ -75,51 +74,236 @@
       }
     ],
     "out_of_scope_targets": [
-      { "target": "bootstrap", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "bootstrap-node-runtime", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "browser-e2e-duration-baseline-drift", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "browser-e2e-duration-baselines", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "browser-e2e-visual-update", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build-migrate", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build-operator", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build-server", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build-server-harness", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "build-web", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "clean", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "db-migrate", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "db-reset", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "db-up", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "dev", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "distclean", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "doctor", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "explain-run", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "explain-target", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "explain-test-owner", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "fixture-report", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "format", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "frontend-install", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "frontend-toolchain", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "generate", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "go-test-duration-baseline-drift", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "go-test-duration-baselines", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "harness-smoke-duration-baseline-drift", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "harness-smoke-duration-baselines", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "help", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "help-all", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "object-store-init", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "object-store-reset", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "playwright-install", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "scheduler-event-order-drift", "owner_section": "Section 10", "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads." },
-      { "target": "scheduler-summary-timing-drift", "owner_section": "Section 10", "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads." },
-      { "target": "service-backed-make-target-duration-baseline-drift", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "service-backed-make-target-duration-baselines", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "services-down", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "services-up", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "target-plan", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "target-plan-json", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "task-guide", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." },
-      { "target": "task-surface-report", "owner_section": "Section 4", "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement." }
+      {
+        "target": "bootstrap",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "bootstrap-node-runtime",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "browser-e2e-visual-update",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-migrate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-operator",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-server",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-server-harness",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "build-web",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "clean",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-migrate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "db-up",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "dev",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "distclean",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "doctor",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-run",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-target",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "explain-test-owner",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "fixture-report",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "format",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "frontend-install",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "frontend-toolchain",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "generate",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "go-test-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "go-test-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "harness-smoke-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "harness-smoke-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "help",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "help-all",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "lint-markdown",
+        "owner_section": "Section 4",
+        "reason": "Standalone human-documentation maintenance is outside executable product testing and evidence."
+      },
+      {
+        "target": "object-store-init",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "object-store-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "playwright-install",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "scheduler-event-order-drift",
+        "owner_section": "Section 10",
+        "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads."
+      },
+      {
+        "target": "scheduler-summary-timing-drift",
+        "owner_section": "Section 10",
+        "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads."
+      },
+      {
+        "target": "service-backed-make-target-duration-baseline-drift",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "service-backed-make-target-duration-baselines",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "services-down",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "services-up",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "target-plan",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "target-plan-json",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "task-guide",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "task-surface-report",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      }
     ],
     "measurement_profiles": [
       {
@@ -127,36 +311,53 @@
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["wall_no_regression"]
+        "performance_gates": [
+          "wall_no_regression"
+        ]
       },
       {
         "profile_id": "backend_improvement",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["backend_unit_wall_improvement", "backend_finalization_union_improvement"],
+        "performance_gates": [
+          "backend_unit_wall_improvement",
+          "backend_finalization_union_improvement"
+        ],
         "allowed_policy_transition": "backend_grouped_capture_and_parallel_report_emission"
       },
       {
         "profile_id": "module_auth_slice_no_regression",
-        "canonical_inputs": { "OWNER": "module.auth", "ROWS": "omitted" },
+        "canonical_inputs": {
+          "OWNER": "module.auth",
+          "ROWS": "omitted"
+        },
         "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["wall_no_regression"]
+        "performance_gates": [
+          "wall_no_regression"
+        ]
       },
       {
         "profile_id": "module_auth_audit_no_regression",
-        "canonical_inputs": { "OWNER": "module.auth", "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence" },
+        "canonical_inputs": {
+          "OWNER": "module.auth",
+          "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence"
+        },
         "observation_eligibility": "direct_only",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["wall_no_regression"]
+        "performance_gates": [
+          "wall_no_regression"
+        ]
       },
       {
         "profile_id": "aggregate_sequence_no_regression",
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["wall_no_regression"],
+        "performance_gates": [
+          "wall_no_regression"
+        ],
         "allowed_policy_transition": "serial_to_topology_dag"
       },
       {
@@ -164,7 +365,9 @@
         "canonical_inputs": {},
         "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["release_browser_readiness_wall_improvement"],
+        "performance_gates": [
+          "release_browser_readiness_wall_improvement"
+        ],
         "allowed_policy_transition": "browser_stack_capacity_1_to_2"
       },
       {
@@ -172,60 +375,207 @@
         "canonical_inputs": {},
         "observation_eligibility": "direct_only",
         "warm_up_policy": "one_discarded_then_two_consecutive",
-        "performance_gates": ["release_check_wall_improvement"],
+        "performance_gates": [
+          "release_check_wall_improvement"
+        ],
         "allowed_policy_transition": "serial_to_topology_dag"
       }
     ],
     "target_measurement_profiles": [
-      { "target": "agent-finalize", "profile_id": "standard_no_regression" },
-      { "target": "backend-integration", "profile_id": "standard_no_regression" },
-      { "target": "backend-module-boundary-check", "profile_id": "standard_no_regression" },
-      { "target": "backend-process", "profile_id": "standard_no_regression", "allowed_policy_transition": "backend_process_shard_consolidation" },
-      { "target": "backend-store", "profile_id": "standard_no_regression" },
-      { "target": "backend-unit", "profile_id": "backend_improvement" },
-      { "target": "benchmark-claim-check", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-a11y", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-measurement", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-stateful", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-visual", "profile_id": "standard_no_regression" },
-      { "target": "browser-e2e-webserver-backed", "profile_id": "standard_no_regression", "allowed_policy_transition": "browser_webserver_stage_capacity_1_to_2" },
-      { "target": "check", "profile_id": "standard_no_regression" },
-      { "target": "ci", "profile_id": "aggregate_sequence_no_regression" },
-      { "target": "frontend-fallow-static", "profile_id": "standard_no_regression" },
-      { "target": "frontend-import-boundary-check", "profile_id": "standard_no_regression" },
-      { "target": "frontend-typecheck", "profile_id": "standard_no_regression" },
-      { "target": "frontend-unit", "profile_id": "standard_no_regression" },
-      { "target": "generate-drift", "profile_id": "standard_no_regression" },
-      { "target": "generated-artifact-policy-check", "profile_id": "standard_no_regression" },
-      { "target": "go-gosec-audit", "profile_id": "standard_no_regression" },
-      { "target": "go-gosec-targeted", "profile_id": "standard_no_regression" },
-      { "target": "go-test-duration-baseline-coverage", "profile_id": "standard_no_regression" },
-      { "target": "go-vulncheck", "profile_id": "standard_no_regression" },
-      { "target": "harness-contract", "profile_id": "standard_no_regression" },
-      { "target": "json-shape-check", "profile_id": "standard_no_regression" },
-      { "target": "lint", "profile_id": "aggregate_sequence_no_regression" },
-      { "target": "lint-biome", "profile_id": "standard_no_regression" },
-      { "target": "lint-markdown", "profile_id": "standard_no_regression" },
-      { "target": "lint-scripts", "profile_id": "standard_no_regression" },
-      { "target": "lint-shell", "profile_id": "standard_no_regression" },
-      { "target": "migration-drift", "profile_id": "standard_no_regression" },
-      { "target": "otel-conformance", "profile_id": "standard_no_regression" },
-      { "target": "release-browser-readiness", "profile_id": "release_browser_reference_candidate" },
-      { "target": "release-check", "profile_id": "release_check_improvement" },
-      { "target": "release-readiness-evidence", "profile_id": "standard_no_regression" },
-      { "target": "seaweedfs-compatibility", "profile_id": "standard_no_regression" },
-      { "target": "seaweedfs-migration-preservation", "profile_id": "standard_no_regression" },
-      { "target": "seaweedfs-release-evidence", "profile_id": "standard_no_regression" },
-      { "target": "seaweedfs-release-gate", "profile_id": "standard_no_regression" },
-      { "target": "service-backed-test-slice", "profile_id": "module_auth_slice_no_regression" },
-      { "target": "standup-operational-recovery-smoke", "profile_id": "standard_no_regression" },
-      { "target": "standup-package-smoke", "profile_id": "standard_no_regression" },
-      { "target": "test", "profile_id": "standard_no_regression" },
-      { "target": "test-evidence-audit", "profile_id": "module_auth_audit_no_regression" },
-      { "target": "test-fast", "profile_id": "standard_no_regression" },
-      { "target": "test-slice", "profile_id": "module_auth_slice_no_regression" },
-      { "target": "toolchain-drift", "profile_id": "standard_no_regression" }
+      {
+        "target": "agent-finalize",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-integration",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-module-boundary-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-process",
+        "profile_id": "standard_no_regression",
+        "allowed_policy_transition": "backend_process_shard_consolidation"
+      },
+      {
+        "target": "backend-store",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "backend-unit",
+        "profile_id": "backend_improvement"
+      },
+      {
+        "target": "benchmark-claim-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-a11y",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-measurement",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-stateful",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-visual",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "browser-e2e-webserver-backed",
+        "profile_id": "standard_no_regression",
+        "allowed_policy_transition": "browser_webserver_stage_capacity_1_to_2"
+      },
+      {
+        "target": "check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "ci",
+        "profile_id": "aggregate_sequence_no_regression"
+      },
+      {
+        "target": "frontend-fallow-static",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-import-boundary-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-typecheck",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "frontend-unit",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "generate-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "generated-artifact-policy-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-gosec-audit",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-gosec-targeted",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-test-duration-baseline-coverage",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "go-vulncheck",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "harness-contract",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "json-shape-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint",
+        "profile_id": "aggregate_sequence_no_regression"
+      },
+      {
+        "target": "lint-biome",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-scripts",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "lint-shell",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "migration-drift",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "otel-conformance",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "release-browser-readiness",
+        "profile_id": "release_browser_reference_candidate"
+      },
+      {
+        "target": "release-check",
+        "profile_id": "release_check_improvement"
+      },
+      {
+        "target": "release-readiness-evidence",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-compatibility",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-migration-preservation",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-release-evidence",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "seaweedfs-release-gate",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "service-backed-test-slice",
+        "profile_id": "module_auth_slice_no_regression"
+      },
+      {
+        "target": "standup-operational-recovery-smoke",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "standup-package-smoke",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test-evidence-audit",
+        "profile_id": "module_auth_audit_no_regression"
+      },
+      {
+        "target": "test-fast",
+        "profile_id": "standard_no_regression"
+      },
+      {
+        "target": "test-slice",
+        "profile_id": "module_auth_slice_no_regression"
+      },
+      {
+        "target": "toolchain-drift",
+        "profile_id": "standard_no_regression"
+      }
     ]
   },
   "compact_help": {
@@ -414,7 +764,7 @@
         },
         {
           "target": "lint",
-          "description": "run backend, frontend, script, Markdown, and shell lint/type checks"
+          "description": "run backend, frontend, script, and shell lint/type checks"
         },
         {
           "target": "lint-biome",
@@ -816,7 +1166,7 @@
         }
       ]
     },
-  "lint": {
+    "lint": {
       "summary_groups": [
         {
           "name": "blocking-lint",
@@ -828,16 +1178,15 @@
             "frontend-import-boundary-check",
             "backend-module-boundary-check",
             "lint-scripts",
-            "lint-markdown",
             "lint-shell",
             "frontend-typecheck"
           ]
         }
       ],
       "steps": [
-      {
-        "type": "step",
-        "target": "lint-go",
+        {
+          "type": "step",
+          "target": "lint-go",
           "produces_summary_targets": [
             "lint-go-format",
             "lint-go-vet",
@@ -845,56 +1194,48 @@
           ]
         },
         {
-        "type": "step",
-        "target": "lint-biome",
+          "type": "step",
+          "target": "lint-biome",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-biome"
           ]
         },
         {
-        "type": "step",
-        "target": "frontend-import-boundary-check",
+          "type": "step",
+          "target": "frontend-import-boundary-check",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-import-boundary-check"
           ]
         },
         {
-        "type": "step",
-        "target": "backend-module-boundary-check",
+          "type": "step",
+          "target": "backend-module-boundary-check",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "backend-module-boundary-check"
           ]
         },
         {
-        "type": "step",
-        "target": "lint-scripts",
+          "type": "step",
+          "target": "lint-scripts",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-scripts"
           ]
         },
         {
-        "type": "step",
-        "target": "lint-markdown",
-          "skip_prerequisites": true,
-          "produces_summary_targets": [
-            "lint-markdown"
-          ]
-        },
-        {
-        "type": "step",
-        "target": "lint-shell",
+          "type": "step",
+          "target": "lint-shell",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-shell"
           ]
         },
         {
-        "type": "step",
-        "target": "frontend-typecheck",
+          "type": "step",
+          "target": "frontend-typecheck",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "frontend-typecheck"
@@ -902,7 +1243,7 @@
         }
       ]
     },
-  "ci": {
+    "ci": {
       "summary_groups": [
         {
           "name": "developer-gate",
@@ -931,43 +1272,43 @@
       ],
       "steps": [
         {
-        "type": "step",
-        "target": "check",
+          "type": "step",
+          "target": "check",
           "produces_summary_targets": [
             "check"
           ]
         },
         {
-        "type": "step",
-        "target": "harness-contract",
+          "type": "step",
+          "target": "harness-contract",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "harness-contract"
           ]
         },
         {
-        "type": "step",
-        "target": "go-gosec-audit",
+          "type": "step",
+          "target": "go-gosec-audit",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "go-gosec-audit"
           ]
         },
         {
-        "type": "step",
-        "target": "deployable-shape",
+          "type": "step",
+          "target": "deployable-shape",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "deployable-shape"
           ]
         },
         {
-        "type": "step",
-        "target": "duration-baseline-drift-suite"
+          "type": "step",
+          "target": "duration-baseline-drift-suite"
         }
       ]
     },
-  "release-check": {
+    "release-check": {
       "summary_groups": [
         {
           "name": "developer-gate",
@@ -1018,54 +1359,54 @@
       ],
       "steps": [
         {
-        "type": "step",
-        "target": "check",
+          "type": "step",
+          "target": "check",
           "produces_summary_targets": [
             "check"
           ]
         },
         {
-        "type": "step",
-        "target": "harness-contract",
+          "type": "step",
+          "target": "harness-contract",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "harness-contract"
           ]
         },
         {
-        "type": "step",
-        "target": "go-gosec-audit",
+          "type": "step",
+          "target": "go-gosec-audit",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "go-gosec-audit"
           ]
         },
         {
-        "type": "step",
-        "target": "license-report",
+          "type": "step",
+          "target": "license-report",
           "produces_summary_targets": [
             "license-report"
           ]
         },
         {
-        "type": "step",
-        "target": "sbom",
+          "type": "step",
+          "target": "sbom",
           "produces_summary_targets": [
             "sbom"
           ]
         },
         {
-        "type": "step",
-        "target": "seaweedfs-compatibility"
-        },
-        {
-        "type": "step",
-        "target": "seaweedfs-migration-preservation"
+          "type": "step",
+          "target": "seaweedfs-compatibility"
         },
         {
           "type": "step",
-        "target": "seaweedfs-release-gate",
-        "skip_prerequisites": true,
+          "target": "seaweedfs-migration-preservation"
+        },
+        {
+          "type": "step",
+          "target": "seaweedfs-release-gate",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "seaweedfs-compatibility",
             "seaweedfs-migration-preservation",
@@ -1073,8 +1414,8 @@
           ]
         },
         {
-        "type": "step",
-        "target": "build",
+          "type": "step",
+          "target": "build",
           "produces_summary_targets": [
             "build-web",
             "build-server",
@@ -1083,8 +1424,8 @@
           ]
         },
         {
-        "type": "step",
-        "target": "deployable-shape",
+          "type": "step",
+          "target": "deployable-shape",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "deployable-shape"
@@ -1092,8 +1433,8 @@
         },
         {
           "type": "step",
-        "target": "release-browser-readiness",
-        "skip_prerequisites": true,
+          "target": "release-browser-readiness",
+          "skip_prerequisites": true,
           "produces_summary_targets": [
             "browser-e2e-support",
             "browser-e2e-visual",
@@ -1102,8 +1443,8 @@
           ]
         },
         {
-        "type": "step",
-        "target": "release-readiness-evidence",
+          "type": "step",
+          "target": "release-readiness-evidence",
           "produces_summary_targets": [
             "release-readiness-evidence"
           ]
@@ -2072,8 +2413,6 @@
         "bash",
         "./tools/harness/static-analysis/markdownlint.sh"
       ],
-      "test_target": "self",
-      "success_summary": true,
       "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
     },
     "harness-contract-tests": {

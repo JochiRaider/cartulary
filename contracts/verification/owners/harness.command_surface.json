@@ -1,16 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.command_surface",
   "verifications": [
     {
       "verification_id": "harness.command_surface.verification.public_registry_parity",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "The authored task-surface owner and generated public target projection have exact command, input, output, artifact, side-effect, and lifecycle parity.",
-      "evidence_kinds": ["static_check"],
+      "evidence_kinds": [
+        "static_check"
+      ],
       "public_target": "harness-contract",
       "status": "active",
-      "documentation_refs": ["docs/testing-harness-nlspec.md#4-public-command-surface"]
+      "requirement_ids": [
+        "harness.command_surface.requirement.public_registry_parity"
+      ]
     }
   ]
 }

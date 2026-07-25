@@ -1,14 +1,18 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "harness.browser",
   "verifications": [
     {
       "verification_id": "harness.browser.verification.support_contract",
       "behavior_class": "harness",
       "profile": "support",
-      "requirement": "Browser support utilities preserve deterministic payload, transport, cleanup, fixture, and worker choreography without claiming product conformance.",
-      "evidence_kinds": ["vitest"],
-      "status": "active"
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "harness.browser.requirement.support_contract"
+      ]
     }
   ]
 }

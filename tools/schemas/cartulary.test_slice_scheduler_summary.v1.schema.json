@@ -32,7 +32,7 @@
     "schema_id": { "const": "cartulary.test_slice_scheduler_summary.v1" },
     "command_id": { "enum": ["cartulary.harness.command.test_slice.v1", "cartulary.harness.command.service_backed_test_slice.v1"] },
     "run_id": { "type": "string", "minLength": 1 },
-    "owner_id": { "$ref": "cartulary.test_family_manifest.v1#/$defs/owner_id" },
+    "owner_id": { "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id" },
     "selected_rows": { "$ref": "cartulary.test_slice_plan.v2#/$defs/row_ids" },
     "source_snapshot_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },
     "catalog_semantic_digest": { "$ref": "cartulary.test_slice_plan.v2#/$defs/digest" },

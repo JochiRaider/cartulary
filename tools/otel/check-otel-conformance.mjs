@@ -44,30 +44,8 @@ const expectedTopLevelKeys = [
   "probability_sampler_status",
   "semconv_generated_constants",
   "language_sdk_versions",
-  "source_paths",
   "created_at",
   "created_by_tool",
-];
-
-const expectedSourcePaths = [
-  ["Specification overview", "specification/overview.md", otelCommit],
-  ["Configuration overview", "specification/configuration/README.md", otelCommit],
-  ["Configuration data model", "specification/configuration/data-model.md", otelCommit],
-  ["Configuration API", "specification/configuration/api.md", otelCommit],
-  ["Configuration SDK", "specification/configuration/sdk.md", otelCommit],
-  ["Common configuration parsing", "specification/configuration/common.md", otelCommit],
-  ["SDK environment variables", "specification/configuration/sdk-environment-variables.md", otelCommit],
-  ["Trace SDK", "specification/trace/sdk.md", otelCommit],
-  ["Metrics API", "specification/metrics/api.md", otelCommit],
-  ["Metrics SDK", "specification/metrics/sdk.md", otelCommit],
-  ["Logs API", "specification/logs/api.md", otelCommit],
-  ["Logs data model", "specification/logs/data-model.md", otelCommit],
-  ["Resource SDK", "specification/resource/sdk.md", otelCommit],
-  ["Protocol exporter", "specification/protocol/exporter.md", otelCommit],
-  ["Common concepts", "specification/common/README.md", otelCommit],
-  ["Versioning and stability", "specification/versioning-and-stability.md", otelCommit],
-  ["Semantic conventions model", "semantic-conventions/model/**", semconvCommit],
-  ["Semantic conventions docs", "semantic-conventions/docs/**", semconvCommit],
 ];
 
 const requiredPackageFamilies = new Set([
@@ -471,7 +449,7 @@ function validateSnapshot(snapshot, checks) {
     checks,
     "snapshot.top_level_keys",
   );
-  assert(snapshot.schema_id === "cartulary.otel_source_snapshot.v1", "schema_id is adopted", checks, "snapshot.schema_id");
+  assert(snapshot.schema_id === "cartulary.otel_source_snapshot.v2", "schema_id is adopted", checks, "snapshot.schema_id");
   assert(snapshot.otel_spec_version === "1.57.0", "OTel spec version is pinned", checks, "snapshot.otel_spec_version");
   assert(snapshot.otel_spec_ref === "v1.57.0", "OTel spec ref is immutable", checks, "snapshot.otel_spec_ref");
   assert(snapshot.otel_spec_commit_sha === otelCommit, "OTel spec commit SHA is full and pinned", checks, "snapshot.otel_spec_commit_sha");
@@ -509,20 +487,6 @@ function validateSnapshot(snapshot, checks) {
     checks,
     "snapshot.constants.source_sha",
   );
-
-  const paths = snapshot.source_paths ?? [];
-  const seenPaths = new Set();
-  const expectedByPath = new Map(expectedSourcePaths.map(([family, sourcePath, commit]) => [sourcePath, { family, commit }]));
-  let sourcePathOK = Array.isArray(paths) && paths.length === expectedSourcePaths.length;
-  for (const row of paths) {
-    const expected = expectedByPath.get(row.path);
-    if (!expected || seenPaths.has(row.path) || row.family !== expected.family || row.status !== "adopted" || row.source_commit_sha !== expected.commit) {
-      sourcePathOK = false;
-      break;
-    }
-    seenPaths.add(row.path);
-  }
-  assert(sourcePathOK, "source_paths exactly match the adopted registry", checks, "snapshot.source_paths");
 
   const families = new Set((snapshot.language_sdk_versions ?? []).map((row) => row.package_family));
   const missingFamilies = [...requiredPackageFamilies].filter((family) => !families.has(family));
@@ -1025,7 +989,7 @@ function validateImportBoundary(boundary, checks) {
 function validateVerificationOwner(checks) {
   const contract = readJSON(verificationContractPath);
   assert(
-    contract.schema_id === "cartulary.verification_contract.v1" &&
+    contract.schema_id === "cartulary.verification_contract.v2" &&
       contract.owner_id === "platform.telemetry",
     "telemetry verification contract has the current machine owner identity",
     checks,

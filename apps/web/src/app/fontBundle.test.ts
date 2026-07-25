@@ -83,7 +83,6 @@ describe("vendored font bundle", () => {
     ["badHash", "sha256 mismatch"],
     ["badBytes", "byte size mismatch"],
     ["missingLicense", "missing LICENSE.txt or OFL.txt"],
-    ["missingNotice", "missing file inter/InterVariable.woff2"],
     ["localSource", "must not use local(...)"],
     ["remoteFont", "must not reference a remote font CDN"],
     ["missingActivationMetadata", "activation_status is required"],

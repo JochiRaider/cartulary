@@ -1,40 +1,33 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "core00.extensions_contract.v1",
+  "owner_id": "core00",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/core00.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "core00",
+    "catalog_sha256": "ed97b6f76f8b8106f1464561d5f6ebf3ce182d56da98f864661841817a4ab422"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.core00.current.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "5eed112b45bc23bd7aad07010100fb0bc3b08417c772589caf9df5cc3919f0f3",
-      "closure_categories": [],
-      "end_byte": 60848,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.core00.current.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-00-065",
-      "anchor_kind": "req",
-      "anchor_sha256": "7dabbb212e4d772f1480d09e488fed6b410369c95d860bad76d378031b5994e1",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-00-065",
       "closure_categories": [
         "identity_canonicalization_ordering",
         "public_interfaces"
-      ],
-      "end_byte": 10584,
-      "start_byte": 8477
+      ]
     }
   ],
-  "owner_contract_manifest_id": "core00.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 60848,
-    "owner_document_ref": "docs/spec/00_document_set_status_and_precedence.md#document:cartulary.core00.current.v1",
-    "owner_document_schema_id": "cartulary.core00.current.v1",
-    "owner_document_sha256": "5eed112b45bc23bd7aad07010100fb0bc3b08417c772589caf9df5cc3919f0f3",
-    "owner_document_version": "extensions-adoption-1"
-  },
   "owner_fragments": [
     {
       "owner_fragment_id": "core00.extension_recognition.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core00.recognition.json",
-      "owner_fragment_sha256": "5760cc9f9a14d778f14e49347e722cf0a3ac0aae7da6412a97766c47077f69e3"
+      "owner_fragment_sha256": "034b4be6546737025e71416db9c16d7915b707edd7f9fb7d08d2bab0b82a3494"
     }
-  ],
-  "owner_id": "core00",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  ]
 }

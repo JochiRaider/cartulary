@@ -1,49 +1,39 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "core03.extensions_contract.v1",
+  "owner_id": "core03",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/core03.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "core03",
+    "catalog_sha256": "6629cb64ac40461a88ed0df0cdda647f0709afb35493ffc6f07ffd33965d5b93"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.core03.current.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "7ec2ddf522549eaf5faa9c42fa1dcc2293bae2a541248731732685f30bc8bfa9",
-      "closure_categories": [],
-      "end_byte": 171560,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.core03.current.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-03-011A",
-      "anchor_kind": "req",
-      "anchor_sha256": "e44da56bee1823407ca88ce4e9b72c0d3cf92783f49e6a25076f238484356906",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-03-011A",
       "closure_categories": [
         "authorization",
         "client_ui_states",
         "errors_precedence_retry",
         "resource_lifecycle_retention"
-      ],
-      "end_byte": 8674,
-      "start_byte": 6267
+      ]
     },
     {
-      "anchor_id": "REQ-03-303",
-      "anchor_kind": "req",
-      "anchor_sha256": "a9f3f68a59b80fe909e1fbe8efa44fee920785e1655ff09085ce67b0a04f37ca",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-03-303",
       "closure_categories": [
         "authorization",
         "client_ui_states",
         "errors_precedence_retry",
         "resource_lifecycle_retention"
-      ],
-      "end_byte": 170416,
-      "start_byte": 168957
+      ]
     }
   ],
-  "owner_contract_manifest_id": "core03.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 171560,
-    "owner_document_ref": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md#document:cartulary.core03.current.v1",
-    "owner_document_schema_id": "cartulary.core03.current.v1",
-    "owner_document_sha256": "7ec2ddf522549eaf5faa9c42fa1dcc2293bae2a541248731732685f30bc8bfa9",
-    "owner_document_version": "extensions-adoption-1"
-  },
-  "owner_fragments": [],
-  "owner_id": "core03",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  "owner_fragments": []
 }

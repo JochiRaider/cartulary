@@ -44,7 +44,7 @@ const rules = [
   },
   {
     id: "legacy",
-    pathRegexps: [globToRegExp("docs/archive/**")],
+    pathRegexps: [globToRegExp("testdata/history/**")],
     classification: "historical_changelog",
     owner: "fixture archive owner",
     rationale: "fixture archive boundary",
@@ -77,7 +77,7 @@ const inventory = buildOccurrenceInventoryFromEntries({
   scannedAt: "2026-06-04T00:00:00.000Z",
   entries: [
     {
-      path: "docs/archive/history.md",
+      path: "testdata/history/legacy.txt",
       text: `${legacyTitle} history\n`,
     },
     {
@@ -85,11 +85,11 @@ const inventory = buildOccurrenceInventoryFromEntries({
       text: `import "${sdkModule}"\nconst a = "${bucketToken}"\n`,
     },
     {
-      path: "bad/default.md",
+      path: "bad/default.txt",
       text: `${upperLegacyTitle} server default\n`,
     },
     {
-      path: "unclassified.md",
+      path: "unclassified.txt",
       text: `${endpointToken}\n`,
     },
   ],
@@ -104,10 +104,10 @@ assert.deepEqual(
     ["adapter/client.go", 1, 26, legacyStem, "sdk_only"],
     ["adapter/client.go", 2, 12, legacyStem, "sdk_only"],
     ["adapter/client.go", 2, 12, bucketToken, "sdk_only"],
-    ["bad/default.md", 1, 1, upperLegacyTitle, "invalid"],
-    ["docs/archive/history.md", 1, 1, legacyTitle, "historical_changelog"],
-    ["unclassified.md", 1, 1, legacyStem, "unclassified"],
-    ["unclassified.md", 1, 1, endpointToken, "unclassified"],
+    ["bad/default.txt", 1, 1, upperLegacyTitle, "invalid"],
+    ["testdata/history/legacy.txt", 1, 1, legacyTitle, "historical_changelog"],
+    ["unclassified.txt", 1, 1, legacyStem, "unclassified"],
+    ["unclassified.txt", 1, 1, endpointToken, "unclassified"],
   ].sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1] || a[2] - b[2] || a[3].localeCompare(b[3])),
 );
 assert.equal(

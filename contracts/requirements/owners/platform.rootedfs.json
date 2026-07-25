@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.rootedfs",
+  "requirements": [
+    {
+      "requirement_id": "platform.rootedfs.requirement.operation_containment",
+      "statement": "Root-anchored filesystem effects reject hostile references and symlinks, verify opened object types and root identity, publish atomically, clean partial state, and disclose no storage internals.",
+      "status": "active"
+    }
+  ]
+}

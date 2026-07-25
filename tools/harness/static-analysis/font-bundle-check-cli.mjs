@@ -17,7 +17,6 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
 const manifestPath = "apps/web/public/assets/fonts/FONT_MANIFEST.json";
 const fontsCSSPath = "apps/web/public/assets/fonts/fonts.css";
-const noticePath = "apps/web/public/assets/fonts/NOTICE.fonts.md";
 const remoteFontPattern =
   /\b(?:https?:)?\/\/(?:fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net|p\.typekit\.net|cdn\.jsdelivr\.net\/npm\/@fontsource|rsms\.me\/inter|unpkg\.com\/@fontsource)/iu;
 const scanExtensions = new Set([
@@ -254,7 +253,6 @@ function validateRoleMetadata({
   family,
   fontsCSS,
   manifestPathLabel,
-  notice,
   sourceText,
   failures,
 }) {
@@ -343,11 +341,6 @@ function validateRoleMetadata({
       `${label}: staged_inactive families must not declare activation_selectors`,
       failures,
     );
-    assert(
-      notice.toLowerCase().includes("staged") && notice.includes(label),
-      `${noticePath}: staged_inactive family ${label} must be documented as staged`,
-      failures,
-    );
   }
 }
 
@@ -355,18 +348,15 @@ export function checkFontBundle(root = defaultRepoRoot) {
   const failures = [];
   const manifestFile = repoPath(root, manifestPath);
   const fontsCSSFile = repoPath(root, fontsCSSPath);
-  const noticeFile = repoPath(root, noticePath);
 
   assert(existsSync(manifestFile), `${manifestPath}: missing`, failures);
   assert(existsSync(fontsCSSFile), `${fontsCSSPath}: missing`, failures);
-  assert(existsSync(noticeFile), `${noticePath}: missing`, failures);
   if (failures.length > 0) {
     return failures;
   }
 
   const manifest = readJSON(manifestFile);
   const fontsCSS = readFileSync(fontsCSSFile, "utf8");
-  const notice = readFileSync(noticeFile, "utf8");
   const sourceText = collectSourceText(root);
 
   assert(
@@ -442,7 +432,6 @@ export function checkFontBundle(root = defaultRepoRoot) {
     assert(typeof family.family === "string" && family.family.trim() !== "", `${manifestPath}: family name missing`, failures);
     assert(typeof family.directory === "string" && family.directory.trim() !== "", `${label}: directory missing`, failures);
     assert(family.license === "OFL-1.1", `${label}: license must be OFL-1.1`, failures);
-    assert(notice.includes(family.family), `${noticePath}: missing family ${family.family}`, failures);
     assert(
       licenseFileForFamily(root, family.directory) !== null,
       `${family.directory}: missing LICENSE.txt or OFL.txt`,
@@ -462,13 +451,11 @@ export function checkFontBundle(root = defaultRepoRoot) {
       failures,
       fontsCSS,
       manifestPathLabel: manifestPath,
-      notice,
       sourceText,
     });
     for (const fileRecord of family.files ?? []) {
       const file = repoPath(root, `apps/web/public/assets/fonts/${fileRecord.path}`);
       assert(existsSync(file), `${fileRecord.path}: missing font file`, failures);
-      assert(notice.includes(fileRecord.path), `${noticePath}: missing file ${fileRecord.path}`, failures);
       if (existsSync(file)) {
         const stats = statSync(file);
         assert(stats.size === fileRecord.bytes, `${fileRecord.path}: byte size mismatch`, failures);
@@ -565,12 +552,6 @@ export function createFontBundleFixture(options = {}) {
       null,
       2,
     ),
-  );
-  writeFileSync(
-    path.join(fontRoot, "NOTICE.fonts.md"),
-    options.missingNotice
-      ? "# Notice\n\nInter\n"
-      : "# Notice\n\nInter\n\ninter/InterVariable.woff2\n",
   );
   writeFileSync(
     path.join(fontRoot, "fonts.css"),

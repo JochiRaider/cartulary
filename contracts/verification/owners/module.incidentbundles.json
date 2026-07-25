@@ -1,28 +1,29 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.incidentbundles",
   "verifications": [
     {
       "verification_id": "module.incidentbundles.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "incident bundle export and import postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.incidentbundles.requirement.behavior_contract"
+      ]
     },
     {
       "verification_id": "module.incidentbundles.verification.extensions_portability",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "Incident Bundles applies the complete extension portability state and claim matrix, distinct export/import-preparation results, bounded scoped staging, and one final publication transaction.",
       "evidence_kinds": [
         "go_test"
       ],
       "status": "active",
-      "documentation_refs": [
-        "docs/extension-subsystem-nlspec.md#ext-ac-144"
+      "requirement_ids": [
+        "module.incidentbundles.requirement.extensions_portability"
       ]
     }
   ]

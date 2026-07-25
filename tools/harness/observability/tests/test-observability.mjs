@@ -269,7 +269,6 @@ function performanceArtifact({
         ["frontend-import-boundary-check", "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1],
         ["backend-module-boundary-check", "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1],
         ["lint-scripts", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
-        ["lint-markdown", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
         ["lint-shell", "script", { host_cpu: 2, host_io: 2, process: 1 }, "host_cpu"],
         ["frontend-typecheck", "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"],
       ].map(([stepTarget, resourceProfile, resourceClaims, makeJobs]) => ({

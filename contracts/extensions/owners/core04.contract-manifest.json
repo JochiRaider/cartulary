@@ -1,85 +1,69 @@
 {
-  "anchors": [
+  "schema_id": "cartulary.extension_owner_contract_manifest.v2",
+  "owner_contract_manifest_id": "core04.extensions_contract.v1",
+  "owner_id": "core04",
+  "requirement_catalog": {
+    "catalog_ref": "contracts/requirements/owners/core04.json",
+    "schema_id": "cartulary.requirement_catalog.v1",
+    "owner_id": "core04",
+    "catalog_sha256": "02d4c1874e68ddde15acd4dfef6c318f3da0f0bd254a99a0d4910bd9e91a3f28"
+  },
+  "bindings": [
     {
-      "anchor_id": "cartulary.core04.current.v1",
-      "anchor_kind": "document",
-      "anchor_sha256": "069fab755850caa854647222d3a59c95733fbd8f14066e0ba544a4d76d929aa4",
-      "closure_categories": [],
-      "end_byte": 478305,
-      "start_byte": 0
+      "binding_kind": "document",
+      "machine_id": "cartulary.core04.current.v1",
+      "closure_categories": []
     },
     {
-      "anchor_id": "REQ-04-143",
-      "anchor_kind": "req",
-      "anchor_sha256": "04d94fa6d383e51ad64163437b18af8d9b7cc2605e8d2c9cf08b8fc9b05021c3",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-04-143",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
         "public_interfaces",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 475103,
-      "start_byte": 473630
+      ]
     },
     {
-      "anchor_id": "REQ-04-144",
-      "anchor_kind": "req",
-      "anchor_sha256": "9f5cff8986ee2b9a041c0a783c88e32fe53e917be95316e2a1149ed5ceee08cb",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-04-144",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
         "public_interfaces",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 476282,
-      "start_byte": 475105
+      ]
     },
     {
-      "anchor_id": "REQ-04-145",
-      "anchor_kind": "req",
-      "anchor_sha256": "738db5ac611d54b056af11446f60faaf3533d3fa6080a31c26b1a5a2832f4c4e",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-04-145",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
         "public_interfaces",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 477441,
-      "start_byte": 476284
+      ]
     },
     {
-      "anchor_id": "REQ-04-146",
-      "anchor_kind": "req",
-      "anchor_sha256": "6716279fa4dff949051a00aa8dfb35f1f50a8fd81c5171bceea9cd85fa6025f1",
+      "binding_kind": "requirement",
+      "machine_id": "REQ-04-146",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
         "public_interfaces",
         "scalar_collection_bounds",
         "security_secrets_egress"
-      ],
-      "end_byte": 478304,
-      "start_byte": 477443
+      ]
     }
   ],
-  "owner_contract_manifest_id": "core04.extensions_contract.v1",
-  "owner_document": {
-    "byte_length": 478305,
-    "owner_document_ref": "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
-    "owner_document_schema_id": "cartulary.core04.current.v1",
-    "owner_document_sha256": "069fab755850caa854647222d3a59c95733fbd8f14066e0ba544a4d76d929aa4",
-    "owner_document_version": "extensions-adoption-1"
-  },
   "owner_fragments": [
     {
       "owner_fragment_id": "core04.extension_claim_configuration.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core04.claim-configuration.json",
-      "owner_fragment_sha256": "805e12710b458c6010a9165ca1c645fc4fa565ba47f2313adba968e86d3958bb"
+      "owner_fragment_sha256": "44046fafcb6c5fc476bcb83df918b4ce16e83d57d817b35fa0627d9e512aeaf6"
     }
-  ],
-  "owner_id": "core04",
-  "schema_id": "cartulary.extension_owner_contract_manifest.v1"
+  ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v1",
+  "schema_id": "cartulary.test_family_manifest.v2",
   "owner_id": "platform.rootedfs",
   "rows": [
     {
@@ -28,10 +28,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-075"
-      ]
+      "status": "active"
     },
     {
       "row_id": "platform.rootedfs.unit.secure_absolute_file_reads",
@@ -55,10 +52,7 @@
       "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
-      "status": "active",
-      "documentation_refs": [
-        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-075"
-      ]
+      "status": "active"
     }
   ]
 }

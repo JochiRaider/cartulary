@@ -32,7 +32,6 @@
       "json-shape-check",
       "lint",
       "lint-biome",
-      "lint-markdown",
       "lint-scripts",
       "lint-shell",
       "migration-drift",
@@ -234,6 +233,11 @@
         "target": "help-all",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "lint-markdown",
+        "owner_section": "Section 4",
+        "reason": "Standalone human-documentation maintenance is outside executable product testing and evidence."
       },
       {
         "target": "object-store-init",
@@ -494,10 +498,6 @@
       },
       {
         "target": "lint-biome",
-        "profile_id": "standard_no_regression"
-      },
-      {
-        "target": "lint-markdown",
         "profile_id": "standard_no_regression"
       },
       {
@@ -764,7 +764,7 @@
         },
         {
           "target": "lint",
-          "description": "run backend, frontend, script, Markdown, and shell lint/type checks"
+          "description": "run backend, frontend, script, and shell lint/type checks"
         },
         {
           "target": "lint-biome",
@@ -1212,7 +1212,6 @@
             "frontend-import-boundary-check",
             "backend-module-boundary-check",
             "lint-scripts",
-            "lint-markdown",
             "lint-shell",
             "frontend-typecheck"
           ]
@@ -1294,23 +1293,6 @@
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "lint-scripts"
-          ],
-          "needs": [],
-          "resource_profile": "script",
-          "resource_claims": {
-            "host_cpu": 2,
-            "host_io": 2,
-            "process": 1
-          },
-          "make_jobs": "host_cpu",
-          "priority": 0
-        },
-        {
-          "type": "step",
-          "target": "lint-markdown",
-          "skip_prerequisites": true,
-          "produces_summary_targets": [
-            "lint-markdown"
           ],
           "needs": [],
           "resource_profile": "script",
@@ -2750,8 +2732,6 @@
         "bash",
         "./tools/harness/static-analysis/markdownlint.sh"
       ],
-      "test_target": "self",
-      "success_summary": true,
       "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
     },
     "harness-contract-tests": {

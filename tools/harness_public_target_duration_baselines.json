@@ -1000,39 +1000,6 @@
       "required_improvement_ms": 1000
     },
     {
-      "target": "lint-markdown",
-      "gate": "no_regression",
-      "command_id": "cartulary.harness.command.lint_markdown.v1",
-      "measurement_profile_id": "standard_no_regression",
-      "canonical_inputs": {},
-      "timing_source": "aggregate_scheduler_work_envelope",
-      "evidence_kind": "retained_v1_reference_migration",
-      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
-      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
-      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
-      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
-      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
-      "workload_evidence_profile_sha256": "23d034023e3d99b608dbbc6d52bc6610ef4d19594e70d42257c0831245ce5edf",
-      "execution_policy": {
-        "retained_v1_execution_policy_sha256": "fa66bb0b647d909cce7ab817e3102ec87851335aa2cf2f68ac6143d7b144a9e4"
-      },
-      "execution_policy_sha256": "fa66bb0b647d909cce7ab817e3102ec87851335aa2cf2f68ac6143d7b144a9e4",
-      "sample_provider_target": "lint",
-      "warmup_root": "retained:20260721T211648Z-p3565016",
-      "sample_roots": [
-        "retained:20260721T211716Z-p3571305",
-        "retained:20260721T211744Z-p3577572"
-      ],
-      "samples_ms": [
-        958,
-        958
-      ],
-      "median_ms": 958,
-      "mad_ms": 0,
-      "no_regression_limit_ms": 1958,
-      "required_improvement_ms": 1000
-    },
-    {
       "target": "lint-scripts",
       "gate": "no_regression",
       "command_id": "cartulary.harness.command.lint_scripts.v1",
@@ -1703,7 +1670,6 @@
       "json-shape-check",
       "lint",
       "lint-biome",
-      "lint-markdown",
       "lint-scripts",
       "lint-shell",
       "migration-drift",

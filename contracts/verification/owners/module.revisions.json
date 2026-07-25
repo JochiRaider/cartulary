@@ -1,17 +1,19 @@
 {
-  "schema_id": "cartulary.verification_contract.v1",
+  "schema_id": "cartulary.verification_contract.v2",
   "owner_id": "module.revisions",
   "verifications": [
     {
       "verification_id": "module.revisions.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
-      "requirement": "revision history, conflict tokens, rollback, and restore postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "evidence_kinds": [
         "go_test",
         "playwright"
       ],
-      "status": "active"
+      "status": "active",
+      "requirement_ids": [
+        "module.revisions.requirement.behavior_contract"
+      ]
     }
   ]
 }

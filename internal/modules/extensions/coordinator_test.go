@@ -164,7 +164,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	if participant == nil || participant.OwnerProfileID != "snapshot_reporting" {
 		t.Fatalf("Snapshot/Reporting participant identity = %#v", participant)
 	}
-	if participant.ContractKind != "cartulary.extension_participant_specialization.v1" ||
+	if participant.ContractKind != "cartulary.extension_participant_specialization.v2" ||
 		participant.InputSchemaID != "cartulary.extension_snapshot_reporting_participant_context.v1" ||
 		!reflect.DeepEqual(participant.AlgorithmIDs, []string{
 			"materialize_reporting_export_model_v1",
@@ -227,7 +227,7 @@ func TestCoordinatorCollisionAdmission_Unit(t *testing.T) {
 	base := decodeMutableObject(t, source[basePath].JSON)
 	reservations := base["reservations"].([]any)
 	reservations = append(reservations, map[string]any{
-		"reservation_id": "base.test.capture", "path_template": "/api/v1/import-sessions", "match_scope": "descendants", "owner_contract_ref": "docs/spec/01_architecture_storage_and_view_contracts.md#req:REQ-01-151.1",
+		"reservation_id": "base.test.capture", "path_template": "/api/v1/import-sessions", "match_scope": "descendants", "owner_requirement_id": "REQ-01-151.1",
 	})
 	base["reservations"] = reservations
 	source.replace(t, basePath, base)

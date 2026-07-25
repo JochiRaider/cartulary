@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "app.operator",
+  "requirements": [
+    {
+      "requirement_id": "app.operator.requirement.behavior_contract",
+      "statement": "operator application composition postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
+      "status": "active"
+    }
+  ]
+}
