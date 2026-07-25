@@ -1,0 +1,52 @@
+{
+  "components": {
+    "schemas": {
+      "TimelineActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "TimelineSupersedeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "replacement_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id",
+          "reason"
+        ]
+      }
+    }
+  }
+}

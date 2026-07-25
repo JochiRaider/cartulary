@@ -549,6 +549,22 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	if auditCount < 2 {
 		t.Fatalf("expected create and patch audit records, got %d", auditCount)
 	}
+	for actionCode, want := range map[string]int{
+		"user_created":         1,
+		"user_profile_updated": 1,
+	} {
+		if got := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM administrative_audit_projections
+ WHERE scope_kind = 'deployment'
+   AND scope_id IS NULL
+   AND target_kind = 'user'
+   AND target_id = $1
+   AND action_code = $2
+`, createdUserID, actionCode); got != want {
+			t.Fatalf("unexpected %s projection count: got %d want %d", actionCode, got, want)
+		}
+	}
 }
 
 func TestAdminCredentialActions_Integration(t *testing.T) {

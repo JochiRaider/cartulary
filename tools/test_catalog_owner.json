@@ -182,6 +182,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.audit",
+      "manifest_path": "tools/test_families/platform.audit.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.bootstrap",
       "manifest_path": "tools/test_families/platform.bootstrap.json",
       "status": "active"
@@ -199,6 +204,11 @@
     {
       "owner_id": "platform.objectstore",
       "manifest_path": "tools/test_families/platform.objectstore.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "manifest_path": "tools/test_families/platform.openapi.json",
       "status": "active"
     },
     {

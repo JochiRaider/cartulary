@@ -84,8 +84,11 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("/api/v1/import-sessions", service.handleImportSessionsCollection)
-		mux.HandleFunc("/api/v1/import-sessions/", service.handleImportSessionsMember)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "/api/v1/import-sessions", service.handleImportSessionsCollection)
+		httpapi.HandlePublicRoute(mux, "/api/v1/import-sessions/", service.handleImportSessionsMember)
 		return nil
 	}
 }

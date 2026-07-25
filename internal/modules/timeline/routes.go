@@ -33,9 +33,12 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handleGetTimeConversionProfile)
-		mux.HandleFunc("PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handlePutTimeConversionProfile)
-		mux.HandleFunc("POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handleGetTimeConversionProfile)
+		httpapi.HandlePublicRoute(mux, "PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handlePutTimeConversionProfile)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
 		return nil
 	}
 }

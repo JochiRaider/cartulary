@@ -149,6 +149,30 @@
       "owner_contract_ids": [
         "cartulary.contract_family.network-flow.v1"
       ]
+    },
+    {
+      "family_id": "audit",
+      "contract_root": "contracts/audit",
+      "generation_status": "active",
+      "go_name": "AuditArtifacts",
+      "ts_name": "auditArtifacts",
+      "output_order": 6,
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "typescript_runtime_artifact_prefixes": [
+        "contracts/audit/"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Administrative audit vocabularies, action mappings, and safe legacy-projection policy.",
+      "owner_requirement_ids": [
+        "contract-family:audit"
+      ],
+      "owner_contract_ids": [
+        "cartulary.contract_family.audit.v1"
+      ]
     }
   ]
 }

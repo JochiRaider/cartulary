@@ -1,0 +1,41 @@
+{
+  "schema_id": "cartulary.openapi_baseline.v1",
+  "target_path": "contracts/openapi/cartulary.openapi.yaml",
+  "canonical_sha256": "de976721d98d6f6e73747dfffa3a0a3af21f6592037abb3d6ee8ad1b86195f0f",
+  "byte_length": 441211,
+  "metadata": {
+    "openapi": "3.1.0",
+    "title": "Cartulary HTTP API",
+    "version": "1.0.0"
+  },
+  "version_policy": {
+    "breaking_wire_changes": "major",
+    "additive_public_behavior": "minor",
+    "non_behavioral_contract_corrections": "patch"
+  },
+  "structure": {
+    "path_count": 93,
+    "operation_count": 110,
+    "component_schema_count": 276,
+    "operation_tag_count": 23,
+    "unique_internal_ref_count": 353,
+    "response_waiver_operation_count": 0,
+    "security_waiver_operation_count": 0
+  },
+  "set_hashes": {
+    "component_schema_names_sha256": "7c00446204ef99218efd427063bc03d9064a13a9b957568f892bb926a2047f4f",
+    "internal_ref_values_sha256": "0ae60e7b66e1386c6de616c25b97afecff168a5ff833a0d424d29d9c517bd91e",
+    "operation_inventory_sha256": "631c9c6c0106257385b47048dea12daafed76d1d8395d986e48cf302afebbed4",
+    "operation_tags_sha256": "0818d88025cdb0f9abd78683ee0d6ce2e33603db5daa952a6d383fe82a615fd0"
+  },
+  "generated_artifacts": [
+    {
+      "path": "packages/protocol-ts/src/generated/contracts.ts",
+      "sha256": "4e77070ab4533a6769d900fd1fcdbe0a0c6da64b8494d5d29646a800b28d7171"
+    },
+    {
+      "path": "packages/protocol-ts/src/generated/index.ts",
+      "sha256": "06ed850e4ff27b48282adea42d115d61d0d3dadafb7b0625e8edb58618c366ae"
+    }
+  ]
+}

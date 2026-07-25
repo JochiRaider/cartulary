@@ -70,6 +70,26 @@ var (
 	readSecureFile    = securefile.Read
 )
 
+func productionPublicOperations() []httpapi.PublicOperation {
+	operations := append(auth.PublicOperations(), auth.EnterprisePublicOperations()...)
+	operations = append(operations, entities.PublicOperations()...)
+	operations = append(operations, evidence.PublicOperations()...)
+	operations = append(operations, extensiondiscovery.PublicOperations()...)
+	operations = append(operations, imports.PublicOperations()...)
+	operations = append(operations, incidentbundles.PublicOperations()...)
+	operations = append(operations, incidents.PublicOperations()...)
+	operations = append(operations, jobapi.PublicOperations()...)
+	operations = append(operations, reference_data.PublicOperations()...)
+	operations = append(operations, reportcomposition.PublicOperations()...)
+	operations = append(operations, reporting.PublicOperations()...)
+	operations = append(operations, revisions.PublicOperations()...)
+	operations = append(operations, savedviews.PublicOperations()...)
+	operations = append(operations, timeline.PublicOperations()...)
+	operations = append(operations, viewschemas.PublicOperations()...)
+	operations = append(operations, workbook.PublicOperations()...)
+	return operations
+}
+
 type Options struct {
 	Env         map[string]string
 	HTTP        httpapi.Options

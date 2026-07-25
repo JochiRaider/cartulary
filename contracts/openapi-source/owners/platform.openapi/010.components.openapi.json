@@ -1,0 +1,14 @@
+{
+  "components": {
+    "schemas": {
+      "SavedViewScope": {
+        "type": "string",
+        "enum": [
+          "private",
+          "shared",
+          "system"
+        ]
+      }
+    }
+  }
+}

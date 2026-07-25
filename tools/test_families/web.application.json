@@ -537,6 +537,7 @@
       "family_id": "web.application.regression",
       "collaborator_ids": [],
       "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
         "web.application.verification.frontend_regression"
       ],
       "runner": "vitest",
@@ -967,6 +968,33 @@
           "fetchJSON route-boundary CSRF headers follow cookie-backed mutating request rules",
           "readCookie decodes the named cookie value",
           "readCookie distinguishes an empty cookie from a missing cookie"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.application.regression.deploymentauditcontract_rejects_obsolete_alias_62ca5d89e1",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "platform.audit"
+      ],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/deploymentAuditContract.test.ts",
+        "titles": [
+          "deployment administrative-audit contract accepts the canonical response key and forward-compatible action and target values",
+          "deployment administrative-audit contract rejects malformed event shapes while preserving redacted null values",
+          "deployment administrative-audit contract rejects the obsolete response alias and mixed response shapes"
         ]
       },
       "evidence_class": "unit",

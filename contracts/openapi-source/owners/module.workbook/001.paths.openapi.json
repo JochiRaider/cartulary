@@ -1,0 +1,241 @@
+{
+  "paths": {
+    "/api/v1/incidents/{incident_id}/workbook-preferences/default": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentDefaultWorkbookPreferences",
+        "summary": "Read the incident-wide default workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putIncidentDefaultWorkbookPreferences",
+        "summary": "Set or clear the incident-wide default workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getCurrentUserWorkbookPreferences",
+        "summary": "Read the caller's per-incident workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putCurrentUserWorkbookPreferences",
+        "summary": "Set or clear the caller's per-incident home workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-startup": {
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentWorkbookStartup",
+        "summary": "Resolve the caller's workbook startup sheet for one incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view_schema_id",
+            "in": "query",
+            "required": false,
+            "description": "Legacy explicit launch pointer for a base view-schema surface.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sheet_ref_kind",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer kind. Must be paired with sheet_ref_id and must not be combined with view_schema_id.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view_schema",
+                "saved_view",
+                "extension_workspace"
+              ]
+            }
+          },
+          {
+            "name": "sheet_ref_id",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer identifier. Must be paired with sheet_ref_kind; carries workspace_key for extension_workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extension_profile_id",
+            "in": "query",
+            "required": false,
+            "description": "Required only when sheet_ref_kind=extension_workspace and forbidden for other selectors.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workbook startup selection response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookStartupEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unavailable explicit workbook startup selector",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  }
+}

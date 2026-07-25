@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Cartulary Phase 4 Base Mutation HTTP Contract",
-    "version": "0.4.0-phase4",
-    "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
+    "title": "Cartulary HTTP API",
+    "version": "1.0.0",
+    "description": "Canonical public HTTP contract assembled from machine-owned semantic-owner inputs. Runtime behavior remains owned by the corresponding application and module contracts."
   },
   "paths": {
     "/api/v1/auth/login": {
@@ -12,7 +12,22 @@
           "auth"
         ],
         "operationId": "loginLocalUser",
-        "summary": "Authenticate a local user and issue a base-profile session."
+        "summary": "Authenticate a local user and issue a base-profile session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthLoginRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/logout": {
@@ -21,7 +36,34 @@
           "auth"
         ],
         "operationId": "logoutCurrentSession",
-        "summary": "Revoke the current session and clear the auth cookies."
+        "summary": "Revoke the current session and clear the auth cookies.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthLogoutSuccessResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/auth/session": {
@@ -30,7 +72,32 @@
           "auth"
         ],
         "operationId": "getCurrentSession",
-        "summary": "Inspect the current session without sliding idle expiry."
+        "summary": "Inspect the current session without sliding idle expiry.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/auth/providers": {
@@ -39,34 +106,109 @@
           "enterprise-auth"
         ],
         "operationId": "listEnterpriseAuthProviders",
-        "summary": "List enabled interactive OIDC and SAML providers for Enterprise Authentication."
+        "summary": "List enabled interactive OIDC and SAML providers for Enterprise Authentication.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnterpriseProviderListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProfileNotFoundResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/providers/{provider_key}/begin": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "beginEnterpriseAuth",
-        "summary": "Begin an Enterprise Authentication provider sign-in transaction."
+        "summary": "Begin an Enterprise Authentication provider sign-in transaction.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnterpriseAuthBeginSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/oidc/{provider_key}/callback": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "completeEnterpriseOIDC",
-        "summary": "Complete an OIDC auth-code Enterprise Authentication callback."
+        "summary": "Complete an OIDC auth-code Enterprise Authentication callback.",
+        "responses": {
+          "303": {
+            "$ref": "#/components/responses/EnterpriseAuthRedirectResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseAuthCompletionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/saml/{provider_key}/acs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "completeEnterpriseSAML",
-        "summary": "Complete a SAML SP-initiated Enterprise Authentication ACS response."
+        "summary": "Complete a SAML SP-initiated Enterprise Authentication ACS response.",
+        "responses": {
+          "303": {
+            "$ref": "#/components/responses/EnterpriseAuthRedirectResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseSAMLCompletionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/auth/credential-state": {
@@ -75,7 +217,32 @@
           "auth"
         ],
         "operationId": "getCredentialState",
-        "summary": "Inspect local password and TOTP credential state for the current user."
+        "summary": "Inspect local password and TOTP credential state for the current user.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthCredentialStateSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/auth/password/change": {
@@ -84,7 +251,37 @@
           "auth"
         ],
         "operationId": "changeCurrentPassword",
-        "summary": "Change the current user's password and revoke all active sessions."
+        "summary": "Change the current user's password and revoke all active sessions.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthPasswordChangeSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthPasswordConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/auth/mfa/totp/begin": {
@@ -93,7 +290,40 @@
           "auth"
         ],
         "operationId": "beginTOTPEnrollment",
-        "summary": "Begin first-time or replacement TOTP enrollment using a bootstrap_token or an active session."
+        "summary": "Begin first-time or replacement TOTP enrollment using a bootstrap_token or an active session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTOTPBeginSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthTOTPBeginConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          },
+          {
+            "credentialBootstrapBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/mfa/totp/complete": {
@@ -102,7 +332,40 @@
           "auth"
         ],
         "operationId": "completeTOTPEnrollment",
-        "summary": "Complete TOTP enrollment using a bootstrap_token or an active session."
+        "summary": "Complete TOTP enrollment using a bootstrap_token or an active session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTOTPCompleteSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthTOTPCompleteConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          },
+          {
+            "credentialBootstrapBearer": []
+          }
+        ]
       }
     },
     "/api/v1/account/profile": {
@@ -122,8 +385,28 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "patch": {
         "tags": [
@@ -151,8 +434,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthAccountProfileConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/account/preferences": {
@@ -172,8 +480,28 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "put": {
         "tags": [
@@ -201,8 +529,239 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthAccountPreferencesConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/administrative-audit-events": {
+      "get": {
+        "tags": [
+          "administrative-audit"
+        ],
+        "operationId": "listAdministrativeAuditEvents",
+        "summary": "List the immutable safe deployment-scoped administrative-audit projection.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque keyset cursor bound to this route, caller, page size, and normalized filter set."
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Return only events attributed to this user actor."
+          },
+          {
+            "name": "action_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account_preferences_updated",
+                "auth_binding_created",
+                "auth_binding_retired",
+                "auth_binding_rotated",
+                "backup_created",
+                "bootstrap_admin_created",
+                "deployment_admin_granted",
+                "deployment_admin_revoked",
+                "legacy_administrative_event",
+                "password_changed",
+                "password_reset",
+                "restore_completed",
+                "restore_failed",
+                "restore_started",
+                "restore_verification_completed",
+                "sessions_revoked",
+                "totp_enrollment_begun",
+                "totp_enrollment_completed",
+                "totp_reset",
+                "user_created",
+                "user_profile_updated",
+                "user_status_changed"
+              ]
+            },
+            "description": "Return only events with this exact action code."
+          },
+          {
+            "name": "target_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account_preferences",
+                "auth_binding",
+                "backup_set",
+                "legacy_administrative_event",
+                "restore_operation",
+                "user"
+              ]
+            },
+            "description": "Return only deployment events with this target kind."
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Return only events with this exact target identifier. target_kind is required when target_id is present."
+          },
+          {
+            "name": "occurred_at_gte",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive UTC occurrence-time lower bound."
+          },
+          {
+            "name": "occurred_at_lt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive UTC occurrence-time upper bound; it must be later than occurred_at_gte."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment-scoped administrative-audit page ordered by occurred_at and audit_event_id descending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeAuditEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter, range, page size, or cursor is invalid or does not match the normalized query.",
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The authenticated caller is not a deployment administrator.",
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A credential-bootstrap bearer was presented to a route that accepts only session credentials.",
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users": {
@@ -269,6 +828,34 @@
             },
             "description": "Optional exact lowercase boolean filter. Omission means no is_deployment_admin predicate."
           }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthListInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminReadForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
         ]
       },
       "post": {
@@ -276,77 +863,398 @@
           "deployment-users"
         ],
         "operationId": "createDeploymentUser",
-        "summary": "Create a deployment-scoped local user."
+        "summary": "Create a deployment-scoped local user.",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "deployment-users"
         ],
         "operationId": "getDeploymentUser",
-        "summary": "Fetch a deployment-scoped local user by identifier."
+        "summary": "Fetch a deployment-scoped local user by identifier.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminReadForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "patch": {
         "tags": [
           "deployment-users"
         ],
         "operationId": "patchDeploymentUser",
-        "summary": "Patch a deployment-scoped local user with optimistic version checks."
+        "summary": "Patch a deployment-scoped local user with optimistic version checks.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserPatchConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/password/reset": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "deployment-users"
         ],
         "operationId": "resetDeploymentUserPassword",
-        "summary": "Reset a local user's password and revoke all active sessions."
+        "summary": "Reset a local user's password and revoke all active sessions.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserVersionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/mfa/totp/reset": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "deployment-users"
         ],
         "operationId": "resetDeploymentUserTOTP",
-        "summary": "Reset a local user's TOTP factor and reopen the bootstrap-token enrollment flow."
+        "summary": "Reset a local user's TOTP factor and reopen the bootstrap-token enrollment flow.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserVersionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/sessions/revoke-all": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "deployment-users"
         ],
         "operationId": "revokeAllDeploymentUserSessions",
-        "summary": "Explicitly revoke all sessions for a deployment-scoped local user."
+        "summary": "Explicitly revoke all sessions for a deployment-scoped local user.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionRevocationSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthSessionRevocationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/auth-bindings": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "createEnterpriseAuthBinding",
-        "summary": "Create an enterprise auth binding for an existing deployment-local user."
+        "summary": "Create an enterprise auth binding for an existing deployment-local user.",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/AuthBindingIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "rotateEnterpriseAuthBinding",
-        "summary": "Rotate an active enterprise auth binding to a new provider subject."
+        "summary": "Rotate an active enterprise auth binding to a new provider subject.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/AuthBindingIDPathParameter"
+        }
+      ],
       "delete": {
         "tags": [
           "enterprise-auth"
         ],
         "operationId": "retireEnterpriseAuthBinding",
-        "summary": "Retire an active enterprise auth binding and revoke target sessions."
+        "summary": "Retire an active enterprise auth binding and revoke target sessions.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents": {
@@ -400,6 +1308,31 @@
             },
             "description": "Optional exact incident status filter. Omission means both active and closed incidents are eligible."
           }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentListInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
         ]
       },
       "post": {
@@ -407,58 +1340,763 @@
           "incidents"
         ],
         "operationId": "createIncident",
-        "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences."
+        "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentReplaySuccessResponse"
+          },
+          "201": {
+            "$ref": "#/components/responses/IncidentCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentCreateInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "incidents"
         ],
         "operationId": "getIncident",
-        "summary": "Fetch one visible incident by identifier."
+        "summary": "Fetch one visible incident by identifier.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentSingletonInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "patch": {
         "tags": [
           "incidents"
         ],
         "operationId": "patchIncident",
-        "summary": "Patch mutable incident metadata with optimistic incident_version checks."
+        "summary": "Patch mutable incident metadata with optimistic incident_version checks.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentPatchInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentPatchConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/close": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "closeIncident",
+        "summary": "Close an active incident using optimistic concurrency and route-scoped idempotency.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident closed, or the original committed close result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The lifecycle request is malformed.",
+            "x-cartulary-error-codes": [
+              "invalid_incident_lifecycle_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie CSRF proof failed or the current incident role is not admin.",
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The idempotency key, incident version, credential class, or lifecycle transition conflicts.",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_version_conflict",
+              "illegal_transition"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/reopen": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "reopenIncident",
+        "summary": "Reopen a closed incident using optimistic concurrency and route-scoped idempotency.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident reopened, or the original committed reopen result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The lifecycle request is malformed.",
+            "x-cartulary-error-codes": [
+              "invalid_incident_lifecycle_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie CSRF proof failed or the current incident role is not admin.",
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The idempotency key, incident version, credential class, or lifecycle transition conflicts.",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_version_conflict",
+              "illegal_transition"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/membership-audit-events": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "administrative-audit"
+        ],
+        "operationId": "listIncidentMembershipAuditEvents",
+        "summary": "List the immutable safe membership-audit projection for one incident.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque keyset cursor bound to this incident, route, caller, page size, and normalized filter set."
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Return only membership events attributed to this user actor."
+          },
+          {
+            "name": "action_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "legacy_administrative_event",
+                "membership_created",
+                "membership_deleted",
+                "membership_role_changed"
+              ]
+            },
+            "description": "Return only incident membership events with this exact action code."
+          },
+          {
+            "name": "target_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incident_membership",
+                "legacy_administrative_event"
+              ]
+            },
+            "description": "Return only incident membership events with this target kind."
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Return only events for this affected member identifier. target_kind is required when target_id is present."
+          },
+          {
+            "name": "occurred_at_gte",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive UTC occurrence-time lower bound."
+          },
+          {
+            "name": "occurred_at_lt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive UTC occurrence-time upper bound; it must be later than occurred_at_gte."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident-scoped membership-audit page ordered by occurred_at and audit_event_id descending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeAuditEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter, range, page size, or cursor is invalid or does not match the normalized query.",
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The visible current incident member is not an incident administrator.",
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A credential-bootstrap bearer was presented to a route that accepts only session credentials.",
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/memberships": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "incident-memberships"
         ],
         "operationId": "listIncidentMemberships",
-        "summary": "List current memberships for one visible incident."
+        "summary": "List current memberships for one visible incident.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipListInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "post": {
         "tags": [
           "incident-memberships"
         ],
         "operationId": "createIncidentMembership",
-        "summary": "Create or replay one incident membership without auto-inviting users."
+        "summary": "Create or replay one incident membership without auto-inviting users.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipReplaySuccessResponse"
+          },
+          "201": {
+            "$ref": "#/components/responses/IncidentMembershipCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipCreateNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
       "patch": {
         "tags": [
           "incident-memberships"
         ],
         "operationId": "patchIncidentMembership",
-        "summary": "Patch an incident membership role with optimistic membership_version checks."
+        "summary": "Patch an incident membership role with optimistic membership_version checks.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "delete": {
         "tags": [
           "incident-memberships"
         ],
         "operationId": "deleteIncidentMembership",
-        "summary": "Delete an incident membership while preserving at least one incident admin."
+        "summary": "Delete an incident membership while preserving at least one incident admin.",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/IncidentMembershipDeletedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/default": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "workbook-preferences"
@@ -476,7 +2114,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "put": {
         "tags": [
@@ -505,10 +2151,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "workbook-preferences"
@@ -526,7 +2187,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "put": {
         "tags": [
@@ -555,7 +2224,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-startup": {
@@ -638,7 +2317,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile": {
@@ -700,7 +2387,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "put": {
         "tags": [
@@ -790,10 +2485,28 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "workbook"
@@ -821,7 +2534,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/saved-views": {
@@ -901,7 +2622,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -981,7 +2710,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}": {
@@ -1082,7 +2821,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "delete": {
         "tags": [
@@ -1151,10 +2900,28 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "workbook"
@@ -1235,10 +3002,28 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "workbook"
@@ -1276,10 +3061,28 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "workbook"
@@ -1317,7 +3120,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/snapshots": {
@@ -1368,7 +3181,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/snapshots/{snapshot_id}": {
@@ -1420,7 +3243,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions": {
@@ -1462,7 +3293,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -1522,7 +3361,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}": {
@@ -1573,7 +3422,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "patch": {
         "tags": [
@@ -1632,7 +3489,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "delete": {
         "tags": [
@@ -1681,7 +3548,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions": {
@@ -1732,7 +3609,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}": {
@@ -1781,7 +3668,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate": {
@@ -1832,7 +3727,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview": {
@@ -1883,7 +3786,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/releases": {
@@ -1934,7 +3847,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/releases/{release_id}": {
@@ -1986,7 +3909,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/releases/{release_id}/approve": {
@@ -2058,7 +3989,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/releases/{release_id}/publish": {
@@ -2130,7 +4071,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/releases/{release_id}/invalidate": {
@@ -2202,7 +4153,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/jobs/{job_id}": {
@@ -2244,7 +4205,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/jobs/{job_id}/cancel": {
@@ -2306,7 +4275,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions": {
@@ -2367,7 +4346,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}": {
@@ -2409,7 +4398,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units": {
@@ -2468,7 +4465,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}": {
@@ -2519,7 +4524,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview": {
@@ -2570,7 +4583,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview": {
@@ -2651,7 +4672,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping": {
@@ -2722,7 +4751,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select": {
@@ -2773,7 +4812,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip": {
@@ -2824,7 +4873,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/import-sessions/{import_session_id}/apply": {
@@ -2886,7 +4945,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incident-bundles/export": {
@@ -2937,7 +5006,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incident-bundles/{bundle_id}": {
@@ -2989,7 +5068,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/incident-bundles/import": {
@@ -3040,7 +5127,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/extensions": {
@@ -3081,10 +5178,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "patch": {
         "tags": [
           "records",
@@ -3113,7 +5223,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       },
       "delete": {
         "tags": [
@@ -3193,7 +5313,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/restore": {
@@ -3275,7 +5405,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/rollback": {
@@ -3357,7 +5497,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/history": {
@@ -3430,10 +5580,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/linked-notes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "records",
@@ -3492,10 +5655,28 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ConflictTokenPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "workbook"
@@ -3580,10 +5761,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/mark-reviewed": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "timeline"
@@ -3611,10 +5807,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{record_id}/supersede": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "timeline",
@@ -3650,7 +5861,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/records/{survivor_record_id}/merge": {
@@ -3742,7 +5963,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/entity-mentions/{entity_mention_id}/resolve": {
@@ -3834,7 +6065,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/object-blobs": {
@@ -3875,7 +6116,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/object-uploads/{upload_token}": {
@@ -3980,10 +6231,16 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/evidence-records/{record_id}/attach-blob": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "evidence"
@@ -4011,10 +6268,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/evidence-records/{record_id}/preview-handle": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "evidence"
@@ -4042,10 +6314,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/evidence-records/{record_id}/download-handle": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
       "post": {
         "tags": [
           "evidence"
@@ -4073,10 +6360,25 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/evidence-handles/{handle_token}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/EvidenceHandleTokenPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "evidence"
@@ -4090,7 +6392,8 @@
           "206": {
             "description": "Evidence byte range"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/view-schemas": {
@@ -4111,10 +6414,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/view-schemas/{view_schema_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
       "get": {
         "tags": [
           "view-schemas"
@@ -4132,7 +6448,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs": {
@@ -4163,7 +6487,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}": {
@@ -4222,7 +6554,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/import": {
@@ -4273,7 +6613,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/activate": {
@@ -4352,7 +6702,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/disable": {
@@ -4431,7 +6791,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
@@ -4510,7 +6880,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     },
     "/api/v1/reference-packs/refresh": {
@@ -4561,7 +6941,17 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
       }
     }
   },
@@ -4572,14 +6962,25 @@
         "in": "cookie",
         "name": "cartulary_session"
       },
+      "csrfCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cartulary_csrf"
+      },
       "csrfHeader": {
         "type": "apiKey",
         "in": "header",
         "name": "X-CSRF-Token"
       },
-      "bearerSessionOrBootstrap": {
+      "bearerSession": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "description": "Cartulary session bearer credential. Credential-bootstrap tokens are rejected."
+      },
+      "credentialBootstrapBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Single-purpose credential-bootstrap bearer accepted only by TOTP enrollment operations."
       }
     },
     "schemas": {
@@ -7986,6 +10387,152 @@
           "meta"
         ]
       },
+      "AdministrativeAuditChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_path": {
+            "type": "string"
+          },
+          "value_state": {
+            "type": "string",
+            "enum": [
+              "redacted",
+              "visible"
+            ]
+          },
+          "before": {},
+          "after": {}
+        },
+        "required": [
+          "field_path",
+          "value_state",
+          "before",
+          "after"
+        ]
+      },
+      "AdministrativeAuditResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "audit_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope_kind": {
+            "type": "string",
+            "enum": [
+              "deployment",
+              "incident"
+            ]
+          },
+          "scope_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "system",
+              "user"
+            ]
+          },
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "api",
+              "operator",
+              "startup",
+              "system",
+              "ui"
+            ]
+          },
+          "action_code": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdministrativeAuditChange"
+            }
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "audit_event_id",
+          "scope_kind",
+          "scope_id",
+          "occurred_at",
+          "actor_kind",
+          "actor_user_id",
+          "source",
+          "action_code",
+          "target_kind",
+          "target_id",
+          "changes",
+          "reason_code"
+        ]
+      },
+      "AdministrativeAuditData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "audit_events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdministrativeAuditResource"
+            }
+          }
+        },
+        "required": [
+          "audit_events"
+        ]
+      },
+      "AdministrativeAuditEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdministrativeAuditData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "ErrorEnvelope": {
         "type": "object",
         "additionalProperties": false,
@@ -10445,12 +12992,6 @@
           "cells"
         ]
       },
-      "TimelineCell": {
-        "$ref": "#/components/schemas/ViewCell"
-      },
-      "TimelineRow": {
-        "$ref": "#/components/schemas/ViewRow"
-      },
       "WorkbookQueryData": {
         "type": "object",
         "additionalProperties": false,
@@ -11043,12 +13584,6 @@
           "meta"
         ]
       },
-      "TimelineMutationData": {
-        "$ref": "#/components/schemas/ViewMutationData"
-      },
-      "TimelineMutationEnvelope": {
-        "$ref": "#/components/schemas/ViewMutationEnvelope"
-      },
       "TimelineActionData": {
         "type": "object",
         "additionalProperties": false,
@@ -11190,7 +13725,11 @@
             ]
           },
           "mfa_state": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "not_required",
+              "satisfied"
+            ]
           },
           "is_deployment_admin": {
             "type": "boolean"
@@ -11214,7 +13753,7 @@
           "memberships": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/SessionMembershipResource"
             }
           }
         },
@@ -11229,6 +13768,29 @@
           "absolute_expires_at",
           "session_expires_at",
           "memberships"
+        ]
+      },
+      "SessionMembershipResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "reviewer",
+              "editor",
+              "admin"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "role"
         ]
       },
       "CredentialStateResource": {
@@ -11249,10 +13811,10 @@
             "const": "admin_assisted"
           },
           "password": {
-            "type": "object"
+            "$ref": "#/components/schemas/CredentialPasswordStateResource"
           },
           "totp": {
-            "type": "object"
+            "$ref": "#/components/schemas/CredentialTOTPStateResource"
           }
         },
         "required": [
@@ -11262,6 +13824,52 @@
           "recovery_model",
           "password",
           "totp"
+        ]
+      },
+      "CredentialPasswordStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "changed_at"
+        ]
+      },
+      "CredentialTOTPStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_enrolled",
+              "pending",
+              "active"
+            ]
+          },
+          "enrolled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "pending_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "state",
+          "enrolled_at",
+          "pending_expires_at"
         ]
       },
       "SafeUserResource": {
@@ -11316,7 +13924,14 @@
           "auth_bindings": {
             "type": "array",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/LocalAuthBindingResource"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterpriseAuthBindingResource"
+                }
+              ]
             }
           }
         },
@@ -11335,6 +13950,73 @@
           "auth_bindings"
         ]
       },
+      "LocalAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_type": {
+            "const": "local"
+          },
+          "provider_key": {
+            "const": "local"
+          },
+          "username": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_type",
+          "provider_key",
+          "username",
+          "created_at"
+        ]
+      },
+      "EnterpriseAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "auth_binding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "provider_subject": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_auth_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "auth_binding_id",
+          "provider_key",
+          "provider_type",
+          "provider_subject",
+          "created_at",
+          "last_auth_at"
+        ]
+      },
       "TOTPBeginResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -11348,13 +14030,400 @@
             "format": "date-time"
           },
           "totp_setup": {
-            "type": "object"
+            "$ref": "#/components/schemas/TOTPSetupResource"
           }
         },
         "required": [
           "enrollment_id",
           "expires_at",
           "totp_setup"
+        ]
+      },
+      "TOTPSetupResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "secret_base32": {
+            "type": "string"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "algorithm": {
+            "const": "SHA1"
+          },
+          "digits": {
+            "const": 6
+          },
+          "period_seconds": {
+            "const": 30
+          }
+        },
+        "required": [
+          "secret_base32",
+          "otpauth_uri",
+          "algorithm",
+          "digits",
+          "period_seconds"
+        ]
+      },
+      "SessionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CredentialStateEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CredentialStateResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SafeUserEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SafeUserResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SafeUserListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SafeUserResource"
+            }
+          }
+        },
+        "required": [
+          "users"
+        ]
+      },
+      "SafeUserListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SafeUserListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "LogoutResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessions_revoked": {
+            "const": false
+          },
+          "logged_out": {
+            "const": true
+          }
+        },
+        "required": [
+          "user_id",
+          "sessions_revoked",
+          "logged_out"
+        ]
+      },
+      "LogoutEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LogoutResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PasswordChangeResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "$ref": "#/components/schemas/CredentialPasswordStateResource"
+          },
+          "sessions_revoked": {
+            "const": true
+          }
+        },
+        "required": [
+          "user_id",
+          "password",
+          "sessions_revoked"
+        ]
+      },
+      "PasswordChangeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PasswordChangeResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TOTPBeginEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TOTPBeginResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TOTPCompleteStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enrolled_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enrolled_at"
+        ]
+      },
+      "TOTPCompleteResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totp": {
+            "$ref": "#/components/schemas/TOTPCompleteStateResource"
+          },
+          "sessions_revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "user_id",
+          "totp",
+          "sessions_revoked"
+        ]
+      },
+      "TOTPCompleteEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TOTPCompleteResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SessionRevocationResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessions_revoked": {
+            "const": true
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "sessions_revoked",
+          "revoked_at"
+        ]
+      },
+      "SessionRevocationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionRevocationResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EnterpriseAuthProviderResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_key",
+          "provider_type",
+          "display_name"
+        ]
+      },
+      "EnterpriseAuthProviderListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnterpriseAuthProviderResource"
+            }
+          }
+        },
+        "required": [
+          "providers"
+        ]
+      },
+      "EnterpriseAuthProviderListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnterpriseAuthProviderListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EnterpriseAuthBeginResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "redirect_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_key",
+          "provider_type",
+          "redirect_url",
+          "expires_at"
+        ]
+      },
+      "EnterpriseAuthBeginEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnterpriseAuthBeginResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "SortEntry": {
@@ -11472,6 +14541,9 @@
               "action_payload"
             ]
           },
+          "grid_editable": {
+            "type": "boolean"
+          },
           "conflict_resolution_class": {
             "type": [
               "string",
@@ -11525,6 +14597,7 @@
           "groupable",
           "read_kind",
           "write_kind",
+          "grid_editable",
           "conflict_resolution_class",
           "entity_binding_mode",
           "string_contract_id",
@@ -11881,6 +14954,28 @@
               "type": "string"
             }
           },
+          "inline_create": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minimum_create_field_sets": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "permits_zero_field_create": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "minimum_create_field_sets",
+              "permits_zero_field_create"
+            ]
+          },
           "inspector_config": {
             "$ref": "#/components/schemas/InspectorConfigV1"
           },
@@ -11904,6 +14999,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "inline_create",
           "inspector_config",
           "fields"
         ]
@@ -12211,6 +15307,1297 @@
           "data",
           "meta"
         ]
+      },
+      "IncidentLifecycleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_incident_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "base_incident_version",
+          "client_txn_id",
+          "reason"
+        ]
+      },
+      "IncidentResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tlp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              null
+            ]
+          },
+          "current_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primary_external_case_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "incident_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "incident_id",
+          "incident_key",
+          "title",
+          "description",
+          "status",
+          "severity",
+          "tlp",
+          "current_phase",
+          "primary_external_case_ref",
+          "created_by_user_id",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id",
+          "incident_version",
+          "closed_at"
+        ]
+      },
+      "IncidentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "IncidentListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentResource"
+            }
+          }
+        },
+        "required": [
+          "incidents"
+        ]
+      },
+      "IncidentListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "IncidentMembershipResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor",
+              "reviewer",
+              "admin"
+            ]
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "added_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "membership_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "incident_id",
+          "user_id",
+          "display_name",
+          "role",
+          "joined_at",
+          "added_by_user_id",
+          "updated_at",
+          "updated_by_user_id",
+          "membership_version"
+        ]
+      },
+      "IncidentMembershipEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentMembershipResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "IncidentMembershipListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentMembershipResource"
+            }
+          }
+        },
+        "required": [
+          "memberships"
+        ]
+      },
+      "IncidentMembershipListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentMembershipListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    },
+    "parameters": {
+      "AuthBindingIDPathParameter": {
+        "name": "auth_binding_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ConflictTokenPathParameter": {
+        "name": "conflict_token",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EvidenceHandleTokenPathParameter": {
+        "name": "handle_token",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IncidentIDPathParameter": {
+        "name": "incident_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ProviderKeyPathParameter": {
+        "name": "provider_key",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RecordIDPathParameter": {
+        "name": "record_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "UserIDPathParameter": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ViewSchemaIDPathParameter": {
+        "name": "view_schema_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequestErrorResponse": {
+        "description": "Malformed or invalid request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ConflictErrorResponse": {
+        "description": "State, concurrency, transition, or idempotency conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ForbiddenErrorResponse": {
+        "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "InternalServerErrorResponse": {
+        "description": "Unexpected server failure",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotFoundErrorResponse": {
+        "description": "Resource is absent or intentionally hidden from the caller",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "TooManyRequestsErrorResponse": {
+        "description": "Request rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "UnauthorizedErrorResponse": {
+        "description": "Required session credential is missing, invalid, inactive, or expired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionSuccessResponse": {
+        "description": "Current session resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SessionEnvelope"
+            }
+          }
+        }
+      },
+      "AuthLogoutSuccessResponse": {
+        "description": "Current session revoked and authentication cookies cleared",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogoutEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCredentialStateSuccessResponse": {
+        "description": "Current local credential state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CredentialStateEnvelope"
+            }
+          }
+        }
+      },
+      "AuthPasswordChangeSuccessResponse": {
+        "description": "Password changed and all active sessions revoked",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PasswordChangeEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPBeginSuccessResponse": {
+        "description": "Pending TOTP enrollment and one-time setup material",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TOTPBeginEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPCompleteSuccessResponse": {
+        "description": "TOTP enrollment completion state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TOTPCompleteEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserSuccessResponse": {
+        "description": "Deployment-safe user resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserCreatedResponse": {
+        "description": "Created deployment-safe user resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserListSuccessResponse": {
+        "description": "Deployment-user page",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserListEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRevocationSuccessResponse": {
+        "description": "All target-user sessions revoked",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SessionRevocationEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProviderListSuccessResponse": {
+        "description": "Enabled interactive enterprise authentication providers",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EnterpriseAuthProviderListEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthBeginSuccessResponse": {
+        "description": "Enterprise authentication redirect transaction",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EnterpriseAuthBeginEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthRedirectResponse": {
+        "description": "Enterprise authentication flow continues at the Location response header"
+      },
+      "AuthInvalidRequestResponse": {
+        "description": "Authentication request body is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_auth_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSingletonReadInvalidRequestResponse": {
+        "description": "Singleton query contains unsupported list or pagination members",
+        "x-cartulary-error-codes": [
+          "invalid_list_query"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthMutationInvalidRequestResponse": {
+        "description": "Mutation request body is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_mutation_payload"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthListInvalidRequestResponse": {
+        "description": "List query, page size, or cursor is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_list_query",
+          "invalid_pagination_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthInvalidRequestResponse": {
+        "description": "Enterprise authentication or binding request is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_enterprise_auth_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRequiredResponse": {
+        "description": "A valid current session is required",
+        "x-cartulary-error-codes": [
+          "session_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthLoginRejectedResponse": {
+        "description": "Local credentials or required second-factor state did not authorize a session",
+        "x-cartulary-error-codes": [
+          "invalid_credentials",
+          "invalid_second_factor",
+          "mfa_required",
+          "mfa_setup_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCredentialRejectedResponse": {
+        "description": "A session or second-factor credential is missing or invalid",
+        "x-cartulary-error-codes": [
+          "invalid_second_factor",
+          "session_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCSRFFailedResponse": {
+        "description": "Cookie-authenticated mutation failed CSRF verification",
+        "x-cartulary-error-codes": [
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthDeploymentAdminForbiddenResponse": {
+        "description": "Deployment-admin authorization or cookie CSRF verification failed",
+        "x-cartulary-error-codes": [
+          "authorization_denied",
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthDeploymentAdminReadForbiddenResponse": {
+        "description": "The authenticated caller is not a deployment administrator",
+        "x-cartulary-error-codes": [
+          "authorization_denied"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProviderNotFoundResponse": {
+        "description": "Enterprise profile or requested provider is not available",
+        "x-cartulary-error-codes": [
+          "auth_provider_disabled",
+          "auth_provider_not_found",
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProfileNotFoundResponse": {
+        "description": "Enterprise authentication profile is not admitted",
+        "x-cartulary-error-codes": [
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserNotFoundResponse": {
+        "description": "Requested deployment user is absent",
+        "x-cartulary-error-codes": [
+          "user_not_found"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseBindingNotFoundResponse": {
+        "description": "Enterprise profile, provider, or authentication binding is absent",
+        "x-cartulary-error-codes": [
+          "auth_binding_not_found",
+          "auth_provider_not_found",
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthBootstrapRejectedResponse": {
+        "description": "Credential-bootstrap bearer is invalid for this route or request state",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthPasswordConflictResponse": {
+        "description": "Password state or client transaction conflicts with the committed result",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_current_password"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPBeginConflictResponse": {
+        "description": "TOTP begin state or client transaction conflicts with the request",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_current_password"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPCompleteConflictResponse": {
+        "description": "TOTP enrollment or credential-bootstrap state cannot be completed",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "totp_setup_not_pending"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthAccountProfileConflictResponse": {
+        "description": "Profile version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthAccountPreferencesConflictResponse": {
+        "description": "Preferences version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "preferences_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserCreateConflictResponse": {
+        "description": "User creation, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_mutation_payload"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserPatchConflictResponse": {
+        "description": "User version, last-admin invariant, unique email, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "invalid_mutation_payload",
+          "last_deployment_admin",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserVersionConflictResponse": {
+        "description": "User version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRevocationConflictResponse": {
+        "description": "Credential mode or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthCompletionConflictResponse": {
+        "description": "Enterprise transaction, provider response, or provider identity was rejected",
+        "x-cartulary-error-codes": [
+          "enterprise_auth_transaction_rejected",
+          "provider_identity_rejected",
+          "provider_response_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseSAMLCompletionConflictResponse": {
+        "description": "Enterprise transaction or SAML provider response was rejected",
+        "x-cartulary-error-codes": [
+          "enterprise_auth_transaction_rejected",
+          "provider_response_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseBindingConflictResponse": {
+        "description": "Binding state, user version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "auth_binding_conflict",
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthInternalErrorResponse": {
+        "description": "Authentication or persistence dependency failed",
+        "x-cartulary-error-codes": [
+          "internal_error"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentSuccessResponse": {
+        "description": "Visible incident resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentCreatedResponse": {
+        "description": "Incident created and creator administration state bootstrapped",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentReplaySuccessResponse": {
+        "description": "Original committed incident creation result replayed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentListSuccessResponse": {
+        "description": "Caller-visible incident page",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentListEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipSuccessResponse": {
+        "description": "Current incident membership resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentMembershipEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipCreatedResponse": {
+        "description": "Incident membership created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentMembershipEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipReplaySuccessResponse": {
+        "description": "Existing or original committed incident membership result returned",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentMembershipEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipListSuccessResponse": {
+        "description": "Current incident membership page",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/IncidentMembershipListEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipDeletedResponse": {
+        "description": "Incident membership deleted; the response has no body"
+      },
+      "IncidentListInvalidResponse": {
+        "description": "Incident list query, page size, or cursor is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_list_query",
+          "invalid_pagination_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentCreateInvalidResponse": {
+        "description": "Incident creation request is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_incident_create"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentSingletonInvalidResponse": {
+        "description": "Incident singleton query contains unsupported list or pagination members",
+        "x-cartulary-error-codes": [
+          "invalid_list_query"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentPatchInvalidResponse": {
+        "description": "Incident patch request is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_incident_patch"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipListInvalidResponse": {
+        "description": "Incident membership page size or cursor is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_pagination_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipMutationInvalidResponse": {
+        "description": "Incident membership mutation request is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_mutation_payload"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentSessionRequiredResponse": {
+        "description": "A valid current session is required",
+        "x-cartulary-error-codes": [
+          "session_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentCSRFFailedResponse": {
+        "description": "Cookie-authenticated mutation failed CSRF verification",
+        "x-cartulary-error-codes": [
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMutationForbiddenResponse": {
+        "description": "Incident-role authorization or cookie CSRF verification failed",
+        "x-cartulary-error-codes": [
+          "authorization_denied",
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentNotFoundResponse": {
+        "description": "The incident is absent or hidden from the caller",
+        "x-cartulary-error-codes": [
+          "incident_not_found"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipCreateNotFoundResponse": {
+        "description": "The incident is hidden or the selected deployment user is absent",
+        "x-cartulary-error-codes": [
+          "incident_not_found",
+          "user_not_found"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipNotFoundResponse": {
+        "description": "The incident is hidden or the addressed membership is absent",
+        "x-cartulary-error-codes": [
+          "incident_not_found",
+          "membership_not_found"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentBootstrapRejectedResponse": {
+        "description": "Credential-bootstrap bearer is invalid for a session-only incident route",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentCreateConflictResponse": {
+        "description": "Incident idempotency, key uniqueness, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "incident_key_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentPatchConflictResponse": {
+        "description": "Incident lifecycle, version, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "incident_closed",
+          "incident_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipCreateConflictResponse": {
+        "description": "Membership idempotency, existing state, target state, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "membership_exists_use_patch",
+          "user_inactive"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentMembershipMutationConflictResponse": {
+        "description": "Membership version, last-admin invariant, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "last_incident_admin",
+          "membership_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "IncidentInternalErrorResponse": {
+        "description": "Incident authorization, authentication, or persistence dependency failed",
+        "x-cartulary-error-codes": [
+          "internal_error"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
       }
     }
   }

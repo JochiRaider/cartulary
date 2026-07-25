@@ -1,0 +1,10 @@
+{
+  "components": {
+    "schemas": {
+      "CompositionVersion": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]*$"
+      }
+    }
+  }
+}

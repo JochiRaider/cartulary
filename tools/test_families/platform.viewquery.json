@@ -121,6 +121,34 @@
       "status": "active"
     },
     {
+      "row_id": "platform.viewquery.unit.list_query_duplicate_precedence_and_normalization_c36fa08271",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/listquery",
+        "tests": [
+          "TestMatchSearchTokensUsesSourceFieldTokens",
+          "TestParseNormalizesSearchAndFilters",
+          "TestParseRejectsListQueryFailures",
+          "TestParseRejectsPaginationAliasesAsPaginationErrors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",

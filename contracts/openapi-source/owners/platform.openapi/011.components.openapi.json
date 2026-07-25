@@ -1,0 +1,31 @@
+{
+  "components": {
+    "schemas": {
+      "SavedViewQueryJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sort",
+          "filters"
+        ]
+      }
+    }
+  }
+}

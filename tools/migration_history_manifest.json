@@ -230,6 +230,12 @@
       "filename": "00038_reference_pack_storage_references.sql",
       "sha256": "3aad2932c771282c04c7af33d281a01874f48ec8c555ca1aaa1c75a73fda2baf",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 39,
+      "filename": "00039_administrative_audit_projections.sql",
+      "sha256": "6106f902ea50488ce05cce642000e0cdc75cf09083e3b0dba834485080ffd35a",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -397,7 +397,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 		t.Fatalf("import should create only local importer membership")
 	}
 	finalization := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID)
-	if finalization.MembershipRows != 1 || finalization.DefaultPreferenceRows != 1 || finalization.UserPreferenceRows != 1 || finalization.MembershipAuditRows != 1 {
+	if finalization.MembershipRows != 1 || finalization.DefaultPreferenceRows != 1 || finalization.UserPreferenceRows != 1 || finalization.MembershipAuditRows != 1 || finalization.MembershipProjectionRows != 1 {
 		t.Fatalf("import finalization side effects mismatch: %#v", finalization)
 	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, sourceViewerID) != 0 {
@@ -1846,10 +1846,11 @@ func countRows(t testing.TB, db *sql.DB, query string, args ...any) int {
 }
 
 type importFinalizationSideEffects struct {
-	MembershipRows        int
-	DefaultPreferenceRows int
-	UserPreferenceRows    int
-	MembershipAuditRows   int
+	MembershipRows           int
+	DefaultPreferenceRows    int
+	UserPreferenceRows       int
+	MembershipAuditRows      int
+	MembershipProjectionRows int
 }
 
 func (s importFinalizationSideEffects) equal(other importFinalizationSideEffects) bool {
@@ -1891,6 +1892,14 @@ SELECT count(*)
    AND target_user_id = $2
    AND event_source = 'incidents'
    AND event_kind = 'incident_membership_created'
+`, incidentID, userID),
+		MembershipProjectionRows: countRows(t, db, `
+SELECT count(*)
+  FROM administrative_audit_projections
+ WHERE scope_kind = 'incident'
+   AND scope_id = $1
+   AND actor_user_id = $2
+   AND action_code = 'membership_created'
 `, incidentID, userID),
 	}
 }

@@ -626,6 +626,8 @@ ORDER BY created_at ASC, operator_recovery_journal_id ASC
 SELECT event_source, event_kind, COALESCE(after_json::text, ''), COALESCE(reason_code, ''), COALESCE(request_id, '')
 FROM deployment_admin_audit_events
 WHERE request_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1
 `, payload.OperationID).Scan(&eventSource, &eventKind, &afterJSON, &reasonCode, &requestID); err != nil {
 		t.Fatalf("query operator recovery audit summary: %v", err)
 	}

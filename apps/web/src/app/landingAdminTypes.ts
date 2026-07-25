@@ -127,10 +127,12 @@ export type IncidentLandingProps = {
 
 export type AdministrativeAuditEvent = {
   audit_event_id: string;
+  scope_kind: "deployment" | "incident";
+  scope_id: string | null;
   occurred_at: string;
-  actor_kind?: "operator" | "system" | "user";
+  actor_kind: "operator" | "system" | "user";
   actor_user_id: string | null;
-  source?: string;
+  source: "api" | "operator" | "startup" | "system" | "ui";
   action_code: string;
   target_kind: string;
   target_id: string | null;

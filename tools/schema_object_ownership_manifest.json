@@ -13,6 +13,7 @@
     }
   ],
   "allowed_owners": [
+    "audit",
     "assessments",
     "artifacts",
     "auth",
@@ -85,6 +86,16 @@
       ],
       "downstream_surfaces": ["extension state admission", "shared transactions", "staged-object cleanup", "extension job reconciliation", "backup and restore"],
       "notes": "Generic coordination metadata and proof state only; authoritative profile tables remain with their named profile owners."
+    },
+    {
+      "id": "administrative-audit",
+      "owner": "audit",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(administrative_audit_projections|administrative_audit_projections_.*|reject_administrative_audit_mutation)$" }
+      ],
+      "downstream_surfaces": ["deployment administrative audit", "incident membership audit", "backup", "operator recovery"],
+      "notes": "Immutable safe administrative-audit projection and append-only enforcement shared by existing semantic owners."
     },
     {
       "id": "deployment-admin-and-recovery",

@@ -1,0 +1,66 @@
+{
+  "schema_id": "cartulary.verification_contract.v2",
+  "owner_id": "platform.openapi",
+  "verifications": [
+    {
+      "verification_id": "platform.openapi.verification.baseline_characterization",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.baseline_characterization"
+      ]
+    },
+    {
+      "verification_id": "platform.openapi.verification.completeness_foundation",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.completeness_foundation"
+      ]
+    },
+    {
+      "verification_id": "platform.openapi.verification.deterministic_assembly",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.deterministic_assembly"
+      ]
+    },
+    {
+      "verification_id": "platform.openapi.verification.metadata_and_completeness",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.metadata_and_completeness"
+      ]
+    },
+    {
+      "verification_id": "platform.openapi.verification.runtime_characterization",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.runtime_characterization"
+      ]
+    },
+    {
+      "verification_id": "platform.openapi.verification.runtime_contract_parity",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "status": "active",
+      "requirement_ids": [
+        "platform.openapi.requirement.runtime_contract_parity"
+      ]
+    }
+  ]
+}

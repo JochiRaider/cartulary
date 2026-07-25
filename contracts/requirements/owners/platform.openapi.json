@@ -1,0 +1,42 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.openapi",
+  "requirements": [
+    {
+      "requirement_id": "platform.openapi.requirement.baseline_characterization",
+      "statement": "The current canonical OpenAPI bytes, structural inventory, known completeness gaps, and generated contract snapshots are recorded exactly before owner decomposition or public correction.",
+      "contract_ids": ["cartulary.openapi.baseline.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.openapi.requirement.completeness_foundation",
+      "statement": "Every public operation must declare nonempty responses and explicit security unless it is one of the exact closed migration entries; shared path parameters, error responses, and the five final credential schemes are deterministic, and new operations cannot inherit a waiver.",
+      "contract_ids": ["cartulary.openapi.completeness_foundation.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.openapi.requirement.deterministic_assembly",
+      "statement": "The canonical public OpenAPI artifact is assembled deterministically from closed, manifest-selected semantic-owner inputs and is the only published OpenAPI contract artifact.",
+      "contract_ids": ["cartulary.openapi.assembly.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.openapi.requirement.metadata_and_completeness",
+      "statement": "The canonical contract uses OpenAPI 3.1.0, title Cartulary HTTP API, and document version 1.0.0; later breaking wire changes increment the major version, additive public behavior increments the minor version, and non-behavioral contract corrections increment the patch version; every compatibility-waiver class is empty at the stable boundary.",
+      "contract_ids": ["cartulary.openapi.completeness.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.openapi.requirement.runtime_characterization",
+      "statement": "Every canonical runtime operation descriptor remains exact with the baseline OpenAPI operation set while runtime-only and owner-required missing operations remain explicit correction inputs.",
+      "contract_ids": ["cartulary.openapi.runtime_characterization.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.openapi.requirement.runtime_contract_parity",
+      "statement": "The complete public HTTP operation inventory, operation identifiers, response contracts, security classifications, and generated contract snapshots remain bidirectionally consistent with runtime route declarations.",
+      "contract_ids": ["cartulary.openapi.parity.v1"],
+      "status": "active"
+    }
+  ]
+}

@@ -11,6 +11,7 @@
       ],
       "status": "active",
       "requirement_ids": [
+        "contract-family:audit",
         "contract-family:errors",
         "contract-family:extensions",
         "contract-family:network-flow",

@@ -49,6 +49,21 @@ type ActiveRecordTagsV1 struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type AdministrativeAuditProjection struct {
+	AuditEventID pgtype.UUID        `json:"audit_event_id"`
+	ScopeKind    string             `json:"scope_kind"`
+	ScopeID      pgtype.UUID        `json:"scope_id"`
+	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
+	ActorKind    string             `json:"actor_kind"`
+	ActorUserID  pgtype.UUID        `json:"actor_user_id"`
+	Source       string             `json:"source"`
+	ActionCode   string             `json:"action_code"`
+	TargetKind   string             `json:"target_kind"`
+	TargetID     pgtype.Text        `json:"target_id"`
+	Changes      []byte             `json:"changes"`
+	ReasonCode   pgtype.Text        `json:"reason_code"`
+}
+
 type Artifact struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`

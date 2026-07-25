@@ -1,6 +1,7 @@
 {
   "schema_id": "cartulary.generate_drift_scratch_inputs.v1",
   "generated_paths": [
+    "contracts/openapi/cartulary.openapi.yaml",
     "contracts/otel/generated_constants_manifest.json",
     "contracts/otel/import_boundary.json",
     "contracts/otel/otel_source_snapshot.v1.json",
@@ -42,6 +43,7 @@
     "tools/test_families",
     "tools/test_runner_registry.json",
     "tools/contractgen",
+    "tools/openapi-assemble",
     "tools/networkflow-tzdb",
     "tools/networkflow-unicode17",
     "tools/generate_drift_scratch_inputs.json",

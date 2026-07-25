@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -40,9 +41,12 @@ func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return fmt.Errorf("declare incident public operations: %w", err)
+		}
 
-		mux.HandleFunc("/api/v1/incidents", service.handleIncidentsCollection)
-		mux.HandleFunc("/api/v1/incidents/", service.handleIncidentsMember)
+		httpapi.HandlePublicRoute(mux, "/api/v1/incidents", service.handleIncidentsCollection)
+		httpapi.HandlePublicRoute(mux, "/api/v1/incidents/", service.handleIncidentsMember)
 		return nil
 	}
 }
@@ -355,6 +359,10 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 		s.handleIncidentLifecycle(w, r, incidentID, segments[1])
 		return
 	}
+	if len(segments) == 2 && segments[1] == "membership-audit-events" {
+		s.handleMembershipAuditEvents(w, r, incidentID)
+		return
+	}
 
 	switch strings.Join(segments[1:], "/") {
 	case "memberships":
@@ -400,7 +408,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		incidentID,
 		action,
 		request,
-		IncidentLifecycleRequestHash(request),
+		IncidentLifecycleRequestHash(action, request),
 		httpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)

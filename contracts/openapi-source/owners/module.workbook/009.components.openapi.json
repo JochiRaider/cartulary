@@ -1,0 +1,648 @@
+{
+  "components": {
+    "schemas": {
+      "HostCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "host.display_name": {
+            "type": "string"
+          },
+          "host.aad_device_id": {
+            "type": "string"
+          },
+          "host.fqdn": {
+            "type": "string"
+          },
+          "host.hostname": {
+            "type": "string"
+          },
+          "host.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "host.host_state": {
+            "type": "string"
+          },
+          "host.location": {
+            "type": "string"
+          },
+          "host.os_platform": {
+            "type": "string"
+          },
+          "host.business_owner": {
+            "type": "string"
+          },
+          "host.criticality": {
+            "type": "string"
+          },
+          "host.containment_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IdentityCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "identity.display_name": {
+            "type": "string"
+          },
+          "identity.aad_object_id": {
+            "type": "string"
+          },
+          "identity.sid": {
+            "type": "string"
+          },
+          "identity.upn": {
+            "type": "string"
+          },
+          "identity.email": {
+            "type": "string"
+          },
+          "identity.sam_account_name": {
+            "type": "string"
+          },
+          "identity.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "identity.identity_state": {
+            "type": "string"
+          },
+          "identity.privilege_level": {
+            "type": "string"
+          },
+          "identity.mfa_state": {
+            "type": "string"
+          },
+          "identity.reset_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IndicatorCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "indicator.indicator_type": {
+            "type": "string"
+          },
+          "indicator.value_kind": {
+            "type": "string"
+          },
+          "indicator.display_value": {
+            "type": "string"
+          },
+          "indicator.normalized_value": {
+            "type": "string"
+          },
+          "indicator.defanged_value": {
+            "type": "string"
+          },
+          "indicator.hash_algorithm": {
+            "type": "string"
+          },
+          "indicator.hash_value": {
+            "type": "string"
+          },
+          "indicator.stix_pattern": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "AssessmentCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "assessment.subject_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment.subject_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "assessment.assessment_state": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "suspected",
+              "confirmed",
+              "disproven",
+              "cleared"
+            ]
+          },
+          "assessment.confidence_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "assessment.rationale": {
+            "type": "string"
+          },
+          "assessment.assessor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment.assessed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assessment.support_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "assessment.subject_ref",
+          "assessment.subject_type",
+          "assessment.assessment_state",
+          "assessment.rationale"
+        ]
+      },
+      "EvidenceCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "evidence.title": {
+            "type": "string"
+          },
+          "evidence.lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "pending_receipt",
+              "received",
+              "available",
+              "quarantined",
+              "released"
+            ]
+          },
+          "evidence.requested_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.received_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.storage_ref": {
+            "type": "string"
+          },
+          "evidence.collector_party_text": {
+            "type": "string"
+          },
+          "evidence.collector_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "evidence.source_party_text": {
+            "type": "string"
+          },
+          "evidence.source_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "NoteCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "note.title": {
+            "type": "string"
+          },
+          "note.body": {
+            "type": "string"
+          },
+          "note.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LinkedNoteCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "note.title": {
+            "type": "string"
+          },
+          "note.body": {
+            "type": "string"
+          },
+          "note.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "TaskRequestCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "task.title": {
+            "type": "string"
+          },
+          "task.status": {
+            "type": "string"
+          },
+          "task.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "task.priority": {
+            "type": "string"
+          },
+          "task.task_kind": {
+            "type": "string"
+          },
+          "task.workstream": {
+            "type": "string"
+          },
+          "task.due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "task.requester_party_text": {
+            "type": "string"
+          },
+          "task.requester_party_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "task.blocked_reason": {
+            "type": "string"
+          },
+          "task.completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "task.external_ticket_ref": {
+            "type": "string"
+          },
+          "task.closure_summary": {
+            "type": "string"
+          },
+          "task.linked_record_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "task.decision_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "DecisionCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "decision.summary": {
+            "type": "string"
+          },
+          "decision.status": {
+            "type": "string"
+          },
+          "decision.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision.decision_type": {
+            "type": "string"
+          },
+          "decision.decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decision.rationale": {
+            "type": "string"
+          },
+          "decision.support_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "decision.affected_record_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "PartyCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "party.display_name": {
+            "type": "string"
+          },
+          "party.party_kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "team",
+              "organization",
+              "distribution_list",
+              "other"
+            ]
+          },
+          "party.organization_name": {
+            "type": "string"
+          },
+          "party.role_title": {
+            "type": "string"
+          },
+          "party.primary_email": {
+            "type": "string"
+          },
+          "party.timezone_name": {
+            "type": "string"
+          },
+          "party.external_ref": {
+            "type": "string"
+          },
+          "party.notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "CommLogCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "comm_log.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comm_log.comm_type": {
+            "type": "string",
+            "enum": [
+              "meeting",
+              "notification",
+              "approval",
+              "briefing",
+              "handoff"
+            ]
+          },
+          "comm_log.audience": {
+            "type": "string"
+          },
+          "comm_log.channel_or_meeting": {
+            "type": "string"
+          },
+          "comm_log.summary": {
+            "type": "string"
+          },
+          "comm_log.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "comm_log.privilege_tag": {
+            "type": "string"
+          },
+          "comm_log.decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.action_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.audience_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.attendee_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "HandoffCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "handoff.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "handoff.outgoing_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.incoming_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.current_state_summary": {
+            "type": "string"
+          },
+          "handoff.open_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_risk_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.next_checks": {
+            "type": "string"
+          },
+          "handoff.acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "StatusReviewCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "status_review.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_review.review_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status_review.current_state_summary": {
+            "type": "string"
+          },
+          "status_review.blocked_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.pending_evidence_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.active_risks_summary": {
+            "type": "string"
+          },
+          "status_review.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LessonCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "lesson.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lesson.summary": {
+            "type": "string"
+          },
+          "lesson.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lesson.closure_state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "lesson.follow_up_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "lesson.evidence_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "RecordPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/RecordPatchChange"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "base_row_version",
+          "client_txn_id",
+          "changes"
+        ]
+      }
+    }
+  }
+}

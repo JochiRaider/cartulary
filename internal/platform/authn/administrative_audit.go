@@ -2,11 +2,12 @@ package authn
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 )
 
 // AdministrativeAuditAppender is the provider-owned transaction participant
@@ -28,33 +29,16 @@ func (*AdministrativeAuditAppender) AppendNetworkFlowEventTx(
 	before any,
 	after any,
 ) error {
-	beforeJSON, err := administrativeAuditJSONOrNil(before)
-	if err != nil {
-		return err
-	}
-	afterJSON, err := administrativeAuditJSONOrNil(after)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (
-    actor_user_id, incident_id, event_source, event_kind,
-    client_txn_id, request_id, before_json, after_json
-)
-VALUES ($1, $2, 'network_flow', $3, $4, $5, $6, $7)
-`, actorUserID, incidentID, eventKind, clientTxnID, requestID, beforeJSON, afterJSON); err != nil {
-		return fmt.Errorf("append Network Flow administrative audit event: %w", err)
-	}
-	return nil
-}
-
-func administrativeAuditJSONOrNil(value any) ([]byte, error) {
-	if value == nil {
-		return nil, nil
-	}
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return nil, fmt.Errorf("marshal administrative audit payload: %w", err)
-	}
-	return encoded, nil
+	_, err := administrativeaudit.AppendRawTx(ctx, tx, administrativeaudit.RawEvent{
+		ActorUserID: actorUserID,
+		IncidentID:  incidentID,
+		EventSource: "network_flow",
+		EventKind:   eventKind,
+		ClientTxnID: clientTxnID,
+		RequestID:   requestID,
+		Before:      before,
+		After:       after,
+		OccurredAt:  time.Now().UTC(),
+	})
+	return err
 }

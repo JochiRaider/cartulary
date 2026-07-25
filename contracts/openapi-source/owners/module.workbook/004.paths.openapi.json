@@ -1,0 +1,51 @@
+{
+  "paths": {
+    "/api/v1/records/{record_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "patch": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "patchRecord",
+        "summary": "Patch one workbook-backed record with field-level optimistic concurrency and idempotent replay.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Record patch row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  }
+}

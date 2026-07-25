@@ -792,6 +792,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.integration.deployment_audit_route_is_scope_safe_and_keyset_4f8db0c261",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.auth.verification.openapi_and_administrative_audit_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestDeploymentAdministrativeAuditRoute_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.integration.enterprise_provider_discovery_proves_sorted_exac_059973abc3",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -983,7 +1009,8 @@
       "family_id": "module.auth.support_integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.auth.verification.behavior_contract"
+        "module.auth.verification.behavior_contract",
+        "module.auth.verification.openapi_and_administrative_audit_alignment"
       ],
       "runner": "go",
       "selector": {
@@ -1038,6 +1065,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.unit.administrative_audit_openapi_is_complete_and_exact_7281a6f4d2",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.auth.verification.openapi_and_administrative_audit_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestDeploymentAdministrativeAuditOpenAPIContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.unit.an_inventory_driven_loop_covers_every_cookie_aut_0b6e53ff68",
       "owner_id": "module.auth",
       "family_id": "module.auth.unit",
@@ -1061,6 +1114,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.auth.unit.auth_openapi_responses_and_security_match_runtime_7f0e6a2c91",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.auth.verification.openapi_and_administrative_audit_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.auth.unit.deployment_admin_only_credential_routes_fail_clo_5cfa2f8dce",
       "owner_id": "module.auth",
       "family_id": "module.auth.unit",
@@ -1073,6 +1151,31 @@
         "package": "./internal/modules/auth",
         "tests": [
           "TestAdminCredentialActionGuards_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.auth.unit.enterprise_auth_error_registries_closed_8f9cca353a",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestEnterpriseAuthErrorRegistriesClosed"
         ]
       },
       "evidence_class": "unit",

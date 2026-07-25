@@ -31,10 +31,13 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
-		mux.HandleFunc("PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
-		mux.HandleFunc("DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/saved-views", service.handleCollection)
+		httpapi.HandlePublicRoute(mux, "PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
+		httpapi.HandlePublicRoute(mux, "DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}", service.handleItem)
 		return nil
 	}
 }

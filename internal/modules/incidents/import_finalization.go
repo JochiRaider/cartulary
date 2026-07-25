@@ -71,6 +71,7 @@ SELECT display_name, is_active, is_deployment_admin
 		ClientTxnID:  params.ClientTxnID,
 		RequestID:    params.RequestID,
 		AfterJSON:    BuildMembershipResource(membership),
+		PublicSource: "system",
 	}); err != nil {
 		return err
 	}

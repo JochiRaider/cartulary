@@ -1,0 +1,21 @@
+{
+  "components": {
+    "schemas": {
+      "ReleaseOutputKind": {
+        "type": "string",
+        "enum": [
+          "slidev",
+          "mermaid"
+        ]
+      },
+      "ReleaseScope": {
+        "type": "string",
+        "enum": [
+          "internal_draft",
+          "internal_review",
+          "external_release"
+        ]
+      }
+    }
+  }
+}

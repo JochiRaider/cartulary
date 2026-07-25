@@ -166,15 +166,15 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 }
 
 func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) {
-	mux.HandleFunc("GET "+routeRoot+"/source-profiles", service.handleSourceProfiles)
-	mux.HandleFunc("GET "+routeRoot+"/tables", service.handleTablesCollection)
-	mux.HandleFunc("GET "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-	mux.HandleFunc("PATCH "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-	mux.HandleFunc("DELETE "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource)
-	mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/query", service.handleTableRowsQuery)
-	mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/rejected-rows/query", service.handleRejectedRowsQuery)
-	mux.HandleFunc("POST "+routeRoot+"/rows/query", service.handleRowsQuery)
-	mux.HandleFunc("POST "+routeRoot+"/graphs/query", service.handleGraphQuery)
-	mux.HandleFunc("POST "+routeRoot+"/graphs/contributors/query", service.handleGraphContributorsQuery)
-	mux.HandleFunc("POST "+routeRoot+"/indicator-links", service.handleIndicatorLinks)
+	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/source-profiles", service.handleSourceProfiles, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/tables", service.handleTablesCollection, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "PATCH "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "DELETE "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/tables/{network_flow_table_id}/query", service.handleTableRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/tables/{network_flow_table_id}/rejected-rows/query", service.handleRejectedRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/rows/query", service.handleRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/graphs/query", service.handleGraphQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/graphs/contributors/query", service.handleGraphContributorsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/indicator-links", service.handleIndicatorLinks, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
 }

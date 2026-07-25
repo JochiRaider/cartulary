@@ -1,6 +1,7 @@
 package incidents
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"golang.org/x/text/unicode/norm"
@@ -234,9 +236,9 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *httpap
 }
 
 func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader, invalidMutationPayload)
-	if apiErr != nil {
-		return IncidentLifecycleRequest{}, apiErr
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err != nil {
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("", "request_not_object")
 	}
 
 	allowed := map[string]struct{}{
@@ -246,31 +248,37 @@ func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest,
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return IncidentLifecycleRequest{}, invalidMutationPayload(key, "unknown_field")
+			return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest(key, "unknown_field")
 		}
 	}
 
 	var request IncidentLifecycleRequest
 	if value, ok := raw["base_incident_version"]; !ok {
-		return IncidentLifecycleRequest{}, invalidMutationPayload("base_incident_version", "missing_required_field")
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("base_incident_version", "missing_required_field")
+	} else if isJSONNull(value) {
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("base_incident_version", "field_not_nullable")
 	} else if err := json.Unmarshal(value, &request.BaseIncidentVersion); err != nil || request.BaseIncidentVersion < 1 {
-		return IncidentLifecycleRequest{}, invalidMutationPayload("base_incident_version", "invalid_base_incident_version")
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("base_incident_version", "invalid_base_incident_version")
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
-		return IncidentLifecycleRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("client_txn_id", "missing_required_field")
+	} else if isJSONNull(value) {
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("client_txn_id", "field_not_nullable")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return IncidentLifecycleRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("client_txn_id", "invalid_client_txn_id")
 	}
 	if value, ok := raw["reason"]; !ok {
-		return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "missing_required_field")
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("reason", "missing_required_field")
+	} else if isJSONNull(value) {
+		return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("reason", "field_not_nullable")
 	} else {
 		var reason string
 		if err := json.Unmarshal(value, &reason); err != nil {
-			return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "field_not_nullable")
+			return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("reason", "invalid_reason")
 		}
-		normalized := normalizeReasonLine(reason)
-		if normalized == "" {
-			return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "invalid_value")
+		normalized, reasonCode := normalizeIncidentLifecycleReason(reason)
+		if reasonCode != "" {
+			return IncidentLifecycleRequest{}, invalidIncidentLifecycleRequest("reason", reasonCode)
 		}
 		request.Reason = normalized
 	}
@@ -498,6 +506,22 @@ func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	}
 }
 
+func invalidIncidentLifecycleRequest(field string, reasonCode string) *httpapi.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_incident_lifecycle_request",
+		Message: "invalid incident lifecycle request",
+		Details: details,
+	}
+}
+
 func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
 	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
@@ -553,12 +577,16 @@ func incidentClosedError() *httpapi.APIError {
 }
 
 func incidentIllegalTransitionError(action string) *httpapi.APIError {
+	reasonCode := "incident_not_closed"
+	if action == "close" {
+		reasonCode = "incident_already_closed"
+	}
 	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
 		Details: map[string]any{
-			"action": action,
+			"reason_code": reasonCode,
 		},
 	}
 }
@@ -826,10 +854,27 @@ func normalizeTLPValue(value json.RawMessage) (string, bool) {
 	return raw, true
 }
 
-func normalizeReasonLine(raw string) string {
-	normalized, ok := normalizeNote(raw, reasonNoteMaxRunes)
-	if !ok || normalized == "" {
-		return ""
+func normalizeIncidentLifecycleReason(raw string) (string, string) {
+	normalized := norm.NFC.String(raw)
+	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.TrimFunc(normalized, unicode.IsSpace)
+	if normalized == "" {
+		return "", "reason_empty_after_normalization"
 	}
-	return normalized
+	if utf8.RuneCountInString(normalized) > reasonNoteMaxRunes {
+		return "", "reason_too_long"
+	}
+	for _, r := range normalized {
+		switch {
+		case r == '\n' || r == '\t':
+		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
+			return "", "control_character_not_allowed"
+		}
+	}
+	return normalized, ""
+}
+
+func isJSONNull(value json.RawMessage) bool {
+	return bytes.Equal(bytes.TrimSpace(value), []byte("null"))
 }

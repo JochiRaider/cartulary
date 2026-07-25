@@ -3,6 +3,11 @@
   "owner_id": "web.application",
   "requirements": [
     {
+      "requirement_id": "web.application.requirement.administrative_audit_contract",
+      "statement": "The deployment-administration client consumes only the canonical safe administrative-audit response shape and tolerates additive future action and target tokens without accepting obsolete response aliases.",
+      "status": "active"
+    },
+    {
       "requirement_id": "web.application.requirement.frontend_regression",
       "statement": "The web application shell, route state, service clients, shared import coordination, and administration surfaces preserve supported product behavior.",
       "status": "active"

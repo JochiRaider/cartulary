@@ -19,9 +19,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
-	"gopkg.in/yaml.v3"
 )
 
 func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
@@ -385,14 +385,7 @@ func TestCompressionRatioBoundaryUsesThresholdComparison_Unit(t *testing.T) {
 }
 
 func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T) {
-	openAPI, err := os.ReadFile("../../../contracts/openapi/cartulary.openapi.yaml")
-	if err != nil {
-		t.Fatalf("read openapi: %v", err)
-	}
-	var openAPIDoc map[string]any
-	if err := yaml.Unmarshal(openAPI, &openAPIDoc); err != nil {
-		t.Fatalf("decode openapi yaml: %v", err)
-	}
+	openAPIDoc := contracttest.OpenAPIDocument(t)
 	for _, field := range []string{"optional_sections", "required_capabilities"} {
 		schema := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource", "properties", field)
 		if schema["type"] != "array" || schema["uniqueItems"] != true {
@@ -408,46 +401,32 @@ func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T
 		}
 	}
 	exportRequiredCapabilities := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleExportRequest", "properties", "required_capabilities")
-	if exportRequiredCapabilities["maxItems"] != 0 {
+	maxItems, ok := exportRequiredCapabilities["maxItems"].(float64)
+	if !ok || maxItems != 0 {
 		t.Fatalf("export request required_capabilities must advertise empty current support: %#v", exportRequiredCapabilities)
 	}
-	for _, needle := range []string{
+	paths := openAPIObjectAt(t, openAPIDoc, "paths")
+	for _, path := range []string{
 		"/api/v1/incident-bundles/export",
 		"/api/v1/incident-bundles/{bundle_id}",
 		"/api/v1/incident-bundles/import",
-		"IncidentBundleResource",
 	} {
-		if !bytes.Contains(openAPI, []byte(needle)) {
-			t.Fatalf("openapi missing %q", needle)
+		if _, ok := paths[path]; !ok {
+			t.Fatalf("openapi missing path %q", path)
 		}
 	}
-	errorsDoc, err := os.ReadFile("../../../contracts/errors/index.json")
-	if err != nil {
-		t.Fatalf("read errors: %v", err)
-	}
-	for _, needle := range []string{
-		`"code": "invalid_incident_bundle_request"`,
-		`"code": "incident_bundle_not_found"`,
-		`"code": "incident_bundle_export_rejected"`,
-		`"code": "incident_bundle_import_rejected"`,
-		`"error_code": "incident_bundle_import_rejected"`,
-		`"code": "invalid_value"`,
-		`"code": "checksum_mismatch"`,
-		`"code": "missing_required_blob"`,
-		`"code": "malformed_manifest"`,
-		`"code": "unsupported_required_capability"`,
+	_ = openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleResource")
+	for code, status := range map[string]int{
+		"incident_bundle_export_rejected": http.StatusConflict,
+		"incident_bundle_import_rejected": http.StatusConflict,
+		"incident_bundle_not_found":       http.StatusNotFound,
+		"invalid_incident_bundle_request": http.StatusBadRequest,
 	} {
-		if !bytes.Contains(errorsDoc, []byte(needle)) {
-			t.Fatalf("errors registry missing %q", needle)
-		}
+		contracttest.RequireErrorContract(t, code, status)
 	}
 }
 
 func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
-	errorsDoc, err := os.ReadFile("../../../contracts/errors/index.json")
-	if err != nil {
-		t.Fatalf("read errors: %v", err)
-	}
 	var registry struct {
 		Errors []struct {
 			Code string `json:"code"`
@@ -459,7 +438,7 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 			} `json:"reason_codes"`
 		} `json:"reason_registries"`
 	}
-	if err := json.Unmarshal(errorsDoc, &registry); err != nil {
+	if err := json.Unmarshal([]byte(contracttest.ErrorRegistryArtifactJSON(t)), &registry); err != nil {
 		t.Fatalf("decode errors registry: %v", err)
 	}
 

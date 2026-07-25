@@ -482,51 +482,6 @@ func (q *Queries) GetVisibleIncidentByID(ctx context.Context, arg GetVisibleInci
 	return i, err
 }
 
-const insertIncidentAuditEvent = `-- name: InsertIncidentAuditEvent :exec
-INSERT INTO deployment_admin_audit_events (
-    actor_user_id,
-    target_user_id,
-    incident_id,
-    event_source,
-    event_kind,
-    reason_code,
-    client_txn_id,
-    request_id,
-    before_json,
-    after_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
-`
-
-type InsertIncidentAuditEventParams struct {
-	ActorUserID  pgtype.UUID `json:"actor_user_id"`
-	TargetUserID pgtype.UUID `json:"target_user_id"`
-	IncidentID   pgtype.UUID `json:"incident_id"`
-	EventSource  string      `json:"event_source"`
-	EventKind    string      `json:"event_kind"`
-	ReasonCode   pgtype.Text `json:"reason_code"`
-	ClientTxnID  pgtype.Text `json:"client_txn_id"`
-	RequestID    pgtype.Text `json:"request_id"`
-	Column9      []byte      `json:"column_9"`
-	Column10     []byte      `json:"column_10"`
-}
-
-func (q *Queries) InsertIncidentAuditEvent(ctx context.Context, arg InsertIncidentAuditEventParams) error {
-	_, err := q.db.Exec(ctx, insertIncidentAuditEvent,
-		arg.ActorUserID,
-		arg.TargetUserID,
-		arg.IncidentID,
-		arg.EventSource,
-		arg.EventKind,
-		arg.ReasonCode,
-		arg.ClientTxnID,
-		arg.RequestID,
-		arg.Column9,
-		arg.Column10,
-	)
-	return err
-}
-
 const listAllIncidentMemberships = `-- name: ListAllIncidentMemberships :many
 SELECT
     m.incident_id,

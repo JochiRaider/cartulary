@@ -61,6 +61,7 @@
     "forensic_keyword.created_day"
   ],
   "inline_create": {
+    "minimum_create_field_sets": [],
     "permits_zero_field_create": false
   },
   "inspector_config": {

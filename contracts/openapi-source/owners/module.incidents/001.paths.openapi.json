@@ -1,0 +1,838 @@
+{
+  "paths": {
+    "/api/v1/incidents": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "listVisibleIncidents",
+        "summary": "List incidents for which the caller currently has membership.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor returned by a prior page for the same normalized incident-list query."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "Optional list_search_v1 search text over incident_key, title, severity, tlp, current_phase, and primary_external_case_ref. Omission or normalized-empty means no search predicate."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "closed"
+              ]
+            },
+            "description": "Optional exact incident status filter. Omission means both active and closed incidents are eligible."
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentListInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "createIncident",
+        "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentReplaySuccessResponse"
+          },
+          "201": {
+            "$ref": "#/components/responses/IncidentCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentCreateInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "getIncident",
+        "summary": "Fetch one visible incident by identifier.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentSingletonInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "patchIncident",
+        "summary": "Patch mutable incident metadata with optimistic incident_version checks.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentPatchInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentPatchConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/close": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "closeIncident",
+        "summary": "Close an active incident using optimistic concurrency and route-scoped idempotency.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident closed, or the original committed close result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The lifecycle request is malformed.",
+            "x-cartulary-error-codes": [
+              "invalid_incident_lifecycle_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie CSRF proof failed or the current incident role is not admin.",
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The idempotency key, incident version, credential class, or lifecycle transition conflicts.",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_version_conflict",
+              "illegal_transition"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/reopen": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "reopenIncident",
+        "summary": "Reopen a closed incident using optimistic concurrency and route-scoped idempotency.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident reopened, or the original committed reopen result replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The lifecycle request is malformed.",
+            "x-cartulary-error-codes": [
+              "invalid_incident_lifecycle_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie CSRF proof failed or the current incident role is not admin.",
+            "x-cartulary-error-codes": [
+              "authorization_denied",
+              "csrf_verification_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The idempotency key, incident version, credential class, or lifecycle transition conflicts.",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "credential_bootstrap_rejected",
+              "incident_version_conflict",
+              "illegal_transition"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/membership-audit-events": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "administrative-audit"
+        ],
+        "operationId": "listIncidentMembershipAuditEvents",
+        "summary": "List the immutable safe membership-audit projection for one incident.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque keyset cursor bound to this incident, route, caller, page size, and normalized filter set."
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Return only membership events attributed to this user actor."
+          },
+          {
+            "name": "action_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "legacy_administrative_event",
+                "membership_created",
+                "membership_deleted",
+                "membership_role_changed"
+              ]
+            },
+            "description": "Return only incident membership events with this exact action code."
+          },
+          {
+            "name": "target_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incident_membership",
+                "legacy_administrative_event"
+              ]
+            },
+            "description": "Return only incident membership events with this target kind."
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Return only events for this affected member identifier. target_kind is required when target_id is present."
+          },
+          {
+            "name": "occurred_at_gte",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive UTC occurrence-time lower bound."
+          },
+          {
+            "name": "occurred_at_lt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive UTC occurrence-time upper bound; it must be later than occurred_at_gte."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident-scoped membership-audit page ordered by occurred_at and audit_event_id descending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeAuditEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter, range, page size, or cursor is invalid or does not match the normalized query.",
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The visible current incident member is not an incident administrator.",
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The incident is not visible to the caller.",
+            "x-cartulary-error-codes": [
+              "incident_not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A credential-bootstrap bearer was presented to a route that accepts only session credentials.",
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/memberships": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "listIncidentMemberships",
+        "summary": "List current memberships for one visible incident.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipListInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "createIncidentMembership",
+        "summary": "Create or replay one incident membership without auto-inviting users.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipReplaySuccessResponse"
+          },
+          "201": {
+            "$ref": "#/components/responses/IncidentMembershipCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipCreateNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "patch": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "patchIncidentMembership",
+        "summary": "Patch an incident membership role with optimistic membership_version checks.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IncidentMembershipSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "deleteIncidentMembership",
+        "summary": "Delete an incident membership while preserving at least one incident admin.",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/IncidentMembershipDeletedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/IncidentMembershipMutationInvalidResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/IncidentSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/IncidentMutationForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/IncidentMembershipNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/IncidentMembershipMutationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  }
+}

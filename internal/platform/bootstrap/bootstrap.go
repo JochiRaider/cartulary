@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/securefile"
@@ -418,21 +419,37 @@ func createBootstrapAdminInTx(ctx context.Context, tx pgx.Tx, request bootstrapC
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "persist bootstrap completion marker", err)
 	}
 
-	afterJSON, err := json.Marshal(map[string]any{
+	after := map[string]any{
 		"email":               request.Manifest.Email,
 		"display_name":        request.Manifest.DisplayName,
 		"mfa_required":        true,
 		"is_active":           true,
 		"is_deployment_admin": true,
-	})
-	if err != nil {
-		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "marshal bootstrap audit payload", err)
 	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, before_json, after_json)
-		VALUES (NULL, $1, $2, $3, NULL, $4)
-	`, userID, "bootstrap_manifest", "bootstrap_admin_created", afterJSON); err != nil {
+	occurredAt := time.Now().UTC()
+	targetID := userID.String()
+	if _, err := administrativeaudit.AppendTx(ctx, tx, administrativeaudit.RawEvent{
+		TargetUserID: &userID,
+		EventSource:  "bootstrap_manifest",
+		EventKind:    "bootstrap_admin_created",
+		After:        after,
+		OccurredAt:   occurredAt,
+	}, administrativeaudit.Event{
+		ScopeKind:  administrativeaudit.ScopeDeployment,
+		OccurredAt: occurredAt,
+		ActorKind:  administrativeaudit.ActorSystem,
+		Source:     administrativeaudit.SourceStartup,
+		ActionCode: administrativeaudit.ActionBootstrapAdminCreated,
+		TargetKind: administrativeaudit.TargetUser,
+		TargetID:   &targetID,
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("display_name", nil, request.Manifest.DisplayName),
+			administrativeaudit.Visible("email", nil, request.Manifest.Email),
+			administrativeaudit.Visible("is_active", nil, true),
+			administrativeaudit.Visible("is_deployment_admin", nil, true),
+			administrativeaudit.Visible("mfa_required", nil, true),
+		},
+	}); err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "persist bootstrap audit event", err)
 	}
 

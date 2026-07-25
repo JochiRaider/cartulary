@@ -319,18 +319,3 @@ SELECT COUNT(*)
 FROM incident_memberships
 WHERE incident_id = $1
   AND role = 'admin';
-
--- name: InsertIncidentAuditEvent :exec
-INSERT INTO deployment_admin_audit_events (
-    actor_user_id,
-    target_user_id,
-    incident_id,
-    event_source,
-    event_kind,
-    reason_code,
-    client_txn_id,
-    request_id,
-    before_json,
-    after_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb);

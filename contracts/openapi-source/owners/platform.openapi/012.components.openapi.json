@@ -1,0 +1,123 @@
+{
+  "components": {
+    "schemas": {
+      "SavedViewLayoutJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "layout_schema_id": {
+            "type": "string",
+            "const": "cartulary.layout.v1"
+          },
+          "column_order": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hidden_field_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_widths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewColumnWidth"
+            }
+          }
+        },
+        "required": [
+          "layout_schema_id",
+          "column_order",
+          "hidden_field_keys",
+          "column_widths"
+        ]
+      },
+      "SavedViewColumnWidth": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "width_px": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "field_key",
+          "width_px"
+        ]
+      },
+      "SavedViewResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_view_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SavedViewScope"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          },
+          "owner_user_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "saved_view_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "saved_view_id",
+          "incident_id",
+          "view_schema_id",
+          "scope",
+          "display_name",
+          "query_json",
+          "layout_json",
+          "owner_user_id",
+          "created_at",
+          "updated_at",
+          "saved_view_version"
+        ]
+      }
+    }
+  }
+}

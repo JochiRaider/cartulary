@@ -444,12 +444,26 @@ The guide MUST NOT refer to `/contracts/*` as the product “source of truth.”
 
 | Contract family                             | Primary owner                                                                                                      | Repo-local artifact                         | Generated or runtime consumers                                           | Edit rule                                          |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
-| HTTP route surface                          | Core 01 route-owner sections                                                                                       | `/contracts/openapi/cartulary.openapi.yaml` | Go transport types, handler tests, TypeScript request and response types | Change owner contract first, then OpenAPI          |
+| HTTP route surface                          | Machine requirement and semantic route owner                                                                       | `/contracts/openapi-source/owners/<owner_id>/*.openapi.json`, assembled as `/contracts/openapi/cartulary.openapi.yaml` | Go transport types, handler tests, TypeScript request and response types | Change the owner contract and fragment, then run generation |
 | WebSocket messages                          | Core 01 collaboration transport plus Core 03 collaboration behavior                                                | `/contracts/ws/*.schema.json`               | Go WebSocket transport, TypeScript message types, protocol tests         | Change owner contract first, then WS schemas       |
 | View schemas and write-back contracts       | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json`            | Grid wrapper, filter builders, write routing, saved-view normalization   | Change owner contract first, then view schemas     |
 | Error registries and reason-code registries | Core 01 error-envelope owner sections                                                                              | `/contracts/errors/*.json`                  | Go error helpers, TypeScript enums, test fixtures                        | Change owner contract first, then error registries |
 
 Route query types MUST derive from `/contracts/openapi/cartulary.openapi.yaml` and the generated protocol artifacts. When a Core 01 route owner adds query members such as incident/user list `search`, `status`, `is_active`, or `is_deployment_admin`, handwritten backend or frontend request types may wrap generated types but MUST NOT omit, rename, or independently redefine those members.
+
+The canonical OpenAPI artifact is generated and MUST NOT be hand-edited. Its
+closed manifest selects semantic-owner fragments; the `platform.openapi` root
+fragment alone owns the dialect and `info` metadata. Document versions follow
+SemVer: breaking wire changes increment the major version, additive public
+behavior increments the minor version, and non-behavioral contract corrections
+increment the patch version.
+
+The `1.0.0` contract is a coordinated compatibility release. External
+consumers must regenerate their clients: the release adds the incident
+lifecycle and administrative-audit operations, requires the view editability
+and inline-create fields, removes the obsolete administrative-audit response
+key and ambiguous bearer scheme, and drops unused timeline aliases. The bundled
+backend and frontend are expected to deploy together at this boundary.
 
 ### 4.3 Generated artifact rules
 

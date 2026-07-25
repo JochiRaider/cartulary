@@ -686,6 +686,13 @@ func (c *SupportRouteContext) buildSuccessRequest(t testing.TB, route routetest.
 			targetUserID: userID,
 			secretBase32: secretBase32,
 		}
+	case routetest.RouteAdministrativeAudit:
+		return SupportRequest{
+			route:   route,
+			path:    route.Template,
+			cookies: []*http.Cookie{c.adminSession},
+			headers: map[string]string{},
+		}
 	case routetest.RouteUsersList:
 		return SupportRequest{
 			route:   route,
@@ -904,7 +911,7 @@ func (c *SupportRouteContext) buildBootstrapBoundaryRequest(
 			},
 			headers: headers,
 		}
-	case routetest.RouteUsersList:
+	case routetest.RouteAdministrativeAudit, routetest.RouteUsersList:
 		return SupportRequest{route: route, path: route.Template, headers: headers}
 	case routetest.RouteUsersCreate:
 		return SupportRequest{

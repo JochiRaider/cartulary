@@ -27,7 +27,12 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.assessments.v1/rows", service.handleCreate)
+		httpapi.HandleExcludedPublicRoute(
+			mux,
+			"POST /api/v1/incidents/{incident_id}/views/cartulary.view.assessments.v1/rows",
+			service.handleCreate,
+			httpapi.CanonicalPublicRouteExclusionDetailedViewFamily,
+		)
 		return nil
 	}
 }

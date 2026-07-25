@@ -1,0 +1,106 @@
+{
+  "components": {
+    "schemas": {
+      "TimelineTimeConversionProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "incident_id",
+          "enabled",
+          "local_offset_minutes",
+          "local_label",
+          "profile_version",
+          "updated_at",
+          "updated_by_user_id"
+        ]
+      },
+      "TimelineTimeConversionProfilePutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_profile_version",
+          "enabled",
+          "local_offset_minutes",
+          "local_label"
+        ]
+      },
+      "TimelineTimeConversionProfileEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineTimeConversionProfile"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

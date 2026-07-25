@@ -2,6 +2,13 @@
   "schema_id": "cartulary.harness_schema_attachments.v1",
   "attachments": [
     {
+      "schema_id": "cartulary.administrative_audit.v1",
+      "path": "tools/schemas/cartulary.administrative_audit.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "administrative audit contract owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.agent_finalize_action_cache_record.v1",
       "path": "tools/schemas/cartulary.agent_finalize_action_cache_record.v1.schema.json",
       "classification": "public_contract",
@@ -300,6 +307,27 @@
       "path": "tools/schemas/cartulary.object_store_release_threat_policy.v1.schema.json",
       "classification": "owner_input",
       "producer": "object-store release threat-policy owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.openapi_baseline.v1",
+      "path": "tools/schemas/cartulary.openapi_baseline.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "OpenAPI aggregation owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.openapi_compatibility_waivers.v1",
+      "path": "tools/schemas/cartulary.openapi_compatibility_waivers.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "OpenAPI aggregation owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.openapi_source_manifest.v1",
+      "path": "tools/schemas/cartulary.openapi_source_manifest.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "OpenAPI aggregation owner",
       "validation": "json-shape-check"
     },
     {

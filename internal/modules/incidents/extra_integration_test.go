@@ -1,6 +1,7 @@
 package incidents_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"reflect"
 	"testing"
@@ -265,5 +266,58 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	}
 	if deleted.Before["user_id"] != targetUserID || deleted.Before["role"] != "reviewer" || deleted.After["deleted"] != true {
 		t.Fatalf("unexpected incident_membership_deleted payload: before=%#v after=%#v", deleted.Before, deleted.After)
+	}
+
+	var projectedJSON []byte
+	if err := harness.DB.QueryRow(`
+SELECT jsonb_agg(
+    jsonb_build_object(
+        'action_code', action_code,
+        'scope_kind', scope_kind,
+        'actor_user_id', actor_user_id,
+        'source', source,
+        'target_kind', target_kind,
+        'target_id', target_id,
+        'changes', changes
+    )
+    ORDER BY occurred_at ASC, audit_event_id ASC
+)
+  FROM administrative_audit_projections
+ WHERE scope_kind = 'incident'
+   AND scope_id::text = $1
+   AND target_id = $2
+`, incidentID, targetUserID).Scan(&projectedJSON); err != nil {
+		t.Fatalf("query incident membership audit projections: %v", err)
+	}
+	var projected []struct {
+		ActionCode  string `json:"action_code"`
+		ScopeKind   string `json:"scope_kind"`
+		ActorUserID string `json:"actor_user_id"`
+		Source      string `json:"source"`
+		TargetKind  string `json:"target_kind"`
+		TargetID    string `json:"target_id"`
+		Changes     []struct {
+			FieldPath  string `json:"field_path"`
+			ValueState string `json:"value_state"`
+			Before     any    `json:"before"`
+			After      any    `json:"after"`
+		} `json:"changes"`
+	}
+	if err := json.Unmarshal(projectedJSON, &projected); err != nil {
+		t.Fatalf("decode incident membership audit projections: %v", err)
+	}
+	wantActions := []string{"membership_created", "membership_role_changed", "membership_deleted"}
+	wantBefore := []any{nil, "viewer", "reviewer"}
+	wantAfter := []any{"viewer", "reviewer", nil}
+	if len(projected) != len(wantActions) {
+		t.Fatalf("unexpected incident membership projection count: got %d want %d: %#v", len(projected), len(wantActions), projected)
+	}
+	for index, event := range projected {
+		if event.ActionCode != wantActions[index] || event.ScopeKind != "incident" || event.ActorUserID != adminID || event.Source != "api" || event.TargetKind != "incident_membership" || event.TargetID != targetUserID {
+			t.Fatalf("unexpected incident membership projection %d: %#v", index, event)
+		}
+		if len(event.Changes) != 1 || event.Changes[0].FieldPath != "role" || event.Changes[0].ValueState != "visible" || event.Changes[0].Before != wantBefore[index] || event.Changes[0].After != wantAfter[index] {
+			t.Fatalf("unexpected incident membership projection changes %d: %#v", index, event.Changes)
+		}
 	}
 }

@@ -1,0 +1,322 @@
+{
+  "components": {
+    "schemas": {
+      "RecordConflictResolveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conflict_token": {
+            "type": "string"
+          },
+          "resolution_kind": {
+            "type": "string",
+            "enum": [
+              "keep_saved",
+              "use_unsaved",
+              "merged_value"
+            ]
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "resolved_value": {
+            "oneOf": [
+              {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/CollectionActionsV1"
+              }
+            ]
+          }
+        },
+        "required": [
+          "conflict_token",
+          "resolution_kind",
+          "client_txn_id"
+        ]
+      },
+      "RecordPatchChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "value": {},
+          "action_payload": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "field_key"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "value"
+            ],
+            "not": {
+              "required": [
+                "action_payload"
+              ]
+            }
+          },
+          {
+            "required": [
+              "action_payload"
+            ],
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        ]
+      },
+      "CollectionActionsV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "collection_actions_v1"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CollectionAddTokenAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddAliasAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveAliasAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddTagAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveTagAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddRecordRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveRecordRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddPartyRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemovePartyRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddRiskRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveRiskRefAction"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "actions"
+        ]
+      },
+      "CollectionAddTokenAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_token"
+          },
+          "raw_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "raw_text"
+        ]
+      },
+      "CollectionAddAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_alias"
+          },
+          "alias_text": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "op",
+          "alias_text"
+        ]
+      },
+      "CollectionRemoveAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_alias"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_alias:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_tag"
+          },
+          "tag_name": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "op",
+          "tag_name"
+        ]
+      },
+      "CollectionRemoveTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_tag"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^record_tag:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddRecordRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_record_ref"
+          },
+          "linked_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "linked_record_id"
+        ]
+      },
+      "CollectionRemoveRecordRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_record_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^record_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddPartyRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_party_ref"
+          },
+          "party_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "party_id"
+        ]
+      },
+      "CollectionRemovePartyRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_party_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^party_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddRiskRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_risk_ref"
+          },
+          "risk_ref_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "risk_ref_text"
+        ]
+      },
+      "CollectionRemoveRiskRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_risk_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^risk_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      }
+    }
+  }
+}

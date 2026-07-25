@@ -38,10 +38,10 @@ func IncidentCreateRequestHash(request CreateIncidentRequest) []byte {
 	})
 }
 
-func IncidentLifecycleRequestHash(request IncidentLifecycleRequest) []byte {
+func IncidentLifecycleRequestHash(action string, request IncidentLifecycleRequest) []byte {
 	return hashRequestPayload(map[string]any{
+		"action_route":          action,
 		"base_incident_version": request.BaseIncidentVersion,
-		"client_txn_id":         request.ClientTxnID,
 		"reason":                request.Reason,
 	})
 }

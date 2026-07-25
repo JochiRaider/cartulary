@@ -56,19 +56,22 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleQuery)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", service.handleClipboardPaste)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", service.handleBulkMutations)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
-		mux.HandleFunc("PUT /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
-		mux.HandleFunc("PUT /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/workbook-startup", service.handleWorkbookStartup)
-		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handlePatch)
-		mux.HandleFunc("POST /api/v1/records/{record_id}/linked-notes", service.handleLinkedNoteCreate)
-		mux.HandleFunc("POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
-		mux.HandleFunc("POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleQuery)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", service.handleClipboardPaste)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", service.handleBulkMutations)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
+		httpapi.HandlePublicRoute(mux, "PUT /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
+		httpapi.HandlePublicRoute(mux, "PUT /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-startup", service.handleWorkbookStartup)
+		httpapi.HandlePublicRoute(mux, "PATCH /api/v1/records/{record_id}", service.handlePatch)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/linked-notes", service.handleLinkedNoteCreate)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
 		return nil
 	}
 }

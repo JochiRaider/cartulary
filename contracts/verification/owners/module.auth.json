@@ -15,6 +15,18 @@
       "requirement_ids": [
         "module.auth.requirement.behavior_contract"
       ]
+    },
+    {
+      "verification_id": "module.auth.verification.openapi_and_administrative_audit_alignment",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.auth.requirement.openapi_and_administrative_audit_alignment"
+      ]
     }
   ]
 }

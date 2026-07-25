@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 )
 
 const EnterpriseAuthTransactionTTL = 10 * time.Minute
@@ -641,11 +643,31 @@ RETURNING id
 		}
 		return EnterpriseAuthBindingResult{}, err
 	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
-VALUES ($1, $2, 'users.auth_bindings.create', 'auth_binding_created', 'auth_binding_created', $3, $4,
-        jsonb_build_object('auth_binding_id', $5::text, 'provider_key', $6::text, 'provider_subject', $7::text, 'reason', $8::text))
-`, actor.ID, targetUserID, clientTxnID, requestID, bindingID.String(), provider.ProviderKey, providerSubject, nullableText(reason)); err != nil {
+	reasonCode := "auth_binding_created"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.auth_bindings.create",
+		RawKind:      "auth_binding_created",
+		ReasonCode:   &reasonCode,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After: map[string]any{
+			"auth_binding_id":  bindingID.String(),
+			"provider_key":     provider.ProviderKey,
+			"provider_subject": providerSubject,
+			"reason":           nullableText(reason),
+		},
+		OccurredAt: changedAt,
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionAuthBindingCreated,
+		TargetKind: administrativeaudit.TargetAuthBinding,
+		TargetID:   bindingID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("auth_binding_id", nil, bindingID.String()),
+			administrativeaudit.Visible("provider_key", nil, provider.ProviderKey),
+		},
+	}); err != nil {
 		return EnterpriseAuthBindingResult{}, err
 	}
 
@@ -779,12 +801,36 @@ func (s *Store) RotateEnterpriseAuthBinding(
 		}
 		return EnterpriseAuthBindingResult{}, err
 	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
-VALUES ($1, $2, 'users.auth_bindings.rotate', 'auth_binding_rotated', 'auth_binding_rotated', $3, $4,
-        jsonb_build_object('auth_binding_id', $5::text, 'provider_key', $6::text, 'provider_subject', $7::text),
-        jsonb_build_object('auth_binding_id', $8::text, 'provider_key', $6::text, 'provider_subject', $9::text, 'reason', $10::text))
-`, actor.ID, targetUserID, clientTxnID, requestID, authBindingID.String(), current.ProviderKey, current.ProviderSubject, replacementID.String(), newProviderSubject, nullableText(reason)); err != nil {
+	reasonCode := "auth_binding_rotated"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.auth_bindings.rotate",
+		RawKind:      "auth_binding_rotated",
+		ReasonCode:   &reasonCode,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		Before: map[string]any{
+			"auth_binding_id":  authBindingID.String(),
+			"provider_key":     current.ProviderKey,
+			"provider_subject": current.ProviderSubject,
+		},
+		After: map[string]any{
+			"auth_binding_id":  replacementID.String(),
+			"provider_key":     current.ProviderKey,
+			"provider_subject": newProviderSubject,
+			"reason":           nullableText(reason),
+		},
+		OccurredAt: changedAt,
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionAuthBindingRotated,
+		TargetKind: administrativeaudit.TargetAuthBinding,
+		TargetID:   authBindingID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("replacement_auth_binding_id", nil, replacementID.String()),
+			administrativeaudit.Visible("sessions_revoked", 0, len(revoked)),
+		},
+	}); err != nil {
 		return EnterpriseAuthBindingResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -875,12 +921,34 @@ UPDATE enterprise_auth_bindings
 		}
 		return EnterpriseAuthBindingResult{}, err
 	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
-VALUES ($1, $2, 'users.auth_bindings.retire', 'auth_binding_retired', 'auth_binding_retired', $3, $4,
-        jsonb_build_object('auth_binding_id', $5::text, 'provider_key', $6::text, 'provider_subject', $7::text),
-        jsonb_build_object('retired_at', $8::timestamptz, 'reason', $9::text))
-`, actor.ID, targetUserID, clientTxnID, requestID, authBindingID.String(), current.ProviderKey, current.ProviderSubject, changedAt, nullableText(reason)); err != nil {
+	reasonCode := "auth_binding_retired"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.auth_bindings.retire",
+		RawKind:      "auth_binding_retired",
+		ReasonCode:   &reasonCode,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		Before: map[string]any{
+			"auth_binding_id":  authBindingID.String(),
+			"provider_key":     current.ProviderKey,
+			"provider_subject": current.ProviderSubject,
+		},
+		After: map[string]any{
+			"retired_at": changedAt,
+			"reason":     nullableText(reason),
+		},
+		OccurredAt: changedAt,
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionAuthBindingRetired,
+		TargetKind: administrativeaudit.TargetAuthBinding,
+		TargetID:   authBindingID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("retired", false, true),
+			administrativeaudit.Visible("sessions_revoked", 0, len(revoked)),
+		},
+	}); err != nil {
 		return EnterpriseAuthBindingResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

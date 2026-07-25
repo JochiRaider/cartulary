@@ -34,8 +34,11 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
-		mux.HandleFunc("POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
 		return nil
 	}
 }

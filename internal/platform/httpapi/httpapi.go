@@ -42,6 +42,7 @@ type DependencySet struct {
 	Readiness           ReadinessChecker
 	Admission           AdmissionGate
 	PublicErrorFaults   PublicErrorFaultStore
+	PublicOperations    *PublicOperationRegistry
 	TestResetBootstrap  func(context.Context, pgx.Tx) error
 	ModuleOverrides     map[string]any
 	Now                 func() time.Time
@@ -138,6 +139,9 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	readiness := option.Dependencies.Readiness
 	if readiness == nil {
 		readiness = NewDependencyReadinessChecker(option.Dependencies.Postgres, option.Dependencies.ObjectStore)
+	}
+	if option.Dependencies.PublicOperations == nil {
+		option.Dependencies.PublicOperations = NewPublicOperationRegistry()
 	}
 
 	mux := http.NewServeMux()

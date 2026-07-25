@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.requirement_catalog.v1",
+  "owner_id": "platform.audit",
+  "requirements": [
+    {
+      "requirement_id": "platform.audit.requirement.contract_and_safe_projection",
+      "statement": "Administrative audit scope, actor, source, action, target, value-state, redaction, and safe legacy-projection vocabularies are closed machine contracts enforced before persistence.",
+      "contract_ids": ["cartulary.administrative_audit.v1"],
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.audit.requirement.transactional_immutable_persistence",
+      "statement": "Current administrative actions append the existing raw event and one safe scope-correct immutable projection in the same transaction; safe legacy rows alone are projected, projection rows are deployment-backup inputs, and incident portability never carries audit history.",
+      "contract_ids": ["cartulary.administrative_audit.v1"],
+      "status": "active"
+    }
+  ]
+}

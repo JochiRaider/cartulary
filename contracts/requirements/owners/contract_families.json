@@ -3,6 +3,12 @@
   "owner_id": "contract_families",
   "requirements": [
     {
+      "requirement_id": "contract-family:audit",
+      "statement": "The audit contract family is registered for deterministic generation.",
+      "contract_ids": ["cartulary.contract_family.audit.v1"],
+      "status": "active"
+    },
+    {
       "requirement_id": "contract-family:errors",
       "statement": "The errors contract family is registered for deterministic generation.",
       "contract_ids": ["cartulary.contract_family.errors.v1"],

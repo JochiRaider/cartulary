@@ -234,7 +234,7 @@ type RawField = {
   readonly string_contract_id?: string | null;
   readonly write_action?: string | null;
   readonly write_kind?: "read_only" | "direct_value" | "action_payload";
-  readonly grid_editable?: boolean;
+  readonly grid_editable: boolean;
 };
 
 type RawSyntheticFilterPredicate = {
@@ -303,9 +303,9 @@ type RawViewContract = {
   readonly fields?: readonly RawField[];
   readonly filter_fields?: readonly string[];
   readonly grouping_fields?: readonly string[];
-  readonly inline_create?: {
-    readonly minimum_create_field_sets?: readonly (readonly string[])[];
-    readonly permits_zero_field_create?: boolean;
+  readonly inline_create: {
+    readonly minimum_create_field_sets: readonly (readonly string[])[];
+    readonly permits_zero_field_create: boolean;
   };
   readonly inspector_config?: RawInspectorConfig;
   readonly required_reference_pack_keys?: unknown;
@@ -375,9 +375,6 @@ function stableKeyMatrix(
   source: string,
   label: string,
 ): readonly (readonly string[])[] {
-  if (value === undefined) {
-    return Object.freeze([]);
-  }
   if (!Array.isArray(value)) {
     viewContractInvariant(source, `${label} must be an array`);
   }
@@ -1316,6 +1313,31 @@ function requireContractBoolean(
   return value;
 }
 
+function parseInlineCreate(value: unknown, source: string) {
+  const inlineCreate = requireContractObject(value, source, "inline_create");
+  const allowedKeys = new Set([
+    "minimum_create_field_sets",
+    "permits_zero_field_create",
+  ]);
+  for (const key of Object.keys(inlineCreate)) {
+    if (!allowedKeys.has(key)) {
+      viewContractInvariant(source, `inline_create has unknown member ${key}`);
+    }
+  }
+  return {
+    minimumCreateFieldSets: stableKeyMatrix(
+      inlineCreate.minimum_create_field_sets,
+      source,
+      "inline_create.minimum_create_field_sets",
+    ),
+    permitsZeroFieldCreate: requireContractBoolean(
+      inlineCreate.permits_zero_field_create,
+      source,
+      "inline_create.permits_zero_field_create",
+    ),
+  };
+}
+
 function requireEnumValue<T extends string>(
   value: unknown,
   allowed: readonly T[],
@@ -1574,7 +1596,11 @@ export function parseViewContractJSON(
         sortable: field.sortable ?? false,
         readKind: field.read_kind ?? "text",
         writeKind: field.write_kind ?? "read_only",
-        gridEditable: field.grid_editable ?? false,
+        gridEditable: requireContractBoolean(
+          field.grid_editable,
+          source,
+          `fields[${index + 1}].grid_editable`,
+        ),
         clearable: field.clearable ?? false,
         conflictResolutionClass: field.conflict_resolution_class ?? null,
         entityBindingMode: field.entity_binding_mode ?? null,
@@ -1663,11 +1689,8 @@ export function parseViewContractJSON(
   ]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
   const technicalFields = Object.freeze([...(raw.technical_fields ?? [])]);
-  const minimumCreateFieldSets = stableKeyMatrix(
-    raw.inline_create?.minimum_create_field_sets,
-    source,
-    "inline_create.minimum_create_field_sets",
-  );
+  const inlineCreate = parseInlineCreate(raw.inline_create, source);
+  const minimumCreateFieldSets = inlineCreate.minimumCreateFieldSets;
   const requiredReferencePackKeys = stableKeyList(
     raw.required_reference_pack_keys,
     source,
@@ -1739,8 +1762,7 @@ export function parseViewContractJSON(
     technicalFields,
     inspectorConfig,
     minimumCreateFieldSets,
-    permitsZeroFieldCreate:
-      raw.inline_create?.permits_zero_field_create ?? false,
+    permitsZeroFieldCreate: inlineCreate.permitsZeroFieldCreate,
     requiredReferencePackKeys,
     fields,
     fieldMap,

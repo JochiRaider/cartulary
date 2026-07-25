@@ -65,10 +65,12 @@ func Parse(rawQuery string, config Config) (Result, *Error) {
 		scope[key] = ""
 	}
 
-	for key, rawValues := range values {
+	for _, rawValues := range values {
 		if len(rawValues) > 1 {
 			return Result{}, listError(ReasonDuplicateQueryMember)
 		}
+	}
+	for key := range values {
 		switch {
 		case key == "limit" || key == "cursor_token":
 			continue

@@ -8,6 +8,11 @@
       "status": "active"
     },
     {
+      "requirement_id": "package.protocol_ts.requirement.openapi_generated_surface",
+      "statement": "Selected OpenAPI schemas and the raw canonical contract snapshot are generated only from the assembled canonical artifact and remain exact with their declared entrypoint closure.",
+      "status": "planned"
+    },
+    {
       "requirement_id": "package.protocol_ts.requirement.shared_contract",
       "statement": "The TypeScript protocol facade decodes closed generated contracts without widening wire shapes or exposing unsafe payload detail.",
       "status": "active"

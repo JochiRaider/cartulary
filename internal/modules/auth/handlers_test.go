@@ -16,6 +16,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -2008,7 +2009,7 @@ func (s *authStoreStub) ListUsers(ctx context.Context, filter authn.UserListFilt
 	return s.listUsersFunc(ctx, filter)
 }
 
-func (s *authStoreStub) ListAdministrativeAuditEvents(ctx context.Context, filter authn.AdministrativeAuditFilter) ([]authn.AdministrativeAuditRecord, error) {
+func (s *authStoreStub) ListAdministrativeAuditEvents(ctx context.Context, filter administrativeaudit.ListFilter) ([]administrativeaudit.Record, error) {
 	return nil, nil
 }
 

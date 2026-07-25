@@ -1,0 +1,53 @@
+{
+  "components": {
+    "schemas": {
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ErrorObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "object"
+          },
+          "conflict": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message",
+          "request_id",
+          "retryable",
+          "details"
+        ]
+      }
+    }
+  }
+}

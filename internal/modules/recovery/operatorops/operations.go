@@ -541,7 +541,7 @@ func unlockRecoveryOperationAdvisoryLock(ctx context.Context, pool postgres.DB) 
 }
 
 func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPool, parsed operatorcli.Command) error {
-	return service.journalStore(pool).Append(ctx, operatorcli.JournalRecord{
+	record := operatorcli.JournalRecord{
 		OperationID: parsed.OperationID,
 		Operation:   parsed.Operation,
 		Result:      "started",
@@ -549,7 +549,15 @@ func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPoo
 			"source_config_supplied": parsed.SourceConfigPath != "",
 			"target_config_supplied": parsed.TargetConfigPath != "",
 		},
-	})
+	}
+	store := service.journalStore(pool)
+	if err := store.Append(ctx, record); err != nil {
+		return err
+	}
+	if parsed.Operation == "restore_latest" {
+		return store.AppendAuditSummary(ctx, record)
+	}
+	return nil
 }
 
 func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresPool, parsed operatorcli.Command, outcome operatorcli.Outcome, operationErr *error) {

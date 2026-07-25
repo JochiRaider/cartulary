@@ -77,8 +77,11 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err := service.recoverReferencePackJobs(context.Background()); err != nil {
 			return err
 		}
-		mux.HandleFunc("/api/v1/reference-packs", service.handleCollection)
-		mux.HandleFunc("/api/v1/reference-packs/", service.handleMember)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "/api/v1/reference-packs", service.handleCollection)
+		httpapi.HandlePublicRoute(mux, "/api/v1/reference-packs/", service.handleMember)
 		return nil
 	}
 }

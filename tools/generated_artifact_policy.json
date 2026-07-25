@@ -28,6 +28,13 @@
   ],
   "generated_files": [
     {
+      "path": "contracts/openapi/cartulary.openapi.yaml",
+      "allowed_extensions": [
+        ".yaml"
+      ],
+      "required_marker": "^\\{\\n  \"openapi\": \"3\\.1\\.0\""
+    },
+    {
       "path": "tools/task_surface.generated.mk",
       "allowed_extensions": [
         ".mk"

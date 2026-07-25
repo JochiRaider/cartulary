@@ -207,6 +207,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.audit",
+      "contract_path": "contracts/verification/owners/platform.audit.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.bootstrap",
       "contract_path": "contracts/verification/owners/platform.bootstrap.json",
       "status": "active"
@@ -224,6 +229,11 @@
     {
       "owner_id": "platform.objectstore",
       "contract_path": "contracts/verification/owners/platform.objectstore.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "contract_path": "contracts/verification/owners/platform.openapi.json",
       "status": "active"
     },
     {

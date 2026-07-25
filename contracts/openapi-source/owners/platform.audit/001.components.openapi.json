@@ -1,0 +1,152 @@
+{
+  "components": {
+    "schemas": {
+      "AdministrativeAuditChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_path": {
+            "type": "string"
+          },
+          "value_state": {
+            "type": "string",
+            "enum": [
+              "redacted",
+              "visible"
+            ]
+          },
+          "before": {},
+          "after": {}
+        },
+        "required": [
+          "field_path",
+          "value_state",
+          "before",
+          "after"
+        ]
+      },
+      "AdministrativeAuditResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "audit_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope_kind": {
+            "type": "string",
+            "enum": [
+              "deployment",
+              "incident"
+            ]
+          },
+          "scope_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "system",
+              "user"
+            ]
+          },
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "api",
+              "operator",
+              "startup",
+              "system",
+              "ui"
+            ]
+          },
+          "action_code": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdministrativeAuditChange"
+            }
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "audit_event_id",
+          "scope_kind",
+          "scope_id",
+          "occurred_at",
+          "actor_kind",
+          "actor_user_id",
+          "source",
+          "action_code",
+          "target_kind",
+          "target_id",
+          "changes",
+          "reason_code"
+        ]
+      },
+      "AdministrativeAuditData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "audit_events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdministrativeAuditResource"
+            }
+          }
+        },
+        "required": [
+          "audit_events"
+        ]
+      },
+      "AdministrativeAuditEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdministrativeAuditData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

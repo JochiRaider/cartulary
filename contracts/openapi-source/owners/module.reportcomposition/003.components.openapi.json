@@ -1,0 +1,712 @@
+{
+  "components": {
+    "schemas": {
+      "ReportCompositionValidationContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "release_scope": {
+            "$ref": "#/components/schemas/ReleaseScope"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            }
+          }
+        }
+      },
+      "CanonicalComposition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.report_composition.v1"
+          },
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "composition_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          }
+        },
+        "required": [
+          "schema_id",
+          "composition_id",
+          "composition_version",
+          "incident_id",
+          "template_id",
+          "template_version",
+          "authored_against_snapshot_id",
+          "deck_ops",
+          "diagram_decls",
+          "authored_texts",
+          "composition_sha256"
+        ]
+      },
+      "ReportCompositionCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "template_id",
+          "template_version"
+        ]
+      },
+      "ReportCompositionUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "base_draft_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "base_draft_version"
+        ]
+      },
+      "ReportCompositionDraftVersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "base_draft_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "base_draft_version"
+        ]
+      },
+      "ReportCompositionValidateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version",
+              "inline"
+            ],
+            "default": "draft"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "inline_composition": {
+            "$ref": "#/components/schemas/CanonicalComposition"
+          },
+          "validation_context": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReportCompositionValidationContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ReportCompositionPreviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version"
+            ],
+            "default": "draft"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "snapshot_id",
+          "derivation_version",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "redaction_profile_sha256",
+          "render_environment_profile_id",
+          "output_kind"
+        ]
+      },
+      "ReportCompositionResourceEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "composition_resources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReportCompositionResource"
+                }
+              }
+            },
+            "required": [
+              "composition_resources"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "draft_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "latest_composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_bound_versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionVersion"
+            }
+          },
+          "retired_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "composition_id",
+          "incident_id",
+          "template_id",
+          "template_version",
+          "draft_version",
+          "authored_against_snapshot_id",
+          "deck_ops",
+          "diagram_decls",
+          "authored_texts",
+          "latest_composition_version",
+          "release_bound_versions",
+          "retired_at"
+        ]
+      },
+      "ReportCompositionVersionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionVersion"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "composition_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "canonical_composition": {
+            "$ref": "#/components/schemas/CanonicalComposition"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "release_bound": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "composition_id",
+          "composition_version",
+          "composition_sha256",
+          "canonical_composition",
+          "created_at",
+          "release_bound"
+        ]
+      },
+      "ReportCompositionValidationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionValidationSummary"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionValidationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionIssue"
+            }
+          },
+          "composition_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "valid",
+          "stage",
+          "issues",
+          "composition_id",
+          "composition_version",
+          "composition_sha256"
+        ]
+      },
+      "CompositionIssue": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "message_key": {
+            "type": "string"
+          },
+          "safe_details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "message_key",
+          "safe_details"
+        ]
+      },
+      "ReportCompositionPreviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionPreview"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "preview_attempt_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "render_attempt_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version"
+            ]
+          },
+          "draft_version": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preview_source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            }
+          },
+          "release_scope": {
+            "const": "internal_draft"
+          }
+        },
+        "required": [
+          "preview_attempt_id",
+          "render_attempt_id",
+          "incident_id",
+          "composition_id",
+          "source_kind",
+          "draft_version",
+          "composition_version",
+          "preview_source_sha256",
+          "composition_sha256",
+          "snapshot_id",
+          "derivation_version",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "redaction_profile_sha256",
+          "render_environment_profile_id",
+          "output_kind",
+          "output_options",
+          "recipient_partition_refs",
+          "graph_projection_refs",
+          "release_scope"
+        ]
+      }
+    }
+  }
+}

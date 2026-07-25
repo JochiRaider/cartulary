@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.openapi_compatibility_waivers.v1",
+  "baseline_sha256": "de976721d98d6f6e73747dfffa3a0a3af21f6592037abb3d6ee8ad1b86195f0f",
+  "response_waivers": [],
+  "security_classification_waivers": [],
+  "security_scheme_waivers": [],
+  "component_waivers": [],
+  "path_parameter_waivers": []
+}

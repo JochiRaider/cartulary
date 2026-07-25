@@ -1,0 +1,18 @@
+{
+  "components": {
+    "schemas": {
+      "SavedViewCreateLayoutJSON": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "maxProperties": 0
+          },
+          {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          }
+        ]
+      }
+    }
+  }
+}

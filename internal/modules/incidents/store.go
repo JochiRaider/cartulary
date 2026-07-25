@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -36,6 +37,13 @@ type Store struct {
 	authStore         *authn.Store
 	hooks             storeHooks
 	workbookBootstrap WorkbookBootstrapPort
+}
+
+func (s *Store) ListAdministrativeAuditEvents(
+	ctx context.Context,
+	filter administrativeaudit.ListFilter,
+) ([]administrativeaudit.Record, error) {
+	return administrativeaudit.List(ctx, s.pool, filter)
 }
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed
@@ -897,24 +905,97 @@ type auditEvent struct {
 	RequestID    *string
 	BeforeJSON   any
 	AfterJSON    any
+	PublicSource string
 }
 
 func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) error {
-	if err := sqlc.New(tx).InsertIncidentAuditEvent(ctx, sqlc.InsertIncidentAuditEventParams{
-		ActorUserID:  pgOptionalUUIDPtr(event.ActorUserID),
-		TargetUserID: pgOptionalUUIDPtr(event.TargetUserID),
-		IncidentID:   pgOptionalUUIDPtr(event.IncidentID),
+	occurredAt := time.Now().UTC()
+	raw := administrativeaudit.RawEvent{
+		ActorUserID:  event.ActorUserID,
+		TargetUserID: event.TargetUserID,
+		IncidentID:   event.IncidentID,
 		EventSource:  event.EventSource,
 		EventKind:    event.EventKind,
-		ReasonCode:   pgTextPtr(event.ReasonCode),
-		ClientTxnID:  pgTextPtr(event.ClientTxnID),
-		RequestID:    pgTextPtr(event.RequestID),
-		Column9:      jsonBytesOrNil(event.BeforeJSON),
-		Column10:     jsonBytesOrNil(event.AfterJSON),
+		ReasonCode:   event.ReasonCode,
+		ClientTxnID:  event.ClientTxnID,
+		RequestID:    event.RequestID,
+		Before:       event.BeforeJSON,
+		After:        event.AfterJSON,
+		OccurredAt:   occurredAt,
+	}
+	actionCode, changes, projected := membershipAuditProjection(event)
+	if !projected {
+		if _, err := administrativeaudit.AppendRawTx(ctx, tx, raw); err != nil {
+			return fmt.Errorf("insert incident audit event: %w", err)
+		}
+		return nil
+	}
+	if event.IncidentID == nil || event.ActorUserID == nil || event.TargetUserID == nil {
+		return errors.New("insert incident membership audit event: projection identifiers are incomplete")
+	}
+	source := event.PublicSource
+	if source == "" {
+		source = administrativeaudit.SourceAPI
+	}
+	targetID := event.TargetUserID.String()
+	if _, err := administrativeaudit.AppendTx(ctx, tx, raw, administrativeaudit.Event{
+		ScopeKind:   administrativeaudit.ScopeIncident,
+		ScopeID:     event.IncidentID,
+		OccurredAt:  occurredAt,
+		ActorKind:   administrativeaudit.ActorUser,
+		ActorUserID: event.ActorUserID,
+		Source:      source,
+		ActionCode:  actionCode,
+		TargetKind:  administrativeaudit.TargetIncidentMembership,
+		TargetID:    &targetID,
+		Changes:     changes,
+		ReasonCode:  event.ReasonCode,
 	}); err != nil {
 		return fmt.Errorf("insert incident audit event: %w", err)
 	}
 	return nil
+}
+
+func membershipAuditProjection(event auditEvent) (string, []administrativeaudit.Change, bool) {
+	beforeRole := membershipRole(event.BeforeJSON)
+	afterRole := membershipRole(event.AfterJSON)
+	switch event.EventKind {
+	case "incident_membership_created":
+		return administrativeaudit.ActionMembershipCreated, []administrativeaudit.Change{
+			administrativeaudit.Visible("role", nil, afterRole),
+		}, true
+	case "incident_membership_updated":
+		return administrativeaudit.ActionMembershipRoleChanged, []administrativeaudit.Change{
+			administrativeaudit.Visible("role", beforeRole, afterRole),
+		}, true
+	case "incident_membership_deleted":
+		return administrativeaudit.ActionMembershipDeleted, []administrativeaudit.Change{
+			administrativeaudit.Visible("role", beforeRole, nil),
+		}, true
+	default:
+		return "", nil, false
+	}
+}
+
+func membershipRole(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed["role"]
+	case map[string]string:
+		return typed["role"]
+	default:
+		payload, err := json.Marshal(value)
+		if err != nil {
+			return nil
+		}
+		var resource struct {
+			Role any `json:"role"`
+		}
+		if err := json.Unmarshal(payload, &resource); err != nil {
+			return nil
+		}
+		return resource.Role
+	}
 }
 
 func countIncidentAdminsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
@@ -934,17 +1015,6 @@ func (s *Store) beforeCommit(routeKey string, incidentID uuid.UUID) error {
 		return nil
 	}
 	return s.hooks.beforeCommit(routeKey, incidentID)
-}
-
-func jsonBytesOrNil(value any) []byte {
-	if value == nil {
-		return nil
-	}
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	return payload
 }
 
 func extractUUID(value any) (uuid.UUID, error) {

@@ -6,6 +6,11 @@
       "requirement_id": "module.auth.requirement.behavior_contract",
       "statement": "Authentication configuration, enterprise-provider admission, runtime, transport, and frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "status": "active"
+    },
+    {
+      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
+      "statement": "Authentication, account, deployment-user, enterprise-authentication, and deployment administrative-audit runtime behavior remains exact with the owner-authored OpenAPI operations, safe audit projection, and generated client surface.",
+      "status": "active"
     }
   ]
 }

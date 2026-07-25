@@ -2,16 +2,13 @@ package auth
 
 import (
 	"encoding/json"
-	"os"
 	"slices"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestEnterpriseAuthErrorRegistriesClosed(t *testing.T) {
-	errorsDoc, err := os.ReadFile("../../../contracts/errors/index.json")
-	if err != nil {
-		t.Fatalf("read errors registry: %v", err)
-	}
 	var registry struct {
 		ReasonRegistries []struct {
 			ErrorCode   string `json:"error_code"`
@@ -20,7 +17,7 @@ func TestEnterpriseAuthErrorRegistriesClosed(t *testing.T) {
 			} `json:"reason_codes"`
 		} `json:"reason_registries"`
 	}
-	if err := json.Unmarshal(errorsDoc, &registry); err != nil {
+	if err := json.Unmarshal([]byte(contracttest.ErrorRegistryArtifactJSON(t)), &registry); err != nil {
 		t.Fatalf("decode errors registry: %v", err)
 	}
 

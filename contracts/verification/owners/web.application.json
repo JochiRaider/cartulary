@@ -3,6 +3,18 @@
   "owner_id": "web.application",
   "verifications": [
     {
+      "verification_id": "web.application.verification.administrative_audit_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "web.application.requirement.administrative_audit_contract"
+      ]
+    },
+    {
       "verification_id": "web.application.verification.frontend_regression",
       "behavior_class": "product",
       "profile": "base",

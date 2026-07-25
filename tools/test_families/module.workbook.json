@@ -2064,6 +2064,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.unit.openapi_record_mutation_contract_12a2ffaaf6",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookOpenAPIRecordMutationContracts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.unit.shared_paste_and_bulk_planning_parses_quoted_csv_5659d1fb01",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

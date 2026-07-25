@@ -6,6 +6,16 @@
       "requirement_id": "platform.viewschema.requirement.behavior_contract",
       "statement": "view-schema registry and validation boundaries postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "status": "active"
+    },
+    {
+      "requirement_id": "platform.viewschema.requirement.openapi_grid_editable_alignment",
+      "statement": "Every current public view-schema field emits an explicit boolean grid_editable value that is required and non-null in the owner-authored OpenAPI contract.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "platform.viewschema.requirement.openapi_inline_create_alignment",
+      "statement": "Every current public view-schema resource emits an explicit inline-create policy that is admitted exactly by the owner-authored OpenAPI contract.",
+      "status": "active"
     }
   ]
 }

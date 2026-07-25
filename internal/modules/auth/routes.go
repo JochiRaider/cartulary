@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -124,7 +125,7 @@ type userAdminStore interface {
 }
 
 type deploymentAuditReader interface {
-	ListAdministrativeAuditEvents(context.Context, authn.AdministrativeAuditFilter) ([]authn.AdministrativeAuditRecord, error)
+	ListAdministrativeAuditEvents(context.Context, administrativeaudit.ListFilter) ([]administrativeaudit.Record, error)
 }
 
 type enterpriseAuthStore interface {
@@ -185,19 +186,22 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return fmt.Errorf("declare authentication public operations: %w", err)
+		}
 
-		mux.HandleFunc("/api/v1/auth/login", service.handleLogin)
-		mux.HandleFunc("/api/v1/auth/session", service.handleSession)
-		mux.HandleFunc("/api/v1/auth/logout", service.handleLogout)
-		mux.HandleFunc("/api/v1/auth/credential-state", service.handleCredentialState)
-		mux.HandleFunc("/api/v1/auth/password/change", service.handlePasswordChange)
-		mux.HandleFunc("/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
-		mux.HandleFunc("/api/v1/auth/mfa/totp/complete", service.handleTOTPComplete)
-		mux.HandleFunc("/api/v1/account/profile", service.handleAccountProfile)
-		mux.HandleFunc("/api/v1/account/preferences", service.handleAccountPreferences)
-		mux.HandleFunc("/api/v1/administrative-audit-events", service.handleAdministrativeAuditEvents)
-		mux.HandleFunc("/api/v1/users", service.handleUsersCollection)
-		mux.HandleFunc("/api/v1/users/", service.handleUsersMember)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/login", service.handleLogin)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/session", service.handleSession)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/logout", service.handleLogout)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/credential-state", service.handleCredentialState)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/password/change", service.handlePasswordChange)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/mfa/totp/complete", service.handleTOTPComplete)
+		httpapi.HandlePublicRoute(mux, "/api/v1/account/profile", service.handleAccountProfile)
+		httpapi.HandlePublicRoute(mux, "/api/v1/account/preferences", service.handleAccountPreferences)
+		httpapi.HandlePublicRoute(mux, "/api/v1/administrative-audit-events", service.handleAdministrativeAuditEvents)
+		httpapi.HandlePublicRoute(mux, "/api/v1/users", service.handleUsersCollection)
+		httpapi.HandlePublicRoute(mux, "/api/v1/users/", service.handleUsersMember)
 		return nil
 	}
 }
@@ -214,10 +218,13 @@ func RegisterEnterpriseRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("/api/v1/auth/providers", service.handleEnterpriseProviders)
-		mux.HandleFunc("/api/v1/auth/providers/", service.handleEnterpriseProviders)
-		mux.HandleFunc("/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
-		mux.HandleFunc("/api/v1/auth/saml/", service.handleEnterpriseSAML)
+		if err := httpapi.DeclarePublicOperations(deps, EnterprisePublicOperations()...); err != nil {
+			return fmt.Errorf("declare enterprise authentication public operations: %w", err)
+		}
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/providers", service.handleEnterpriseProviders)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/providers/", service.handleEnterpriseProviders)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
+		httpapi.HandlePublicRoute(mux, "/api/v1/auth/saml/", service.handleEnterpriseSAML)
 		return nil
 	}
 }

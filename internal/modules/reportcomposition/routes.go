@@ -36,15 +36,18 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		mux.HandleFunc("PATCH /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		mux.HandleFunc("DELETE /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions", service.handleVersions)
-		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}", service.handleVersion)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate", service.handleValidate)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview", service.handlePreview)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
+		httpapi.HandlePublicRoute(mux, "PATCH /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
+		httpapi.HandlePublicRoute(mux, "DELETE /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions", service.handleVersions)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}", service.handleVersion)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate", service.handleValidate)
+		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview", service.handlePreview)
 		return nil
 	}
 }

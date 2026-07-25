@@ -1,0 +1,336 @@
+{
+  "components": {
+    "schemas": {
+      "ObjectBlobCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "filename_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content_type_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sha256_hex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "incident_id",
+          "client_txn_id",
+          "byte_size"
+        ]
+      },
+      "ObjectBlobAcceptedContract": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "filename_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content_type_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sha256_hex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "byte_size",
+          "filename_hint",
+          "content_type_hint",
+          "sha256_hex"
+        ]
+      },
+      "ObjectBlobUploadTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "type": "string",
+            "description": "Opaque same-origin app-owned upload capability path in the base profile.",
+            "pattern": "^/api/v1/object-uploads/"
+          },
+          "method": {
+            "const": "PUT"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "headers": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "href",
+          "method",
+          "expires_at",
+          "headers"
+        ]
+      },
+      "ObjectBlobCreateData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object_blob_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "upload_state": {
+            "const": "pending"
+          },
+          "target_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pending_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "upload_target": {
+            "$ref": "#/components/schemas/ObjectBlobUploadTarget"
+          },
+          "accepted_contract": {
+            "$ref": "#/components/schemas/ObjectBlobAcceptedContract"
+          }
+        },
+        "required": [
+          "incident_id",
+          "object_blob_id",
+          "upload_state",
+          "target_expires_at",
+          "pending_expires_at",
+          "upload_target",
+          "accepted_contract"
+        ]
+      },
+      "ObjectBlobCreateEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ObjectBlobCreateData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EvidenceAttachBlobRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "object_blob_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_blob_id",
+          "base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "EvidenceAttachBlobData": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationData"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "object_blob_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "object_blob_id"
+            ]
+          }
+        ]
+      },
+      "EvidenceAttachBlobEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EvidenceAttachBlobData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EvidenceHandleIssueRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "EvidenceHandleData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object_blob_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle_kind": {
+            "enum": [
+              "preview",
+              "download"
+            ]
+          },
+          "href": {
+            "type": "string"
+          },
+          "method": {
+            "const": "GET"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "single_use": {
+            "type": "boolean"
+          },
+          "media_class": {
+            "type": "string"
+          },
+          "preview_kind": {
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "inline",
+              "attachment"
+            ]
+          },
+          "filename": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence_lifecycle_state": {
+            "type": "string"
+          },
+          "upload_state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "record_id",
+          "object_blob_id",
+          "handle_kind",
+          "href",
+          "method",
+          "expires_at",
+          "single_use",
+          "media_class",
+          "disposition",
+          "filename",
+          "content_type",
+          "size_bytes",
+          "sha256",
+          "evidence_lifecycle_state",
+          "upload_state"
+        ]
+      },
+      "EvidenceHandleEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EvidenceHandleData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

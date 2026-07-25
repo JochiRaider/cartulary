@@ -47,21 +47,22 @@ const (
 type RouteID string
 
 const (
-	RouteLogin              RouteID = "login"
-	RouteSession            RouteID = "session"
-	RouteLogout             RouteID = "logout"
-	RouteCredentialState    RouteID = "credential_state"
-	RoutePasswordChange     RouteID = "password_change"
-	RouteTOTPBegin          RouteID = "totp_begin"
-	RouteTOTPComplete       RouteID = "totp_complete"
-	RouteUsersList          RouteID = "users_list"
-	RouteUsersCreate        RouteID = "users_create"
-	RouteUsersGet           RouteID = "users_get"
-	RouteUsersPatch         RouteID = "users_patch"
-	RouteUsersPasswordReset RouteID = "users_password_reset"
-	RouteUsersTOTPReset     RouteID = "users_totp_reset"
-	RouteUsersRevokeAll     RouteID = "users_revoke_all"
-	RouteSessionLifecycleWS RouteID = "session_lifecycle_ws"
+	RouteLogin               RouteID = "login"
+	RouteSession             RouteID = "session"
+	RouteLogout              RouteID = "logout"
+	RouteCredentialState     RouteID = "credential_state"
+	RoutePasswordChange      RouteID = "password_change"
+	RouteTOTPBegin           RouteID = "totp_begin"
+	RouteTOTPComplete        RouteID = "totp_complete"
+	RouteAdministrativeAudit RouteID = "administrative_audit"
+	RouteUsersList           RouteID = "users_list"
+	RouteUsersCreate         RouteID = "users_create"
+	RouteUsersGet            RouteID = "users_get"
+	RouteUsersPatch          RouteID = "users_patch"
+	RouteUsersPasswordReset  RouteID = "users_password_reset"
+	RouteUsersTOTPReset      RouteID = "users_totp_reset"
+	RouteUsersRevokeAll      RouteID = "users_revoke_all"
+	RouteSessionLifecycleWS  RouteID = "session_lifecycle_ws"
 )
 
 type RouteAuthorizationChange string
@@ -317,6 +318,21 @@ func PublicRouteInventory() []RouteInventoryEntry {
 				RouteHarnessSurfaceEnvelope,
 				RouteHarnessCSRF,
 				RouteHarnessReplayStoredPayload,
+			),
+		},
+		{
+			ID:                  RouteAdministrativeAudit,
+			Transport:           RouteTransportHTTP,
+			Method:              http.MethodGet,
+			Template:            "/api/v1/administrative-audit-events",
+			SuccessStatus:       http.StatusOK,
+			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
+			HarnessRequirements: routeHarnessRequirements(
+				RouteHarnessSurfaceEnvelope,
+				RouteHarnessBootstrapBoundary,
+				RouteHarnessAuthorization,
 			),
 		},
 		{

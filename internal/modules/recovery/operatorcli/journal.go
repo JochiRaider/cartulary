@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -119,7 +120,7 @@ func (store JournalStore) AppendAuditSummary(ctx context.Context, record Journal
 	if recordedAt.IsZero() {
 		recordedAt = store.now()().UTC()
 	}
-	after, err := json.Marshal(map[string]any{
+	after := map[string]any{
 		"schema_id":     "cartulary.operator_recovery_audit_summary.v1",
 		"operation_id":  record.OperationID,
 		"operation":     record.Operation,
@@ -129,26 +130,74 @@ func (store JournalStore) AppendAuditSummary(ctx context.Context, record Journal
 		"reason_code":   record.ReasonCode,
 		"summary":       safeJournalSummary(record.Summary),
 		"recorded_at":   recordedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("encode operator recovery audit summary: %w", err)
 	}
-	if _, err := store.DB.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (
-    actor_user_id,
-    target_user_id,
-    event_source,
-    event_kind,
-    before_json,
-    after_json,
-    reason_code,
-    request_id
-)
-VALUES (NULL, NULL, $1, $2, NULL, $3::jsonb, NULLIF($4, ''), $5)
-`, "operator.recovery."+record.Operation, "operator_recovery_"+record.Result, string(after), record.ReasonCode, record.OperationID); err != nil {
+	var reasonCode *string
+	if record.ReasonCode != "" {
+		reasonCode = &record.ReasonCode
+	}
+	raw := administrativeaudit.RawEvent{
+		EventSource: "operator.recovery." + record.Operation,
+		EventKind:   "operator_recovery_" + record.Result,
+		ReasonCode:  reasonCode,
+		RequestID:   &record.OperationID,
+		After:       after,
+		OccurredAt:  recordedAt,
+	}
+	actionCode, targetKind, targetID, changes, projected := recoveryAuditProjection(record)
+	if !projected {
+		if _, err := administrativeaudit.AppendRaw(ctx, store.DB, raw); err != nil {
+			return fmt.Errorf("append operator recovery raw audit summary: %w", err)
+		}
+		return nil
+	}
+	if _, err := administrativeaudit.Append(ctx, store.DB, raw, administrativeaudit.Event{
+		ScopeKind:  administrativeaudit.ScopeDeployment,
+		OccurredAt: recordedAt,
+		ActorKind:  administrativeaudit.ActorOperator,
+		Source:     administrativeaudit.SourceOperator,
+		ActionCode: actionCode,
+		TargetKind: targetKind,
+		TargetID:   &targetID,
+		Changes:    changes,
+		ReasonCode: reasonCode,
+	}); err != nil {
 		return fmt.Errorf("append operator recovery audit summary: %w", err)
 	}
 	return nil
+}
+
+func recoveryAuditProjection(record JournalRecord) (string, string, string, []administrativeaudit.Change, bool) {
+	changes := []administrativeaudit.Change{
+		administrativeaudit.Visible("operation", nil, record.Operation),
+		administrativeaudit.Visible("result", nil, record.Result),
+	}
+	if record.ErrorCode != "" {
+		changes = append(changes, administrativeaudit.Visible("error_code", nil, record.ErrorCode))
+	}
+	if record.ReasonCode != "" {
+		changes = append(changes, administrativeaudit.Visible("reason_code", nil, record.ReasonCode))
+	}
+	switch record.Operation {
+	case "backup_create":
+		if record.Result != "succeeded" || record.BackupSetID == nil || *record.BackupSetID == "" {
+			return "", "", "", nil, false
+		}
+		changes = append(changes, administrativeaudit.Visible("backup_set_id", nil, *record.BackupSetID))
+		return administrativeaudit.ActionBackupCreated, administrativeaudit.TargetBackupSet, *record.BackupSetID, changes, true
+	case "restore_latest":
+		actionCode := administrativeaudit.ActionRestoreCompleted
+		switch record.Result {
+		case "started":
+			actionCode = administrativeaudit.ActionRestoreStarted
+		case "failed":
+			actionCode = administrativeaudit.ActionRestoreFailed
+		}
+		return actionCode, administrativeaudit.TargetRestoreOperation, record.OperationID, changes, true
+	case "restore_verify_latest", "restore_verify_due":
+		return administrativeaudit.ActionRestoreVerificationCompleted, administrativeaudit.TargetRestoreOperation, record.OperationID, changes, true
+	default:
+		return "", "", "", nil, false
+	}
 }
 
 func (store JournalStore) now() func() time.Time {

@@ -1,0 +1,186 @@
+{
+  "schema_id": "cartulary.administrative_audit.v1",
+  "scope_kinds": ["deployment", "incident"],
+  "actor_kinds": ["operator", "system", "user"],
+  "sources": ["api", "operator", "startup", "system", "ui"],
+  "value_states": ["redacted", "visible"],
+  "actions": [
+    {
+      "action_code": "account_preferences_updated",
+      "scope_kind": "deployment",
+      "target_kind": "account_preferences"
+    },
+    {
+      "action_code": "auth_binding_created",
+      "scope_kind": "deployment",
+      "target_kind": "auth_binding"
+    },
+    {
+      "action_code": "auth_binding_retired",
+      "scope_kind": "deployment",
+      "target_kind": "auth_binding"
+    },
+    {
+      "action_code": "auth_binding_rotated",
+      "scope_kind": "deployment",
+      "target_kind": "auth_binding"
+    },
+    {
+      "action_code": "backup_created",
+      "scope_kind": "deployment",
+      "target_kind": "backup_set"
+    },
+    {
+      "action_code": "bootstrap_admin_created",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "deployment_admin_granted",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "deployment_admin_revoked",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "legacy_administrative_event",
+      "scope_kind": "deployment",
+      "target_kind": "legacy_administrative_event"
+    },
+    {
+      "action_code": "legacy_administrative_event",
+      "scope_kind": "incident",
+      "target_kind": "legacy_administrative_event"
+    },
+    {
+      "action_code": "membership_created",
+      "scope_kind": "incident",
+      "target_kind": "incident_membership"
+    },
+    {
+      "action_code": "membership_deleted",
+      "scope_kind": "incident",
+      "target_kind": "incident_membership"
+    },
+    {
+      "action_code": "membership_role_changed",
+      "scope_kind": "incident",
+      "target_kind": "incident_membership"
+    },
+    {
+      "action_code": "password_changed",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "password_reset",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "restore_completed",
+      "scope_kind": "deployment",
+      "target_kind": "restore_operation"
+    },
+    {
+      "action_code": "restore_failed",
+      "scope_kind": "deployment",
+      "target_kind": "restore_operation"
+    },
+    {
+      "action_code": "restore_started",
+      "scope_kind": "deployment",
+      "target_kind": "restore_operation"
+    },
+    {
+      "action_code": "restore_verification_completed",
+      "scope_kind": "deployment",
+      "target_kind": "restore_operation"
+    },
+    {
+      "action_code": "sessions_revoked",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "totp_enrollment_begun",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "totp_enrollment_completed",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "totp_reset",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "user_created",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "user_profile_updated",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    },
+    {
+      "action_code": "user_status_changed",
+      "scope_kind": "deployment",
+      "target_kind": "user"
+    }
+  ],
+  "forbidden_visible_field_tokens": [
+    "access_token",
+    "bootstrap_token",
+    "credential",
+    "dsn",
+    "id_token",
+    "initial_password",
+    "new_password",
+    "object_key",
+    "otpauth_uri",
+    "password",
+    "password_hash",
+    "private_key",
+    "provider_assertion",
+    "provider_token",
+    "raw_saml_response",
+    "recovery_key",
+    "reset_password",
+    "secret",
+    "session_token",
+    "storage_key",
+    "totp_secret"
+  ],
+  "legacy_backfill": {
+    "deployment_event_kinds": [
+      "account_preferences_updated",
+      "account_profile_updated",
+      "auth_binding_created",
+      "auth_binding_retired",
+      "auth_binding_rotated",
+      "bootstrap_admin_created",
+      "operator_recovery_failed",
+      "operator_recovery_no_op",
+      "operator_recovery_succeeded",
+      "password_reset",
+      "session_revoked",
+      "sessions_revoke_all",
+      "totp_reset",
+      "user_created",
+      "user_updated"
+    ],
+    "incident_membership_event_kinds": [
+      "incident_membership_created",
+      "incident_membership_deleted",
+      "incident_membership_updated"
+    ]
+  }
+}

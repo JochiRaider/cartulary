@@ -1108,6 +1108,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("network-flow")) {
     throw new Error(`${file}.families must declare network-flow`);
   }
+  if (!familyIDs.includes("audit")) {
+    throw new Error(`${file}.families must declare audit`);
+  }
   const expectedBaseActiveIDs = [
     "openapi",
     "ws",
@@ -1116,12 +1119,12 @@ function validateContractFamilyRegistryShape(file) {
     "extensions",
   ];
   const expectedActiveIDVariants = [
-    expectedBaseActiveIDs.join("\n"),
-    [...expectedBaseActiveIDs, "network-flow"].join("\n"),
+    [...expectedBaseActiveIDs, "audit"].join("\n"),
+    [...expectedBaseActiveIDs, "network-flow", "audit"].join("\n"),
   ];
-  if (!expectedActiveIDVariants.includes(activeIDsByOrder.join("\n"))) {
+  if (!expectedActiveIDVariants.includes(activeIDsByOrder.filter(Boolean).join("\n"))) {
     throw new Error(
-      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")} with optional network-flow`,
+      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit`,
     );
   }
   if (plannedIDs.length > 1 || (plannedIDs.length === 1 && plannedIDs[0] !== "network-flow")) {

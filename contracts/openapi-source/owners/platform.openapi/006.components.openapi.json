@@ -1,0 +1,80 @@
+{
+  "components": {
+    "schemas": {
+      "SourceProjectionRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "graph_view_id": {
+            "type": "string"
+          },
+          "projection_run_id": {
+            "type": "string"
+          },
+          "source_snapshot_id": {
+            "type": "string"
+          },
+          "projection_schema_id": {
+            "const": "graph_projection.v1"
+          },
+          "projection_version": {
+            "type": "string"
+          },
+          "projection_config_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "projection_source_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "projection_output_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "graph_view_id",
+          "projection_run_id",
+          "source_snapshot_id",
+          "projection_schema_id",
+          "projection_version",
+          "projection_config_digest",
+          "projection_source_digest",
+          "projection_output_digest"
+        ]
+      },
+      "ReleaseOutputOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.reporting_render_request_options.v1"
+          },
+          "source_only": {
+            "type": "boolean",
+            "default": false
+          },
+          "pdf": {
+            "type": "boolean"
+          },
+          "svg": {
+            "type": "boolean"
+          },
+          "png": {
+            "type": "boolean",
+            "default": false
+          },
+          "pptx": {
+            "type": "boolean",
+            "default": false
+          },
+          "rendered_diagrams": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  }
+}

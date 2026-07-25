@@ -15,6 +15,30 @@
       ]
     },
     {
+      "verification_id": "package.view_contracts.verification.openapi_required_grid_editable",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "package.view_contracts.requirement.openapi_required_grid_editable"
+      ]
+    },
+    {
+      "verification_id": "package.view_contracts.verification.openapi_required_inline_create",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "package.view_contracts.requirement.openapi_required_inline_create"
+      ]
+    },
+    {
       "verification_id": "package.view_contracts.verification.shared_contract",
       "behavior_class": "architecture",
       "profile": "support",

@@ -1,0 +1,46 @@
+{
+  "components": {
+    "schemas": {
+      "WorkbookQueryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewRow"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "view_schema_id",
+          "rows"
+        ]
+      },
+      "WorkbookQueryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookQueryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkbookQueryMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

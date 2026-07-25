@@ -1,0 +1,370 @@
+{
+  "schema_id": "cartulary.openapi_source_manifest.v1",
+  "target": "contracts/openapi/cartulary.openapi.yaml",
+  "requirements_registry": "contracts/requirements/registry.json",
+  "compatibility_waivers": "contracts/openapi-source/compatibility-waivers.json",
+  "fragment_root": "contracts/openapi-source/owners",
+  "indent": "  ",
+  "trailing_newline": true,
+  "limits": {
+    "max_fragments": 256,
+    "max_fragment_bytes": 2097152,
+    "max_total_input_bytes": 16777216,
+    "max_json_depth": 128,
+    "max_paths": 2048,
+    "max_operations": 4096,
+    "max_named_components": 16384
+  },
+  "fragments": [
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/001.root.openapi.json",
+      "role": "root"
+    },
+    {
+      "owner_id": "module.auth",
+      "path": "contracts/openapi-source/owners/module.auth/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.incidents",
+      "path": "contracts/openapi-source/owners/module.incidents/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.timeline",
+      "path": "contracts/openapi-source/owners/module.timeline/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/002.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "path": "contracts/openapi-source/owners/module.savedviews/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/003.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reporting",
+      "path": "contracts/openapi-source/owners/module.reporting/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "path": "contracts/openapi-source/owners/module.reportcomposition/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reporting",
+      "path": "contracts/openapi-source/owners/module.reporting/002.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.jobapi",
+      "path": "contracts/openapi-source/owners/module.jobapi/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.imports",
+      "path": "contracts/openapi-source/owners/module.imports/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "path": "contracts/openapi-source/owners/module.incidentbundles/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.extensions",
+      "path": "contracts/openapi-source/owners/module.extensions/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/004.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.revisions",
+      "path": "contracts/openapi-source/owners/module.revisions/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/005.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.timeline",
+      "path": "contracts/openapi-source/owners/module.timeline/002.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.entities",
+      "path": "contracts/openapi-source/owners/module.entities/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.evidence",
+      "path": "contracts/openapi-source/owners/module.evidence/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.viewschema",
+      "path": "contracts/openapi-source/owners/platform.viewschema/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "path": "contracts/openapi-source/owners/module.reference_data/001.paths.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.evidence",
+      "path": "contracts/openapi-source/owners/module.evidence/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.incidentbundles",
+      "path": "contracts/openapi-source/owners/module.incidentbundles/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.extensions",
+      "path": "contracts/openapi-source/owners/module.extensions/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/006.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/004.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reporting",
+      "path": "contracts/openapi-source/owners/module.reporting/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/005.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "path": "contracts/openapi-source/owners/module.reportcomposition/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/006.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reportcomposition",
+      "path": "contracts/openapi-source/owners/module.reportcomposition/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/007.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reporting",
+      "path": "contracts/openapi-source/owners/module.reporting/004.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.jobapi",
+      "path": "contracts/openapi-source/owners/module.jobapi/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/008.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.imports",
+      "path": "contracts/openapi-source/owners/module.imports/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.auth",
+      "path": "contracts/openapi-source/owners/module.auth/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.audit",
+      "path": "contracts/openapi-source/owners/platform.audit/001.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/009.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/007.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/010.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "path": "contracts/openapi-source/owners/module.savedviews/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/011.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "path": "contracts/openapi-source/owners/module.savedviews/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/012.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.savedviews",
+      "path": "contracts/openapi-source/owners/module.savedviews/004.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/008.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.timeline",
+      "path": "contracts/openapi-source/owners/module.timeline/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/009.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.revisions",
+      "path": "contracts/openapi-source/owners/module.revisions/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/010.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.timeline",
+      "path": "contracts/openapi-source/owners/module.timeline/004.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.entities",
+      "path": "contracts/openapi-source/owners/module.entities/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/013.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/011.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.revisions",
+      "path": "contracts/openapi-source/owners/module.revisions/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/014.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.workbook",
+      "path": "contracts/openapi-source/owners/module.workbook/012.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.timeline",
+      "path": "contracts/openapi-source/owners/module.timeline/006.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.auth",
+      "path": "contracts/openapi-source/owners/module.auth/003.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.auth",
+      "path": "contracts/openapi-source/owners/module.auth/004.responses.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.openapi",
+      "path": "contracts/openapi-source/owners/platform.openapi/015.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "platform.viewschema",
+      "path": "contracts/openapi-source/owners/platform.viewschema/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.reference_data",
+      "path": "contracts/openapi-source/owners/module.reference_data/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.incidents",
+      "path": "contracts/openapi-source/owners/module.incidents/002.components.openapi.json",
+      "role": "owner"
+    },
+    {
+      "owner_id": "module.incidents",
+      "path": "contracts/openapi-source/owners/module.incidents/003.responses.openapi.json",
+      "role": "owner"
+    }
+  ]
+}

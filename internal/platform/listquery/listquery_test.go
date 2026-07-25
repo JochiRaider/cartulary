@@ -35,6 +35,7 @@ func TestParseRejectsListQueryFailures(t *testing.T) {
 		want string
 	}{
 		{"duplicate", "search=a&search=b", ReasonDuplicateQueryMember},
+		{"duplicate precedes unknown", "unknown=value&status=active&status=closed", ReasonDuplicateQueryMember},
 		{"unknown", "sort=title", ReasonUnknownQueryMember},
 		{"invalid search", "search=%00", ReasonInvalidSearch},
 		{"zero tokens", "search=---", ReasonInvalidSearch},

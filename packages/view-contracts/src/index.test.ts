@@ -27,6 +27,10 @@ function fixtureRawContract() {
     filter_fields: ["fixture.queryable"],
     grouping_fields: ["fixture.queryable"],
     technical_fields: ["record_id", "row_version"],
+    inline_create: {
+      minimum_create_field_sets: [],
+      permits_zero_field_create: false,
+    },
     fields: [
       {
         field_key: "fixture.editable",
@@ -41,12 +45,14 @@ function fixtureRawContract() {
         groupable: true,
         header_sort_field_key: "fixture.sort_shadow",
         sortable: true,
+        grid_editable: false,
       },
       {
         field_key: "fixture.sort_shadow",
         label: "Sort Shadow",
         default_hidden: true,
         sortable: true,
+        grid_editable: false,
       },
     ],
     synthetic_filter_predicates: [
@@ -130,6 +136,66 @@ function expectInvariantFailure(raw: unknown, pattern: RegExp) {
 }
 
 describe("view-contracts", () => {
+  it("requires explicit boolean grid_editable inputs", () => {
+    const parsed = parseFixture();
+    expect(
+      parsed.fields.every((field) => typeof field.gridEditable === "boolean"),
+    ).toBe(true);
+
+    for (const gridEditable of [undefined, null, "false"]) {
+      expectInvariantFailure(
+        {
+          ...fixtureRawContract(),
+          fields: [
+            {
+              ...fixtureRawContract().fields[0],
+              grid_editable: gridEditable,
+            },
+          ],
+        },
+        /View contract invariant failed: broken-contract\.json fields\[1\]\.grid_editable must be a boolean/,
+      );
+    }
+  });
+
+  it("requires an exact inline_create policy", () => {
+    const { inline_create: _omitted, ...withoutInlineCreate } =
+      fixtureRawContract();
+    const missingMinimum = {
+      permits_zero_field_create: false,
+    };
+    const missingPermission = {
+      minimum_create_field_sets: [],
+    };
+
+    expectInvariantFailure(
+      withoutInlineCreate,
+      /View contract invariant failed: broken-contract\.json inline_create must be an object/,
+    );
+    expectInvariantFailure(
+      { ...fixtureRawContract(), inline_create: null },
+      /View contract invariant failed: broken-contract\.json inline_create must be an object/,
+    );
+    expectInvariantFailure(
+      { ...fixtureRawContract(), inline_create: missingMinimum },
+      /View contract invariant failed: broken-contract\.json inline_create\.minimum_create_field_sets must be an array/,
+    );
+    expectInvariantFailure(
+      { ...fixtureRawContract(), inline_create: missingPermission },
+      /View contract invariant failed: broken-contract\.json inline_create\.permits_zero_field_create must be a boolean/,
+    );
+    expectInvariantFailure(
+      {
+        ...fixtureRawContract(),
+        inline_create: {
+          ...fixtureRawContract().inline_create,
+          legacy_default: false,
+        },
+      },
+      /View contract invariant failed: broken-contract\.json inline_create has unknown member legacy_default/,
+    );
+  });
+
   it("joins workbook identity and status metadata in Core 01 Table 7.4-A order", () => {
     const entries = listWorkbookSurfaceContracts();
 
@@ -748,12 +814,14 @@ describe("view-schema field-key adapter contract", () => {
           groupable: true,
           header_sort_field_key: "fixture.sort_shadow",
           sortable: true,
+          grid_editable: false,
         },
         {
           field_key: "fixture.sort_shadow",
           label: "Sort Shadow Renamed",
           default_hidden: true,
           sortable: true,
+          grid_editable: false,
         },
       ],
       synthetic_filter_predicates: [
@@ -799,12 +867,14 @@ describe("view-schema field-key adapter contract", () => {
           groupable: true,
           header_sort_field_key: "fixture.sort_shadow",
           sortable: true,
+          grid_editable: false,
         },
         {
           field_key: "fixture.sort_shadow",
           label: "Sort Shadow",
           default_hidden: true,
           sortable: true,
+          grid_editable: false,
         },
       ],
     });
@@ -899,6 +969,7 @@ describe("view-schema field-key adapter contract", () => {
           {
             field_key: "fixture.queryable",
             label: "Duplicate Field",
+            grid_editable: false,
           },
         ],
       },

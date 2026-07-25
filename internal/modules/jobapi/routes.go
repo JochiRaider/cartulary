@@ -40,7 +40,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("/api/v1/jobs/", service.handleJobsMember)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "/api/v1/jobs/", service.handleJobsMember)
 		return nil
 	}
 }

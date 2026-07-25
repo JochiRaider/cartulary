@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -77,29 +78,6 @@ type AccountPreferencesRecord struct {
 	PreferencesVersion int64
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
-}
-
-type AdministrativeAuditFilter struct {
-	ActorUserID   *uuid.UUID
-	ActionCode    *string
-	TargetKind    *string
-	TargetID      *string
-	OccurredAtGTE *time.Time
-	OccurredAtLT  *time.Time
-}
-
-type AdministrativeAuditRecord struct {
-	ID           uuid.UUID
-	ActorUserID  *uuid.UUID
-	TargetUserID *uuid.UUID
-	IncidentID   *uuid.UUID
-	EventSource  string
-	EventKind    string
-	ReasonCode   *string
-	RequestID    *string
-	BeforeJSON   []byte
-	AfterJSON    []byte
-	OccurredAt   time.Time
 }
 
 type SessionRecord struct {
@@ -506,10 +484,25 @@ UPDATE user_sessions
 		session.RevokeReasonCode = &reason
 		revoked = &session
 
-		if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, before_json, after_json)
-VALUES ($1, $2, 'auth.login', 'session_revoked', $3::text, $4::text, jsonb_build_object('session_id', $5::text), jsonb_build_object('reason_code', $3::text))
-`, user.ID, user.ID, ConcurrencyLimitReasonCode, requestID, session.ID); err != nil {
+		if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+			ActorUserID:  &user.ID,
+			TargetUserID: &user.ID,
+			RawSource:    "auth.login",
+			RawKind:      "session_revoked",
+			ReasonCode:   &reason,
+			RequestID:    &requestID,
+			Before:       map[string]any{"session_id": session.ID},
+			After:        map[string]any{"reason_code": ConcurrencyLimitReasonCode},
+			OccurredAt:   timing.AuthenticatedAt.UTC(),
+			Source:       administrativeaudit.SourceSystem,
+			ActionCode:   administrativeaudit.ActionSessionsRevoked,
+			TargetKind:   administrativeaudit.TargetUser,
+			TargetID:     user.ID.String(),
+			Changes: []administrativeaudit.Change{
+				administrativeaudit.Visible("reason_code", nil, ConcurrencyLimitReasonCode),
+				administrativeaudit.Visible("sessions_revoked", 0, 1),
+			},
+		}); err != nil {
 			return SessionRecord{}, nil, fmt.Errorf("insert concurrency audit event: %w", err)
 		}
 	}
@@ -862,6 +855,29 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("insert pending totp enrollment: %w", err)
 	}
 
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &userID,
+		TargetUserID: &userID,
+		RawSource:    "auth.totp.begin",
+		RawKind:      "totp_enrollment_begun",
+		ClientTxnID:  &clientTxnID,
+		After: map[string]any{
+			"enrollment_id":   created.ID,
+			"replaces_active": replacesActive,
+		},
+		OccurredAt: created.CreatedAt.UTC(),
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionTOTPEnrollmentBegun,
+		TargetKind: administrativeaudit.TargetUser,
+		TargetID:   userID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("replaces_active", nil, replacesActive),
+			administrativeaudit.Redacted("totp_secret"),
+		},
+	}); err != nil {
+		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("append totp enrollment begun audit: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("commit totp enrollment transaction: %w", err)
 	}
@@ -973,6 +989,30 @@ RETURNING id
 		if err := rows.Err(); err != nil {
 			return TOTPCompleteResult{}, fmt.Errorf("iterate revoked replacement sessions: %w", err)
 		}
+	}
+
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &user.ID,
+		TargetUserID: &user.ID,
+		RawSource:    "auth.totp.complete",
+		RawKind:      "totp_enrollment_completed",
+		ClientTxnID:  &pending.ClientTxnID,
+		After: map[string]any{
+			"enrolled_at":      enrolledAt,
+			"sessions_revoked": len(result.RevokedSessionIDs),
+		},
+		OccurredAt: enrolledAt,
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionTOTPEnrollmentCompleted,
+		TargetKind: administrativeaudit.TargetUser,
+		TargetID:   user.ID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("enrolled_at", user.TOTPEnrolledAt, enrolledAt),
+			administrativeaudit.Visible("sessions_revoked", 0, len(result.RevokedSessionIDs)),
+			administrativeaudit.Redacted("totp_secret"),
+		},
+	}); err != nil {
+		return TOTPCompleteResult{}, fmt.Errorf("append totp enrollment completed audit: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1098,12 +1138,33 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 			return AccountProfilePatchResult{}, err
 		}
 
-		if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
-VALUES ($1, $1, 'account.profile.patch', 'account_profile_updated', 'account_profile_updated', $2, $3,
-        jsonb_build_object('display_name', $4::text, 'user_version', $5::bigint),
-        jsonb_build_object('display_name', $6::text, 'user_version', $7::bigint))
-`, actor.ID, clientTxnID, requestID, current.DisplayName, current.UserVersion, updated.DisplayName, updated.UserVersion); err != nil {
+		reason := "account_profile_updated"
+		if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+			ActorUserID:  &actor.ID,
+			TargetUserID: &actor.ID,
+			RawSource:    "account.profile.patch",
+			RawKind:      "account_profile_updated",
+			ReasonCode:   &reason,
+			ClientTxnID:  &clientTxnID,
+			RequestID:    &requestID,
+			Before: map[string]any{
+				"display_name": current.DisplayName,
+				"user_version": current.UserVersion,
+			},
+			After: map[string]any{
+				"display_name": updated.DisplayName,
+				"user_version": updated.UserVersion,
+			},
+			OccurredAt: now.UTC(),
+			Source:     administrativeaudit.SourceAPI,
+			ActionCode: administrativeaudit.ActionUserProfileUpdated,
+			TargetKind: administrativeaudit.TargetUser,
+			TargetID:   actor.ID.String(),
+			Changes: []administrativeaudit.Change{
+				administrativeaudit.Visible("display_name", current.DisplayName, updated.DisplayName),
+				administrativeaudit.Visible("user_version", current.UserVersion, updated.UserVersion),
+			},
+		}); err != nil {
 			return AccountProfilePatchResult{}, err
 		}
 	}
@@ -1210,12 +1271,33 @@ RETURNING user_id, density_mode, preferences_version, created_at, updated_at
 		if err != nil {
 			return AccountPreferencesPutResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
-VALUES ($1, $1, 'account.preferences.put', 'account_preferences_updated', 'account_preferences_updated', $2, $3,
-        jsonb_build_object('density_mode', $4::text, 'preferences_version', $5::bigint),
-        jsonb_build_object('density_mode', $6::text, 'preferences_version', $7::bigint))
-`, actor.ID, clientTxnID, requestID, current.DensityMode, current.PreferencesVersion, updated.DensityMode, updated.PreferencesVersion); err != nil {
+		reason := "account_preferences_updated"
+		if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+			ActorUserID:  &actor.ID,
+			TargetUserID: &actor.ID,
+			RawSource:    "account.preferences.put",
+			RawKind:      "account_preferences_updated",
+			ReasonCode:   &reason,
+			ClientTxnID:  &clientTxnID,
+			RequestID:    &requestID,
+			Before: map[string]any{
+				"density_mode":        current.DensityMode,
+				"preferences_version": current.PreferencesVersion,
+			},
+			After: map[string]any{
+				"density_mode":        updated.DensityMode,
+				"preferences_version": updated.PreferencesVersion,
+			},
+			OccurredAt: now.UTC(),
+			Source:     administrativeaudit.SourceAPI,
+			ActionCode: administrativeaudit.ActionAccountPreferencesUpdated,
+			TargetKind: administrativeaudit.TargetAccountPreferences,
+			TargetID:   actor.ID.String(),
+			Changes: []administrativeaudit.Change{
+				administrativeaudit.Visible("density_mode", current.DensityMode, updated.DensityMode),
+				administrativeaudit.Visible("preferences_version", current.PreferencesVersion, updated.PreferencesVersion),
+			},
+		}); err != nil {
 			return AccountPreferencesPutResult{}, err
 		}
 	}
@@ -1325,6 +1407,31 @@ RETURNING id
 		return PasswordChangeResult{}, fmt.Errorf("insert password-change idempotency: %w", err)
 	}
 
+	reason := "password_changed"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &user.ID,
+		TargetUserID: &user.ID,
+		RawSource:    "auth.password.change",
+		RawKind:      "password_changed",
+		ReasonCode:   &reason,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After: map[string]any{
+			"sessions_revoked": len(result.RevokedSessionIDs),
+		},
+		OccurredAt: changedAt,
+		Source:     administrativeaudit.SourceAPI,
+		ActionCode: administrativeaudit.ActionPasswordChanged,
+		TargetKind: administrativeaudit.TargetUser,
+		TargetID:   user.ID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Redacted("password"),
+			administrativeaudit.Visible("sessions_revoked", 0, len(result.RevokedSessionIDs)),
+		},
+	}); err != nil {
+		return PasswordChangeResult{}, fmt.Errorf("append password-change audit: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return PasswordChangeResult{}, fmt.Errorf("commit password-change transaction: %w", err)
 	}
@@ -1384,75 +1491,8 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 	return users, nil
 }
 
-func (s *Store) ListAdministrativeAuditEvents(ctx context.Context, filter AdministrativeAuditFilter) ([]AdministrativeAuditRecord, error) {
-	var actorUserID any
-	if filter.ActorUserID != nil {
-		actorUserID = *filter.ActorUserID
-	}
-	var actionCode any
-	if filter.ActionCode != nil {
-		actionCode = *filter.ActionCode
-	}
-	var targetKind any
-	if filter.TargetKind != nil {
-		targetKind = *filter.TargetKind
-	}
-	var targetID any
-	if filter.TargetID != nil {
-		targetID = *filter.TargetID
-	}
-	var occurredAtGTE any
-	if filter.OccurredAtGTE != nil {
-		occurredAtGTE = filter.OccurredAtGTE.UTC()
-	}
-	var occurredAtLT any
-	if filter.OccurredAtLT != nil {
-		occurredAtLT = filter.OccurredAtLT.UTC()
-	}
-	rows, err := s.pool.Query(ctx, `
-SELECT id, actor_user_id, target_user_id, incident_id, event_source, event_kind, reason_code, request_id,
-       before_json, after_json, created_at
-  FROM deployment_admin_audit_events
- WHERE ($1::uuid IS NULL OR actor_user_id = $1)
-   AND ($2::text IS NULL OR event_source = $2 OR event_kind = $2)
-   AND ($5::timestamptz IS NULL OR created_at >= $5)
-   AND ($6::timestamptz IS NULL OR created_at < $6)
-   AND (
-       $3::text IS NULL OR
-       ($3 = 'user' AND target_user_id IS NOT NULL AND ($4::text IS NULL OR target_user_id::text = $4)) OR
-       ($3 = 'incident' AND incident_id IS NOT NULL AND ($4::text IS NULL OR incident_id::text = $4)) OR
-       ($3 = 'deployment' AND target_user_id IS NULL AND incident_id IS NULL AND $4::text IS NULL)
-   )
- ORDER BY created_at DESC, id ASC
-`, actorUserID, actionCode, targetKind, targetID, occurredAtGTE, occurredAtLT)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	records := make([]AdministrativeAuditRecord, 0, 128)
-	for rows.Next() {
-		var record AdministrativeAuditRecord
-		if err := rows.Scan(
-			&record.ID,
-			&record.ActorUserID,
-			&record.TargetUserID,
-			&record.IncidentID,
-			&record.EventSource,
-			&record.EventKind,
-			&record.ReasonCode,
-			&record.RequestID,
-			&record.BeforeJSON,
-			&record.AfterJSON,
-			&record.OccurredAt,
-		); err != nil {
-			return nil, err
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return records, nil
+func (s *Store) ListAdministrativeAuditEvents(ctx context.Context, filter administrativeaudit.ListFilter) ([]administrativeaudit.Record, error) {
+	return administrativeaudit.List(ctx, s.pool, filter)
 }
 
 func (s *Store) CreateUser(
@@ -1519,10 +1559,29 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		return UserCreateResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
-VALUES ($1, $2, 'users.create', 'user_created', 'user_created', $3, $4, jsonb_build_object('user_id', $5::text))
-`, actor.ID, created.ID, clientTxnID, requestID, created.ID.String()); err != nil {
+	reason := "user_created"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &created.ID,
+		RawSource:    "users.create",
+		RawKind:      "user_created",
+		ReasonCode:   &reason,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After:        map[string]any{"user_id": created.ID.String()},
+		OccurredAt:   now.UTC(),
+		Source:       administrativeaudit.SourceAPI,
+		ActionCode:   administrativeaudit.ActionUserCreated,
+		TargetKind:   administrativeaudit.TargetUser,
+		TargetID:     created.ID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("display_name", nil, created.DisplayName),
+			administrativeaudit.Visible("email", nil, created.Email),
+			administrativeaudit.Visible("is_active", nil, created.IsActive),
+			administrativeaudit.Visible("is_deployment_admin", nil, created.IsDeploymentAdmin),
+			administrativeaudit.Visible("mfa_required", nil, created.MFARequired),
+		},
+	}); err != nil {
 		return UserCreateResult{}, err
 	}
 
@@ -1664,10 +1723,24 @@ RETURNING id
 		}
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, before_json, after_json)
-VALUES ($1, $2, 'users.patch', 'user_updated', 'user_updated', $3, jsonb_build_object('user_version', $4::bigint), jsonb_build_object('user_version', $5::bigint))
-`, actor.ID, updated.ID, requestID, target.UserVersion, updated.UserVersion); err != nil {
+	actionCode, changes := userUpdateAdministrativeChanges(target, updated)
+	reason := "user_updated"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &updated.ID,
+		RawSource:    "users.patch",
+		RawKind:      "user_updated",
+		ReasonCode:   &reason,
+		RequestID:    &requestID,
+		Before:       map[string]any{"user_version": target.UserVersion},
+		After:        map[string]any{"user_version": updated.UserVersion},
+		OccurredAt:   now.UTC(),
+		Source:       administrativeaudit.SourceAPI,
+		ActionCode:   actionCode,
+		TargetKind:   administrativeaudit.TargetUser,
+		TargetID:     updated.ID.String(),
+		Changes:      changes,
+	}); err != nil {
 		return UserRecord{}, nil, err
 	}
 
@@ -1806,10 +1879,27 @@ RETURNING id
 		return AdminPasswordResetResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
-VALUES ($1, $2, 'users.password.reset', 'password_reset', 'password_reset', $3, $4, jsonb_build_object('user_version', $5::bigint))
-`, actor.ID, targetUserID, clientTxnID, requestID, updated.UserVersion); err != nil {
+	reason := "password_reset"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.password.reset",
+		RawKind:      "password_reset",
+		ReasonCode:   &reason,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After:        map[string]any{"user_version": updated.UserVersion},
+		OccurredAt:   changedAt,
+		Source:       administrativeaudit.SourceAPI,
+		ActionCode:   administrativeaudit.ActionPasswordReset,
+		TargetKind:   administrativeaudit.TargetUser,
+		TargetID:     targetUserID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Redacted("password"),
+			administrativeaudit.Visible("sessions_revoked", 0, len(result.RevokedSessionIDs)),
+			administrativeaudit.Visible("user_version", target.UserVersion, updated.UserVersion),
+		},
+	}); err != nil {
 		return AdminPasswordResetResult{}, err
 	}
 
@@ -1930,10 +2020,27 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		return AdminTOTPResetResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
-VALUES ($1, $2, 'users.totp.reset', 'totp_reset', 'totp_reset', $3, $4, jsonb_build_object('user_version', $5::bigint))
-`, actor.ID, targetUserID, clientTxnID, requestID, updated.UserVersion); err != nil {
+	reason := "totp_reset"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.totp.reset",
+		RawKind:      "totp_reset",
+		ReasonCode:   &reason,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After:        map[string]any{"user_version": updated.UserVersion},
+		OccurredAt:   changedAt,
+		Source:       administrativeaudit.SourceAPI,
+		ActionCode:   administrativeaudit.ActionTOTPReset,
+		TargetKind:   administrativeaudit.TargetUser,
+		TargetID:     targetUserID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("sessions_revoked", 0, len(revoked)),
+			administrativeaudit.Redacted("totp_secret"),
+			administrativeaudit.Visible("user_version", target.UserVersion, updated.UserVersion),
+		},
+	}); err != nil {
 		return AdminTOTPResetResult{}, err
 	}
 
@@ -2003,10 +2110,25 @@ func (s *Store) AdminRevokeAllSessions(
 		return AdminRevokeAllResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
-VALUES ($1, $2, 'users.sessions.revoke_all', 'sessions_revoke_all', 'sessions_revoke_all', $3, $4, jsonb_build_object('revoked_at', $5::timestamptz))
-`, actor.ID, targetUserID, clientTxnID, requestID, revokedAt); err != nil {
+	reason := "sessions_revoke_all"
+	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &targetUserID,
+		RawSource:    "users.sessions.revoke_all",
+		RawKind:      "sessions_revoke_all",
+		ReasonCode:   &reason,
+		ClientTxnID:  &clientTxnID,
+		RequestID:    &requestID,
+		After:        map[string]any{"revoked_at": revokedAt},
+		OccurredAt:   revokedAt,
+		Source:       administrativeaudit.SourceAPI,
+		ActionCode:   administrativeaudit.ActionSessionsRevoked,
+		TargetKind:   administrativeaudit.TargetUser,
+		TargetID:     targetUserID.String(),
+		Changes: []administrativeaudit.Change{
+			administrativeaudit.Visible("sessions_revoked", 0, len(revoked)),
+		},
+	}); err != nil {
 		return AdminRevokeAllResult{}, err
 	}
 

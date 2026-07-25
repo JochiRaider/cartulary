@@ -8,6 +8,16 @@
       "status": "active"
     },
     {
+      "requirement_id": "package.view_contracts.requirement.openapi_required_grid_editable",
+      "statement": "View-schema client contracts require and validate the explicit boolean grid_editable value emitted for every current public view-schema field.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "package.view_contracts.requirement.openapi_required_inline_create",
+      "statement": "View-schema client contracts require and validate the explicit inline-create policy emitted by every current public view-schema resource.",
+      "status": "active"
+    },
+    {
       "requirement_id": "package.view_contracts.requirement.shared_contract",
       "statement": "Shared view contracts retain closed stable types and deterministic helpers at the package boundary.",
       "status": "active"

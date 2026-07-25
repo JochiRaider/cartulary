@@ -1,0 +1,322 @@
+{
+  "paths": {
+    "/api/v1/object-blobs": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "createObjectBlobSlot",
+        "summary": "Create one incident-scoped pending object blob upload slot.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectBlobCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent object blob create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBlobCreateEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created object blob slot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBlobCreateEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/object-uploads/{upload_token}": {
+      "put": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "uploadObjectBlobContent",
+        "summary": "Upload bytes to one app-owned object blob upload capability.",
+        "parameters": [
+          {
+            "name": "upload_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Uploaded object blob content"
+          },
+          "400": {
+            "description": "Invalid object upload request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or revoked upload capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Upload capability conflicts with the current blob slot state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired upload capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "411": {
+            "description": "Content-Length required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Declared upload body exceeds the blob slot contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Object-store dependency unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/evidence-records/{record_id}/attach-blob": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "attachBlobToEvidenceRecord",
+        "summary": "Finalize and attach one object blob to an existing evidence record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceAttachBlobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evidence attach mutation response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceAttachBlobEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/evidence-records/{record_id}/preview-handle": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "issueEvidencePreviewHandle",
+        "summary": "Issue a short-lived reusable preview handle for attached evidence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceHandleIssueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evidence preview handle response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceHandleEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/evidence-records/{record_id}/download-handle": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "issueEvidenceDownloadHandle",
+        "summary": "Issue a short-lived single-use download handle for attached evidence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceHandleIssueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evidence download handle response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceHandleEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/evidence-handles/{handle_token}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/EvidenceHandleTokenPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "redeemEvidenceHandle",
+        "summary": "Redeem an opaque evidence preview or download handle after current authorization checks.",
+        "responses": {
+          "200": {
+            "description": "Evidence bytes"
+          },
+          "206": {
+            "description": "Evidence byte range"
+          }
+        },
+        "security": []
+      }
+    }
+  }
+}

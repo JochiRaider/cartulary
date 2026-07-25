@@ -3,6 +3,56 @@
   "owner_id": "platform.viewschema",
   "rows": [
     {
+      "row_id": "platform.viewschema.unit.openapi_requires_emitted_grid_editable_b00c3fb6d2",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.unit",
+      "collaborator_ids": [
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "platform.viewschema.verification.openapi_grid_editable_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewschema",
+        "tests": [
+          "TestOpenAPIViewFieldEntryGridEditableContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.viewschema.unit.openapi_requires_emitted_inline_create_902262ca48",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.unit",
+      "collaborator_ids": [
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "platform.viewschema.verification.openapi_inline_create_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewschema",
+        "tests": [
+          "TestOpenAPIViewSchemaInlineCreateContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "platform.viewschema.unit.the_artifact_backed_variant_registry_is_closed_t_665f9b86ef",
       "owner_id": "platform.viewschema",
       "family_id": "platform.viewschema.unit",

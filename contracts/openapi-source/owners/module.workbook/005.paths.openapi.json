@@ -1,0 +1,187 @@
+{
+  "paths": {
+    "/api/v1/records/{record_id}/linked-notes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "createRecordLinkedNote",
+        "summary": "Create one Notes artifact linked to an existing workbook record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkedNoteCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent linked-note create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created linked note row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid linked-note mutation payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Incident state, idempotency, lifecycle, or owner-validation conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ConflictTokenPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "resolveRecordSameFieldConflict",
+        "summary": "Resolve one same-field workbook conflict explicitly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConflictResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conflict resolution row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ViewMutationEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RecordConflictClearEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authorized caller supplied an invalid conflict token or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current session is missing, invalid, or inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed or the visible record requires a higher incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Path record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale conflict token or same-field conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  }
+}

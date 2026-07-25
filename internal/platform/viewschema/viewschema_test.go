@@ -1,9 +1,12 @@
 package viewschema
 
 import (
+	"encoding/json"
 	"reflect"
 	"slices"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestViewSchemaDiscovery_Unit(t *testing.T) {
@@ -99,6 +102,97 @@ func TestViewSchemaDiscovery_Unit(t *testing.T) {
 	}
 }
 
+func TestOpenAPIViewFieldEntryGridEditableContract_Unit(t *testing.T) {
+	document := contracttest.OpenAPIDocument(t)
+	components := requireObject(t, document["components"], "components")
+	schemas := requireObject(t, components["schemas"], "components.schemas")
+	viewFieldEntry := requireObject(t, schemas["ViewFieldEntry"], "ViewFieldEntry")
+	properties := requireObject(t, viewFieldEntry["properties"], "ViewFieldEntry.properties")
+	gridEditable := requireObject(t, properties["grid_editable"], "ViewFieldEntry.properties.grid_editable")
+	if gridEditable["type"] != "boolean" {
+		t.Fatalf("grid_editable must have type boolean, got %#v", gridEditable["type"])
+	}
+	required := requireArray(t, viewFieldEntry["required"], "ViewFieldEntry.required")
+	if !slices.Contains(required, "grid_editable") {
+		t.Fatalf("ViewFieldEntry.required omits grid_editable: %#v", required)
+	}
+
+	for _, resource := range ListPublicResources() {
+		content, err := json.Marshal(resource)
+		if err != nil {
+			t.Fatalf("marshal %s: %v", resource.ViewSchemaID, err)
+		}
+		var public map[string]any
+		if err := json.Unmarshal(content, &public); err != nil {
+			t.Fatalf("decode %s: %v", resource.ViewSchemaID, err)
+		}
+		fields, ok := public["fields"].([]any)
+		if !ok {
+			t.Fatalf("%s fields must be an array, got %T", resource.ViewSchemaID, public["fields"])
+		}
+		for index, rawField := range fields {
+			field := requireObject(t, rawField, resource.ViewSchemaID+" field")
+			if _, ok := field["grid_editable"].(bool); !ok {
+				t.Fatalf("%s fields[%d].grid_editable must be present and boolean, got %#v", resource.ViewSchemaID, index, field["grid_editable"])
+			}
+		}
+	}
+}
+
+func TestOpenAPIViewSchemaInlineCreateContract_Unit(t *testing.T) {
+	document := contracttest.OpenAPIDocument(t)
+	components := requireObject(t, document["components"], "components")
+	schemas := requireObject(t, components["schemas"], "components.schemas")
+	viewSchemaResource := requireObject(t, schemas["ViewSchemaResource"], "ViewSchemaResource")
+	properties := requireObject(t, viewSchemaResource["properties"], "ViewSchemaResource.properties")
+	inlineCreate := requireObject(t, properties["inline_create"], "ViewSchemaResource.properties.inline_create")
+	if inlineCreate["type"] != "object" || inlineCreate["additionalProperties"] != false {
+		t.Fatalf("inline_create must be a closed object, got %#v", inlineCreate)
+	}
+	required := requireArray(t, inlineCreate["required"], "inline_create.required")
+	if !slices.Equal(required, []string{"minimum_create_field_sets", "permits_zero_field_create"}) {
+		t.Fatalf("inline_create.required changed: %#v", required)
+	}
+	if !slices.Contains(requireArray(t, viewSchemaResource["required"], "ViewSchemaResource.required"), "inline_create") {
+		t.Fatal("ViewSchemaResource.required omits inline_create")
+	}
+	inlineProperties := requireObject(t, inlineCreate["properties"], "inline_create.properties")
+	if len(inlineProperties) != 2 {
+		t.Fatalf("inline_create must have exactly two properties, got %#v", inlineProperties)
+	}
+	minimumSets := requireObject(t, inlineProperties["minimum_create_field_sets"], "inline_create.minimum_create_field_sets")
+	setItems := requireObject(t, minimumSets["items"], "inline_create.minimum_create_field_sets.items")
+	fieldItems := requireObject(t, setItems["items"], "inline_create.minimum_create_field_sets.items.items")
+	if minimumSets["type"] != "array" || setItems["type"] != "array" || fieldItems["type"] != "string" {
+		t.Fatalf("minimum_create_field_sets must be an array of string arrays, got %#v", minimumSets)
+	}
+	permitsZero := requireObject(t, inlineProperties["permits_zero_field_create"], "inline_create.permits_zero_field_create")
+	if permitsZero["type"] != "boolean" {
+		t.Fatalf("permits_zero_field_create must be boolean, got %#v", permitsZero)
+	}
+
+	for _, resource := range ListPublicResources() {
+		content, err := json.Marshal(resource)
+		if err != nil {
+			t.Fatalf("marshal %s: %v", resource.ViewSchemaID, err)
+		}
+		var public map[string]any
+		if err := json.Unmarshal(content, &public); err != nil {
+			t.Fatalf("decode %s: %v", resource.ViewSchemaID, err)
+		}
+		policy := requireObject(t, public["inline_create"], resource.ViewSchemaID+" inline_create")
+		if len(policy) != 2 {
+			t.Fatalf("%s inline_create must have exactly two members, got %#v", resource.ViewSchemaID, policy)
+		}
+		if _, ok := policy["minimum_create_field_sets"].([]any); !ok {
+			t.Fatalf("%s minimum_create_field_sets must be an array, got %#v", resource.ViewSchemaID, policy["minimum_create_field_sets"])
+		}
+		if _, ok := policy["permits_zero_field_create"].(bool); !ok {
+			t.Fatalf("%s permits_zero_field_create must be boolean, got %#v", resource.ViewSchemaID, policy["permits_zero_field_create"])
+		}
+	}
+}
+
 func viewFieldByKey(resource ViewSchemaResource, fieldKey string) (ViewFieldEntry, bool) {
 	for _, field := range resource.Fields {
 		if field.FieldKey == fieldKey {
@@ -106,4 +200,30 @@ func viewFieldByKey(resource ViewSchemaResource, fieldKey string) (ViewFieldEntr
 		}
 	}
 	return ViewFieldEntry{}, false
+}
+
+func requireObject(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+	object, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("%s must be an object, got %T", label, value)
+	}
+	return object
+}
+
+func requireArray(t *testing.T, value any, label string) []string {
+	t.Helper()
+	raw, ok := value.([]any)
+	if !ok {
+		t.Fatalf("%s must be an array, got %T", label, value)
+	}
+	result := make([]string, len(raw))
+	for index, item := range raw {
+		text, ok := item.(string)
+		if !ok {
+			t.Fatalf("%s[%d] must be a string, got %T", label, index, item)
+		}
+		result[index] = text
+	}
+	return result
 }

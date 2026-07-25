@@ -25,6 +25,7 @@ type AuditEventRecord struct {
 	EventKind   string
 	ActorUserID string
 	EventSource string
+	ReasonCode  string
 	ClientTxnID string
 	RequestID   string
 	CreatedAt   time.Time
@@ -145,6 +146,7 @@ func lookupAuditEventsBySelector(t testing.TB, db Database, selector MutationSel
 SELECT event_kind,
        actor_user_id::text,
        event_source,
+       COALESCE(reason_code, ''),
        COALESCE(client_txn_id, ''),
        COALESCE(request_id, ''),
        created_at,
@@ -179,7 +181,7 @@ SELECT event_kind,
 			beforePayload []byte
 			afterPayload  []byte
 		)
-		if err := rows.Scan(&record.EventKind, &record.ActorUserID, &record.EventSource, &record.ClientTxnID, &record.RequestID, &record.CreatedAt, &beforePayload, &afterPayload); err != nil {
+		if err := rows.Scan(&record.EventKind, &record.ActorUserID, &record.EventSource, &record.ReasonCode, &record.ClientTxnID, &record.RequestID, &record.CreatedAt, &beforePayload, &afterPayload); err != nil {
 			t.Fatalf("scan incident mutation artifact: %v", err)
 		}
 		record.Before = decodeJSONMap(t, beforePayload)
@@ -204,7 +206,7 @@ func mutationOwnedBy(event AuditEventRecord, owner MutationOwner) bool {
 func ownerEventKinds(owner MutationOwner) []string {
 	switch owner {
 	case MutationOwnerIncidentResource:
-		return []string{"incident_created", "incident_updated"}
+		return []string{"incident_close", "incident_created", "incident_reopen", "incident_updated"}
 	case MutationOwnerIncidentMembership:
 		return []string{
 			"incident_membership_created",

@@ -5,6 +5,8 @@ mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD
 find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
 "${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}" "generate sqlc" -- \
   "${SQLC_BIN:?SQLC_BIN is required}" generate
+"$RUN_STEP_SCRIPT" "assemble OpenAPI" -- \
+  env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" "${GO:?GO is required}" run ./tools/openapi-assemble --write
 "$RUN_STEP_SCRIPT" "generate contracts" -- \
   env GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" "${GO:?GO is required}" run ./tools/contractgen
 "$RUN_STEP_SCRIPT" "generate frontend protocol types and decoders" -- \

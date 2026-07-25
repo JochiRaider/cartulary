@@ -15,6 +15,30 @@
       "requirement_ids": [
         "module.incidents.requirement.behavior_contract"
       ]
+    },
+    {
+      "verification_id": "module.incidents.verification.lifecycle_openapi_alignment",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.incidents.requirement.lifecycle_openapi_alignment"
+      ]
+    },
+    {
+      "verification_id": "module.incidents.verification.membership_audit_alignment",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.incidents.requirement.membership_audit_alignment"
+      ]
     }
   ]
 }

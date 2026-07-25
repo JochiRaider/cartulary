@@ -7,6 +7,7 @@ import {
   fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
+import { administrativeAuditEventsFromPayload } from "./deploymentAuditContract";
 import { formatNullableDateTime } from "./LandingAdminDisplay";
 import {
   auditChangeTableStyle,
@@ -73,9 +74,7 @@ export function AdministrativeAuditPanel() {
       }
     }
     const result = await fetchJSON<{
-      data:
-        | { administrative_audit_events: AdministrativeAuditEvent[] }
-        | { audit_events: AdministrativeAuditEvent[] };
+      data: { audit_events: AdministrativeAuditEvent[] };
     }>(`/api/v1/administrative-audit-events?${params.toString()}`);
     const nextError = extractError(result.payload);
     setError(nextError);
@@ -83,18 +82,20 @@ export function AdministrativeAuditPanel() {
       setStatus("Administrative audit unavailable.");
       return;
     }
-    const data = (
-      result.payload as {
-        data:
-          | { administrative_audit_events: AdministrativeAuditEvent[] }
-          | { audit_events: AdministrativeAuditEvent[] };
-      }
-    ).data;
-    setEvents(
-      "audit_events" in data
-        ? data.audit_events
-        : data.administrative_audit_events,
-    );
+    const nextEvents = administrativeAuditEventsFromPayload(result.payload);
+    if (nextEvents === null) {
+      setEvents([]);
+      setError({
+        code: "invalid_administrative_audit_response",
+        details: {},
+        message: "Administrative audit returned an invalid response.",
+        retryable: true,
+        status: 502,
+      });
+      setStatus("Administrative audit unavailable.");
+      return;
+    }
+    setEvents(nextEvents);
     setStatus("Administrative audit loaded.");
   }, [
     actionCode,

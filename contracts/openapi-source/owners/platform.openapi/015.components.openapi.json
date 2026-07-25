@@ -1,0 +1,47 @@
+{
+  "components": {
+    "schemas": {
+      "SortEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "field_key",
+          "direction"
+        ]
+      },
+      "ViewQueryFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string"
+          },
+          "arg": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "field_key",
+          "op",
+          "arg"
+        ]
+      }
+    }
+  }
+}

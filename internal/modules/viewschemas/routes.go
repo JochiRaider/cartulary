@@ -27,8 +27,11 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 
-		mux.HandleFunc("GET /api/v1/view-schemas", service.handleViewSchemasCollection)
-		mux.HandleFunc("GET /api/v1/view-schemas/{view_schema_id}", service.handleViewSchemaMember)
+		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
+			return err
+		}
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/view-schemas", service.handleViewSchemasCollection)
+		httpapi.HandlePublicRoute(mux, "GET /api/v1/view-schemas/{view_schema_id}", service.handleViewSchemaMember)
 		return nil
 	}
 }

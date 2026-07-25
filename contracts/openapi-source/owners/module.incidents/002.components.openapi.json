@@ -1,0 +1,154 @@
+{
+  "components": {
+    "schemas": {
+      "IncidentLifecycleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_incident_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "base_incident_version",
+          "client_txn_id",
+          "reason"
+        ]
+      },
+      "IncidentResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tlp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              null
+            ]
+          },
+          "current_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primary_external_case_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "incident_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "incident_id",
+          "incident_key",
+          "title",
+          "description",
+          "status",
+          "severity",
+          "tlp",
+          "current_phase",
+          "primary_external_case_ref",
+          "created_by_user_id",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id",
+          "incident_version",
+          "closed_at"
+        ]
+      },
+      "IncidentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/IncidentResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

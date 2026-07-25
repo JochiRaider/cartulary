@@ -1,0 +1,369 @@
+{
+  "components": {
+    "schemas": {
+      "SessionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "local",
+              "oidc",
+              "saml"
+            ]
+          },
+          "mfa_state": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "satisfied"
+            ]
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "authenticated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absolute_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "session_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionMembershipResource"
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "provider_type",
+          "mfa_state",
+          "is_deployment_admin",
+          "authenticated_at",
+          "idle_expires_at",
+          "absolute_expires_at",
+          "session_expires_at",
+          "memberships"
+        ]
+      },
+      "SessionMembershipResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "reviewer",
+              "editor",
+              "admin"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "role"
+        ]
+      },
+      "CredentialStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auth_kind": {
+            "const": "local"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "recovery_model": {
+            "const": "admin_assisted"
+          },
+          "password": {
+            "$ref": "#/components/schemas/CredentialPasswordStateResource"
+          },
+          "totp": {
+            "$ref": "#/components/schemas/CredentialTOTPStateResource"
+          }
+        },
+        "required": [
+          "user_id",
+          "auth_kind",
+          "mfa_required",
+          "recovery_model",
+          "password",
+          "totp"
+        ]
+      },
+      "CredentialPasswordStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "changed_at"
+        ]
+      },
+      "CredentialTOTPStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_enrolled",
+              "pending",
+              "active"
+            ]
+          },
+          "enrolled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "pending_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "state",
+          "enrolled_at",
+          "pending_expires_at"
+        ]
+      },
+      "SafeUserResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "last_login_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "user_version": {
+            "type": "integer"
+          },
+          "auth_bindings": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/LocalAuthBindingResource"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterpriseAuthBindingResource"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "is_active",
+          "mfa_required",
+          "is_deployment_admin",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id",
+          "last_login_at",
+          "user_version",
+          "auth_bindings"
+        ]
+      },
+      "LocalAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_type": {
+            "const": "local"
+          },
+          "provider_key": {
+            "const": "local"
+          },
+          "username": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_type",
+          "provider_key",
+          "username",
+          "created_at"
+        ]
+      },
+      "EnterpriseAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "auth_binding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "provider_subject": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_auth_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "auth_binding_id",
+          "provider_key",
+          "provider_type",
+          "provider_subject",
+          "created_at",
+          "last_auth_at"
+        ]
+      },
+      "TOTPBeginResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enrollment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totp_setup": {
+            "$ref": "#/components/schemas/TOTPSetupResource"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "expires_at",
+          "totp_setup"
+        ]
+      },
+      "TOTPSetupResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "secret_base32": {
+            "type": "string"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "algorithm": {
+            "const": "SHA1"
+          },
+          "digits": {
+            "const": 6
+          },
+          "period_seconds": {
+            "const": 30
+          }
+        },
+        "required": [
+          "secret_base32",
+          "otpauth_uri",
+          "algorithm",
+          "digits",
+          "period_seconds"
+        ]
+      }
+    }
+  }
+}

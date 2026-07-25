@@ -1,0 +1,104 @@
+{
+  "paths": {
+    "/api/v1/records/{record_id}/mark-reviewed": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "markTimelineRecordReviewed",
+        "summary": "Explicitly transition a Timeline row to reviewed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline action response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineActionEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/supersede": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "timeline",
+          "workbook"
+        ],
+        "operationId": "supersedeRecord",
+        "summary": "Explicitly supersede a Timeline or Decision record using the record type selected by the path record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineSupersedeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline or Decision supersede response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TimelineActionEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecisionSupersedeEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  }
+}

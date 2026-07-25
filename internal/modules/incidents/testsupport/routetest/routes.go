@@ -41,6 +41,7 @@ func PublicIncidentCore() []routeinventory.Entry {
 
 func PublicMembershipAdmin() []routeinventory.Entry {
 	return []routeinventory.Entry{
+		{Name: "membership audit list", Transport: routeinventory.TransportHTTP, Method: http.MethodGet, Template: "/api/v1/incidents/{incident_id}/membership-audit-events", SuccessStatus: http.StatusOK, SuccessEnvelope: true},
 		{Name: "memberships list", Transport: routeinventory.TransportHTTP, Method: http.MethodGet, Template: "/api/v1/incidents/{incident_id}/memberships", SuccessStatus: http.StatusOK, SuccessEnvelope: true},
 		{
 			Name: "membership create", Transport: routeinventory.TransportHTTP, Method: http.MethodPost, Template: "/api/v1/incidents/{incident_id}/memberships",
@@ -84,6 +85,7 @@ func ControlIncidentCore() []routeinventory.Entry {
 
 func ControlMembershipAdmin() []routeinventory.Entry {
 	return []routeinventory.Entry{
+		{Name: "membership audit list", Transport: routeinventory.TransportHTTP, Method: http.MethodGet, Template: "/api/v1/incidents/{incident_id}/membership-audit-events", SuccessStatus: http.StatusOK, SuccessEnvelope: true, AllowedRole: routeinventory.ControlRoleAdminOnly},
 		{Name: "memberships list", Transport: routeinventory.TransportHTTP, Method: http.MethodGet, Template: "/api/v1/incidents/{incident_id}/memberships", SuccessStatus: http.StatusOK, SuccessEnvelope: true, AllowedRole: routeinventory.ControlRoleMembershipRequired},
 		{
 			Name: "membership create", Transport: routeinventory.TransportHTTP, Method: http.MethodPost, Template: "/api/v1/incidents/{incident_id}/memberships",
