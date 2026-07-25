@@ -813,7 +813,13 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 	if browserAvailability.Runner != "playwright" || browserAvailability.Selector.File != "apps/web/e2e/extensions.stateful.spec.ts" || browserAvailability.Selector.Stage != "stateful" {
 		t.Fatalf("browser availability selector is not exact: %#v", browserAvailability.Selector)
 	}
-	if got, want := len(rows), len(extensionBoundaryExpectations)+2+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
+	inactiveConfiguration, exists := rows["module.extensions.unit.inactive_configuration_catalog"]
+	if !exists {
+		t.Fatal("Extensions inactive configuration catalog row is missing")
+	}
+	requireExactStrings(t, inactiveConfiguration.VerificationIDs, []string{extensionsBehaviorVerification}, "inactive configuration verification_ids")
+	requireExactStrings(t, inactiveConfiguration.Selector.Tests, []string{"TestInactiveConfigurationCatalog_Unit"}, "inactive configuration selector.tests")
+	if got, want := len(rows), len(extensionBoundaryExpectations)+3+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}
 

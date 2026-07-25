@@ -1,0 +1,64 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v1",
+  "owner_id": "platform.rootedfs",
+  "rows": [
+    {
+      "row_id": "platform.rootedfs.unit.operation_containment",
+      "owner_id": "platform.rootedfs",
+      "family_id": "platform.rootedfs.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.rootedfs.verification.operation_containment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/rootedfs",
+        "tests": [
+          "TestProductionFilesystemEffectBoundary_Unit",
+          "TestRootedFSAtomicLifecycleAndRootIdentity_Unit",
+          "TestRootedFSDetectsComponentAndRootReplacementRaces_Unit",
+          "TestRootedFSErrorsDoNotDiscloseHostRoot_Unit",
+          "TestRootedFSOperationContainment_Unit",
+          "TestRootedFSReferenceValidation_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-075"
+      ]
+    },
+    {
+      "row_id": "platform.rootedfs.unit.secure_absolute_file_reads",
+      "owner_id": "platform.rootedfs",
+      "family_id": "platform.rootedfs.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.rootedfs.verification.operation_containment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/securefile",
+        "tests": [
+          "TestSecureFileRead_Unit",
+          "TestSecureFileRejectsUnsafeObjectsAndRedactsPaths_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-075"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 2.0.0
+document_version: 2.0.1
 contract_major: 2
 profile_id: network_flow_activity
 document_class: nlspec
@@ -11,9 +11,9 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.0`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.1`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
 
-Document version: `2.0.0`. Contract major: `2`. The state schema remains version `1`; the public-contract major change removes the competing profile-local discovery shape and does not reinterpret durable Network Flow state.
+Document version: `2.0.1`. Contract major: `2`. Version `2.0.1` corrects inactive deployment-configuration admission to use the Extensions-owned generic diagnostic; no conforming released artifact relied on the conflicting profile-local diagnostic. The state schema remains version `1`; the public-contract major change removes the competing profile-local discovery shape and does not reinterpret durable Network Flow state.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -2697,7 +2697,14 @@ The adopted top-level deployment-configuration namespace for this profile is
 `key_ring_manifest_path` MUST be an absolute normalized path with no NUL,
 shell-variable form, `~`, or lexical `.` or `..` segment. Explicit `null` is
 invalid. When the profile is unclaimed, a supplied path MUST fail with
-`profile_incompatible_binding`. When the profile is claimed, an omitted,
+top-level `error.code='invalid_deployment_config'` and
+`reason_code='extension_config_without_claim'`, message
+`Extension configuration is present while the profile is inactive.`,
+`details.profile_id='network_flow_activity'`, and
+`details.config_path='$.network_flow_activity.key_ring_manifest_path'`. The
+deployment-config item path is
+`network_flow_activity.key_ring_manifest_path`. This condition MUST NOT emit or
+alias `profile_incompatible_binding`. When the profile is claimed, an omitted,
 empty, unreadable, non-regular, oversized, malformed, or schema-invalid
 manifest MUST fail before any HTTP listener, WebSocket listener, or background
 worker starts. Environment overlays use
@@ -3092,10 +3099,10 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
 | `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
-| `NF-AC-108` | The owner manifest and fragment resolve exactly to document version `2.0.0`, contract major `2`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact. |
+| `NF-AC-108` | The owner manifest and fragment resolve exactly to document version `2.0.1`, contract major `2`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact. |
 | `NF-AC-109` | State presence uses only the four authoritative logical families, permits metadata-only empty state under `empty_state_policy='allowed'`, and never treats jobs, ledgers, caches, projections, or staged objects as state. |
 | `NF-AC-110` | Fresh initialization is empty and invokes only the final validator; current state version `1` requires no profile migration definition, while an omitted, extra, or code-inferred migration fails contract generation. |
-| `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` structurally without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
+| `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` with top-level `invalid_deployment_config`, reason `extension_config_without_claim`, the generic Extensions message, profile ID, extension JSON path, deployment-config item path, and no `profile_incompatible_binding` alias; rejection occurs without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
 | `NF-AC-112` | Every authoritative family has one required PostgreSQL backup binding and digest-bound codec; restore is stopped-empty, group-ordered, sequential, validated before advance, and invokes no inactive profile code. |
 | `NF-AC-113` | Import apply, indicator link, invalidation, and backup/restore use only their declared typed contributions; profile-owned job, worker, portability, reporting, and persisted rebuild declarations are exactly empty. |
 | `NF-AC-114` | A standard client renders `network_analysis` only for major `2` at the current authorized availability generation; all capability facts and nonempty capability arrays fail with `extension_capability_not_supported`. |
@@ -3131,7 +3138,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 
 **NF-REQ-181**
 The primary owner document identity is
-`cartulary.network_flow_activity.current.v2`, version `2.0.0`. Its only runtime
+`cartulary.network_flow_activity.current.v2`, version `2.0.1`. Its only runtime
 dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
 exact Import owner manifest version and digest selected by the Extensions
 dependency declaration set. The recognized profile is claimable at contract
@@ -3179,8 +3186,14 @@ inactive-value schema for this profile. Its active `value_schema_ref` is the
 owner schema `cartulary.network_flow_key_ring_manifest_path.v1`, the namespace
 schema is `cartulary.network_flow_activity.configuration_namespace.v1`, omission
 is `required`, resolution is `regular_file_ref`, and diagnostics are
-`name_only`. While unclaimed, presence of the path
-fails structural admission with `profile_incompatible_binding` before any
+`name_only`. While unclaimed, presence of the path fails structural admission
+with top-level `invalid_deployment_config`,
+`reason_code='extension_config_without_claim'`, the Extensions-owned generic
+message, `details.profile_id='network_flow_activity'`,
+`details.config_path='$.network_flow_activity.key_ring_manifest_path'`, and
+deployment-config item path
+`network_flow_activity.key_ring_manifest_path`. It MUST NOT emit or alias
+`profile_incompatible_binding`. Rejection occurs before any
 default, configuration view, value retention, reference or secret resolution,
 file access, DNS lookup, connection, egress, or Network Flow invocation. While
 claimed, §20.1 is the sole value and secret-handling contract.
@@ -3194,7 +3207,7 @@ post-restore structural validator, and `rebuild_algorithm_id=null`. Restore
 order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, and `400` for `indicator_bindings`; bindings within
 a group execute sequentially by binding ID. Historical codec declarations and
-derived physical bindings are empty in version `2.0.0`. Backup/restore operates
+derived physical bindings are empty in version `2.0.1`. Backup/restore operates
 on a stopped empty target, validates each binding before advancing, never invokes
 Network Flow code while inactive, and never serves a failed target. There is no
 persisted derived state to rebuild after claim; the graph remains an ephemeral

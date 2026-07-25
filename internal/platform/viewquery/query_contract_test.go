@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"gopkg.in/yaml.v3"
 )
@@ -124,6 +123,9 @@ func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
 }
 
 func TestQueryNormalizationMeta_Unit(t *testing.T) {
+	if PublicSortLimit != 8 || PublicFilterLimit != 16 {
+		t.Fatalf("public query ceilings = sort:%d filter:%d, want sort:8 filter:16", PublicSortLimit, PublicFilterLimit)
+	}
 	query, err := Decode(strings.NewReader(`{
   "sort": [{"field_key": "timeline.activity_synopsis_text", "direction": "asc"}],
   "filters": [
@@ -232,8 +234,8 @@ func TestQueryNormalizationMeta_Unit(t *testing.T) {
 	requireWorkbookQueryOpenAPIHasCanonicalMeta(t)
 
 	for name, body := range map[string]string{
-		"sort ceiling":   oversizeSortBody(config.PublicSortLimit + 1),
-		"filter ceiling": oversizeFilterBody(config.PublicFilterLimit + 1),
+		"sort ceiling":   oversizeSortBody(PublicSortLimit + 1),
+		"filter ceiling": oversizeFilterBody(PublicFilterLimit + 1),
 		"zero tokens":    `{"filters":[{"field_key":"note.full_text","op":"full_text","arg":{"query":" -- "}}]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -247,11 +249,11 @@ func TestQueryNormalizationMeta_Unit(t *testing.T) {
 			}
 			switch name {
 			case "sort ceiling":
-				if err.ReasonCode != "sort_count_exceeded" || *err.RequestedCount != config.PublicSortLimit+1 || *err.MaxCount != config.PublicSortLimit {
+				if err.ReasonCode != "sort_count_exceeded" || *err.RequestedCount != PublicSortLimit+1 || *err.MaxCount != PublicSortLimit {
 					t.Fatalf("unexpected sort ceiling error: %+v", err)
 				}
 			case "filter ceiling":
-				if err.ReasonCode != "filter_count_exceeded" || *err.RequestedCount != config.PublicFilterLimit+1 || *err.MaxCount != config.PublicFilterLimit {
+				if err.ReasonCode != "filter_count_exceeded" || *err.RequestedCount != PublicFilterLimit+1 || *err.MaxCount != PublicFilterLimit {
 					t.Fatalf("unexpected filter ceiling error: %+v", err)
 				}
 			case "zero tokens":

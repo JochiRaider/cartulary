@@ -570,10 +570,22 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 
 `internal/platform/config` owns:
 
-- config-file and environment loading,
-- runtime-root resolution,
+- strict config-file and environment loading,
 - unknown-key rejection,
-- typed configuration binding.
+- the immutable catalog and snapshot container,
+- generic diagnostic ordering and runtime-root admission.
+
+Application composition registers typed owner contributions and projects
+owner-local settings from the admitted snapshot. Telemetry, Extensions inactive
+key policy, Enterprise Authentication, and Network Flow validation remain with
+their respective owners. Domain modules, HTTP transport, and platform adapters
+do not receive the complete deployment configuration.
+
+`internal/platform/rootedfs` owns operation-time containment for filesystem-root
+effects. `internal/platform/securefile` owns bounded, no-follow reads of
+absolute deployment manifests. Application composition wraps both primitives
+in owner-specific ports; modules receive neither raw roots nor platform
+filesystem capabilities.
 
 `internal/platform/jobs` owns:
 
@@ -966,6 +978,8 @@ The default local loop is:
 
 `make db-up` starts services and initializes the object-store bucket; it does not migrate a retained database. Use `make db-migrate` for a non-destructive current-line migration. `make db-migrate` and `make dev` preserve an inherited `CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN`; when it is unset they derive the default local Compose DSN for the `postgres_primary` development service. If the local database is from an unmarked historical migration line, reset it with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset` or move data through an owner-approved export/import path before using the current server.
 
+The pre-release incident-bundle and Reference Pack storage-reference cutovers do not preserve rows that contain host paths. Migrations `00037` and `00038` stop with a development-database-reset diagnostic when their respective export, pack, or job-payload rows exist. For a local development database, run `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`, restart the application so ordinary bootstrap reconciliation and minimum disconnected-pack seeding run, and recreate any needed incident-bundle or Reference Pack fixtures. There is no path backfill or legacy dual-read mode.
+
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 
 ### 7.4 Test strategy
@@ -1255,7 +1269,11 @@ On-prem and cloud deployments MAY swap the backing services for managed equivale
 
 ### 12.2 Configuration and runtime roots
 
-`internal/platform/config` is the only implementation owner for loading and validating deployment configuration.
+`internal/platform/config` is the implementation owner for strict deployment
+artifact loading, generic admission, immutable snapshots, and root binding
+validation. Application composition supplies a catalog of typed owner
+contributions; each owner retains its defaults, normalization, and pure
+structural policy.
 
 The guide baseline requires code support for:
 
@@ -1276,7 +1294,18 @@ The guide baseline requires code support for:
 
 This guide intentionally does not restate the full operator-facing configuration artifact or discovery precedence as a second owner. Core 04 §12 remains the owner for those details.
 
-When the Enterprise Authentication Extension Profile is claimed, `internal/platform/config` also owns loading and validating `enterprise_authentication.provider_manifest_path` before readiness. Provider-manifest parsing, duplicate-key rejection, `secret_ref_v1` resolution, referenced certificate validation, and provider-definition reconciliation belong to startup configuration handling rather than HTTP handlers or frontend state.
+When the Enterprise Authentication Extension Profile is claimed,
+`internal/platform/enterpriseauth` validates its typed settings and parses the
+immutable manifest bytes supplied by application preflight.
+`internal/platform/securefile` performs the bounded no-follow read, and
+application composition resolves secret purposes and reconciliation ordering.
+An unclaimed profile performs no manifest or secret access.
+
+Filesystem-backed incident bundles, Reference Packs, recovery artifacts, and
+object storage persist canonical root-relative logical references. Their real
+operations run through root-anchored capabilities; database rows, job payloads,
+ordinary diagnostics, logs, and retained application artifacts do not carry
+host-absolute storage paths.
 
 ### 12.3 Security boundaries
 

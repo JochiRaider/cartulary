@@ -7,16 +7,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/JochiRaider/cartulary/internal/platform/config"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type minimumDisconnectedPack struct {
@@ -30,9 +26,19 @@ var minimumDisconnectedPacks = []minimumDisconnectedPack{
 	{PackKey: "type_registry.indicator", Version: "1"},
 }
 
-func EnsureMinimumDisconnectedBundle(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, now time.Time) error {
-	if cfg.DeploymentProfile != "disconnected" {
+type MinimumDisconnectedBundleOptions struct {
+	DeploymentProfile string
+	ArchiveLimits     ArchiveLimits
+	ReferenceLimits   ReferenceLimits
+	Storage           Storage
+}
+
+func EnsureMinimumDisconnectedBundle(ctx context.Context, options MinimumDisconnectedBundleOptions, pool *pgxpool.Pool, now time.Time) error {
+	if options.DeploymentProfile != "disconnected" {
 		return nil
+	}
+	if options.Storage == nil {
+		return errors.New("minimum disconnected Reference Pack storage is unavailable")
 	}
 	var existing int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM reference_packs`).Scan(&existing); err != nil {
@@ -41,42 +47,53 @@ func EnsureMinimumDisconnectedBundle(ctx context.Context, cfg config.Config, poo
 	if existing > 0 {
 		return nil
 	}
-	store := &Service{deps: httpapi.DependencySet{Config: cfg}}
 	type seedRecord struct {
 		Verification VerificationResult
-		BundlePath   string
+		BundleRef    StorageRef
 	}
 	seeds := make([]seedRecord, 0, len(minimumDisconnectedPacks))
+	cleanup := func() {
+		for _, seed := range seeds {
+			_ = options.Storage.RemovePublished(seed.BundleRef)
+		}
+	}
 	for _, pack := range minimumDisconnectedPacks {
 		bundle, err := buildMinimumDisconnectedBundle(pack)
 		if err != nil {
+			cleanup()
 			return err
 		}
 		verification, err := VerifyBundle(VerificationInput{
 			Bundle:          bundle,
 			ContentType:     MediaTypeZip,
-			ArchiveLimits:   cfg.Limits.Archives,
-			ReferenceLimits: cfg.Limits.ReferencePacks,
+			ArchiveLimits:   options.ArchiveLimits,
+			ReferenceLimits: options.ReferenceLimits,
 		})
 		if err != nil {
+			cleanup()
 			return err
 		}
-		path, err := store.persistBundle(verification.BundleSHA256, bundle)
+		reference, err := options.Storage.Publish(ctx, verification.BundleSHA256, bundle)
 		if err != nil {
+			cleanup()
 			return err
 		}
-		seeds = append(seeds, seedRecord{Verification: verification, BundlePath: path})
+		seeds = append(seeds, seedRecord{Verification: verification, BundleRef: reference})
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
+		cleanup()
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	for _, seed := range seeds {
-		if err := insertMinimumDisconnectedPackTx(ctx, tx, seed.Verification, seed.BundlePath, now.UTC()); err != nil {
+		if err := insertMinimumDisconnectedPackTx(ctx, tx, seed.Verification, seed.BundleRef, now.UTC()); err != nil {
+			cleanup()
 			return err
 		}
 	}
+	// A commit error can be indeterminate. Keep complete objects rather than
+	// deleting data that committed rows may reference.
 	return tx.Commit(ctx)
 }
 
@@ -131,7 +148,7 @@ func writeDeterministicZipMember(zw *zip.Writer, name string, data []byte) error
 	return err
 }
 
-func insertMinimumDisconnectedPackTx(ctx context.Context, tx pgx.Tx, verification VerificationResult, bundlePath string, now time.Time) error {
+func insertMinimumDisconnectedPackTx(ctx context.Context, tx pgx.Tx, verification VerificationResult, bundleRef StorageRef, now time.Time) error {
 	metadata := map[string]any{
 		"payload_count":                verification.Metadata["payload_count"],
 		"minimum_disconnected_builtin": true,
@@ -140,10 +157,10 @@ func insertMinimumDisconnectedPackTx(ctx context.Context, tx pgx.Tx, verificatio
 INSERT INTO reference_packs (
     pack_key, version, pack_kind, source_identifier, manifest_sha256, payload_sha256,
     pack_contract_version, verification_method, signer_key_id, status, imported_at,
-    imported_by_user_id, verification_result, bundle_sha256, bundle_storage_path, metadata
+    imported_by_user_id, verification_result, bundle_sha256, bundle_storage_ref, metadata
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'available', $10, NULL, 'passed', $11, $12, $13)
-`, verification.PackKey, verification.PackVersion, verification.PackKind, verification.SourceIdentifier, verification.ManifestSHA256, verification.PayloadSHA256, verification.PackContractVersion, verification.VerificationMethod, verification.SignerKeyID, now, verification.BundleSHA256, bundlePath, mustJSON(metadata))
+`, verification.PackKey, verification.PackVersion, verification.PackKind, verification.SourceIdentifier, verification.ManifestSHA256, verification.PayloadSHA256, verification.PackContractVersion, verification.VerificationMethod, verification.SignerKeyID, now, verification.BundleSHA256, bundleRef.String(), mustJSON(metadata))
 	if err != nil {
 		return err
 	}
@@ -169,22 +186,6 @@ VALUES ($1, $2, NULL, $3, NULL, $4)
 	activateAttestation.EventKind = "activate"
 	activateAttestation.OperatorNote = stringPtr("minimum disconnected bundle")
 	return insertAttestationTx(ctx, tx, activateAttestation)
-}
-
-func (s *Service) persistBundle(bundleSHA string, data []byte) (string, error) {
-	root := s.deps.Config.Roots.ReferencePackStorage.Path
-	if strings.TrimSpace(root) == "" {
-		root = filepath.Join(os.TempDir(), "cartulary-reference-packs")
-	}
-	bundleDir := filepath.Join(root, "bundles")
-	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
-		return "", err
-	}
-	path := filepath.Join(bundleDir, bundleSHA+".bundle")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
 }
 
 func stringPtr(value string) *string {

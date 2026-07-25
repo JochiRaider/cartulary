@@ -1,16 +1,19 @@
 package config
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestOpenTelemetryConfigDefaultsAndClosedNamespace(t *testing.T) {
-	cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), nil)
+	cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), nil)
 
 	if !cfg.Telemetry.Enabled {
 		t.Fatal("telemetry.enabled should default to true")
@@ -32,13 +35,13 @@ func TestOpenTelemetryConfigDefaultsAndClosedNamespace(t *testing.T) {
 	}
 	requireTelemetryUUIDV4(t, cfg.Telemetry.Resource.ServiceInstanceID)
 
-	err := loadInvalidConfig(t, string(fixturesConfigValid(t))+"\n[telemetry.unregistered]\nvalue = true\n", nil)
+	err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t))+"\n[telemetry.unregistered]\nvalue = true\n", nil)
 	requireDiagnostic(t, err, "telemetry.unregistered.value", "unknown_key")
 }
 
 func TestOpenTelemetryEnvironmentBindingParser(t *testing.T) {
 	t.Run("empty env values are omitted for telemetry keys", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND":                "",
 			"CARTULARY__TELEMETRY__TRACES__SAMPLE_RATIO":          "",
 			"CARTULARY__TELEMETRY__RESOURCE__SERVICE_INSTANCE_ID": "",
@@ -52,14 +55,14 @@ func TestOpenTelemetryEnvironmentBindingParser(t *testing.T) {
 	})
 
 	t.Run("rejects string null overlays", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__ENDPOINT": "null",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.endpoint", "invalid_telemetry_config")
 	})
 
 	t.Run("rejects signed integers and exponent decimals", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__PROCESSOR__MAX_QUEUE_SIZE": "-1",
 			"CARTULARY__TELEMETRY__TRACES__SAMPLE_RATIO":      "1e-1",
 		})
@@ -68,7 +71,7 @@ func TestOpenTelemetryEnvironmentBindingParser(t *testing.T) {
 	})
 
 	t.Run("parses header map overlays as secret refs", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "Authorization=otel-token,tenant_id=tenant.ref",
 		})
 		if cfg.Telemetry.Exporter.Headers["authorization"].Name != "otel-token" {
@@ -80,24 +83,24 @@ func TestOpenTelemetryEnvironmentBindingParser(t *testing.T) {
 	})
 
 	t.Run("rejects hostile header overlays before secret resolution", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "Authorization=one,authorization=two",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.headers", "invalid_telemetry_config")
 
-		err = loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err = loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "content-type=otel-token",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.headers.content-type", "invalid_telemetry_config")
 
-		err = loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err = loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__ATTRIBUTE__HMAC_SECRET_REF": "bad/name",
 		})
 		requireDiagnostic(t, err, "telemetry.attribute.hmac_secret_ref", "invalid_telemetry_config")
 	})
 
 	t.Run("ignores upstream OTel environment names", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"OTEL_ATTRIBUTE_COUNT_LIMIT":                             "1",
 			"OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT":                      "1",
 			"OTEL_BLRP_EXPORT_TIMEOUT":                               "1",
@@ -200,12 +203,12 @@ func TestOpenTelemetryEnvironmentBindingParser(t *testing.T) {
 
 func TestOpenTelemetryConfigValidation(t *testing.T) {
 	t.Run("requires endpoint only for enabled exporter kinds", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND": "otlp_http",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.endpoint", "invalid_telemetry_config")
 
-		err = loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err = loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__ENDPOINT": "https://collector.example.test:4318/otel",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.endpoint", "invalid_telemetry_config")
@@ -217,7 +220,7 @@ func TestOpenTelemetryConfigValidation(t *testing.T) {
 kind = "otlp_http"
 endpoint = "https://collector.example.test:4318/otel"
 `
-		if _, err := LoadWithOptions(LoadOptions{Path: writeTempConfig(t, validHTTP)}); err != nil {
+		if _, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, validHTTP)}); err != nil {
 			t.Fatalf("load valid OTLP/HTTP endpoint: %v", err)
 		}
 
@@ -226,23 +229,23 @@ endpoint = "https://collector.example.test:4318/otel"
 kind = "otlp_grpc"
 endpoint = "http://collector.example.test:4317/"
 `
-		if _, err := LoadWithOptions(LoadOptions{Path: writeTempConfig(t, validGRPC)}); err != nil {
+		if _, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, validGRPC)}); err != nil {
 			t.Fatalf("load valid OTLP/gRPC endpoint: %v", err)
 		}
 
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND":     "otlp_grpc",
 			"CARTULARY__TELEMETRY__EXPORTER__ENDPOINT": "https://collector.example.test:4317/v1/traces",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.endpoint", "invalid_telemetry_config")
 
-		err = loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err = loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND":     "otlp_http",
 			"CARTULARY__TELEMETRY__EXPORTER__ENDPOINT": "https://caf\u00e9.example.test:4318/otel",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.endpoint", "invalid_telemetry_config")
 
-		err = loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err = loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND":     "otlp_http",
 			"CARTULARY__TELEMETRY__EXPORTER__ENDPOINT": "https://xn--caf-dma.example.test:4318/otel",
 		})
@@ -250,7 +253,7 @@ endpoint = "http://collector.example.test:4317/"
 	})
 
 	t.Run("enforces cross-key bounds", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__PROCESSOR__MAX_QUEUE_SIZE":            "8",
 			"CARTULARY__TELEMETRY__PROCESSOR__MAX_EXPORT_BATCH_SIZE":     "9",
 			"CARTULARY__TELEMETRY__EXPORTER__RETRY__INITIAL_INTERVAL_MS": "1000",
@@ -406,14 +409,14 @@ endpoint = "http://collector.example.test:4317/"
 				if content == "" {
 					content = base
 				}
-				err := loadInvalidConfig(t, content, tc.env)
+				err := loadInvalidTelemetryConfig(t, content, tc.env)
 				requireDiagnostic(t, err, tc.wantPath, tc.wantReason)
 			})
 		}
 	})
 
 	t.Run("enforces sampler consistency", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__TRACES__SAMPLE_RATIO":    "0.5",
 			"CARTULARY__TELEMETRY__TRACES__SAMPLER_PROFILE": "cartulary.sampler.always_on.v1",
 		})
@@ -421,7 +424,7 @@ endpoint = "http://collector.example.test:4317/"
 	})
 
 	t.Run("enforces closed enums and bounds", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__KIND":                    "stdout",
 			"CARTULARY__TELEMETRY__EXPORTER__COMPRESSION":             "brotli",
 			"CARTULARY__TELEMETRY__EXPORTER__RETRY__MULTIPLIER":       "5.1",
@@ -447,7 +450,7 @@ endpoint = "http://collector.example.test:4317/"
 
 	t.Run("enforces service instance id opacity predicate", func(t *testing.T) {
 		valid := "10000000-0000-4000-8000-000000000001"
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__RESOURCE__SERVICE_INSTANCE_ID": valid,
 		})
 		if cfg.Telemetry.Resource.ServiceInstanceID != valid {
@@ -465,7 +468,7 @@ endpoint = "http://collector.example.test:4317/"
 			{name: "uppercase uuid", value: "10000000-0000-4000-8000-0000000000AA"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+				err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 					"CARTULARY__TELEMETRY__RESOURCE__SERVICE_INSTANCE_ID": tc.value,
 				})
 				requireDiagnostic(t, err, "telemetry.resource.service_instance_id", "invalid_telemetry_config")
@@ -476,10 +479,10 @@ endpoint = "http://collector.example.test:4317/"
 
 func TestOpenTelemetrySecretReferences(t *testing.T) {
 	t.Run("validates secret ref shape and resolution", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "Authorization=otel-token",
 		})
-		if err := ResolveTelemetrySecretReferences(cfg, map[string]string{
+		if err := resolveTelemetrySecretReferencesForTest(cfg, map[string]string{
 			"CARTULARY_SECRET_OTEL_TOKEN": "visible secret value",
 		}); err != nil {
 			t.Fatalf("resolve safe telemetry secret: %v", err)
@@ -487,13 +490,13 @@ func TestOpenTelemetrySecretReferences(t *testing.T) {
 	})
 
 	t.Run("rejects missing and unsafe resolved secret values", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "Authorization=otel-token",
 		})
-		err := ResolveTelemetrySecretReferences(cfg, map[string]string{})
+		err := resolveTelemetrySecretReferencesForTest(cfg, map[string]string{})
 		requireDiagnostic(t, err, "telemetry.exporter.headers.authorization", "invalid_telemetry_config")
 
-		err = ResolveTelemetrySecretReferences(cfg, map[string]string{
+		err = resolveTelemetrySecretReferencesForTest(cfg, map[string]string{
 			"CARTULARY_SECRET_OTEL_TOKEN": " bad\nvalue ",
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.headers.authorization", "invalid_telemetry_config")
@@ -503,23 +506,23 @@ func TestOpenTelemetrySecretReferences(t *testing.T) {
 	})
 
 	t.Run("enforces resolved header byte bounds", func(t *testing.T) {
-		cfg := mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg := mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "A=one",
 		})
-		if err := ResolveTelemetrySecretReferences(cfg, map[string]string{
+		if err := resolveTelemetrySecretReferencesForTest(cfg, map[string]string{
 			"CARTULARY_SECRET_ONE": strings.Repeat("A", 4096),
 		}); err != nil {
 			t.Fatalf("resolve exact-size telemetry header value: %v", err)
 		}
-		err := ResolveTelemetrySecretReferences(cfg, map[string]string{
+		err := resolveTelemetrySecretReferencesForTest(cfg, map[string]string{
 			"CARTULARY_SECRET_ONE": strings.Repeat("A", 4097),
 		})
 		requireDiagnostic(t, err, "telemetry.exporter.headers.a", "invalid_telemetry_config")
 
-		cfg = mustLoadConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		cfg = mustLoadTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__EXPORTER__HEADERS": "A=one,B=two,C=three",
 		})
-		err = ResolveTelemetrySecretReferences(cfg, map[string]string{
+		err = resolveTelemetrySecretReferencesForTest(cfg, map[string]string{
 			"CARTULARY_SECRET_ONE":   strings.Repeat("A", 3000),
 			"CARTULARY_SECRET_TWO":   strings.Repeat("B", 3000),
 			"CARTULARY_SECRET_THREE": strings.Repeat("C", 3000),
@@ -531,7 +534,7 @@ func TestOpenTelemetrySecretReferences(t *testing.T) {
 	})
 
 	t.Run("requires HMAC secret ref when incident correlation is enabled", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixturesConfigValid(t)), map[string]string{
+		err := loadInvalidTelemetryConfig(t, string(fixturesConfigValid(t)), map[string]string{
 			"CARTULARY__TELEMETRY__ATTRIBUTE__INCIDENT_CORRELATION": "hmac_64bit",
 		})
 		requireDiagnostic(t, err, "telemetry.attribute.hmac_secret_ref", "invalid_telemetry_config")
@@ -541,6 +544,117 @@ func TestOpenTelemetrySecretReferences(t *testing.T) {
 func fixturesConfigValid(t testing.TB) []byte {
 	t.Helper()
 	return fixtures.MustRead("config", "valid.toml")
+}
+
+func mustLoadTelemetryConfig(t testing.TB, content string, env map[string]string) document {
+	t.Helper()
+	cfg, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, content), Env: env})
+	if err != nil {
+		t.Fatalf("load telemetry configuration: %v", err)
+	}
+	return cfg
+}
+
+func loadInvalidTelemetryConfig(t testing.TB, content string, env map[string]string) error {
+	t.Helper()
+	_, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, content), Env: env})
+	if err == nil {
+		t.Fatal("expected invalid telemetry configuration")
+	}
+	return err
+}
+
+func loadTelemetryWithOptions(options LoadOptions) (document, error) {
+	catalog, key, err := telemetryTestCatalog()
+	if err != nil {
+		return document{}, err
+	}
+	cfg, err := loadWithOptionsAndCatalog(options, catalog)
+	if err != nil {
+		return document{}, err
+	}
+	snapshot, err := catalog.materialize(cfg)
+	if err != nil {
+		return document{}, err
+	}
+	settings, err := Value(snapshot, key)
+	if err != nil {
+		return document{}, err
+	}
+	target, present := configFieldAtPath(&cfg, "telemetry")
+	if !present {
+		return document{}, fmt.Errorf("telemetry document namespace is unresolved")
+	}
+	if err := copyConfigurationValue(target, reflect.ValueOf(settings)); err != nil {
+		return document{}, err
+	}
+	return cfg, nil
+}
+
+func telemetryTestCatalog() (Catalog, Key[telemetryconfiguration.Config], error) {
+	key, err := NewKey[telemetryconfiguration.Config]("platform.telemetry.test")
+	if err != nil {
+		return Catalog{}, Key[telemetryconfiguration.Config]{}, err
+	}
+	builder := &CatalogBuilder{}
+	err = Register(builder, Definition[telemetryconfiguration.Config]{
+		Key:       key,
+		Namespace: "telemetry",
+		Paths:     []string{"telemetry"},
+		ApplyOverlay: func(settings telemetryconfiguration.Config, segments []string, raw string) (telemetryconfiguration.Config, *Diagnostic) {
+			finding := telemetryconfiguration.ApplyOverlay(&settings, segments, raw)
+			if finding == nil {
+				return settings, nil
+			}
+			return settings, &Diagnostic{
+				Path:       finding.Path,
+				ReasonCode: finding.ReasonCode,
+				Message:    finding.Message,
+			}
+		},
+		Project: func(source Source) (telemetryconfiguration.Config, []Diagnostic) {
+			var settings telemetryconfiguration.Config
+			if err := source.Decode("telemetry", &settings); err != nil {
+				return telemetryconfiguration.Config{}, []Diagnostic{{
+					Path:       "telemetry",
+					ReasonCode: "invalid_telemetry_config",
+					Message:    err.Error(),
+				}}
+			}
+			normalized, findings := telemetryconfiguration.NormalizeAndValidate(settings, source)
+			return normalized, telemetryFindingsToTestDiagnostics(findings)
+		},
+		Clone: telemetryconfiguration.Clone,
+	})
+	if err != nil {
+		return Catalog{}, Key[telemetryconfiguration.Config]{}, err
+	}
+	catalog, err := builder.Build()
+	return catalog, key, err
+}
+
+func telemetryFindingsToTestDiagnostics(findings []telemetryconfiguration.Finding) []Diagnostic {
+	diagnostics := make([]Diagnostic, len(findings))
+	for index, finding := range findings {
+		diagnostics[index] = Diagnostic{
+			Path:       finding.Path,
+			ReasonCode: finding.ReasonCode,
+			Message:    finding.Message,
+		}
+	}
+	return diagnostics
+}
+
+func resolveTelemetrySecretReferencesForTest(cfg document, env map[string]string) error {
+	var settings telemetryconfiguration.Config
+	if err := (documentSource{document: cfg}).Decode("telemetry", &settings); err != nil {
+		return err
+	}
+	_, findings := telemetryconfiguration.ResolveSecrets(settings, env)
+	if len(findings) == 0 {
+		return nil
+	}
+	return newDiagnosticsError(telemetryFindingsToTestDiagnostics(findings))
 }
 
 func requireTelemetryUUIDV4(t testing.TB, value string) {

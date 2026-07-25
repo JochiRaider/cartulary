@@ -5,7 +5,7 @@ import (
 
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
 
 type telemetrySelfMetrics struct {
@@ -13,11 +13,11 @@ type telemetrySelfMetrics struct {
 	dropCounter metric.Int64Counter
 }
 
-func newTelemetrySelfMetrics(cfg config.Config) telemetrySelfMetrics {
-	if !cfg.Telemetry.SelfDiagnostics.Enabled || !cfg.Telemetry.Metrics.Enabled {
+func newTelemetrySelfMetrics(cfg telemetryconfiguration.Config) telemetrySelfMetrics {
+	if !cfg.SelfDiagnostics.Enabled || !cfg.Metrics.Enabled {
 		return telemetrySelfMetrics{}
 	}
-	counter, err := Meter(ScopeTelemetry, cfg.Telemetry.Resource.ServiceVersion).Int64Counter(
+	counter, err := Meter(ScopeTelemetry, cfg.Resource.ServiceVersion).Int64Counter(
 		TelemetryItemDroppedMetricName,
 		metric.WithUnit("{item}"),
 		metric.WithDescription("Telemetry items dropped before or during export."),

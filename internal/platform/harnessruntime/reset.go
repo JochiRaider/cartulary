@@ -17,8 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -37,13 +35,12 @@ const (
 )
 
 type testRuntimeResetService struct {
-	cfg         config.Config
-	env         map[string]string
-	postgres    *pgxpool.Pool
-	objectStore objectstore.Store
-	guard       httpapi.TestRouteGuard
-	resetHooks  []func()
-	resetMu     sync.Mutex
+	restoreBootstrap func(context.Context, pgx.Tx) error
+	postgres         *pgxpool.Pool
+	objectStore      objectstore.Store
+	guard            httpapi.TestRouteGuard
+	resetHooks       []func()
+	resetMu          sync.Mutex
 }
 
 type testRuntimeResetResult struct {
@@ -91,6 +88,9 @@ func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar 
 		if deps.ObjectStore == nil {
 			return fmt.Errorf("register test runtime reset route: object store dependency is required")
 		}
+		if deps.TestResetBootstrap == nil {
+			return fmt.Errorf("register test runtime reset route: bootstrap reset dependency is required")
+		}
 		effectiveResetHooks := append([]func(){}, resetHooks...)
 		if clearable, ok := deps.PublicErrorFaults.(interface{ Clear() }); ok {
 			effectiveResetHooks = append(effectiveResetHooks, clearable.Clear)
@@ -101,12 +101,11 @@ func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar 
 			})
 		}
 		service := &testRuntimeResetService{
-			cfg:         deps.Config,
-			env:         deps.Env,
-			postgres:    deps.Postgres,
-			objectStore: deps.ObjectStore,
-			guard:       guard,
-			resetHooks:  effectiveResetHooks,
+			restoreBootstrap: deps.TestResetBootstrap,
+			postgres:         deps.Postgres,
+			objectStore:      deps.ObjectStore,
+			guard:            guard,
+			resetHooks:       effectiveResetHooks,
 		}
 		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
 		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)
@@ -176,7 +175,7 @@ func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Req
 		})
 		return
 	}
-	if err := bootstrap.PreflightTx(ctx, s.cfg, tx); err != nil {
+	if err := s.restoreBootstrap(ctx, tx); err != nil {
 		writeTestRuntimeResetError(w, r, "restore bootstrap admin", err, false, map[string]any{
 			"tables_reset": tables,
 		})
@@ -215,19 +214,19 @@ func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	objectsRemoved, err := clearConfiguredObjectBucket(ctx, s.cfg, s.env, s.objectStore)
+	objectsRemoved, err := clearConfiguredObjectBucket(ctx, s.objectStore)
 	if err != nil {
 		details := map[string]any{
 			"tables_reset":         tables,
 			"object_count_removed": objectsRemoved,
 		}
-		if objectsAfter, countErr := countConfiguredObjectBucket(context.Background(), s.cfg, s.env, s.objectStore); countErr == nil {
+		if objectsAfter, countErr := countConfiguredObjectBucket(context.Background(), s.objectStore); countErr == nil {
 			details["object_count_after"] = objectsAfter
 		}
 		writeTestRuntimeResetError(w, r, "clear object store bucket", err, true, details)
 		return
 	}
-	objectsAfter, err := countConfiguredObjectBucket(ctx, s.cfg, s.env, s.objectStore)
+	objectsAfter, err := countConfiguredObjectBucket(ctx, s.objectStore)
 	if err != nil {
 		writeTestRuntimeResetError(w, r, "count object store bucket after reset", err, true, map[string]any{
 			"tables_reset":         tables,
@@ -360,7 +359,7 @@ func truncateTables(ctx context.Context, db resetDB, tables []string) error {
 	return err
 }
 
-func clearConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client objectstore.Store) (int, error) {
+func clearConfiguredObjectBucket(ctx context.Context, client objectstore.Store) (int, error) {
 	removed := 0
 	objects, err := client.ListObjects(ctx, "")
 	if err != nil {
@@ -375,7 +374,7 @@ func clearConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map
 	return removed, nil
 }
 
-func countConfiguredObjectBucket(ctx context.Context, cfg config.Config, env map[string]string, client objectstore.Store) (int, error) {
+func countConfiguredObjectBucket(ctx context.Context, client objectstore.Store) (int, error) {
 	objects, err := client.ListObjects(ctx, "")
 	if err != nil {
 		return 0, err

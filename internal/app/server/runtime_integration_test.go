@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -47,12 +49,12 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 	env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 	cases := []struct {
 		name       string
-		mutate     func(config.Config) config.Config
+		mutate     func(configassembly.Deployment) configassembly.Deployment
 		goldenFile string
 	}{
 		{
 			name: "path-validation failure",
-			mutate: func(cfg config.Config) config.Config {
+			mutate: func(cfg configassembly.Deployment) configassembly.Deployment {
 				cfg.Roots.DatabaseStorage.Path = "relative/postgres"
 				return cfg
 			},
@@ -60,7 +62,7 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 		},
 		{
 			name: "missing required runtime root",
-			mutate: func(cfg config.Config) config.Config {
+			mutate: func(cfg configassembly.Deployment) configassembly.Deployment {
 				cfg.Roots.ExportOutputs = config.RootBinding{}
 				return cfg
 			},
@@ -235,6 +237,29 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 				return bootstraptest.WriteNonRegularBootstrapManifestPath(t)
 			},
 			goldenFile: "bootstrap_manifest_not_regular_file.json",
+		},
+		{
+			name: "symlinked bootstrap path",
+			manifestPath: func(t *testing.T) string {
+				target := bootstraptest.CanonicalBootstrapManifestPath()
+				link := filepath.Join(t.TempDir(), "bootstrap-link.json")
+				if err := os.Symlink(target, link); err != nil {
+					t.Fatalf("create bootstrap manifest symlink: %v", err)
+				}
+				return link
+			},
+			goldenFile: "bootstrap_manifest_not_regular_file.json",
+		},
+		{
+			name: "oversized bootstrap manifest",
+			manifestPath: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "oversized-bootstrap.json")
+				if err := os.WriteFile(path, make([]byte, bootstrap.ManifestMaximumBytes+1), 0o600); err != nil {
+					t.Fatalf("write oversized bootstrap manifest: %v", err)
+				}
+				return path
+			},
+			goldenFile: "bootstrap_manifest_too_large.json",
 		},
 		{
 			name: "malformed json manifest",
@@ -581,7 +606,7 @@ func IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[string]str
 	return env
 }
 
-func BindPostgres(t testing.TB, cfg config.Config, env map[string]string) config.Config {
+func BindPostgres(t testing.TB, cfg configassembly.Deployment, env map[string]string) configassembly.Deployment {
 	t.Helper()
 	configtest.BindPostgresEnvToDatabaseRoot(t, cfg.Roots.DatabaseStorage.Path, env)
 	return cfg

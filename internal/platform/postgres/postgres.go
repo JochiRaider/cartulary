@@ -16,7 +16,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 const (
@@ -25,6 +25,8 @@ const (
 	ManagedServiceDSNPrefix = "CARTULARY_POSTGRES_"
 	ManagedServiceDSNSuffix = "_DSN"
 	GooseLogFileEnv         = "CARTULARY_GOOSE_LOG_FILE"
+
+	filesystemRootDSNMaximumBytes int64 = 65536
 )
 
 var (
@@ -39,6 +41,12 @@ type Settings struct {
 	BindingKind string
 	RootPath    string
 	DSN         string
+	ServiceRef  string
+}
+
+type Binding struct {
+	BindingKind string
+	RootPath    string
 	ServiceRef  string
 }
 
@@ -70,67 +78,54 @@ func NewEmbeddedMigrationSource(fsys fs.FS, path string, name string) MigrationS
 	}
 }
 
-func ConnectionString(cfg config.Config) string {
-	settings, err := ResolveSettings(cfg, nil)
-	if err != nil {
-		return ""
-	}
-	return settings.DSN
-}
-
-func ResolveSettings(cfg config.Config, env map[string]string) (Settings, error) {
-	switch cfg.Roots.DatabaseStorage.BindingKind {
+func ResolveSettings(binding Binding, env map[string]string) (Settings, error) {
+	switch binding.BindingKind {
 	case "filesystem_root":
-		if cfg.Roots.DatabaseStorage.Path == "" {
+		if binding.RootPath == "" {
 			return Settings{}, fmt.Errorf("resolve postgres settings: roots.database_storage.path is required")
 		}
-		root, err := os.OpenRoot(cfg.Roots.DatabaseStorage.Path)
+		root, err := rootedfs.Open(binding.RootPath)
 		if err != nil {
-			return Settings{}, fmt.Errorf("resolve postgres settings: open database storage root %s: %w", cfg.Roots.DatabaseStorage.Path, err)
+			return Settings{}, fmt.Errorf("resolve postgres settings: database storage root is unavailable: %w", err)
 		}
 		defer root.Close()
 
-		payload, err := root.ReadFile(FilesystemRootDSNFile)
+		payload, _, err := root.ReadRegular(
+			rootedfs.MustParseReference(FilesystemRootDSNFile),
+			filesystemRootDSNMaximumBytes,
+		)
 		if err != nil {
-			return Settings{}, fmt.Errorf("resolve postgres settings: read root-bound DSN file %s: %w", filepath.Join(cfg.Roots.DatabaseStorage.Path, FilesystemRootDSNFile), err)
+			return Settings{}, fmt.Errorf("resolve postgres settings: root-bound DSN file is unavailable or unsafe: %w", err)
 		}
 		dsn := strings.TrimSpace(string(payload))
 		if dsn == "" {
-			return Settings{}, fmt.Errorf("resolve postgres settings: root-bound DSN file %s is empty", filepath.Join(cfg.Roots.DatabaseStorage.Path, FilesystemRootDSNFile))
+			return Settings{}, fmt.Errorf("resolve postgres settings: root-bound DSN file is empty")
 		}
 		return Settings{
 			BindingKind: "filesystem_root",
-			RootPath:    cfg.Roots.DatabaseStorage.Path,
+			RootPath:    binding.RootPath,
 			DSN:         dsn,
 		}, nil
 	case "managed_service":
-		key, err := EnvKeyForServiceRef(cfg.Roots.DatabaseStorage.ServiceRef)
+		key, err := EnvKeyForServiceRef(binding.ServiceRef)
 		if err != nil {
 			return Settings{}, err
 		}
 		dsn, ok := lookupEnv(env, key)
 		if !ok || dsn == "" {
-			return Settings{}, fmt.Errorf("missing postgres DSN for managed service %q (%s)", cfg.Roots.DatabaseStorage.ServiceRef, key)
+			return Settings{}, fmt.Errorf("missing postgres DSN for managed service %q (%s)", binding.ServiceRef, key)
 		}
 		return Settings{
 			BindingKind: "managed_service",
 			DSN:         dsn,
-			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
+			ServiceRef:  binding.ServiceRef,
 		}, nil
 	default:
 		return Settings{}, fmt.Errorf("resolve postgres settings: roots.database_storage.binding_kind must be configured before postgres setup")
 	}
 }
 
-func Setup(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
-	return SetupWithEnv(ctx, cfg, nil)
-}
-
-func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string) (*pgxpool.Pool, error) {
-	settings, err := ResolveSettings(cfg, env)
-	if err != nil {
-		return nil, err
-	}
+func Setup(ctx context.Context, settings Settings) (*pgxpool.Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(settings.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("parse postgres config: %w", err)
@@ -139,15 +134,7 @@ func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string)
 	return pgxpool.NewWithConfig(ctx, poolConfig)
 }
 
-func OpenSQL(cfg config.Config) (*sql.DB, error) {
-	return OpenSQLWithEnv(cfg, nil)
-}
-
-func OpenSQLWithEnv(cfg config.Config, env map[string]string) (*sql.DB, error) {
-	settings, err := ResolveSettings(cfg, env)
-	if err != nil {
-		return nil, err
-	}
+func OpenSQL(settings Settings) (*sql.DB, error) {
 	db, err := sql.Open("pgx", settings.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("open postgres sql handle: %w", err)

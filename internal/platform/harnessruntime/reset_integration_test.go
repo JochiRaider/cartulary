@@ -11,12 +11,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
@@ -366,21 +367,24 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	}
 	deps.ModuleOverrides[testClockModuleOverrideKey] = clock
 	ctx := context.Background()
-	pool, err := postgres.SetupWithEnv(ctx, cfg, effectiveEnv)
+	pool, err := appsupport.OpenPostgres(ctx, cfg, effectiveEnv)
 	if err != nil {
 		t.Fatalf("open reset test postgres fixture: %v", err)
 	}
-	store, err := objectstore.SetupWithEnv(ctx, cfg, effectiveEnv)
+	store, err := appsupport.OpenObjectStore(ctx, cfg, effectiveEnv)
 	if err != nil {
 		pool.Close()
 		t.Fatalf("open reset test object-store fixture: %v", err)
 	}
-	if err := bootstrap.Preflight(ctx, cfg, pool); err != nil {
+	bootstrapSettings := bootstrap.Settings{ManifestPath: cfg.Bootstrap.FirstAdminManifestPath}
+	if err := bootstrap.Preflight(ctx, bootstrapSettings, pool); err != nil {
 		pool.Close()
 		_ = store.Close()
 		t.Fatalf("bootstrap reset test runtime: %v", err)
 	}
-	deps.Config = cfg
+	deps.TestResetBootstrap = func(ctx context.Context, tx pgx.Tx) error {
+		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
+	}
 	deps.Env = effectiveEnv
 	deps.Postgres = pool
 	deps.ObjectStore = store

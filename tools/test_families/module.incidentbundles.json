@@ -220,6 +220,35 @@
       "status": "active"
     },
     {
+      "row_id": "module.incidentbundles.integration.incident_bundle_storage_reference_cutover_is_cle_7e4d8743ff",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestIncidentBundleStorageReferenceMigration37FreshSchema_Integration",
+          "TestIncidentBundleStorageReferenceMigration37RejectsPopulatedTablesBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/guides/cartulary-dev-guide.md#73-development-workflow"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -343,7 +372,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.incidentbundles.unit.incident_bundle_filesystem_staging_and_persisted_225d85ca78",
+      "row_id": "module.incidentbundles.unit.incident_bundle_logical_refs_are_root_free_228bd44f05",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [],
@@ -354,7 +383,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestBundleFileStoreRootsPermissionsAndCleanup_Unit"
+          "TestIncidentBundleStorageReferencesAreStrictAndRootFree_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -378,6 +407,33 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestAdmittedRouteSetupRequiresImportFinalizer_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.incident_bundle_storage_is_atomic_and_contained_2bfb18f3a9",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "app.server",
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit",
+          "TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"
         ]
       },
       "evidence_class": "unit",

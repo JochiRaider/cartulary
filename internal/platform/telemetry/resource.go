@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
 
 type ResourceIdentity struct {
@@ -28,21 +29,21 @@ type ResolvedClaimIdentity struct {
 
 var resolvedClaimProfileIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
-func BuildResourceIdentity(cfg config.Config, resolvedClaims ResolvedClaimIdentity) (ResourceIdentity, error) {
+func BuildResourceIdentity(cfg telemetryconfiguration.Config, deploymentProfile string, resolvedClaims ResolvedClaimIdentity) (ResourceIdentity, error) {
 	profileClaims, err := SerializeProfileClaims(resolvedClaims)
 	if err != nil {
 		return ResourceIdentity{}, err
 	}
 
 	attrs := []attribute.KeyValue{
-		attribute.String("service.name", cfg.Telemetry.Resource.ServiceName),
-		attribute.String("service.namespace", cfg.Telemetry.Resource.ServiceNamespace),
-		attribute.String("service.version", cfg.Telemetry.Resource.ServiceVersion),
-		attribute.String("service.instance.id", cfg.Telemetry.Resource.ServiceInstanceID),
-		attribute.String("cartulary.deployment.profile", cfg.DeploymentProfile),
+		attribute.String("service.name", cfg.Resource.ServiceName),
+		attribute.String("service.namespace", cfg.Resource.ServiceNamespace),
+		attribute.String("service.version", cfg.Resource.ServiceVersion),
+		attribute.String("service.instance.id", cfg.Resource.ServiceInstanceID),
+		attribute.String("cartulary.deployment.profile", deploymentProfile),
 		attribute.String("cartulary.profile.claims", profileClaims),
 	}
-	if deploymentEnvironment := strings.TrimSpace(cfg.Telemetry.Resource.DeploymentEnvironmentName); deploymentEnvironment != "" {
+	if deploymentEnvironment := strings.TrimSpace(cfg.Resource.DeploymentEnvironmentName); deploymentEnvironment != "" {
 		attrs = append(attrs, attribute.String("deployment.environment.name", deploymentEnvironment))
 	}
 

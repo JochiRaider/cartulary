@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -30,11 +32,11 @@ type operatorPostgresPool interface {
 type operatorRunner struct {
 	stdout                  io.Writer
 	stderr                  io.Writer
-	loadConfig              func(string) (config.Config, error)
-	setupPostgres           func(context.Context, config.Config) (operatorPostgresPool, error)
-	setupObjectStore        func(context.Context, config.Config) (objectstore.Store, error)
-	ensureObjectStoreBucket func(context.Context, config.Config) (objectstore.EnsureBucketResult, error)
-	newBackupStorage        func(config.Config) (recovery.BackupStorage, error)
+	loadConfig              func(string) (configassembly.Loaded, error)
+	setupPostgres           func(context.Context, postgres.Settings) (operatorPostgresPool, error)
+	setupObjectStore        func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
+	ensureObjectStoreBucket func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error)
+	newBackupStorage        func(string, string) (recovery.BackupStorage, error)
 	now                     func() time.Time
 }
 
@@ -62,27 +64,41 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 	return operatorRunner{
 		stdout: normalizeOperatorWriter(stdout),
 		stderr: normalizeOperatorWriter(stderr),
-		loadConfig: func(path string) (config.Config, error) {
-			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+		loadConfig: func(path string) (configassembly.Loaded, error) {
+			policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
 			if err != nil {
-				return config.Config{}, err
+				return configassembly.Loaded{}, err
 			}
+			options := config.LoadOptions{InactivePolicy: policy}
 			if strings.TrimSpace(path) == "" {
-				return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+				loaded, err := configassembly.Load(options)
+				if err != nil {
+					return configassembly.Loaded{}, err
+				}
+				return loaded, nil
 			}
-			return config.LoadWithOptions(config.LoadOptions{Path: path, ExtensionInactiveCatalog: catalog})
+			options.Path = path
+			loaded, err := configassembly.Load(options)
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			return loaded, nil
 		},
-		setupPostgres: func(ctx context.Context, cfg config.Config) (operatorPostgresPool, error) {
-			return postgres.Setup(ctx, cfg)
+		setupPostgres: func(ctx context.Context, settings postgres.Settings) (operatorPostgresPool, error) {
+			return postgres.Setup(ctx, settings)
 		},
-		setupObjectStore: func(ctx context.Context, cfg config.Config) (objectstore.Store, error) {
-			return objectstore.Setup(ctx, cfg)
+		setupObjectStore: func(ctx context.Context, settings objectstore.Settings, instrumentation objectstore.Instrumentation) (objectstore.Store, error) {
+			return objectstore.Setup(ctx, settings, instrumentation)
 		},
-		ensureObjectStoreBucket: func(ctx context.Context, cfg config.Config) (objectstore.EnsureBucketResult, error) {
-			return objectstore.EnsureConfiguredBucket(ctx, cfg, nil)
+		ensureObjectStoreBucket: func(ctx context.Context, settings objectstore.Settings) (objectstore.EnsureBucketResult, error) {
+			return objectstore.EnsureBucket(ctx, settings)
 		},
-		newBackupStorage: func(cfg config.Config) (recovery.BackupStorage, error) {
-			return recovery.NewBackupStorageFromConfig(cfg)
+		newBackupStorage: func(bindingKind string, rootPath string) (recovery.BackupStorage, error) {
+			return recoveryassembly.NewBackupStorage(
+				bindingKind,
+				rootPath,
+				nil,
+			)
 		},
 		now: func() time.Time {
 			return time.Now().UTC()
@@ -182,11 +198,16 @@ func (runner operatorRunner) runObjectStoreInitCommand(ctx context.Context, args
 }
 
 func (runner operatorRunner) runObjectStoreInit(ctx context.Context, parsed operatorCLIResult) error {
-	cfg, err := runner.loadConfig(parsed.sourceConfigPath)
+	loaded, err := runner.loadConfig(parsed.sourceConfigPath)
 	if err != nil {
 		return sanitizeObjectStoreInitError(err)
 	}
-	result, err := runner.ensureObjectStoreBucket(ctx, cfg)
+	cfg := loaded.Deployment()
+	settings, err := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(cfg), nil)
+	if err != nil {
+		return sanitizeObjectStoreInitError(err)
+	}
+	result, err := runner.ensureObjectStoreBucket(ctx, settings)
 	if err != nil {
 		return sanitizeObjectStoreInitError(err)
 	}

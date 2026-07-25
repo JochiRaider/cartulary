@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
-	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 // ClaimConfigurationPaths returns the exact generated configuration projection
@@ -67,28 +67,21 @@ func ResolveClaimRequest(descriptors []extensions.Descriptor, values map[string]
 	return claimed, nil
 }
 
-func GeneratedInactiveConfigurationCatalog() (extensioninactive.Catalog, error) {
+func GeneratedInactiveConfigurationPolicy() (config.InactivePolicy, error) {
 	coordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
-		return extensioninactive.Catalog{}, err
+		return nil, err
 	}
-	return InactiveConfigurationCatalog(coordinator)
+	return InactiveConfigurationPolicy(coordinator)
 }
 
-func InactiveConfigurationCatalog(coordinator *extensions.Coordinator) (extensioninactive.Catalog, error) {
+func InactiveConfigurationPolicy(coordinator *extensions.Coordinator) (config.InactivePolicy, error) {
 	if coordinator == nil {
-		return extensioninactive.Catalog{}, fmt.Errorf("extension coordinator is required")
+		return nil, fmt.Errorf("extension coordinator is required")
 	}
-	projection := coordinator.InactiveConfigurationPolicies()
-	policies := make([]extensioninactive.Policy, len(projection))
-	for index, policy := range projection {
-		policies[index] = extensioninactive.Policy{
-			ProfileID: policy.ProfileID,
-			ClaimKey:  policy.ClaimKey,
-			Key:       policy.Key,
-			Kind:      extensioninactive.PolicyKind(policy.Kind),
-			Schema:    policy.Schema,
-		}
+	catalog, err := extensions.NewInactiveConfigurationCatalog(coordinator.InactiveConfigurationPolicies())
+	if err != nil {
+		return nil, err
 	}
-	return extensioninactive.NewCatalog(policies)
+	return catalog, nil
 }

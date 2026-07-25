@@ -71,7 +71,7 @@ func TestLogBridgeEnabledMapping(t *testing.T) {
 		SpanID:     spanID,
 		TraceFlags: trace.FlagsSampled,
 	}))
-	resource, err := BuildResourceIdentity(validTelemetryBootstrapConfig(t), resolvedClaimIdentity(t, "import"))
+	resource, err := buildResourceIdentityFromConfig(validTelemetryBootstrapConfig(t), resolvedClaimIdentity(t, "import"))
 	if err != nil {
 		t.Fatalf("build resource identity: %v", err)
 	}

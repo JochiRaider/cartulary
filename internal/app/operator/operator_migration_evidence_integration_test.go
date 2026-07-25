@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -54,23 +54,16 @@ func TestMigrationEvidenceCommand_Integration(t *testing.T) {
 
 func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) migrationevidence.Result {
 	t.Helper()
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", dsn)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
-		loadConfig: func(string) (config.Config, error) {
-			return config.Config{
-				ConfigSchemaID: "cartulary.deployment_config.v1",
-				Roots: config.RootBindings{
-					DatabaseStorage: config.RootBinding{
-						BindingKind: "managed_service",
-						ServiceRef:  "postgres-primary",
-					},
-				},
-			}, nil
+		loadConfig: func(string) (configassembly.Loaded, error) {
+			return migrationEvidenceTestDeployment(t), nil
 		},
-		setupPostgres: func(ctx context.Context, config config.Config) (operatorPostgresPool, error) {
+		setupPostgres: func(ctx context.Context, settings postgres.Settings) (operatorPostgresPool, error) {
 			return pgxpool.New(ctx, dsn)
 		},
 		now: func() time.Time {

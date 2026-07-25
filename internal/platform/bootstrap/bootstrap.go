@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -22,6 +22,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 )
 
 const (
@@ -30,6 +31,8 @@ const (
 	bootstrapManifestPathKey  = "bootstrap.first_admin_manifest_path"
 
 	ManifestSchemaID = bootstrapManifestSchemaID
+
+	ManifestMaximumBytes int64 = 1048576
 )
 
 type bootstrapManifest struct {
@@ -70,25 +73,70 @@ type bootstrapManifestFS interface {
 	ReadFile(name string) ([]byte, error)
 }
 
-type osBootstrapManifestFS struct{}
-
-func (osBootstrapManifestFS) Stat(name string) (fs.FileInfo, error) {
-	return os.Stat(name)
+type secureBootstrapManifestFS struct {
+	path     string
+	document securefile.Document
+	loaded   bool
 }
 
-func (osBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name) // #nosec G304 -- bootstrap manifests are operator-configured absolute paths validated before use.
+func (manifestFS *secureBootstrapManifestFS) Stat(name string) (fs.FileInfo, error) {
+	document, err := securefile.Read(name, ManifestMaximumBytes)
+	if err != nil {
+		var secureErr *securefile.Error
+		if errors.As(err, &secureErr) && secureErr.Kind == securefile.FailureUnsafeObject {
+			return secureManifestFileInfo{name: "bootstrap-manifest", mode: fs.ModeIrregular}, nil
+		}
+		return nil, err
+	}
+	manifestFS.path = name
+	manifestFS.document = document
+	manifestFS.loaded = true
+	return secureManifestFileInfo{
+		name:    "bootstrap-manifest",
+		size:    document.Size(),
+		mode:    document.Mode(),
+		modTime: document.ModTime(),
+	}, nil
 }
 
-func Preflight(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) error {
-	return bootstrapPreflight(ctx, cfg, postgresBootstrapStore{pool: pool}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash)
+func (manifestFS *secureBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
+	if !manifestFS.loaded || manifestFS.path != name {
+		return nil, fs.ErrInvalid
+	}
+	return manifestFS.document.Bytes(), nil
 }
 
-func PreflightTx(ctx context.Context, cfg config.Config, tx pgx.Tx) error {
-	return bootstrapPreflight(ctx, cfg, txBootstrapStore{tx: tx}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash)
+type secureManifestFileInfo struct {
+	name    string
+	size    int64
+	mode    fs.FileMode
+	modTime time.Time
 }
 
-func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
+func (info secureManifestFileInfo) Name() string       { return info.name }
+func (info secureManifestFileInfo) Size() int64        { return info.size }
+func (info secureManifestFileInfo) Mode() fs.FileMode  { return info.mode }
+func (info secureManifestFileInfo) ModTime() time.Time { return info.modTime }
+func (info secureManifestFileInfo) IsDir() bool        { return info.mode.IsDir() }
+func (info secureManifestFileInfo) Sys() any           { return nil }
+
+func newSecureBootstrapManifestFS() bootstrapManifestFS {
+	return &secureBootstrapManifestFS{}
+}
+
+func Preflight(ctx context.Context, settings Settings, pool *pgxpool.Pool) error {
+	return bootstrapPreflight(ctx, settings, postgresBootstrapStore{pool: pool}, newSecureBootstrapManifestFS(), deriveBootstrapPasswordHash)
+}
+
+func PreflightTx(ctx context.Context, settings Settings, tx pgx.Tx) error {
+	return bootstrapPreflight(ctx, settings, txBootstrapStore{tx: tx}, newSecureBootstrapManifestFS(), deriveBootstrapPasswordHash)
+}
+
+type Settings struct {
+	ManifestPath string
+}
+
+func bootstrapPreflight(ctx context.Context, settings Settings, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
 	state, err := store.ReadBootstrapState(ctx)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "query bootstrap state", err)
@@ -105,7 +153,7 @@ func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapS
 		})
 	}
 
-	manifestPath := cfg.Bootstrap.FirstAdminManifestPath
+	manifestPath := settings.ManifestPath
 	if manifestPath == "" {
 		return configError(config.Diagnostic{
 			Path:       bootstrapManifestPathKey,
@@ -116,7 +164,7 @@ func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapS
 
 	info, err := manifestFS.Stat(manifestPath)
 	if err != nil {
-		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_manifest_not_readable", "stat bootstrap manifest", err)
+		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_manifest_not_readable", "read bootstrap manifest", err)
 	}
 	if !info.Mode().IsRegular() {
 		return configError(config.Diagnostic{

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 )
@@ -208,15 +209,18 @@ func (storage encryptedBackupStorage) WriteArtifact(ctx context.Context, key str
 	}, nil
 }
 
-func (storage encryptedBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
+func (storage encryptedBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if maxBytes <= 0 || maxBytes > (math.MaxInt64-65536)/2 {
+		return nil, fmt.Errorf("%w: invalid artifact read bound", ErrInvalidBackupArtifact)
 	}
 	normalizedKey, err := normalizeArtifactKey(key)
 	if err != nil {
 		return nil, err
 	}
-	envelopeBody, err := storage.inner.ReadArtifact(ctx, normalizedKey)
+	envelopeBody, err := storage.inner.ReadArtifact(ctx, normalizedKey, maxBytes*2+65536)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +256,14 @@ func (storage encryptedBackupStorage) ReadArtifact(ctx context.Context, key stri
 	if err != nil {
 		return nil, fmt.Errorf("%w: decrypt backup artifact envelope for %s: %v", ErrInvalidBackupArtifact, normalizedKey, err)
 	}
+	if int64(len(plaintext)) > maxBytes {
+		return nil, fmt.Errorf("%w: backup artifact exceeds admitted size for %s", ErrInvalidBackupArtifact, normalizedKey)
+	}
 	return plaintext, nil
+}
+
+func (storage encryptedBackupStorage) Close() error {
+	return CloseBackupStorage(storage.inner)
 }
 
 func backupStorageEncryptionProof(storage BackupStorage) (BackupStorageEncryptionProof, error) {

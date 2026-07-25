@@ -8,7 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
+
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -120,7 +121,7 @@ type RetryPlan struct {
 	ProductHotPathBlocked bool
 }
 
-func PlanRetry(retry config.TelemetryExporterRetryConfig, retryAttemptIndex int64, elapsedSinceFirstFailedAttemptStartMS int64, sampledDelayMS int64, shutdownStarted bool) RetryPlan {
+func PlanRetry(retry telemetryconfiguration.ExporterRetryConfig, retryAttemptIndex int64, elapsedSinceFirstFailedAttemptStartMS int64, sampledDelayMS int64, shutdownStarted bool) RetryPlan {
 	if shutdownStarted || !retry.Enabled || retry.MaxElapsedMS == 0 || retryAttemptIndex < 1 || sampledDelayMS < 0 {
 		return RetryPlan{}
 	}

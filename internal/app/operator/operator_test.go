@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
 func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
@@ -17,14 +18,15 @@ func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
 	var stderr bytes.Buffer
 	var gotConfigPath string
 	var ensureCalls int
+	objectStorageRoot := t.TempDir()
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
-		loadConfig: func(path string) (config.Config, error) {
+		loadConfig: func(path string) (configassembly.Loaded, error) {
 			gotConfigPath = path
-			return config.Config{ConfigSchemaID: "cartulary.deployment_config.v1"}, nil
+			return objectStoreTestConfig(t, objectStorageRoot), nil
 		},
-		ensureObjectStoreBucket: func(context.Context, config.Config) (objectstore.EnsureBucketResult, error) {
+		ensureObjectStoreBucket: func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error) {
 			ensureCalls++
 			return objectstore.EnsureBucketResult{Created: true}, nil
 		},
@@ -56,6 +58,7 @@ func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
 func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	objectStorageRoot := t.TempDir()
 	forbidden := []string{
 		"http://127.0.0.1:9000",
 		"secret-bucket",
@@ -67,10 +70,10 @@ func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
-		loadConfig: func(string) (config.Config, error) {
-			return config.Config{ConfigSchemaID: "cartulary.deployment_config.v1"}, nil
+		loadConfig: func(string) (configassembly.Loaded, error) {
+			return objectStoreTestConfig(t, objectStorageRoot), nil
 		},
-		ensureObjectStoreBucket: func(context.Context, config.Config) (objectstore.EnsureBucketResult, error) {
+		ensureObjectStoreBucket: func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error) {
 			return objectstore.EnsureBucketResult{}, errors.New(strings.Join(forbidden, " "))
 		},
 	}
@@ -90,6 +93,19 @@ func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 	if !strings.Contains(stderr.String(), "object-store init failed: reason_code=dependency_unavailable") {
 		t.Fatalf("stderr did not include redacted failure reason: %s", stderr.String())
 	}
+}
+
+func objectStoreTestConfig(t testing.TB, rootPath string) configassembly.Loaded {
+	t.Helper()
+	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
+	deployment.Roots.ObjectStorage.BindingKind = "filesystem_root"
+	deployment.Roots.ObjectStorage.Path = rootPath
+	deployment.Roots.ObjectStorage.ServiceRef = ""
+	loaded, err := configassembly.Admit(deployment)
+	if err != nil {
+		t.Fatalf("admit object-store operator test deployment: %v", err)
+	}
+	return loaded
 }
 
 func TestOperatorObjectStoreMigrationCommand_U_RemovedFromOperatorSurface(t *testing.T) {

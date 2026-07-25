@@ -7,10 +7,10 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -19,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"gopkg.in/yaml.v3"
@@ -198,7 +197,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsafe := newZip(t, map[string][]byte{"../manifest.json": []byte("{}")})
 	_, err := VerifyBundle(VerificationInput{
 		Bundle: unsafe,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024}},
 	})
 	if !isVerificationReason(err, "invalid_member_path") {
 		t.Fatalf("unsafe path reason mismatch: %v", err)
@@ -218,7 +217,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: bundle.Bytes,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "unsupported_required_capability") {
 		t.Fatalf("required capability reason mismatch: %v", err)
@@ -237,7 +236,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	missingRequired := removeZipMember(t, validBundle.Bytes, "data/records.ndjson")
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: missingRequired,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "missing_required_file") {
 		t.Fatalf("missing required file reason mismatch: %v", err)
@@ -246,13 +245,13 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	withZipDirectories := appendZipMember(t, appendZipMember(t, validBundle.Bytes, "data/", nil), "integrity/", nil)
 	if _, err = VerifyBundle(VerificationInput{
 		Bundle: withZipDirectories,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe ZIP directory members must be ignored as structural entries: %v", err)
 	}
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: withZipDirectories,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "archive_member_count_exceeded") {
 		t.Fatalf("ZIP directory entries must count against member limits: %v", err)
@@ -260,7 +259,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsafeDirectory := appendZipMember(t, validBundle.Bytes, "../data/", nil)
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: unsafeDirectory,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "invalid_member_path") {
 		t.Fatalf("unsafe ZIP directory reason mismatch: %v", err)
@@ -268,7 +267,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsupportedZipMember := appendZipSymlink(t, validBundle.Bytes, "data/member-link", "manifest.json")
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: unsupportedZipMember,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "unsupported_member_type") {
 		t.Fatalf("unsupported ZIP member reason mismatch: %v", err)
@@ -276,13 +275,13 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	withTarDirectories := newTarGzip(t, []string{"data", "integrity/"}, zipFilesMap(t, validBundle.Bytes))
 	if _, err = VerifyBundle(VerificationInput{
 		Bundle: withTarDirectories,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe TAR directory members must be ignored as structural entries: %v", err)
 	}
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: withTarDirectories,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "archive_member_count_exceeded") {
 		t.Fatalf("TAR directory entries must count against member limits: %v", err)
@@ -291,7 +290,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	withSignature := appendZipMember(t, validBundle.Bytes, "integrity/signature.ed25519", []byte("not-a-supported-signature"))
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: withSignature,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "signature_mismatch") {
 		t.Fatalf("signature reason mismatch: %v", err)
@@ -302,7 +301,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	})
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: malformedMode,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "malformed_manifest") {
 		t.Fatalf("invalid reference_pack_mode reason mismatch: %v", err)
@@ -313,7 +312,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	})
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: malformedOptionalSection,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "malformed_manifest") {
 		t.Fatalf("unknown optional_sections token reason mismatch: %v", err)
@@ -324,7 +323,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	})
 	_, err = VerifyBundle(VerificationInput{
 		Bundle: unsupportedRequired,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "unsupported_required_capability") {
 		t.Fatalf("unsupported required capability reason mismatch: %v", err)
@@ -346,7 +345,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 	if _, err = VerifyBundle(VerificationInput{
 		Bundle: withKnownOptionalSection.Bytes,
-		Limits: config.LimitConfig{Archives: config.ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("known unsupported optional embedded section must not block core verification: %v", err)
 	}
@@ -375,7 +374,7 @@ func withAdditionalBundleFiles(files map[string][]byte, additional map[string][]
 }
 
 func TestCompressionRatioBoundaryUsesThresholdComparison_Unit(t *testing.T) {
-	limits := config.LimitConfig{Archives: config.ArchiveLimits{MaxCompressionRatio: 3}}
+	limits := Limits{Archives: ArchiveLimits{MaxCompressionRatio: 3}}
 	if err := checkCompressionRatio(300, 100, limits); err != nil {
 		t.Fatalf("exact compression ratio limit must pass: %v", err)
 	}
@@ -595,35 +594,41 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 	}
 }
 
-func TestBundleFileStoreRootsPermissionsAndCleanup_Unit(t *testing.T) {
-	temporaryRoot := t.TempDir()
-	exportRoot := t.TempDir()
-	store := newBundleFileStore(temporaryRoot, exportRoot)
-
-	stagedPath, err := store.stageBundle("abc123", []byte("portable bundle"))
-	if err != nil {
-		t.Fatalf("stage bundle: %v", err)
+func TestIncidentBundleStorageReferencesAreStrictAndRootFree_Unit(t *testing.T) {
+	valid := []string{
+		"incident-bundles/22222222-2222-2222-2222-222222222222.zip",
+		"incident-bundles/imports/abc.bundle",
 	}
-	wantStagePrefix := filepath.Join(temporaryRoot, "incident-bundles", "imports") + string(os.PathSeparator)
-	if !strings.HasPrefix(stagedPath, wantStagePrefix) || !strings.HasSuffix(stagedPath, ".bundle") {
-		t.Fatalf("staged bundle path mismatch: got %q want prefix %q", stagedPath, wantStagePrefix)
-	}
-	assertFileMode(t, stagedPath, 0o600)
-	store.remove(stagedPath)
-	if _, err := os.Stat(stagedPath); !os.IsNotExist(err) {
-		t.Fatalf("staged bundle must be removed, stat err=%v path=%s", err, stagedPath)
+	for _, raw := range valid {
+		if reference, err := ParseBundleStorageRef(raw); err != nil || reference.String() != raw {
+			t.Fatalf("ParseBundleStorageRef(%q) = %q, %v", raw, reference.String(), err)
+		}
+		if reference, err := ParseBundleStagingRef(raw); err != nil || reference.String() != raw {
+			t.Fatalf("ParseBundleStagingRef(%q) = %q, %v", raw, reference.String(), err)
+		}
 	}
 
-	bundleID := "22222222-2222-2222-2222-222222222222"
-	persistedPath, err := store.persistBundle(bundleID, []byte("export bundle"))
-	if err != nil {
-		t.Fatalf("persist bundle: %v", err)
+	invalid := []string{
+		"",
+		".",
+		"..",
+		"/var/lib/cartulary/export.zip",
+		"incident-bundles/../export.zip",
+		"incident-bundles//export.zip",
+		"incident-bundles/./export.zip",
+		`incident-bundles\export.zip`,
+		"incident-bundles/export.zip/",
+		"incident-bundles/\x00export.zip",
+		"incident-bundles/cafe\u0301.zip",
 	}
-	wantExportPath := filepath.Join(exportRoot, "incident-bundles", bundleID+".zip")
-	if persistedPath != wantExportPath {
-		t.Fatalf("persisted bundle path mismatch: got %q want %q", persistedPath, wantExportPath)
+	for _, raw := range invalid {
+		if _, err := ParseBundleStorageRef(raw); !errors.Is(err, ErrInvalidStorageReference) {
+			t.Fatalf("ParseBundleStorageRef(%q) error = %v; want ErrInvalidStorageReference", raw, err)
+		}
+		if _, err := ParseBundleStagingRef(raw); !errors.Is(err, ErrInvalidStorageReference) {
+			t.Fatalf("ParseBundleStagingRef(%q) error = %v; want ErrInvalidStorageReference", raw, err)
+		}
 	}
-	assertFileMode(t, persistedPath, 0o600)
 }
 
 func TestWorkerStartHookOverrideRequiresTestRuntime_Unit(t *testing.T) {
@@ -631,17 +636,6 @@ func TestWorkerStartHookOverrideRequiresTestRuntime_Unit(t *testing.T) {
 	_, err := workerStartHookFromDependencies(httpapi.DependencySet{ModuleOverrides: deps.ModuleOverrides})
 	if err == nil || !strings.Contains(err.Error(), "requires test runtime") {
 		t.Fatalf("worker hook override without test runtime must fail closed, got %v", err)
-	}
-}
-
-func assertFileMode(t testing.TB, path string, want os.FileMode) {
-	t.Helper()
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat %s: %v", path, err)
-	}
-	if got := info.Mode().Perm(); got != want {
-		t.Fatalf("%s mode mismatch: got %#o want %#o", path, got, want)
 	}
 }
 

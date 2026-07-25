@@ -105,7 +105,7 @@ type VersionRecord struct {
 	ActivatedByUserID   *string
 	ActivatedAt         *time.Time
 	BundleSHA256        string
-	BundleStoragePath   string
+	BundleStorageRef    StorageRef
 }
 
 type apiError struct {

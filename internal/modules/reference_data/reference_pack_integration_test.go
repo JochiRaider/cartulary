@@ -5,10 +5,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -42,6 +44,39 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	job := requireJob(t, harness, adminLogin, jobID)
 	if job["status"] != "succeeded" {
 		t.Fatalf("import job status = %#v", job)
+	}
+	var storageRefRaw string
+	var stagingRefRaw sql.NullString
+	if err := harness.DB.QueryRow(`
+SELECT rp.bundle_storage_ref, rpjp.bundle_staging_ref
+  FROM reference_packs rp
+  JOIN reference_pack_job_payloads rpjp ON rpjp.job_id = $1
+ WHERE rp.pack_key = 'type_registry.process' AND rp.version = '1'
+`, jobID).Scan(&storageRefRaw, &stagingRefRaw); err != nil {
+		t.Fatalf("query import storage references: %v", err)
+	}
+	storageRef, err := reference_data.ParseStorageRef(storageRefRaw)
+	if err != nil || filepath.IsAbs(storageRefRaw) {
+		t.Fatalf("stored publication reference = %q, %v", storageRefRaw, err)
+	}
+	if _, err := os.Stat(filepath.Join(
+		harness.Server.Config.Roots.ReferencePackStorage.Path,
+		filepath.FromSlash(storageRef.String()),
+	)); err != nil {
+		t.Fatalf("published Reference Pack missing: %v", err)
+	}
+	if !stagingRefRaw.Valid {
+		t.Fatal("import job did not retain its logical staging reference")
+	}
+	stagingRef, err := reference_data.ParseStagingRef(stagingRefRaw.String)
+	if err != nil || filepath.IsAbs(stagingRefRaw.String) {
+		t.Fatalf("stored staging reference = %q, %v", stagingRefRaw.String, err)
+	}
+	if _, err := os.Stat(filepath.Join(
+		harness.Server.Config.Roots.TemporaryWork.Path,
+		filepath.FromSlash(stagingRef.String()),
+	)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("successful import retained staging object: %v", err)
 	}
 	summary := job["result_summary"].(map[string]any)
 	if summary["code"] != reference_data.ResultReferencePackImported {
@@ -96,6 +131,15 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-asset-v1")
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "2", "txn-rp-asset-v2")
+	importReferencePack(t, harness, adminLogin, "type_registry.asset", "3", "txn-rp-asset-v3")
+	removeStoredBundle(t, harness, "type_registry.asset", "3")
+	missingStorage := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.asset/3/activate", "txn-rp-activate-v3-missing", "")
+	requireReasonError(t, missingStorage, http.StatusConflict, "reference_pack_activation_rejected", "not_verified_available")
+	overwriteStoredBundle(t, harness, "type_registry.asset", "3", referencePackBundle(t, bundleOptions{
+		PackKey:     "type_registry.asset",
+		PackKind:    "type_registry",
+		PackVersion: "3",
+	}))
 
 	activateV1 := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.asset/1/activate", "txn-rp-activate-v1", "initial")
 	v1 := requireSuccessEnvelope(t, activateV1, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
@@ -241,6 +285,20 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 	if queryCount(t, harness.DB, `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id = $1`, jobID) != 0 {
 		t.Fatal("canceled Reference Pack job must not publish a success proof")
 	}
+	var stagingRefRaw string
+	if err := harness.DB.QueryRow(`SELECT bundle_staging_ref FROM reference_pack_job_payloads WHERE job_id = $1`, jobID).Scan(&stagingRefRaw); err != nil {
+		t.Fatalf("query canceled staging reference: %v", err)
+	}
+	stagingRef, err := reference_data.ParseStagingRef(stagingRefRaw)
+	if err != nil {
+		t.Fatalf("parse canceled staging reference: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(
+		harness.Server.Config.Roots.TemporaryWork.Path,
+		filepath.FromSlash(stagingRef.String()),
+	)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("canceled import retained staging object: %v", err)
+	}
 }
 
 func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
@@ -248,7 +306,8 @@ func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 	t.Run("claimed profile seeds the exact minimum", func(t *testing.T) {
 		harness := runtime.StartServer(t, "extension_profile-reference-pack-minimum-disconnected")
 		rows, err := harness.DB.Query(`
-SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verification_method, rpas.active_version
+SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verification_method,
+       rpas.active_version, rp.bundle_storage_ref
   FROM reference_packs rp
   JOIN reference_pack_activation_state rpas ON rpas.pack_key = rp.pack_key AND rpas.active_version = rp.version
  ORDER BY rp.pack_key ASC
@@ -259,12 +318,15 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 		defer rows.Close()
 		var got []string
 		for rows.Next() {
-			var packKey, version, packKind, contractVersion, verificationMethod, activeVersion string
-			if err := rows.Scan(&packKey, &version, &packKind, &contractVersion, &verificationMethod, &activeVersion); err != nil {
+			var packKey, version, packKind, contractVersion, verificationMethod, activeVersion, storageRefRaw string
+			if err := rows.Scan(&packKey, &version, &packKind, &contractVersion, &verificationMethod, &activeVersion, &storageRefRaw); err != nil {
 				t.Fatalf("scan seeded pack: %v", err)
 			}
 			if packKind != "type_registry" || contractVersion != reference_data.PackContractVersionV1 || verificationMethod != "manifest_sha256_v1" || activeVersion != "1" {
 				t.Fatalf("seeded pack metadata mismatch for %s: kind=%s contract=%s method=%s active=%s", packKey, packKind, contractVersion, verificationMethod, activeVersion)
+			}
+			if _, err := reference_data.ParseStorageRef(storageRefRaw); err != nil || filepath.IsAbs(storageRefRaw) {
+				t.Fatalf("seeded pack %s storage reference = %q, %v", packKey, storageRefRaw, err)
 			}
 			got = append(got, packKey+"@"+version)
 		}
@@ -394,7 +456,7 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 			packKey: "enrichment.tor",
 			arrange: func(t *testing.T, packKey string) {
 				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-failed-import")
-				overwriteStoredBundle(t, harness.DB, packKey, "1", referencePackBundle(t, bundleOptions{
+				overwriteStoredBundle(t, harness, packKey, "1", referencePackBundle(t, bundleOptions{
 					PackKey:       packKey,
 					PackKind:      "enrichment",
 					PackVersion:   "1",
@@ -412,11 +474,32 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-missing-import")
 				activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/activate", "txn-rp-degrade-missing-activate", "")
 				requireSuccessEnvelope(t, activate, http.StatusOK)
-				removeStoredBundle(t, harness.DB, packKey, "1")
+				removeStoredBundle(t, harness, packKey, "1")
 				requireReverifyFailure(t, harness, adminLogin, packKey, "1", "txn-rp-degrade-missing-reverify", "payload_missing")
 				resource := readReferencePack(t, harness, adminLogin, packKey, "1")
 				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionMissing, false)
 				requireActivationState(t, harness.DB, packKey, sql.NullString{}, sql.NullString{String: "1", Valid: true})
+			},
+		},
+		{
+			name:    "symlinked",
+			packKey: "enrichment.symlinked",
+			arrange: func(t *testing.T, packKey string) {
+				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-symlink-import")
+				path := storedBundlePath(t, harness, packKey, "1")
+				if err := os.Remove(path); err != nil {
+					t.Fatalf("remove stored bundle before symlink: %v", err)
+				}
+				outside := filepath.Join(t.TempDir(), "outside.bundle")
+				if err := os.WriteFile(outside, []byte("must not be read"), 0o600); err != nil {
+					t.Fatalf("write symlink target: %v", err)
+				}
+				if err := os.Symlink(outside, path); err != nil {
+					t.Fatalf("replace stored bundle with symlink: %v", err)
+				}
+				requireReverifyFailure(t, harness, adminLogin, packKey, "1", "txn-rp-degrade-symlink-reverify", "payload_missing")
+				resource := readReferencePack(t, harness, adminLogin, packKey, "1")
+				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionMissing, false)
 			},
 		},
 	}
@@ -796,29 +879,36 @@ func requireStringSlicesEqual(t testing.TB, got []string, want []string, message
 	}
 }
 
-func overwriteStoredBundle(t testing.TB, db *sql.DB, packKey string, packVersion string, bundle []byte) {
+func overwriteStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string, bundle []byte) {
 	t.Helper()
-	path := storedBundlePath(t, db, packKey, packVersion)
+	path := storedBundlePath(t, harness, packKey, packVersion)
 	if err := os.WriteFile(path, bundle, 0o600); err != nil {
 		t.Fatalf("overwrite stored bundle: %v", err)
 	}
 }
 
-func removeStoredBundle(t testing.TB, db *sql.DB, packKey string, packVersion string) {
+func removeStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string) {
 	t.Helper()
-	path := storedBundlePath(t, db, packKey, packVersion)
+	path := storedBundlePath(t, harness, packKey, packVersion)
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("remove stored bundle: %v", err)
 	}
 }
 
-func storedBundlePath(t testing.TB, db *sql.DB, packKey string, packVersion string) string {
+func storedBundlePath(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string) string {
 	t.Helper()
-	var path string
-	if err := db.QueryRow(`SELECT bundle_storage_path FROM reference_packs WHERE pack_key = $1 AND version = $2`, packKey, packVersion).Scan(&path); err != nil {
-		t.Fatalf("query stored bundle path: %v", err)
+	var rawReference string
+	if err := harness.DB.QueryRow(`SELECT bundle_storage_ref FROM reference_packs WHERE pack_key = $1 AND version = $2`, packKey, packVersion).Scan(&rawReference); err != nil {
+		t.Fatalf("query stored bundle reference: %v", err)
 	}
-	return path
+	reference, err := reference_data.ParseStorageRef(rawReference)
+	if err != nil {
+		t.Fatalf("parse stored bundle reference: %v", err)
+	}
+	return filepath.Join(
+		harness.Server.Config.Roots.ReferencePackStorage.Path,
+		filepath.FromSlash(reference.String()),
+	)
 }
 
 func requireReverifyFailure(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {

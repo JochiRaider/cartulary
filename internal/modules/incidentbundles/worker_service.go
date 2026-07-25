@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,27 +24,29 @@ type incidentBundleWorker struct {
 	jobManager      *jobs.Manager
 	jobRunner       *jobs.Runner
 	results         incidentBundleJobResultSink
-	files           bundleFileStore
+	storage         BundleStorage
 	importFinalizer incidents.IncidentBundleImportFinalizer
 	jobFinalizer    JobSuccessFinalizer
 	portability     *PortabilityOrchestrator
 	transactions    *crossownertransaction.Coordinator
+	limits          Limits
 	deps            httpapi.DependencySet
 	now             func() time.Time
 	startHook       func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, now func() time.Time, startHook func(string)) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, limits Limits, now func() time.Time, startHook func(string)) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:           store,
 		jobManager:      deps.Jobs,
 		jobRunner:       deps.JobRunner,
 		results:         incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
-		files:           files,
+		storage:         storage,
 		importFinalizer: importFinalizer,
 		jobFinalizer:    jobFinalizer,
 		portability:     portability,
 		transactions:    transactions,
+		limits:          limits,
 		deps:            deps,
 		now:             now,
 		startHook:       startHook,
@@ -158,7 +159,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
 		return
 	}
-	storagePath, err := w.files.persistBundle(bundleID.String(), built.Archive.Bytes)
+	storageReference, err := w.storage.Publish(ctx, bundleID.String(), built.Archive.Bytes)
 	if err != nil {
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
@@ -171,7 +172,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		OptionalSections:     built.Archive.Manifest.OptionalSections,
 		RequiredCapabilities: built.Archive.Manifest.RequiredCapabilities,
 		BundleSHA256:         built.BundleSHA256, BundleByteSize: built.BundleByteSize,
-		BundleStoragePath: storagePath, ManifestFiles: built.Archive.Manifest.Files,
+		BundleStorageRef: storageReference, ManifestFiles: built.Archive.Manifest.Files,
 	}
 	var record DescriptorRecord
 	_, err = w.jobFinalizer.FinalizeIncidentBundleJobSuccess(ctx, JobSuccessFinalization{
@@ -186,7 +187,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 	})
 	if err != nil {
 		if !errors.Is(err, ErrJobFinalizationIndeterminate) {
-			w.files.remove(storagePath)
+			_ = w.storage.RemovePublished(storageReference)
 			w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		}
 		return
@@ -197,20 +198,22 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 }
 
 func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload JobPayload) {
-	if payload.BundleStagingPath == nil {
+	if payload.BundleStagingRef == nil {
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	defer w.files.remove(*payload.BundleStagingPath)
+	defer func() {
+		_ = w.storage.RemoveStaged(*payload.BundleStagingRef)
+	}()
 	if !w.markJobRunningOrResume(ctx, payload.JobID, 1) {
 		return
 	}
-	data, err := os.ReadFile(*payload.BundleStagingPath)
+	data, err := w.storage.ReadStaged(*payload.BundleStagingRef, incidentBundleStagingReadLimit(w.limits.IncidentBundles.MaxExtractedBytes))
 	if err != nil {
 		w.results.completeFailed(ctx, failedTransition(payload.JobID, "incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
 		return
 	}
-	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: w.deps.Config.Limits})
+	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: w.limits})
 	if err != nil {
 		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
 		return
@@ -293,6 +296,20 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	if err == nil {
 		w.jobManager.PublishProgress(job)
 	}
+}
+
+func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {
+	const (
+		archiveOverheadBytes int64 = 64 << 20
+		maxInt64                   = int64(1<<63 - 1)
+	)
+	if maxExtractedBytes <= 0 {
+		return archiveOverheadBytes
+	}
+	if maxExtractedBytes > maxInt64-archiveOverheadBytes {
+		return maxInt64
+	}
+	return maxExtractedBytes + archiveOverheadBytes
 }
 
 func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {

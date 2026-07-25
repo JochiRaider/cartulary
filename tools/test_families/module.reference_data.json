@@ -268,6 +268,35 @@
       "status": "active"
     },
     {
+      "row_id": "module.reference_data.integration.reference_pack_storage_reference_cutover_is_reset_dc28423946",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestReferencePackStorageReferenceMigration38FreshSchema_Integration",
+          "TestReferencePackStorageReferenceMigration38RejectsPopulatedTablesBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/guides/cartulary-dev-guide.md#73-development-workflow"
+      ]
+    },
+    {
       "row_id": "module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -314,6 +343,29 @@
       "status": "active"
     },
     {
+      "row_id": "module.reference_data.unit.reference_pack_logical_refs_are_root_free_96bb19c696",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackStorageReferencesAreStrictAndRootFree_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.reference_data.unit.reference_pack_request_decoders_enforce_activati_7074ebbbda",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -326,6 +378,33 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestRequestValidationNormalizationAndClosedRegistries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.reference_data.unit.reference_pack_storage_is_atomic_and_contained_14f3d4892a",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [
+        "app.server",
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit",
+          "TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"
         ]
       },
       "evidence_class": "unit",

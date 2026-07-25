@@ -207,6 +207,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.rootedfs",
+      "manifest_path": "tools/test_families/platform.rootedfs.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.viewquery",
       "manifest_path": "tools/test_families/platform.viewquery.json",
       "status": "active"

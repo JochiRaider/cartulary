@@ -39,9 +39,18 @@ type Service struct {
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type Settings struct {
+	PublicOrigin   string
+	ServiceVersion string
+}
+
+func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
+	resolved := Settings{}
+	if len(settings) > 0 {
+		resolved = settings[0]
+	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, resolved)
 		if err != nil {
 			return err
 		}
@@ -50,7 +59,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -64,8 +73,8 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		hub:            deps.WSHub,
 		keys:           keys,
-		publicOrigin:   deps.Config.Application.PublicOrigin,
-		serviceVersion: deps.Config.Telemetry.Resource.ServiceVersion,
+		publicOrigin:   settings.PublicOrigin,
+		serviceVersion: settings.ServiceVersion,
 		now:            now,
 	}, nil
 }

@@ -1,21 +1,16 @@
 package config
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
-
-	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
 )
 
 const (
@@ -25,36 +20,34 @@ const (
 	overlayPrefix               = "CARTULARY__"
 	expectedConfigSchemaID      = "cartulary.deployment_config.v1"
 
-	DefaultObjectBlobMaxDeclaredByteSize     int64 = 536870912
-	DefaultImportMaxCSVSourceBytes           int64 = 33554432
-	DefaultImportMaxXLSXSourceBytes          int64 = 67108864
-	DefaultImportMaxRows                     int64 = 100000
-	DefaultImportMaxColumns                  int64 = 256
-	DefaultImportMaxCells                    int64 = 5000000
-	DefaultArchiveMaxExtractedBytes          int64 = 2147483648
-	DefaultArchiveMaxCompressionRatio        int64 = 100
-	DefaultArchiveMaxMembers                 int64 = 10000
-	DefaultReferencePackMaxExtractedBytes    int64 = 536870912
-	DefaultIncidentBundleMaxExtractedBytes   int64 = 68719476736
-	DefaultPreviewMaxPreviewablePayloadBytes int64 = 33554432
-	DefaultPreviewMaxTextInlineBytes         int64 = 1048576
-
-	PublicSortLimit             = 8
-	PublicFilterLimit           = 16
-	PublicChangeLimit           = 32
-	PublicCollectionActionLimit = 64
+	DefaultObjectBlobMaxDeclaredByteSize         int64 = 536870912
+	DefaultImportMaxCSVSourceBytes               int64 = 33554432
+	DefaultImportMaxXLSXSourceBytes              int64 = 67108864
+	DefaultImportMaxRows                         int64 = 100000
+	DefaultImportMaxColumns                      int64 = 256
+	DefaultImportMaxCells                        int64 = 5000000
+	DefaultArchiveMaxExtractedBytes              int64 = 2147483648
+	DefaultArchiveMaxCompressionRatio            int64 = 100
+	DefaultArchiveMaxMembers                     int64 = 10000
+	DefaultReferencePackMaxExtractedBytes        int64 = 536870912
+	DefaultIncidentBundleMaxExtractedBytes       int64 = 68719476736
+	DefaultPreviewMaxPreviewablePayloadBytes     int64 = 33554432
+	DefaultPreviewMaxTextInlineBytes             int64 = 1048576
+	DefaultExtensionStagedObjectCleanupBatch     int64 = 1000
+	DefaultExtensionMaxNonterminalJobsPerProfile int64 = 100000
 )
 
 type LoadOptions struct {
-	Path                     string
-	Env                      map[string]string
-	ExtensionInactiveCatalog extensioninactive.Catalog
+	Path           string
+	Env            map[string]string
+	InactivePolicy InactivePolicy
 }
 
 type Diagnostic struct {
-	Path       string `json:"path,omitempty"`
-	ReasonCode string `json:"reason_code"`
-	Message    string `json:"message"`
+	Path       string            `json:"path,omitempty"`
+	ReasonCode string            `json:"reason_code"`
+	Message    string            `json:"message"`
+	Details    map[string]string `json:"details,omitempty"`
 }
 
 type DiagnosticsError struct {
@@ -62,22 +55,23 @@ type DiagnosticsError struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
-type Config struct {
-	ConfigSchemaID           string                         `toml:"config_schema_id"`
-	DeploymentProfile        string                         `toml:"deployment_profile"`
-	Application              ApplicationConfig              `toml:"application"`
-	Roots                    RootBindings                   `toml:"roots"`
-	Bootstrap                BootstrapConfig                `toml:"bootstrap"`
-	EnterpriseAuthentication EnterpriseAuthenticationConfig `toml:"enterprise_authentication"`
-	Import                   ClaimConfig                    `toml:"import"`
-	IncidentPortability      ClaimConfig                    `toml:"incident_portability"`
-	NetworkFlowActivity      NetworkFlowActivityConfig      `toml:"network_flow_activity"`
-	ReferencePack            ClaimConfig                    `toml:"reference_pack"`
-	SnapshotReporting        ClaimConfig                    `toml:"snapshot_reporting"`
-	Timeouts                 TimeoutConfig                  `toml:"timeouts"`
-	Intervals                IntervalConfig                 `toml:"intervals"`
-	Limits                   LimitConfig                    `toml:"limits"`
-	Telemetry                TelemetryConfig                `toml:"telemetry"`
+type document struct {
+	ConfigSchemaID           string                           `toml:"config_schema_id"`
+	DeploymentProfile        string                           `toml:"deployment_profile"`
+	Application              ApplicationConfig                `toml:"application"`
+	Roots                    RootBindings                     `toml:"roots"`
+	Bootstrap                BootstrapConfig                  `toml:"bootstrap"`
+	EnterpriseAuthentication enterpriseAuthenticationDocument `toml:"enterprise_authentication"`
+	Import                   ClaimConfig                      `toml:"import"`
+	IncidentPortability      ClaimConfig                      `toml:"incident_portability"`
+	NetworkFlowActivity      networkFlowActivityDocument      `toml:"network_flow_activity"`
+	ReferencePack            ClaimConfig                      `toml:"reference_pack"`
+	SnapshotReporting        ClaimConfig                      `toml:"snapshot_reporting"`
+	Timeouts                 TimeoutConfig                    `toml:"timeouts"`
+	Intervals                IntervalConfig                   `toml:"intervals"`
+	Limits                   LimitConfig                      `toml:"limits"`
+	Telemetry                telemetryDocument                `toml:"telemetry"`
+	presence                 configPresence
 }
 
 type ApplicationConfig struct {
@@ -103,12 +97,12 @@ type BootstrapConfig struct {
 	FirstAdminManifestPath string `toml:"first_admin_manifest_path"`
 }
 
-type EnterpriseAuthenticationConfig struct {
+type enterpriseAuthenticationDocument struct {
 	Claimed              bool   `toml:"claimed"`
 	ProviderManifestPath string `toml:"provider_manifest_path"`
 }
 
-type NetworkFlowActivityConfig struct {
+type networkFlowActivityDocument struct {
 	Claimed             bool   `toml:"claimed"`
 	KeyRingManifestPath string `toml:"key_ring_manifest_path"`
 }
@@ -120,7 +114,7 @@ type ClaimConfig struct {
 // BooleanValuesAtPaths projects normalized configuration without teaching
 // application composition about concrete profile fields. Every requested path
 // must resolve to one Boolean field.
-func BooleanValuesAtPaths(cfg Config, paths []string) (map[string]bool, error) {
+func booleanValuesAtPaths(cfg document, paths []string) (map[string]bool, error) {
 	values := make(map[string]bool, len(paths))
 	for _, path := range paths {
 		if path == "" {
@@ -214,104 +208,6 @@ type ExtensionLimits struct {
 	MaxNonterminalJobsPerProfile int64 `toml:"max_nonterminal_jobs_per_profile"`
 }
 
-type TelemetryConfig struct {
-	Enabled            bool                           `toml:"enabled"`
-	OTelEnvPassthrough bool                           `toml:"otel_env_passthrough"`
-	Exporter           TelemetryExporterConfig        `toml:"exporter"`
-	Traces             TelemetryTracesConfig          `toml:"traces"`
-	Metrics            TelemetryMetricsConfig         `toml:"metrics"`
-	Logs               TelemetryLogsConfig            `toml:"logs"`
-	Processor          TelemetryProcessorConfig       `toml:"processor"`
-	Shutdown           TelemetryShutdownConfig        `toml:"shutdown"`
-	SelfDiagnostics    TelemetrySelfDiagnosticsConfig `toml:"self_diagnostics"`
-	Resource           TelemetryResourceConfig        `toml:"resource"`
-	Attribute          TelemetryAttributeConfig       `toml:"attribute"`
-}
-
-type TelemetryExporterConfig struct {
-	Kind        string                       `toml:"kind"`
-	Endpoint    string                       `toml:"endpoint"`
-	Protocol    string                       `toml:"protocol"`
-	Compression string                       `toml:"compression"`
-	Headers     map[string]SecretRef         `toml:"headers"`
-	Retry       TelemetryExporterRetryConfig `toml:"retry"`
-}
-
-type TelemetryExporterRetryConfig struct {
-	Enabled           bool    `toml:"enabled"`
-	MaxElapsedMS      int64   `toml:"max_elapsed_ms"`
-	InitialIntervalMS int64   `toml:"initial_interval_ms"`
-	MaxIntervalMS     int64   `toml:"max_interval_ms"`
-	Multiplier        float64 `toml:"multiplier"`
-}
-
-type TelemetryTracesConfig struct {
-	Enabled             bool    `toml:"enabled"`
-	SampleRatio         float64 `toml:"sample_ratio"`
-	SamplerProfile      string  `toml:"sampler_profile"`
-	AcceptRemoteContext bool    `toml:"accept_remote_context"`
-}
-
-type TelemetryMetricsConfig struct {
-	Enabled            bool                    `toml:"enabled"`
-	TemporalityProfile string                  `toml:"temporality_profile"`
-	Exemplars          TelemetryExemplarConfig `toml:"exemplars"`
-}
-
-type TelemetryExemplarConfig struct {
-	Enabled bool `toml:"enabled"`
-}
-
-type TelemetryLogsConfig struct {
-	BridgeEnabled bool  `toml:"bridge_enabled"`
-	BodyMaxChars  int64 `toml:"body_max_chars"`
-}
-
-type TelemetryProcessorConfig struct {
-	MaxQueueSize       int64                          `toml:"max_queue_size"`
-	MaxExportBatchSize int64                          `toml:"max_export_batch_size"`
-	Traces             TelemetryProcessorSignalConfig `toml:"traces"`
-	Metrics            TelemetryProcessorSignalConfig `toml:"metrics"`
-	Logs               TelemetryProcessorSignalConfig `toml:"logs"`
-	ExportTimeoutMS    int64                          `toml:"export_timeout_ms"`
-	OverflowPolicy     string                         `toml:"overflow_policy"`
-}
-
-type TelemetryProcessorSignalConfig struct {
-	ScheduleDelayMS int64 `toml:"schedule_delay_ms"`
-}
-
-type TelemetryShutdownConfig struct {
-	FlushTimeoutMS int64 `toml:"flush_timeout_ms"`
-}
-
-type TelemetrySelfDiagnosticsConfig struct {
-	Enabled        bool   `toml:"enabled"`
-	RecursionGuard string `toml:"recursion_guard"`
-}
-
-type TelemetryResourceConfig struct {
-	ServiceName               string `toml:"service_name"`
-	ServiceNamespace          string `toml:"service_namespace"`
-	ServiceVersion            string `toml:"service_version"`
-	ServiceInstanceID         string `toml:"service_instance_id"`
-	DeploymentEnvironmentName string `toml:"deployment_environment_name"`
-}
-
-type TelemetryAttributeConfig struct {
-	IncidentCorrelation string    `toml:"incident_correlation"`
-	HMACSecretRef       SecretRef `toml:"hmac_secret_ref"`
-}
-
-type SecretRef struct {
-	Kind string `toml:"kind"`
-	Name string `toml:"name"`
-}
-
-func (r SecretRef) Empty() bool {
-	return r.Kind == "" && r.Name == ""
-}
-
 type configPresence struct {
 	fileMeta     toml.MetaData
 	overlayPaths map[string]struct{}
@@ -374,11 +270,7 @@ func DiagnosticsFromError(err error) ([]Diagnostic, bool) {
 	return diagnosticsErr.Diagnostics, true
 }
 
-func ResolvePath() (string, error) {
-	return ResolvePathWithOptions(LoadOptions{})
-}
-
-func ResolvePathWithOptions(options LoadOptions) (string, error) {
+func resolvePathWithOptions(options LoadOptions) (string, error) {
 	if options.Path != "" {
 		return options.Path, nil
 	}
@@ -394,44 +286,42 @@ func ResolvePathWithOptions(options LoadOptions) (string, error) {
 	return DefaultConfigPath, nil
 }
 
-func Load() (Config, error) {
-	return LoadWithOptions(LoadOptions{})
+func loadWithOptions(options LoadOptions) (document, error) {
+	return loadWithOptionsAndCatalog(options, Catalog{})
 }
 
-func LoadWithEnv(env map[string]string) (Config, error) {
-	return LoadWithOptions(LoadOptions{Env: env})
-}
-
-func LoadWithOptions(options LoadOptions) (Config, error) {
-	path, err := ResolvePathWithOptions(options)
+func loadWithOptionsAndCatalog(options LoadOptions, catalog Catalog) (document, error) {
+	path, err := resolvePathWithOptions(options)
 	if err != nil {
-		return Config{}, err
+		return document{}, err
 	}
 
 	options.Path = path
-	return loadFromOptions(options)
+	return loadFromOptions(options, catalog)
 }
 
-func LoadFromPath(path string) (Config, error) {
-	return LoadWithOptions(LoadOptions{Path: path})
-}
-
-func loadFromOptions(options LoadOptions) (Config, error) {
-	var cfg Config
-
+func loadFromOptions(options LoadOptions, catalog Catalog) (document, error) {
 	data, err := os.ReadFile(options.Path)
 	if err != nil {
 		reasonCode := "config_parse_error"
 		if errors.Is(err, os.ErrNotExist) {
 			reasonCode = "config_file_not_found"
 		}
-		return Config{}, newDiagnosticsError([]Diagnostic{{
+		return document{}, newDiagnosticsError([]Diagnostic{{
 			Path:       options.Path,
 			ReasonCode: reasonCode,
 			Message:    fmt.Sprintf("read config: %v", err),
 		}})
 	}
+	return decodeDocumentWithCatalog(data, options, catalog)
+}
 
+func decodeDocument(data []byte, options LoadOptions) (document, error) {
+	return decodeDocumentWithCatalog(data, options, Catalog{})
+}
+
+func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog) (document, error) {
+	var cfg document
 	diagnostics := make([]Diagnostic, 0)
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
@@ -439,12 +329,12 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 			ReasonCode: "config_parse_error",
 			Message:    err.Error(),
 		})
-		return Config{}, newDiagnosticsError(diagnostics)
+		return document{}, newDiagnosticsError(diagnostics)
 	}
 
 	rawConfig := map[string]any{}
 	if _, rawErr := toml.Decode(string(data), &rawConfig); rawErr != nil {
-		return Config{}, newDiagnosticsError([]Diagnostic{{
+		return document{}, newDiagnosticsError([]Diagnostic{{
 			ReasonCode: "config_parse_error",
 			Message:    rawErr.Error(),
 		}})
@@ -457,7 +347,7 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		if !strings.HasSuffix(path, ".claimed") {
 			continue
 		}
-		if diagnostic := applyOverlay(&cfg, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
+		if diagnostic := applyOverlay(&cfg, catalog, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
 			diagnostics = append(diagnostics, *diagnostic)
 		} else {
 			appliedClaimOverlays[key] = struct{}{}
@@ -468,7 +358,7 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		&cfg,
 		rawConfig,
 		options.Env,
-		options.ExtensionInactiveCatalog,
+		options.InactivePolicy,
 	)
 	diagnostics = append(diagnostics, inactiveDiagnostics...)
 
@@ -492,38 +382,41 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		if _, consumed := consumedInactiveOverlays[key]; consumed {
 			continue
 		}
-		if diagnostic := applyOverlay(&cfg, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
+		if diagnostic := applyOverlay(&cfg, catalog, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
 			diagnostics = append(diagnostics, *diagnostic)
 		}
 	}
 
-	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.ExtensionInactiveCatalog)...)
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.InactivePolicy)...)
 	if len(diagnostics) > 0 {
-		return Config{}, newDiagnosticsError(diagnostics)
+		return document{}, newDiagnosticsError(diagnostics)
 	}
 
 	return cfg, nil
 }
 
 func discardUndecodedInactiveExtensionValues(
-	cfg *Config,
+	cfg *document,
 	rawConfig map[string]any,
 	env map[string]string,
-	catalog extensioninactive.Catalog,
+	policy InactivePolicy,
 ) (map[string]struct{}, map[string]struct{}, []Diagnostic) {
 	consumedPaths := map[string]struct{}{}
 	consumedOverlays := map[string]struct{}{}
 	diagnostics := make([]Diagnostic, 0)
-	for _, key := range catalog.Keys() {
-		policy, _ := catalog.Policy(key)
-		claimed, claimExists := configBoolAtPath(cfg, policy.ClaimKey)
-		if !claimExists || claimed {
+	if policy == nil {
+		return consumedPaths, consumedOverlays, diagnostics
+	}
+	for _, key := range policy.Keys() {
+		claimKey, known := policy.ClaimKey(key)
+		claimed, claimExists := configBoolAtPath(cfg, claimKey)
+		if !known || !claimExists || claimed {
 			continue
 		}
 		if _, typed := configFieldAtPath(cfg, key); !typed {
 			if value, present := rawValueAtPath(rawConfig, key); present {
 				consumedPaths[key] = struct{}{}
-				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(catalog.ValidateAndDiscard(map[string]any{key: value}))...)
+				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}))...)
 			}
 		}
 		overlayName := overlayPrefix + strings.ToUpper(strings.ReplaceAll(key, ".", "__"))
@@ -532,31 +425,44 @@ func discardUndecodedInactiveExtensionValues(
 				continue
 			}
 			consumedOverlays[overlayName] = struct{}{}
-			value, parseErr := parseInactiveOverlayValue(policy, raw)
+			value, parseErr := policy.ParseOverlay(key, raw)
 			if parseErr != nil {
 				diagnostics = append(diagnostics, Diagnostic{
 					Path:       key,
 					ReasonCode: "extension_validation_result_invalid",
-					Message:    "inactive extension configuration is not accepted",
+					Message:    "Extension configuration is present while the profile is inactive.",
+					Details:    inactiveDiagnosticDetails(key),
 				})
 				continue
 			}
-			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(catalog.ValidateAndDiscard(map[string]any{key: value}))...)
+			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}))...)
 		}
 	}
 	return consumedPaths, consumedOverlays, diagnostics
 }
 
-func inactiveFindingsToDiagnostics(findings []extensioninactive.Finding) []Diagnostic {
+func inactiveFindingsToDiagnostics(findings [][2]string) []Diagnostic {
 	diagnostics := make([]Diagnostic, len(findings))
 	for index, finding := range findings {
 		diagnostics[index] = Diagnostic{
-			Path:       finding.Key,
-			ReasonCode: finding.ReasonCode,
-			Message:    "inactive extension configuration is not accepted",
+			Path:       finding[0],
+			ReasonCode: finding[1],
+			Message:    "Extension configuration is present while the profile is inactive.",
+			Details:    inactiveDiagnosticDetails(finding[0]),
 		}
 	}
 	return diagnostics
+}
+
+func inactiveDiagnosticDetails(path string) map[string]string {
+	profileID := path
+	if separator := strings.IndexByte(path, '.'); separator >= 0 {
+		profileID = path[:separator]
+	}
+	return map[string]string{
+		"profile_id":  profileID,
+		"config_path": "$." + path,
+	}
 }
 
 func pathIsConsumedInactive(path string, consumed map[string]struct{}) bool {
@@ -583,42 +489,10 @@ func rawValueAtPath(root map[string]any, path string) (any, bool) {
 	return current, true
 }
 
-func parseInactiveOverlayValue(policy extensioninactive.Policy, raw string) (any, error) {
-	if policy.Kind == extensioninactive.PolicyForbidden {
-		return raw, nil
-	}
-	typeName, _ := policy.Schema["type"].(string)
-	switch typeName {
-	case "string":
-		return raw, nil
-	case "integer":
-		return strconv.ParseInt(raw, 10, 64)
-	case "boolean":
-		return strconv.ParseBool(raw)
-	case "object", "array":
-		decoder := json.NewDecoder(bytes.NewBufferString(raw))
-		decoder.UseNumber()
-		var value any
-		if err := decoder.Decode(&value); err != nil {
-			return nil, err
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-			if err == nil {
-				return nil, errors.New("multiple JSON values")
-			}
-			return nil, err
-		}
-		return value, nil
-	default:
-		return nil, fmt.Errorf("unsupported inactive overlay schema type %q", typeName)
-	}
-}
-
-func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {
+func applyOverlay(cfg *document, catalog Catalog, envKey string, raw string) *Diagnostic {
 	segments := overlaySegments(envKey)
-	if len(segments) > 0 && segments[0] == "telemetry" {
-		return applyTelemetryOverlay(cfg, segments, raw)
+	if handled, diagnostic := catalog.applyOverlay(cfg, segments, raw); handled {
+		return diagnostic
 	}
 
 	value := reflect.ValueOf(cfg).Elem()
@@ -684,125 +558,6 @@ func assignOverlayValue(field reflect.Value, raw string) (string, error) {
 	default:
 		return "type_mismatch", fmt.Errorf("unsupported overlay target kind %s", field.Kind())
 	}
-}
-
-func applyTelemetryOverlay(cfg *Config, segments []string, raw string) *Diagnostic {
-	path := strings.Join(segments, ".")
-	if raw == "" {
-		return nil
-	}
-	if raw == "null" {
-		return telemetryDiagnostic(path, "explicit null is not accepted in server-side environment bindings")
-	}
-	if path == "telemetry.exporter.headers" {
-		headers, diagnostic := parseTelemetryHeaderOverlay(raw, path)
-		if diagnostic != nil {
-			return diagnostic
-		}
-		cfg.Telemetry.Exporter.Headers = headers
-		return nil
-	}
-	if path == "telemetry.attribute.hmac_secret_ref" {
-		if !isValidSecretRefName(raw) {
-			return telemetryDiagnostic(path, "telemetry secret reference name is invalid")
-		}
-		cfg.Telemetry.Attribute.HMACSecretRef = SecretRef{Kind: "env", Name: raw}
-		return nil
-	}
-
-	value := reflect.ValueOf(cfg).Elem()
-	for _, segment := range segments[:len(segments)-1] {
-		field, ok := findTaggedField(value, segment)
-		if !ok {
-			return &Diagnostic{
-				Path:       path,
-				ReasonCode: "unknown_key",
-				Message:    fmt.Sprintf("unknown overlay path segment %q", segment),
-			}
-		}
-		value = field
-	}
-
-	field, ok := findTaggedField(value, segments[len(segments)-1])
-	if !ok {
-		return &Diagnostic{
-			Path:       path,
-			ReasonCode: "unknown_key",
-			Message:    fmt.Sprintf("unknown overlay target %q", segments[len(segments)-1]),
-		}
-	}
-	if field.Kind() == reflect.Int || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int64 {
-		if !asciiDigits(raw) {
-			return telemetryDiagnostic(path, "telemetry integer overlay must use unsigned base-10 ASCII digits")
-		}
-	}
-	if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
-		if !validTelemetryDecimalToken(raw) {
-			return telemetryDiagnostic(path, "telemetry decimal overlay must be finite decimal notation")
-		}
-	}
-
-	reasonCode, err := assignOverlayValue(field, raw)
-	if err != nil {
-		if reasonCode == "unknown_key" {
-			return &Diagnostic{Path: path, ReasonCode: reasonCode, Message: err.Error()}
-		}
-		return telemetryDiagnostic(path, err.Error())
-	}
-	return nil
-}
-
-func parseTelemetryHeaderOverlay(raw string, path string) (map[string]SecretRef, *Diagnostic) {
-	headers := make(map[string]SecretRef)
-	seen := make(map[string]struct{})
-	for _, pair := range strings.Split(raw, ",") {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
-			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains an empty pair")
-		}
-		name, refName, ok := strings.Cut(pair, "=")
-		if !ok {
-			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay must use key=secret_ref_name pairs")
-		}
-		name = strings.TrimSpace(name)
-		refName = strings.TrimSpace(refName)
-		canonicalName := strings.ToLower(name)
-		if !isValidTelemetryHeaderName(name) || !isValidSecretRefName(refName) {
-			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains an invalid header or secret reference")
-		}
-		if _, exists := seen[canonicalName]; exists {
-			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains a duplicate header")
-		}
-		seen[canonicalName] = struct{}{}
-		headers[canonicalName] = SecretRef{Kind: "env", Name: refName}
-	}
-	return headers, nil
-}
-
-func telemetryDiagnostic(path string, message string) *Diagnostic {
-	return &Diagnostic{
-		Path:       path,
-		ReasonCode: "invalid_telemetry_config",
-		Message:    message,
-	}
-}
-
-var telemetryDecimalPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)?$`)
-
-func asciiDigits(value string) bool {
-	if value == "" {
-		return false
-	}
-	for _, r := range value {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-func validTelemetryDecimalToken(value string) bool {
-	return telemetryDecimalPattern.MatchString(value)
 }
 
 func findTaggedField(value reflect.Value, segment string) (reflect.Value, bool) {
@@ -871,6 +626,10 @@ func (p configPresence) isDefined(path ...string) bool {
 
 	_, ok := p.overlayPaths[strings.Join(path, ".")]
 	return ok
+}
+
+func (p configPresence) Defined(path ...string) bool {
+	return p.isDefined(path...)
 }
 
 func overlaySegments(envKey string) []string {

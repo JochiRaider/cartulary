@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"mime"
 	"net/url"
 	"os"
-	"path/filepath"
+	pathpkg "path"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +22,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 const (
@@ -40,6 +41,17 @@ type Settings struct {
 	SecretKey   string
 	Secure      bool
 	Bucket      string
+}
+
+type Binding struct {
+	BindingKind string
+	RootPath    string
+	ServiceRef  string
+}
+
+type Instrumentation struct {
+	Enabled        bool
+	ServiceVersion string
 }
 
 type ServiceRefEnvKeys struct {
@@ -78,24 +90,15 @@ type ObjectInfo struct {
 	ContentType string
 }
 
-func Setup(ctx context.Context, cfg config.Config) (Store, error) {
-	return SetupWithEnv(ctx, cfg, nil)
-}
-
-func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string) (Store, error) {
-	settings, err := ResolveSettings(cfg, env)
-	if err != nil {
-		return nil, err
-	}
-
+func Setup(ctx context.Context, settings Settings, instrumentation Instrumentation) (Store, error) {
 	switch settings.BindingKind {
 	case "filesystem_root":
 		store, err := NewFilesystemStore(settings.RootPath)
 		if err != nil {
 			return nil, err
 		}
-		if cfg.Telemetry.Enabled {
-			return InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion), nil
+		if instrumentation.Enabled {
+			return InstrumentStore(store, instrumentation.ServiceVersion), nil
 		}
 		return store, nil
 	case "managed_service":
@@ -103,8 +106,8 @@ func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string)
 		if err != nil {
 			return nil, err
 		}
-		if cfg.Telemetry.Enabled {
-			return InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion), nil
+		if instrumentation.Enabled {
+			return InstrumentStore(store, instrumentation.ServiceVersion), nil
 		}
 		return store, nil
 	default:
@@ -112,15 +115,15 @@ func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string)
 	}
 }
 
-func ResolveSettings(cfg config.Config, env map[string]string) (Settings, error) {
-	switch cfg.Roots.ObjectStorage.BindingKind {
+func ResolveSettings(binding Binding, env map[string]string) (Settings, error) {
+	switch binding.BindingKind {
 	case "filesystem_root":
-		if cfg.Roots.ObjectStorage.Path == "" {
+		if binding.RootPath == "" {
 			return Settings{}, fmt.Errorf("resolve object-store settings: roots.object_storage.path is required")
 		}
-		return Settings{BindingKind: "filesystem_root", RootPath: cfg.Roots.ObjectStorage.Path}, nil
+		return Settings{BindingKind: "filesystem_root", RootPath: binding.RootPath}, nil
 	case "managed_service":
-		settings, err := resolveManagedServiceSettings(cfg.Roots.ObjectStorage.ServiceRef, env)
+		settings, err := resolveManagedServiceSettings(binding.ServiceRef, env)
 		if err != nil {
 			return Settings{}, err
 		}
@@ -157,12 +160,7 @@ func newS3Store(ctx context.Context, settings Settings) (Store, error) {
 	return store, nil
 }
 
-func EnsureConfiguredBucket(ctx context.Context, cfg config.Config, env map[string]string) (EnsureBucketResult, error) {
-	settings, err := ResolveSettings(cfg, env)
-	if err != nil {
-		return EnsureBucketResult{}, err
-	}
-
+func EnsureBucket(ctx context.Context, settings Settings) (EnsureBucketResult, error) {
 	switch settings.BindingKind {
 	case "filesystem_root":
 		store, err := NewFilesystemStore(settings.RootPath)
@@ -454,7 +452,7 @@ func (s *S3Store) Close() error {
 }
 
 type FilesystemStore struct {
-	root         *os.Root
+	root         *rootedfs.Root
 	uploadTokens map[string]filesystemUploadTarget
 	mu           sync.Mutex
 }
@@ -472,10 +470,7 @@ func NewFilesystemStore(root string) (*FilesystemStore, error) {
 	if root == "" {
 		return nil, fmt.Errorf("create filesystem object store: root path is required")
 	}
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		return nil, fmt.Errorf("create filesystem object-store root: %w", err)
-	}
-	rootHandle, err := os.OpenRoot(filepath.Clean(root))
+	rootHandle, err := rootedfs.OpenOrCreate(root)
 	if err != nil {
 		return nil, fmt.Errorf("open filesystem object-store root: %w", err)
 	}
@@ -524,52 +519,35 @@ func (s *FilesystemStore) PutObject(ctx context.Context, key string, body io.Rea
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	relativePath, err := s.resolvePath(key)
+	reference, err := s.resolvePath(key)
 	if err != nil {
 		return err
 	}
-	if err := s.root.MkdirAll(filepath.Dir(relativePath), 0o700); err != nil {
-		return fmt.Errorf("create filesystem object parent: %w", err)
+	if err := s.makeParent(reference); err != nil {
+		return err
 	}
-	tmpPath := relativePath + ".tmp"
-	file, err := s.root.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return fmt.Errorf("create filesystem object: %w", err)
-	}
-	_, copyErr := io.Copy(file, body)
-	closeErr := file.Close()
-	if copyErr != nil {
-		_ = s.root.Remove(tmpPath)
-		return fmt.Errorf("write filesystem object: %w", copyErr)
-	}
-	if closeErr != nil {
-		_ = s.root.Remove(tmpPath)
-		return fmt.Errorf("close filesystem object: %w", closeErr)
-	}
-	if err := s.root.Rename(tmpPath, relativePath); err != nil {
-		_ = s.root.Remove(tmpPath)
+	if err := s.root.AtomicReplace(ctx, reference, func(writer io.Writer) error {
+		_, copyErr := io.Copy(writer, body)
+		return copyErr
+	}); err != nil {
 		return fmt.Errorf("commit filesystem object: %w", err)
 	}
-	if err := s.writeMetadata(relativePath, contentType); err != nil {
+	if err := s.writeMetadata(ctx, reference, contentType); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (s *FilesystemStore) ReadObject(_ context.Context, key string, options ReadOptions) (io.ReadCloser, ObjectInfo, error) {
-	relativePath, err := s.resolvePath(key)
+	reference, err := s.resolvePath(key)
 	if err != nil {
 		return nil, ObjectInfo{}, err
 	}
-	file, err := s.root.Open(relativePath)
+	file, metadata, err := s.root.OpenRegular(reference)
 	if err != nil {
 		return nil, ObjectInfo{}, fmt.Errorf("open filesystem object: %w", err)
 	}
-	info, err := s.statPath(key, relativePath)
-	if err != nil {
-		_ = file.Close()
-		return nil, ObjectInfo{}, err
-	}
+	info := ObjectInfo{Key: key, Size: metadata.Size, ContentType: s.readContentType(reference)}
 	if options.RangeStart != nil {
 		start := *options.RangeStart
 		if _, err := file.Seek(start, io.SeekStart); err != nil {
@@ -593,47 +571,46 @@ func (s *FilesystemStore) ReadObject(_ context.Context, key string, options Read
 }
 
 func (s *FilesystemStore) StatObject(_ context.Context, key string) (ObjectInfo, error) {
-	relativePath, err := s.resolvePath(key)
+	reference, err := s.resolvePath(key)
 	if err != nil {
 		return ObjectInfo{}, err
 	}
-	return s.statPath(key, relativePath)
+	return s.statPath(key, reference)
 }
 
 func (s *FilesystemStore) ListObjects(_ context.Context, prefix string) ([]ObjectInfo, error) {
 	objects := make([]ObjectInfo, 0)
-	if err := fs.WalkDir(s.root.FS(), ".", func(relativePath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".meta.json") || strings.HasSuffix(entry.Name(), ".tmp") {
-			return nil
-		}
-		key := filepath.ToSlash(relativePath)
-		if prefix != "" && !strings.HasPrefix(key, prefix) {
-			return nil
-		}
-		info, err := s.statPath(key, relativePath)
-		if err != nil {
-			return err
-		}
-		objects = append(objects, info)
-		return nil
-	}); err != nil {
+	entries, err := s.root.ListRegular()
+	if err != nil {
 		return objects, fmt.Errorf("list filesystem objects: %w", err)
+	}
+	for _, entry := range entries {
+		key := entry.Reference.String()
+		if strings.HasSuffix(key, ".meta.json") || strings.HasSuffix(key, ".tmp") {
+			continue
+		}
+		if prefix != "" && !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		objects = append(objects, ObjectInfo{
+			Key:         key,
+			Size:        entry.Metadata.Size,
+			ContentType: s.readContentType(entry.Reference),
+		})
 	}
 	return objects, nil
 }
 
 func (s *FilesystemStore) DeleteObject(_ context.Context, key string) error {
-	relativePath, err := s.resolvePath(key)
+	reference, err := s.resolvePath(key)
 	if err != nil {
 		return err
 	}
-	if err := s.root.Remove(relativePath); err != nil && !os.IsNotExist(err) {
+	if err := s.root.RemoveRegular(reference); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("delete filesystem object: %w", err)
 	}
-	if err := s.root.Remove(metadataPath(relativePath)); err != nil && !os.IsNotExist(err) {
+	metadataReference := metadataReference(reference)
+	if err := s.root.RemoveRegular(metadataReference); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("delete filesystem object metadata: %w", err)
 	}
 	return nil
@@ -724,32 +701,26 @@ func (s *FilesystemStore) EnsureBucketForDevTest(_ context.Context, request Ensu
 	return EnsureBucketResult{AlreadyExists: true}, nil
 }
 
-func (s *FilesystemStore) resolvePath(key string) (string, error) {
-	if key == "" || strings.ContainsRune(key, '\x00') {
-		return "", fmt.Errorf("resolve filesystem object key: key is required")
+func (s *FilesystemStore) resolvePath(key string) (rootedfs.Reference, error) {
+	reference, err := rootedfs.ParseReference(key)
+	if err != nil {
+		return rootedfs.Reference{}, fmt.Errorf("resolve filesystem object key: invalid logical reference: %w", err)
 	}
-	if filepath.IsAbs(key) {
-		return "", fmt.Errorf("resolve filesystem object key %q: absolute keys are not allowed", key)
-	}
-	cleaned := filepath.Clean(filepath.FromSlash(key))
-	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("resolve filesystem object key %q: key escapes object-store root", key)
-	}
-	return cleaned, nil
+	return reference, nil
 }
 
-func (s *FilesystemStore) statPath(key string, relativePath string) (ObjectInfo, error) {
-	stat, err := s.root.Stat(relativePath)
+func (s *FilesystemStore) statPath(key string, reference rootedfs.Reference) (ObjectInfo, error) {
+	file, metadata, err := s.root.OpenRegular(reference)
 	if err != nil {
 		return ObjectInfo{}, fmt.Errorf("stat filesystem object: %w", err)
 	}
-	if stat.IsDir() {
-		return ObjectInfo{}, fmt.Errorf("stat filesystem object: object key %q resolved to a directory", key)
+	if err := file.Close(); err != nil {
+		return ObjectInfo{}, fmt.Errorf("stat filesystem object: %w", err)
 	}
-	return ObjectInfo{Key: key, Size: stat.Size(), ContentType: s.readContentType(relativePath)}, nil
+	return ObjectInfo{Key: key, Size: metadata.Size, ContentType: s.readContentType(reference)}, nil
 }
 
-func (s *FilesystemStore) writeMetadata(relativePath string, contentType string) error {
+func (s *FilesystemStore) writeMetadata(ctx context.Context, reference rootedfs.Reference, contentType string) error {
 	contentType = strings.TrimSpace(contentType)
 	if contentType == "" {
 		return nil
@@ -761,14 +732,21 @@ func (s *FilesystemStore) writeMetadata(relativePath string, contentType string)
 	if err != nil {
 		return fmt.Errorf("marshal filesystem object metadata: %w", err)
 	}
-	if err := s.root.WriteFile(metadataPath(relativePath), payload, 0o600); err != nil {
+	metadata := metadataReference(reference)
+	if err := s.makeParent(metadata); err != nil {
+		return err
+	}
+	if err := s.root.AtomicReplace(ctx, metadata, func(writer io.Writer) error {
+		_, writeErr := writer.Write(payload)
+		return writeErr
+	}); err != nil {
 		return fmt.Errorf("write filesystem object metadata: %w", err)
 	}
 	return nil
 }
 
-func (s *FilesystemStore) readContentType(relativePath string) string {
-	payload, err := s.root.ReadFile(metadataPath(relativePath))
+func (s *FilesystemStore) readContentType(reference rootedfs.Reference) string {
+	payload, _, err := s.root.ReadRegular(metadataReference(reference), 4096)
 	if err != nil {
 		return ""
 	}
@@ -779,8 +757,23 @@ func (s *FilesystemStore) readContentType(relativePath string) string {
 	return metadata.ContentType
 }
 
-func metadataPath(path string) string {
-	return path + ".meta.json"
+func (s *FilesystemStore) makeParent(reference rootedfs.Reference) error {
+	parent := pathpkg.Dir(reference.String())
+	if parent == "." {
+		return nil
+	}
+	parentReference, err := rootedfs.ParseReference(parent)
+	if err != nil {
+		return fmt.Errorf("resolve filesystem object parent: %w", err)
+	}
+	if err := s.root.MakePrivateDir(parentReference); err != nil {
+		return fmt.Errorf("create filesystem object parent: %w", err)
+	}
+	return nil
+}
+
+func metadataReference(reference rootedfs.Reference) rootedfs.Reference {
+	return rootedfs.MustParseReference(reference.String() + ".meta.json")
 }
 
 func (s *FilesystemStore) Close() error {

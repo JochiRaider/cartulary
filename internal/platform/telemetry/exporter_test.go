@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -216,7 +216,7 @@ func TestOTLPStatusRetryClassification(t *testing.T) {
 }
 
 func TestPlanRetryEnvelope(t *testing.T) {
-	retry := config.TelemetryExporterRetryConfig{
+	retry := telemetryconfiguration.ExporterRetryConfig{
 		Enabled:           true,
 		MaxElapsedMS:      30_000,
 		InitialIntervalMS: 100,
@@ -226,7 +226,7 @@ func TestPlanRetryEnvelope(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		retry   config.TelemetryExporterRetryConfig
+		retry   telemetryconfiguration.ExporterRetryConfig
 		index   int64
 		elapsed int64
 		sample  int64
@@ -566,12 +566,12 @@ func (e *scriptedSpanExporter) Shutdown(context.Context) error {
 	return nil
 }
 
-func withRetryEnabled(retry config.TelemetryExporterRetryConfig, enabled bool) config.TelemetryExporterRetryConfig {
+func withRetryEnabled(retry telemetryconfiguration.ExporterRetryConfig, enabled bool) telemetryconfiguration.ExporterRetryConfig {
 	retry.Enabled = enabled
 	return retry
 }
 
-func withRetryMaxElapsed(retry config.TelemetryExporterRetryConfig, maxElapsedMS int64) config.TelemetryExporterRetryConfig {
+func withRetryMaxElapsed(retry telemetryconfiguration.ExporterRetryConfig, maxElapsedMS int64) telemetryconfiguration.ExporterRetryConfig {
 	retry.MaxElapsedMS = maxElapsedMS
 	return retry
 }

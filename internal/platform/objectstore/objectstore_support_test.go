@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
@@ -26,7 +25,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 			t.Fatalf("create managed-service test bucket: %v", err)
 		}
 
-		store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
+		store, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
 		if err != nil {
 			t.Fatalf("setup object store from managed-service binding: %v", err)
 		}
@@ -42,7 +41,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	t.Run("fails closed when the configured managed-service binding cannot resolve service-ref settings", func(t *testing.T) {
 		bucket := fmt.Sprintf("bootstrap-support-managed-object-fail-%d", time.Now().UnixNano())
 
-		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.Env(bucket))
+		_, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), s3Harness.Env(bucket))
 		if err == nil {
 			t.Fatal("expected managed-service object-store binding to reject unrelated generic env settings")
 		}
@@ -54,7 +53,7 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	t.Run("fails closed when the configured managed-service bucket is missing", func(t *testing.T) {
 		bucket := fmt.Sprintf("bootstrap-support-managed-object-missing-%d", time.Now().UnixNano())
 
-		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
+		_, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
 		if err == nil {
 			t.Fatal("expected managed-service object-store setup to reject a missing bucket")
 		}
@@ -73,11 +72,11 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 		}()
 
 		env := s3Harness.EnvForServiceRef("object_primary", bucket)
-		if _, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env); err == nil {
+		if _, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), env); err == nil {
 			t.Fatal("expected managed-service object-store setup to fail before bucket init")
 		}
 
-		result, err := objectstore.EnsureConfiguredBucket(context.Background(), managedObjectStoreConfig(t), env)
+		result, err := ensureObjectStoreBucket(context.Background(), managedObjectStoreConfig(t), env)
 		if err != nil {
 			t.Fatalf("ensure configured bucket: %v", err)
 		}
@@ -85,13 +84,13 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 			t.Fatalf("unexpected first ensure result: %#v", result)
 		}
 
-		store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env)
+		store, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), env)
 		if err != nil {
 			t.Fatalf("setup object store after bucket init: %v", err)
 		}
 		defer store.Close()
 
-		second, err := objectstore.EnsureConfiguredBucket(context.Background(), managedObjectStoreConfig(t), env)
+		second, err := ensureObjectStoreBucket(context.Background(), managedObjectStoreConfig(t), env)
 		if err != nil {
 			t.Fatalf("ensure existing configured bucket: %v", err)
 		}
@@ -121,45 +120,10 @@ func TestManagedServiceObjectStoreBinding(t *testing.T) {
 	t.Run("object_store_adapter_contract_hardening", requireObjectStoreAdapterContractHardening)
 }
 
-func managedObjectStoreConfig(t testing.TB) config.Config {
+func managedObjectStoreConfig(t testing.TB) objectStoreTestSettings {
 	t.Helper()
-
-	cfg, err := config.Validate(config.Config{
-		ConfigSchemaID:    "cartulary.deployment_config.v1",
-		DeploymentProfile: "on_prem",
-		Application: config.ApplicationConfig{
-			PublicOrigin: "http://localhost:5173",
-		},
-		Roots: config.RootBindings{
-			DatabaseStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/postgres",
-			},
-			ObjectStorage: config.RootBinding{
-				BindingKind: "managed_service",
-				ServiceRef:  "object_primary",
-			},
-			BackupStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/backups",
-			},
-			ReferencePackStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/reference-packs",
-			},
-			TemporaryWork: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/tmp",
-			},
-			ExportOutputs: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        "/var/lib/cartulary/exports",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("validate managed object-store config: %v", err)
-	}
-
-	return cfg
+	return objectStoreTestSettings{binding: objectstore.Binding{
+		BindingKind: "managed_service",
+		ServiceRef:  "object_primary",
+	}}
 }

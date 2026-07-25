@@ -569,6 +569,7 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
+          "TestModuleSettingsProjection_Unit",
           "TestServerRunnerCancellationBeforeStartupReturnsSuccess",
           "TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess",
           "TestServerRunnerClosesRuntimeAndMapsServeFailure",
@@ -760,7 +761,11 @@
       "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",
       "owner_id": "app.server",
       "family_id": "app.server.unit",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.auth",
+        "module.networkflow",
+        "platform.rootedfs"
+      ],
       "verification_ids": [
         "app.server.verification.behavior_contract"
       ],
@@ -768,7 +773,9 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
-          "TestFailClosedStartup_Unit"
+          "TestEnterpriseAuthenticationManifestPreflight_Unit",
+          "TestFailClosedStartup_Unit",
+          "TestNetworkFlowManifestPreflight_Unit"
         ]
       },
       "evidence_class": "unit",

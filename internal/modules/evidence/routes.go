@@ -37,9 +37,19 @@ type Service struct {
 	textPreviewMax int64
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type Settings struct {
+	MaxBlobBytes   int64
+	PreviewMax     int64
+	TextPreviewMax int64
+}
+
+func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
+	resolved := Settings{}
+	if len(settings) > 0 {
+		resolved = settings[0]
+	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, resolved)
 		if err != nil {
 			return err
 		}
@@ -53,7 +63,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -70,9 +80,9 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		hub:            deps.WSHub,
 		keys:           keys,
 		now:            now,
-		maxBlobBytes:   deps.Config.Limits.ObjectBlobs.MaxDeclaredByteSize,
-		previewMax:     deps.Config.Limits.Previews.MaxPreviewablePayloadBytes,
-		textPreviewMax: deps.Config.Limits.Previews.MaxTextInlineBytes,
+		maxBlobBytes:   settings.MaxBlobBytes,
+		previewMax:     settings.PreviewMax,
+		textPreviewMax: settings.TextPreviewMax,
 	}, nil
 }
 

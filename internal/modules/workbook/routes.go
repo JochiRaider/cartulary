@@ -323,7 +323,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec:    cursorCodec,
 		keys:           keys,
 		now:            now,
-		serviceVersion: deps.Config.Telemetry.Resource.ServiceVersion,
+		serviceVersion: deps.Telemetry.ServiceVersion,
 	}, nil
 }
 

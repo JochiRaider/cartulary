@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"regexp"
 	"strings"
@@ -16,16 +15,16 @@ import (
 	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
 const (
-	KeyRingsOverrideKey     = "networkflow.key_rings.v1"
-	keyRingManifestSchemaID = "cartulary.network_flow_key_rings.v1"
-	keyRingManifestMaxBytes = 65536
-	keyRingMaxKeys          = 8
-	keyRingConfigPath       = "network_flow_activity.key_ring_manifest_path"
+	KeyRingsOverrideKey        = "networkflow.key_rings.v1"
+	KeyRingManifestMaximumSize = 65536
+	keyRingManifestSchemaID    = "cartulary.network_flow_key_rings.v1"
+	keyRingManifestMaxBytes    = KeyRingManifestMaximumSize
+	keyRingMaxKeys             = 8
+	keyRingConfigPath          = "network_flow_activity.key_ring_manifest_path"
 )
 
 var keyRingTimestampPattern = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$`)
@@ -98,42 +97,16 @@ type safeDigestKeyManifest struct {
 	RetainUntil   string           `json:"retain_until,omitempty"`
 }
 
-func LoadKeyRings(cfg config.Config, env map[string]string, now time.Time) (*KeyRings, error) {
-	registry := secretpurpose.NewRegistry()
-	if err := authn.RegisterMasterSecretPurpose(registry, env); err != nil {
-		return nil, err
-	}
-	return LoadKeyRingsWithRegistry(cfg, env, now, registry)
-}
-
-func LoadKeyRingsWithRegistry(cfg config.Config, env map[string]string, now time.Time, registry *secretpurpose.Registry) (*KeyRings, error) {
-	if !cfg.NetworkFlowActivity.Claimed {
-		return nil, nil
-	}
-	path := cfg.NetworkFlowActivity.KeyRingManifestPath
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, keyRingConfigError(keyRingConfigPath, "network_flow_cursor_key_missing", safeKeyRingFileError("stat Network Flow key-ring manifest", err))
-	}
-	if !info.Mode().IsRegular() {
-		return nil, keyRingConfigError(keyRingConfigPath, "network_flow_cursor_key_invalid", "Network Flow key-ring manifest path must reference one regular file")
-	}
-	if info.Size() > keyRingManifestMaxBytes {
-		return nil, keyRingConfigError(keyRingConfigPath, "network_flow_cursor_key_invalid", "Network Flow key-ring manifest exceeds 65536 bytes")
-	}
-	raw, err := os.ReadFile(path) // #nosec G304 -- validated operator-configured absolute path.
-	if err != nil {
-		return nil, keyRingConfigError(keyRingConfigPath, "network_flow_cursor_key_missing", safeKeyRingFileError("read Network Flow key-ring manifest", err))
-	}
-	return parseKeyRings(raw, env, now, registry)
-}
-
 func ParseKeyRings(raw []byte, env map[string]string, now time.Time) (*KeyRings, error) {
 	registry := secretpurpose.NewRegistry()
 	if err := authn.RegisterMasterSecretPurpose(registry, env); err != nil {
 		return nil, err
 	}
 	return parseKeyRings(raw, env, now, registry)
+}
+
+func ParseKeyRingsWithRegistry(raw []byte, env map[string]string, now time.Time, registry *secretpurpose.Registry) (*KeyRings, error) {
+	return parseKeyRings(append([]byte(nil), raw...), env, now, registry)
 }
 
 func parseKeyRings(raw []byte, env map[string]string, now time.Time, registry *secretpurpose.Registry) (*KeyRings, error) {
@@ -432,12 +405,9 @@ func normalizedKeyRingSecretSuffix(name string) string {
 }
 
 func keyRingConfigError(path string, reason string, message string) error {
-	return config.NewDiagnosticsError(config.Diagnostic{Path: path, ReasonCode: reason, Message: message})
-}
-
-func safeKeyRingFileError(action string, err error) string {
-	if errors.Is(err, fs.ErrPermission) {
-		return action + ": " + fs.ErrPermission.Error()
-	}
-	return action + ": " + err.Error()
+	return &ConfigurationError{Finding: ConfigurationFinding{
+		Path:       path,
+		ReasonCode: reason,
+		Message:    message,
+	}}
 }

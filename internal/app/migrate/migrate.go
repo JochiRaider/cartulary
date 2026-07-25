@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -16,8 +17,8 @@ import (
 
 type migrateRunner struct {
 	stderr     io.Writer
-	loadConfig func() (config.Config, error)
-	openSQL    func(config.Config) (*sql.DB, error)
+	loadConfig func() (configassembly.Loaded, error)
+	openSQL    func(postgres.Settings) (*sql.DB, error)
 	migrate    func(context.Context, *sql.DB, postgres.MigrationSource, string, ...string) (postgres.MigrationStatus, error)
 	source     postgres.MigrationSource
 }
@@ -29,12 +30,16 @@ func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) 
 func newMigrateRunner(stderr io.Writer) migrateRunner {
 	return migrateRunner{
 		stderr: normalizeMigrateWriter(stderr),
-		loadConfig: func() (config.Config, error) {
-			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+		loadConfig: func() (configassembly.Loaded, error) {
+			policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
 			if err != nil {
-				return config.Config{}, err
+				return configassembly.Loaded{}, err
 			}
-			return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+			loaded, err := configassembly.Load(config.LoadOptions{InactivePolicy: policy})
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			return loaded, nil
 		},
 		openSQL: postgres.OpenSQL,
 		migrate: postgres.Migrate,
@@ -61,12 +66,17 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 }
 
 func (runner migrateRunner) run(ctx context.Context) error {
-	cfg, err := runner.loadConfig()
+	loaded, err := runner.loadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	db, err := runner.openSQL(cfg)
+	cfg := loaded.Deployment()
+	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
+	if err != nil {
+		return fmt.Errorf("resolve postgres settings: %w", err)
+	}
+	db, err := runner.openSQL(settings)
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}

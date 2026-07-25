@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
@@ -37,7 +38,7 @@ func TestServerRunnerWritesDiagnosticsAndReturnsFailure(t *testing.T) {
 		Message:    "invalid origin",
 	})
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, diagnostics }
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, diagnostics }
 
 	if exitCode := runner.run(context.Background()); exitCode != 2 {
 		t.Fatalf("exit code got %d want 2", exitCode)
@@ -55,8 +56,8 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	var stderr bytes.Buffer
 	closed := false
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return testRuntime(http.NotFoundHandler(), func() { closed = true }), nil
 	}
 	runner.profile = failingServerProfile{}
@@ -75,8 +76,8 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 func TestServerRunnerMapsListenerStartupFailureToExitTwo(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return testRuntime(http.NotFoundHandler(), nil), nil
 	}
 	runner.profile = startupFailingServerProfile{}
@@ -96,8 +97,8 @@ func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T)
 	activated := false
 	closed := false
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		runtime := testRuntime(http.NotFoundHandler(), func() { closed = true })
 		runtime.ActivatePublication = func() error { activated = true; return nil }
 		runtime.FatalEvents = fatalEvents
@@ -118,8 +119,8 @@ func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T)
 
 func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) {
 	runner := newServerRunner(io.Discard, io.Discard)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		runtime := testRuntime(http.NotFoundHandler(), nil)
 		runtime.ActivatePublication = func() error { return errors.New("publication rejected") }
 		return runtime, nil
@@ -134,8 +135,8 @@ func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) 
 func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, errors.New("runtime unavailable")
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 2 {
@@ -149,8 +150,8 @@ func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, &stagedobjects.FatalIntegrityError{Cause: errors.New("private contradiction detail")}
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 70 {
@@ -164,8 +165,8 @@ func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
 func TestServerRunnerMapsConfirmedLeaseLossToExitSeventy(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, processlease.ErrLeaseLost
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 70 {
@@ -180,8 +181,8 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	runner := newServerRunner(&stdout, &stderr)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, &postgres.MigrationRemediationError{
 			Report: postgres.MigrationRemediationReport{
 				SchemaID:    "cartulary.migration_remediation_report.v1",
@@ -213,8 +214,8 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 func TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	runner := newServerRunner(nil, nil)
-	runner.loadConfig = func() (config.Config, error) { return config.Config{}, nil }
-	runner.buildRuntime = func(context.Context, config.Config, Options) (serverRuntime, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		cancel()
 		return serverRuntime{}, context.Canceled
 	}
@@ -225,9 +226,9 @@ func TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess(t *testing.T) 
 
 func TestServerRunnerCancellationBeforeStartupReturnsSuccess(t *testing.T) {
 	runner := newServerRunner(nil, nil)
-	runner.loadConfig = func() (config.Config, error) {
+	runner.loadConfig = func() (configassembly.Loaded, error) {
 		t.Fatal("cancelled runner loaded configuration")
-		return config.Config{}, nil
+		return configassembly.Loaded{}, nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -287,9 +288,9 @@ func TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad(t *testing.T) {
 			runner.lookupEnv = func(name string) (string, bool) {
 				return "", name == key
 			}
-			runner.loadConfig = func() (config.Config, error) {
+			runner.loadConfig = func() (configassembly.Loaded, error) {
 				t.Fatal("production runner loaded config with a harness-only key")
-				return config.Config{}, nil
+				return configassembly.Loaded{}, nil
 			}
 			if exitCode := runner.run(context.Background()); exitCode != 2 {
 				t.Fatalf("exit code got %d want 2", exitCode)
@@ -309,8 +310,8 @@ func (failingServerWriter) Write([]byte) (int, error) {
 
 func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T) {
 	runner := newServerRunner(nil, failingServerWriter{})
-	runner.loadConfig = func() (config.Config, error) {
-		return config.Config{}, config.NewDiagnosticsError(config.Diagnostic{
+	runner.loadConfig = func() (configassembly.Loaded, error) {
+		return configassembly.Loaded{}, config.NewDiagnosticsError(config.Diagnostic{
 			Path:       "config_schema_id",
 			ReasonCode: "unsupported_config_schema_id",
 			Message:    "unsupported schema",

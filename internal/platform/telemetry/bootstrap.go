@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
 
 const otlpExporterGoVersion = "v1.41.0"
@@ -61,7 +62,7 @@ func WithResolvedClaimIdentity(identity ResolvedClaimIdentity) BootstrapOption {
 	}
 }
 
-func Bootstrap(_ context.Context, cfg config.Config, env map[string]string, opts ...BootstrapOption) (*Runtime, error) {
+func Bootstrap(_ context.Context, cfg telemetryconfiguration.Config, deploymentProfile string, env map[string]string, opts ...BootstrapOption) (*Runtime, error) {
 	var options BootstrapOptions
 	for _, opt := range opts {
 		if opt != nil {
@@ -69,12 +70,9 @@ func Bootstrap(_ context.Context, cfg config.Config, env map[string]string, opts
 		}
 	}
 
-	if err := config.ResolveTelemetrySecretReferences(cfg, env); err != nil {
-		return nil, err
-	}
-	resolvedHeaders, err := config.ResolveTelemetryExporterHeaders(cfg, env)
-	if err != nil {
-		return nil, err
+	resolvedSecrets, findings := telemetryconfiguration.ResolveSecrets(cfg, env)
+	if len(findings) > 0 {
+		return nil, configurationDiagnosticsError(findings)
 	}
 	if options.ResolvedClaims == nil {
 		return nil, config.NewDiagnosticsError(config.Diagnostic{
@@ -83,28 +81,28 @@ func Bootstrap(_ context.Context, cfg config.Config, env map[string]string, opts
 			Message:    "resolved claim identity is required before telemetry bootstrap",
 		})
 	}
-	resource, err := BuildResourceIdentity(cfg, *options.ResolvedClaims)
+	resource, err := BuildResourceIdentity(cfg, deploymentProfile, *options.ResolvedClaims)
 	if err != nil {
 		return nil, err
 	}
-	samplerProfile := ResolveSamplerProfile(cfg.Telemetry.Traces.SampleRatio, cfg.Telemetry.Traces.SamplerProfile)
-	if !cfg.Telemetry.Enabled {
+	samplerProfile := ResolveSamplerProfile(cfg.Traces.SampleRatio, cfg.Traces.SamplerProfile)
+	if !cfg.Enabled {
 		installNoopProviders()
-		return &Runtime{exporterKind: "none", samplerProfile: samplerProfile, sampleRatio: cfg.Telemetry.Traces.SampleRatio, resource: resource}, nil
+		return &Runtime{exporterKind: "none", samplerProfile: samplerProfile, sampleRatio: cfg.Traces.SampleRatio, resource: resource}, nil
 	}
 	runtime := &Runtime{
 		enabled:        true,
 		exporterKind:   "none",
 		samplerProfile: samplerProfile,
-		sampleRatio:    cfg.Telemetry.Traces.SampleRatio,
+		sampleRatio:    cfg.Traces.SampleRatio,
 		resource:       resource,
 	}
-	if cfg.Telemetry.Exporter.Kind == "none" {
+	if cfg.Exporter.Kind == "none" {
 		installNoopProviders()
 		return runtime, nil
 	}
 	if err := withContainedOTelEnvironment(func() error {
-		return runtime.activateOTLP(context.Background(), cfg, resource, resolvedHeaders)
+		return runtime.activateOTLP(context.Background(), cfg, resource, resolvedSecrets.ExporterHeaders)
 	}); err != nil {
 		runtime.shutdownBuiltProviders(context.Background())
 		installNoopProviders()
@@ -177,8 +175,8 @@ func (r *Runtime) ResourceIdentity() ResourceIdentity {
 	}
 }
 
-func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity ResourceIdentity, resolvedHeaders map[string]string) error {
-	userAgent, err := ExporterUserAgent(cfg.Telemetry.Resource.ServiceVersion, otlpExporterGoVersion)
+func (r *Runtime) activateOTLP(ctx context.Context, cfg telemetryconfiguration.Config, identity ResourceIdentity, resolvedHeaders map[string]string) error {
+	userAgent, err := ExporterUserAgent(cfg.Resource.ServiceVersion, otlpExporterGoVersion)
 	if err != nil {
 		return config.NewDiagnosticsError(config.Diagnostic{
 			Path:       "telemetry.exporter.user_agent",
@@ -195,11 +193,11 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 		})
 	}
 	res := sdkresource.NewSchemaless(identity.Attributes...)
-	r.exporterKind = cfg.Telemetry.Exporter.Kind
-	r.exporterEndpoint = cfg.Telemetry.Exporter.Endpoint
+	r.exporterKind = cfg.Exporter.Kind
+	r.exporterEndpoint = cfg.Exporter.Endpoint
 	r.diagnosticHeaders = copyStringMap(headerPlan.DiagnosticHeaders)
 
-	if cfg.Telemetry.Traces.Enabled {
+	if cfg.Traces.Enabled {
 		traceExporter, err := newTraceExporter(ctx, cfg, headerPlan, userAgent)
 		if err != nil {
 			return err
@@ -209,10 +207,10 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 			sdktrace.WithResource(res),
 			sdktrace.WithSampler(sdkSampler(r.samplerProfile, r.sampleRatio)),
 			sdktrace.WithBatcher(traceExporter,
-				sdktrace.WithMaxQueueSize(int(cfg.Telemetry.Processor.MaxQueueSize)),
-				sdktrace.WithMaxExportBatchSize(int(cfg.Telemetry.Processor.MaxExportBatchSize)),
-				sdktrace.WithBatchTimeout(durationMS(cfg.Telemetry.Processor.Traces.ScheduleDelayMS)),
-				sdktrace.WithExportTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+				sdktrace.WithMaxQueueSize(int(cfg.Processor.MaxQueueSize)),
+				sdktrace.WithMaxExportBatchSize(int(cfg.Processor.MaxExportBatchSize)),
+				sdktrace.WithBatchTimeout(durationMS(cfg.Processor.Traces.ScheduleDelayMS)),
+				sdktrace.WithExportTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			),
 		)
 		r.shutdowns = append(r.shutdowns, tracerProvider.Shutdown)
@@ -222,7 +220,7 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 		otel.SetTracerProvider(tracenoop.NewTracerProvider())
 	}
 
-	if cfg.Telemetry.Metrics.Enabled {
+	if cfg.Metrics.Enabled {
 		metricExporter, err := newMetricExporter(ctx, cfg, headerPlan, userAgent)
 		if err != nil {
 			return err
@@ -232,8 +230,8 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 			sdkmetric.WithResource(res),
 			sdkmetric.WithExemplarFilter(exemplar.AlwaysOffFilter),
 			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter,
-				sdkmetric.WithInterval(durationMS(cfg.Telemetry.Processor.Metrics.ScheduleDelayMS)),
-				sdkmetric.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+				sdkmetric.WithInterval(durationMS(cfg.Processor.Metrics.ScheduleDelayMS)),
+				sdkmetric.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			)),
 		)
 		r.shutdowns = append(r.shutdowns, meterProvider.Shutdown)
@@ -244,17 +242,17 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 	}
 
 	selfMetrics := newTelemetrySelfMetrics(cfg)
-	if cfg.Telemetry.Logs.BridgeEnabled {
+	if cfg.Logs.BridgeEnabled {
 		logExporter, err := newLogExporter(ctx, cfg, headerPlan, userAgent)
 		if err != nil {
 			return err
 		}
 		logExporter = &retryingLogExporter{exporter: logExporter, controller: newRetryController(cfg)}
 		logProcessor := newDropNewLogProcessor(logExporter, dropNewLogProcessorConfig{
-			MaxQueueSize:       int(cfg.Telemetry.Processor.MaxQueueSize),
-			MaxExportBatchSize: int(cfg.Telemetry.Processor.MaxExportBatchSize),
-			ExportInterval:     durationMS(cfg.Telemetry.Processor.Logs.ScheduleDelayMS),
-			ExportTimeout:      durationMS(cfg.Telemetry.Processor.ExportTimeoutMS),
+			MaxQueueSize:       int(cfg.Processor.MaxQueueSize),
+			MaxExportBatchSize: int(cfg.Processor.MaxExportBatchSize),
+			ExportInterval:     durationMS(cfg.Processor.Logs.ScheduleDelayMS),
+			ExportTimeout:      durationMS(cfg.Processor.ExportTimeoutMS),
 			SignalKind:         "logs",
 			OnDrop:             selfMetrics.recordDrop,
 		})
@@ -272,32 +270,32 @@ func (r *Runtime) activateOTLP(ctx context.Context, cfg config.Config, identity 
 	return nil
 }
 
-func newTraceExporter(ctx context.Context, cfg config.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdktrace.SpanExporter, error) {
-	switch cfg.Telemetry.Exporter.Kind {
+func newTraceExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdktrace.SpanExporter, error) {
+	switch cfg.Exporter.Kind {
 	case "otlp_http":
-		urls, err := BuildOTLPHTTPURLs(cfg.Telemetry.Exporter.Endpoint)
+		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithEndpointURL(urls.Traces),
 			otlptracehttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
-			otlptracehttp.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlptracehttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlptracehttp.WithRetry(otlptracehttp.RetryConfig(exporterRetryConfig(cfg))),
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlptracehttp.WithCompression(otlptracehttp.GzipCompression))
 		}
 		return otlptracehttp.New(ctx, opts...)
 	case "otlp_grpc":
-		target, err := BuildOTLPGRPCTarget(cfg.Telemetry.Exporter.Endpoint)
+		target, err := BuildOTLPGRPCTarget(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlptracegrpc.Option{
 			otlptracegrpc.WithEndpoint(target.Target),
 			otlptracegrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
-			otlptracegrpc.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlptracegrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig(exporterRetryConfig(cfg))),
 			otlptracegrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
 		}
@@ -306,7 +304,7 @@ func newTraceExporter(ctx context.Context, cfg config.Config, headerPlan Exporte
 		} else {
 			opts = append(opts, otlptracegrpc.WithInsecure())
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlptracegrpc.WithCompressor("gzip"))
 		}
 		return otlptracegrpc.New(ctx, opts...)
@@ -315,32 +313,32 @@ func newTraceExporter(ctx context.Context, cfg config.Config, headerPlan Exporte
 	}
 }
 
-func newMetricExporter(ctx context.Context, cfg config.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdkmetric.Exporter, error) {
-	switch cfg.Telemetry.Exporter.Kind {
+func newMetricExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdkmetric.Exporter, error) {
+	switch cfg.Exporter.Kind {
 	case "otlp_http":
-		urls, err := BuildOTLPHTTPURLs(cfg.Telemetry.Exporter.Endpoint)
+		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlpmetrichttp.Option{
 			otlpmetrichttp.WithEndpointURL(urls.Metrics),
 			otlpmetrichttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
-			otlpmetrichttp.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlpmetrichttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlpmetrichttp.WithRetry(otlpmetrichttp.RetryConfig(exporterRetryConfig(cfg))),
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlpmetrichttp.WithCompression(otlpmetrichttp.GzipCompression))
 		}
 		return otlpmetrichttp.New(ctx, opts...)
 	case "otlp_grpc":
-		target, err := BuildOTLPGRPCTarget(cfg.Telemetry.Exporter.Endpoint)
+		target, err := BuildOTLPGRPCTarget(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlpmetricgrpc.Option{
 			otlpmetricgrpc.WithEndpoint(target.Target),
 			otlpmetricgrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
-			otlpmetricgrpc.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlpmetricgrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig(exporterRetryConfig(cfg))),
 			otlpmetricgrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
 		}
@@ -349,7 +347,7 @@ func newMetricExporter(ctx context.Context, cfg config.Config, headerPlan Export
 		} else {
 			opts = append(opts, otlpmetricgrpc.WithInsecure())
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlpmetricgrpc.WithCompressor("gzip"))
 		}
 		return otlpmetricgrpc.New(ctx, opts...)
@@ -358,32 +356,32 @@ func newMetricExporter(ctx context.Context, cfg config.Config, headerPlan Export
 	}
 }
 
-func newLogExporter(ctx context.Context, cfg config.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdklog.Exporter, error) {
-	switch cfg.Telemetry.Exporter.Kind {
+func newLogExporter(ctx context.Context, cfg telemetryconfiguration.Config, headerPlan ExporterHeaderPlan, userAgent string) (sdklog.Exporter, error) {
+	switch cfg.Exporter.Kind {
 	case "otlp_http":
-		urls, err := BuildOTLPHTTPURLs(cfg.Telemetry.Exporter.Endpoint)
+		urls, err := BuildOTLPHTTPURLs(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlploghttp.Option{
 			otlploghttp.WithEndpointURL(urls.Logs),
 			otlploghttp.WithHeaders(sdkHTTPHeaders(headerPlan)),
-			otlploghttp.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlploghttp.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlploghttp.WithRetry(otlploghttp.RetryConfig(exporterRetryConfig(cfg))),
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlploghttp.WithCompression(otlploghttp.GzipCompression))
 		}
 		return otlploghttp.New(ctx, opts...)
 	case "otlp_grpc":
-		target, err := BuildOTLPGRPCTarget(cfg.Telemetry.Exporter.Endpoint)
+		target, err := BuildOTLPGRPCTarget(cfg.Exporter.Endpoint)
 		if err != nil {
 			return nil, err
 		}
 		opts := []otlploggrpc.Option{
 			otlploggrpc.WithEndpoint(target.Target),
 			otlploggrpc.WithHeaders(sdkGRPCHeaders(headerPlan)),
-			otlploggrpc.WithTimeout(durationMS(cfg.Telemetry.Processor.ExportTimeoutMS)),
+			otlploggrpc.WithTimeout(durationMS(cfg.Processor.ExportTimeoutMS)),
 			otlploggrpc.WithRetry(otlploggrpc.RetryConfig(exporterRetryConfig(cfg))),
 			otlploggrpc.WithDialOption(grpc.WithUserAgent(userAgent)),
 		}
@@ -392,7 +390,7 @@ func newLogExporter(ctx context.Context, cfg config.Config, headerPlan ExporterH
 		} else {
 			opts = append(opts, otlploggrpc.WithInsecure())
 		}
-		if cfg.Telemetry.Exporter.Compression == "gzip" {
+		if cfg.Exporter.Compression == "gzip" {
 			opts = append(opts, otlploggrpc.WithCompressor("gzip"))
 		}
 		return otlploggrpc.New(ctx, opts...)
@@ -436,12 +434,12 @@ type otlpRetryConfig struct {
 	MaxElapsedTime  time.Duration
 }
 
-func exporterRetryConfig(cfg config.Config) otlpRetryConfig {
+func exporterRetryConfig(cfg telemetryconfiguration.Config) otlpRetryConfig {
 	return otlpRetryConfig{
 		Enabled:         false,
-		InitialInterval: durationMS(cfg.Telemetry.Exporter.Retry.InitialIntervalMS),
-		MaxInterval:     durationMS(cfg.Telemetry.Exporter.Retry.MaxIntervalMS),
-		MaxElapsedTime:  durationMS(cfg.Telemetry.Exporter.Retry.MaxElapsedMS),
+		InitialInterval: durationMS(cfg.Exporter.Retry.InitialIntervalMS),
+		MaxInterval:     durationMS(cfg.Exporter.Retry.MaxIntervalMS),
+		MaxElapsedTime:  durationMS(cfg.Exporter.Retry.MaxElapsedMS),
 	}
 }
 

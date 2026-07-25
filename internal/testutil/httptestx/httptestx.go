@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -22,6 +22,7 @@ import (
 
 type Server struct {
 	Runtime *server.Runtime
+	Config  configassembly.Deployment
 	HTTP    *stdhttptest.Server
 	Clock   *httpapi.TestClock
 }
@@ -35,7 +36,7 @@ const (
 )
 
 type ServerOptions struct {
-	Config           config.Config
+	Config           configassembly.Deployment
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
@@ -94,6 +95,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 
 	server := &Server{
 		Runtime: runtime,
+		Config:  cfg,
 		HTTP:    stdhttptest.NewServer(runtime.Handler),
 		Clock:   clock,
 	}

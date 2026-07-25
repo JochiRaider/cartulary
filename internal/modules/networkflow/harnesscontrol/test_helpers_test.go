@@ -9,9 +9,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -52,16 +54,18 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
 	ctx := context.Background()
-	pool, err := postgres.SetupWithEnv(ctx, cfg, effectiveEnv)
+	pool, err := appsupport.OpenPostgres(ctx, cfg, effectiveEnv)
 	if err != nil {
 		t.Fatalf("open Network Flow reset postgres fixture: %v", err)
 	}
-	store, err := objectstore.SetupWithEnv(ctx, cfg, effectiveEnv)
+	store, err := appsupport.OpenObjectStore(ctx, cfg, effectiveEnv)
 	if err != nil {
 		pool.Close()
 		t.Fatalf("open Network Flow reset object-store fixture: %v", err)
 	}
-	deps.Config = cfg
+	deps.TestResetBootstrap = func(ctx context.Context, tx pgx.Tx) error {
+		return bootstrap.PreflightTx(ctx, bootstrap.Settings{ManifestPath: cfg.Bootstrap.FirstAdminManifestPath}, tx)
+	}
 	deps.Env = effectiveEnv
 	deps.Postgres = pool
 	deps.ObjectStore = store

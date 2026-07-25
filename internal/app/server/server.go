@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
@@ -35,8 +36,8 @@ type serverProfile interface {
 type serverRunner struct {
 	stdout       io.Writer
 	stderr       io.Writer
-	loadConfig   func() (config.Config, error)
-	buildRuntime func(context.Context, config.Config, Options) (serverRuntime, error)
+	loadConfig   func() (configassembly.Loaded, error)
+	buildRuntime func(context.Context, configassembly.Loaded, Options) (serverRuntime, error)
 	lookupEnv    func(string) (string, bool)
 	profile      serverProfile
 }
@@ -58,22 +59,26 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 	return serverRunner{
 		stdout: normalizeServerWriter(stdout),
 		stderr: normalizeServerWriter(stderr),
-		loadConfig: func() (config.Config, error) {
-			catalog, err := extensionassembly.GeneratedInactiveConfigurationCatalog()
+		loadConfig: func() (configassembly.Loaded, error) {
+			policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
 			if err != nil {
-				return config.Config{}, err
+				return configassembly.Loaded{}, err
 			}
-			return config.LoadWithOptions(config.LoadOptions{ExtensionInactiveCatalog: catalog})
+			loaded, err := configassembly.Load(config.LoadOptions{InactivePolicy: policy})
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			return loaded, nil
 		},
-		buildRuntime: func(ctx context.Context, cfg config.Config, options Options) (serverRuntime, error) {
-			runtime, err := NewRuntime(ctx, cfg, options)
+		buildRuntime: func(ctx context.Context, loaded configassembly.Loaded, options Options) (serverRuntime, error) {
+			runtime, err := newRuntime(ctx, loaded, options)
 			if err != nil {
 				return serverRuntime{}, err
 			}
 			return serverRuntime{
 				Handler: runtime.Handler, Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
 				FatalEvents: runtime.FatalEvents(), Fatal: runtime.PublishedComponentLost,
-				ShutdownDrainSeconds: runtime.Config.Timeouts.Extensions.ShutdownDrainSeconds,
+				ShutdownDrainSeconds: runtime.Settings.ShutdownDrainSeconds,
 			}, nil
 		},
 		lookupEnv: os.LookupEnv,

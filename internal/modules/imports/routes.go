@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -37,8 +36,8 @@ type Service struct {
 	hub                      *platformws.Hub
 	keys                     authn.MasterKeys
 	cursorCodec              *pagination.Codec
-	limits                   config.ImportLimits
-	archiveLimits            config.ArchiveLimits
+	limits                   Limits
+	archiveLimits            ArchiveLimits
 	extensionImportFacades   map[string]ExtensionImportFacade
 	extensionProfileAdmitted func(string) bool
 	jobSuccessFinalizer      JobSuccessFinalizer
@@ -50,6 +49,15 @@ type RouteOption func(*routeOptions)
 type routeOptions struct {
 	extensionProfileAdmitted func(string) bool
 	jobSuccessFinalizer      JobSuccessFinalizer
+	limits                   Limits
+	archiveLimits            ArchiveLimits
+}
+
+func WithLimits(limits Limits, archiveLimits ArchiveLimits) RouteOption {
+	return func(options *routeOptions) {
+		options.limits = limits
+		options.archiveLimits = archiveLimits
+	}
 }
 
 func WithExtensionProfileAdmission(admitted func(string) bool) RouteOption {
@@ -118,8 +126,8 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		hub:                      deps.WSHub,
 		keys:                     keys,
 		cursorCodec:              cursorCodec,
-		limits:                   deps.Config.Limits.Imports,
-		archiveLimits:            deps.Config.Limits.Archives,
+		limits:                   options.limits,
+		archiveLimits:            options.archiveLimits,
 		extensionImportFacades:   extensionImportFacades,
 		extensionProfileAdmitted: extensionProfileAdmitted,
 		jobSuccessFinalizer:      options.jobSuccessFinalizer,

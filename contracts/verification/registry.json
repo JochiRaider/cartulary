@@ -232,6 +232,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.rootedfs",
+      "contract_path": "contracts/verification/owners/platform.rootedfs.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.telemetry",
       "contract_path": "contracts/verification/owners/platform.telemetry.json",
       "status": "active"

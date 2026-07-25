@@ -111,7 +111,7 @@ func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), map[string]string{
+	store, err := setupObjectStore(context.Background(), managedObjectStoreConfig(t), map[string]string{
 		"CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT":          strings.TrimPrefix(server.URL, "http://"),
 		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":     "object-store-access",
 		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY": "object-store-secret",

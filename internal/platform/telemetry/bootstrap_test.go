@@ -4,12 +4,29 @@ import (
 	"context"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
+
+type telemetryBootstrapSettings struct {
+	DeploymentProfile string
+	Telemetry         telemetryconfiguration.Config
+}
+
+type absentTelemetryPresence struct{}
+
+func (absentTelemetryPresence) Defined(...string) bool { return false }
+
+func bootstrapFromConfig(ctx context.Context, cfg telemetryBootstrapSettings, env map[string]string, options ...BootstrapOption) (*Runtime, error) {
+	return Bootstrap(ctx, cfg.Telemetry, cfg.DeploymentProfile, env, options...)
+}
+
+func buildResourceIdentityFromConfig(cfg telemetryBootstrapSettings, claims ResolvedClaimIdentity) (ResourceIdentity, error) {
+	return BuildResourceIdentity(cfg.Telemetry, cfg.DeploymentProfile, claims)
+}
 
 func TestBootstrapNoSDKExportDisabled(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	runtime, err := Bootstrap(context.Background(), cfg, map[string]string{
+	runtime, err := bootstrapFromConfig(context.Background(), cfg, map[string]string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
 		"OTEL_TRACES_EXPORTER":        "otlp",
 	}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
@@ -36,11 +53,11 @@ func TestBootstrapActivatesExplicitOTLPHTTPExport(t *testing.T) {
 	cfg.Telemetry.Exporter.Kind = "otlp_http"
 	cfg.Telemetry.Exporter.Endpoint = "https://collector.example.test:4318/otel"
 	cfg.Telemetry.Exporter.Protocol = "http/protobuf"
-	cfg.Telemetry.Exporter.Headers = map[string]config.SecretRef{
+	cfg.Telemetry.Exporter.Headers = map[string]telemetryconfiguration.SecretRef{
 		"authorization": {Kind: "env", Name: "otel-token"},
 	}
 
-	runtime, err := Bootstrap(context.Background(), cfg, map[string]string{
+	runtime, err := bootstrapFromConfig(context.Background(), cfg, map[string]string{
 		"CARTULARY_SECRET_OTEL_TOKEN": "safe-secret-value",
 	}, WithResolvedClaimIdentity(resolvedClaimIdentity(t)))
 	if err != nil {
@@ -70,7 +87,7 @@ func TestBootstrapIgnoresHostileOTelEnvironment(t *testing.T) {
 	cfg.Telemetry.Exporter.Kind = "none"
 	cfg.Telemetry.Exporter.Endpoint = ""
 
-	runtime, err := Bootstrap(context.Background(), cfg, map[string]string{
+	runtime, err := bootstrapFromConfig(context.Background(), cfg, map[string]string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT":   "https://collector.example.test:4318/otel",
 		"OTEL_EXPERIMENTAL_CONFIG_FILE": "/tmp/otel.yaml",
 		"OTEL_LOGS_EXPORTER":            "otlp",
@@ -97,28 +114,19 @@ func TestBootstrapIgnoresHostileOTelEnvironment(t *testing.T) {
 	}
 }
 
-func validTelemetryBootstrapConfig(t testing.TB) config.Config {
+func validTelemetryBootstrapConfig(t testing.TB) telemetryBootstrapSettings {
 	t.Helper()
-	cfg := config.Config{
-		ConfigSchemaID:    "cartulary.deployment_config.v1",
+	telemetryConfig, findings := telemetryconfiguration.NormalizeAndValidate(
+		telemetryconfiguration.Config{},
+		absentTelemetryPresence{},
+	)
+	if len(findings) != 0 {
+		t.Fatalf("construct default telemetry settings: %#v", findings)
+	}
+	return telemetryBootstrapSettings{
 		DeploymentProfile: "on_prem",
-		Application: config.ApplicationConfig{
-			PublicOrigin: "http://localhost:5173",
-		},
-		Roots: config.RootBindings{
-			DatabaseStorage:      config.RootBinding{BindingKind: "managed_service", ServiceRef: "postgres_primary"},
-			ObjectStorage:        config.RootBinding{BindingKind: "managed_service", ServiceRef: "object_primary"},
-			BackupStorage:        config.RootBinding{BindingKind: "filesystem_root", Path: "/var/lib/cartulary/backups"},
-			ReferencePackStorage: config.RootBinding{BindingKind: "filesystem_root", Path: "/var/lib/cartulary/reference-packs"},
-			TemporaryWork:        config.RootBinding{BindingKind: "filesystem_root", Path: "/var/lib/cartulary/tmp"},
-			ExportOutputs:        config.RootBinding{BindingKind: "filesystem_root", Path: "/var/lib/cartulary/exports"},
-		},
+		Telemetry:         telemetryConfig,
 	}
-	validated, err := config.Validate(cfg)
-	if err != nil {
-		t.Fatalf("validate telemetry bootstrap config: %v", err)
-	}
-	return validated
 }
 
 func resourceAttrValue(resource ResourceIdentity, key string) string {

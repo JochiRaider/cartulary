@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "read bootstrap manifest: securefile read: object is not a bounded regular file",
+          "path": "bootstrap.first_admin_manifest_path",
+          "reason_code": "bootstrap_manifest_not_readable"
+        }
+      ]
+    }
+  }
+}

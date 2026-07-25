@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
 
 type retrySettings struct {
@@ -35,14 +35,14 @@ type retryController struct {
 	now         func() time.Time
 }
 
-func newRetryController(cfg config.Config) retryController {
+func newRetryController(cfg telemetryconfiguration.Config) retryController {
 	return retryController{
 		settings: retrySettings{
-			Enabled:         cfg.Telemetry.Exporter.Retry.Enabled,
-			InitialInterval: durationMS(cfg.Telemetry.Exporter.Retry.InitialIntervalMS),
-			MaxInterval:     durationMS(cfg.Telemetry.Exporter.Retry.MaxIntervalMS),
-			MaxElapsedTime:  durationMS(cfg.Telemetry.Exporter.Retry.MaxElapsedMS),
-			Multiplier:      cfg.Telemetry.Exporter.Retry.Multiplier,
+			Enabled:         cfg.Exporter.Retry.Enabled,
+			InitialInterval: durationMS(cfg.Exporter.Retry.InitialIntervalMS),
+			MaxInterval:     durationMS(cfg.Exporter.Retry.MaxIntervalMS),
+			MaxElapsedTime:  durationMS(cfg.Exporter.Retry.MaxElapsedMS),
+			Multiplier:      cfg.Exporter.Retry.Multiplier,
 		},
 		sampleDelay: randomFullJitterDelay,
 		sleep:       sleepContext,

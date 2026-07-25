@@ -6,10 +6,10 @@ import (
 )
 
 func TestBooleanValuesAtPathsProjectsOnlyRequestedClaims_Unit(t *testing.T) {
-	cfg := Config{}
+	cfg := document{}
 	cfg.Import.Claimed = true
 	cfg.ReferencePack.Claimed = false
-	values, err := BooleanValuesAtPaths(cfg, []string{"import.claimed", "reference_pack.claimed"})
+	values, err := booleanValuesAtPaths(cfg, []string{"import.claimed", "reference_pack.claimed"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestBooleanValuesAtPathsRejectsUnknownAndDuplicatePaths_Unit(t *testing.T) 
 		"duplicate": {"import.claimed", "import.claimed"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := BooleanValuesAtPaths(Config{}, paths); err == nil {
+			if _, err := booleanValuesAtPaths(document{}, paths); err == nil {
 				t.Fatal("expected projection rejection")
 			}
 		})

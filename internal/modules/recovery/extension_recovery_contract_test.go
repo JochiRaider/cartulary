@@ -149,7 +149,7 @@ func TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Int
 	ctx := context.Background()
 	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-i-10-06-extension-proof", uuid.MustParse("00000000-0000-0000-0000-000000104201"))
 	fixture.Target.Projections = &recordingProjectionRebuilder{}
-	original, err := fixture.BackupStorage.ReadArtifact(ctx, fixture.BackupSet.IntegrityManifestKey)
+	original, err := fixture.BackupStorage.ReadArtifact(ctx, fixture.BackupSet.IntegrityManifestKey, fixture.BackupSet.IntegrityManifestSizeBytes)
 	if err != nil {
 		t.Fatalf("read fixture manifest: %v", err)
 	}
@@ -239,9 +239,9 @@ func (storage *countingBackupStorage) WriteArtifact(ctx context.Context, key str
 	return storage.Inner.WriteArtifact(ctx, key, body, contentType)
 }
 
-func (storage *countingBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
+func (storage *countingBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	storage.Reads++
-	return storage.Inner.ReadArtifact(ctx, key)
+	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
 }
 
 type replacementBackupStorage struct {
@@ -254,11 +254,11 @@ func (storage *replacementBackupStorage) WriteArtifact(ctx context.Context, key 
 	return storage.Inner.WriteArtifact(ctx, key, body, contentType)
 }
 
-func (storage *replacementBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
+func (storage *replacementBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	if key == storage.Key {
 		return append([]byte(nil), storage.Body...), nil
 	}
-	return storage.Inner.ReadArtifact(ctx, key)
+	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
 }
 
 type recordingRestoreFailureGate struct {

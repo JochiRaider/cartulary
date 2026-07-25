@@ -15,10 +15,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
@@ -26,9 +28,13 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	harness := runtimeHarness.StartServer(t, "backup_restore-i-10-01-metadata")
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
-	backupStorage, err := recovery.NewBackupStorageFromConfig(harness.Server.Runtime.Config, map[string]string{
-		recovery.RecoveryMasterKeyEnv: RecoveryMasterKey,
-	})
+	backupStorage, err := recoveryassembly.NewBackupStorage(
+		harness.Server.Config.Roots.BackupStorage.BindingKind,
+		harness.Server.Config.Roots.BackupStorage.Path,
+		map[string]string{
+			recovery.RecoveryMasterKeyEnv: RecoveryMasterKey,
+		},
+	)
 	if err != nil {
 		t.Fatalf("create backup storage from runtime config: %v", err)
 	}
@@ -225,7 +231,7 @@ SELECT count(*)
 		reloaded.IntegrityManifestSHA256 != latestCreated.IntegrityManifestSHA256 {
 		t.Fatalf("committed metadata did not persist stable identity, point, and anchors:\ncreated=%#v\nreloaded=%#v", latestCreated, reloaded)
 	}
-	rawPostgresArtifact := filepath.Join(harness.Server.Runtime.Config.Roots.BackupStorage.Path, filepath.FromSlash(reloaded.PostgresArtifactKey))
+	rawPostgresArtifact := filepath.Join(harness.Server.Config.Roots.BackupStorage.Path, filepath.FromSlash(reloaded.PostgresArtifactKey))
 	rawBody, err := os.ReadFile(rawPostgresArtifact)
 	if err != nil {
 		t.Fatalf("read raw encrypted postgres artifact: %v", err)
@@ -284,12 +290,12 @@ SELECT count(*)
 func S3StoreForBucket(t testing.TB, harness *workbookscenariotest.ServerHarness, runtimeHarness *workbookscenariotest.RuntimeHarness, bucket string) objectstore.Store {
 	t.Helper()
 	const serviceRef = "object_primary"
-	cfg := harness.Server.Runtime.Config
+	cfg := harness.Server.Config
 	cfg.Roots.ObjectStorage.BindingKind = "managed_service"
 	cfg.Roots.ObjectStorage.Path = ""
 	cfg.Roots.ObjectStorage.ServiceRef = serviceRef
 	env := runtimeHarness.S3.EnvForServiceRef(serviceRef, bucket)
-	store, err := objectstore.SetupWithEnv(context.Background(), cfg, env)
+	store, err := appsupport.OpenObjectStore(context.Background(), cfg, env)
 	if err != nil {
 		t.Fatalf("open SeaweedFS object-store adapter for bucket %s: %v", bucket, err)
 	}

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -25,25 +23,45 @@ const (
 	restoreMinimumSchemaVersion       int64 = 22
 	recoveryOperationAdvisoryLockKey  int64 = 401010
 	restoreVerificationTargetSchemaID       = "cartulary.restore_verification_target.v1"
+
+	RestoreVerificationTargetMarkerMaximumBytes int64 = 65536
 )
+
+var ErrTargetMarkerRequiresFilesystemStorage = errors.New("restore verification target marker requires filesystem backup storage")
 
 type PostgresPool interface {
 	postgres.DB
 	Close()
 }
 
-type ConfigLoader func(string) (config.Config, error)
-type PostgresOpener func(context.Context, config.Config) (PostgresPool, error)
-type ObjectStoreOpener func(context.Context, config.Config) (objectstore.Store, error)
-type BackupStorageFactory func(config.Config) (recovery.BackupStorage, error)
+type RootBinding struct {
+	BindingKind string
+	Path        string
+	ServiceRef  string
+}
+
+// Deployment is the recovery-owned projection of an admitted deployment.
+// Resource factories are application-owned closures so recovery never receives
+// or interprets the complete deployment configuration.
+type Deployment struct {
+	DatabaseStorage  RootBinding
+	ObjectStorage    RootBinding
+	BackupStorage    RootBinding
+	PostgresSettings postgres.Settings
+	ObjectSettings   objectstore.Settings
+	OpenPostgres     func(context.Context) (PostgresPool, error)
+	OpenObjectStore  func(context.Context) (objectstore.Store, error)
+	OpenBackup       func() (recovery.BackupStorage, error)
+}
+
+type DeploymentLoader func(string) (Deployment, error)
+type TargetMarkerReader func(bindingKind string, rootPath string) ([]byte, error)
 type ProjectionRebuilderFactory func(postgres.DB) restorecontract.ProjectionRebuilder
 type JournalKeyLoader func() (recovery.RecoveryEncryptionKey, error)
 
 type Service struct {
-	LoadConfig             ConfigLoader
-	SetupPostgres          PostgresOpener
-	SetupObjectStore       ObjectStoreOpener
-	NewBackupStorage       BackupStorageFactory
+	LoadDeployment         DeploymentLoader
+	ReadTargetMarker       TargetMarkerReader
 	NewProjectionRebuilder ProjectionRebuilderFactory
 	LoadJournalKey         JournalKeyLoader
 	ExtensionBackups       *recovery.ExtensionBackupCatalog
@@ -148,6 +166,7 @@ func (service Service) RestoreLatest(ctx context.Context, parsed operatorcli.Com
 	defer targetPool.Close()
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
+	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
 	unlock, err := service.acquireOperationLock(ctx, sourcePool)
 	if err != nil {
 		return operatorcli.Outcome{}, err
@@ -197,6 +216,7 @@ func (service Service) RestoreVerifyLatest(ctx context.Context, parsed operatorc
 	defer targetPool.Close()
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
+	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
 	unlock, err := service.acquireOperationLock(ctx, sourcePool)
 	if err != nil {
 		return operatorcli.Outcome{}, err
@@ -248,6 +268,7 @@ func (service Service) RestoreVerifyDue(ctx context.Context, parsed operatorcli.
 	defer targetPool.Close()
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
+	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
 	unlock, err := service.acquireOperationLock(ctx, sourcePool)
 	if err != nil {
 		return operatorcli.Outcome{}, err
@@ -304,63 +325,66 @@ func (service Service) RestoreVerifyDue(ctx context.Context, parsed operatorcli.
 	return outcome, nil
 }
 
-func (service Service) openSourceRuntime(ctx context.Context, sourceConfigPath string) (config.Config, PostgresPool, recovery.BackupStorage, func(), error) {
-	cfg, err := service.loadConfig(sourceConfigPath)
+func (service Service) openSourceRuntime(ctx context.Context, sourceConfigPath string) (Deployment, PostgresPool, recovery.BackupStorage, func(), error) {
+	deployment, err := service.loadDeployment(sourceConfigPath)
 	if err != nil {
-		return config.Config{}, nil, nil, nil, fmt.Errorf("load config: %w", err)
+		return Deployment{}, nil, nil, nil, fmt.Errorf("load config: %w", err)
 	}
-	pool, err := service.setupPostgres(ctx, cfg)
+	pool, err := service.setupPostgres(ctx, deployment)
 	if err != nil {
-		return config.Config{}, nil, nil, nil, fmt.Errorf("open postgres: %w", err)
+		return Deployment{}, nil, nil, nil, fmt.Errorf("open postgres: %w", err)
 	}
-	backupStorage, err := service.newBackupStorage(cfg)
+	backupStorage, err := service.newBackupStorage(deployment)
 	if err != nil {
 		pool.Close()
-		return config.Config{}, nil, nil, nil, fmt.Errorf("open backup storage: %w", err)
+		return Deployment{}, nil, nil, nil, fmt.Errorf("open backup storage: %w", err)
 	}
-	return cfg, pool, backupStorage, func() { pool.Close() }, nil
+	return deployment, pool, backupStorage, func() {
+		_ = recovery.CloseBackupStorage(backupStorage)
+		pool.Close()
+	}, nil
 }
 
-func (service Service) openRestoreRuntime(ctx context.Context, parsed operatorcli.Command) (config.Config, config.Config, PostgresPool, PostgresPool, objectstore.Store, objectstore.Store, recovery.BackupStorage, error) {
-	sourceCfg, err := service.loadConfig(parsed.SourceConfigPath)
+func (service Service) openRestoreRuntime(ctx context.Context, parsed operatorcli.Command) (Deployment, Deployment, PostgresPool, PostgresPool, objectstore.Store, objectstore.Store, recovery.BackupStorage, error) {
+	sourceDeployment, err := service.loadDeployment(parsed.SourceConfigPath)
 	if err != nil {
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("load source config: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("load source config: %w", err)
 	}
-	targetCfg, err := service.loadConfig(parsed.TargetConfigPath)
+	targetDeployment, err := service.loadDeployment(parsed.TargetConfigPath)
 	if err != nil {
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("load target config: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("load target config: %w", err)
 	}
-	sourcePool, err := service.setupPostgres(ctx, sourceCfg)
+	sourcePool, err := service.setupPostgres(ctx, sourceDeployment)
 	if err != nil {
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("open source postgres: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("open source postgres: %w", err)
 	}
-	targetPool, err := service.setupPostgres(ctx, targetCfg)
+	targetPool, err := service.setupPostgres(ctx, targetDeployment)
 	if err != nil {
 		sourcePool.Close()
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("open target postgres: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("open target postgres: %w", err)
 	}
-	sourceObjectStore, err := service.setupObjectStore(ctx, sourceCfg)
+	sourceObjectStore, err := service.setupObjectStore(ctx, sourceDeployment)
 	if err != nil {
 		sourcePool.Close()
 		targetPool.Close()
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("open source object store: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("open source object store: %w", err)
 	}
-	targetObjectStore, err := service.setupObjectStore(ctx, targetCfg)
+	targetObjectStore, err := service.setupObjectStore(ctx, targetDeployment)
 	if err != nil {
 		sourcePool.Close()
 		targetPool.Close()
 		_ = sourceObjectStore.Close()
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("open target object store: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("open target object store: %w", err)
 	}
-	backupStorage, err := service.newBackupStorage(sourceCfg)
+	backupStorage, err := service.newBackupStorage(sourceDeployment)
 	if err != nil {
 		sourcePool.Close()
 		targetPool.Close()
 		_ = sourceObjectStore.Close()
 		_ = targetObjectStore.Close()
-		return config.Config{}, config.Config{}, nil, nil, nil, nil, nil, fmt.Errorf("open source backup storage: %w", err)
+		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, fmt.Errorf("open source backup storage: %w", err)
 	}
-	return sourceCfg, targetCfg, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
+	return sourceDeployment, targetDeployment, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
 }
 
 func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore objectstore.Store) (recovery.RestoreTarget, error) {
@@ -387,29 +411,17 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 	}, nil
 }
 
-func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceCfg config.Config, targetCfg config.Config, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
+func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
 	if sameConfigPath(sourceConfigPath, targetConfigPath) {
 		return errors.New("restore target preflight failed: source-config and target-config must be different files")
 	}
-	sourcePostgres, err := postgres.ResolveSettings(sourceCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve source postgres settings: %w", err)
-	}
-	targetPostgres, err := postgres.ResolveSettings(targetCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve target postgres settings: %w", err)
-	}
+	sourcePostgres := sourceDeployment.PostgresSettings
+	targetPostgres := targetDeployment.PostgresSettings
 	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
 		return errors.New("restore target preflight failed: source and target postgres DSNs must differ")
 	}
-	sourceObject, err := objectstore.ResolveSettings(sourceCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve source object-store settings: %w", err)
-	}
-	targetObject, err := objectstore.ResolveSettings(targetCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve target object-store settings: %w", err)
-	}
+	sourceObject := sourceDeployment.ObjectSettings
+	targetObject := targetDeployment.ObjectSettings
 	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
 		return errors.New("restore target preflight failed: source and target object stores must differ")
 	}
@@ -442,33 +454,31 @@ SELECT
 	return nil
 }
 
-func (service Service) preflightRestoreVerificationTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceCfg config.Config, targetCfg config.Config, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
+func (service Service) preflightRestoreVerificationTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
 	if sameConfigPath(sourceConfigPath, targetConfigPath) {
 		return errors.New("restore verification target preflight failed: source-config and target-config must be different files")
 	}
-	sourcePostgres, err := postgres.ResolveSettings(sourceCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve source postgres settings: %w", err)
-	}
-	targetPostgres, err := postgres.ResolveSettings(targetCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve target postgres settings: %w", err)
-	}
+	sourcePostgres := sourceDeployment.PostgresSettings
+	targetPostgres := targetDeployment.PostgresSettings
 	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
 		return errors.New("restore verification target preflight failed: source and target postgres DSNs must differ")
 	}
-	sourceObject, err := objectstore.ResolveSettings(sourceCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve source object-store settings: %w", err)
-	}
-	targetObject, err := objectstore.ResolveSettings(targetCfg, nil)
-	if err != nil {
-		return fmt.Errorf("resolve target object-store settings: %w", err)
-	}
+	sourceObject := sourceDeployment.ObjectSettings
+	targetObject := targetDeployment.ObjectSettings
 	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
 		return errors.New("restore verification target preflight failed: source and target object stores must differ")
 	}
-	if err := requireRestoreVerificationTargetMarker(targetCfg); err != nil {
+	if service.ReadTargetMarker == nil {
+		return errors.New("restore verification target preflight failed: marker reader is required")
+	}
+	markerBody, err := service.ReadTargetMarker(
+		targetDeployment.BackupStorage.BindingKind,
+		targetDeployment.BackupStorage.Path,
+	)
+	if err != nil {
+		return fmt.Errorf("restore verification target preflight failed: read target marker: %w", err)
+	}
+	if err := requireRestoreVerificationTargetMarker(markerBody); err != nil {
 		return err
 	}
 	var schemaVersion int64
@@ -484,25 +494,7 @@ func (service Service) preflightRestoreVerificationTarget(ctx context.Context, s
 	return nil
 }
 
-func RestoreVerificationTargetMarkerPath(cfg config.Config) (string, error) {
-	if cfg.Roots.BackupStorage.BindingKind != "filesystem_root" {
-		return "", errors.New("restore verification target marker requires filesystem backup storage")
-	}
-	if strings.TrimSpace(cfg.Roots.BackupStorage.Path) == "" {
-		return "", errors.New("restore verification target marker requires roots.backup_storage.path")
-	}
-	return filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json"), nil
-}
-
-func requireRestoreVerificationTargetMarker(cfg config.Config) error {
-	markerPath, err := RestoreVerificationTargetMarkerPath(cfg)
-	if err != nil {
-		return fmt.Errorf("restore verification target preflight failed: %w", err)
-	}
-	body, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is derived from validated target backup storage root.
-	if err != nil {
-		return fmt.Errorf("restore verification target preflight failed: read target marker: %w", err)
-	}
+func requireRestoreVerificationTargetMarker(body []byte) error {
 	var marker struct {
 		SchemaID string `json:"schema_id"`
 		Purpose  string `json:"purpose"`
@@ -629,11 +621,8 @@ ORDER BY storage_key ASC
 	return index, nil
 }
 
-func backupObjectStoreBucket(cfg config.Config) (string, error) {
-	settings, err := objectstore.ResolveSettings(cfg, nil)
-	if err != nil {
-		return "", fmt.Errorf("resolve object-store settings for backup create: %w", err)
-	}
+func backupObjectStoreBucket(deployment Deployment) (string, error) {
+	settings := deployment.ObjectSettings
 	switch settings.BindingKind {
 	case "managed_service":
 		if strings.TrimSpace(settings.Bucket) == "" {
@@ -650,16 +639,16 @@ func backupObjectStoreBucket(cfg config.Config) (string, error) {
 	}
 }
 
-func restoreVerificationBasisForConfig(cfg config.Config) (string, error) {
+func restoreVerificationBasisForConfig(deployment Deployment) (string, error) {
 	return recovery.RestoreVerificationBasisSHA256(map[string]string{
 		"backup_mechanism":         "cartulary.backup.filesystem_snapshot.v1",
-		"database_storage_binding": rootBindingBasis(cfg.Roots.DatabaseStorage),
-		"object_storage_binding":   rootBindingBasis(cfg.Roots.ObjectStorage),
-		"backup_storage_binding":   rootBindingBasis(cfg.Roots.BackupStorage),
+		"database_storage_binding": rootBindingBasis(deployment.DatabaseStorage),
+		"object_storage_binding":   rootBindingBasis(deployment.ObjectStorage),
+		"backup_storage_binding":   rootBindingBasis(deployment.BackupStorage),
 	})
 }
 
-func rootBindingBasis(binding config.RootBinding) string {
+func rootBindingBasis(binding RootBinding) string {
 	switch binding.BindingKind {
 	case "filesystem_root":
 		return "filesystem_root:" + filepath.Clean(binding.Path)
@@ -701,32 +690,32 @@ func mergeOperationError(operationErr *error, err error) {
 	*operationErr = fmt.Errorf("%w; additionally %v", *operationErr, err)
 }
 
-func (service Service) loadConfig(path string) (config.Config, error) {
-	if service.LoadConfig == nil {
-		return config.Config{}, errors.New("operator recovery requires config loader")
+func (service Service) loadDeployment(path string) (Deployment, error) {
+	if service.LoadDeployment == nil {
+		return Deployment{}, errors.New("operator recovery requires deployment loader")
 	}
-	return service.LoadConfig(path)
+	return service.LoadDeployment(path)
 }
 
-func (service Service) setupPostgres(ctx context.Context, cfg config.Config) (PostgresPool, error) {
-	if service.SetupPostgres == nil {
+func (service Service) setupPostgres(ctx context.Context, deployment Deployment) (PostgresPool, error) {
+	if deployment.OpenPostgres == nil {
 		return nil, errors.New("operator recovery requires postgres opener")
 	}
-	return service.SetupPostgres(ctx, cfg)
+	return deployment.OpenPostgres(ctx)
 }
 
-func (service Service) setupObjectStore(ctx context.Context, cfg config.Config) (objectstore.Store, error) {
-	if service.SetupObjectStore == nil {
+func (service Service) setupObjectStore(ctx context.Context, deployment Deployment) (objectstore.Store, error) {
+	if deployment.OpenObjectStore == nil {
 		return nil, errors.New("operator recovery requires object-store opener")
 	}
-	return service.SetupObjectStore(ctx, cfg)
+	return deployment.OpenObjectStore(ctx)
 }
 
-func (service Service) newBackupStorage(cfg config.Config) (recovery.BackupStorage, error) {
-	if service.NewBackupStorage == nil {
+func (service Service) newBackupStorage(deployment Deployment) (recovery.BackupStorage, error) {
+	if deployment.OpenBackup == nil {
 		return nil, errors.New("operator recovery requires backup-storage opener")
 	}
-	return service.NewBackupStorage(cfg)
+	return deployment.OpenBackup()
 }
 
 func (service Service) newProjectionRebuilder(db postgres.DB) (restorecontract.ProjectionRebuilder, error) {

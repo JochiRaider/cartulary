@@ -15,15 +15,13 @@ import (
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 type VerificationInput struct {
 	Bundle          []byte
 	ContentType     string
-	ArchiveLimits   config.ArchiveLimits
-	ReferenceLimits config.ReferencePackLimits
+	ArchiveLimits   ArchiveLimits
+	ReferenceLimits ReferenceLimits
 }
 
 type VerificationResult struct {

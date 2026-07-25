@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/text/cases"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -22,6 +21,9 @@ import (
 type FieldKind string
 
 const (
+	PublicSortLimit   = 8
+	PublicFilterLimit = 16
+
 	FieldKindString           FieldKind = "string"
 	FieldKindCaseFoldedString FieldKind = "case_folded_string"
 	FieldKindBool             FieldKind = "bool"
@@ -297,9 +299,9 @@ func normalizeSort(raw json.RawMessage, schema viewschema.Schema) ([]viewschema.
 			ReasonCode: "invalid_sort_entry",
 		}
 	}
-	if len(items) > config.PublicSortLimit {
+	if len(items) > PublicSortLimit {
 		requested := len(items)
-		maxCount := config.PublicSortLimit
+		maxCount := PublicSortLimit
 		return nil, &ValidationError{
 			Field:          "sort",
 			ReasonCode:     "sort_count_exceeded",
@@ -391,9 +393,9 @@ func normalizeFilters(raw json.RawMessage, spec map[string]FieldSpec) ([]viewsch
 			ReasonCode: "invalid_filter_operand",
 		}
 	}
-	if len(items) > config.PublicFilterLimit {
+	if len(items) > PublicFilterLimit {
 		requested := len(items)
-		maxCount := config.PublicFilterLimit
+		maxCount := PublicFilterLimit
 		return nil, &ValidationError{
 			Field:          "filters",
 			ReasonCode:     "filter_count_exceeded",

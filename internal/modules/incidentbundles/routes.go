@@ -20,7 +20,7 @@ type Service struct {
 	store          *Store
 	authStore      *authn.Store
 	incidentAccess incidents.Access
-	files          bundleFileStore
+	storage        BundleStorage
 	worker         *incidentBundleWorker
 	keys           authn.MasterKeys
 	now            func() time.Time
@@ -33,6 +33,8 @@ type routeOptions struct {
 	jobFinalizer    JobSuccessFinalizer
 	portability     *PortabilityOrchestrator
 	transactions    *crossownertransaction.Coordinator
+	storage         BundleStorage
+	limits          Limits
 }
 
 func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
@@ -51,6 +53,18 @@ func WithImportFinalizer(finalizer incidents.IncidentBundleImportFinalizer) Rout
 func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
 	return func(options *routeOptions) {
 		options.jobFinalizer = finalizer
+	}
+}
+
+func WithStorage(storage BundleStorage) RouteOption {
+	return func(options *routeOptions) {
+		options.storage = storage
+	}
+}
+
+func WithLimits(limits Limits) RouteOption {
+	return func(options *routeOptions) {
+		options.limits = limits
 	}
 }
 
@@ -86,6 +100,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.portability == nil || options.transactions == nil {
 		return nil, fmt.Errorf("incident bundle portability composition is required")
 	}
+	if options.storage == nil {
+		return nil, fmt.Errorf("incident bundle storage is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -95,12 +112,11 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres)
-	files := newBundleFileStore(deps.Config.Roots.TemporaryWork.Path, deps.Config.Roots.ExportOutputs.Path)
 	workerStartHook, err := workerStartHookFromDependencies(deps)
 	if err != nil {
 		return nil, err
 	}
-	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, now, workerStartHook)
+	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.limits, now, workerStartHook)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}
@@ -108,7 +124,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		store:          store,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		files:          files,
+		storage:        options.storage,
 		worker:         worker,
 		keys:           keys,
 		now:            now,
@@ -228,7 +244,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	stagingPath, err := s.files.stageBundle(envelope.FileSHA256Hex, envelope.File)
+	stagingReference, err := s.storage.Stage(r.Context(), envelope.FileSHA256Hex, envelope.File)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -237,24 +253,24 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		ActorUserID:       principal.User.ID,
 		Request:           request,
 		UploadedSHA256:    envelope.FileSHA256Hex,
-		BundleStagingPath: stagingPath,
+		BundleStagingRef:  stagingReference,
 		NormalizedRequest: request.Normalized,
 		Now:               s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		s.files.remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingReference)
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		s.files.remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingReference)
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	if !result.Replayed {
 		s.worker.dispatch(result.Job.JobID)
 	} else {
-		s.files.remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingReference)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))

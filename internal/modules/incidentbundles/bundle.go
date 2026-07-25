@@ -14,8 +14,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 const (
@@ -109,7 +107,7 @@ type ManifestFile struct {
 
 type VerificationInput struct {
 	Bundle []byte
-	Limits config.LimitConfig
+	Limits Limits
 }
 
 type VerifiedBundle struct {
@@ -352,7 +350,7 @@ func bundleOptionalSectionsAllowed(files map[string][]byte, manifest BundleManif
 	return true
 }
 
-func readBundleArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte, error) {
+func readBundleArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 	if len(bundle) == 0 {
 		return nil, &VerificationError{ReasonCode: "missing_required_file"}
 	}
@@ -378,7 +376,7 @@ func readBundleArchive(bundle []byte, limits config.LimitConfig) (map[string][]b
 	return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
 }
 
-func readZipArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte, error) {
+func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 	zr, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
 	if err != nil {
 		return nil, err
@@ -422,7 +420,7 @@ func readZipArchive(bundle []byte, limits config.LimitConfig) (map[string][]byte
 	return files, nil
 }
 
-func readTarArchive(reader io.Reader, compressedSize int64, limits config.LimitConfig) (map[string][]byte, error) {
+func readTarArchive(reader io.Reader, compressedSize int64, limits Limits) (map[string][]byte, error) {
 	tr := tar.NewReader(reader)
 	files := map[string][]byte{}
 	var memberCount int
@@ -508,10 +506,10 @@ func classifyTarMember(header *tar.Header) (archiveMemberKind, error) {
 	}
 }
 
-func checkExtractedSize(extracted int64, limits config.LimitConfig) error {
+func checkExtractedSize(extracted int64, limits Limits) error {
 	max := limits.IncidentBundles.MaxExtractedBytes
 	if max <= 0 {
-		max = config.DefaultIncidentBundleMaxExtractedBytes
+		max = defaultIncidentBundleMaxExtractedBytes
 	}
 	if extracted > max {
 		return &VerificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
@@ -519,10 +517,10 @@ func checkExtractedSize(extracted int64, limits config.LimitConfig) error {
 	return nil
 }
 
-func checkMemberCount(count int, limits config.LimitConfig) error {
+func checkMemberCount(count int, limits Limits) error {
 	max := limits.Archives.MaxMembers
 	if max <= 0 {
-		max = config.DefaultArchiveMaxMembers
+		max = defaultArchiveMaxMembers
 	}
 	if int64(count) > max {
 		return &VerificationError{ReasonCode: "archive_member_count_exceeded"}
@@ -530,10 +528,10 @@ func checkMemberCount(count int, limits config.LimitConfig) error {
 	return nil
 }
 
-func checkCompressionRatio(extracted int64, compressed int64, limits config.LimitConfig) error {
+func checkCompressionRatio(extracted int64, compressed int64, limits Limits) error {
 	max := limits.Archives.MaxCompressionRatio
 	if max <= 0 {
-		max = config.DefaultArchiveMaxCompressionRatio
+		max = defaultArchiveMaxCompressionRatio
 	}
 	if compressed <= 0 {
 		compressed = 1

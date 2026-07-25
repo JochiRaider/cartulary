@@ -2,6 +2,8 @@ package extensionassembly
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
@@ -23,9 +25,13 @@ func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobSuccess(
 	ctx context.Context,
 	request reference_data.JobSuccessFinalization,
 ) (jobs.Resource, error) {
-	return adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
+	resource, err := adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
 		Transition:    request.Transition,
 		FinalCommitID: request.FinalCommitID,
 		Mutate:        extensionstore.OwnerMutation(request.Mutate),
 	})
+	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
+		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)
+	}
+	return resource, err
 }

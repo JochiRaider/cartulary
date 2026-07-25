@@ -218,6 +218,18 @@
       "filename": "00036_reporting_composition_preview_outputs.sql",
       "sha256": "877736686485cb89fd0901a1b43be1e84092fecd6cd078f903d34855307ddcf4",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 37,
+      "filename": "00037_incident_bundle_storage_references.sql",
+      "sha256": "a502108b0a70ea03dd9d082b121d89360557173d6905d5ca2b51c818999b4770",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 38,
+      "filename": "00038_reference_pack_storage_references.sql",
+      "sha256": "3aad2932c771282c04c7af33d281a01874f48ec8c555ca1aaa1c75a73fda2baf",
+      "historical_phase_shaped": false
     }
   ]
 }

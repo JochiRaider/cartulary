@@ -625,6 +625,37 @@
       "status": "active"
     },
     {
+      "row_id": "module.networkflow.unit.configuration_claim_and_manifest_admission",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.config",
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowConfigurationContribution_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183",
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143"
+      ]
+    },
+    {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_a_deployment_admin_af7fc1917b",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",

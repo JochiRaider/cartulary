@@ -3,12 +3,15 @@ package operator
 import (
 	"context"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
@@ -22,12 +25,18 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 		Stderr: runner.stderr,
 		Now:    runner.now,
 		Operations: operatorops.Service{
-			LoadConfig: runner.loadConfig,
-			SetupPostgres: func(ctx context.Context, cfg config.Config) (operatorops.PostgresPool, error) {
-				return runner.setupPostgres(ctx, cfg)
+			LoadDeployment: runner.loadRecoveryDeployment,
+			ReadTargetMarker: func(bindingKind string, rootPath string) ([]byte, error) {
+				if bindingKind != "filesystem_root" {
+					return nil, operatorops.ErrTargetMarkerRequiresFilesystemStorage
+				}
+				storage, err := recoveryassembly.NewFilesystemStorage(rootPath)
+				if err != nil {
+					return nil, err
+				}
+				defer storage.Close()
+				return storage.ReadMarker(operatorops.RestoreVerificationTargetMarkerMaximumBytes)
 			},
-			SetupObjectStore:       runner.setupObjectStore,
-			NewBackupStorage:       runner.newBackupStorage,
 			NewProjectionRebuilder: projectionadapters.NewRestoreRebuilder,
 			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
 				return recovery.LoadRecoveryEncryptionKey(nil)
@@ -36,4 +45,51 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			Now:              runner.now,
 		},
 	}.Run(ctx, args)
+}
+
+func (runner operatorRunner) loadRecoveryDeployment(path string) (operatorops.Deployment, error) {
+	loaded, err := runner.loadConfig(path)
+	if err != nil {
+		return operatorops.Deployment{}, err
+	}
+	cfg := loaded.Deployment()
+	postgresSettings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
+	if err != nil {
+		return operatorops.Deployment{}, err
+	}
+	objectSettings, err := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(cfg), nil)
+	if err != nil {
+		return operatorops.Deployment{}, err
+	}
+	return operatorops.Deployment{
+		DatabaseStorage: operatorops.RootBinding{
+			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
+			Path:        cfg.Roots.DatabaseStorage.Path,
+			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
+		},
+		ObjectStorage: operatorops.RootBinding{
+			BindingKind: cfg.Roots.ObjectStorage.BindingKind,
+			Path:        cfg.Roots.ObjectStorage.Path,
+			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
+		},
+		BackupStorage: operatorops.RootBinding{
+			BindingKind: cfg.Roots.BackupStorage.BindingKind,
+			Path:        cfg.Roots.BackupStorage.Path,
+			ServiceRef:  cfg.Roots.BackupStorage.ServiceRef,
+		},
+		PostgresSettings: postgresSettings,
+		ObjectSettings:   objectSettings,
+		OpenPostgres: func(ctx context.Context) (operatorops.PostgresPool, error) {
+			return runner.setupPostgres(ctx, postgresSettings)
+		},
+		OpenObjectStore: func(ctx context.Context) (objectstore.Store, error) {
+			return runner.setupObjectStore(ctx, objectSettings, configassembly.ObjectStoreInstrumentation(cfg))
+		},
+		OpenBackup: func() (recovery.BackupStorage, error) {
+			return runner.newBackupStorage(
+				cfg.Roots.BackupStorage.BindingKind,
+				cfg.Roots.BackupStorage.Path,
+			)
+		},
+	}, nil
 }

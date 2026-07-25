@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -452,14 +453,14 @@ func (storage tamperedBackupStorage) WriteArtifact(ctx context.Context, key stri
 	return storage.Inner.WriteArtifact(ctx, key, body, contentType)
 }
 
-func (storage tamperedBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
+func (storage tamperedBackupStorage) ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error) {
 	if storage.Missing[key] {
 		return nil, os.ErrNotExist
 	}
 	if replacement, ok := storage.Replacements[key]; ok {
 		return replacement, nil
 	}
-	return storage.Inner.ReadArtifact(ctx, key)
+	return storage.Inner.ReadArtifact(ctx, key, maxBytes)
 }
 
 func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {
@@ -483,7 +484,7 @@ func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {
 func TestCaptureRequiresEncryptedBackupStorage_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-05-encrypted-storage")
 	store := recovery.NewStore(db)
-	rawStorage, err := recovery.NewFilesystemBackupStorage(t.TempDir())
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(t.TempDir())
 	if err != nil {
 		t.Fatalf("create raw backup storage: %v", err)
 	}
@@ -507,7 +508,7 @@ func TestEncryptedBackupStorageFailsClosedWithWrongKey_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write encrypted artifact: %v", err)
 	}
-	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		t.Fatalf("open raw storage: %v", err)
 	}
@@ -534,7 +535,7 @@ const RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 	t.Helper()
-	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		t.Fatalf("create backup storage fixture: %v", err)
 	}

@@ -19,7 +19,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -83,8 +82,8 @@ type migrationPreservationFixture struct {
 	TargetStore   objectstore.Store
 	BackupStorage recovery.BackupStorage
 	BackupSet     recovery.BackupSet
-	SourceConfig  config.Config
-	TargetConfig  config.Config
+	SourceBinding objectstore.Binding
+	TargetBinding objectstore.Binding
 	Environment   map[string]string
 	Bucket        string
 	AsOf          time.Time
@@ -130,15 +129,23 @@ func newMigrationPreservationFixture(t testing.TB, name string) migrationPreserv
 		}
 	}
 
-	sourceConfig := config.Config{Roots: config.RootBindings{ObjectStorage: config.RootBinding{BindingKind: "managed_service", ServiceRef: "migration-source"}}}
-	targetConfig := config.Config{Roots: config.RootBindings{ObjectStorage: config.RootBinding{BindingKind: "managed_service", ServiceRef: "migration-target"}}}
+	sourceBinding := objectstore.Binding{BindingKind: "managed_service", ServiceRef: "migration-source"}
+	targetBinding := objectstore.Binding{BindingKind: "managed_service", ServiceRef: "migration-target"}
 	environment := mergeMigrationPreservationEnv(sourceHarness.EnvForServiceRef("migration-source", bucket), targetHarness.EnvForServiceRef("migration-target", bucket))
-	sourceStore, err := objectstore.SetupWithEnv(ctx, sourceConfig, environment)
+	sourceSettings, err := objectstore.ResolveSettings(sourceBinding, environment)
+	if err != nil {
+		t.Fatalf("resolve source object store: %v", err)
+	}
+	sourceStore, err := objectstore.Setup(ctx, sourceSettings, objectstore.Instrumentation{})
 	if err != nil {
 		t.Fatalf("open source object store: %v", err)
 	}
 	t.Cleanup(func() { _ = sourceStore.Close() })
-	targetStore, err := objectstore.SetupWithEnv(ctx, targetConfig, environment)
+	targetSettings, err := objectstore.ResolveSettings(targetBinding, environment)
+	if err != nil {
+		t.Fatalf("resolve target object store: %v", err)
+	}
+	targetStore, err := objectstore.Setup(ctx, targetSettings, objectstore.Instrumentation{})
 	if err != nil {
 		t.Fatalf("open target object store: %v", err)
 	}
@@ -183,7 +190,7 @@ func newMigrationPreservationFixture(t testing.TB, name string) migrationPreserv
 
 	return migrationPreservationFixture{
 		Context: ctx, Pool: pool, DSN: database.DSN, SourceStore: sourceStore, TargetStore: targetStore,
-		BackupStorage: backupStorage, BackupSet: backupSet, SourceConfig: sourceConfig, TargetConfig: targetConfig,
+		BackupStorage: backupStorage, BackupSet: backupSet, SourceBinding: sourceBinding, TargetBinding: targetBinding,
 		Environment: environment, Bucket: bucket, AsOf: asOf, Blobs: blobs,
 	}
 }
@@ -198,11 +205,11 @@ type migrationPreservationResult struct {
 
 func runMigrationPreservation(t testing.TB, fixture migrationPreservationFixture, runID uuid.UUID, artifactsDir string) migrationPreservationResult {
 	t.Helper()
-	sourceSettings, err := objectstore.ResolveSettings(fixture.SourceConfig, fixture.Environment)
+	sourceSettings, err := objectstore.ResolveSettings(fixture.SourceBinding, fixture.Environment)
 	if err != nil {
 		t.Fatalf("resolve source settings: %v", err)
 	}
-	targetSettings, err := objectstore.ResolveSettings(fixture.TargetConfig, fixture.Environment)
+	targetSettings, err := objectstore.ResolveSettings(fixture.TargetBinding, fixture.Environment)
 	if err != nil {
 		t.Fatalf("resolve target settings: %v", err)
 	}

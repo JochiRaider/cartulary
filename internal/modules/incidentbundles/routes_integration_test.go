@@ -248,11 +248,11 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	exportTerminal := waitJob(t, sourceHarness.Server, sourceAdmin, exportJob["job_id"].(string))
 	exportRef := exportTerminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
 	bundleID := exportRef["id"].(string)
-	var bundlePath string
-	if err := sourceHarness.DB.QueryRow(`SELECT bundle_storage_path FROM incident_bundle_exports WHERE bundle_id = $1`, bundleID).Scan(&bundlePath); err != nil {
-		t.Fatalf("query exported bundle path: %v", err)
+	var bundleStorageRef string
+	if err := sourceHarness.DB.QueryRow(`SELECT bundle_storage_ref FROM incident_bundle_exports WHERE bundle_id = $1`, bundleID).Scan(&bundleStorageRef); err != nil {
+		t.Fatalf("query exported bundle reference: %v", err)
 	}
-	bundleBytes, err := os.ReadFile(bundlePath)
+	bundleBytes, err := os.ReadFile(exportedBundleTestPath(t, sourceHarness.Server, bundleStorageRef))
 	if err != nil {
 		t.Fatalf("read exported bundle: %v", err)
 	}
@@ -262,11 +262,11 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	}), http.StatusAccepted)["data"].(map[string]any)
 	secondExportTerminal := waitJob(t, sourceHarness.Server, sourceAdmin, secondExportJob["job_id"].(string))
 	secondExportRef := secondExportTerminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
-	var secondBundlePath string
-	if err := sourceHarness.DB.QueryRow(`SELECT bundle_storage_path FROM incident_bundle_exports WHERE bundle_id = $1`, secondExportRef["id"].(string)).Scan(&secondBundlePath); err != nil {
-		t.Fatalf("query second exported bundle path: %v", err)
+	var secondBundleStorageRef string
+	if err := sourceHarness.DB.QueryRow(`SELECT bundle_storage_ref FROM incident_bundle_exports WHERE bundle_id = $1`, secondExportRef["id"].(string)).Scan(&secondBundleStorageRef); err != nil {
+		t.Fatalf("query second exported bundle reference: %v", err)
 	}
-	secondBundleBytes, err := os.ReadFile(secondBundlePath)
+	secondBundleBytes, err := os.ReadFile(exportedBundleTestPath(t, sourceHarness.Server, secondBundleStorageRef))
 	if err != nil {
 		t.Fatalf("read second exported bundle: %v", err)
 	}
@@ -303,12 +303,13 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID) != 0 {
 		t.Fatalf("failed import must not make incident visible")
 	}
-	var failedStagingPath string
-	if err := targetHarness.DB.QueryRow(`SELECT bundle_staging_path FROM incident_bundle_job_payloads WHERE job_id = $1`, failedJob["job_id"].(string)).Scan(&failedStagingPath); err != nil {
-		t.Fatalf("query failed import staging path: %v", err)
+	var failedStagingRef string
+	if err := targetHarness.DB.QueryRow(`SELECT bundle_staging_ref FROM incident_bundle_job_payloads WHERE job_id = $1`, failedJob["job_id"].(string)).Scan(&failedStagingRef); err != nil {
+		t.Fatalf("query failed import staging reference: %v", err)
 	}
+	failedStagingPath := stagedBundleTestPath(t, targetHarness.Server, failedStagingRef)
 	if _, err := os.Stat(failedStagingPath); !os.IsNotExist(err) {
-		t.Fatalf("failed import staging path must be cleaned up, stat err=%v path=%s", err, failedStagingPath)
+		t.Fatalf("failed import staging reference must be cleaned up, stat err=%v ref=%s", err, failedStagingRef)
 	}
 
 	first := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-bundle"}`, bundleBytes, "bundle.zip")
@@ -887,8 +888,8 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 		}
 	}
 
-	bundlePath := stringScalar(t, harness.DB, `SELECT bundle_storage_path FROM incident_bundle_exports WHERE bundle_id = $1`, ref["id"].(string))
-	bundleBytes, err := os.ReadFile(bundlePath)
+	bundleStorageRef := stringScalar(t, harness.DB, `SELECT bundle_storage_ref FROM incident_bundle_exports WHERE bundle_id = $1`, ref["id"].(string))
+	bundleBytes, err := os.ReadFile(exportedBundleTestPath(t, harness.Server, bundleStorageRef))
 	if err != nil {
 		t.Fatalf("read descriptor bundle: %v", err)
 	}
@@ -1953,6 +1954,30 @@ func stringScalar(t testing.TB, db *sql.DB, query string, args ...any) string {
 	return value
 }
 
+func exportedBundleTestPath(t testing.TB, server *httptestx.Server, rawReference string) string {
+	t.Helper()
+	reference, err := incidentbundles.ParseBundleStorageRef(rawReference)
+	if err != nil {
+		t.Fatalf("database export storage reference %q is invalid: %v", rawReference, err)
+	}
+	if filepath.IsAbs(rawReference) || strings.Contains(rawReference, server.Config.Roots.ExportOutputs.Path) {
+		t.Fatalf("database export storage reference disclosed a host root: %q", rawReference)
+	}
+	return filepath.Join(server.Config.Roots.ExportOutputs.Path, filepath.FromSlash(reference.String()))
+}
+
+func stagedBundleTestPath(t testing.TB, server *httptestx.Server, rawReference string) string {
+	t.Helper()
+	reference, err := incidentbundles.ParseBundleStagingRef(rawReference)
+	if err != nil {
+		t.Fatalf("database staging reference %q is invalid: %v", rawReference, err)
+	}
+	if filepath.IsAbs(rawReference) || strings.Contains(rawReference, server.Config.Roots.TemporaryWork.Path) {
+		t.Fatalf("database staging reference disclosed a host root: %q", rawReference)
+	}
+	return filepath.Join(server.Config.Roots.TemporaryWork.Path, filepath.FromSlash(reference.String()))
+}
+
 func jsonRaw(t testing.TB, value any) []byte {
 	t.Helper()
 	payload, err := json.Marshal(value)
@@ -1970,8 +1995,8 @@ func exportBundleBytes(t testing.TB, harness *scenariotest.ServerHarness, login 
 	}), http.StatusAccepted)["data"].(map[string]any)
 	terminal := waitJob(t, harness.Server, login, job["job_id"].(string))
 	ref := terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
-	path := stringScalar(t, harness.DB, `SELECT bundle_storage_path FROM incident_bundle_exports WHERE bundle_id = $1`, ref["id"].(string))
-	bundleBytes, err := os.ReadFile(path)
+	storageRef := stringScalar(t, harness.DB, `SELECT bundle_storage_ref FROM incident_bundle_exports WHERE bundle_id = $1`, ref["id"].(string))
+	bundleBytes, err := os.ReadFile(exportedBundleTestPath(t, harness.Server, storageRef))
 	if err != nil {
 		t.Fatalf("read exported bundle: %v", err)
 	}
@@ -2068,12 +2093,12 @@ func assertImportFailureLeavesState(t testing.TB, harness *scenariotest.ServerHa
 			t.Fatalf("failed import must not expose imported resource refs: %#v", summary)
 		}
 	}
-	var stagingPath string
-	if err := harness.DB.QueryRow(`SELECT bundle_staging_path FROM incident_bundle_job_payloads WHERE job_id = $1`, job["job_id"].(string)).Scan(&stagingPath); err != nil {
-		t.Fatalf("query failed import staging path: %v", err)
+	var stagingRef string
+	if err := harness.DB.QueryRow(`SELECT bundle_staging_ref FROM incident_bundle_job_payloads WHERE job_id = $1`, job["job_id"].(string)).Scan(&stagingRef); err != nil {
+		t.Fatalf("query failed import staging reference: %v", err)
 	}
-	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
-		t.Fatalf("failed import staging path must be cleaned up, stat err=%v path=%s", err, stagingPath)
+	if _, err := os.Stat(stagedBundleTestPath(t, harness.Server, stagingRef)); !os.IsNotExist(err) {
+		t.Fatalf("failed import staging reference must be cleaned up, stat err=%v ref=%s", err, stagingRef)
 	}
 	if countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_job_payloads WHERE job_id = $1 AND (imported_incident_id IS NOT NULL OR manifest_sha256 IS NOT NULL)`, job["job_id"].(string)) != 0 {
 		t.Fatalf("failed import must not persist imported incident id or manifest sha")
@@ -2188,7 +2213,7 @@ func snapshotEnvelopeDurability(t testing.TB, db *sql.DB) envelopeDurability {
 
 func assertNoIncidentBundleStaging(t testing.TB, server *httptestx.Server) {
 	t.Helper()
-	stagingDir := filepath.Join(server.Runtime.Config.Roots.TemporaryWork.Path, "incident-bundles", "imports")
+	stagingDir := filepath.Join(server.Config.Roots.TemporaryWork.Path, "incident-bundles", "imports")
 	entries, err := os.ReadDir(stagingDir)
 	if os.IsNotExist(err) {
 		return

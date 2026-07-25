@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
@@ -53,18 +54,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
+	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 var (
 	newJobsManager    = jobs.NewManager
-	setupPostgres     = postgres.SetupWithEnv
+	setupPostgres     = postgres.Setup
 	ensureSchemaReady = postgres.EnsureSchemaReady
-	setupObjectStore  = objectstore.SetupWithEnv
+	setupObjectStore  = objectstore.Setup
 	runBootstrap      = bootstrap.Preflight
 	newWSHub          = platformws.NewHub
 	newHTTPHandler    = httpapi.NewHandler
+	readSecureFile    = securefile.Read
 )
 
 type Options struct {
@@ -76,7 +79,7 @@ type Options struct {
 }
 
 type Runtime struct {
-	Config                 config.Config
+	Settings               RuntimeSettings
 	Handler                http.Handler
 	Extensions             *extensions.Coordinator
 	ExtensionState         *extensions.StateRuntime
@@ -101,24 +104,70 @@ type Runtime struct {
 	stagedJanitorContext context.Context
 }
 
-func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
+type RuntimeSettings struct {
+	TelemetryFlushTimeoutMS  int64
+	ReconciliationSeconds    int64
+	StagedObjectSweepSeconds int64
+	ShutdownDrainSeconds     int64
+}
+
+func NewRuntime(ctx context.Context, deployment configassembly.Deployment, options Options) (*Runtime, error) {
+	loaded, err := configassembly.Admit(deployment)
+	if err != nil {
+		return nil, err
+	}
+	return newRuntime(ctx, loaded, options)
+}
+
+func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, options Options) (*Runtime, error) {
 	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
 		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
 	}
-	inactiveCatalog, err := extensionassembly.InactiveConfigurationCatalog(extensionCoordinator)
+	enterpriseAuthenticationConfiguration, err := loadedConfiguration.EnterpriseAuthentication()
 	if err != nil {
-		return nil, fmt.Errorf("project extension configuration policy: %w", err)
+		return nil, fmt.Errorf("project Enterprise Authentication configuration: %w", err)
 	}
-	normalizedCfg, err := config.ValidateForStartupWithExtensionInactiveCatalog(cfg, inactiveCatalog)
+	networkFlowConfiguration, err := loadedConfiguration.NetworkFlow()
 	if err != nil {
+		return nil, fmt.Errorf("project Network Flow configuration: %w", err)
+	}
+	if err := loadedConfiguration.ValidateForStartup(); err != nil {
 		return nil, err
 	}
+	normalizedCfg := loadedConfiguration.Deployment()
 
 	runtime := &Runtime{
-		Config:    normalizedCfg,
+		Settings:  runtimeSettings(normalizedCfg),
 		Lifecycle: processlifecycle.New(),
 	}
+	if normalizedCfg.Roots.TemporaryWork.BindingKind != "filesystem_root" ||
+		normalizedCfg.Roots.ExportOutputs.BindingKind != "filesystem_root" {
+		runtime.Close()
+		return nil, errors.New("incident bundle storage requires filesystem-root temporary_work and export_outputs bindings")
+	}
+	incidentBundleStorage, err := newIncidentBundleRootStorage(
+		normalizedCfg.Roots.TemporaryWork.Path,
+		normalizedCfg.Roots.ExportOutputs.Path,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose incident bundle storage: %w", err)
+	}
+	runtime.own(incidentBundleStorage.Close)
+	if normalizedCfg.Roots.ReferencePackStorage.BindingKind != "filesystem_root" {
+		runtime.Close()
+		return nil, errors.New("Reference Pack storage requires filesystem-root reference_pack_storage binding")
+	}
+	referencePackStorage, err := newReferencePackRootStorage(
+		normalizedCfg.Roots.TemporaryWork.Path,
+		normalizedCfg.Roots.ReferencePackStorage.Path,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Reference Pack storage: %w", err)
+	}
+	runtime.own(referencePackStorage.Close)
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -127,7 +176,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if options.Postgres != nil {
 		runtime.Postgres = options.Postgres
 	} else {
-		pool, err := setupPostgres(ctx, normalizedCfg, options.Env)
+		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), options.Env)
+		if settingsErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("setup postgres: %w", settingsErr)
+		}
+		pool, err := setupPostgres(ctx, postgresSettings)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", err)
@@ -180,7 +234,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, fmt.Errorf("project extension claim configuration: %w", err)
 	}
-	claimValues, err := config.BooleanValuesAtPaths(normalizedCfg, claimPaths)
+	claimValues, err := loadedConfiguration.BooleanValuesAtPaths(claimPaths)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("project extension claim configuration: %w", err)
@@ -285,23 +339,23 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if err := config.RegisterTelemetrySecretPurposes(normalizedCfg, options.Env, secretPurposes); err != nil {
+	if err := telemetry.RegisterSecretPurposes(normalizedCfg.Telemetry, options.Env, secretPurposes); err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
 	if enterpriseAuthenticationAdmitted {
-		enterpriseProviderDefinitions, err = enterpriseauth.LoadProviderManifest(normalizedCfg, options.Env)
+		enterpriseProviderDefinitions, err = loadEnterpriseProviderManifest(enterpriseAuthenticationConfiguration, options.Env)
 		if err != nil {
 			runtime.Close()
 			return nil, err
 		}
 		if err := enterpriseauth.RegisterProviderSecretPurposes(enterpriseProviderDefinitions, options.Env, secretPurposes); err != nil {
 			runtime.Close()
-			return nil, err
+			return nil, deploymentEnterpriseAuthenticationError(err)
 		}
 	}
-	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithResolvedClaimIdentity(telemetry.ResolvedClaimIdentity{
+	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg.Telemetry, normalizedCfg.DeploymentProfile, options.Env, telemetry.WithResolvedClaimIdentity(telemetry.ResolvedClaimIdentity{
 		ProfileIDs: resolvedClaims.ProfileIDs(),
 		SHA256:     resolvedClaims.SHA256(),
 	}))
@@ -311,7 +365,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	runtime.Telemetry = telemetryRuntime
 	runtime.own(func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.Settings.TelemetryFlushTimeoutMS)*time.Millisecond)
 		defer cancel()
 		_ = runtime.Telemetry.Shutdown(shutdownCtx)
 	})
@@ -401,9 +455,18 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	if options.ObjectStore != nil {
-		runtime.ObjectStore = instrumentedObjectStore(normalizedCfg, options.ObjectStore)
+		runtime.ObjectStore = instrumentedObjectStore(
+			normalizedCfg.Telemetry.Enabled,
+			normalizedCfg.Telemetry.Resource.ServiceVersion,
+			options.ObjectStore,
+		)
 	} else {
-		client, err := setupObjectStore(ctx, normalizedCfg, options.Env)
+		objectStoreSettings, settingsErr := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(normalizedCfg), options.Env)
+		if settingsErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("setup object store: %w", settingsErr)
+		}
+		client, err := setupObjectStore(ctx, objectStoreSettings, configassembly.ObjectStoreInstrumentation(normalizedCfg))
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", err)
@@ -466,25 +529,35 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.stagedJanitorContext = janitorCtx
 		runtime.own(cancelJanitor)
 	}
-	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
+	postgresHandle := instrumentedPostgres(
+		normalizedCfg.Telemetry.Enabled,
+		normalizedCfg.Telemetry.Resource.ServiceVersion,
+		runtime.Postgres,
+	)
 
-	if err := runBootstrap(ctx, normalizedCfg, runtime.Postgres); err != nil {
+	if err := runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), runtime.Postgres); err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	if enterpriseAuthenticationAdmitted {
 		if err := enterpriseauth.ReconcileProviderDefinitions(ctx, enterpriseProviderDefinitions, authn.NewStore(postgresHandle), now()); err != nil {
 			runtime.Close()
-			return nil, err
+			return nil, deploymentEnterpriseAuthenticationError(err)
 		}
 	}
-	networkFlowKeyRings, err := networkflow.LoadKeyRingsWithRegistry(normalizedCfg, options.Env, now(), secretPurposes)
+	networkFlowKeyRings, err := loadNetworkFlowKeyRings(networkFlowConfiguration, options.Env, now(), secretPurposes)
 	if err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	if referencePackRouteAdmitted {
-		if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, now()); err != nil {
+		referenceLimits := referenceDataLimits(normalizedCfg)
+		if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, reference_data.MinimumDisconnectedBundleOptions{
+			DeploymentProfile: normalizedCfg.DeploymentProfile,
+			ArchiveLimits:     referenceLimits.Archives,
+			ReferenceLimits:   referenceLimits.ReferencePacks,
+			Storage:           referencePackStorage,
+		}, runtime.Postgres, now()); err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
@@ -636,19 +709,25 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("compose Incident Portability: %w", err)
 	}
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
+		incidentbundles.WithStorage(incidentBundleStorage),
+		incidentbundles.WithLimits(incidentBundleLimits(normalizedCfg)),
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
 		incidentbundles.WithJobSuccessFinalizer(
 			extensionassembly.NewIncidentBundleJobSuccessFinalizer(runtime.ExtensionJobFinalizer, now),
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 	)
+	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importRoutes := imports.RegisterRoutes(
+		imports.WithLimits(importOwnerLimits, importArchiveLimits),
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),
 		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(runtime.ExtensionJobFinalizer)),
 	)
 	referencePackRoutes := reference_data.RegisterRoutes(
+		reference_data.WithStorage(referencePackStorage),
+		reference_data.WithLimits(referenceDataLimits(normalizedCfg)),
 		reference_data.WithJobSuccessFinalizer(
 			extensionassembly.NewReferencePackJobSuccessFinalizer(runtime.ExtensionJobFinalizer),
 		),
@@ -683,6 +762,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
+	authRouteOptions = append(authRouteOptions, auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin))
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
 	}
@@ -693,9 +773,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		{id: "jobs", registrar: jobapi.RegisterRoutes()},
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
-		{id: "collaboration", registrar: collaboration.RegisterRoutes()},
+		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg))},
 		{id: "entities", registrar: entities.RegisterRoutes()},
-		{id: "evidence", registrar: evidence.RegisterRoutes()},
+		{id: "evidence", registrar: evidence.RegisterRoutes(evidenceSettings(normalizedCfg))},
 		{id: "assessments", registrar: assessments.RegisterRoutes()},
 		{id: "workbook", registrar: workbook.RegisterRoutes()},
 		{id: "timeline", registrar: timeline.RegisterRoutes()},
@@ -708,7 +788,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 				auth.EnterpriseProvidersRouteContributionID,
 				auth.EnterpriseSAMLRouteContributionID,
 			},
-			registrar: auth.RegisterEnterpriseRoutes(),
+			registrar: auth.RegisterEnterpriseRoutes(auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin)),
 		},
 		{
 			id:              "enterprise_authentication_user_auth_bindings",
@@ -740,7 +820,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: runtime.StagedHealth})
 	}
 	httpOptions.Dependencies = httpapi.DependencySet{
-		Config:              normalizedCfg,
+		Telemetry:           httpapi.TelemetrySettings{Enabled: normalizedCfg.Telemetry.Enabled, ServiceVersion: normalizedCfg.Telemetry.Resource.ServiceVersion},
 		Env:                 options.Env,
 		Postgres:            runtime.Postgres,
 		PostgresDB:          postgresHandle,
@@ -752,6 +832,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Readiness:           httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore, readinessProbes...),
 		Admission:           runtime.Lifecycle,
 		PublicErrorFaults:   testRuntimeDeps.PublicErrorFaults,
+		TestResetBootstrap:  testResetBootstrap(normalizedCfg),
 		ModuleOverrides:     moduleOverrides,
 		ExtensionDiscovery:  publicationHTTPProjections{publication: publication},
 		ExtensionClaims:     publicationHTTPProjections{publication: publication},
@@ -800,6 +881,91 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	return runtime, nil
 }
 
+func loadNetworkFlowKeyRings(
+	configuration networkflow.Configuration,
+	env map[string]string,
+	now time.Time,
+	registry *secretpurpose.Registry,
+) (*networkflow.KeyRings, error) {
+	if !configuration.Claimed {
+		return nil, nil
+	}
+	document, err := readSecureFile(configuration.KeyRingManifestPath, networkflow.KeyRingManifestMaximumSize)
+	if err != nil {
+		failure := networkflow.ManifestUnreadable
+		var secureError *securefile.Error
+		if errors.As(err, &secureError) {
+			switch secureError.Kind {
+			case securefile.FailureTooLarge:
+				failure = networkflow.ManifestTooLarge
+			case securefile.FailureInvalidPath, securefile.FailureUnsafeObject, securefile.FailureChanged:
+				failure = networkflow.ManifestUnsafe
+			}
+		}
+		return nil, deploymentNetworkFlowError(networkflow.KeyRingManifestReadError(failure))
+	}
+	rings, err := networkflow.ParseKeyRingsWithRegistry(document.Bytes(), env, now, registry)
+	if err != nil {
+		return nil, deploymentNetworkFlowError(err)
+	}
+	return rings, nil
+}
+
+type enterpriseDocumentReader struct{}
+
+func loadEnterpriseProviderManifest(
+	configuration enterpriseauth.Configuration,
+	env map[string]string,
+) ([]authn.EnterpriseAuthProviderDefinition, error) {
+	definitions, err := enterpriseauth.LoadProviderManifest(configuration, env, enterpriseDocumentReader{})
+	if err != nil {
+		return nil, deploymentEnterpriseAuthenticationError(err)
+	}
+	return definitions, nil
+}
+
+func (enterpriseDocumentReader) ReadDocument(absolutePath string, maximumBytes int64) ([]byte, enterpriseauth.DocumentReadFailure) {
+	document, err := readSecureFile(absolutePath, maximumBytes)
+	if err == nil {
+		return document.Bytes(), ""
+	}
+	failure := enterpriseauth.DocumentUnavailable
+	var secureError *securefile.Error
+	if errors.As(err, &secureError) {
+		switch secureError.Kind {
+		case securefile.FailureTooLarge:
+			failure = enterpriseauth.DocumentTooLarge
+		case securefile.FailureInvalidPath, securefile.FailureUnsafeObject, securefile.FailureChanged:
+			failure = enterpriseauth.DocumentUnsafe
+		}
+	}
+	return nil, failure
+}
+
+func deploymentEnterpriseAuthenticationError(err error) error {
+	finding, ok := enterpriseauth.ConfigurationFindingFromError(err)
+	if !ok {
+		return err
+	}
+	return config.NewDiagnosticsError(config.Diagnostic{
+		Path:       finding.Path,
+		ReasonCode: finding.ReasonCode,
+		Message:    finding.Message,
+	})
+}
+
+func deploymentNetworkFlowError(err error) error {
+	finding, ok := networkflow.ConfigurationFindingFromError(err)
+	if !ok {
+		return err
+	}
+	return config.NewDiagnosticsError(config.Diagnostic{
+		Path:       finding.Path,
+		ReasonCode: finding.ReasonCode,
+		Message:    finding.Message,
+	})
+}
+
 func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade imports.ExtensionImportFacade) map[string]any {
 	merged := map[string]any{}
 	for key, value := range overrides {
@@ -822,18 +988,18 @@ func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade impor
 	return merged
 }
 
-func instrumentedPostgres(cfg config.Config, pool *pgxpool.Pool) postgres.DB {
-	if pool == nil || !cfg.Telemetry.Enabled {
+func instrumentedPostgres(enabled bool, serviceVersion string, pool *pgxpool.Pool) postgres.DB {
+	if pool == nil || !enabled {
 		return pool
 	}
-	return postgres.InstrumentDB(pool, cfg.Telemetry.Resource.ServiceVersion)
+	return postgres.InstrumentDB(pool, serviceVersion)
 }
 
-func instrumentedObjectStore(cfg config.Config, store objectstore.Store) objectstore.Store {
-	if store == nil || !cfg.Telemetry.Enabled {
+func instrumentedObjectStore(enabled bool, serviceVersion string, store objectstore.Store) objectstore.Store {
+	if store == nil || !enabled {
 		return store
 	}
-	return objectstore.InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion)
+	return objectstore.InstrumentStore(store, serviceVersion)
 }
 
 type stagedCleanupReadinessProbe struct {
@@ -955,7 +1121,7 @@ func (r *Runtime) ActivatePublication() error {
 		return err
 	}
 	if r.JobRunner != nil {
-		recoveryCtx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Config.Timeouts.Extensions.ReconciliationSeconds)*time.Second)
+		recoveryCtx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Settings.ReconciliationSeconds)*time.Second)
 		defer cancel()
 		if err := r.JobRunner.Activate(recoveryCtx); err != nil {
 			r.Publication.ComponentLost("job_dequeue")
@@ -970,7 +1136,7 @@ func (r *Runtime) ActivatePublication() error {
 						r.Publication.ComponentLost("staged_object_janitor")
 					}
 				}()
-				if err := r.StagedJanitor.Run(r.stagedJanitorContext, time.Duration(r.Config.Intervals.Extensions.StagedObjectSweepSeconds)*time.Second); err != nil && r.Lifecycle != nil {
+				if err := r.StagedJanitor.Run(r.stagedJanitorContext, time.Duration(r.Settings.StagedObjectSweepSeconds)*time.Second); err != nil && r.Lifecycle != nil {
 					r.Publication.ComponentLost("staged_object_janitor")
 				}
 			}()

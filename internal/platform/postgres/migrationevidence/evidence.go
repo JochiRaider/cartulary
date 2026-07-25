@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -104,7 +103,7 @@ type manifestEntry struct {
 	HistoricalPhaseShaped bool   `json:"historical_phase_shaped"`
 }
 
-func Build(ctx context.Context, cfg config.Config, pool postgres.DB, collectedAt time.Time, manifestPath string, sourceFS fs.FS) (Result, error) {
+func Build(ctx context.Context, binding DatabaseBinding, pool postgres.DB, collectedAt time.Time, manifestPath string, sourceFS fs.FS) (Result, error) {
 	manifest, manifestSummary, manifestFindings, err := loadManifest(manifestPath)
 	if err != nil {
 		return Result{}, err
@@ -134,8 +133,8 @@ func Build(ctx context.Context, cfg config.Config, pool postgres.DB, collectedAt
 		EvidenceOnly:      true,
 		RewriteAuthorized: false,
 		DatabaseBinding: DatabaseBinding{
-			BindingKind: strings.TrimSpace(cfg.Roots.DatabaseStorage.BindingKind),
-			ServiceRef:  strings.TrimSpace(cfg.Roots.DatabaseStorage.ServiceRef),
+			BindingKind: strings.TrimSpace(binding.BindingKind),
+			ServiceRef:  strings.TrimSpace(binding.ServiceRef),
 		},
 		Manifest:    manifestSummary,
 		SourceAudit: sourceAudit,

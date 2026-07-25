@@ -3,15 +3,15 @@
     {
       "anchor_id": "cartulary.core04.current.v1",
       "anchor_kind": "document",
-      "anchor_sha256": "da7ff2d94e96125b5bf117e9eb35103fb2d96ea8cf12275c05db8447d832074d",
+      "anchor_sha256": "069fab755850caa854647222d3a59c95733fbd8f14066e0ba544a4d76d929aa4",
       "closure_categories": [],
-      "end_byte": 474850,
+      "end_byte": 478305,
       "start_byte": 0
     },
     {
       "anchor_id": "REQ-04-143",
       "anchor_kind": "req",
-      "anchor_sha256": "bacb74dc861e4a3c095c4489610b9e3a5e76787f3d6d8299c0fcec4969c8bc2c",
+      "anchor_sha256": "04d94fa6d383e51ad64163437b18af8d9b7cc2605e8d2c9cf08b8fc9b05021c3",
       "closure_categories": [
         "errors_precedence_retry",
         "idempotency_concurrency",
@@ -19,8 +19,8 @@
         "scalar_collection_bounds",
         "security_secrets_egress"
       ],
-      "end_byte": 471648,
-      "start_byte": 470798
+      "end_byte": 475103,
+      "start_byte": 473630
     },
     {
       "anchor_id": "REQ-04-144",
@@ -33,8 +33,8 @@
         "scalar_collection_bounds",
         "security_secrets_egress"
       ],
-      "end_byte": 472827,
-      "start_byte": 471650
+      "end_byte": 476282,
+      "start_byte": 475105
     },
     {
       "anchor_id": "REQ-04-145",
@@ -47,8 +47,8 @@
         "scalar_collection_bounds",
         "security_secrets_egress"
       ],
-      "end_byte": 473986,
-      "start_byte": 472829
+      "end_byte": 477441,
+      "start_byte": 476284
     },
     {
       "anchor_id": "REQ-04-146",
@@ -61,23 +61,23 @@
         "scalar_collection_bounds",
         "security_secrets_egress"
       ],
-      "end_byte": 474849,
-      "start_byte": 473988
+      "end_byte": 478304,
+      "start_byte": 477443
     }
   ],
   "owner_contract_manifest_id": "core04.extensions_contract.v1",
   "owner_document": {
-    "byte_length": 474850,
+    "byte_length": 478305,
     "owner_document_ref": "docs/spec/04_security_deployment_and_conformance.md#document:cartulary.core04.current.v1",
     "owner_document_schema_id": "cartulary.core04.current.v1",
-    "owner_document_sha256": "da7ff2d94e96125b5bf117e9eb35103fb2d96ea8cf12275c05db8447d832074d",
+    "owner_document_sha256": "069fab755850caa854647222d3a59c95733fbd8f14066e0ba544a4d76d929aa4",
     "owner_document_version": "extensions-adoption-1"
   },
   "owner_fragments": [
     {
       "owner_fragment_id": "core04.extension_claim_configuration.v1",
       "owner_fragment_ref": "contracts/extensions/fragments/core04.claim-configuration.json",
-      "owner_fragment_sha256": "d79ebb185404191760175a3b4647718793240711c5f2e838d9e4d634d484d712"
+      "owner_fragment_sha256": "805e12710b458c6010a9165ca1c645fc4fa565ba47f2313adba968e86d3958bb"
     }
   ],
   "owner_id": "core04",

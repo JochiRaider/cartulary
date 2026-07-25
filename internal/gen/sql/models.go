@@ -842,7 +842,7 @@ type IncidentBundleExport struct {
 	RequiredCapabilities []string           `json:"required_capabilities"`
 	BundleSha256         string             `json:"bundle_sha256"`
 	BundleByteSize       int64              `json:"bundle_byte_size"`
-	BundleStoragePath    string             `json:"bundle_storage_path"`
+	BundleStorageRef     string             `json:"bundle_storage_ref"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -874,7 +874,7 @@ type IncidentBundleJobPayload struct {
 	IncidentID         pgtype.UUID        `json:"incident_id"`
 	BundleID           pgtype.UUID        `json:"bundle_id"`
 	UploadedSha256     pgtype.Text        `json:"uploaded_sha256"`
-	BundleStagingPath  pgtype.Text        `json:"bundle_staging_path"`
+	BundleStagingRef   pgtype.Text        `json:"bundle_staging_ref"`
 	ImportedIncidentID pgtype.UUID        `json:"imported_incident_id"`
 	ManifestSha256     pgtype.Text        `json:"manifest_sha256"`
 	FailureReason      pgtype.Text        `json:"failure_reason"`
@@ -1283,7 +1283,7 @@ type ReferencePack struct {
 	PreviousActiveVersion pgtype.Text        `json:"previous_active_version"`
 	VerificationResult    string             `json:"verification_result"`
 	BundleSha256          string             `json:"bundle_sha256"`
-	BundleStoragePath     string             `json:"bundle_storage_path"`
+	BundleStorageRef      string             `json:"bundle_storage_ref"`
 	Metadata              []byte             `json:"metadata"`
 }
 
@@ -1317,16 +1317,16 @@ type ReferencePackAttestation struct {
 }
 
 type ReferencePackJobPayload struct {
-	JobID             pgtype.UUID        `json:"job_id"`
-	JobKind           string             `json:"job_kind"`
-	ActorUserID       pgtype.UUID        `json:"actor_user_id"`
-	PackKey           pgtype.Text        `json:"pack_key"`
-	PackVersion       pgtype.Text        `json:"pack_version"`
-	ResolvedPackKeys  []string           `json:"resolved_pack_keys"`
-	BundleSha256      pgtype.Text        `json:"bundle_sha256"`
-	RequestJson       []byte             `json:"request_json"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	BundleStagingPath pgtype.Text        `json:"bundle_staging_path"`
+	JobID            pgtype.UUID        `json:"job_id"`
+	JobKind          string             `json:"job_kind"`
+	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
+	PackKey          pgtype.Text        `json:"pack_key"`
+	PackVersion      pgtype.Text        `json:"pack_version"`
+	ResolvedPackKeys []string           `json:"resolved_pack_keys"`
+	BundleSha256     pgtype.Text        `json:"bundle_sha256"`
+	RequestJson      []byte             `json:"request_json"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	BundleStagingRef pgtype.Text        `json:"bundle_staging_ref"`
 }
 
 type ReportComposition struct {

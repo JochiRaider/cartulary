@@ -14,10 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -384,7 +386,7 @@ func EvidenceDir(group string) string {
 
 func EncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 	t.Helper()
-	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		t.Fatalf("create backup storage: %v", err)
 	}
@@ -431,7 +433,7 @@ func prepareRestoreTarget(t testing.TB, prefix string) RestoreTargetFixture {
 func OpenObjectStore(t testing.TB, env map[string]string) objectstore.Store {
 	t.Helper()
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
-	store, err := objectstore.SetupWithEnv(context.Background(), cfg, env)
+	store, err := appsupport.OpenObjectStore(context.Background(), cfg, env)
 	if err != nil {
 		t.Fatalf("open object store: %v", err)
 	}

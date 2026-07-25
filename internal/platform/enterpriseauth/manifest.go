@@ -10,9 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/url"
-	"os"
 	pathpkg "path"
 	"regexp"
 	"sort"
@@ -22,13 +20,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
 const (
 	providerManifestSchemaID = "cartulary.enterprise_auth_providers.v1"
-	providerManifestPathKey  = "enterprise_authentication.provider_manifest_path"
 	providerManifestRootPath = "enterprise_authentication.provider_manifest"
 )
 
@@ -39,19 +35,25 @@ var (
 	errDuplicateJSONMember = errors.New("duplicate JSON object member")
 )
 
-type providerManifestFS interface {
-	Stat(name string) (fs.FileInfo, error)
-	ReadFile(name string) ([]byte, error)
+type DocumentReadFailure string
+
+const (
+	DocumentUnavailable DocumentReadFailure = "unavailable"
+	DocumentUnsafe      DocumentReadFailure = "unsafe_object"
+	DocumentTooLarge    DocumentReadFailure = "too_large"
+)
+
+// DocumentReader is the owner port supplied by application assembly. It must
+// return immutable bytes from one no-follow, bounded read and never expose the
+// underlying host path through its failure.
+type DocumentReader interface {
+	ReadDocument(absolutePath string, maximumBytes int64) ([]byte, DocumentReadFailure)
 }
 
-type osProviderManifestFS struct{}
+type DocumentReadFunc func(absolutePath string, maximumBytes int64) ([]byte, DocumentReadFailure)
 
-func (osProviderManifestFS) Stat(name string) (fs.FileInfo, error) {
-	return os.Stat(name)
-}
-
-func (osProviderManifestFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name) // #nosec G304 -- enterprise provider manifests are operator-configured absolute paths validated before use.
+func (read DocumentReadFunc) ReadDocument(absolutePath string, maximumBytes int64) ([]byte, DocumentReadFailure) {
+	return read(absolutePath, maximumBytes)
 }
 
 type providerManifestRoot struct {
@@ -104,10 +106,6 @@ func ReconcileProviderDefinitions(ctx context.Context, definitions []authn.Enter
 	return nil
 }
 
-func LoadProviderManifest(cfg config.Config, env map[string]string) ([]authn.EnterpriseAuthProviderDefinition, error) {
-	return loadProviderManifest(cfg, env, osProviderManifestFS{})
-}
-
 func RegisterProviderSecretPurposes(definitions []authn.EnterpriseAuthProviderDefinition, env map[string]string, registry *secretpurpose.Registry) error {
 	for index, definition := range definitions {
 		if definition.ClientSecretRefName == nil {
@@ -124,21 +122,34 @@ func RegisterProviderSecretPurposes(definitions []authn.EnterpriseAuthProviderDe
 	return nil
 }
 
-func loadProviderManifest(cfg config.Config, env map[string]string, manifestFS providerManifestFS) ([]authn.EnterpriseAuthProviderDefinition, error) {
-	manifestPath := cfg.EnterpriseAuthentication.ProviderManifestPath
-	info, err := manifestFS.Stat(manifestPath)
-	if err != nil {
-		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_not_readable", safeFileError("stat enterprise provider manifest", err))
+func LoadProviderManifest(configuration Configuration, env map[string]string, reader DocumentReader) ([]authn.EnterpriseAuthProviderDefinition, error) {
+	normalized, findings := NormalizeAndValidateConfiguration(configuration)
+	if len(findings) > 0 {
+		finding := findings[0]
+		return nil, providerConfigError(finding.Path, finding.ReasonCode, finding.Message)
 	}
-	if !info.Mode().IsRegular() {
+	if !normalized.Claimed {
+		return nil, nil
+	}
+	if reader == nil {
+		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_not_readable", "enterprise provider manifest is unavailable")
+	}
+	raw, failure := reader.ReadDocument(normalized.ProviderManifestPath, ProviderManifestMaximumSize)
+	switch failure {
+	case "":
+	case DocumentTooLarge:
+		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_schema_invalid", "enterprise provider manifest must not exceed 1048576 bytes")
+	case DocumentUnsafe:
 		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_not_regular_file", "enterprise provider manifest path must reference one regular file")
-	}
-	raw, err := manifestFS.ReadFile(manifestPath)
-	if err != nil {
-		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_not_readable", safeFileError("read enterprise provider manifest", err))
+	default:
+		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_not_readable", "enterprise provider manifest is unavailable")
 	}
 	if !utf8.Valid(raw) {
 		return nil, providerConfigError(providerManifestPathKey, "provider_manifest_encoding_invalid", "enterprise provider manifest must be UTF-8 JSON")
+	}
+	if !json.Valid(raw) {
+		_, err := parseProviderManifestRoot(raw)
+		return nil, err
 	}
 	if err := rejectDuplicateObjectMembers(raw); err != nil {
 		return nil, providerConfigError(providerManifestRootPath, "provider_manifest_schema_invalid", err.Error())
@@ -158,7 +169,7 @@ func loadProviderManifest(cfg config.Config, env map[string]string, manifestFS p
 	definitions := make([]authn.EnterpriseAuthProviderDefinition, 0, len(root.Providers))
 	seenProviderKeys := make(map[string]struct{}, len(root.Providers))
 	for index, rawProvider := range root.Providers {
-		definition, err := parseProviderDefinition(index, rawProvider, env, manifestFS)
+		definition, err := parseProviderDefinition(index, rawProvider, env, reader)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +223,7 @@ func parseProviderManifestRoot(raw []byte) (providerManifestRoot, error) {
 	return providerManifestRoot{ProviderManifestSchemaID: schemaID, Providers: providers}, nil
 }
 
-func parseProviderDefinition(index int, raw json.RawMessage, env map[string]string, manifestFS providerManifestFS) (authn.EnterpriseAuthProviderDefinition, error) {
+func parseProviderDefinition(index int, raw json.RawMessage, env map[string]string, reader DocumentReader) (authn.EnterpriseAuthProviderDefinition, error) {
 	providerObject, err := decodeProviderObject(index, raw)
 	if err != nil {
 		return authn.EnterpriseAuthProviderDefinition{}, err
@@ -225,7 +236,7 @@ func parseProviderDefinition(index int, raw json.RawMessage, env map[string]stri
 	case "oidc":
 		return parseOIDCProviderDefinition(index, providerObject, env)
 	case "saml":
-		return parseSAMLProviderDefinition(index, providerObject, manifestFS)
+		return parseSAMLProviderDefinition(index, providerObject, reader)
 	default:
 		return authn.EnterpriseAuthProviderDefinition{}, providerConfigError(providerPath(index, "provider_type"), "provider_manifest_schema_invalid", "provider_type must be oidc or saml")
 	}
@@ -292,7 +303,7 @@ func parseOIDCProviderDefinition(index int, provider map[string]json.RawMessage,
 	return base, nil
 }
 
-func parseSAMLProviderDefinition(index int, provider map[string]json.RawMessage, manifestFS providerManifestFS) (authn.EnterpriseAuthProviderDefinition, error) {
+func parseSAMLProviderDefinition(index int, provider map[string]json.RawMessage, reader DocumentReader) (authn.EnterpriseAuthProviderDefinition, error) {
 	allowed := map[string]struct{}{
 		"provider_key":                  {},
 		"provider_type":                 {},
@@ -319,7 +330,7 @@ func parseSAMLProviderDefinition(index int, provider map[string]json.RawMessage,
 	if err != nil {
 		return authn.EnterpriseAuthProviderDefinition{}, err
 	}
-	certificates, err := requiredSigningCertificates(provider, index, manifestFS)
+	certificates, err := requiredSigningCertificates(provider, index, reader)
 	if err != nil {
 		return authn.EnterpriseAuthProviderDefinition{}, err
 	}
@@ -495,7 +506,7 @@ func optionalAdditionalScopes(object map[string]json.RawMessage, index int) ([]s
 	return scopes, nil
 }
 
-func requiredSigningCertificates(object map[string]json.RawMessage, index int, manifestFS providerManifestFS) ([]string, error) {
+func requiredSigningCertificates(object map[string]json.RawMessage, index int, reader DocumentReader) ([]string, error) {
 	raw, ok := object["idp_signing_certificate_paths"]
 	if !ok || isJSONNull(raw) {
 		return nil, providerConfigError(providerPath(index, "idp_signing_certificate_paths"), "provider_manifest_schema_invalid", "idp_signing_certificate_paths is required")
@@ -513,16 +524,15 @@ func requiredSigningCertificates(object map[string]json.RawMessage, index int, m
 		if !validProviderManifestPath(candidate) {
 			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", "SAML signing certificate path must be an absolute POSIX path without forbidden segments")
 		}
-		info, err := manifestFS.Stat(candidate)
-		if err != nil {
-			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", safeFileError("stat SAML signing certificate", err))
-		}
-		if !info.Mode().IsRegular() {
-			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", "SAML signing certificate path must reference one regular file")
-		}
-		rawCert, err := manifestFS.ReadFile(candidate)
-		if err != nil {
-			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", safeFileError("read SAML signing certificate", err))
+		rawCert, failure := reader.ReadDocument(candidate, SigningCertificateMaximumSize)
+		if failure != "" {
+			message := "SAML signing certificate is unavailable"
+			if failure == DocumentTooLarge {
+				message = "SAML signing certificate must not exceed 262144 bytes"
+			} else if failure == DocumentUnsafe {
+				message = "SAML signing certificate path must reference one regular file"
+			}
+			return nil, providerConfigError(fieldPath, "provider_manifest_referenced_file_invalid", message)
 		}
 		certificate, err := parseSigningCertificate(rawCert)
 		if err != nil {
@@ -676,17 +686,6 @@ func providerBasePath(index int) string {
 
 func providerPath(index int, field string) string {
 	return providerBasePath(index) + "." + field
-}
-
-func providerConfigError(path string, reasonCode string, message string) error {
-	return config.NewDiagnosticsError(config.Diagnostic{Path: path, ReasonCode: reasonCode, Message: message})
-}
-
-func safeFileError(action string, err error) string {
-	if errors.Is(err, fs.ErrPermission) {
-		return action + ": " + fs.ErrPermission.Error()
-	}
-	return action + ": " + err.Error()
 }
 
 func stringPtr(value string) *string {

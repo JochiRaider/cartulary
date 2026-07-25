@@ -9,7 +9,7 @@ func TestBackupStorageRootBindingConfig(t *testing.T) {
 				cfg := backupDeploymentProfileConfig(t, profile)
 				cfg.Roots.BackupStorage = RootBinding{}
 
-				_, err := Validate(cfg)
+				_, err := validate(cfg)
 				requireDiagnostic(t, err, "roots.backup_storage", "missing_required_key")
 			})
 		}
@@ -18,7 +18,7 @@ func TestBackupStorageRootBindingConfig(t *testing.T) {
 	t.Run("accepts filesystem root backup storage for every supported deployment profile", func(t *testing.T) {
 		for _, profile := range backupSupportedDeploymentProfiles() {
 			t.Run(profile, func(t *testing.T) {
-				if _, err := Validate(backupDeploymentProfileConfig(t, profile)); err != nil {
+				if _, err := validate(backupDeploymentProfileConfig(t, profile)); err != nil {
 					t.Fatalf("validate %s filesystem-root backup storage: %v", profile, err)
 				}
 			})
@@ -34,7 +34,7 @@ func TestBackupStorageRootBindingConfig(t *testing.T) {
 					ServiceRef:  "backup-vault",
 				}
 
-				_, err := Validate(cfg)
+				_, err := validate(cfg)
 				if profile != "disconnected" {
 					if err != nil {
 						t.Fatalf("validate %s managed-service backup storage: %v", profile, err)
@@ -54,7 +54,7 @@ func TestBackupStorageRootBindingConfig(t *testing.T) {
 			ServiceRef:  "backup-vault",
 		}
 
-		_, err := Validate(cfg)
+		_, err := validate(cfg)
 		requireDiagnostic(t, err, "roots.backup_storage.binding_kind", "invalid_enum")
 	})
 
@@ -72,14 +72,14 @@ func TestBackupStorageRootBindingConfig(t *testing.T) {
 				cfg := backupDeploymentProfileConfig(t, "disconnected")
 				cfg.Roots.BackupStorage.Path = tc.path
 
-				_, err := Validate(cfg)
+				_, err := validate(cfg)
 				requireDiagnostic(t, err, "roots.backup_storage.path", "path_overlap")
 			})
 		}
 	})
 }
 
-func backupDeploymentProfileConfig(t testing.TB, profile string) Config {
+func backupDeploymentProfileConfig(t testing.TB, profile string) document {
 	t.Helper()
 
 	return bootstrapDeploymentProfileConfig(t, profile)

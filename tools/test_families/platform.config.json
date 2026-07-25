@@ -26,6 +26,32 @@
       "status": "active"
     },
     {
+      "row_id": "platform.config.unit.catalog_snapshot_lifecycle",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestCatalogSnapshotLifecycle_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/handoffs/platform-config-module-refactor-tracker.md#7-permanent-architecture-and-slice-rules"
+      ]
+    },
+    {
       "row_id": "platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90",
       "owner_id": "platform.config",
       "family_id": "platform.config.unit",
@@ -93,6 +119,35 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.enterprise_authentication_owner_projection_11e48da8da",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/configassembly",
+        "tests": [
+          "TestEnterpriseAuthenticationConfigurationProjection_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-115",
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-116"
+      ]
     },
     {
       "row_id": "platform.config.unit.every_supported_deployment_profile_requires_the_53e1336e64",
@@ -202,6 +257,94 @@
       ]
     },
     {
+      "row_id": "platform.config.unit.network_flow_claim_admission",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "platform.config.verification.network_flow_claim_admission"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestNetworkFlowActivityConfigDefaultsAndClaimability"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143",
+        "docs/extension-subsystem-nlspec.md#req:EXT-REQ-207",
+        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183"
+      ]
+    },
+    {
+      "row_id": "platform.config.unit.network_flow_owner_projection",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "platform.config.verification.network_flow_claim_admission"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/configassembly",
+        "tests": [
+          "TestNetworkFlowConfigurationProjection_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/network-flow-activity-nlspec.md#req:NF-REQ-183",
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-143"
+      ]
+    },
+    {
+      "row_id": "platform.config.unit.platform_adapter_settings_projection",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/configassembly",
+        "tests": [
+          "TestPlatformAdapterConstructorSignatures_Unit",
+          "TestPlatformSettingsProjection_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-115",
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-116"
+      ]
+    },
+    {
       "row_id": "platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3",
       "owner_id": "platform.config",
       "family_id": "platform.config.unit",
@@ -223,6 +366,111 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "platform.config.unit.telemetry_defaults_closed_namespace",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.telemetry_defaults_namespace"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestOpenTelemetryConfigDefaultsAndClosedNamespace"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-023"
+      ]
+    },
+    {
+      "row_id": "platform.config.unit.telemetry_environment_binding_parser",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.telemetry_environment_parser"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestOpenTelemetryEnvironmentBindingParser"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-122"
+      ]
+    },
+    {
+      "row_id": "platform.config.unit.telemetry_secret_references",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.telemetry_secret_references"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestOpenTelemetrySecretReferences"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-144",
+        "docs/spec/04_security_deployment_and_conformance.md#req:REQ-04-077"
+      ]
+    },
+    {
+      "row_id": "platform.config.unit.telemetry_validation",
+      "owner_id": "platform.config",
+      "family_id": "platform.config.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.config.verification.telemetry_validation"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/config",
+        "tests": [
+          "TestOpenTelemetryConfigValidation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/opentelemetry-instrumentation-nlspec.md#req:OTEL-REQ-029"
+      ]
     }
   ]
 }

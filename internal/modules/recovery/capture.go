@@ -10,9 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -20,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -34,7 +31,6 @@ const (
 
 var (
 	ErrInvalidBackupArtifact = errors.New("recovery: invalid backup artifact")
-	ErrUnsupportedBackupRoot = errors.New("recovery: unsupported backup storage root")
 )
 
 type CaptureService struct {
@@ -46,11 +42,14 @@ type CaptureService struct {
 
 type BackupStorage interface {
 	WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (BackupArtifactProof, error)
-	ReadArtifact(ctx context.Context, key string) ([]byte, error)
+	ReadArtifact(ctx context.Context, key string, maxBytes int64) ([]byte, error)
 }
 
-type FilesystemBackupStorage struct {
-	root string
+func CloseBackupStorage(storage BackupStorage) error {
+	if closer, ok := storage.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 type BackupArtifact struct {
@@ -131,103 +130,11 @@ func NewCaptureService(store *Store, storage BackupStorage, extensionBackups *Ex
 	}
 }
 
-func NewBackupStorageFromConfig(cfg config.Config, env ...map[string]string) (BackupStorage, error) {
-	var envMap map[string]string
-	if len(env) > 0 {
-		envMap = env[0]
-	}
-	var raw BackupStorage
-	switch cfg.Roots.BackupStorage.BindingKind {
-	case "filesystem_root":
-		storage, err := NewFilesystemBackupStorage(cfg.Roots.BackupStorage.Path)
-		if err != nil {
-			return nil, err
-		}
-		raw = storage
-	case "managed_service":
-		return nil, fmt.Errorf("%w: managed_service backup storage capture is not implemented", ErrUnsupportedBackupRoot)
-	default:
-		return nil, fmt.Errorf("%w: roots.backup_storage.binding_kind must be configured", ErrUnsupportedBackupRoot)
-	}
-	return NewEncryptedBackupStorageFromEnv(raw, envMap)
-}
-
-func NewFilesystemBackupStorage(root string) (*FilesystemBackupStorage, error) {
-	if strings.TrimSpace(root) == "" {
-		return nil, fmt.Errorf("%w: backup storage root path is required", ErrUnsupportedBackupRoot)
-	}
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		return nil, fmt.Errorf("create backup storage root: %w", err)
-	}
-	return &FilesystemBackupStorage{root: filepath.Clean(root)}, nil
-}
-
-func (storage *FilesystemBackupStorage) WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (BackupArtifactProof, error) {
-	if err := ctx.Err(); err != nil {
-		return BackupArtifactProof{}, err
-	}
-	normalizedKey, err := normalizeArtifactKey(key)
-	if err != nil {
-		return BackupArtifactProof{}, err
-	}
-	if len(body) == 0 {
-		return BackupArtifactProof{}, fmt.Errorf("%w: artifact body is empty", ErrInvalidBackupArtifact)
-	}
-	if strings.TrimSpace(contentType) == "" {
-		contentType = "application/octet-stream"
-	}
-	target := filepath.Join(storage.root, filepath.FromSlash(normalizedKey))
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("create backup artifact directory: %w", err)
-	}
-	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- key is normalized beneath the configured backup storage root.
-	if err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("create backup artifact %s: %w", normalizedKey, err)
-	}
-	_, writeErr := file.Write(body)
-	closeErr := file.Close()
-	if writeErr != nil {
-		return BackupArtifactProof{}, fmt.Errorf("write backup artifact %s: %w", normalizedKey, writeErr)
-	}
-	if closeErr != nil {
-		return BackupArtifactProof{}, fmt.Errorf("close backup artifact %s: %w", normalizedKey, closeErr)
-	}
-	stat, err := os.Stat(target) // #nosec G304 -- target is produced from a normalized backup artifact key.
-	if err != nil {
-		return BackupArtifactProof{}, fmt.Errorf("stat backup artifact %s: %w", normalizedKey, err)
-	}
-	if stat.Size() != int64(len(body)) {
-		return BackupArtifactProof{}, fmt.Errorf("%w: artifact size mismatch for %s", ErrInvalidBackupArtifact, normalizedKey)
-	}
-	return BackupArtifactProof{
-		Key:         normalizedKey,
-		SHA256:      sha256Hex(body),
-		SizeBytes:   stat.Size(),
-		ContentType: contentType,
-	}, nil
-}
-
-func (storage *FilesystemBackupStorage) ReadArtifact(ctx context.Context, key string) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	normalizedKey, err := normalizeArtifactKey(key)
-	if err != nil {
-		return nil, err
-	}
-	target := filepath.Join(storage.root, filepath.FromSlash(normalizedKey))
-	body, err := os.ReadFile(target) // #nosec G304 -- key is normalized beneath the configured backup storage root.
-	if err != nil {
-		return nil, fmt.Errorf("read backup artifact %s: %w", normalizedKey, err)
-	}
-	return body, nil
-}
-
 func VerifyArtifactProof(ctx context.Context, storage BackupStorage, proof BackupArtifactProof) ([]byte, error) {
 	if storage == nil {
 		return nil, fmt.Errorf("%w: backup storage is required", ErrInvalidBackupArtifact)
 	}
-	body, err := storage.ReadArtifact(ctx, proof.Key)
+	body, err := storage.ReadArtifact(ctx, proof.Key, proof.SizeBytes)
 	if err != nil {
 		return nil, err
 	}

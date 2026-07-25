@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -26,7 +26,7 @@ import (
 const RequestIDHeader = "X-Request-Id"
 
 type DependencySet struct {
-	Config              config.Config
+	Telemetry           TelemetrySettings
 	Env                 map[string]string
 	Postgres            *pgxpool.Pool
 	PostgresDB          postgres.DB
@@ -42,8 +42,14 @@ type DependencySet struct {
 	Readiness           ReadinessChecker
 	Admission           AdmissionGate
 	PublicErrorFaults   PublicErrorFaultStore
+	TestResetBootstrap  func(context.Context, pgx.Tx) error
 	ModuleOverrides     map[string]any
 	Now                 func() time.Time
+}
+
+type TelemetrySettings struct {
+	Enabled        bool
+	ServiceVersion string
 }
 
 func (deps DependencySet) PostgresHandle() postgres.DB {
@@ -180,8 +186,8 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if option.Dependencies.PublicErrorFaults != nil {
 		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
 	}
-	if option.Dependencies.Config.Telemetry.Enabled {
-		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Config.Telemetry.Resource.ServiceVersion)
+	if option.Dependencies.Telemetry.Enabled {
+		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Telemetry.ServiceVersion)
 	}
 	handler = withAdmissionGate(handler, option.Dependencies.Admission)
 

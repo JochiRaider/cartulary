@@ -141,8 +141,8 @@
   ],
   "owner_document_ref": "docs/network-flow-activity-nlspec.md#document:cartulary.network_flow_activity.current.v2",
   "owner_document_schema_id": "cartulary.network_flow_activity.current.v2",
-  "owner_document_sha256": "7bfe9fd2c5f7028819fc97136ee6a2e186ba1e4fddceab7ac22453d3a2a29f32",
-  "owner_document_version": "2.0.0",
+  "owner_document_sha256": "111a81c3067e8cc100a13866c37c9307364d7e879f5e1013e3f713a908215f9b",
+  "owner_document_version": "2.0.1",
   "owner_fragment_id": "network_flow_activity.profile.v2",
   "owner_id": "network_flow_activity",
   "schema_id": "cartulary.extension_owner_fragment.v1"

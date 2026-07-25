@@ -25,7 +25,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -346,7 +348,7 @@ func startRuntimeServer(handler http.Handler, activatePublication func() error) 
 }
 
 func encryptedBackupStorage(root string) (recovery.BackupStorage, error) {
-	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		return nil, err
 	}
@@ -620,11 +622,11 @@ func sourcePostgresDSN(runtimeRoot string, env map[string]string) (string, error
 	return "postgres://cartulary:cartulary@localhost:5432/" + url.PathEscape(stack.Database.LogicalID) + "?sslmode=disable", nil
 }
 
-func targetConfig(root string, origin string) config.Config {
+func targetConfig(root string, origin string) configassembly.Deployment {
 	if origin == "" {
 		origin = "http://127.0.0.1"
 	}
-	return config.Config{
+	return configassembly.Deployment{
 		ConfigSchemaID:    "cartulary.deployment_config.v1",
 		DeploymentProfile: "disconnected",
 		Application:       config.ApplicationConfig{PublicOrigin: origin},
@@ -644,6 +646,10 @@ func targetConfig(root string, origin string) config.Config {
 			ReferencePacks:  config.ReferencePackLimits{MaxExtractedBytes: config.DefaultReferencePackMaxExtractedBytes},
 			IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: config.DefaultIncidentBundleMaxExtractedBytes},
 			Previews:        config.PreviewLimits{MaxPreviewablePayloadBytes: config.DefaultPreviewMaxPreviewablePayloadBytes, MaxTextInlineBytes: config.DefaultPreviewMaxTextInlineBytes},
+			Extensions: config.ExtensionLimits{
+				StagedObjectCleanupBatch:     config.DefaultExtensionStagedObjectCleanupBatch,
+				MaxNonterminalJobsPerProfile: config.DefaultExtensionMaxNonterminalJobsPerProfile,
+			},
 		},
 	}
 }

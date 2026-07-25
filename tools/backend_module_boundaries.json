@@ -26,8 +26,23 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
       "allowed_importers": [
         "internal/app/extensionassembly/**",
+        "internal/app/server/incident_bundle_storage.go",
+        "internal/app/server/module_settings.go",
+        "internal/app/server/module_settings_test.go",
         "internal/app/server/runtime.go",
         "internal/modules/incidentbundles/**"
+      ]
+    },
+    {
+      "id": "reference-data-facade-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
+      "allowed_importers": [
+        "internal/app/extensionassembly/reference_pack_jobs.go",
+        "internal/app/server/module_settings.go",
+        "internal/app/server/module_settings_test.go",
+        "internal/app/server/reference_pack_storage.go",
+        "internal/app/server/runtime.go",
+        "internal/modules/reference_data/**"
       ]
     },
     {
@@ -138,6 +153,35 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "platform-adapter-construction-no-deployment-config",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/config"
+      ],
+      "scan_paths": [
+        "internal/app/recoveryassembly/**",
+        "internal/platform/enterpriseauth/**",
+        "internal/platform/objectstore/objectstore.go",
+        "internal/platform/postgres/postgres.go",
+        "internal/platform/postgres/migrationevidence/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "production-modules-and-http-no-deployment-config",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/config",
+        "github.com/JochiRaider/cartulary/internal/platform/rootedfs",
+        "github.com/JochiRaider/cartulary/internal/platform/securefile"
+      ],
+      "scan_paths": [
+        "internal/modules/**",
+        "internal/platform/httpapi/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
     {
       "id": "extensions-no-transport-auth-or-platform-storage",
       "imports": [
@@ -421,6 +465,27 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "root-capability-consumers-no-raw-filesystem-mutation",
+      "tokens": [
+        "os.Create(",
+        "os.Mkdir(",
+        "os.MkdirAll(",
+        "os.OpenFile(",
+        "os.Remove(",
+        "os.RemoveAll(",
+        "os.Rename(",
+        "os.WriteFile("
+      ],
+      "scan_paths": [
+        "internal/modules/incidentbundles/**",
+        "internal/modules/reference_data/**",
+        "internal/modules/recovery/**",
+        "internal/platform/objectstore/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "retired-extensions-facades",
       "tokens": [

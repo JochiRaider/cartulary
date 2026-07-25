@@ -21,14 +21,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/operator"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -46,12 +47,9 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	}()
 
 	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary")
-	cfg, err := config.LoadWithOptions(config.LoadOptions{Path: configFixture.path})
-	if err != nil {
-		t.Fatalf("load managed S3 config fixture: %v", err)
-	}
+	cfg := loadOperatorConfig(t, configFixture.path)
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
-	if _, err := objectstore.SetupWithEnv(ctx, cfg, env); err == nil {
+	if _, err := appsupport.OpenObjectStore(ctx, cfg, env); err == nil {
 		t.Fatal("expected object-store setup to fail while configured bucket is missing")
 	} else {
 		adapterErr, ok := objectstore.AsAdapterError(err)
@@ -76,7 +74,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 		t.Fatalf("object-store init exposed storage details: stdout=%s stderr=%s", stdout, stderr)
 	}
 
-	store, err := objectstore.SetupWithEnv(ctx, cfg, env)
+	store, err := appsupport.OpenObjectStore(ctx, cfg, env)
 	if err != nil {
 		t.Fatalf("object-store setup failed after init: %v", err)
 	}
@@ -895,21 +893,18 @@ func mustOpenOperatorPool(t testing.TB, dsn string) *pgxpool.Pool {
 	return pool
 }
 
-func loadOperatorConfig(t testing.TB, path string) config.Config {
+func loadOperatorConfig(t testing.TB, path string) configassembly.Deployment {
 	t.Helper()
-	cfg, err := config.LoadWithOptions(config.LoadOptions{Path: path})
+	loaded, err := configassembly.LoadPath(path)
 	if err != nil {
 		t.Fatalf("load operator config %s: %v", path, err)
 	}
-	return cfg
+	return loaded.Deployment()
 }
 
-func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
+func writeRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {
 	t.Helper()
-	markerPath, err := operatorops.RestoreVerificationTargetMarkerPath(cfg)
-	if err != nil {
-		t.Fatalf("resolve restore verification target marker path: %v", err)
-	}
+	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
 		t.Fatalf("create restore verification target marker directory: %v", err)
 	}
@@ -919,12 +914,9 @@ func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 	}
 }
 
-func writeInvalidRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
+func writeInvalidRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {
 	t.Helper()
-	markerPath, err := operatorops.RestoreVerificationTargetMarkerPath(cfg)
-	if err != nil {
-		t.Fatalf("resolve invalid restore verification target marker path: %v", err)
-	}
+	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
 		t.Fatalf("create invalid restore verification target marker directory: %v", err)
 	}
@@ -963,7 +955,7 @@ func operatorRecoveryEnv() map[string]string {
 
 func newOperatorEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 	t.Helper()
-	rawStorage, err := recovery.NewFilesystemBackupStorage(root)
+	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		t.Fatalf("create operator backup storage: %v", err)
 	}

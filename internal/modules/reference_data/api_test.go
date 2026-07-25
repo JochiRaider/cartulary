@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -213,7 +212,7 @@ func TestVerifierRejectsArchiveLimits_Unit(t *testing.T) {
 			bundle: valid,
 			input: VerificationInput{
 				ContentType:   MediaTypeZip,
-				ArchiveLimits: config.ArchiveLimits{MaxMembers: 1},
+				ArchiveLimits: ArchiveLimits{MaxMembers: 1},
 			},
 			wantReason: "archive_member_count_exceeded",
 		},
@@ -222,7 +221,7 @@ func TestVerifierRejectsArchiveLimits_Unit(t *testing.T) {
 			bundle: valid,
 			input: VerificationInput{
 				ContentType:     MediaTypeZip,
-				ReferenceLimits: config.ReferencePackLimits{MaxExtractedBytes: 1},
+				ReferenceLimits: ReferenceLimits{MaxExtractedBytes: 1},
 			},
 			wantReason: "archive_extracted_bytes_exceeded",
 		},
@@ -231,7 +230,7 @@ func TestVerifierRejectsArchiveLimits_Unit(t *testing.T) {
 			bundle: compressibleReferencePackBundle(t),
 			input: VerificationInput{
 				ContentType:   MediaTypeZip,
-				ArchiveLimits: config.ArchiveLimits{MaxCompressionRatio: 1},
+				ArchiveLimits: ArchiveLimits{MaxCompressionRatio: 1},
 			},
 			wantReason: "archive_compression_ratio_exceeded",
 		},

@@ -14,7 +14,7 @@ import (
 func TestResourceIdentityClosedRegistry(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = "test"
-	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t,
+	resource, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t,
 		"import",
 		"incident_portability",
 		"network_flow_activity",
@@ -57,7 +57,7 @@ func TestResourceIdentityClosedRegistry(t *testing.T) {
 func TestResourceIdentityOmitsOptionalNullDeploymentEnvironment(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = ""
-	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
+	resource, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestExternalResourceContributionRejectsSchemaURLAndDetectorAttributes(t *te
 
 func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
+	resource, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity with generated instance id: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 	}
 
 	cfg.Telemetry.Resource.ServiceInstanceID = "10000000-0000-4000-8000-000000000001"
-	resource, err = BuildResourceIdentity(cfg, resolvedClaimIdentity(t))
+	resource, err = buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t))
 	if err != nil {
 		t.Fatalf("build resource identity with configured opaque instance id: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 		"10000000-0000-4000-8000-0000000000AA",
 	} {
 		cfg.Telemetry.Resource.ServiceInstanceID = invalid
-		if _, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t)); err == nil {
+		if _, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t)); err == nil {
 			t.Fatalf("unsafe service.instance.id %q should fail resource construction", invalid)
 		}
 	}
@@ -125,7 +125,7 @@ func TestResourceInstanceIDOpacityPredicate(t *testing.T) {
 
 func TestResourceIdentityTrustsDigestBoundFutureProfileWithoutLocalVocabulary(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	resource, err := BuildResourceIdentity(cfg, resolvedClaimIdentity(t, "future_profile"))
+	resource, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t, "future_profile"))
 	if err != nil {
 		t.Fatalf("future profile from canonical claim identity should not require telemetry vocabulary: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestResourceIdentityRejectsUnboundOrNoncanonicalClaimIdentity(t *testing.T)
 		"bad token": resolvedClaimIdentity(t, "BAD"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := BuildResourceIdentity(cfg, identity); err == nil {
+			if _, err := buildResourceIdentityFromConfig(cfg, identity); err == nil {
 				t.Fatal("expected invalid resolved claim identity to fail")
 			}
 		})
@@ -157,7 +157,7 @@ func TestResourceIdentityRejectsUnboundOrNoncanonicalClaimIdentity(t *testing.T)
 
 func TestRuntimeResourceIdentityIsCopied(t *testing.T) {
 	cfg := validTelemetryBootstrapConfig(t)
-	runtime, err := Bootstrap(t.Context(), cfg, nil, WithResolvedClaimIdentity(resolvedClaimIdentity(t, "import")))
+	runtime, err := bootstrapFromConfig(t.Context(), cfg, nil, WithResolvedClaimIdentity(resolvedClaimIdentity(t, "import")))
 	if err != nil {
 		t.Fatalf("bootstrap telemetry runtime: %v", err)
 	}

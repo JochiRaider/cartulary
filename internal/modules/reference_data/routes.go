@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +30,8 @@ type Service struct {
 	hub                 *platformws.Hub
 	keys                authn.MasterKeys
 	cursorCodec         *pagination.Codec
+	storage             Storage
+	limits              Limits
 	deps                httpapi.DependencySet
 	now                 func() time.Time
 }
@@ -40,11 +40,25 @@ type RouteOption func(*routeOptions)
 
 type routeOptions struct {
 	jobSuccessFinalizer JobSuccessFinalizer
+	storage             Storage
+	limits              Limits
 }
 
 func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
 	return func(options *routeOptions) {
 		options.jobSuccessFinalizer = finalizer
+	}
+}
+
+func WithStorage(storage Storage) RouteOption {
+	return func(options *routeOptions) {
+		options.storage = storage
+	}
+}
+
+func WithLimits(limits Limits) RouteOption {
+	return func(options *routeOptions) {
+		options.limits = limits
 	}
 }
 
@@ -89,6 +103,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if deps.Jobs != nil && deps.JobRunner == nil {
 		return nil, fmt.Errorf("Reference Pack admitted route requires the shared job runner")
 	}
+	if deps.Jobs != nil && options.storage == nil {
+		return nil, fmt.Errorf("Reference Pack admitted route requires storage")
+	}
 	service := &Service{
 		store:               NewStore(deps.Postgres),
 		authStore:           authn.NewStore(deps.PostgresHandle()),
@@ -98,6 +115,8 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		hub:                 deps.WSHub,
 		keys:                keys,
 		cursorCodec:         cursorCodec,
+		storage:             options.storage,
+		limits:              options.limits,
 		deps:                deps,
 		now:                 now,
 	}
@@ -328,7 +347,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	stagingPath, err := s.stageBundle(envelope.FileSHA256Hex, envelope.File)
+	stagingRef, err := s.storage.Stage(r.Context(), envelope.FileSHA256Hex, envelope.File)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -337,24 +356,24 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		ActorUserID:       principal.User.ID,
 		Request:           request,
 		BundleSHA256:      envelope.FileSHA256Hex,
-		BundleStagingPath: stagingPath,
+		BundleStagingRef:  stagingRef,
 		NormalizedRequest: request.Normalized,
 		Now:               s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		_ = os.Remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingRef)
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		_ = os.Remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingRef)
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	if !result.Replayed {
 		s.dispatchReferencePackJob(result.Job.JobID)
 	} else {
-		_ = os.Remove(stagingPath)
+		_ = s.storage.RemoveStaged(stagingRef)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -373,7 +392,13 @@ func (s *Service) handleActivate(w http.ResponseWriter, r *http.Request, packKey
 		PackKey:     packKey,
 		PackVersion: packVersion,
 		Request:     request,
-		Now:         s.now(),
+		ActivationPreflight: func(record VersionRecord) error {
+			if _, verificationErr := s.verifyStoredBundle(record); verificationErr != nil {
+				return verificationErr
+			}
+			return nil
+		},
+		Now: s.now(),
 	})
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
@@ -570,6 +595,9 @@ func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) 
 		total = len(payload.ResolvedPackKeys)
 	}
 	if ok := s.markJobRunningOrResume(ctx, jobID, total); !ok {
+		if payload.JobKind == "import" && payload.BundleStagingRef != nil {
+			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
+		}
 		return nil
 	}
 	switch payload.JobKind {
@@ -611,21 +639,21 @@ func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, t
 }
 
 func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) error {
-	if payload.BundleStagingPath == nil {
+	if payload.BundleStagingRef == nil {
 		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return nil
 	}
 	removeStaging := true
 	defer func() {
 		if removeStaging {
-			_ = os.Remove(*payload.BundleStagingPath)
+			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
 		}
 	}()
 	if s.jobCancelRequested(ctx, payload.JobID) {
 		s.completeCanceled(ctx, payload.JobID, 0, 1)
 		return nil
 	}
-	data, err := os.ReadFile(*payload.BundleStagingPath)
+	data, err := s.storage.ReadStaged(*payload.BundleStagingRef, referencePackStorageReadLimit(s.limits.ReferencePacks.MaxExtractedBytes))
 	if err != nil {
 		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_verification_failed", map[string]any{"reason_code": "payload_missing"}))
 		return nil
@@ -639,12 +667,13 @@ func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) erro
 		s.completeCanceled(ctx, payload.JobID, 0, 1)
 		return nil
 	}
-	bundlePath, err := s.persistBundle(verification.BundleSHA256, data)
+	bundleRef, err := s.storage.Publish(ctx, verification.BundleSHA256, data)
 	if err != nil {
 		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return nil
 	}
 	if s.jobCancelRequested(ctx, payload.JobID) {
+		_ = s.storage.RemovePublished(bundleRef)
 		s.completeCanceled(ctx, payload.JobID, 0, 1)
 		return nil
 	}
@@ -655,10 +684,16 @@ func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) erro
 			ResourceRefs: []jobs.ResourceRef{jobs.ResourceRef(referencePackResourceRef(verification.PackKey, verification.PackVersion))},
 		},
 	}, func(ctx context.Context, tx pgx.Tx) error {
-		_, err := s.store.CompleteImportVerificationTx(ctx, tx, payload.JobID, payload.ActorUserID, *verification, bundlePath, s.now())
+		_, err := s.store.CompleteImportVerificationTx(ctx, tx, payload.JobID, payload.ActorUserID, *verification, bundleRef, s.now())
 		return err
 	})
 	if err != nil {
+		if !errors.Is(err, ErrJobFinalizationIndeterminate) {
+			_ = s.storage.RemovePublished(bundleRef)
+		}
+		// Preserve staged input for retry. Indeterminate finalization also
+		// preserves the complete published object because committed rows may
+		// reference it.
 		removeStaging = false
 	}
 	return err
@@ -833,8 +868,8 @@ func (s *Service) verifyUpload(bundle []byte, contentType string) (*Verification
 	result, err := VerifyBundle(VerificationInput{
 		Bundle:          bundle,
 		ContentType:     contentType,
-		ArchiveLimits:   s.deps.Config.Limits.Archives,
-		ReferenceLimits: s.deps.Config.Limits.ReferencePacks,
+		ArchiveLimits:   s.limits.Archives,
+		ReferenceLimits: s.limits.ReferencePacks,
 	})
 	if err != nil {
 		var verificationErr *VerificationError
@@ -847,31 +882,25 @@ func (s *Service) verifyUpload(bundle []byte, contentType string) (*Verification
 }
 
 func (s *Service) verifyStoredBundle(record VersionRecord) (*VerificationResult, *VerificationError) {
-	data, err := os.ReadFile(record.BundleStoragePath)
+	data, err := s.storage.ReadPublished(record.BundleStorageRef, referencePackStorageReadLimit(s.limits.ReferencePacks.MaxExtractedBytes))
 	if err != nil {
 		return nil, &VerificationError{ReasonCode: "payload_missing"}
 	}
 	return s.verifyUpload(data, MediaTypeOctetStream)
 }
 
-func (s *Service) stageBundle(fileSHA string, data []byte) (string, error) {
-	root := s.deps.Config.Roots.TemporaryWork.Path
-	if strings.TrimSpace(root) == "" {
-		root = os.TempDir()
+func referencePackStorageReadLimit(maxExtractedBytes int64) int64 {
+	const (
+		archiveOverheadBytes int64 = 64 << 20
+		maxInt64                   = int64(1<<63 - 1)
+	)
+	if maxExtractedBytes <= 0 {
+		return archiveOverheadBytes
 	}
-	bundleDir := filepath.Join(root, "reference-packs", "imports")
-	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
-		return "", err
+	if maxExtractedBytes > maxInt64-archiveOverheadBytes {
+		return maxInt64
 	}
-	name := fileSHA
-	if strings.TrimSpace(name) == "" {
-		name = uuid.NewString()
-	}
-	path := filepath.Join(bundleDir, name+"-"+uuid.NewString()+".bundle")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
+	return maxExtractedBytes + archiveOverheadBytes
 }
 
 func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {

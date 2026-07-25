@@ -12,7 +12,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	viewschematest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
@@ -46,7 +46,7 @@ func StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.Depen
 	return StartRuntime(t).StartServerWithDependencies(t, prefix, deps)
 }
 
-func StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
+func StartServerWithConfig(t testing.TB, prefix string, mutate func(*configassembly.Deployment)) *ServerHarness {
 	t.Helper()
 
 	return StartRuntime(t).StartServerWithConfig(t, prefix, mutate)
@@ -106,7 +106,7 @@ func (h *RuntimeHarness) StartServerWithDatabaseAndDependencies(t testing.TB, pr
 	return serverHarnessForDatabase(t, testDB, server)
 }
 
-func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
+func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, mutate func(*configassembly.Deployment)) *ServerHarness {
 	t.Helper()
 
 	testDB := h.PrepareServerDatabase(t, prefix)

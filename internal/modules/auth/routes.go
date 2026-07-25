@@ -158,11 +158,18 @@ type RouteOption func(*routeOptions)
 
 type routeOptions struct {
 	enterpriseAuthBindings bool
+	publicOrigin           string
 }
 
 func WithEnterpriseAuthBindings() RouteOption {
 	return func(options *routeOptions) {
 		options.enterpriseAuthBindings = true
+	}
+}
+
+func WithPublicOrigin(publicOrigin string) RouteOption {
+	return func(options *routeOptions) {
+		options.publicOrigin = publicOrigin
 	}
 }
 
@@ -174,7 +181,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps, settings.enterpriseAuthBindings)
+		service, err := newService(deps, settings.enterpriseAuthBindings, settings.publicOrigin)
 		if err != nil {
 			return err
 		}
@@ -195,9 +202,15 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	}
 }
 
-func RegisterEnterpriseRoutes() httpapi.RouteRegistrar {
+func RegisterEnterpriseRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, true)
+		settings := routeOptions{}
+		for _, option := range options {
+			if option != nil {
+				option(&settings)
+			}
+		}
+		service, err := newService(deps, true, settings.publicOrigin)
 		if err != nil {
 			return err
 		}
@@ -209,7 +222,7 @@ func RegisterEnterpriseRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func RegisterTestRoutes() httpapi.RouteRegistrar {
+func RegisterTestRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if !httpapi.TestRoutesEnabled(deps.Env) {
 			return nil
@@ -218,7 +231,13 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		service, err := newService(deps, false)
+		settings := routeOptions{}
+		for _, option := range options {
+			if option != nil {
+				option(&settings)
+			}
+		}
+		service, err := newService(deps, false, settings.publicOrigin)
 		if err != nil {
 			return err
 		}
@@ -228,7 +247,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, enterpriseAdmitted bool) (*Service, error) {
+func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigin string) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -283,7 +302,7 @@ func newService(deps httpapi.DependencySet, enterpriseAdmitted bool) (*Service, 
 		keys:                    keys,
 		cursorCodec:             cursorCodec,
 		env:                     deps.Env,
-		publicOrigin:            deps.Config.Application.PublicOrigin,
+		publicOrigin:            publicOrigin,
 		now:                     now,
 		enterpriseAdmitted:      enterpriseAdmitted,
 		oidcVerifier:            oidcVerifier,

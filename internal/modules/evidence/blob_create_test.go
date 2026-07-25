@@ -12,11 +12,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -302,7 +302,7 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 		maxPreviewBytes = int64(64)
 		maxTextBytes    = int64(32)
 	)
-	harness := workbookscenariotest.StartServerWithConfig(t, "evidence_lifecycle-preview-size", func(cfg *config.Config) {
+	harness := workbookscenariotest.StartServerWithConfig(t, "evidence_lifecycle-preview-size", func(cfg *configassembly.Deployment) {
 		cfg.Limits.Previews.MaxPreviewablePayloadBytes = maxPreviewBytes
 		cfg.Limits.Previews.MaxTextInlineBytes = maxTextBytes
 	})

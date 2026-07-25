@@ -10,8 +10,9 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
 func TestMigrateRunnerAcceptsOnlyExplicitUp(t *testing.T) {
@@ -46,9 +47,9 @@ func TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration(t *testing.T)
 			stderr := &bytes.Buffer{}
 			runner := newTestMigrateRunner(t)
 			runner.stderr = stderr
-			runner.loadConfig = func() (config.Config, error) {
+			runner.loadConfig = func() (configassembly.Loaded, error) {
 				t.Fatal("invalid grammar loaded config")
-				return config.Config{}, nil
+				return configassembly.Loaded{}, nil
 			}
 			if exitCode := runner.runCLI(context.Background(), args); exitCode != 2 {
 				t.Fatalf("exit code got %d want 2", exitCode)
@@ -64,12 +65,12 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	runner.loadConfig = func() (config.Config, error) {
-		return config.Config{}, errors.New("config unavailable")
+	runner.loadConfig = func() (configassembly.Loaded, error) {
+		return configassembly.Loaded{}, errors.New("config unavailable")
 	}
 
 	openCalled := false
-	runner.openSQL = func(cfg config.Config) (*sql.DB, error) {
+	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
 		openCalled = true
 		return nil, nil
 	}
@@ -100,7 +101,7 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.stderr = stderr
 
 	migrateCalled := false
-	runner.openSQL = func(cfg config.Config) (*sql.DB, error) {
+	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
 	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
@@ -182,6 +183,17 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 
 func newTestMigrateRunner(t testing.TB) migrateRunner {
 	t.Helper()
+	roots := configtest.SetupTempRoots(t)
+	configtest.BindPostgresDSNToDatabaseRoot(
+		t,
+		roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
+		"postgres://unit-test",
+	)
+	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, roots.Paths)
+	loaded, err := configassembly.Admit(deployment)
+	if err != nil {
+		t.Fatalf("admit migrate test deployment: %v", err)
+	}
 
 	db, err := sql.Open("pgx", "postgres://cartulary:cartulary@127.0.0.1:1/cartulary?sslmode=disable")
 	if err != nil {
@@ -193,10 +205,10 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 
 	return migrateRunner{
 		stderr: bytes.NewBuffer(nil),
-		loadConfig: func() (config.Config, error) {
-			return config.Config{}, nil
+		loadConfig: func() (configassembly.Loaded, error) {
+			return loaded, nil
 		},
-		openSQL: func(cfg config.Config) (*sql.DB, error) {
+		openSQL: func(settings postgres.Settings) (*sql.DB, error) {
 			return db, nil
 		},
 		migrate: func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {

@@ -2,17 +2,27 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
+	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -24,6 +34,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	originalRunBootstrap := runBootstrap
 	originalNewWSHub := newWSHub
 	originalNewHTTPHandler := newHTTPHandler
+	originalReadSecureFile := readSecureFile
 	t.Cleanup(func() {
 		newJobsManager = originalNewJobsManager
 		setupPostgres = originalSetupPostgres
@@ -32,6 +43,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		runBootstrap = originalRunBootstrap
 		newWSHub = originalNewWSHub
 		newHTTPHandler = originalNewHTTPHandler
+		readSecureFile = originalReadSecureFile
 	})
 
 	var jobsCalls int
@@ -41,7 +53,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	}
 
 	var postgresCalls int
-	setupPostgres = func(ctx context.Context, cfg config.Config, env map[string]string) (*pgxpool.Pool, error) {
+	setupPostgres = func(ctx context.Context, settings postgres.Settings) (*pgxpool.Pool, error) {
 		postgresCalls++
 		return nil, nil
 	}
@@ -51,7 +63,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	var objectStoreCalls int
 	var setupStore objectstore.Store
-	setupObjectStore = func(ctx context.Context, cfg config.Config, env map[string]string) (objectstore.Store, error) {
+	setupObjectStore = func(ctx context.Context, settings objectstore.Settings, instrumentation objectstore.Instrumentation) (objectstore.Store, error) {
 		objectStoreCalls++
 		return setupStore, nil
 	}
@@ -95,10 +107,17 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("inactive extension configuration stops before dependency wiring", func(t *testing.T) {
+		t.Cleanup(func() { readSecureFile = originalReadSecureFile })
 		cfg := RuntimeConfig(t)
 		cfg.EnterpriseAuthentication.Claimed = false
 		cfg.EnterpriseAuthentication.ProviderManifestPath = "/do-not-read/provider.json"
 
+		var secureFileReads int
+		readSecureFile = func(string, int64) (securefile.Document, error) {
+			secureFileReads++
+			t.Fatal("inactive Enterprise Authentication configuration reached secure file work")
+			return securefile.Document{}, nil
+		}
 		jobsCalls = 0
 		postgresCalls = 0
 		objectStoreCalls = 0
@@ -114,8 +133,55 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			diagnostics[0].ReasonCode != "extension_config_without_claim" {
 			t.Fatalf("inactive extension diagnostics = %#v / %v", diagnostics, err)
 		}
-		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-			t.Fatalf("inactive extension configuration reached dependency wiring: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		if secureFileReads != 0 || jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("inactive extension configuration reached effects: secure_file=%d jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", secureFileReads, jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
+	t.Run("unclaimed Network Flow configuration stops before active validation or file work", func(t *testing.T) {
+		t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+		cfg := RuntimeConfig(t)
+		cfg.NetworkFlowActivity.Claimed = false
+		cfg.NetworkFlowActivity.KeyRingManifestPath = "relative/must-not-be-read.json"
+
+		var secureFileReads int
+		readSecureFile = func(string, int64) (securefile.Document, error) {
+			secureFileReads++
+			t.Fatal("unclaimed Network Flow configuration reached secure file work")
+			return securefile.Document{}, nil
+		}
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		if err == nil {
+			t.Fatal("expected inactive Network Flow configuration to fail closed")
+		}
+		diagnostics, ok := config.DiagnosticsFromError(err)
+		if !ok || len(diagnostics) != 1 {
+			t.Fatalf("inactive Network Flow diagnostics = %#v / %v", diagnostics, err)
+		}
+		diagnostic := diagnostics[0]
+		if diagnostic.Path != "network_flow_activity.key_ring_manifest_path" ||
+			diagnostic.ReasonCode != "extension_config_without_claim" ||
+			diagnostic.Message != "Extension configuration is present while the profile is inactive." ||
+			diagnostic.Details["profile_id"] != "network_flow_activity" ||
+			diagnostic.Details["config_path"] != "$.network_flow_activity.key_ring_manifest_path" {
+			t.Fatalf("inactive Network Flow diagnostic = %#v", diagnostic)
+		}
+		if secureFileReads != 0 ||
+			jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf(
+				"inactive Network Flow reached effects: secure_file=%d jobs=%d postgres=%d object_store=%d websocket=%d handler=%d",
+				secureFileReads,
+				jobsCalls,
+				postgresCalls,
+				objectStoreCalls,
+				wsHubCalls,
+				handlerCalls,
+			)
 		}
 	})
 
@@ -138,7 +204,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 		var bootstrapCalls int
-		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			bootstrapCalls++
 			return nil
 		}
@@ -173,7 +239,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		cfg := RuntimeConfig(t)
 
 		var bootstrapCalls int
-		runBootstrap = func(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) error {
+		runBootstrap = func(ctx context.Context, settings bootstrap.Settings, pool *pgxpool.Pool) error {
 			bootstrapCalls++
 			return config.NewDiagnosticsError(config.Diagnostic{
 				Path:       "bootstrap.first_admin_manifest_path",
@@ -218,7 +284,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		cfg := RuntimeConfig(t)
 		ownedStore := &CloseTrackingStore{}
 		setupStore = ownedStore
-		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
@@ -237,7 +303,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		cfg := RuntimeConfig(t)
 		borrowedStore := &CloseTrackingStore{}
 		setupStore = nil
-		runBootstrap = func(context.Context, config.Config, *pgxpool.Pool) error {
+		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
@@ -250,6 +316,191 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 }
 
+func TestEnterpriseAuthenticationManifestPreflight_Unit(t *testing.T) {
+	originalReadSecureFile := readSecureFile
+	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+
+	t.Run("unclaimed configuration performs no file work", func(t *testing.T) {
+		var reads int
+		readSecureFile = func(string, int64) (securefile.Document, error) {
+			reads++
+			return securefile.Document{}, nil
+		}
+		definitions, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
+			ProviderManifestPath: "/must/not/be/read",
+		}, nil)
+		if err != nil || definitions != nil || reads != 0 {
+			t.Fatalf("unclaimed preflight = definitions %#v, reads %d, error %v", definitions, reads, err)
+		}
+	})
+
+	readSecureFile = securefile.Read
+	root := t.TempDir()
+	malformed := filepath.Join(root, "malformed.json")
+	if err := os.WriteFile(malformed, []byte(`{"provider_manifest_schema_id":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oversized := filepath.Join(root, "oversized.json")
+	if err := os.WriteFile(oversized, make([]byte, enterpriseauth.ProviderManifestMaximumSize+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	symlink := filepath.Join(root, "manifest-link.json")
+	if err := os.Symlink(malformed, symlink); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, testCase := range map[string]struct {
+		path       string
+		wantReason string
+	}{
+		"unreadable": {path: filepath.Join(root, "missing.json"), wantReason: "provider_manifest_not_readable"},
+		"directory":  {path: root, wantReason: "provider_manifest_not_regular_file"},
+		"oversized":  {path: oversized, wantReason: "provider_manifest_schema_invalid"},
+		"symlink":    {path: symlink, wantReason: "provider_manifest_not_regular_file"},
+		"malformed":  {path: malformed, wantReason: "provider_manifest_parse_error"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
+				Claimed:              true,
+				ProviderManifestPath: testCase.path,
+			}, nil)
+			requireEnterpriseManifestDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", testCase.wantReason)
+			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), testCase.path) {
+				t.Fatalf("manifest error disclosed host path: %v", err)
+			}
+		})
+	}
+
+	for name, certificateSetup := range map[string]func(string) error{
+		"certificate symlink": func(path string) error {
+			target := filepath.Join(root, "certificate-target.pem")
+			if err := os.WriteFile(target, []byte("not reached"), 0o600); err != nil {
+				return err
+			}
+			return os.Symlink(target, path)
+		},
+		"oversized certificate": func(path string) error {
+			return os.WriteFile(path, make([]byte, enterpriseauth.SigningCertificateMaximumSize+1), 0o600)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			certificatePath := filepath.Join(root, strings.ReplaceAll(name, " ", "-")+".pem")
+			if err := certificateSetup(certificatePath); err != nil {
+				t.Fatal(err)
+			}
+			manifestPath := filepath.Join(root, strings.ReplaceAll(name, " ", "-")+".json")
+			if err := os.WriteFile(manifestPath, enterpriseSAMLManifest(certificatePath), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
+				Claimed:              true,
+				ProviderManifestPath: manifestPath,
+			}, nil)
+			requireEnterpriseManifestDiagnostic(
+				t,
+				err,
+				"enterprise_authentication.provider_manifest.providers[0].idp_signing_certificate_paths[0]",
+				"provider_manifest_referenced_file_invalid",
+			)
+			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), certificatePath) {
+				t.Fatalf("certificate error disclosed host path: %v", err)
+			}
+		})
+	}
+}
+
+func enterpriseSAMLManifest(certificatePath string) []byte {
+	return []byte(fmt.Sprintf(`{
+  "provider_manifest_schema_id": "cartulary.enterprise_auth_providers.v1",
+  "providers": [{
+    "provider_key": "corp-saml",
+    "provider_type": "saml",
+    "display_name": "Corporate SAML",
+    "idp_entity_id": "https://idp.example.test/entity",
+    "sso_url": "https://idp.example.test/sso",
+    "idp_signing_certificate_paths": [%q],
+    "sp_entity_id": "https://cartulary.example.test/saml/sp",
+    "subject_source": { "kind": "name_id" }
+  }]
+}`, certificatePath))
+}
+
+func requireEnterpriseManifestDiagnostic(t testing.TB, err error, wantPath string, wantReason string) {
+	t.Helper()
+	diagnostics, ok := config.DiagnosticsFromError(err)
+	if !ok || len(diagnostics) != 1 ||
+		diagnostics[0].Path != wantPath ||
+		diagnostics[0].ReasonCode != wantReason {
+		t.Fatalf("enterprise manifest diagnostics = %#v / %v", diagnostics, err)
+	}
+}
+
+func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
+	originalReadSecureFile := readSecureFile
+	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+
+	t.Run("unclaimed configuration performs no file work", func(t *testing.T) {
+		var reads int
+		readSecureFile = func(string, int64) (securefile.Document, error) {
+			reads++
+			return securefile.Document{}, nil
+		}
+		rings, err := loadNetworkFlowKeyRings(
+			networkflow.Configuration{KeyRingManifestPath: "/must/not/be/read"},
+			nil,
+			time.Time{},
+			secretpurpose.NewRegistry(),
+		)
+		if err != nil || rings != nil || reads != 0 {
+			t.Fatalf("unclaimed preflight = rings %v, reads %d, error %v", rings, reads, err)
+		}
+	})
+
+	readSecureFile = securefile.Read
+	root := t.TempDir()
+	malformed := filepath.Join(root, "malformed.json")
+	if err := os.WriteFile(malformed, []byte(`{"schema_id":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oversized := filepath.Join(root, "oversized.json")
+	if err := os.WriteFile(oversized, make([]byte, networkflow.KeyRingManifestMaximumSize+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	symlink := filepath.Join(root, "manifest-link.json")
+	if err := os.Symlink(malformed, symlink); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, testCase := range map[string]struct {
+		path       string
+		wantReason string
+	}{
+		"unreadable": {path: filepath.Join(root, "missing.json"), wantReason: "network_flow_cursor_key_missing"},
+		"directory":  {path: root, wantReason: "network_flow_cursor_key_invalid"},
+		"oversized":  {path: oversized, wantReason: "network_flow_cursor_key_invalid"},
+		"symlink":    {path: symlink, wantReason: "network_flow_cursor_key_invalid"},
+		"malformed":  {path: malformed, wantReason: "network_flow_cursor_key_invalid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadNetworkFlowKeyRings(
+				networkflow.Configuration{Claimed: true, KeyRingManifestPath: testCase.path},
+				nil,
+				time.Now().UTC(),
+				secretpurpose.NewRegistry(),
+			)
+			diagnostics, ok := config.DiagnosticsFromError(err)
+			if !ok || len(diagnostics) != 1 ||
+				diagnostics[0].Path != "network_flow_activity.key_ring_manifest_path" ||
+				diagnostics[0].ReasonCode != testCase.wantReason {
+				t.Fatalf("manifest diagnostics = %#v / %v", diagnostics, err)
+			}
+			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), testCase.path) {
+				t.Fatalf("manifest error disclosed host path: %v", err)
+			}
+		})
+	}
+}
+
 type CloseTrackingStore struct {
 	objectstore.Store
 	closeCalls int
@@ -260,11 +511,22 @@ func (s *CloseTrackingStore) Close() error {
 	return nil
 }
 
-func RuntimeConfig(t testing.TB) config.Config {
+func RuntimeConfig(t testing.TB) configassembly.Deployment {
 	t.Helper()
 
 	base := t.TempDir()
-	return config.Config{
+	databaseRoot := filepath.Join(base, "postgres")
+	if err := os.MkdirAll(databaseRoot, 0o700); err != nil {
+		t.Fatalf("create database root fixture: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(databaseRoot, postgres.FilesystemRootDSNFile),
+		[]byte("postgres://unit-test"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write database DSN fixture: %v", err)
+	}
+	return configassembly.Deployment{
 		ConfigSchemaID:    "cartulary.deployment_config.v1",
 		DeploymentProfile: "disconnected",
 		Application: config.ApplicationConfig{
@@ -273,7 +535,7 @@ func RuntimeConfig(t testing.TB) config.Config {
 		Roots: config.RootBindings{
 			DatabaseStorage: config.RootBinding{
 				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "postgres"),
+				Path:        databaseRoot,
 			},
 			ObjectStorage: config.RootBinding{
 				BindingKind: "filesystem_root",

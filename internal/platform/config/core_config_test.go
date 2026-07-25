@@ -6,13 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config/extensioninactive"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestConfigDiscovery_Unit(t *testing.T) {
 	t.Run("uses the canonical default selector", func(t *testing.T) {
-		path, err := ResolvePathWithOptions(LoadOptions{})
+		path, err := resolvePathWithOptions(LoadOptions{})
 		if err != nil {
 			t.Fatalf("resolve path: %v", err)
 		}
@@ -23,7 +22,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 
 	t.Run("selects an absolute CARTULARY_CONFIG_FILE override", func(t *testing.T) {
 		alternate := writeTempConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-		path, err := ResolvePathWithOptions(LoadOptions{
+		path, err := resolvePathWithOptions(LoadOptions{
 			Env: map[string]string{
 				ConfigFileEnv: alternate,
 			},
@@ -35,7 +34,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 			t.Fatalf("unexpected override path: got %q want %q", path, alternate)
 		}
 
-		cfg, err := LoadWithOptions(LoadOptions{
+		cfg, err := loadWithOptions(LoadOptions{
 			Env: map[string]string{
 				ConfigFileEnv: alternate,
 			},
@@ -49,7 +48,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("requires selector overrides to be absolute", func(t *testing.T) {
-		_, err := ResolvePathWithOptions(LoadOptions{
+		_, err := resolvePathWithOptions(LoadOptions{
 			Env: map[string]string{
 				ConfigFileEnv: "relative/config.toml",
 			},
@@ -60,7 +59,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("applies nested overlays after file load", func(t *testing.T) {
-		cfg, err := LoadWithOptions(LoadOptions{
+		cfg, err := loadWithOptions(LoadOptions{
 			Path: fixtureConfigPath(),
 			Env: map[string]string{
 				"CARTULARY__ROOTS__BACKUP_STORAGE__PATH": "/srv/cartulary/backups",
@@ -147,27 +146,23 @@ func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "extension_config_without_claim")
 	})
 
-	t.Run("requires provider manifest when claimed", func(t *testing.T) {
+	t.Run("preserves claimed values for owner validation", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\n"
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "provider_manifest_path_missing")
+		cfg := mustLoadConfig(t, content, nil)
+		if !cfg.EnterpriseAuthentication.Claimed || cfg.EnterpriseAuthentication.ProviderManifestPath != "" {
+			t.Fatalf("owner input was not preserved: %#v", cfg.EnterpriseAuthentication)
+		}
 	})
 
-	t.Run("normalizes valid claimed provider manifest path", func(t *testing.T) {
+	t.Run("preserves provider manifest path for owner normalization", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\nprovider_manifest_path = \"/etc/cartulary//enterprise-auth-providers.json\"\n"
 		cfg := mustLoadConfig(t, content, nil)
 		if !cfg.EnterpriseAuthentication.Claimed {
 			t.Fatalf("enterprise authentication claim not retained")
 		}
-		if got, want := cfg.EnterpriseAuthentication.ProviderManifestPath, "/etc/cartulary/enterprise-auth-providers.json"; got != want {
-			t.Fatalf("unexpected normalized provider manifest path: got %q want %q", got, want)
+		if got, want := cfg.EnterpriseAuthentication.ProviderManifestPath, "/etc/cartulary//enterprise-auth-providers.json"; got != want {
+			t.Fatalf("generic parser changed owner value: got %q want %q", got, want)
 		}
-	})
-
-	t.Run("rejects invalid claimed provider manifest path", func(t *testing.T) {
-		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\nprovider_manifest_path = \"relative/providers.json\"\n"
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "path_not_absolute")
 	})
 
 	t.Run("supports environment overlays", func(t *testing.T) {
@@ -200,11 +195,12 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 		}
 	})
 
-	t.Run("requires a key-ring manifest for claimed file config", func(t *testing.T) {
+	t.Run("preserves a claimed setting for owner validation", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\n"
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "network_flow_cursor_key_missing")
-		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "network_flow_safe_digest_key_missing")
+		cfg := mustLoadConfig(t, content, nil)
+		if !cfg.NetworkFlowActivity.Claimed || cfg.NetworkFlowActivity.KeyRingManifestPath != "" {
+			t.Fatalf("owner input was not preserved: %#v", cfg.NetworkFlowActivity)
+		}
 	})
 
 	t.Run("accepts claimed file config with key-ring manifest path", func(t *testing.T) {
@@ -235,9 +231,17 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	})
 
 	t.Run("rejects key-ring manifest path while unclaimed", func(t *testing.T) {
-		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\nkey_ring_manifest_path = \"/etc/cartulary/network-flow-key-rings.json\"\n"
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\nkey_ring_manifest_path = \"relative/must-not-be-read.json\"\n"
 		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "network_flow_activity.key_ring_manifest_path", "extension_config_without_claim")
+		requireExactInactiveDiagnostic(t, err, "network_flow_activity", "network_flow_activity.key_ring_manifest_path")
+	})
+
+	t.Run("rejects an unclaimed key-ring overlay before active path semantics", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "false",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": "relative/must-not-be-read.json",
+		})
+		requireExactInactiveDiagnostic(t, err, "network_flow_activity", "network_flow_activity.key_ring_manifest_path")
 	})
 }
 
@@ -283,7 +287,7 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 	t.Run("accepts filesystem root bindings for every supported profile", func(t *testing.T) {
 		for _, profile := range bootstrapSupportedDeploymentProfiles() {
 			t.Run(profile, func(t *testing.T) {
-				if _, err := Validate(bootstrapDeploymentProfileConfig(t, profile)); err != nil {
+				if _, err := validate(bootstrapDeploymentProfileConfig(t, profile)); err != nil {
 					t.Fatalf("validate %s filesystem-root config: %v", profile, err)
 				}
 			})
@@ -296,7 +300,7 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 				t.Run(profile+"/"+rootName, func(t *testing.T) {
 					cfg := setRootBinding(bootstrapDeploymentProfileConfig(t, profile), rootName, RootBinding{})
 
-					_, err := Validate(cfg)
+					_, err := validate(cfg)
 					requireDiagnostic(t, err, "roots."+rootName, "missing_required_key")
 				})
 			}
@@ -326,7 +330,7 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 			ServiceRef:  "postgres-primary",
 		}
 
-		_, err := Validate(cfg)
+		_, err := validate(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "missing_required_key")
 		requireDiagnostic(t, err, "roots.database_storage.service_ref", "type_mismatch")
 	})
@@ -340,7 +344,7 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 						ServiceRef:  ManagedServiceRef(rootName),
 					})
 
-					_, err := Validate(cfg)
+					_, err := validate(cfg)
 					if ManagedServiceAllowed(profile, rootName) {
 						if err != nil {
 							t.Fatalf("validate %s managed-service binding for %s: %v", profile, rootName, err)
@@ -402,7 +406,7 @@ func TestFilesystemRootPaths_Unit(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
 		cfg.Roots.DatabaseStorage.Path = "/var/lib/cartulary/\x00postgres"
 
-		_, err := Validate(cfg)
+		_, err := validate(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "path_forbidden_segment")
 	})
 
@@ -429,7 +433,7 @@ func TestFilesystemRootPaths_Unit(t *testing.T) {
 			"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":         filepath.Join(base, "exports"),
 		})
 
-		_, err := ValidateForStartup(cfg)
+		_, err := validateForStartup(cfg)
 		requireDiagnostic(t, err, "roots.object_storage.path", "path_overlap")
 	})
 
@@ -450,54 +454,15 @@ func TestFilesystemRootPaths_Unit(t *testing.T) {
 		env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"] = readonly
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), env)
 
-		_, err := ValidateForStartup(cfg)
+		_, err := validateForStartup(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "path_not_writable")
 	})
 
-	t.Run("rejects effective writes that escape a configured root", func(t *testing.T) {
-		base := t.TempDir()
-		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), FilesystemRootEnv(base))
-
-		validated, err := ValidateForStartup(cfg)
-		if err != nil {
-			t.Fatalf("validate startup config with temp roots: %v", err)
-		}
-
-		insideRelativePath := filepath.Join("nested", "proof.txt")
-		if err := writeFileWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, insideRelativePath, []byte("proof"), 0o644); err != nil {
-			t.Fatalf("write inside configured root: %v", err)
-		}
-
-		insideTarget, err := resolvePathWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, insideRelativePath)
-		if err != nil {
-			t.Fatalf("resolve in-root target: %v", err)
-		}
-		got, err := os.ReadFile(insideTarget)
-		if err != nil {
-			t.Fatalf("read in-root target: %v", err)
-		}
-		if string(got) != "proof" {
-			t.Fatalf("unexpected in-root payload: got %q want %q", got, "proof")
-		}
-
-		escapeRelativePath := filepath.Join("..", "escape.txt")
-		if err := writeFileWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, escapeRelativePath, []byte("escape"), 0o644); err == nil {
-			t.Fatal("expected attempted escape write to fail")
-		}
-
-		escapeTarget := filepath.Join(base, "escape.txt")
-		if _, err := os.Stat(escapeTarget); !os.IsNotExist(err) {
-			if err == nil {
-				t.Fatalf("unexpected escaped write created %q", escapeTarget)
-			}
-			t.Fatalf("stat escaped target %q: %v", escapeTarget, err)
-		}
-	})
 }
 
 func TestDisconnectedDefaults_Unit(t *testing.T) {
 	t.Run("accepts the canonical disconnected example without hidden rewrites", func(t *testing.T) {
-		cfg, err := LoadWithOptions(LoadOptions{Path: fixtureConfigPath()})
+		cfg, err := loadWithOptions(LoadOptions{Path: fixtureConfigPath()})
 		if err != nil {
 			t.Fatalf("load canonical disconnected fixture: %v", err)
 		}
@@ -620,9 +585,6 @@ func TestResourceLimits_Unit(t *testing.T) {
 		if cfg.Limits.Imports.MaxRows != 777 {
 			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
 		}
-		if PublicSortLimit != 8 || PublicFilterLimit != 16 || PublicChangeLimit != 32 || PublicCollectionActionLimit != 64 {
-			t.Fatalf("unexpected fixed public ceilings: got sort=%d filters=%d changes=%d collection_actions=%d", PublicSortLimit, PublicFilterLimit, PublicChangeLimit, PublicCollectionActionLimit)
-		}
 	})
 }
 
@@ -630,12 +592,12 @@ func fixtureConfigPath() string {
 	return fixtures.Path("config", "valid.toml")
 }
 
-func BaseConfig(t testing.TB) Config {
+func BaseConfig(t testing.TB) document {
 	t.Helper()
 	return mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
 }
 
-func bootstrapDeploymentProfileConfig(t testing.TB, profile string) Config {
+func bootstrapDeploymentProfileConfig(t testing.TB, profile string) document {
 	t.Helper()
 
 	cfg := BaseConfig(t)
@@ -643,13 +605,13 @@ func bootstrapDeploymentProfileConfig(t testing.TB, profile string) Config {
 	return cfg
 }
 
-func mustLoadConfig(t testing.TB, content string, env map[string]string) Config {
+func mustLoadConfig(t testing.TB, content string, env map[string]string) document {
 	t.Helper()
 
-	cfg, err := LoadWithOptions(LoadOptions{
-		Path:                     writeTempConfig(t, content),
-		Env:                      env,
-		ExtensionInactiveCatalog: testExtensionInactiveCatalog(t),
+	cfg, err := loadWithOptions(LoadOptions{
+		Path:           writeTempConfig(t, content),
+		Env:            env,
+		InactivePolicy: testExtensionInactivePolicy(t),
 	})
 	if err != nil {
 		t.Fatalf("load config: %v", err)
@@ -661,10 +623,10 @@ func mustLoadConfig(t testing.TB, content string, env map[string]string) Config 
 func loadInvalidConfig(t testing.TB, content string, env map[string]string) error {
 	t.Helper()
 
-	_, err := LoadWithOptions(LoadOptions{
-		Path:                     writeTempConfig(t, content),
-		Env:                      env,
-		ExtensionInactiveCatalog: testExtensionInactiveCatalog(t),
+	_, err := loadWithOptions(LoadOptions{
+		Path:           writeTempConfig(t, content),
+		Env:            env,
+		InactivePolicy: testExtensionInactivePolicy(t),
 	})
 	if err == nil {
 		t.Fatal("expected invalid config to fail")
@@ -673,26 +635,14 @@ func loadInvalidConfig(t testing.TB, content string, env map[string]string) erro
 	return err
 }
 
-func testExtensionInactiveCatalog(t testing.TB) extensioninactive.Catalog {
+func testExtensionInactivePolicy(t testing.TB) InactivePolicy {
 	t.Helper()
-	catalog, err := extensioninactive.NewCatalog([]extensioninactive.Policy{
-		{
-			ProfileID: "enterprise_authentication",
-			ClaimKey:  "enterprise_authentication.claimed",
-			Key:       "enterprise_authentication.provider_manifest_path",
-			Kind:      extensioninactive.PolicyForbidden,
+	return testInactivePolicy{
+		claims: map[string]string{
+			"enterprise_authentication.provider_manifest_path": "enterprise_authentication.claimed",
+			"network_flow_activity.key_ring_manifest_path":     "network_flow_activity.claimed",
 		},
-		{
-			ProfileID: "network_flow_activity",
-			ClaimKey:  "network_flow_activity.claimed",
-			Key:       "network_flow_activity.key_ring_manifest_path",
-			Kind:      extensioninactive.PolicyForbidden,
-		},
-	})
-	if err != nil {
-		t.Fatalf("build inactive extension policy catalog: %v", err)
 	}
-	return catalog
 }
 
 func writeTempConfig(t testing.TB, content string) string {
@@ -747,7 +697,7 @@ func ManagedServiceRef(rootName string) string {
 	}
 }
 
-func setRootBinding(cfg Config, rootName string, binding RootBinding) Config {
+func setRootBinding(cfg document, rootName string, binding RootBinding) document {
 	switch rootName {
 	case "database_storage":
 		cfg.Roots.DatabaseStorage = binding
@@ -817,4 +767,20 @@ func requireDiagnostic(t testing.TB, err error, wantPath string, wantReason stri
 	}
 
 	t.Fatalf("missing diagnostic path=%q reason=%q in %#v", wantPath, wantReason, diagnosticsErr.Diagnostics)
+}
+
+func requireExactInactiveDiagnostic(t testing.TB, err error, profileID string, path string) {
+	t.Helper()
+	diagnostics, ok := DiagnosticsFromError(err)
+	if !ok || len(diagnostics) != 1 {
+		t.Fatalf("inactive diagnostics = %#v / %v", diagnostics, err)
+	}
+	diagnostic := diagnostics[0]
+	if diagnostic.Path != path ||
+		diagnostic.ReasonCode != "extension_config_without_claim" ||
+		diagnostic.Message != "Extension configuration is present while the profile is inactive." ||
+		diagnostic.Details["profile_id"] != profileID ||
+		diagnostic.Details["config_path"] != "$."+path {
+		t.Fatalf("inactive diagnostic = %#v", diagnostic)
+	}
 }

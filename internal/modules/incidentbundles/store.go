@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ type JobPayload struct {
 	IncidentID         *uuid.UUID
 	BundleID           *uuid.UUID
 	UploadedSHA256     *string
-	BundleStagingPath  *string
+	BundleStagingRef   *BundleStagingRef
 	ImportedIncidentID *uuid.UUID
 	ManifestSHA256     *string
 	RequestJSON        json.RawMessage
@@ -55,7 +56,7 @@ type ImportAcceptedParams struct {
 	ActorUserID       uuid.UUID
 	Request           ImportMetadataRequest
 	UploadedSHA256    string
-	BundleStagingPath string
+	BundleStagingRef  BundleStagingRef
 	NormalizedRequest []byte
 	Now               time.Time
 }
@@ -72,7 +73,7 @@ type ExportCompleteParams struct {
 	RequiredCapabilities []string
 	BundleSHA256         string
 	BundleByteSize       int64
-	BundleStoragePath    string
+	BundleStorageRef     BundleStorageRef
 	ManifestFiles        []ManifestFile
 }
 
@@ -88,7 +89,7 @@ type DescriptorRecord struct {
 	RequiredCapabilities []string
 	BundleSHA256         string
 	BundleByteSize       int64
-	BundleStoragePath    string
+	BundleStorageRef     BundleStorageRef
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -182,8 +183,8 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 				return jobs.Resource{}, err
 			}
 			uploadedSHA := params.UploadedSHA256
-			stagingPath := params.BundleStagingPath
-			if err := insertJobPayloadTx(ctx, tx, jobID, "import", params.ActorUserID, nil, nil, &uploadedSHA, &stagingPath, params.NormalizedRequest, params.Now); err != nil {
+			stagingReference := params.BundleStagingRef
+			if err := insertJobPayloadTx(ctx, tx, jobID, "import", params.ActorUserID, nil, nil, &uploadedSHA, &stagingReference, params.NormalizedRequest, params.Now); err != nil {
 				return jobs.Resource{}, err
 			}
 			return job, nil
@@ -236,10 +237,10 @@ func (s *Store) CompleteExportDescriptorTx(ctx context.Context, tx pgx.Tx, param
 INSERT INTO incident_bundle_exports (
     bundle_id, incident_id, export_job_id, exported_by_user_id, exported_at, manifest_sha256,
     reference_pack_mode, history_mode, blob_mode, optional_sections, required_capabilities,
-    bundle_sha256, bundle_byte_size, bundle_storage_path, created_at
+    bundle_sha256, bundle_byte_size, bundle_storage_ref, created_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, 'full', 'full', $8, $9, $10, $11, $12, $5)
-`, params.BundleID, params.IncidentID, params.JobID, params.ActorUserID, params.ExportedAt, params.ManifestSHA256, params.ReferencePackMode, params.OptionalSections, params.RequiredCapabilities, params.BundleSHA256, params.BundleByteSize, params.BundleStoragePath)
+`, params.BundleID, params.IncidentID, params.JobID, params.ActorUserID, params.ExportedAt, params.ManifestSHA256, params.ReferencePackMode, params.OptionalSections, params.RequiredCapabilities, params.BundleSHA256, params.BundleByteSize, params.BundleStorageRef.String())
 	if err != nil {
 		return DescriptorRecord{}, err
 	}
@@ -372,10 +373,15 @@ func getDescriptorTx(ctx context.Context, q rowQuerier, bundleID uuid.UUID) (Des
 	err := q.QueryRow(ctx, `
 SELECT bundle_id, incident_id, exported_at, manifest_sha256, reference_pack_mode,
        history_mode, blob_mode, optional_sections, required_capabilities,
-       bundle_sha256, bundle_byte_size, bundle_storage_path
+       bundle_sha256, bundle_byte_size, bundle_storage_ref
   FROM incident_bundle_exports
  WHERE bundle_id = $1
-`, bundleID).Scan(&record.BundleID, &record.IncidentID, &record.ExportedAt, &record.ManifestSHA256, &record.ReferencePackMode, &record.HistoryMode, &record.BlobMode, &record.OptionalSections, &record.RequiredCapabilities, &record.BundleSHA256, &record.BundleByteSize, &record.BundleStoragePath)
+`, bundleID).Scan(&record.BundleID, &record.IncidentID, &record.ExportedAt, &record.ManifestSHA256, &record.ReferencePackMode, &record.HistoryMode, &record.BlobMode, &record.OptionalSections, &record.RequiredCapabilities, &record.BundleSHA256, &record.BundleByteSize, &record.BundleStorageRef.value)
+	if err == nil {
+		if _, parseErr := ParseBundleStorageRef(record.BundleStorageRef.value); parseErr != nil {
+			return DescriptorRecord{}, fmt.Errorf("decode incident bundle storage reference: %w", parseErr)
+		}
+	}
 	if record.OptionalSections == nil {
 		record.OptionalSections = []string{}
 	}
@@ -385,14 +391,14 @@ SELECT bundle_id, incident_id, exported_at, manifest_sha256, reference_pack_mode
 	return record, err
 }
 
-func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, jobKind string, actorUserID uuid.UUID, incidentID *uuid.UUID, bundleID *uuid.UUID, uploadedSHA *string, stagingPath *string, normalizedRequest []byte, now time.Time) error {
+func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, jobKind string, actorUserID uuid.UUID, incidentID *uuid.UUID, bundleID *uuid.UUID, uploadedSHA *string, stagingReference *BundleStagingRef, normalizedRequest []byte, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_job_payloads (
     job_id, job_kind, actor_user_id, incident_id, bundle_id, uploaded_sha256,
-    bundle_staging_path, request_json, created_at, updated_at
+    bundle_staging_ref, request_json, created_at, updated_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-`, jobID, jobKind, actorUserID, incidentID, bundleID, uploadedSHA, stagingPath, json.RawMessage(normalizedRequest), now)
+`, jobID, jobKind, actorUserID, incidentID, bundleID, uploadedSHA, storageReferenceValue(stagingReference), json.RawMessage(normalizedRequest), now)
 	return err
 }
 
@@ -406,7 +412,7 @@ func getJobPayloadTx(ctx context.Context, q rowQuerier, jobID uuid.UUID) (JobPay
 	var manifestSHA sql.NullString
 	err := q.QueryRow(ctx, `
 SELECT job_id, job_kind, actor_user_id, incident_id::text, bundle_id::text, uploaded_sha256,
-       bundle_staging_path, imported_incident_id::text, manifest_sha256, request_json, created_at
+       bundle_staging_ref, imported_incident_id::text, manifest_sha256, request_json, created_at
   FROM incident_bundle_job_payloads
  WHERE job_id = $1
 `, jobID).Scan(&payload.JobID, &payload.JobKind, &payload.ActorUserID, &incidentID, &bundleID, &uploadedSHA, &stagingPath, &importedIncidentID, &manifestSHA, &payload.RequestJSON, &payload.CreatedAt)
@@ -417,7 +423,13 @@ SELECT job_id, job_kind, actor_user_id, incident_id::text, bundle_id::text, uplo
 	payload.BundleID = uuidPtrFromNullString(bundleID)
 	payload.ImportedIncidentID = uuidPtrFromNullString(importedIncidentID)
 	payload.UploadedSHA256 = stringPtrFromNull(uploadedSHA)
-	payload.BundleStagingPath = stringPtrFromNull(stagingPath)
+	if stagingPath.Valid {
+		reference, parseErr := ParseBundleStagingRef(stagingPath.String)
+		if parseErr != nil {
+			return JobPayload{}, fmt.Errorf("decode incident bundle staging reference: %w", parseErr)
+		}
+		payload.BundleStagingRef = &reference
+	}
 	payload.ManifestSHA256 = stringPtrFromNull(manifestSHA)
 	return payload, nil
 }
@@ -454,6 +466,13 @@ func stringPtrFromNull(value sql.NullString) *string {
 		return nil
 	}
 	return &value.String
+}
+
+func storageReferenceValue(reference *BundleStagingRef) any {
+	if reference == nil {
+		return nil
+	}
+	return reference.String()
 }
 
 func intPtr(value int) *int {

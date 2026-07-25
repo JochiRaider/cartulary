@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
@@ -26,21 +28,35 @@ func EffectiveConfigEnv(fixtureParts []string, overlays map[string]string) map[s
 	return env
 }
 
-func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[string]string) config.Config {
+func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[string]string) configassembly.Deployment {
 	t.Helper()
 
-	cfg, err := config.LoadWithEnv(EffectiveConfigEnv(fixtureParts, overlays))
+	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
+	if err != nil {
+		t.Fatalf("build inactive configuration policy: %v", err)
+	}
+	loaded, err := configassembly.Load(config.LoadOptions{
+		Env:            EffectiveConfigEnv(fixtureParts, overlays),
+		InactivePolicy: policy,
+	})
 	if err != nil {
 		t.Fatalf("load config fixture: %v", err)
 	}
 
-	return cfg
+	return loaded.Deployment()
 }
 
 func LoadInvalidFixture(t testing.TB, fixtureParts []string, overlays map[string]string) error {
 	t.Helper()
 
-	_, err := config.LoadWithEnv(EffectiveConfigEnv(fixtureParts, overlays))
+	policy, policyErr := extensionassembly.GeneratedInactiveConfigurationPolicy()
+	if policyErr != nil {
+		t.Fatalf("build inactive configuration policy: %v", policyErr)
+	}
+	_, err := configassembly.Load(config.LoadOptions{
+		Env:            EffectiveConfigEnv(fixtureParts, overlays),
+		InactivePolicy: policy,
+	})
 	if err == nil {
 		t.Fatalf("expected invalid config fixture %v to fail", fixtureParts)
 	}

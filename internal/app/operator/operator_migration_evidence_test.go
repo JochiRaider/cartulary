@@ -15,8 +15,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
 func TestMigrationEvidenceCommand_Unit(t *testing.T) {
@@ -104,28 +106,20 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
-		loadConfig: func(path string) (config.Config, error) {
+		loadConfig: func(path string) (configassembly.Loaded, error) {
 			if path != "/etc/cartulary/config.toml" {
 				t.Fatalf("unexpected source config path: %q", path)
 			}
-			return config.Config{
-				ConfigSchemaID: "cartulary.deployment_config.v1",
-				Roots: config.RootBindings{
-					DatabaseStorage: config.RootBinding{
-						BindingKind: "managed_service",
-						ServiceRef:  "postgres-primary",
-						Path:        "/srv/cartulary/secrets/postgres",
-					},
-				},
-			}, nil
+			return migrationEvidenceTestDeployment(t), nil
 		},
-		setupPostgres: func(context.Context, config.Config) (operatorPostgresPool, error) {
+		setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
 			return pool, nil
 		},
 		now: func() time.Time {
@@ -188,20 +182,16 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
 	pool := newMigrationEvidenceFakePool(false, nil)
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
-		loadConfig: func(string) (config.Config, error) {
-			return config.Config{
-				ConfigSchemaID: "cartulary.deployment_config.v1",
-				Roots: config.RootBindings{
-					DatabaseStorage: config.RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"},
-				},
-			}, nil
+		loadConfig: func(string) (configassembly.Loaded, error) {
+			return migrationEvidenceTestDeployment(t), nil
 		},
-		setupPostgres: func(context.Context, config.Config) (operatorPostgresPool, error) {
+		setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
 			return pool, nil
 		},
 		now: func() time.Time {
@@ -240,6 +230,20 @@ func assertMigrationEvidenceFinding(t *testing.T, findings []migrationevidence.F
 		}
 	}
 	t.Fatalf("finding %q not present in %#v", reasonCode, findings)
+}
+
+func migrationEvidenceTestDeployment(t testing.TB) configassembly.Loaded {
+	t.Helper()
+	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
+	deployment.DeploymentProfile = "on_prem"
+	deployment.Roots.DatabaseStorage.BindingKind = "managed_service"
+	deployment.Roots.DatabaseStorage.Path = ""
+	deployment.Roots.DatabaseStorage.ServiceRef = "postgres-primary"
+	loaded, err := configassembly.Admit(deployment)
+	if err != nil {
+		t.Fatalf("admit migration-evidence test deployment: %v", err)
+	}
+	return loaded
 }
 
 func migrationEvidenceManifestPathForTest(t *testing.T) string {

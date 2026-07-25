@@ -29,7 +29,7 @@ type ImportAcceptedParams struct {
 	ActorUserID       uuid.UUID
 	Request           ImportMetadataRequest
 	BundleSHA256      string
-	BundleStagingPath string
+	BundleStagingRef  StagingRef
 	NormalizedRequest []byte
 	Now               time.Time
 }
@@ -40,24 +40,25 @@ type JobAcceptedResult struct {
 }
 
 type JobPayload struct {
-	JobID             uuid.UUID
-	JobKind           string
-	ActorUserID       uuid.UUID
-	PackKey           *string
-	PackVersion       *string
-	ResolvedPackKeys  []string
-	BundleSHA256      *string
-	BundleStagingPath *string
-	RequestJSON       json.RawMessage
-	CreatedAt         time.Time
+	JobID            uuid.UUID
+	JobKind          string
+	ActorUserID      uuid.UUID
+	PackKey          *string
+	PackVersion      *string
+	ResolvedPackKeys []string
+	BundleSHA256     *string
+	BundleStagingRef *StagingRef
+	RequestJSON      json.RawMessage
+	CreatedAt        time.Time
 }
 
 type ActionParams struct {
-	ActorUserID uuid.UUID
-	PackKey     string
-	PackVersion string
-	Request     ActionRequest
-	Now         time.Time
+	ActorUserID         uuid.UUID
+	PackKey             string
+	PackVersion         string
+	Request             ActionRequest
+	ActivationPreflight func(VersionRecord) error
+	Now                 time.Time
 }
 
 type ActionResult struct {
@@ -178,8 +179,8 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	}
 
 	bundleSHA := params.BundleSHA256
-	bundleStagingPath := params.BundleStagingPath
-	if err := insertJobPayloadTx(ctx, tx, job.JobID, "import", params.ActorUserID, nil, nil, nil, &bundleSHA, &bundleStagingPath, params.NormalizedRequest, params.Now); err != nil {
+	bundleStagingRef := params.BundleStagingRef
+	if err := insertJobPayloadTx(ctx, tx, job.JobID, "import", params.ActorUserID, nil, nil, nil, &bundleSHA, &bundleStagingRef, params.NormalizedRequest, params.Now); err != nil {
 		return JobAcceptedResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -203,6 +204,11 @@ func (s *Store) Activate(ctx context.Context, params ActionParams) (ActionResult
 		}
 		if state != ConditionVerifiedAvailable {
 			return nil, wrapAPIError(referencePackActivationRejected("not_verified_available"))
+		}
+		if params.ActivationPreflight != nil {
+			if err := params.ActivationPreflight(record); err != nil {
+				return nil, wrapAPIError(referencePackActivationRejected("not_verified_available"))
+			}
 		}
 		previousActive, err := activeVersionTx(ctx, tx, params.PackKey)
 		if err != nil {
@@ -363,8 +369,8 @@ func (s *Store) JobPayload(ctx context.Context, jobID uuid.UUID) (JobPayload, er
 	return getJobPayloadTx(ctx, s.pool, jobID)
 }
 
-func (s *Store) CompleteImportVerificationTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, actorUserID uuid.UUID, verification VerificationResult, bundleStoragePath string, now time.Time) (VersionRecord, error) {
-	if err := upsertVerifiedPackTx(ctx, tx, actorUserID, verification, bundleStoragePath, now); err != nil {
+func (s *Store) CompleteImportVerificationTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, actorUserID uuid.UUID, verification VerificationResult, bundleStorageRef StorageRef, now time.Time) (VersionRecord, error) {
+	if err := upsertVerifiedPackTx(ctx, tx, actorUserID, verification, bundleStorageRef, now); err != nil {
 		return VersionRecord{}, err
 	}
 	if err := insertAttestationTx(ctx, tx, attestationParams{
@@ -614,7 +620,7 @@ SELECT rp.pack_key,
        rp.activated_by_user_id::text,
        rp.activated_at,
        rp.bundle_sha256,
-       rp.bundle_storage_path
+       rp.bundle_storage_ref
   FROM reference_packs rp
   LEFT JOIN reference_pack_activation_state rpas ON rpas.pack_key = rp.pack_key
 `
@@ -663,10 +669,13 @@ func scanVersion(row versionScanner) (VersionRecord, error) {
 		&activatedBy,
 		&activatedAt,
 		&record.BundleSHA256,
-		&record.BundleStoragePath,
+		&record.BundleStorageRef.value,
 	)
 	if err != nil {
 		return VersionRecord{}, err
+	}
+	if _, parseErr := ParseStorageRef(record.BundleStorageRef.value); parseErr != nil {
+		return VersionRecord{}, fmt.Errorf("decode reference pack storage reference: %w", parseErr)
 	}
 	record.SourceIdentifier = nullStringPtr(sourceIdentifier)
 	record.SignerKeyID = nullStringPtr(signerKeyID)
@@ -706,12 +715,12 @@ SELECT active_version
 	return nullStringPtr(active), nil
 }
 
-func upsertVerifiedPackTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, verification VerificationResult, bundleStoragePath string, now time.Time) error {
+func upsertVerifiedPackTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, verification VerificationResult, bundleStorageRef StorageRef, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO reference_packs (
     pack_key, version, pack_kind, source_identifier, manifest_sha256, payload_sha256,
     pack_contract_version, verification_method, signer_key_id, status, imported_at,
-    imported_by_user_id, verification_result, bundle_sha256, bundle_storage_path, metadata
+    imported_by_user_id, verification_result, bundle_sha256, bundle_storage_ref, metadata
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'available', $10, $11, 'passed', $12, $13, $14)
 ON CONFLICT (pack_key, version) DO UPDATE
@@ -727,9 +736,9 @@ ON CONFLICT (pack_key, version) DO UPDATE
        imported_by_user_id = EXCLUDED.imported_by_user_id,
        verification_result = EXCLUDED.verification_result,
        bundle_sha256 = EXCLUDED.bundle_sha256,
-       bundle_storage_path = EXCLUDED.bundle_storage_path,
+       bundle_storage_ref = EXCLUDED.bundle_storage_ref,
        metadata = EXCLUDED.metadata
-`, verification.PackKey, verification.PackVersion, verification.PackKind, verification.SourceIdentifier, verification.ManifestSHA256, verification.PayloadSHA256, verification.PackContractVersion, verification.VerificationMethod, verification.SignerKeyID, now, actorUserID, verification.BundleSHA256, bundleStoragePath, mustJSON(verification.Metadata))
+`, verification.PackKey, verification.PackVersion, verification.PackKind, verification.SourceIdentifier, verification.ManifestSHA256, verification.PayloadSHA256, verification.PackContractVersion, verification.VerificationMethod, verification.SignerKeyID, now, actorUserID, verification.BundleSHA256, bundleStorageRef.String(), mustJSON(verification.Metadata))
 	return err
 }
 
@@ -779,17 +788,17 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	return err
 }
 
-func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID string, jobKind string, actorUserID uuid.UUID, packKey *string, packVersion *string, resolvedPackKeys []string, bundleSHA *string, bundleStagingPath *string, normalizedRequest []byte, now time.Time) error {
+func insertJobPayloadTx(ctx context.Context, tx pgx.Tx, jobID string, jobKind string, actorUserID uuid.UUID, packKey *string, packVersion *string, resolvedPackKeys []string, bundleSHA *string, bundleStagingRef *StagingRef, normalizedRequest []byte, now time.Time) error {
 	if resolvedPackKeys == nil {
 		resolvedPackKeys = []string{}
 	}
 	_, err := tx.Exec(ctx, `
 INSERT INTO reference_pack_job_payloads (
     job_id, job_kind, actor_user_id, pack_key, pack_version, resolved_pack_keys,
-    bundle_sha256, bundle_staging_path, request_json, created_at
+    bundle_sha256, bundle_staging_ref, request_json, created_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`, jobID, jobKind, actorUserID, packKey, packVersion, resolvedPackKeys, bundleSHA, bundleStagingPath, json.RawMessage(normalizedRequest), now)
+`, jobID, jobKind, actorUserID, packKey, packVersion, resolvedPackKeys, bundleSHA, stagingReferenceValue(bundleStagingRef), json.RawMessage(normalizedRequest), now)
 	return err
 }
 
@@ -805,7 +814,7 @@ func getJobPayloadTx(ctx context.Context, q jobPayloadQuerier, jobID uuid.UUID) 
 	var stagingPath sql.NullString
 	err := q.QueryRow(ctx, `
 SELECT job_id, job_kind, actor_user_id, pack_key, pack_version, resolved_pack_keys,
-       bundle_sha256, bundle_staging_path, request_json, created_at
+       bundle_sha256, bundle_staging_ref, request_json, created_at
   FROM reference_pack_job_payloads
  WHERE job_id = $1
 `, jobID).Scan(&payload.JobID, &payload.JobKind, &payload.ActorUserID, &packKey, &packVersion, &payload.ResolvedPackKeys, &bundleSHA, &stagingPath, &payload.RequestJSON, &payload.CreatedAt)
@@ -818,11 +827,24 @@ SELECT job_id, job_kind, actor_user_id, pack_key, pack_version, resolved_pack_ke
 	payload.PackKey = nullStringPtr(packKey)
 	payload.PackVersion = nullStringPtr(packVersion)
 	payload.BundleSHA256 = nullStringPtr(bundleSHA)
-	payload.BundleStagingPath = nullStringPtr(stagingPath)
+	if stagingPath.Valid {
+		reference, parseErr := ParseStagingRef(stagingPath.String)
+		if parseErr != nil {
+			return JobPayload{}, fmt.Errorf("decode reference pack staging reference: %w", parseErr)
+		}
+		payload.BundleStagingRef = &reference
+	}
 	if payload.ResolvedPackKeys == nil {
 		payload.ResolvedPackKeys = []string{}
 	}
 	return payload, nil
+}
+
+func stagingReferenceValue(reference *StagingRef) any {
+	if reference == nil {
+		return nil
+	}
+	return reference.String()
 }
 
 func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {

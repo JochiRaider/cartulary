@@ -6,14 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestPostgresRootBindingResolution(t *testing.T) {
 	t.Run("filesystem root uses root-bound DSN file and ignores generic DSN env", func(t *testing.T) {
 		cfg := postgresSettingsConfig(t, "filesystem_root")
-		if err := os.WriteFile(filepath.Join(cfg.Roots.DatabaseStorage.Path, postgres.FilesystemRootDSNFile), []byte("postgres://root-bound\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(cfg.RootPath, postgres.FilesystemRootDSNFile), []byte("postgres://root-bound\n"), 0o600); err != nil {
 			t.Fatalf("write root-bound postgres dsn: %v", err)
 		}
 
@@ -35,7 +34,7 @@ func TestPostgresRootBindingResolution(t *testing.T) {
 		if err := os.WriteFile(outsideDSN, []byte("postgres://escaped\n"), 0o600); err != nil {
 			t.Fatalf("write escaped postgres dsn: %v", err)
 		}
-		if err := os.Symlink(outsideDSN, filepath.Join(cfg.Roots.DatabaseStorage.Path, postgres.FilesystemRootDSNFile)); err != nil {
+		if err := os.Symlink(outsideDSN, filepath.Join(cfg.RootPath, postgres.FilesystemRootDSNFile)); err != nil {
 			t.Fatalf("create escaping postgres dsn symlink: %v", err)
 		}
 
@@ -43,9 +42,50 @@ func TestPostgresRootBindingResolution(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected filesystem-root postgres settings to reject escaping DSN symlink")
 		}
-		if !strings.Contains(err.Error(), "read root-bound DSN file") {
+		if !strings.Contains(err.Error(), "root-bound DSN file is unavailable or unsafe") {
 			t.Fatalf("unexpected filesystem-root postgres symlink error: %v", err)
 		}
+		if strings.Contains(err.Error(), cfg.RootPath) || strings.Contains(err.Error(), outsideDir) {
+			t.Fatalf("filesystem-root postgres error disclosed a host path: %v", err)
+		}
+	})
+
+	t.Run("filesystem root rejects oversized hard-linked and non-regular DSN objects", func(t *testing.T) {
+		t.Run("oversized", func(t *testing.T) {
+			cfg := postgresSettingsConfig(t, "filesystem_root")
+			if err := os.WriteFile(
+				filepath.Join(cfg.RootPath, postgres.FilesystemRootDSNFile),
+				make([]byte, 65537),
+				0o600,
+			); err != nil {
+				t.Fatalf("write oversized DSN: %v", err)
+			}
+			if _, err := postgres.ResolveSettings(cfg, nil); err == nil {
+				t.Fatal("oversized root-bound DSN was accepted")
+			}
+		})
+		t.Run("hard link", func(t *testing.T) {
+			cfg := postgresSettingsConfig(t, "filesystem_root")
+			dsnPath := filepath.Join(cfg.RootPath, postgres.FilesystemRootDSNFile)
+			if err := os.WriteFile(dsnPath, []byte("postgres://root-bound"), 0o600); err != nil {
+				t.Fatalf("write DSN: %v", err)
+			}
+			if err := os.Link(dsnPath, filepath.Join(cfg.RootPath, "dsn-hard-link")); err != nil {
+				t.Fatalf("create DSN hard link: %v", err)
+			}
+			if _, err := postgres.ResolveSettings(cfg, nil); err == nil {
+				t.Fatal("hard-linked root-bound DSN was accepted")
+			}
+		})
+		t.Run("directory", func(t *testing.T) {
+			cfg := postgresSettingsConfig(t, "filesystem_root")
+			if err := os.Mkdir(filepath.Join(cfg.RootPath, postgres.FilesystemRootDSNFile), 0o700); err != nil {
+				t.Fatalf("create DSN directory: %v", err)
+			}
+			if _, err := postgres.ResolveSettings(cfg, nil); err == nil {
+				t.Fatal("directory root-bound DSN was accepted")
+			}
+		})
 	})
 
 	t.Run("managed service requires service-ref DSN env", func(t *testing.T) {
@@ -94,51 +134,16 @@ func TestPostgresRootBindingResolution(t *testing.T) {
 	})
 }
 
-func postgresSettingsConfig(t testing.TB, databaseBindingKind string) config.Config {
+func postgresSettingsConfig(t testing.TB, databaseBindingKind string) postgres.Binding {
 	t.Helper()
 
-	base := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(base, "postgres"), 0o700); err != nil {
+	rootPath := filepath.Join(t.TempDir(), "postgres")
+	if err := os.MkdirAll(rootPath, 0o700); err != nil {
 		t.Fatalf("create postgres root: %v", err)
 	}
-	databaseRoot := config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(base, "postgres")}
-	profile := "disconnected"
+	binding := postgres.Binding{BindingKind: "filesystem_root", RootPath: rootPath}
 	if databaseBindingKind == "managed_service" {
-		databaseRoot = config.RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
-		profile = "on_prem"
+		binding = postgres.Binding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
 	}
-	cfg, err := config.Validate(config.Config{
-		ConfigSchemaID:    "cartulary.deployment_config.v1",
-		DeploymentProfile: profile,
-		Application: config.ApplicationConfig{
-			PublicOrigin: "http://localhost:5173",
-		},
-		Roots: config.RootBindings{
-			DatabaseStorage: databaseRoot,
-			ObjectStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "object-store"),
-			},
-			BackupStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "backups"),
-			},
-			ReferencePackStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "reference-packs"),
-			},
-			TemporaryWork: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "tmp"),
-			},
-			ExportOutputs: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "exports"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("validate postgres settings config: %v", err)
-	}
-	return cfg
+	return binding
 }

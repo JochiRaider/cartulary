@@ -687,6 +687,35 @@
       ]
     },
     {
+      "row_id": "module.extensions.unit.inactive_configuration_catalog",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "platform.config"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestInactiveConfigurationCatalog_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#req:EXT-REQ-207",
+        "docs/handoffs/platform-config-module-refactor-tracker.md#7-permanent-architecture-and-slice-rules"
+      ]
+    },
+    {
       "row_id": "module.extensions.unit.job_admission_and_terminal_contracts_64d299b374",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",

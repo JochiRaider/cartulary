@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -94,7 +93,7 @@ type xlsxDiscoveredTable struct {
 	Rows      [][]tabularCell
 }
 
-func parseXLSXTables(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([]xlsxDiscoveredTable, *httpapi.APIError) {
+func parseXLSXTables(data []byte, importLimits Limits, archiveLimits ArchiveLimits) ([]xlsxDiscoveredTable, *httpapi.APIError) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
@@ -199,7 +198,7 @@ func parseXLSXTables(data []byte, importLimits config.ImportLimits, archiveLimit
 	return tables, nil
 }
 
-func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
+func parseXLSXTable(data []byte, importLimits Limits, archiveLimits ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
 	tables, apiErr := parseXLSXTables(data, importLimits, archiveLimits)
 	if apiErr != nil {
 		return nil, apiErr
@@ -223,7 +222,7 @@ func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *httpapi.APIE
 	return values, nil
 }
 
-func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits config.ImportLimits) ([][]tabularCell, *httpapi.APIError) {
+func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits Limits) ([][]tabularCell, *httpapi.APIError) {
 	maxRow := 0
 	maxColumn := 0
 	type keyedCell struct {

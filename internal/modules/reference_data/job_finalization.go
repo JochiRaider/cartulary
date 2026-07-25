@@ -2,11 +2,14 @@ package reference_data
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
+
+var ErrJobFinalizationIndeterminate = errors.New("Reference Pack job finalization is indeterminate")
 
 type JobSuccessMutation func(context.Context, pgx.Tx) error
 
