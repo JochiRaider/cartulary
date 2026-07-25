@@ -1,4 +1,8 @@
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
+import {
+  importProfileId,
+  importRouteFamily,
+} from "../extensions/extensionWorkspaceIdentities";
 import { apiPath, clientTxnID, extractError } from "../services/browserApi";
 import { requestMultipartJSON } from "../services/httpTransport";
 import {
@@ -6,9 +10,6 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../services/workbookApi";
-
-export const importProfileId = "import";
-export const importRouteFamily = "/api/v1/import-sessions";
 
 export type ImportJobResource = {
   readonly job_id: string;

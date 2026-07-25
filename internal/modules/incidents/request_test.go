@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
 
 func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *testing.T) {
@@ -414,7 +415,10 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 	importProfile := extensionContract(t, "import")
 	enterpriseProfile := extensionContract(t, "enterprise_authentication")
 
-	baseHandler, err := httpapi.NewHandler(httpapi.Options{})
+	baseProjections := httpapiextensions.New(nil)
+	baseHandler, err := httpapi.NewHandler(httpapi.Options{
+		Dependencies: baseProjections.Dependencies(httpapi.DependencySet{}),
+	})
 	if err != nil {
 		t.Fatalf("build base handler: %v", err)
 	}
@@ -423,7 +427,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("expected base route to retain precedence, got status=%d body=%q", ready.Code, ready.Body.String())
 	}
 
-	claimedEpoch := httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{
+	claimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       true,
@@ -431,7 +435,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		},
 	})
 	claimedHandler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{ExtensionEpoch: claimedEpoch},
+		Dependencies: claimedProjections.Dependencies(httpapi.DependencySet{}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 				mux.HandleFunc(importProfile.RouteFamilies[0], func(w http.ResponseWriter, r *http.Request) {
@@ -454,7 +458,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("claimed family descendant must dispatch to the registered route, got %d", got.Code)
 	}
 
-	unclaimedEpoch := httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{
+	unclaimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       false,
@@ -467,7 +471,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		},
 	})
 	unclaimedHandler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{ExtensionEpoch: unclaimedEpoch},
+		Dependencies: unclaimedProjections.Dependencies(httpapi.DependencySet{}),
 	})
 	if err != nil {
 		t.Fatalf("build unclaimed handler: %v", err)

@@ -155,16 +155,14 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		Title:       "Workbook startup extension workspace",
 	})
 
-	claimedProfiles := []httpapi.ExtensionProfile{
+	claimedWorkspaces := []httpapi.ExtensionWorkspacePublication{
 		{
-			ProfileID: "network_flow_activity",
-			Claimed:   true,
-			Workspaces: []httpapi.ExtensionWorkspace{
-				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
-			},
+			ProfileID:    "network_flow_activity",
+			WorkspaceKey: "network_analysis",
+			MinimumRole:  "viewer",
 		},
 	}
-	claimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistry(claimedProfiles))
+	claimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistryFromPublication(claimedWorkspaces))
 	extensionRef := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
 	now := time.Date(2026, 7, 10, 18, 0, 0, 0, time.UTC)
 	if _, err := claimedStore.PutUserPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, now); err != nil {
@@ -185,16 +183,7 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		t.Fatalf("claimed startup availability mismatch: %#v", startup.ExtensionWorkspaceAvailability)
 	}
 
-	unclaimedProfiles := []httpapi.ExtensionProfile{
-		{
-			ProfileID: "network_flow_activity",
-			Claimed:   false,
-			Workspaces: []httpapi.ExtensionWorkspace{
-				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
-			},
-		},
-	}
-	unclaimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistry(unclaimedProfiles))
+	unclaimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistryFromPublication(nil))
 	fallback, err := unclaimedStore.Resolve(context.Background(), result.Incident.ID, actor.ID, "admin", nil, now.Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("resolve startup after extension claim loss: %v", err)

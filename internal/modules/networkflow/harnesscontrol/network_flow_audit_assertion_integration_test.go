@@ -183,9 +183,9 @@ func TestTestRuntimeResetClearsNetworkFlowAuditAssertions(t *testing.T) {
 func startNetworkFlowAuditAssertionHTTPServer(t testing.TB, env map[string]string, assertions *NetworkFlowAuditAssertionRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(httpapi.DependencySet{
 			Env: env,
-		},
+		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			RegisterNetworkFlowAuditAssertionRoutes(assertions),
 		},

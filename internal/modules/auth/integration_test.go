@@ -1505,21 +1505,33 @@ type sessionRow struct {
 }
 
 func startServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+	return startServerWithExtensionClaims(t, runtime, prefix, false)
+}
+
+func startEnterpriseServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+	return startServerWithExtensionClaims(t, runtime, prefix, true)
+}
+
+func startServerWithExtensionClaims(
+	t testing.TB,
+	runtime *flowtest.RuntimeHarness,
+	prefix string,
+	enterpriseClaimed bool,
+) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	profiles := httpapi.CurrentExtensionProfiles()
 	env := map[string]string{}
-	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+	if enterpriseClaimed {
 		env["CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED"] = "true"
 		env["CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH"] = fixtures.Path("enterprise-auth", "empty.json")
 	}
-	harness := runtime.StartServerWithDependenciesAndEnv(t, prefix, httpapi.DependencySet{
-		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(profiles),
+	deps := httpapi.DependencySet{
 		ModuleOverrides: map[string]any{
 			auth.EnterpriseOIDCVerifierOverrideKey: enterpriseauthtest.DeterministicOIDCVerifier{},
 			auth.EnterpriseSAMLVerifierOverrideKey: enterpriseauthtest.DeterministicSAMLVerifier{},
 		},
-	}, env, auth.RegisterTestRoutes())
+	}
+	harness := runtime.StartServerWithDependenciesAndEnv(t, prefix, deps, env, auth.RegisterTestRoutes())
 	return harness.Server, harness.DB
 }
 

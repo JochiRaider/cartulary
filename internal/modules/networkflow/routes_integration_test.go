@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -462,16 +463,6 @@ const (
 	schemaTableQueryContinuationForTest = "cartulary.network_flow.table_query_continuation.v1"
 )
 
-func claimedNetworkFlowProfilesForRouteTest() []httpapi.ExtensionProfile {
-	profiles := httpapi.CurrentExtensionProfiles()
-	for index := range profiles {
-		if profiles[index].ProfileID == ProfileID {
-			profiles[index].Claimed = true
-		}
-	}
-	return profiles
-}
-
 func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.DependencySet {
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
@@ -486,11 +477,11 @@ func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.Dependency
 	if err != nil {
 		t.Fatalf("parse Network Flow route-test key rings: %v", err)
 	}
-	return httpapi.DependencySet{
-		ExtensionEpoch:  httpapi.NewStaticExtensionEpochProvider(claimedNetworkFlowProfilesForRouteTest()),
+	projections := httpapiextensions.FromGeneratedRegistry(t, ProfileID)
+	return projections.Dependencies(httpapi.DependencySet{
 		ModuleOverrides: map[string]any{KeyRingsOverrideKey: rings},
 		Now:             func() time.Time { return now },
-	}
+	})
 }
 
 func networkFlowRouteCountRows(t testing.TB, db *sql.DB, query string, args ...any) int {

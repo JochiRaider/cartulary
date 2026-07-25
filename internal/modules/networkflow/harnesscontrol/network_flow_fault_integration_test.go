@@ -178,9 +178,9 @@ func TestTestRuntimeResetClearsNetworkFlowFaults(t *testing.T) {
 func startNetworkFlowFaultHTTPServer(t testing.TB, env map[string]string, faults *NetworkFlowFaultRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(httpapi.DependencySet{
 			Env: env,
-		},
+		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			RegisterNetworkFlowFaultRoutes(faults),
 		},

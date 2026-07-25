@@ -169,10 +169,10 @@ func TestTestRuntimeResetClearsPublicErrorFaults(t *testing.T) {
 func startPublicErrorFaultHTTPServer(t testing.TB, env map[string]string, faults *PublicErrorFaultRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(httpapi.DependencySet{
 			Env:               env,
 			PublicErrorFaults: faults,
-		},
+		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			RegisterPublicErrorFaultRoutes(faults),
 			func(mux *http.ServeMux, deps httpapi.DependencySet) error {

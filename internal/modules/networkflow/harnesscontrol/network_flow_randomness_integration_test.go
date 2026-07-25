@@ -208,9 +208,9 @@ func TestTestRuntimeResetClearsNetworkFlowRandomness(t *testing.T) {
 func startNetworkFlowRandomnessHTTPServer(t testing.TB, env map[string]string, random *NetworkFlowRandomnessRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(httpapi.DependencySet{
 			Env: env,
-		},
+		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{
 			RegisterNetworkFlowRandomnessRoutes(random),
 		},

@@ -12,16 +12,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
-	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "extension_profile-enterprise-oidc")
+	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-oidc")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "oidc.enterprise@example.test", "OIDC Enterprise", "EnterpriseOIDC1!", false)
@@ -264,9 +262,8 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 }
 
 func TestEnterpriseSAMLACS_Integration(t *testing.T) {
-	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "extension_profile-enterprise-saml")
+	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-saml")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "saml.enterprise@example.test", "SAML Enterprise", "EnterpriseSAML1!", false)
@@ -469,9 +466,8 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 }
 
 func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
-	claimEnterpriseAuthenticationForTest(t)
 	runtime := flowtest.StartRuntime(t)
-	server, db := startServer(t, runtime, "extension_profile-enterprise-bindings")
+	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-bindings")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "enterprise.admin@example.test", "Enterprise Admin", "EnterpriseAdmin1!", false, true, true)
@@ -877,18 +873,6 @@ type enterpriseProviderSeed struct {
 type enterpriseBeginResult struct {
 	cookie      *http.Cookie
 	redirectURL string
-}
-
-func claimEnterpriseAuthenticationForTest(t testing.TB) {
-	t.Helper()
-	profiles := httpapi.CurrentExtensionProfiles()
-	for index := range profiles {
-		if profiles[index].ProfileID == "enterprise_authentication" {
-			profiles[index].Claimed = true
-		}
-	}
-	restore := httpapi.SetCurrentExtensionProfilesForTesting(profiles)
-	t.Cleanup(restore)
 }
 
 func seedEnterpriseProvider(t testing.TB, db *sql.DB, seed enterpriseProviderSeed) string {

@@ -154,6 +154,37 @@
       "production_only": true
     },
     {
+      "id": "generic-platform-no-extension-profile-implementations",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/extensions",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/networkflow",
+        "github.com/JochiRaider/cartulary/internal/modules/reference_data",
+        "github.com/JochiRaider/cartulary/internal/modules/reportcomposition",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting"
+      ],
+      "scan_paths": ["internal/platform/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "extensions-owner-no-concrete-profile-implementations",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/networkflow",
+        "github.com/JochiRaider/cartulary/internal/modules/reference_data",
+        "github.com/JochiRaider/cartulary/internal/modules/reportcomposition",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting"
+      ],
+      "scan_paths": ["internal/modules/extensions/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "shared-extension-protocols-no-profile-owner-imports",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/networkflow"
@@ -408,6 +439,39 @@
       "scan_paths": ["internal/**"],
       "allowed_paths": [],
       "production_only": true
+    },
+    {
+      "id": "retired-extension-http-epoch-and-global-defaults",
+      "tokens": [
+        "ExtensionEpochProvider",
+        "ExtensionProfilesFromEpoch",
+        "NewStaticExtensionEpochProvider",
+        "CurrentExtensionProfiles",
+        "ResolveExtensionProfiles",
+        "extensionClaimOverride",
+        "SetCurrentExtensionProfilesForTesting",
+        "MatchReservedExtensionFamilyIn("
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "retired-extension-profile-handler-identities",
+      "tokens": [
+        "\"imports.discovery\"",
+        "\"imports.apply\"",
+        "\"incident_bundles.execute\"",
+        "\"reference_data.execute\"",
+        "\"reporting.execute\""
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [
+        "internal/modules/imports/owner_apply.go",
+        "internal/platform/jobs/jobs.go",
+        "internal/platform/postgres/extension_job_cutover_migration_test.go"
+      ],
+      "production_only": false
     },
     {
       "id": "retired-contextless-cli-wrappers",

@@ -181,6 +181,16 @@
       "rationale": "HTTP success and error envelope fixtures shared by protocol-level tests."
     },
     {
+      "path": "internal/testutil/fixtures/network-flow",
+      "owner": "networkflow",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Production-shaped Network Flow key-ring manifest used by application runtime tests with test-only secret material."
+    },
+    {
       "path": "internal/testutil/fixtures/ws",
       "owner": "platform_websocket",
       "posture": "shared",

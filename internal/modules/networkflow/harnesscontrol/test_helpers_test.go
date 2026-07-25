@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
@@ -65,7 +66,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	deps.Postgres = pool
 	deps.ObjectStore = store
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies:     deps,
+		Dependencies:     testHTTPDependencies(deps),
 		AdditionalRoutes: routes,
 	})
 	if err != nil {
@@ -80,6 +81,10 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 		_ = store.Close()
 	})
 	return server
+}
+
+func testHTTPDependencies(deps httpapi.DependencySet) httpapi.DependencySet {
+	return httpapiextensions.New(nil).Dependencies(deps)
 }
 
 func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, body any) *http.Request {

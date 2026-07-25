@@ -22,7 +22,7 @@ var embeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)
 func TestNewHandler_ServesEmbeddedRootAndAssets(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler()
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(nil)})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
@@ -82,11 +82,11 @@ func TestNewHandler_HealthzRemainsLivenessAndReadyzIsStructured(t *testing.T) {
 	t.Parallel()
 
 	handler, err := NewHandler(Options{
-		Dependencies: DependencySet{
+		Dependencies: testExtensionDependenciesWith(DependencySet{
 			Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState {
 				return ReadyReadinessState()
 			}),
-		},
+		}, nil),
 	})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
@@ -138,9 +138,9 @@ func TestNewHandler_ReadyzDegradedStatusAndRedactsDependencyDetails(t *testing.T
 	}
 	store := readinessFailingStore{err: errors.New(strings.Join(leakedValues, " "))}
 	handler, err := NewHandler(Options{
-		Dependencies: DependencySet{
+		Dependencies: testExtensionDependenciesWith(DependencySet{
 			Readiness: NewDependencyReadinessChecker(nil, store),
-		},
+		}, nil),
 	})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
@@ -179,7 +179,9 @@ func TestNewHandler_ReadyzDegradedStatusAndRedactsDependencyDetails(t *testing.T
 func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler()
+	handler, err := NewHandler(Options{
+		Dependencies: testExtensionDependencies(testGeneratedExtensionProfiles(t)),
+	})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
@@ -213,10 +215,10 @@ func TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness(t *testing.
 	t.Parallel()
 
 	gate := &testAdmissionGate{}
-	handler, err := NewHandler(Options{Dependencies: DependencySet{
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependenciesWith(DependencySet{
 		Admission: gate,
 		Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState { return ReadyReadinessState() }),
-	}})
+	}, nil)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,12 +304,13 @@ func (store readinessFailingStore) Close() error {
 func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler()
+	profiles := testGeneratedExtensionProfiles(t)
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(profiles)})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
 
-	for _, profile := range CurrentExtensionProfiles() {
+	for _, profile := range profiles {
 		if profile.Claimed {
 			continue
 		}
@@ -350,7 +353,7 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 	}
 }
 
-func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
+func TestExplicitExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 	t.Parallel()
 
 	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
@@ -370,7 +373,7 @@ func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
 		t.Fatalf("decode extension contract registry: %v", err)
 	}
-	runtimeProfiles := CurrentExtensionProfiles()
+	runtimeProfiles := testGeneratedExtensionProfiles(t)
 	if len(runtimeProfiles) != len(registry.Profiles) {
 		t.Fatalf("extension contract profile count mismatch: runtime=%d contract=%d", len(runtimeProfiles), len(registry.Profiles))
 	}
@@ -389,4 +392,111 @@ func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 			t.Fatalf("extension contract workspace/capability mismatch for %s", wantProfile.ProfileID)
 		}
 	}
+}
+
+func TestNewHandlerRequiresExplicitExtensionProjections(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewHandler()
+	if err == nil || !strings.Contains(err.Error(), "http extension projections must be explicit") {
+		t.Fatalf("missing extension projections error = %v", err)
+	}
+}
+
+type testExtensionProjectionSet struct {
+	profiles []ExtensionProfile
+}
+
+func testExtensionDependencies(profiles []ExtensionProfile) DependencySet {
+	return testExtensionDependenciesWith(DependencySet{}, profiles)
+}
+
+func testExtensionDependenciesWith(deps DependencySet, profiles []ExtensionProfile) DependencySet {
+	projections := testExtensionProjectionSet{profiles: cloneExtensionProfiles(profiles)}
+	deps.ExtensionDiscovery = projections
+	deps.ExtensionClaims = projections
+	deps.ExtensionRoutes = projections
+	deps.ExtensionWorkspaces = projections
+	return deps
+}
+
+func (p testExtensionProjectionSet) ExtensionDiscoveryProfiles() []ExtensionProfile {
+	return cloneExtensionProfiles(p.profiles)
+}
+
+func (p testExtensionProjectionSet) ExtensionClaims() []ExtensionClaim {
+	claims := make([]ExtensionClaim, 0, len(p.profiles))
+	for _, profile := range p.profiles {
+		claims = append(claims, ExtensionClaim{ProfileID: profile.ProfileID, Claimed: profile.Claimed})
+	}
+	return claims
+}
+
+func (p testExtensionProjectionSet) ExtensionRoutes() []ExtensionRoute {
+	routes := []ExtensionRoute{}
+	for _, profile := range p.profiles {
+		for _, routeFamily := range profile.RouteFamilies {
+			routes = append(routes, ExtensionRoute{
+				ProfileID: profile.ProfileID, RouteFamily: routeFamily, Claimed: profile.Claimed,
+			})
+		}
+	}
+	return routes
+}
+
+func (p testExtensionProjectionSet) ExtensionWorkspaces() []ExtensionWorkspacePublication {
+	workspaces := []ExtensionWorkspacePublication{}
+	for _, profile := range p.profiles {
+		if !profile.Claimed {
+			continue
+		}
+		for _, workspace := range profile.Workspaces {
+			workspaces = append(workspaces, ExtensionWorkspacePublication{
+				ProfileID: profile.ProfileID, WorkspaceKey: workspace.WorkspaceKey, MinimumRole: workspace.MinimumRole,
+			})
+		}
+	}
+	return workspaces
+}
+
+func testGeneratedExtensionProfiles(t testing.TB) []ExtensionProfile {
+	t.Helper()
+	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	if !ok {
+		t.Fatal("generated extension contract registry is not packaged")
+	}
+	var registry struct {
+		Profiles []struct {
+			ProfileID     string   `json:"profile_id"`
+			Claimable     bool     `json:"claimable"`
+			ContractMajor int      `json:"contract_major"`
+			RouteFamilies []string `json:"route_families"`
+			WorkspaceKeys []string `json:"workspace_keys"`
+			Capabilities  []string `json:"capability_ids"`
+		} `json:"profiles"`
+	}
+	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
+		t.Fatalf("decode extension contract registry fixture: %v", err)
+	}
+	profiles := make([]ExtensionProfile, 0, len(registry.Profiles))
+	for _, descriptor := range registry.Profiles {
+		contractMajor := descriptor.ContractMajor
+		workspaces := make([]ExtensionWorkspace, 0, len(descriptor.WorkspaceKeys))
+		for _, workspaceKey := range descriptor.WorkspaceKeys {
+			workspaces = append(workspaces, ExtensionWorkspace{
+				WorkspaceKey: workspaceKey,
+				MinimumRole:  "viewer",
+			})
+		}
+		profiles = append(profiles, ExtensionProfile{
+			ProfileID:     descriptor.ProfileID,
+			Claimable:     descriptor.Claimable,
+			ContractMajor: &contractMajor,
+			RouteFamilies: append([]string(nil), descriptor.RouteFamilies...),
+			WorkspaceKeys: append([]string(nil), descriptor.WorkspaceKeys...),
+			Capabilities:  append([]string(nil), descriptor.Capabilities...),
+			Workspaces:    workspaces,
+		})
+	}
+	return profiles
 }

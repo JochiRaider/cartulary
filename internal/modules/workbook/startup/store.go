@@ -29,7 +29,7 @@ type Store struct {
 }
 
 func NewStore(db postgres.DB, workspaceResolvers ...WorkspaceResolver) *Store {
-	resolver := WorkspaceResolver(NewWorkspaceRegistry(nil))
+	resolver := WorkspaceResolver(NewWorkspaceRegistryFromPublication(nil))
 	if len(workspaceResolvers) > 0 && workspaceResolvers[0] != nil {
 		resolver = workspaceResolvers[0]
 	}

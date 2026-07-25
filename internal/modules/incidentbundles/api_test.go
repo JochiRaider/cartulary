@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"gopkg.in/yaml.v3"
 )
 
@@ -539,9 +540,8 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 }
 
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
-	deps := httpapi.DependencySet{
-		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}}),
-	}
+	projections := httpapiextensions.New([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
+	deps := projections.Dependencies(httpapi.DependencySet{})
 	err := RegisterRoutes()(http.NewServeMux(), deps)
 	if err == nil || !strings.Contains(err.Error(), "import finalizer") {
 		t.Fatalf("admitted incident portability setup must fail without import finalizer, got %v", err)

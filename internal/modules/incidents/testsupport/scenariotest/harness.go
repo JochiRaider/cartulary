@@ -44,6 +44,17 @@ func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string
 	return h.startServer(t, prefix, deps, httptestx.TestRouteModeDisabled)
 }
 
+func (h *RuntimeHarness) StartServerWithDependenciesAndEnv(t testing.TB, prefix string, deps httpapi.DependencySet, env map[string]string) *ServerHarness {
+	t.Helper()
+
+	return h.Runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        prefix,
+		Env:           env,
+		Dependencies:  deps,
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
+}
+
 func (h *RuntimeHarness) StartServerWithTestDependencies(t testing.TB, prefix string, deps httpapi.DependencySet) *ServerHarness {
 	t.Helper()
 

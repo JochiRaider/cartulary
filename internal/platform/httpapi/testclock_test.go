@@ -90,12 +90,12 @@ func TestRegisterTestClockRoutesRequiresHarnessOwnedRuntime(t *testing.T) {
 	clock := NewTestClock()
 	_, err := NewHandler(Options{
 		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
-		Dependencies: DependencySet{
+		Dependencies: testExtensionDependenciesWith(DependencySet{
 			Env: map[string]string{
 				TestRoutesEnabledEnv: "1",
 				TestRouteTokenEnv:    testClockRouteToken,
 			},
-		},
+		}, nil),
 	})
 	if err == nil {
 		t.Fatal("expected missing harness runtime marker to fail handler setup")
@@ -282,13 +282,13 @@ func startTestClockRouteServer(t testing.TB) (*TestClock, *httptest.Server) {
 	clock := NewTestClock()
 	handler, err := NewHandler(Options{
 		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
-		Dependencies: DependencySet{
+		Dependencies: testExtensionDependenciesWith(DependencySet{
 			Env: map[string]string{
 				TestRoutesEnabledEnv: "1",
 				TestRuntimeMarkerEnv: TestRuntimeMarkerValue,
 				TestRouteTokenEnv:    testClockRouteToken,
 			},
-		},
+		}, nil),
 	})
 	if err != nil {
 		t.Fatalf("new test clock handler: %v", err)

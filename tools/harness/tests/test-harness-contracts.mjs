@@ -244,7 +244,7 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 50);
   assert.equal(catalog.summary.family_count, 182);
-  assert.equal(catalog.summary.row_count, 878);
+  assert.equal(catalog.summary.row_count, 879);
   assert.equal(catalog.summary.selector_count, 1498);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),

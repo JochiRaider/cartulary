@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -105,17 +106,17 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 
 func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	profiles := httpapi.CurrentExtensionProfiles()
-	for index := range profiles {
-		if profiles[index].ProfileID == "network_flow_activity" {
-			profiles[index].Claimed = true
-		}
-	}
-	harness := runtime.StartServerWithDependencies(t, "saved_view_query-workbook-startup-i-8-02", httpapi.DependencySet{
-		ExtensionEpoch: httpapi.NewStaticExtensionEpochProvider(profiles),
+	deps := httpapi.DependencySet{
 		ModuleOverrides: map[string]any{
 			networkflow.KeyRingsOverrideKey: NetworkFlowHarnessKeyRings(t),
 		},
+	}
+	harness := runtime.StartServerWithDependenciesAndEnv(t, "saved_view_query-workbook-startup-i-8-02", deps, map[string]string{
+		"CARTULARY__IMPORT__CLAIMED":                               "true",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
 	})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

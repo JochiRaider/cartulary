@@ -313,7 +313,7 @@ func TestRuntime_ExtensionPublication_NoIndependentRederivation(t *testing.T) {
 	for _, required := range []string{
 		"extensionassembly.ResolveClaimRequest",
 		"extensionassembly.NewPublicationCatalog",
-		"publicationExtensionEpoch",
+		"publicationHTTPProjections",
 		"provider.publication.Discovery()",
 		"provider.publication.Claims()",
 		"provider.publication.Routes()",

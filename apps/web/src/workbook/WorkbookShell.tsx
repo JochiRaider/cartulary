@@ -26,6 +26,8 @@ import {
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
 import { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
+  importProfileId,
+  importRouteFamily,
   networkAnalysisSheetRef,
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
@@ -33,10 +35,6 @@ import {
 import { apiPath } from "../services/browserApi";
 import type { GeneratedExtensionProfileResource } from "../services/extensionContractAdapter";
 import { fetchWorkbookJSON, readEnvelope } from "../services/workbookApi";
-import {
-  importProfileId,
-  importRouteFamily,
-} from "../shared/importCoordinator";
 import { workbookSheetRefKey } from "../shared/workbookSheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,

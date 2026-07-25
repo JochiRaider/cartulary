@@ -17,15 +17,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-early-fail")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -47,9 +43,6 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 }
 
 func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-metadata-non-object")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -65,9 +58,6 @@ func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 }
 
 func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -159,9 +149,6 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 }
 
 func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-xlsx-discovery")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -215,9 +202,6 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 }
 
 func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-apply")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -349,9 +333,6 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 }
 
 func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-target-registry-host")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -442,9 +423,6 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
-	restore := claimImportAndNetworkFlowProfilesForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "network-flow-import-apply")
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -557,9 +535,6 @@ UPDATE incident_memberships
 }
 
 func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
-	restore := claimImportProfileForTest()
-	t.Cleanup(restore)
-
 	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "extension_profile-import-evidence-owner-facade")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -784,27 +759,6 @@ type importCounts struct {
 	SourceStreams    int
 	Jobs             int
 	RouteIdempotency int
-}
-
-func claimImportProfileForTest() func() {
-	profiles := httpapi.CurrentExtensionProfiles()
-	for index := range profiles {
-		if profiles[index].ProfileID == imports.ProfileID {
-			profiles[index].Claimed = true
-		}
-	}
-	return httpapi.SetCurrentExtensionProfilesForTesting(profiles)
-}
-
-func claimImportAndNetworkFlowProfilesForTest() func() {
-	profiles := httpapi.CurrentExtensionProfiles()
-	for index := range profiles {
-		switch profiles[index].ProfileID {
-		case imports.ProfileID, imports.NetworkFlowExtensionProfileID:
-			profiles[index].Claimed = true
-		}
-	}
-	return httpapi.SetCurrentExtensionProfilesForTesting(profiles)
 }
 
 func networkFlowMappingPayload(clientTxnID string) map[string]any {

@@ -175,6 +175,67 @@
       ]
     },
     {
+      "id": "frontend-workbook-import-feature-facade-boundary",
+      "level": "error",
+      "message": "Workbook and app composition must consume Import execution only through its workbook feature facade.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/app/**",
+          "apps/web/src/workbook/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/features/ImportAssistantFeature.tsx"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/shared/importCoordinator"
+        }
+      ]
+    },
+    {
+      "id": "frontend-extension-projection-no-concrete-feature-imports",
+      "level": "error",
+      "message": "Extension projection code must not depend on concrete profile feature implementations.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/extensions/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/networkFlow"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/shared/importCoordinator"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/features"
+        }
+      ]
+    },
+    {
       "id": "frontend-timeline-controller-isolation-boundary",
       "level": "error",
       "message": "Timeline controllers must collaborate through model ports instead of importing sibling controllers.",

@@ -10,12 +10,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	extensionroutetest "github.com/JochiRaider/cartulary/internal/platform/httpapi/extensiondiscovery/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
 
 func TestExtensionDiscoveryResponseShapeAndOrder_Unit(t *testing.T) {
-	profiles := httpapi.CurrentExtensionProfiles()
-	provider := httpapi.NewStaticExtensionEpochProvider(profiles)
-	data := buildResponseData(httpapi.ExtensionProfilesFromEpoch(provider))
+	provider := httpapiextensions.FromGeneratedRegistry(t)
+	profiles := provider.ExtensionDiscoveryProfiles()
+	data := buildResponseData(profiles)
 	items, ok := data["extensions"].([]map[string]any)
 	if !ok || len(items) != len(profiles) {
 		t.Fatalf("discovery data = %#v", data)

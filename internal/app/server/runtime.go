@@ -174,10 +174,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 			return nil, fmt.Errorf("bind packaged browser contracts: %w", err)
 		}
 	}
-	var claimOverride []httpapi.ExtensionProfile
-	if options.HTTP.Dependencies.ExtensionEpoch != nil {
-		claimOverride = httpapi.ExtensionProfilesFromEpoch(options.HTTP.Dependencies.ExtensionEpoch)
-	}
 	descriptors := extensionCoordinator.Descriptors()
 	claimPaths, err := extensionassembly.ClaimConfigurationPaths(descriptors)
 	if err != nil {
@@ -188,13 +184,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("project extension claim configuration: %w", err)
-	}
-	if claimOverride != nil {
-		claimValues, err = extensionClaimOverride(descriptors, claimOverride)
-		if err != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("project extension claim override: %w", err)
-		}
 	}
 	requestedClaims, err := extensionassembly.ResolveClaimRequest(descriptors, claimValues)
 	if err != nil {
@@ -764,11 +753,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Admission:           runtime.Lifecycle,
 		PublicErrorFaults:   testRuntimeDeps.PublicErrorFaults,
 		ModuleOverrides:     moduleOverrides,
-		ExtensionEpoch:      publicationExtensionEpoch{publication: publication},
-		ExtensionDiscovery:  publicationExtensionEpoch{publication: publication},
-		ExtensionClaims:     publicationExtensionEpoch{publication: publication},
-		ExtensionRoutes:     publicationExtensionEpoch{publication: publication},
-		ExtensionWorkspaces: publicationExtensionEpoch{publication: publication},
+		ExtensionDiscovery:  publicationHTTPProjections{publication: publication},
+		ExtensionClaims:     publicationHTTPProjections{publication: publication},
+		ExtensionRoutes:     publicationHTTPProjections{publication: publication},
+		ExtensionWorkspaces: publicationHTTPProjections{publication: publication},
 		Now:                 now,
 	}
 
@@ -867,31 +855,6 @@ func (probe stagedCleanupReadinessProbe) CheckReadinessDependency(context.Contex
 	return errors.New(state.ReasonCode)
 }
 
-func extensionClaimOverride(descriptors []extensions.Descriptor, override []httpapi.ExtensionProfile) (map[string]bool, error) {
-	descriptorByProfile := make(map[string]extensions.Descriptor, len(descriptors))
-	values := make(map[string]bool, len(descriptors))
-	for _, descriptor := range descriptors {
-		if _, duplicate := descriptorByProfile[descriptor.ProfileID]; duplicate {
-			return nil, fmt.Errorf("duplicate extension profile %q", descriptor.ProfileID)
-		}
-		descriptorByProfile[descriptor.ProfileID] = descriptor
-		values[descriptor.ClaimConfigKey] = false
-	}
-	seen := make(map[string]struct{}, len(override))
-	for _, profile := range override {
-		descriptor, present := descriptorByProfile[profile.ProfileID]
-		if !present {
-			return nil, fmt.Errorf("extension profile %q is not generated", profile.ProfileID)
-		}
-		if _, duplicate := seen[profile.ProfileID]; duplicate {
-			return nil, fmt.Errorf("duplicate extension profile %q", profile.ProfileID)
-		}
-		seen[profile.ProfileID] = struct{}{}
-		values[descriptor.ClaimConfigKey] = profile.Claimed
-	}
-	return values, nil
-}
-
 func publicationHTTPProfiles(discovery []extensions.DiscoveryProfile) []httpapi.ExtensionProfile {
 	profiles := make([]httpapi.ExtensionProfile, 0, len(discovery))
 	for _, profile := range discovery {
@@ -908,22 +871,18 @@ func publicationHTTPProfiles(discovery []extensions.DiscoveryProfile) []httpapi.
 	return profiles
 }
 
-type publicationExtensionEpoch struct {
+type publicationHTTPProjections struct {
 	publication *PublicationController
 }
 
-func (provider publicationExtensionEpoch) ExtensionProfiles() []httpapi.ExtensionProfile {
+func (provider publicationHTTPProjections) ExtensionDiscoveryProfiles() []httpapi.ExtensionProfile {
 	if provider.publication == nil {
 		return nil
 	}
 	return publicationHTTPProfiles(provider.publication.Discovery())
 }
 
-func (provider publicationExtensionEpoch) ExtensionDiscoveryProfiles() []httpapi.ExtensionProfile {
-	return provider.ExtensionProfiles()
-}
-
-func (provider publicationExtensionEpoch) ExtensionClaims() []httpapi.ExtensionClaim {
+func (provider publicationHTTPProjections) ExtensionClaims() []httpapi.ExtensionClaim {
 	if provider.publication == nil {
 		return nil
 	}
@@ -935,7 +894,7 @@ func (provider publicationExtensionEpoch) ExtensionClaims() []httpapi.ExtensionC
 	return claims
 }
 
-func (provider publicationExtensionEpoch) ExtensionRoutes() []httpapi.ExtensionRoute {
+func (provider publicationHTTPProjections) ExtensionRoutes() []httpapi.ExtensionRoute {
 	if provider.publication == nil {
 		return nil
 	}
@@ -949,7 +908,7 @@ func (provider publicationExtensionEpoch) ExtensionRoutes() []httpapi.ExtensionR
 	return routes
 }
 
-func (provider publicationExtensionEpoch) ExtensionWorkspaces() []httpapi.ExtensionWorkspacePublication {
+func (provider publicationHTTPProjections) ExtensionWorkspaces() []httpapi.ExtensionWorkspacePublication {
 	if provider.publication == nil {
 		return nil
 	}

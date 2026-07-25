@@ -35,7 +35,6 @@ type DependencySet struct {
 	JobRunner           *jobs.Runner
 	WSHub               *platformws.Hub
 	CursorCodec         *pagination.Codec
-	ExtensionEpoch      ExtensionEpochProvider
 	ExtensionDiscovery  ExtensionDiscoveryProvider
 	ExtensionClaims     ExtensionClaimProvider
 	ExtensionRoutes     ExtensionRouteProvider
@@ -118,6 +117,9 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	var option Options
 	if len(options) > 0 {
 		option = options[0]
+	}
+	if err := requireExtensionProjections(option.Dependencies); err != nil {
+		return nil, err
 	}
 	rootHTML, err := webassets.ReadBrowserRootHTML()
 	if err != nil {
@@ -221,45 +223,51 @@ func withUnclaimedReservedExtensionFamilies(next http.Handler, routes []Extensio
 }
 
 func ExtensionDiscoveryFromDependencies(deps DependencySet) []ExtensionProfile {
-	if deps.ExtensionDiscovery != nil {
-		return cloneExtensionProfiles(deps.ExtensionDiscovery.ExtensionDiscoveryProfiles())
+	if deps.ExtensionDiscovery == nil {
+		return nil
 	}
-	return ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
+	return cloneExtensionProfiles(deps.ExtensionDiscovery.ExtensionDiscoveryProfiles())
 }
 
 func ExtensionClaimsFromDependencies(deps DependencySet) []ExtensionClaim {
-	if deps.ExtensionClaims != nil {
-		return cloneExtensionClaims(deps.ExtensionClaims.ExtensionClaims())
+	if deps.ExtensionClaims == nil {
+		return nil
 	}
-	if provider, ok := deps.ExtensionEpoch.(ExtensionClaimProvider); ok {
-		return cloneExtensionClaims(provider.ExtensionClaims())
-	}
-	profiles := ExtensionProfilesFromEpoch(deps.ExtensionEpoch)
-	claims := make([]ExtensionClaim, 0, len(profiles))
-	for _, profile := range profiles {
-		claims = append(claims, ExtensionClaim{ProfileID: profile.ProfileID, Claimed: profile.Claimed})
-	}
-	return claims
+	return cloneExtensionClaims(deps.ExtensionClaims.ExtensionClaims())
 }
 
 func extensionRoutesFromDependencies(deps DependencySet) []ExtensionRoute {
-	if deps.ExtensionRoutes != nil {
-		return cloneExtensionRoutes(deps.ExtensionRoutes.ExtensionRoutes())
+	if deps.ExtensionRoutes == nil {
+		return nil
 	}
-	if provider, ok := deps.ExtensionEpoch.(ExtensionRouteProvider); ok {
-		return cloneExtensionRoutes(provider.ExtensionRoutes())
-	}
-	return NewStaticExtensionEpochProvider(ExtensionProfilesFromEpoch(deps.ExtensionEpoch)).ExtensionRoutes()
+	return cloneExtensionRoutes(deps.ExtensionRoutes.ExtensionRoutes())
 }
 
 func ExtensionWorkspacesFromDependencies(deps DependencySet) []ExtensionWorkspacePublication {
-	if deps.ExtensionWorkspaces != nil {
-		return cloneExtensionWorkspaces(deps.ExtensionWorkspaces.ExtensionWorkspaces())
+	if deps.ExtensionWorkspaces == nil {
+		return nil
 	}
-	if provider, ok := deps.ExtensionEpoch.(ExtensionWorkspaceProvider); ok {
-		return cloneExtensionWorkspaces(provider.ExtensionWorkspaces())
+	return cloneExtensionWorkspaces(deps.ExtensionWorkspaces.ExtensionWorkspaces())
+}
+
+func requireExtensionProjections(deps DependencySet) error {
+	missing := make([]string, 0, 4)
+	if deps.ExtensionDiscovery == nil {
+		missing = append(missing, "discovery")
 	}
-	return NewStaticExtensionEpochProvider(ExtensionProfilesFromEpoch(deps.ExtensionEpoch)).ExtensionWorkspaces()
+	if deps.ExtensionClaims == nil {
+		missing = append(missing, "claims")
+	}
+	if deps.ExtensionRoutes == nil {
+		missing = append(missing, "routes")
+	}
+	if deps.ExtensionWorkspaces == nil {
+		missing = append(missing, "workspaces")
+	}
+	if len(missing) != 0 {
+		return fmt.Errorf("http extension projections must be explicit: missing %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func RequestIDFromContext(ctx context.Context) string {

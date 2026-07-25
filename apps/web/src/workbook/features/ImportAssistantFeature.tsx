@@ -7,13 +7,15 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import {
+  importProfileId,
+  importRouteFamily,
+} from "../../extensions/extensionWorkspaceIdentities";
+import {
   applyWorkbookImport,
   approveWorkbookImportMapping,
   cancelImportJob,
   type DiscoveredImportColumn,
   type ImportJobResource,
-  importProfileId,
-  importRouteFamily,
   setWorkbookImportUnitSelection,
   uploadAndDiscoverWorkbookImport,
   type WorkbookImportDiscovery,

@@ -787,8 +787,10 @@ func TestExtensionContractAccounting_Static(t *testing.T) {
 		},
 		"module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2": {
 			"TestExtensionCancellationObservationIsAtomic_Integration",
-			"TestInactiveExtensionJobReconciliation_ServiceBacked",
 			"TestOwnerFinalizerAtomicSuccessAndFailure_Integration",
+		},
+		"module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45": {
+			"TestInactiveExtensionJobReconciliation_ServiceBacked",
 		},
 		"module.extensions.integration.clean_job_cutover_migration_4917a0cdef": {
 			"TestExtensionJobCutoverMigration34FreshSchema_Integration",

@@ -37,30 +37,6 @@ type workspaceProfile struct {
 	workspaces map[string]string
 }
 
-func NewWorkspaceRegistry(profiles []httpapi.ExtensionProfile) *WorkspaceRegistry {
-	registry := &WorkspaceRegistry{profiles: map[string]workspaceProfile{}}
-	for _, profile := range httpapi.ResolveExtensionProfiles(profiles) {
-		profileID := strings.TrimSpace(profile.ProfileID)
-		if profileID == "" {
-			continue
-		}
-		entry := workspaceProfile{
-			claimed:    profile.Claimed,
-			workspaces: map[string]string{},
-		}
-		for _, workspace := range profile.Workspaces {
-			workspaceKey := strings.TrimSpace(workspace.WorkspaceKey)
-			minimumRole := strings.TrimSpace(workspace.MinimumRole)
-			if workspaceKey == "" || minimumRole == "" {
-				continue
-			}
-			entry.workspaces[workspaceKey] = minimumRole
-		}
-		registry.profiles[profileID] = entry
-	}
-	return registry
-}
-
 func NewWorkspaceRegistryFromPublication(workspaces []httpapi.ExtensionWorkspacePublication) *WorkspaceRegistry {
 	registry := &WorkspaceRegistry{profiles: map[string]workspaceProfile{}}
 	for _, workspace := range workspaces {

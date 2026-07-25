@@ -1,4 +1,4 @@
-package extensionstore_test
+package extensionassembly_test
 
 import (
 	"context"

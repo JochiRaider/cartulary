@@ -128,6 +128,35 @@
       ]
     },
     {
+      "row_id": "module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestInactiveExtensionJobReconciliation_ServiceBacked"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active",
+      "documentation_refs": [
+        "docs/extension-subsystem-nlspec.md#ext-req-191",
+        "docs/extension-subsystem-nlspec.md#ext-ac-088"
+      ]
+    },
+    {
       "row_id": "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
@@ -143,7 +172,6 @@
         "package": "./internal/platform/extensionstore",
         "tests": [
           "TestExtensionCancellationObservationIsAtomic_Integration",
-          "TestInactiveExtensionJobReconciliation_ServiceBacked",
           "TestOwnerFinalizerAtomicSuccessAndFailure_Integration"
         ]
       },

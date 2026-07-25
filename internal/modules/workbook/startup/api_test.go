@@ -179,30 +179,19 @@ func TestWorkbookStartupExplicitSheetRefParser(t *testing.T) {
 }
 
 func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *testing.T) {
-	profiles := []httpapi.ExtensionProfile{
+	workspaces := []httpapi.ExtensionWorkspacePublication{
 		{
-			ProfileID: "network_flow_activity",
-			Claimed:   true,
-			Workspaces: []httpapi.ExtensionWorkspace{
-				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
-			},
+			ProfileID:    "network_flow_activity",
+			WorkspaceKey: "network_analysis",
+			MinimumRole:  "viewer",
 		},
 		{
-			ProfileID: "future_extension",
-			Claimed:   false,
-			Workspaces: []httpapi.ExtensionWorkspace{
-				{WorkspaceKey: "future_workspace", MinimumRole: "viewer"},
-			},
-		},
-		{
-			ProfileID: "restricted_extension",
-			Claimed:   true,
-			Workspaces: []httpapi.ExtensionWorkspace{
-				{WorkspaceKey: "restricted_workspace", MinimumRole: "editor"},
-			},
+			ProfileID:    "restricted_extension",
+			WorkspaceKey: "restricted_workspace",
+			MinimumRole:  "editor",
 		},
 	}
-	registry := workbookstartup.NewWorkspaceRegistry(profiles)
+	registry := workbookstartup.NewWorkspaceRegistryFromPublication(workspaces)
 	store := workbookstartup.NewStore(nil, registry)
 	viewerRows := registry.AvailableWorkspaces("viewer")
 	if len(viewerRows) != 1 || viewerRows[0].ExtensionProfileID != "network_flow_activity" || viewerRows[0].WorkspaceKey != "network_analysis" {

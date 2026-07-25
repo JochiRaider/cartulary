@@ -36,7 +36,6 @@ import (
 )
 
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-export")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
@@ -109,7 +108,6 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 }
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startedOnce sync.Once
@@ -217,7 +215,6 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 }
 
 func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-target")
@@ -509,7 +506,6 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 }
 
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-finalize-source")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
@@ -594,7 +590,6 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 }
 
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-supersede-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-supersede-target")
@@ -648,7 +643,6 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 }
 
 func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-failure-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
@@ -817,7 +811,6 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-network-flow-block")
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
@@ -852,7 +845,6 @@ UPDATE network_flow_tables
 }
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-descriptor-canonical")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
@@ -968,7 +960,6 @@ INSERT INTO network_flow_tables (
 }
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
-	withIncidentPortabilityClaimed(t)
 	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-envelope-failures")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
@@ -2283,16 +2274,4 @@ func stringArray(t testing.TB, raw any) []string {
 func hashHexBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
-}
-
-func withIncidentPortabilityClaimed(t testing.TB) {
-	t.Helper()
-	restore := httpapi.SetCurrentExtensionProfilesForTesting([]httpapi.ExtensionProfile{
-		{ProfileID: "enterprise_authentication", Claimed: false, RouteFamilies: []string{"/api/v1/auth/oidc", "/api/v1/auth/providers", "/api/v1/auth/saml", "/api/v1/users/{user_id}/auth-bindings"}},
-		{ProfileID: "import", Claimed: true, RouteFamilies: []string{"/api/v1/import-sessions"}},
-		{ProfileID: incidentbundles.ProfileID, Claimed: true, RouteFamilies: []string{"/api/v1/incident-bundles"}},
-		{ProfileID: "reference_pack", Claimed: true, RouteFamilies: []string{"/api/v1/reference-packs"}},
-		{ProfileID: "snapshot_reporting", Claimed: true, RouteFamilies: []string{"/api/v1/incidents/{incident_id}/report-compositions", "/api/v1/releases", "/api/v1/snapshots"}},
-	})
-	t.Cleanup(restore)
 }
