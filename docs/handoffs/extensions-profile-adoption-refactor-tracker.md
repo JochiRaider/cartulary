@@ -8,7 +8,7 @@
 | Planning baseline | Clean `main` at `c0c9c02aae53762d25316afaa8808aa5e424b0db`, observed on 2026-07-24 |
 | Upstream posture | `main` is one commit ahead of `origin/main` (`b796a9c5b80b43e7d8284cb1e96de971364e169b`) |
 | Task posture | Ordered remediation execution under the mandatory checkpoint protocol |
-| Execution status | `EPA-00` through `EPA-11` are `DONE`; `EPA-12` is `IN_PROGRESS` |
+| Execution status | `EPA-00` through `EPA-12` are `DONE`; remediation and handoff are complete |
 | Controlling authority | Core 00 through Core 04, adopted profile-owner specifications, the Extensions NLSpec, `docs/domain.md`, and the Harness NLSpec |
 | Historical evidence | `docs/handoffs/extensions-module-refactor-tracker.md` and `docs/handoffs/extensions-subsystem-implementation-tracker.md`; neither is normative |
 | Domain posture | `domain vocabulary unchanged` |
@@ -57,7 +57,7 @@ that does not turn Network Flow into a profile-specific remediation target.
 
 ### Explicit non-goals
 
-- Implementing any remediation in this planning task.
+- Adding behavior beyond the adopted EPA-00 through EPA-12 remediation scope.
 - Editing the completed Extensions trackers.
 - Promoting the draft Reference Pack NLSpec or treating it as current authority.
 - Adding a feature flag, compatibility alias, fallback reader, dual publication
@@ -270,34 +270,34 @@ Every cell uses one required disposition verbatim.
 | Normative declaration and ownership | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Canonical ID, major, claimability, compatibility | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Runtime profile dependencies | declared not applicable | conformant and proven | declared not applicable | declared not applicable | declared not applicable | declared not applicable |
-| Authored manifests/fragments/configuration | conformant and proven | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap |
-| Generated registry and integrity | conformant and proven | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap |
-| Coordinator admission and claims | conformant but insufficiently tested | conformant but insufficiently tested | conformant but insufficiently tested | conformant but insufficiently tested | conformant but insufficiently tested | conformant but insufficiently tested |
+| Authored manifests/fragments/configuration | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Generated registry and integrity | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Coordinator admission and claims | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Dependency order and collision validation | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
-| Immutable publication-plan projection | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap |
-| Application-owned publication epoch | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap |
+| Immutable publication-plan projection | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Application-owned publication epoch | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Discovery visibility and ordering | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
-| Reserved route dispatch | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap |
-| HTTP route preparation | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap |
+| Reserved route dispatch | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| HTTP route preparation | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | WebSocket contribution | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable |
 | Workspace contribution | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable |
-| Worker/job preparation | declared not applicable | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap |
-| Exact acknowledgments and serving gate | implementation gap | implementation gap | implementation gap | implementation gap | implementation gap | implementation gap |
-| Client support/frontend availability | conformant and proven | implementation gap | conformant and proven | conformant and proven | declared not applicable | declared not applicable |
-| Configuration and inactive policy | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap | composition/wiring gap |
+| Worker/job preparation | declared not applicable | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Exact acknowledgments and serving gate | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Client support/frontend availability | conformant and proven | conformant and proven | conformant and proven | conformant and proven | declared not applicable | declared not applicable |
+| Configuration and inactive policy | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Extension-versioned state | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable |
-| Core-managed state | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant but insufficiently tested | conformant but insufficiently tested |
+| Core-managed state | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Cross-owner transaction | declared not applicable | conformant and proven | conformant and proven | declared not applicable | declared not applicable | declared not applicable |
 | Staged-object publication | declared not applicable | declared not applicable | conformant and proven | declared not applicable | declared not applicable | declared not applicable |
 | Incident portability participation | declared not applicable | declared not applicable | conformant and proven | declared not applicable | declared not applicable | declared not applicable |
 | Backup/restore extension binding | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable | declared not applicable |
-| Snapshot/Reporting participant | declared not applicable | declared not applicable | declared not applicable | declared not applicable | implementation gap | implementation gap |
+| Snapshot/Reporting participant | declared not applicable | declared not applicable | declared not applicable | declared not applicable | conformant and proven | conformant and proven |
 | Telemetry projection | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 | Revision-claim projection | declared not applicable | declared not applicable | conformant and proven | declared not applicable | declared not applicable | declared not applicable |
-| Implementation binding/conformance | conformant but insufficiently tested | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap | authored-contract or generation gap |
-| Fatal lifecycle/readiness | implementation gap | implementation gap | implementation gap | implementation gap | implementation gap | implementation gap |
-| Harness ownership/selectors | test or Harness-accounting gap | test or Harness-accounting gap | test or Harness-accounting gap | test or Harness-accounting gap | test or Harness-accounting gap | test or Harness-accounting gap |
-| Developer documentation | documentation gap | documentation gap | documentation gap | documentation gap | documentation gap | documentation gap |
+| Implementation binding/conformance | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Fatal lifecycle/readiness | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Harness ownership/selectors | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
+| Developer documentation | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven | conformant and proven |
 
 The core-managed rows do not absolve a profile from common job ownership. A
 durable job is a separate Extensions obligation even when its resource tables
@@ -307,50 +307,50 @@ remain Core managed.
 
 | Runtime consumer | Enterprise Authentication | Import | Incident Portability | Reference Pack | Snapshot | Reporting |
 | --- | --- | --- | --- | --- | --- | --- |
-| Claim configuration | raw config switch plus generated descriptor | raw config switch plus descriptor | raw config switch plus descriptor | raw config switch plus descriptor | raw config switch plus descriptor | same profile claim |
+| Claim configuration | generated-key resolved claim | generated-key resolved claim | generated-key resolved claim | generated-key resolved claim | generated-key resolved claim | same resolved profile claim |
 | State admission | no extension state plan | no extension state plan | no extension state plan | no extension state plan | no extension state plan | no extension state plan |
-| Discovery | publication controller discovery projection | same | same | same | same | same |
-| Reserved HTTP matcher | broad epoch profiles | broad epoch profiles | broad epoch profiles | broad epoch profiles | broad epoch profiles | broad epoch profiles |
-| Route construction | fixed `auth` registrar and claim check | fixed `imports` registrar | fixed `incident_bundles` registrar | fixed `reference_data` registrar | fixed `reporting` registrar | fixed `reporting` plus `report_composition` registrars |
-| Exact route-plan rows | not consumed | not consumed | not consumed | not consumed | not consumed | not consumed |
-| Workspace registry | not applicable | no registered workspace; missing assistant UI | not applicable | not applicable | not applicable | not applicable |
-| Worker plan | empty | empty despite two handlers | empty despite one handler | empty despite one handler | empty despite reporting handler | empty despite reporting/preview work |
-| Job recovery | none | invoked during route preparation | invoked during route preparation | invoked during route preparation | invoked during route preparation | reporting recovery; preview has no handler |
-| Listener/worker acknowledgment | listener-only, before commit | listener ack before handler registration | listener ack before handler registration | listener ack before handler registration | listener ack before handler registration | listener ack before handler registration |
-| Client availability | discovery-gated Auth UI | helper exists; production assistant absent | discovery-gated import panel | discovery- and role-gated admin panel | no required UI | optional builder absent |
+| Discovery | installed copied discovery projection | same | same | same | same | same |
+| Reserved HTTP matcher | narrow reserved-route projection | same | same | same | same | same |
+| Route construction | exact four-row Auth catalog | exact Import catalog | exact Portability catalog | exact Reference Pack catalog | exact Reporting catalog | exact Reporting and Report Composition catalogs |
+| Exact route-plan rows | consumed | consumed | consumed | consumed | consumed | consumed |
+| Workspace registry | not applicable | no profile workspace; assistant is route-availability gated | not applicable | not applicable | not applicable | not applicable |
+| Worker plan | no profile worker | exact discovery/apply workers | exact bundle worker | exact lifecycle worker | exact Reporting worker | exact Reporting worker |
+| Job recovery | none | gated until `Serve` | gated until `Serve` | gated until `Serve` | gated until `Serve` | gated until `Serve`, including preview |
+| Listener/worker acknowledgment | listener after commit | listener and claimed workers after commit | listener and claimed worker after commit | listener and claimed worker after commit | listener and claimed worker after commit | listener and claimed worker after commit |
+| Client availability | discovery-gated Auth UI | serving-profile-gated production assistant | discovery-gated import panel | discovery- and role-gated admin panel | no required UI | optional builder absent |
 | Telemetry | resolved claim set | resolved claim set | resolved claim set | resolved claim set | resolved claim set | resolved claim set |
 | Revisions attribution | none | none | exact imported attribution resolver | none | none | none |
 | Portability | explicit no incident state | explicit no incident state | shared orchestrator and NF blocking | explicit no incident state | explicit no incident state | Composition explicitly consumes none |
 | Recovery codec | Core/base backup | Core/base backup | Core/base backup | Core/base backup | Core/base backup | Core/base backup |
-| Conformance | generated manifest/binding | generated manifest omits live jobs | generated manifest omits live jobs | generated manifest omits live jobs | generated manifest omits live jobs | binding advertises unimplemented participant |
+| Conformance | exact generated manifest/binding | exact jobs/workers/binding | exact jobs/worker/binding | exact jobs/worker/binding | exact jobs/worker/participant binding | exact jobs/worker/participant binding |
 
 ## 7. Authored-Input and Generated-Artifact Provenance
 
-| Provenance stage | Exact owner/input | Downstream result | Current finding |
+| Provenance stage | Exact owner/input | Downstream result | Final finding |
 | --- | --- | --- | --- |
 | Recognition | `fragments/core00.recognition.json` | descriptor ID, major, owner, claimability | correct for all six recognized profiles |
 | Discovery | `fragments/core01.discovery.json` | route families and NF workspace | correct |
-| Classification | `fragments/core01.profile-classifications.json`; `snapshot_reporting.participation.json` | state, egress, portability, reporting, contributions | missing job/worker facts; reporting participant declared |
-| Claim configuration | `fragments/core04.claim-configuration.json`; `profiles/*/configuration.json` | claim key and inactive-key policy | authored correctly; runtime projection is hard-coded |
+| Classification | `fragments/core01.profile-classifications.json`; `snapshot_reporting.participation.json` | state, egress, portability, reporting, contributions | exact job, worker, contribution, and participant facts adopted |
+| Claim configuration | `fragments/core04.claim-configuration.json`; `profiles/*/configuration.json` | claim key and inactive-key policy | authored contracts and generic runtime projection agree |
 | Dependencies | `dependencies.json` and owner manifests | dependency snapshot and owner locator integrity | correct; only Network Flow has runtime profile dependency |
-| Implementation assertions | `build/implementation-bindings.json` | per-profile binding and binding-set digest | falsely omits live workers/jobs and claims reporting participant implementation |
-| Participant contract | `profiles/snapshot_reporting/reporting-participant.json` | participant registry and binding digest | uses unsupported profile-local context/result schema IDs |
-| Client support | `build/client-support.json` | generated client support registry | correctly contains only NF workspace support |
-| Generation | `tools/contractgen/extensions_*.go` | embedded generated artifacts | generator supports worker/job facts but receives none |
+| Implementation assertions | `build/implementation-bindings.json` | per-profile binding and binding-set digest | exact live jobs, workers, routes, and participant implementation |
+| Participant contract | `profiles/snapshot_reporting/reporting-participant.json` | participant registry and binding digest | adopted shared context/result schemas and valid `emit` specialization |
+| Client support | `build/client-support.json` | generated client support registry | matches adopted workspace support; Import Assistant availability follows the installed serving projection |
+| Generation | `tools/contractgen/extensions_*.go` | embedded generated artifacts | complete owner facts generate exact closed catalogs |
 | Embedded backend | `internal/gen/contracts/contracts_gen.go` | coordinator artifact source | do not edit by hand |
 | Generated frontend | protocol/UI generated roots | packaged decoders/types | do not edit by hand |
-| Runtime admission | `internal/modules/extensions/coordinator.go` | descriptors, claims, plan, policies | validates authored/generated bytes but not actual handler existence |
-| Application epoch | publication controller and runtime | process-local installed plan | typed plan exists; exact projections are not fully consumed |
-| Harness | verification owners and `tools/test_families/*` | selector topology/evidence accounting | missing adoption-path selectors |
+| Runtime admission | `internal/modules/extensions/coordinator.go` | descriptors, claims, plan, policies | validates authored/generated bytes and exact implementation catalog parity |
+| Application epoch | publication controller and runtime | process-local installed plan | one immutable installed epoch supplies only copied narrow projections |
+| Harness | verification owners and `tools/test_families/*` | selector topology/evidence accounting | every remediated behavior has one semantic owner and production-path selector |
 
-Generated outputs implicated by later work include descriptors, the registry,
-implementation bindings and binding-set digest, owner inputs, dependency
-snapshot, participant registry, job-kind artifacts, closure catalogs,
-conformance manifests/index, registry accounting/integrity, generated schemas,
-and generated Go/TypeScript embeddings. The exact set must come from
-`make generate`; no workstream may predict it by editing generated paths.
+Generated outputs now close descriptors, the registry, implementation bindings
+and binding-set digest, owner inputs, dependency snapshot, participant
+registry, job-kind artifacts, closure catalogs, conformance manifests/index,
+registry accounting/integrity, generated schemas, and generated Go/TypeScript
+embeddings. All were produced through `make generate`; no generated root was
+hand-edited.
 
-## 8. Current Import and Composition DAG
+## 8. Recorded Pre-Remediation Import and Composition DAG
 
 ```text
 cmd/server
@@ -468,6 +468,11 @@ Negative findings:
 ## 10. Cross-Profile Systemic Findings and Gap Ledger
 
 ### Gap definitions
+
+The classifications below record the EPA-00 baseline. `GAP-001` through
+`GAP-014` are all `RESOLVED` by their assigned completed workstreams; none is a
+current compatibility, implementation, evidence, documentation, or owner
+blocker.
 
 | ID | Profile/capability | Exact evidence | Classification | Required remediation | Affected areas | Workstream |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -843,6 +848,7 @@ compatibility format.
 | Generated/drift checks | full generation/policy/shape/migration/Harness ladder |
 | Exit criteria | all binary criteria pass; every workstream is `DONE`; final handoff is complete |
 | Checkpoint | final commit/status, files, commands/run roots, failures/retries, rollout/rollback, blockers, domain posture |
+| Completion checkpoint | Final validation and handoff are complete with no product-behavior change in EPA-12. Focused owner slices passed for `app.server`, `module.extensions`, `module.auth`, `module.imports`, `module.incidentbundles`, `module.reference_data`, `module.reporting`, `module.reportcomposition`, `module.networkflow`, `platform.config`, and `web.workbook` at `.cartulary/test-results/20260725T003906Z-p87985`, `.cartulary/test-results/20260725T003957Z-p14140`, `.cartulary/test-results/20260725T004147Z-p30958`, `.cartulary/test-results/20260725T004623Z-p63735`, `.cartulary/test-results/20260725T004755Z-p82627`, `.cartulary/test-results/20260725T004815Z-p83245`, `.cartulary/test-results/20260725T004903Z-p99724`, `.cartulary/test-results/20260725T004914Z-p873`, `.cartulary/test-results/20260725T004921Z-p1460`, `.cartulary/test-results/20260725T005347Z-p33809`, and `.cartulary/test-results/20260725T005350Z-p34112`. Applicable service-backed slices passed for the first nine backend owners at `.cartulary/test-results/20260725T005450Z-p37815`, `.cartulary/test-results/20260725T005542Z-p62762`, `.cartulary/test-results/20260725T005630Z-p79278`, `.cartulary/test-results/20260725T010105Z-p12132`, `.cartulary/test-results/20260725T010237Z-p31058`, `.cartulary/test-results/20260725T010255Z-p31586`, `.cartulary/test-results/20260725T010348Z-p47359`, `.cartulary/test-results/20260725T010357Z-p47732`, and `.cartulary/test-results/20260725T010404Z-p48093`; Config and Workbook correctly have no service-backed selection. Stateful and webserver-backed browser suites passed at `.cartulary/test-results/20260725T010829Z-p80169` and `.cartulary/test-results/20260725T011120Z-p2859`. Initial backend/frontend boundary, generation, generation drift, artifact policy, JSON shape, migration drift, Harness contract, Markdown/script/shell lint, and toolchain drift gates passed; representative roots are `.cartulary/test-results/20260725T011650Z-p30492`, `.cartulary/test-results/20260725T011653Z-p30831`, `.cartulary/test-results/20260725T011656Z-p31287`, `.cartulary/test-results/20260725T011701Z-p32925`, `.cartulary/test-results/20260725T011711Z-p36039`, `.cartulary/test-results/20260725T011713Z-p36401`, `.cartulary/test-results/20260725T011716Z-p36900`, and `.cartulary/test-results/20260725T011754Z-p42991`. The first `make check` failed at `.cartulary/test-results/20260725T011800Z-p43628` on the known nondeterministic Workbook inspector assertion; standalone `make frontend-unit` passed at `.cartulary/test-results/20260725T012001Z-p22955`, and the unchanged rerun passed 143/143 units and 597 tests at `.cartulary/test-results/20260725T012024Z-p24832`. The first retained-root finalizer failed at `.cartulary/test-results/20260725T012247Z-p12084` because an earlier timing refresh had retained inflated Go command overhead; the explicit accounting refresh with `ALLOW_COMMAND_OVERHEAD_DECREASE=1` passed without pruning, with coverage and drift roots `.cartulary/test-results/20260725T012529Z-p19047` and `.cartulary/test-results/20260725T012531Z-p19258`. A stale-source finalizer rejection at `.cartulary/test-results/20260725T012536Z-p19454` correctly required a new warm root. The next finalizer identified an actual warm-lane imbalance at `.cartulary/test-results/20260725T012905Z-p49205`: Incident Portability's seven-test lane exceeded the fixed 125-percent/5000-millisecond materiality contract. EPA-12 corrected only Harness accounting by adding a 6000-millisecond exact-symbol shard profile for `backend-integration`, retaining the 12000-millisecond default and 24000-millisecond process profile, adding a policy regression assertion, and regenerating timing topology; the family now has four balanced lanes. Warm `make check` then passed at `.cartulary/test-results/20260725T013311Z-p63237`; explicit scheduler event/timing drift passed at `.cartulary/test-results/20260725T013518Z-p51507` and `.cartulary/test-results/20260725T013518Z-p51694`; retained-root `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260725T013311Z-p63237` passed at `.cartulary/test-results/20260725T013522Z-p51874` with generated refresh, duration refresh, and run checks complete. EPA-12 authored/accounting surfaces are this tracker, `tools/harness/backend/go-shard-policy.mjs`, its batching regression, four duration-baseline JSON files, and generated topology render/scheduler outputs. Post-finalizer generation drift, artifact policy, JSON shape, migration drift, Harness contract, Markdown/script/shell lint, backend/frontend boundary, toolchain drift, and `git diff --check` all passed; representative roots are `.cartulary/test-results/20260725T013607Z-p57464`, `.cartulary/test-results/20260725T013617Z-p60553`, `.cartulary/test-results/20260725T013619Z-p60896`, `.cartulary/test-results/20260725T013622Z-p61402`, `.cartulary/test-results/20260725T013700Z-p67544`, `.cartulary/test-results/20260725T013703Z-p67878`, and `.cartulary/test-results/20260725T013706Z-p68355`. Final `make check` passed 149/149 units and 597 tests at `.cartulary/test-results/20260725T013712Z-p69009`; `make release-check` passed 12/12 units and 597 tests at `.cartulary/test-results/20260725T013918Z-p56981`. No check was skipped. No blocker or unresolved gap remains. Rollout is one cold stop/start with matching binary, generated contracts, frontend assets, and schema after reset/reseed of any pre-cutover development database; mixed builds remain forbidden. Rollback is by complete workstream commit boundary, never by restoring a dual publication path or deleting/reinterpreting proof and cancellation history. Domain vocabulary unchanged. |
 
 ## 14. Rollback and Safe-Reversion Boundaries
 
@@ -864,21 +870,22 @@ additive internal rows but must not erase or reinterpret them.
 
 ## 15. Harness Ownership and Selector Plan
 
-### Current owner baseline
+### Final affected-owner inventory
 
 | Owner | Rows | Service-backed | Evidence retained |
 | --- | ---: | ---: | --- |
-| `module.extensions` | 20 | 9 | coordinator, contract accounting, state, process, one NF stateful browser row |
-| `app.server` | 28 | 22 | publication characterization, readiness, process/runtime composition |
+| `module.extensions` | 25 | 12 | coordinator, exact catalogs, contract accounting, state, reconciliation, process, NF regression |
+| `app.server` | 29 | 22 | publication order, readiness, exact process/runtime composition |
 | `module.auth` | 48 | 29 | enterprise backend/frontend/browser plus Base auth |
-| `module.imports` | 3 | 3 | CSV mapping/apply, invalid metadata, XLSX discovery |
+| `module.imports` | 5 | 5 | CSV/XLSX discovery, mapping/apply, jobs/proofs, invalid metadata |
 | `module.incidentbundles` | 20 | 10 | portability, export/import, atomicity, worker behavior |
 | `module.reference_data` | 16 | 10 | pack lifecycle, jobs, admin frontend/browser |
-| `module.reporting` | 10 | 4 | snapshot/release service evidence and units |
-| `module.reportcomposition` | 1 | 0 | traceability fixture only |
+| `module.reporting` | 11 | 4 | participant, snapshot/release/preview service evidence and units |
+| `module.reportcomposition` | 2 | 1 | traceability plus delegated preview completion |
+| `module.networkflow` | 118 | 20 | Import-owned scheduling and shared regression only; no NF worker |
 | `module.jobapi` | 3 | 3 | common job authorization |
-| `platform.config` | current live manifest | no service-backed recommendation | inactive and deployment configuration |
-| `web.application` | 60 | 0 | frontend units and boundary support |
+| `platform.config` | 9 | 0 | generated claim projection and inactive/deployment configuration |
+| `web.workbook` | 98 | 0 | production Import Assistant, Base fallback, and workbook regression |
 
 ### Existing selectors to retain or strengthen
 
@@ -899,9 +906,9 @@ additive internal rows but must not erase or reinterpret them.
 - `apps/web/e2e/extensions.stateful.spec.ts` as Network Flow/shared publication
   regression, not evidence for the five profile-specific paths.
 
-### Missing selectors to author
+### Implemented remediation selectors
 
-| Owner | Planned selector or browser scenario |
+| Owner | Final selector or browser scenario |
 | --- | --- |
 | `module.extensions` | `TestExtensionProfileAdoptionMatrix_Static`; `TestInactiveExtensionJobReconciliation_Integration`; exact job/worker/binding accounting |
 | `app.server` | `TestRuntime_ExtensionPublication_CommittedBeforeAcknowledgment`; exact route/workspace/worker/participant preparation; no pre-serving dequeue; mixed-claim process path |
@@ -924,11 +931,11 @@ semantic ownership.
 
 ## 16. Generated-Artifact Implications
 
-Later implementation may change authored Extensions fragments, owner manifests,
+The remediation changed authored Extensions fragments, owner manifests,
 configuration/participant/job contracts, implementation binding sources,
 closure/traceability inputs, validation surfaces, and Harness catalogs.
 
-The implementation agent must:
+Future maintenance must:
 
 1. update adopted owner documents before owner fragments or manifests;
 2. update authored contract inputs;
@@ -939,9 +946,9 @@ The implementation agent must:
    `packages/protocol-ts/src/generated/**`,
    `packages/ui-contracts/src/generated/**`, generated topology, or lockfiles.
 
-Expected digest changes are internal and require one cold generated/runtime
-deployment epoch. Contract major 1 remains correct because no public profile
-wire shape or semantics change.
+The completed digest changes are internal and require one cold
+generated/runtime deployment epoch. Contract major 1 remains correct because
+no public profile wire shape or semantics changed.
 
 ## 17. Compatibility and Migration Analysis
 
@@ -1069,7 +1076,7 @@ Every implementation session must follow this protocol:
 | EPA-09 | `DONE` | EPA-04 | wait for final rollout | admitted immutable-model participant; exact snapshot/release/preview jobs; atomic owner state, proof, and idempotency; internal-draft preview delegation pass |
 | EPA-10 | `DONE` | EPA-05..09 | evidence/docs only | nine added/zero retired exact rows; eleven affected owners, generated topology, and developer/testing guidance reconciled |
 | EPA-11 | `DONE` | EPA-10 | no dual path | explicit narrow HTTP projections, configuration-only claims, test-support fixtures, obsolete-path deletion, and backend/frontend DAG guards pass |
-| EPA-12 | `IN_PROGRESS` | EPA-11 | final cold-rollout candidate | final validation and handoff activated; no new behavior changes permitted |
+| EPA-12 | `DONE` | EPA-11 | final cold-rollout candidate | complete owner/browser/release evidence, retained-root finalization, balanced Harness accounting, and rollout/rollback handoff pass |
 
 ### Workstream checkpoint template
 
@@ -1106,6 +1113,7 @@ Every implementation session must follow this protocol:
 | 2026-07-24 | Remediation execution | EPA-09 | complete | tracker; Reporting participant/finalization ports; exact app catalog adapters; gated worker; atomic snapshot/release/preview publication; Report Composition immutable preview source/delegation; migration 00036; Harness manifests/baselines; generated SQL/contracts/topology | Reporting, Report Composition, app-server, Extensions, production browser, 737-test fast, and complete 158-work-unit service-backed evidence plus generation/migration/Harness/drift gates passed; exact roots and corrected code, schema, assertion, accounting, and tmpfs failures recorded in EPA-09 | none; known EPA-04 test-only boundary edge remains scheduled for EPA-11 | commit EPA-09, then execute EPA-10 |
 | 2026-07-24 | Remediation execution | EPA-10 | complete | tracker; three developer/testing guides; Reporting and Report Composition semantic row identities; regenerated embedded contracts/topology index | eleven owner inventories, nine added exact rows, all new service-backed rows, generation/Harness/artifact/JSON drift, and Markdown lint pass; exact totals, digest, roots, and corrected row-ID preflight failure recorded in EPA-10 | none | commit EPA-10, then execute EPA-11 |
 | 2026-07-24 | Remediation execution | EPA-11 | complete | tracker; narrow HTTP projections and explicit test fixtures; application claim/config cleanup; workspace and Import facade boundaries; moved reconciliation integration evidence; backend/frontend guards; fixture/topology/duration accounting; generated contracts/scheduler outputs | focused owner evidence, 737-test fast suite, affected service-backed owner slices, complete 158-work-unit service-backed schedule, frontend checks, generation/Harness/artifact/JSON/boundary gates, caller scans, and diff check pass; exact roots and corrected compile/config/selector/fixture/count/baseline failures recorded in EPA-11 | none | commit EPA-11, then execute EPA-12 validation/handoff only |
+| 2026-07-25 | Remediation execution | EPA-12 | complete | tracker; backend exact-shard accounting policy/regression; refreshed duration baselines; regenerated topology render index and scheduler manifest | all affected focused/service-backed owners, stateful/webserver browser suites, retained-root finalizer, final 149-unit/597-test `make check`, and 12-unit/597-test `make release-check` pass; failures and exact roots recorded in EPA-12 | none | commit EPA-12 and hand off the cold-rollout candidate |
 
 ## 20. Open Contradictions and Blockers
 
@@ -1152,74 +1160,84 @@ Tracker authoring is complete only when:
 
 Remediation completion is separately binary:
 
-- [ ] all five canonical profile IDs and both `snapshot_reporting` domains match
+- [x] all five canonical profile IDs and both `snapshot_reporting` domains match
   their adopted owners;
-- [ ] every applicable capability is `conformant and proven` and every absence
+- [x] every applicable capability is `conformant and proven` and every absence
   is `declared not applicable`;
-- [ ] no specification, contract/generation, implementation, wiring, test,
+- [x] no specification, contract/generation, implementation, wiring, test,
   Harness, documentation, or owner-contradiction disposition remains;
-- [ ] every live extension job is contract-bound, gated, reconciled, and proven;
-- [ ] publication uses the exact committed-then-acknowledged lifecycle;
-- [ ] every runtime consumer uses the installed typed epoch;
-- [ ] no registry fallback, hard-coded generic profile list, dual path, or unused
+- [x] every live extension job is contract-bound, gated, reconciled, and proven;
+- [x] publication uses the exact committed-then-acknowledged lifecycle;
+- [x] every runtime consumer uses the installed typed epoch;
+- [x] no registry fallback, hard-coded generic profile list, dual path, or unused
   wrapper remains;
-- [ ] Network Flow regression evidence passes without giving it profile-specific
+- [x] Network Flow regression evidence passes without giving it profile-specific
   work;
-- [ ] EPA-00 through EPA-12 are `DONE`;
-- [ ] final `make check` and `make release-check` pass.
+- [x] EPA-00 through EPA-12 are `DONE`;
+- [x] final `make check` and `make release-check` pass.
 
-## 22. Tracker-Authoring Validation and Handoff
+## 22. Final Validation and Handoff
 
-This task changes only this Markdown tracker. Required validation:
+EPA-00 through EPA-12 are complete. No validation step was skipped.
 
-```text
-git diff --check
-make generated-artifact-policy-check
-make json-shape-check
-make lint-markdown
-```
-
-Intentionally skipped for this documentation-only planning task:
-
-- `make format`, because no Go or frontend source changed and AGENTS.md says not
-  to run it solely for Markdown;
-- product unit/integration/process and service-backed suites, because no product
-  behavior changed;
-- browser suites, because no frontend behavior changed;
-- `make generate` and `make generate-drift`, because no generator input changed;
-- `make migration-drift`, because no SQL or storage behavior changed;
-- `make agent-finalize`, because no Harness maintenance input changed;
-- `make check` and `make release-check`, because the narrow documentation gates
-  cover this tracker-only change and the broad product/release gates belong to
-  EPA-12.
-
-Final validation results and the final diff summary must be entered here before
-handoff.
-
-| Command | Result |
+| Validation family | Final result |
 | --- | --- |
-| `git diff --check` | passed |
-| `GIT_INDEX_FILE=<temporary-index> git diff --check` | passed; an alternate index with the tracker marked intent-to-add validates the new file itself |
-| `make generated-artifact-policy-check` | passed; run root `.cartulary/test-results/20260724T175401Z-p57911` |
-| `make json-shape-check` | passed; run root `.cartulary/test-results/20260724T175401Z-p57897` |
-| `make lint-markdown` | passed |
+| Focused owner slices | Passed for all eleven affected owners; exact roots are recorded in the EPA-12 checkpoint |
+| Service-backed owner slices | Passed for every applicable backend owner; Config and Workbook correctly select none |
+| Browser | `make browser-e2e-stateful` and `make browser-e2e-webserver-backed` passed |
+| Boundaries | `make backend-module-boundary-check` and `make frontend-import-boundary-check` passed |
+| Generation and contracts | `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, and `make harness-contract` passed |
+| Migration | `make migration-drift` passed; fresh migration and retired-handler rejection evidence are included in owner/release runs |
+| Documentation and scripts | `make lint-markdown`, `make lint-scripts`, and `make lint-shell` passed |
+| Scheduler and timing | coverage, duration drift, event order, warm timing, and retained-root finalization passed |
+| Full validation | final `make check` passed 149/149 work units and 597 tests at `.cartulary/test-results/20260725T013712Z-p69009` |
+| Release | `make release-check` passed 12/12 work units and 597 tests at `.cartulary/test-results/20260725T013918Z-p56981` |
+| Diff | `git diff --check` passed |
 
-### Planning handoff summary
+### Workstream commit boundaries
 
-- Planning result: five canonical profile IDs, six requested audit domains, 14
-  gaps, two blockers, and 13 ordered workstreams.
-- Files inspected: normative owners, applicable guides and historical trackers,
-  all authored Extensions inputs, embedded generated registries, application
-  composition, profile implementations, platform adapters, storage inputs,
-  frontend consumers, tests, verification owners, and Harness manifests listed
-  above.
-- Tracker created:
-  `docs/handoffs/extensions-profile-adoption-refactor-tracker.md`.
-- Major findings: publication order is inverted; exact plan projections are not
-  consumed; four profiles have undeclared durable jobs; inactive reconciliation
-  and dequeue gating are absent; Reporting's declared participant is not
-  implemented; Import lacks its production assistant.
-- Proposed workstreams: EPA-00 through EPA-12.
-- Unresolved blockers: historical job adoption policy and the unsupported
-  Snapshot/Reporting participant schema IDs.
+| Workstream | Commit |
+| --- | --- |
+| EPA-00 | `59c41f3c` |
+| EPA-01 | `c2caec30` |
+| EPA-02 | `5caba498` |
+| EPA-03 | `a44fbfc5` |
+| EPA-04 | `b7b0758d` |
+| EPA-05 | `e80cad6a` |
+| EPA-06 | `a9fbd7e8` |
+| EPA-07 | `650dd39e` |
+| EPA-08 | `6cdc151f` |
+| EPA-09 | `c4cf7b7e` |
+| EPA-10 | `f2d0f012` |
+| EPA-11 | `c9050835` |
+| EPA-12 | final validation/accounting/tracker commit containing this handoff |
+
+### Final handoff summary
+
+- Result: all five canonical profile IDs and both Snapshot/Reporting domains
+  match their adopted owners; `GAP-001` through `GAP-014` and both blockers are
+  resolved.
+- Publication: one immutable epoch follows
+  `Prepare → Commit → Acknowledge → Serve`; HTTP, WebSocket, readiness,
+  discovery, workspaces, recovery, and dequeue share its admission boundary.
+- Jobs: all ten profile job kinds and five worker kinds are exact, gated,
+  recoverable, cancellation-aware, and proof-bearing; Network Flow retains
+  Import-owned scheduling and has no worker.
+- Reporting: the admitted `snapshot_reporting.render_export_v1` participant and
+  snapshot, release, and internal-draft preview paths are implemented through
+  Reporting-owned validation and finalization.
+- Import: the production Workbook Import Assistant is serving-profile gated and
+  preserves Base behavior, cancellation, stale-result disposal, and Network
+  Flow regression.
+- Compatibility: public IDs, majors, routes, configuration keys, and job
+  resources remain stable. Pre-cutover profile-handler jobs are intentionally
+  unsupported; affected development databases must be reset or reseeded.
+- Rollout: deploy only as one monitored cold stop/start with matching binary,
+  generated contracts, frontend assets, and schema. Mixed-build rolling
+  deployment remains forbidden.
+- Rollback: use complete workstream commit boundaries. Never restore a dual
+  publication path, fabricate/backfill proofs, or delete/reinterpret proof and
+  cancellation history.
+- Residual risk: normal deployment monitoring only; no known remediation gap,
+  blocker, skipped check, or compatibility shim remains.
 - Domain vocabulary: unchanged.

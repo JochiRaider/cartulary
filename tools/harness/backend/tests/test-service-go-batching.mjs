@@ -12,6 +12,7 @@ import { Worker } from "node:worker_threads";
 
 import { collectCompatibleCaptureGroups } from "../go-target-aggregate.mjs";
 import { collectGoShardPlanFromRows } from "../go-shard-plan.mjs";
+import { serviceExactShardProfile } from "../go-shard-policy.mjs";
 import { collectTargetPlanRows } from "../target-plan.mjs";
 import {
   resolveBackendCapturePool,
@@ -106,6 +107,14 @@ function assertBoundedGrowth(count, expectedShards) {
 try {
   mkdirSync(path.join(root, "tools"), { recursive: true });
   writeFileSync(path.join(root, "go.mod"), "module example.test/batching\n\ngo 1.25\n");
+  assert.deepEqual(serviceExactShardProfile("backend-integration"), {
+    max_symbols: 8,
+    max_estimated_test_work_ms: 6_000,
+  });
+  assert.deepEqual(serviceExactShardProfile("backend-store"), {
+    max_symbols: 8,
+    max_estimated_test_work_ms: 12_000,
+  });
 
   const bytes25 = assertBoundedGrowth(25, 4);
   const bytes100 = assertBoundedGrowth(100, 13);

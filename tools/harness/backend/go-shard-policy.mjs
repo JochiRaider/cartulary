@@ -4,6 +4,10 @@ const defaultServiceExactShardProfile = Object.freeze({
 });
 
 const targetServiceExactShardProfiles = Object.freeze({
+  "backend-integration": Object.freeze({
+    max_symbols: 8,
+    max_estimated_test_work_ms: 6_000,
+  }),
   "backend-process": Object.freeze({
     max_symbols: 16,
     max_estimated_test_work_ms: 24_000,
