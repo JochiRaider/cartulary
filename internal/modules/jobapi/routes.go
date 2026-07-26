@@ -40,11 +40,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/jobs/", service.handleJobsMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.jobapi", map[string]http.HandlerFunc{
+			"cancelJob": service.handleJobsMember,
+			"getJob":    service.handleJobsMember,
+		})
 	}
 }
 

@@ -46,16 +46,6 @@
       "target_kind": "user"
     },
     {
-      "action_code": "legacy_administrative_event",
-      "scope_kind": "deployment",
-      "target_kind": "legacy_administrative_event"
-    },
-    {
-      "action_code": "legacy_administrative_event",
-      "scope_kind": "incident",
-      "target_kind": "legacy_administrative_event"
-    },
-    {
       "action_code": "membership_created",
       "scope_kind": "incident",
       "target_kind": "incident_membership"
@@ -158,29 +148,5 @@
     "session_token",
     "storage_key",
     "totp_secret"
-  ],
-  "legacy_backfill": {
-    "deployment_event_kinds": [
-      "account_preferences_updated",
-      "account_profile_updated",
-      "auth_binding_created",
-      "auth_binding_retired",
-      "auth_binding_rotated",
-      "bootstrap_admin_created",
-      "operator_recovery_failed",
-      "operator_recovery_no_op",
-      "operator_recovery_succeeded",
-      "password_reset",
-      "session_revoked",
-      "sessions_revoke_all",
-      "totp_reset",
-      "user_created",
-      "user_updated"
-    ],
-    "incident_membership_event_kinds": [
-      "incident_membership_created",
-      "incident_membership_deleted",
-      "incident_membership_updated"
-    ]
-  }
+  ]
 }

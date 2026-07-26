@@ -103,7 +103,7 @@ function normalizeUnitResult(unit, raw, completed, skipped) {
   };
 }
 
-function genericWorkUnits(root, plan, planPath, targetDir) {
+export function buildOwnerSliceWorkUnits(root, plan, planPath, targetDir) {
   const node = process.env.NODE_BIN || process.execPath;
   const runner = path.join(root, "tools", "harness", "owner-slice", "owner-unit-runner-cli.mjs");
   const resultDir = path.join(targetDir, "work-unit-results");
@@ -112,6 +112,10 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
   mkdirSync(artifactRoot, { recursive: true });
   const browserReadinessID = "readiness.owner_browser_runtime";
   const needsBrowserReadiness = plan.work_units.some((unit) => unit.runner === "playwright");
+  const serviceReadinessID = "readiness.owner_service_runtime";
+  const needsServiceReadiness = plan.work_units.some(
+    (unit) => unit.runner === "playwright" || unit.managed_service_ids.length > 0,
+  );
   const childEnv = ownerSliceChildEnvironment(process.env, {
     childResultsRoot: path.join(targetDir, "child-results"),
   });
@@ -151,6 +155,30 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
       },
     });
   }
+  if (needsServiceReadiness) {
+    units.push({
+      id: serviceReadinessID,
+      label: "owner service runtime readiness",
+      kind: "readiness",
+      class: "build_artifact",
+      target: "owner-service-runtime-readiness",
+      aggregateTarget: plan.target,
+      needs: [],
+      completionKeys: [serviceReadinessID],
+      failureKeys: [serviceReadinessID],
+      resourceClaims: new Map([["process", 1]]),
+      priority: 1,
+      weightMs: 1,
+      order: units.length,
+      timeoutMs: 600_000,
+      countInTotal: false,
+      command: {
+        command: process.env.MAKE || "make",
+        args: ["--silent", "--no-print-directory", "test-service-images"],
+        env: readinessEnv,
+      },
+    });
+  }
   if (needsBrowserReadiness) {
     units.push({
       id: browserReadinessID,
@@ -176,7 +204,6 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
           "build-web",
           "build-server-harness",
           "build-migrate",
-          "testservices-build",
         ],
         env: readinessEnv,
       },
@@ -192,6 +219,9 @@ function genericWorkUnits(root, plan, planPath, targetDir) {
     needs: [
       ...unit.dependencies,
       ...(unit.runner === "playwright" ? [browserReadinessID] : []),
+      ...(unit.runner === "playwright" || unit.managed_service_ids.length > 0
+        ? [serviceReadinessID]
+        : []),
       ...(unit.runtime_binary_ids.length > 0 ? [runtimeReadinessID] : []),
     ],
     completionKeys: [unit.work_unit_id],
@@ -302,7 +332,7 @@ function genericSchedule(plan, workUnits) {
 }
 
 export async function executeOwnerSliceSchedule(root, plan, planPath, targetDir) {
-  const workUnits = genericWorkUnits(root, plan, planPath, targetDir);
+  const workUnits = buildOwnerSliceWorkUnits(root, plan, planPath, targetDir);
   const lifecycle = await runNormalizedSchedule({
     repoRoot: root,
     schedule: genericSchedule(plan, workUnits),

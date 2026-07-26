@@ -1,0 +1,491 @@
+{
+  "paths": {
+    "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile": {
+      "get": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "getTimelineTimeConversionProfile",
+        "summary": "Read the incident Timeline fixed-offset time-conversion profile.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline time-conversion profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineTimeConversionProfileEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Incident membership required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "putTimelineTimeConversionProfile",
+        "summary": "Update the incident Timeline fixed-offset time-conversion profile.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineTimeConversionProfilePutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline time-conversion profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineTimeConversionProfileEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid profile payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Incident admin role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Profile version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/mark-reviewed": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "markTimelineRecordReviewed",
+        "summary": "Explicitly transition a Timeline row to reviewed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline action response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineActionEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TimelineTimeConversionProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "incident_id",
+          "enabled",
+          "local_offset_minutes",
+          "local_label",
+          "profile_version",
+          "updated_at",
+          "updated_by_user_id"
+        ]
+      },
+      "TimelineTimeConversionProfilePutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_profile_version",
+          "enabled",
+          "local_offset_minutes",
+          "local_label"
+        ]
+      },
+      "TimelineTimeConversionProfileEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineTimeConversionProfile"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimelineActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "TimelineSupersedeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "replacement_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id",
+          "reason"
+        ]
+      },
+      "TimelineActionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "capture_state": {
+            "type": "string"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replacement_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "record_id",
+          "incident_id",
+          "row_version",
+          "capture_state",
+          "change_set_id",
+          "reason",
+          "replacement_record_id"
+        ]
+      },
+      "TimelineActionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineActionData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "DecisionSupersedeData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "const": "cartulary.view.decisions.v1"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "superseding_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_row_version": {
+            "type": "integer"
+          },
+          "superseding_row_version": {
+            "type": "integer"
+          },
+          "target_status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "change_set_id",
+          "target_record_id",
+          "superseding_record_id",
+          "target_row_version",
+          "superseding_row_version",
+          "target_status",
+          "reason"
+        ]
+      },
+      "DecisionSupersedeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DecisionSupersedeData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

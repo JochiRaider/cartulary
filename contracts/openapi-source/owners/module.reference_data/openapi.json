@@ -1,0 +1,767 @@
+{
+  "paths": {
+    "/api/v1/reference-packs": {
+      "get": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "listReferencePacks",
+        "summary": "List visible reference-pack versions.",
+        "responses": {
+          "200": {
+            "description": "Reference-pack versions response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/{pack_key}/{pack_version}": {
+      "get": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "getReferencePackVersion",
+        "summary": "Fetch one reference-pack version.",
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pack_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reference-pack version response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackVersionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reference-pack version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/import": {
+      "post": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "importReferencePack",
+        "summary": "Import and stage a local reference-pack bundle.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackImportUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted reference-pack import job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reference-pack upload request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Reference-pack verification failure or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/{pack_key}/{pack_version}/activate": {
+      "post": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "activateReferencePackVersion",
+        "summary": "Activate one verified reference-pack version.",
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pack_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Activated reference-pack version response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackActionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reference-pack action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reference-pack version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Activation rejected or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/{pack_key}/{pack_version}/disable": {
+      "post": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "disableReferencePackVersion",
+        "summary": "Disable one reference-pack version.",
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pack_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Disabled reference-pack version response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePackActionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reference-pack action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reference-pack version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State conflict or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
+      "post": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "reverifyReferencePackVersion",
+        "summary": "Reverify one reference-pack version from its local bundle.",
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pack_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted reference-pack reverify job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reference-pack action request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reference-pack version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State conflict or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    },
+    "/api/v1/reference-packs/refresh": {
+      "post": {
+        "tags": [
+          "reference-packs"
+        ],
+        "operationId": "refreshReferencePacks",
+        "summary": "Refresh local verification for selected reference-pack keys.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferencePackRefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted reference-pack refresh job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reference-pack refresh request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Reference-pack verification failure or replay conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "reference_pack"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ReferencePackImportUploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ReferencePackImportMetadata"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "metadata",
+          "file"
+        ]
+      },
+      "ReferencePackImportMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "activation_policy": {
+            "type": "string",
+            "enum": [
+              "staged_only"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ReferencePackActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ReferencePackRefreshRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "pack_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "ReferencePackVersionState": {
+        "type": "string",
+        "enum": [
+          "staged",
+          "verified_available",
+          "disabled",
+          "failed",
+          "missing"
+        ]
+      },
+      "ReferencePackVerificationResult": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "passed",
+          "failed"
+        ]
+      },
+      "ReferencePackVersionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pack_key": {
+            "type": "string"
+          },
+          "pack_kind": {
+            "type": "string"
+          },
+          "pack_version": {
+            "type": "string"
+          },
+          "pack_version_state": {
+            "$ref": "#/components/schemas/ReferencePackVersionState"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "source_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifest_sha256": {
+            "type": "string"
+          },
+          "payload_sha256": {
+            "type": "string"
+          },
+          "pack_contract_version": {
+            "type": "string"
+          },
+          "verification_method": {
+            "type": "string"
+          },
+          "verification_result": {
+            "$ref": "#/components/schemas/ReferencePackVerificationResult"
+          },
+          "signer_key_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previous_active_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imported_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "imported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "activated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "pack_key",
+          "pack_kind",
+          "pack_version",
+          "pack_version_state",
+          "active",
+          "source_identifier",
+          "manifest_sha256",
+          "payload_sha256",
+          "pack_contract_version",
+          "verification_method",
+          "verification_result",
+          "signer_key_id",
+          "previous_active_version",
+          "imported_by_user_id",
+          "imported_at",
+          "activated_by_user_id",
+          "activated_at"
+        ]
+      },
+      "ReferencePackListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pack_versions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReferencePackVersionResource"
+                }
+              }
+            },
+            "required": [
+              "pack_versions"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReferencePackVersionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReferencePackVersionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReferencePackActionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pack_version": {
+                "$ref": "#/components/schemas/ReferencePackVersionResource"
+              }
+            },
+            "required": [
+              "pack_version"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

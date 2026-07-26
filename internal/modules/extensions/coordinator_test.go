@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 )
 
 func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
@@ -360,7 +360,7 @@ type mutableArtifactSource map[string]PackagedArtifact
 
 func newMutableGeneratedSource() mutableArtifactSource {
 	source := mutableArtifactSource{}
-	for path, artifact := range contractsgen.ExtensionArtifactsIndex {
+	for path, artifact := range contractsgen.Index {
 		if len(path) >= len("contracts/extensions/") && path[:len("contracts/extensions/")] == "contracts/extensions/" {
 			source[path] = PackagedArtifact{JSON: []byte(artifact.JSON), SHA256: artifact.SHA256}
 		}

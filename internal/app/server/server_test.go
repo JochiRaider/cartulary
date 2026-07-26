@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
@@ -70,6 +71,46 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), `"reason_code":"published_component_lost"`) {
 		t.Fatalf("missing component loss diagnostic: %q", stderr.String())
+	}
+}
+
+func TestServerRunnerLogsPublicContractAdmissionWithoutRequestData(t *testing.T) {
+	var stdout bytes.Buffer
+	runner := newServerRunner(&stdout, io.Discard)
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+		runtime := testRuntime(http.NotFoundHandler(), nil)
+		runtime.PublicHTTP = httpapi.RouteDiagnostics{
+			CanonicalSHA256:         "sha256-fixture",
+			DocumentVersion:         "2.0.0",
+			SupportedOperationCount: 12,
+			ActiveOperationCount:    9,
+			ClaimedProfiles:         []string{"enterprise_authentication"},
+		}
+		return runtime, nil
+	}
+	runner.profile = readyServerProfile{}
+
+	if exitCode := runner.run(context.Background()); exitCode != 0 {
+		t.Fatalf("exit code got %d want 0", exitCode)
+	}
+	logged := stdout.String()
+	for _, expected := range []string{
+		"public HTTP contract admitted",
+		"openapi_version=2.0.0",
+		"openapi_sha256=sha256-fixture",
+		"supported_operation_count=12",
+		"active_operation_count=9",
+		"enterprise_authentication",
+	} {
+		if !strings.Contains(logged, expected) {
+			t.Fatalf("missing %q in admission log: %q", expected, logged)
+		}
+	}
+	for _, forbidden := range []string{"request_body", "authorization", "cookie", "secret"} {
+		if strings.Contains(strings.ToLower(logged), forbidden) {
+			t.Fatalf("admission log contains forbidden request data key %q: %q", forbidden, logged)
+		}
 	}
 }
 

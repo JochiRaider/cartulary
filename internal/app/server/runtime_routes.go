@@ -23,7 +23,6 @@ var requiredBuiltInRouteContributionIDs = []string{
 	"collaboration",
 	"entities",
 	"evidence",
-	"assessments",
 	"workbook",
 	"timeline",
 	"revisions",

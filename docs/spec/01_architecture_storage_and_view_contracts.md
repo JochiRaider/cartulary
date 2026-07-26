@@ -2037,7 +2037,7 @@ Each `audit_events[]` item returned by either administrative audit read projecti
 
 `scope_kind` MUST use exactly `deployment` or `incident`. `scope_id` MUST be JSON `null` when `scope_kind='deployment'`; it MUST be the addressed incident identifier when `scope_kind='incident'`. `occurred_at` MUST serialize as an RFC 3339 UTC timestamp. `actor_kind` MUST use exactly `user`, `system`, or `operator`. `actor_user_id` MUST be non-null when `actor_kind='user'` and MUST be JSON `null` otherwise. `source` MUST use exactly `ui`, `api`, `startup`, `operator`, or `system`.
 
-`changes[]` MUST always be present. It MAY be empty only for `action_code='legacy_administrative_event'` when no safe field-level mapping exists. Each `changes[]` item MUST contain exactly `field_path`, `value_state`, `before`, and `after`. `value_state` MUST use exactly `visible` or `redacted`. When `value_state='redacted'`, `before` and `after` MUST both serialize as JSON `null`. `changes[]` MUST be serialized by exact `field_path asc` order, MUST contain no duplicate `field_path`, and MUST NOT use locale collation, case folding, or display-label ordering. Clients MUST tolerate unknown additive future `action_code` values and unknown additive future `target_kind` values on reads without rejecting the whole response.
+`changes[]` MUST always be present and nonempty. Each `changes[]` item MUST contain exactly `field_path`, `value_state`, `before`, and `after`. `value_state` MUST use exactly `visible` or `redacted`. When `value_state='redacted'`, `before` and `after` MUST both serialize as JSON `null`. `changes[]` MUST be serialized by exact `field_path asc` order, MUST contain no duplicate `field_path`, and MUST NOT use locale collation, case folding, or display-label ordering. Clients MUST tolerate unknown additive future `action_code` values and unknown additive future `target_kind` values on reads without rejecting the whole response.
 Profiles: base
 Verified by: AC-437, AC-440
 
@@ -2054,7 +2054,6 @@ Administrative audit read projections MUST use these current-profile `target_kin
 | `backup_created` | `backup_set` | Created `backup_set_id`; non-null. |
 | `restore_started`, `restore_completed`, `restore_failed`, `restore_verification_completed` | `restore_operation` | Recovery operation identifier; non-null. |
 | `membership_created`, `membership_role_changed`, `membership_deleted` | `incident_membership` | Affected member `user_id`; non-null because `scope_id` already carries the incident. |
-| `legacy_administrative_event` | `legacy_administrative_event` | JSON `null`. |
 
 No other current-profile `target_kind` values are emitted by these routes. Future target kinds are additive read-side values only and do not alter the current server emission set.
 Profiles: base
@@ -2085,17 +2084,13 @@ Deployment-scope action codes are:
 - `restore_started`,
 - `restore_completed`,
 - `restore_failed`,
-- `restore_verification_completed`,
-- `legacy_administrative_event`.
+- `restore_verification_completed`.
 
 Incident-scope action codes are:
 
 - `membership_created`,
 - `membership_role_changed`,
-- `membership_deleted`,
-- `legacy_administrative_event`.
-
-`legacy_administrative_event` is compatibility-only for pre-contract records that can be safely assigned to exactly one projection. New current-profile events MUST NOT use it.
+- `membership_deleted`.
 Profiles: base, enterprise_authentication
 Verified by: AC-437, AC-440
 

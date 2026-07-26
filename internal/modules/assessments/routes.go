@@ -21,20 +21,12 @@ type Service struct {
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
-		if err != nil {
-			return err
-		}
-		httpapi.HandleExcludedPublicRoute(
-			mux,
-			"POST /api/v1/incidents/{incident_id}/views/cartulary.view.assessments.v1/rows",
-			service.handleCreate,
-			httpapi.CanonicalPublicRouteExclusionDetailedViewFamily,
-		)
-		return nil
+func CreateRowHandler(deps httpapi.DependencySet) (http.HandlerFunc, error) {
+	service, err := newService(deps)
+	if err != nil {
+		return nil, err
 	}
+	return service.handleCreate, nil
 }
 
 func newService(deps httpapi.DependencySet) (*Service, error) {

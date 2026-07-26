@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow_frontend_entrypoints.v1",
+  "schema_id": "cartulary.network_flow_frontend_entrypoints.v2",
   "profile_id": "network_flow_activity",
   "contract_major": 2,
   "document_version": "2.0.0",
@@ -9,35 +9,5 @@
     "mapping_registry_path": "contracts/network-flow/mapping-registry.v1.json",
     "presentation_path": "contracts/network-flow/presentation.v1.json",
     "schema_bundle_path": "contracts/network-flow/schemas.v1.json"
-  },
-  "core_http": {
-    "openapi_path": "contracts/openapi/cartulary.openapi.yaml",
-    "component_schema_names": [
-      "EnvelopeMeta",
-      "ErrorEnvelope",
-      "ExtensionMappingPreviewEnvelope",
-      "ExtensionMappingPreviewRequest",
-      "ExtensionMappingPreviewResource",
-      "ExtensionDiscoveryEnvelope"
-    ]
-  },
-  "collaboration": {
-    "contract_index_path": "contracts/ws/index.schema.json",
-    "message_types": [
-      "hello",
-      "resume",
-      "pong",
-      "presence_update",
-      "hello_ack",
-      "resume_ack",
-      "presence_snapshot",
-      "presence_delta",
-      "record_changed",
-      "extension_resource_changed",
-      "job_progress",
-      "ping",
-      "error",
-      "session_revoked"
-    ]
   }
 }

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
@@ -520,7 +520,7 @@ func TestExtensionBC016CapabilitiesDisabled_Unit(t *testing.T) {
 		profile := rawProfile.(map[string]any)
 		requireJSONStrings(t, profile["capability_ids"], []string{}, fmt.Sprintf("%s capabilities", profile["profile_id"]))
 	}
-	bindings := contractsgen.ExtensionArtifactsIndex
+	bindings := contractsgen.Index
 	for path, artifact := range bindings {
 		if !strings.Contains(path, "/implementation-bindings/") {
 			continue
@@ -883,7 +883,7 @@ func readTestFamilyManifest(t testing.TB, root string, name string) extensionTes
 
 func readGeneratedExtensionObject(t testing.TB, path string) map[string]any {
 	t.Helper()
-	artifact, ok := contractsgen.ExtensionArtifactsIndex[path]
+	artifact, ok := contractsgen.Index[path]
 	if !ok {
 		t.Fatalf("generated Extensions artifact %q is not packaged", path)
 	}

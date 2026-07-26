@@ -31,6 +31,7 @@
   generate-drift \
   generated-artifact-policy-check \
   json-shape-check \
+  openapi-compatibility-check \
   toolchain-drift \
   migration-input-drift \
   migration-scratch-apply \
@@ -262,6 +263,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make json-shape-check               fail on contract, manifest, and JSON bootstrap shape drift' \
 	'  make toolchain-drift                fail on repo-control toolchain pin drift' \
 	'  make migration-drift                verify migrations against a scratch database' \
+	'  make openapi-compatibility-check    classify the candidate OpenAPI against immutable release history' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-evidence-audit' \
 	'                                      OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path> audit exact compatible evidence roots for one owner' \
@@ -497,6 +499,14 @@ migration-input-drift: export CARTULARY_TEST_TARGET ?= migration-input-drift
 migration-input-drift: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 migration-input-drift:
 	$(Q)$(RUN_STEP_SCRIPT) "migration-input-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh --mode input
+
+openapi-compatibility-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+openapi-compatibility-check: export CARTULARY_TEST_TARGET ?= openapi-compatibility-check
+openapi-compatibility-check:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,openapi-compatibility-check)
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory codegen-toolchain; fi
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "openapi-compatibility-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" $(GO) run ./tools/openapi-compatibility -quiet -report $(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json
+	$(call RUN_TARGET_SUMMARY,openapi-compatibility-check,pass)
 
 migration-scratch-apply: export CARTULARY_TEST_TARGET ?= migration-scratch-apply
 migration-scratch-apply: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

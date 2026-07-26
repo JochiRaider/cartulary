@@ -1,141 +1,31 @@
 package viewschema
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contractviewschemas"
+	gensource "github.com/JochiRaider/cartulary/internal/gen/viewschemasource"
 )
 
-type Field struct {
-	FieldKey                  string   `json:"field_key"`
-	Label                     string   `json:"label"`
-	DefaultHidden             bool     `json:"default_hidden"`
-	Sortable                  bool     `json:"sortable"`
-	Groupable                 bool     `json:"groupable"`
-	ReadKind                  string   `json:"read_kind"`
-	WriteKind                 string   `json:"write_kind"`
-	GridEditable              bool     `json:"grid_editable"`
-	Writable                  bool     `json:"writable"`
-	CreateWritable            bool     `json:"create_writable"`
-	HeaderSortFieldKey        *string  `json:"header_sort_field_key"`
-	FilterOps                 []string `json:"filter_ops"`
-	ConflictResolutionClass   string   `json:"conflict_resolution_class"`
-	EntityBindingMode         *string  `json:"entity_binding_mode"`
-	StringContractID          *string  `json:"string_contract_id"`
-	DirectScalarContractID    *string  `json:"direct_scalar_contract_id"`
-	DirectReferenceContractID *string  `json:"direct_reference_contract_id"`
-	WriteTarget               *string  `json:"write_target"`
-	WriteAction               *string  `json:"write_action"`
-	Clearable                 bool     `json:"clearable"`
-	EnumValues                []string `json:"enum_values"`
-}
-
-type SortEntry struct {
-	FieldKey  string `json:"field_key"`
-	Direction string `json:"direction"`
-}
-
-type inlineCreate struct {
-	MinimumCreateFieldSets [][]string `json:"minimum_create_field_sets"`
-	PermitsZeroFieldCreate bool       `json:"permits_zero_field_create"`
-}
-
-type SyntheticFilterPredicate struct {
-	FieldKey  string   `json:"field_key"`
-	Label     string   `json:"label"`
-	FilterOps []string `json:"filter_ops"`
-}
-
-type CanonicalSourceFilter struct {
-	Kind  string `json:"kind"`
-	Field string `json:"field"`
-	Value string `json:"value"`
-}
-
-type InspectorSubjectBinding struct {
-	Kind string `json:"kind"`
-}
-
-type InspectorPanel struct {
-	PanelID string `json:"panel_id"`
-	Label   string `json:"label"`
-}
-
-type InspectorRouteBinding struct {
-	Kind               string `json:"kind"`
-	Owner              string `json:"owner"`
-	TargetViewSchemaID string `json:"target_view_schema_id,omitempty"`
-	ActionKey          string `json:"action_key,omitempty"`
-}
-
-type InspectorSeedSource struct {
-	Kind           string `json:"kind"`
-	SourceFieldKey string `json:"source_field_key,omitempty"`
-	Value          any    `json:"value,omitempty"`
-}
-
-type InspectorSeedBinding struct {
-	TargetFieldKey string              `json:"target_field_key"`
-	Source         InspectorSeedSource `json:"source"`
-}
-
-type InspectorFeatureGroup struct {
-	FeatureGroupKey       string                 `json:"feature_group_key"`
-	PanelID               string                 `json:"panel_id"`
-	Label                 string                 `json:"label"`
-	MinimumIncidentRole   *string                `json:"minimum_incident_role"`
-	Mutates               bool                   `json:"mutates"`
-	RequiresConfirmation  bool                   `json:"requires_confirmation"`
-	RouteBinding          InspectorRouteBinding  `json:"route_binding"`
-	SeedBindings          []InspectorSeedBinding `json:"seed_bindings"`
-	DisabledWhen          []string               `json:"disabled_when"`
-	SuccessResultBehavior string                 `json:"success_result_behavior"`
-	FailureResultBehavior string                 `json:"failure_result_behavior"`
-}
-
-type InspectorConfig struct {
-	InspectorConfigSchemaID    string                  `json:"inspector_config_schema_id"`
-	ViewSchemaID               string                  `json:"view_schema_id"`
-	DefaultOpen                bool                    `json:"default_open"`
-	SubjectBinding             InspectorSubjectBinding `json:"subject_binding"`
-	NoRowState                 string                  `json:"no_row_state"`
-	UnsupportedFeatureBehavior string                  `json:"unsupported_feature_behavior"`
-	Panels                     []InspectorPanel        `json:"panels"`
-	FeatureGroups              []InspectorFeatureGroup `json:"feature_groups"`
-}
-
-type schemaDocument struct {
-	ViewSchemaID              string                     `json:"view_schema_id"`
-	Title                     string                     `json:"title"`
-	SurfaceKind               string                     `json:"surface_kind"`
-	SourceRecordTypes         []string                   `json:"source_record_types"`
-	BaseProjection            string                     `json:"base_projection"`
-	CanonicalSourceFilter     *CanonicalSourceFilter     `json:"canonical_source_filter"`
-	TechnicalFields           []string                   `json:"technical_fields"`
-	RequiredReferencePackKeys []string                   `json:"required_reference_pack_keys"`
-	DefaultSort               []SortEntry                `json:"default_sort"`
-	SortFields                []string                   `json:"sort_fields"`
-	SortNullOrder             string                     `json:"sort_null_order"`
-	FilterFields              []string                   `json:"filter_fields"`
-	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
-	GroupingFields            []string                   `json:"grouping_fields"`
-	InlineCreate              inlineCreate               `json:"inline_create"`
-	InspectorConfig           InspectorConfig            `json:"inspector_config"`
-	Fields                    []Field                    `json:"fields"`
-}
-
-type registryIndex struct {
-	ViewSchemas []registryIndexEntry `json:"view_schemas"`
-}
-
-type registryIndexEntry struct {
-	ViewSchemaID string `json:"view_schema_id"`
-	ArtifactPath string `json:"artifact_path"`
-}
+type Field = gensource.Field
+type SortEntry = gensource.SortEntry
+type inlineCreate = gensource.InlineCreate
+type SyntheticFilterPredicate = gensource.SyntheticFilterPredicate
+type CanonicalSourceFilter = gensource.CanonicalSourceFilter
+type InspectorSubjectBinding = gensource.InspectorSubjectBinding
+type InspectorPanel = gensource.InspectorPanel
+type InspectorRouteBinding = gensource.InspectorRouteBinding
+type InspectorSeedSource = gensource.InspectorSeedSource
+type InspectorSeedBinding = gensource.InspectorSeedBinding
+type InspectorFeatureGroup = gensource.InspectorFeatureGroup
+type InspectorConfig = gensource.InspectorConfig
+type schemaDocument = gensource.Document
+type registryIndex = gensource.RegistryIndex
 
 type Schema struct {
 	ViewSchemaID           string
@@ -270,15 +160,15 @@ func LookupPublicResource(viewSchemaID string) (ViewSchemaResource, bool) {
 func loadRegistry() {
 	loadOnce.Do(func() {
 		schemas = make(map[string]Schema)
-		artifactsByPath := make(map[string]string, len(gencontracts.ViewSchemaArtifacts))
+		artifactsByPath := make(map[string]string, len(gencontracts.Artifacts))
 		var index registryIndex
 		indexLoaded := false
-		for _, artifact := range gencontracts.ViewSchemaArtifacts {
+		for _, artifact := range gencontracts.Artifacts {
 			if !strings.HasSuffix(artifact.Path, ".json") {
 				continue
 			}
 			if strings.HasSuffix(artifact.Path, "/index.json") {
-				if err := json.Unmarshal([]byte(artifact.JSON), &index); err != nil {
+				if err := decodeStrictJSON(artifact.JSON, &index); err != nil {
 					panic(fmt.Sprintf("viewschema: load registry index %s: %v", artifact.Path, err))
 				}
 				indexLoaded = true
@@ -296,7 +186,7 @@ func loadRegistry() {
 				panic(fmt.Sprintf("viewschema: indexed artifact %s not embedded", entry.ArtifactPath))
 			}
 			var document schemaDocument
-			if err := json.Unmarshal([]byte(payload), &document); err != nil {
+			if err := decodeStrictJSON(payload, &document); err != nil {
 				panic(fmt.Sprintf("viewschema: load %s: %v", entry.ArtifactPath, err))
 			}
 			if document.ViewSchemaID != entry.ViewSchemaID {
@@ -311,9 +201,6 @@ func loadRegistry() {
 
 			fieldIndex := make(map[string]Field, len(document.Fields))
 			for _, field := range document.Fields {
-				if field.FilterOps == nil {
-					field.FilterOps = []string{}
-				}
 				fieldIndex[field.FieldKey] = field
 			}
 
@@ -341,6 +228,19 @@ func loadRegistry() {
 			return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
 		})
 	})
+}
+
+func decodeStrictJSON(payload string, target any) error {
+	decoder := json.NewDecoder(bytes.NewBufferString(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err == nil {
+		return fmt.Errorf("expected exactly one JSON document")
+	}
+	return nil
 }
 
 func buildPublicResource(document schemaDocument) ViewSchemaResource {

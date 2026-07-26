@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_frontend_entrypoints.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_id", "profile_id", "contract_major", "document_version", "network_flow"],
+  "properties": {
+    "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
+    "schema_id": { "const": "cartulary.network_flow_frontend_entrypoints.v2" },
+    "profile_id": { "const": "network_flow_activity" },
+    "contract_major": { "type": "integer", "minimum": 1 },
+    "document_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "network_flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_index_path", "mapping_registry_path", "presentation_path", "schema_bundle_path"],
+      "properties": {
+        "contract_index_path": { "const": "contracts/network-flow/index.json" },
+        "mapping_registry_path": { "const": "contracts/network-flow/mapping-registry.v1.json" },
+        "presentation_path": { "const": "contracts/network-flow/presentation.v1.json" },
+        "schema_bundle_path": { "const": "contracts/network-flow/schemas.v1.json" }
+      }
+    }
+  }
+}

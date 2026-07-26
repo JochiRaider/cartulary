@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.openapi_assembly_policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "indent",
+    "trailing_newline",
+    "limits"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.openapi_assembly_policy.v1"
+    },
+    "indent": {
+      "const": "  "
+    },
+    "trailing_newline": {
+      "const": true
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_units",
+        "max_unit_bytes",
+        "max_total_input_bytes",
+        "max_json_depth",
+        "max_paths",
+        "max_operations",
+        "max_named_components"
+      ],
+      "properties": {
+        "max_units": {
+          "const": 256
+        },
+        "max_unit_bytes": {
+          "const": 2097152
+        },
+        "max_total_input_bytes": {
+          "const": 16777216
+        },
+        "max_json_depth": {
+          "const": 128
+        },
+        "max_paths": {
+          "const": 2048
+        },
+        "max_operations": {
+          "const": 4096
+        },
+        "max_named_components": {
+          "const": 16384
+        }
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@
       ]
     },
     {
-      "verification_id": "platform.viewschema.verification.openapi_grid_editable_alignment",
+      "verification_id": "platform.viewschema.verification.source_and_public_projection",
       "behavior_class": "architecture",
       "profile": "base",
       "evidence_kinds": [
@@ -23,19 +23,7 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "platform.viewschema.requirement.openapi_grid_editable_alignment"
-      ]
-    },
-    {
-      "verification_id": "platform.viewschema.verification.openapi_inline_create_alignment",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.viewschema.requirement.openapi_inline_create_alignment"
+        "platform.viewschema.requirement.source_and_public_projection"
       ]
     }
   ]

@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contractaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
@@ -73,7 +73,7 @@ func TestAdministrativeAuditContractMatchesImplementation(t *testing.T) {
 		} `json:"actions"`
 	}
 	found := false
-	for _, artifact := range gencontracts.AuditArtifacts {
+	for _, artifact := range gencontracts.Artifacts {
 		if artifact.Path != "contracts/audit/index.json" {
 			continue
 		}

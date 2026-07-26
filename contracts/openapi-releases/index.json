@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.openapi_release_registry.v1",
+  "latest_released_version": "1.0.0",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "document_path": "contracts/openapi-releases/1.0.0.openapi.json",
+      "sha256": "de976721d98d6f6e73747dfffa3a0a3af21f6592037abb3d6ee8ad1b86195f0f",
+      "byte_length": 441211,
+      "source_commit": "53f4553150117d09535794e59a8f500485bdb94c",
+      "publication_state": "historical_baseline"
+    }
+  ]
+}

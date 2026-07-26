@@ -4,6 +4,7 @@ import type {
 } from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
 import type { APIError } from "../services/browserApi";
+import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 
 export type IncidentData = {
   incident_id: string;
@@ -125,22 +126,5 @@ export type IncidentLandingProps = {
   statusText: string;
 };
 
-export type AdministrativeAuditEvent = {
-  audit_event_id: string;
-  scope_kind: "deployment" | "incident";
-  scope_id: string | null;
-  occurred_at: string;
-  actor_kind: "operator" | "system" | "user";
-  actor_user_id: string | null;
-  source: "api" | "operator" | "startup" | "system" | "ui";
-  action_code: string;
-  target_kind: string;
-  target_id: string | null;
-  changes: Array<{
-    field_path: string;
-    value_state: "redacted" | "visible";
-    before: unknown;
-    after: unknown;
-  }>;
-  reason_code: string | null;
-};
+export type AdministrativeAuditEvent =
+  ListAdministrativeAuditEventsResponse["data"]["audit_events"][number];

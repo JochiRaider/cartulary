@@ -21,7 +21,9 @@
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": [
-        "go_test"
+        "go_test",
+        "playwright",
+        "vitest"
       ],
       "status": "active",
       "requirement_ids": [
@@ -33,7 +35,9 @@
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": [
-        "go_test"
+        "go_test",
+        "playwright",
+        "vitest"
       ],
       "status": "active",
       "requirement_ids": [

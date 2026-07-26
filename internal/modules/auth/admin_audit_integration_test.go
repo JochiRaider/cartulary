@@ -212,9 +212,10 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		OccurredAt:   occurredAt.Add(time.Hour),
 		ActorKind:    administrativeaudit.ActorSystem,
 		Source:       administrativeaudit.SourceSystem,
-		ActionCode:   administrativeaudit.ActionLegacyAdministrativeEvent,
-		TargetKind:   administrativeaudit.TargetLegacyAdministrativeEvent,
-		ChangesJSON:  `[]`,
+		ActionCode:   administrativeaudit.ActionAccountPreferencesUpdated,
+		TargetKind:   administrativeaudit.TargetAccountPreferences,
+		TargetID:     adminID,
+		ChangesJSON:  `[{"field_path":"density_mode","value_state":"visible","before":"default","after":"compact"}]`,
 	})
 	continued := doJSON(
 		t,

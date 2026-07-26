@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -135,8 +136,7 @@ func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		registerNetworkFlowRoutes(mux, service)
-		return nil
+		return registerNetworkFlowRoutes(mux, service)
 	}
 }
 
@@ -165,16 +165,34 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 	return capability, capability, nil
 }
 
-func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) {
-	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/source-profiles", service.handleSourceProfiles, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/tables", service.handleTablesCollection, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "GET "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "PATCH "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "DELETE "+routeRoot+"/tables/{network_flow_table_id}", service.handleTableResource, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/tables/{network_flow_table_id}/query", service.handleTableRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/tables/{network_flow_table_id}/rejected-rows/query", service.handleRejectedRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/rows/query", service.handleRowsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/graphs/query", service.handleGraphQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/graphs/contributors/query", service.handleGraphContributorsQuery, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
-	httpapi.HandleExcludedPublicRoute(mux, "POST "+routeRoot+"/indicator-links", service.handleIndicatorLinks, httpapi.CanonicalPublicRouteExclusionNetworkFlow)
+func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) error {
+	handlers := map[string]http.HandlerFunc{
+		"nf.graphs.contributors.query": service.handleGraphContributorsQuery,
+		"nf.graphs.query":              service.handleGraphQuery,
+		"nf.indicator_links.create":    service.handleIndicatorLinks,
+		"nf.rejected_rows.query":       service.handleRejectedRowsQuery,
+		"nf.rows.query":                service.handleRowsQuery,
+		"nf.source_profiles.list":      service.handleSourceProfiles,
+		"nf.tables.delete":             service.handleTableResource,
+		"nf.tables.get":                service.handleTableResource,
+		"nf.tables.list":               service.handleTablesCollection,
+		"nf.tables.patch":              service.handleTableResource,
+		"nf.tables.query":              service.handleTableRowsQuery,
+	}
+	routes := networkflowroutes.All()
+	if len(routes) != len(handlers) {
+		return fmt.Errorf("Network Flow route parity failed: contract=%d handlers=%d", len(routes), len(handlers))
+	}
+	for _, route := range routes {
+		handler, ok := handlers[route.RouteID]
+		if !ok {
+			return fmt.Errorf("Network Flow route %q has no handler", route.RouteID)
+		}
+		mux.HandleFunc(route.Pattern, handler)
+		delete(handlers, route.RouteID)
+	}
+	if len(handlers) != 0 {
+		return fmt.Errorf("Network Flow has handlers outside its route contract")
+	}
+	return nil
 }

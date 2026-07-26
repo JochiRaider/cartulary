@@ -77,12 +77,15 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err := service.recoverReferencePackJobs(context.Background()); err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/reference-packs", service.handleCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/reference-packs/", service.handleMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.reference_data", map[string]http.HandlerFunc{
+			"activateReferencePackVersion": service.handleMember,
+			"disableReferencePackVersion":  service.handleMember,
+			"getReferencePackVersion":      service.handleMember,
+			"importReferencePack":          service.handleMember,
+			"listReferencePacks":           service.handleCollection,
+			"refreshReferencePacks":        service.handleMember,
+			"reverifyReferencePackVersion": service.handleMember,
+		})
 	}
 }
 

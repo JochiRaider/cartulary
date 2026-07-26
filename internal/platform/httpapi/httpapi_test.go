@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -356,7 +356,7 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 func TestExplicitExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
 	t.Parallel()
 
-	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	artifact, ok := contractsgen.Index["contracts/extensions/generated/profile-registry.json"]
 	if !ok {
 		t.Fatal("generated extension contract registry is not packaged")
 	}
@@ -461,7 +461,7 @@ func (p testExtensionProjectionSet) ExtensionWorkspaces() []ExtensionWorkspacePu
 
 func testGeneratedExtensionProfiles(t testing.TB) []ExtensionProfile {
 	t.Helper()
-	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	artifact, ok := contractsgen.Index["contracts/extensions/generated/profile-registry.json"]
 	if !ok {
 		t.Fatal("generated extension contract registry is not packaged")
 	}

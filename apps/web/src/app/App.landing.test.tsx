@@ -342,7 +342,11 @@ describe("Incident landing", () => {
         is_deployment_admin: true,
       }),
       incidents: [
-        incidentResource("incident-one", "IR-200", "Only visible incident"),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001010",
+          "IR-200",
+          "Only visible incident",
+        ),
       ],
     });
 
@@ -350,10 +354,12 @@ describe("Incident landing", () => {
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-one",
+      "00000000-0000-4000-8000-000000001010",
     );
     expect(window.location.pathname).toBe("/");
-    expect(window.location.search).toContain("incident_id=incident-one");
+    expect(window.location.search).toContain(
+      "incident_id=00000000-0000-4000-8000-000000001010",
+    );
     expect(new URLSearchParams(window.location.search).has("sheet_ref")).toBe(
       false,
     );
@@ -366,13 +372,17 @@ describe("Incident landing", () => {
         is_deployment_admin: true,
         memberships: [
           {
-            incident_id: "incident-one",
+            incident_id: "00000000-0000-4000-8000-000000001010",
             role: "admin",
           },
         ],
       }),
       incidents: [
-        incidentResource("incident-one", "IR-200", "Only visible incident"),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001010",
+          "IR-200",
+          "Only visible incident",
+        ),
       ],
     });
 
@@ -388,7 +398,9 @@ describe("Incident landing", () => {
       await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(landingIncidentOpenButtonTestId("incident-one")),
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("00000000-0000-4000-8000-000000001010"),
+      ),
     ).toBeTruthy();
     expect(screen.queryByTestId("mock-workbook")).toBe(null);
     expect(window.location.search).not.toContain("incident_id=");
@@ -409,6 +421,7 @@ describe("Incident landing", () => {
             jsonResponse({
               data: { users: [] },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -465,6 +478,7 @@ describe("Incident landing", () => {
             jsonResponse({
               data: { users: [] },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -562,6 +576,7 @@ describe("Incident landing", () => {
             jsonResponse({
               data: { users: [] },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -578,16 +593,16 @@ describe("Incident landing", () => {
               data: {
                 audit_events: [
                   {
-                    audit_event_id: "audit-1",
+                    audit_event_id: "00000000-0000-4000-8000-000000002001",
                     scope_kind: "deployment",
                     scope_id: null,
                     occurred_at: "2026-05-24T00:00:00Z",
                     actor_kind: "user",
-                    actor_user_id: "user-1",
+                    actor_user_id: "00000000-0000-4000-8000-000000000001",
                     source: "ui",
                     action_code: "user_created",
                     target_kind: "user",
-                    target_id: "user-2",
+                    target_id: "00000000-0000-4000-8000-000000000002",
                     reason_code: null,
                     changes: [
                       {
@@ -601,6 +616,7 @@ describe("Incident landing", () => {
                 ],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -621,7 +637,9 @@ describe("Incident landing", () => {
     );
 
     expect(await screen.findByText("User created")).toBeTruthy();
-    expect(screen.getByText("User user-2")).toBeTruthy();
+    expect(
+      screen.getByText("User 00000000-0000-4000-8000-000000000002"),
+    ).toBeTruthy();
     expect(
       findFetchCalls(
         fetchMock,
@@ -662,6 +680,7 @@ describe("Incident landing", () => {
             jsonResponse({
               data: { users: [] },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -688,6 +707,7 @@ describe("Incident landing", () => {
                 ],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -757,6 +777,7 @@ describe("Incident landing", () => {
             jsonResponse({
               data: { users: [] },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -816,11 +837,14 @@ describe("Incident landing", () => {
           handler: () =>
             jsonResponse({
               data: {
-                user_id: "user-1",
+                user_id: "00000000-0000-4000-8000-000000000001",
                 email: "operator@example.test",
                 display_name: "Operator",
                 user_version: 1,
+                created_at: "2026-04-20T12:00:00Z",
+                updated_at: "2026-04-20T12:00:00Z",
               },
+              meta: { request_id: "request-test" },
             }),
         },
         {
@@ -829,10 +853,13 @@ describe("Incident landing", () => {
           handler: () =>
             jsonResponse({
               data: {
-                user_id: "user-1",
+                user_id: "00000000-0000-4000-8000-000000000001",
                 density_mode: null,
                 preferences_version: 1,
+                created_at: "2026-04-20T12:00:00Z",
+                updated_at: "2026-04-20T12:00:00Z",
               },
+              meta: { request_id: "request-test" },
             }),
         },
       ],
@@ -890,15 +917,28 @@ describe("Incident landing", () => {
   });
 
   it("updates the open workbook density after saving account appearance", async () => {
-    window.history.replaceState({}, "", "/?incident_id=incident-1");
-    const incident = incidentResource("incident-1", "IR-1", "Density test");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001001",
+    );
+    const incident = incidentResource(
+      "00000000-0000-4000-8000-000000001001",
+      "IR-1",
+      "Density test",
+    );
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Operator",
-        memberships: [{ incident_id: "incident-1", role: "admin" }],
+        memberships: [
+          {
+            incident_id: "00000000-0000-4000-8000-000000001001",
+            role: "admin",
+          },
+        ],
       }),
       accountPreferences: {
-        user_id: "user-1",
+        user_id: "00000000-0000-4000-8000-000000000001",
         density_mode: null,
         preferences_version: 1,
         created_at: "2026-04-20T12:00:00Z",
@@ -912,13 +952,14 @@ describe("Incident landing", () => {
           handler: () =>
             jsonResponse({
               data: {
-                user_id: "user-1",
+                user_id: "00000000-0000-4000-8000-000000000001",
                 email: "operator@example.test",
                 display_name: "Operator",
                 user_version: 1,
                 created_at: "2026-04-20T12:00:00Z",
                 updated_at: "2026-04-20T12:00:00Z",
               },
+              meta: { request_id: "request-test" },
             }),
         },
         {
@@ -931,12 +972,13 @@ describe("Incident landing", () => {
             expect(body.density_mode).toBe("compact");
             return jsonResponse({
               data: {
-                user_id: "user-1",
+                user_id: "00000000-0000-4000-8000-000000000001",
                 density_mode: "compact",
                 preferences_version: 2,
                 created_at: "2026-04-20T12:00:00Z",
                 updated_at: "2026-04-20T12:05:00Z",
               },
+              meta: { request_id: "request-test" },
             });
           },
         },
@@ -983,40 +1025,51 @@ describe("Incident landing", () => {
               data: {
                 users: [
                   {
-                    user_id: "user-2",
+                    user_id: "00000000-0000-4000-8000-000000000002",
                     email: "target@example.test",
                     display_name: "Target User",
                     user_version: 3,
                     is_active: true,
                     mfa_required: true,
                     is_deployment_admin: false,
+                    created_at: "2026-04-20T12:00:00Z",
+                    updated_at: "2026-04-20T12:00:00Z",
+                    updated_by_user_id: null,
+                    last_login_at: null,
+                    auth_bindings: [],
                   },
                 ],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
                   next_cursor: null,
                 },
-                request_id: "req-users",
               },
             }),
         },
         {
           method: "GET",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () =>
             jsonResponse({
               data: {
-                user_id: "user-2",
+                user_id: "00000000-0000-4000-8000-000000000002",
                 email: "target@example.test",
                 display_name: "Target User",
                 user_version: 3,
                 is_active: true,
                 mfa_required: true,
                 is_deployment_admin: false,
+                created_at: "2026-04-20T12:00:00Z",
+                updated_at: "2026-04-20T12:00:00Z",
+                updated_by_user_id: null,
+                last_login_at: null,
+                auth_bindings: [],
               },
+              meta: { request_id: "request-test" },
             }),
         },
       ],
@@ -1030,13 +1083,13 @@ describe("Incident landing", () => {
       null,
     );
     const userRow = await screen.findByTestId(
-      deploymentUserRowTestId("user-2"),
+      deploymentUserRowTestId("00000000-0000-4000-8000-000000000002"),
     );
     fireEvent.click(userRow);
     await waitFor(() => {
       expect(
         screen.getByTestId(deploymentAdminTestId("target-user-id")).textContent,
-      ).toBe("user-2");
+      ).toBe("00000000-0000-4000-8000-000000000002");
     });
     expect(
       (
@@ -1067,8 +1120,16 @@ describe("Incident landing", () => {
         display_name: "Operator",
       }),
       incidents: [
-        incidentResource("incident-1", "IR-201", "First Incident"),
-        incidentResource("incident-2", "IR-202", "Second Incident"),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001001",
+          "IR-201",
+          "First Incident",
+        ),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001002",
+          "IR-202",
+          "Second Incident",
+        ),
       ],
     });
 
@@ -1081,23 +1142,31 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("2 loaded");
     expect(
-      screen.getByTestId(landingIncidentCardTestId("incident-1")).textContent,
+      screen.getByTestId(
+        landingIncidentCardTestId("00000000-0000-4000-8000-000000001001"),
+      ).textContent,
     ).toContain("First Incident");
     expect(
-      screen.getByTestId(landingIncidentCardTestId("incident-2")).textContent,
+      screen.getByTestId(
+        landingIncidentCardTestId("00000000-0000-4000-8000-000000001002"),
+      ).textContent,
     ).toContain("Second Incident");
     expect(
       screen
-        .getByTestId(landingIncidentCardTestId("incident-1"))
+        .getByTestId(
+          landingIncidentCardTestId("00000000-0000-4000-8000-000000001001"),
+        )
         .getAttribute("data-selected"),
     ).toBe(null);
     fireEvent.click(
-      screen.getByTestId(landingIncidentOpenButtonTestId("incident-2")),
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("00000000-0000-4000-8000-000000001002"),
+      ),
     );
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-2",
+      "00000000-0000-4000-8000-000000001002",
     );
   });
 
@@ -1304,7 +1373,7 @@ describe("Incident landing", () => {
         display_name: "Operator",
         memberships: [
           {
-            incident_id: "incident-created",
+            incident_id: "00000000-0000-4000-8000-000000001401",
             role: "admin",
           },
         ],
@@ -1315,7 +1384,7 @@ describe("Incident landing", () => {
           unknown
         >;
         return incidentResource(
-          "incident-created",
+          "00000000-0000-4000-8000-000000001401",
           "IR-401",
           "Created with metadata",
           {
@@ -1410,7 +1479,7 @@ describe("Incident landing", () => {
           memberships: created
             ? [
                 {
-                  incident_id: "incident-created",
+                  incident_id: "00000000-0000-4000-8000-000000001401",
                   role: "admin",
                 },
               ]
@@ -1418,12 +1487,18 @@ describe("Incident landing", () => {
         }),
       incidents: () =>
         created
-          ? [incidentResource("incident-created", "IR-203", "Created Incident")]
+          ? [
+              incidentResource(
+                "00000000-0000-4000-8000-000000001401",
+                "IR-203",
+                "Created Incident",
+              ),
+            ]
           : [],
       onCreateIncident: () => {
         created = true;
         return incidentResource(
-          "incident-created",
+          "00000000-0000-4000-8000-000000001401",
           "IR-203",
           "Created Incident",
         );
@@ -1454,14 +1529,16 @@ describe("Incident landing", () => {
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-created",
+      "00000000-0000-4000-8000-000000001401",
     );
     await waitFor(() => {
       expect(screen.getByTestId("mock-workbook-role").textContent).toBe(
         "admin",
       );
     });
-    expect(window.location.search).toContain("incident_id=incident-created");
+    expect(window.location.search).toContain(
+      "incident_id=00000000-0000-4000-8000-000000001401",
+    );
 
     cleanup();
     window.history.replaceState({}, "", "/?incident_id=incident-stale");
@@ -1488,25 +1565,35 @@ describe("Incident landing", () => {
   });
 
   it("renders the workbook directly from an authenticated incident route under StrictMode", async () => {
-    window.history.replaceState({}, "", "/?incident_id=incident-5");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001005",
+    );
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Operator",
         memberships: [
           {
-            incident_id: "incident-5",
+            incident_id: "00000000-0000-4000-8000-000000001005",
             role: "admin",
           },
         ],
       }),
-      incidents: [incidentResource("incident-5", "IR-205", "Visible Incident")],
+      incidents: [
+        incidentResource(
+          "00000000-0000-4000-8000-000000001005",
+          "IR-205",
+          "Visible Incident",
+        ),
+      ],
     });
 
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-5",
+      "00000000-0000-4000-8000-000000001005",
     );
     const appShell = screen.getByTestId(appRouteTestId("app-shell"));
     expect(appShell.style.blockSize).toBe("var(--ct-app-viewport-block-size)");
@@ -1527,37 +1614,53 @@ describe("Incident landing", () => {
         display_name: "Operator",
         memberships: [
           {
-            incident_id: "incident-1",
+            incident_id: "00000000-0000-4000-8000-000000001001",
             role: "admin",
           },
           {
-            incident_id: "incident-2",
+            incident_id: "00000000-0000-4000-8000-000000001002",
             role: "viewer",
           },
         ],
       }),
       incidents: [
-        incidentResource("incident-1", "IR-501", "First Incident"),
-        incidentResource("incident-2", "IR-502", "Second Incident"),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001001",
+          "IR-501",
+          "First Incident",
+        ),
+        incidentResource(
+          "00000000-0000-4000-8000-000000001002",
+          "IR-502",
+          "Second Incident",
+        ),
       ],
     });
 
     renderApp();
 
-    await screen.findByTestId(landingIncidentCardTestId("incident-1"));
+    await screen.findByTestId(
+      landingIncidentCardTestId("00000000-0000-4000-8000-000000001001"),
+    );
     fireEvent.click(
-      screen.getByTestId(landingIncidentOpenButtonTestId("incident-2")),
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("00000000-0000-4000-8000-000000001002"),
+      ),
     );
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-2",
+      "00000000-0000-4000-8000-000000001002",
     );
 
-    window.history.replaceState({}, "", "/?incident_id=incident-1");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001001",
+    );
     fireEvent.popState(window);
     await waitFor(() => {
       expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-        "incident-1",
+        "00000000-0000-4000-8000-000000001001",
       );
     });
 
@@ -1568,12 +1671,18 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(screen.queryByTestId("mock-workbook")).toBe(null);
     expect(
-      screen.getByTestId(landingIncidentOpenButtonTestId("incident-1")),
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("00000000-0000-4000-8000-000000001001"),
+      ),
     ).toBeTruthy();
   });
 
   it("passes workbook incident controls through the app account menu handoff", async () => {
-    window.history.replaceState({}, "", "/?incident_id=incident-1");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001001",
+    );
     const controlsEvents: Array<{ section: string; target: string }> = [];
     window.addEventListener("mock-workbook-incident-controls", (event) => {
       controlsEvents.push(
@@ -1583,9 +1692,20 @@ describe("Incident landing", () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Operator",
-        memberships: [{ incident_id: "incident-1", role: "admin" }],
+        memberships: [
+          {
+            incident_id: "00000000-0000-4000-8000-000000001001",
+            role: "admin",
+          },
+        ],
       }),
-      incidents: [incidentResource("incident-1", "IR-503", "Incident")],
+      incidents: [
+        incidentResource(
+          "00000000-0000-4000-8000-000000001001",
+          "IR-503",
+          "Incident",
+        ),
+      ],
     });
 
     renderApp();
@@ -1608,7 +1728,11 @@ describe("Incident landing", () => {
   });
 
   it("returns to the landing screen when workbook access is lost", async () => {
-    window.history.replaceState({}, "", "/?incident_id=incident-5");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001005",
+    );
     let accessLost = false;
     installLandingShellFetch(fetchMock, {
       session: () =>
@@ -1618,7 +1742,7 @@ describe("Incident landing", () => {
             ? []
             : [
                 {
-                  incident_id: "incident-5",
+                  incident_id: "00000000-0000-4000-8000-000000001005",
                   role: "admin",
                 },
               ],
@@ -1626,7 +1750,13 @@ describe("Incident landing", () => {
       incidents: () =>
         accessLost
           ? []
-          : [incidentResource("incident-5", "IR-205", "Visible Incident")],
+          : [
+              incidentResource(
+                "00000000-0000-4000-8000-000000001005",
+                "IR-205",
+                "Visible Incident",
+              ),
+            ],
     });
 
     renderApp();
@@ -1755,6 +1885,7 @@ function incidentListResponse(incidents: IncidentResource[]) {
   return jsonResponse({
     data: { incidents },
     meta: {
+      request_id: "request-test",
       paging: {
         has_more: false,
         limit: 100,

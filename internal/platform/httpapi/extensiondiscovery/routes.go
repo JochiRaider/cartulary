@@ -25,11 +25,9 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/extensions", discovery.handleCollection)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.extensions", map[string]http.HandlerFunc{
+			"listDeploymentExtensions": discovery.handleCollection,
+		})
 	}
 }
 

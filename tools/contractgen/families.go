@@ -143,9 +143,6 @@ func activeFamiliesFromRegistry(root string, registry contractFamilyRegistry) ([
 		if len(entry.GeneratedOutputs) == 0 {
 			return nil, fmt.Errorf("%s.generated_outputs must not be empty", label)
 		}
-		if len(entry.TypeScriptRuntimePrefixes) == 0 {
-			return nil, fmt.Errorf("%s.typescript_runtime_artifact_prefixes must not be empty", label)
-		}
 		seenTypeScriptPrefixes := map[string]struct{}{}
 		for _, prefix := range entry.TypeScriptRuntimePrefixes {
 			if _, duplicate := seenTypeScriptPrefixes[prefix]; duplicate {

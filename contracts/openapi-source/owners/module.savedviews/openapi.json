@@ -1,0 +1,704 @@
+{
+  "paths": {
+    "/api/v1/incidents/{incident_id}/saved-views": {
+      "get": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "listIncidentSavedViews",
+        "summary": "List saved views visible to the current incident member.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visible saved-view list response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid saved-view pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "createIncidentSavedView",
+        "summary": "Create one ordinary private or shared saved view for the incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved-view create response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid saved-view create payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}": {
+      "patch": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "patchIncidentSavedView",
+        "summary": "Patch one visible mutable saved view for the incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "saved_view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved-view patch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid saved-view patch payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed or saved-view mutation denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident or saved view not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Saved-view version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "saved-views"
+        ],
+        "operationId": "deleteIncidentSavedView",
+        "summary": "Delete one visible mutable saved-view configuration object.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "saved_view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved-view delete response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewDeleteEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed or saved-view mutation denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident or saved view not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SavedViewCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewCreateQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewCreateLayoutJSON"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "display_name",
+          "query_json"
+        ]
+      },
+      "SavedViewPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_saved_view_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewCreateQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewCreateLayoutJSON"
+          }
+        },
+        "required": [
+          "base_saved_view_version"
+        ]
+      },
+      "SavedViewCreateQueryJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        }
+      },
+      "SavedViewCreateLayoutJSON": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "maxProperties": 0
+          },
+          {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          }
+        ]
+      },
+      "SavedViewListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewResource"
+            }
+          }
+        },
+        "required": [
+          "saved_views"
+        ]
+      },
+      "SavedViewListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SavedViewListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SavedViewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SavedViewResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SavedViewDeleteData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_view_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deleted": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "saved_view_id",
+          "deleted"
+        ]
+      },
+      "SavedViewDeleteEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SavedViewDeleteData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SavedViewScope": {
+        "type": "string",
+        "enum": [
+          "private",
+          "shared",
+          "system"
+        ]
+      },
+      "SavedViewQueryJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sort",
+          "filters"
+        ]
+      },
+      "SavedViewLayoutJSON": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "layout_schema_id": {
+            "type": "string",
+            "const": "cartulary.layout.v1"
+          },
+          "column_order": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hidden_field_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "column_widths": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewColumnWidth"
+            }
+          }
+        },
+        "required": [
+          "layout_schema_id",
+          "column_order",
+          "hidden_field_keys",
+          "column_widths"
+        ]
+      },
+      "SavedViewColumnWidth": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "width_px": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "field_key",
+          "width_px"
+        ]
+      },
+      "SavedViewResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "saved_view_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SavedViewScope"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "query_json": {
+            "$ref": "#/components/schemas/SavedViewQueryJSON"
+          },
+          "layout_json": {
+            "$ref": "#/components/schemas/SavedViewLayoutJSON"
+          },
+          "owner_user_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "saved_view_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "saved_view_id",
+          "incident_id",
+          "view_schema_id",
+          "scope",
+          "display_name",
+          "query_json",
+          "layout_json",
+          "owner_user_id",
+          "created_at",
+          "updated_at",
+          "saved_view_version"
+        ]
+      }
+    }
+  }
+}

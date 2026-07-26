@@ -621,6 +621,17 @@ export const DeploymentUsersPanel = forwardRef<
       return;
     }
     const payload = result.payload as UserListEnvelope;
+    if (typeof payload.meta.paging === "undefined") {
+      setStatusText("Deployment users unavailable");
+      setError({
+        code: "invalid_deployment_user_response",
+        details: { instance_path: "/meta/paging" },
+        message: "Deployment user response omitted paging metadata.",
+        retryable: true,
+        status: 502,
+      });
+      return;
+    }
     setUsers(payload.data.users);
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
@@ -665,6 +676,17 @@ export const DeploymentUsersPanel = forwardRef<
       return;
     }
     const payload = result.payload as UserListEnvelope;
+    if (typeof payload.meta.paging === "undefined") {
+      setStatusText("Load more users failed");
+      setError({
+        code: "invalid_deployment_user_response",
+        details: { instance_path: "/meta/paging" },
+        message: "Deployment user response omitted paging metadata.",
+        retryable: true,
+        status: 502,
+      });
+      return;
+    }
     setUsers((current) => mergeUserResources(current, payload.data.users));
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);

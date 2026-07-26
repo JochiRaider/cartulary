@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -48,7 +48,7 @@ func New(profiles []httpapi.ExtensionProfile) Projections {
 
 func FromGeneratedRegistry(t testing.TB, claimedProfileIDs ...string) Projections {
 	t.Helper()
-	artifact, ok := contractsgen.ExtensionArtifactsIndex["contracts/extensions/generated/profile-registry.json"]
+	artifact, ok := contractsgen.Index["contracts/extensions/generated/profile-registry.json"]
 	if !ok {
 		t.Fatal("generated extension profile registry is not packaged")
 	}

@@ -19,7 +19,7 @@
       "selector": {
         "package": "./internal/platform/administrativeaudit",
         "tests": [
-          "TestAdministrativeAuditLegacyBackfillFailsClosed_Integration",
+          "TestAdministrativeAuditLegacyProjectionCleanupPreservesRawJournal_Integration",
           "TestAdministrativeAuditProjectionPersistence_Integration"
         ]
       },

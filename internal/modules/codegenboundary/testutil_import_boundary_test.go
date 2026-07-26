@@ -12,7 +12,7 @@ import (
 )
 
 const testutilImportPathPrefix = repoImportPrefix + "internal/testutil"
-const generatedContractsImportPath = repoImportPrefix + "internal/gen/contracts"
+const generatedContractsImportPath = repoImportPrefix + "internal/gen/contract"
 
 func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
@@ -67,8 +67,8 @@ func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 func TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	allowed := map[string]bool{
-		"internal/platform/contracttest/contracttest.go": true,
-		"internal/platform/viewschema/registry.go":       true,
+		"internal/modules/extensions/coordinator.go": true,
+		"internal/platform/viewschema/registry.go":   true,
 	}
 
 	var offenders []string
@@ -96,7 +96,9 @@ func TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts(t *test
 			}
 			return nil
 		}
-		if !strings.HasSuffix(relPath, ".go") {
+		if !strings.HasSuffix(relPath, ".go") || strings.HasSuffix(relPath, "_test.go") ||
+			strings.HasPrefix(relPath, "internal/testutil/") ||
+			strings.HasPrefix(relPath, "internal/platform/contracttest/") {
 			return nil
 		}
 		if !allowed[relPath] && importsPathPrefix(t, path, generatedContractsImportPath) {

@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	manifestSchemaID  = "cartulary.openapi_source_manifest.v1"
-	fragmentRootRole  = "root"
-	fragmentOwnerRole = "owner"
+	manifestSchemaID = "cartulary.openapi_source_manifest.v2"
+	policySchemaID   = "cartulary.openapi_assembly_policy.v1"
+	unitRootRole     = "root"
+	unitOwnerRole    = "owner"
 )
 
 var operationKeys = map[string]struct{}{
@@ -40,20 +41,24 @@ var requiredSecuritySchemeNames = []string{
 }
 
 type manifest struct {
-	SchemaID             string          `json:"schema_id"`
-	Target               string          `json:"target"`
-	RequirementsRegistry string          `json:"requirements_registry"`
-	CompatibilityWaivers string          `json:"compatibility_waivers"`
-	FragmentRoot         string          `json:"fragment_root"`
-	Indent               string          `json:"indent"`
-	TrailingNewline      bool            `json:"trailing_newline"`
-	Limits               resourceLimits  `json:"limits"`
-	Fragments            []fragmentEntry `json:"fragments"`
+	SchemaID             string      `json:"schema_id"`
+	Target               string      `json:"target"`
+	RequirementsRegistry string      `json:"requirements_registry"`
+	Policy               string      `json:"policy"`
+	UnitRoot             string      `json:"unit_root"`
+	Units                []unitEntry `json:"units"`
+}
+
+type assemblyPolicy struct {
+	SchemaID        string         `json:"schema_id"`
+	Indent          string         `json:"indent"`
+	TrailingNewline bool           `json:"trailing_newline"`
+	Limits          resourceLimits `json:"limits"`
 }
 
 type resourceLimits struct {
-	MaxFragments       int   `json:"max_fragments"`
-	MaxFragmentBytes   int64 `json:"max_fragment_bytes"`
+	MaxUnits           int   `json:"max_units"`
+	MaxUnitBytes       int64 `json:"max_unit_bytes"`
 	MaxTotalInputBytes int64 `json:"max_total_input_bytes"`
 	MaxJSONDepth       int   `json:"max_json_depth"`
 	MaxPaths           int   `json:"max_paths"`
@@ -61,7 +66,7 @@ type resourceLimits struct {
 	MaxNamedComponents int   `json:"max_named_components"`
 }
 
-type fragmentEntry struct {
+type unitEntry struct {
 	OwnerID string `json:"owner_id"`
 	Path    string `json:"path"`
 	Role    string `json:"role"`
@@ -72,55 +77,6 @@ type requirementRegistry struct {
 		OwnerID string `json:"owner_id"`
 		Status  string `json:"status"`
 	} `json:"owners"`
-}
-
-type compatibilityWaiverRegistry struct {
-	ResponseWaivers               []operationWaiverGroup     `json:"response_waivers"`
-	SecurityClassificationWaivers []operationWaiverGroup     `json:"security_classification_waivers"`
-	SecuritySchemeWaivers         []namedWaiver              `json:"security_scheme_waivers"`
-	ComponentWaivers              []namedWaiver              `json:"component_waivers"`
-	PathParameterWaivers          []pathParameterWaiverGroup `json:"path_parameter_waivers"`
-}
-
-type operationWaiverGroup struct {
-	WaiverID         string   `json:"waiver_id"`
-	OwnerID          string   `json:"owner_id"`
-	CorrectionID     string   `json:"correction_id"`
-	Reason           string   `json:"reason"`
-	RemovalCondition string   `json:"removal_condition"`
-	OperationIDs     []string `json:"operation_ids"`
-}
-
-type namedWaiver struct {
-	WaiverID         string `json:"waiver_id"`
-	OwnerID          string `json:"owner_id"`
-	CorrectionID     string `json:"correction_id"`
-	Reason           string `json:"reason"`
-	RemovalCondition string `json:"removal_condition"`
-	Name             string `json:"name"`
-}
-
-type pathParameterWaiverGroup struct {
-	WaiverID         string                         `json:"waiver_id"`
-	OwnerID          string                         `json:"owner_id"`
-	CorrectionID     string                         `json:"correction_id"`
-	Reason           string                         `json:"reason"`
-	RemovalCondition string                         `json:"removal_condition"`
-	Operations       []pathParameterWaivedOperation `json:"operations"`
-}
-
-type pathParameterWaivedOperation struct {
-	Method            string   `json:"method"`
-	Path              string   `json:"path"`
-	OperationID       string   `json:"operation_id"`
-	MissingParameters []string `json:"missing_parameters"`
-}
-
-type compatibilityWaivers struct {
-	responses               map[string]struct{}
-	securityClassifications map[string]struct{}
-	securitySchemes         map[string]struct{}
-	pathParameters          map[string]pathParameterWaivedOperation
 }
 
 type valueKind uint8
@@ -184,7 +140,14 @@ func Assemble(manifestPath string) ([]byte, string, error) {
 	if err := decoder.Decode(&sourceManifest); err != nil {
 		return nil, "", fmt.Errorf("decode manifest: %w", err)
 	}
-	if err := validateManifest(sourceManifest); err != nil {
+	if _, err := safePath(repositoryRoot, sourceManifest.Policy); err != nil {
+		return nil, "", fmt.Errorf("policy: %w", err)
+	}
+	policy, err := loadAssemblyPolicy(repositoryFiles, sourceManifest.Policy)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := validateManifest(sourceManifest, policy); err != nil {
 		return nil, "", err
 	}
 
@@ -199,113 +162,114 @@ func Assemble(manifestPath string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if _, err := safePath(repositoryRoot, sourceManifest.CompatibilityWaivers); err != nil {
-		return nil, "", fmt.Errorf("compatibility_waivers: %w", err)
-	}
-	waivers, err := loadCompatibilityWaivers(repositoryFiles, sourceManifest.CompatibilityWaivers, knownOwners)
+	unitRoot, err := safePath(repositoryRoot, sourceManifest.UnitRoot)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("unit_root: %w", err)
 	}
-	fragmentRoot, err := safePath(repositoryRoot, sourceManifest.FragmentRoot)
-	if err != nil {
-		return nil, "", fmt.Errorf("fragment_root: %w", err)
-	}
-	if err := validateFragmentInventory(fragmentRoot, repositoryRoot, sourceManifest.Fragments); err != nil {
+	if err := validateUnitInventory(unitRoot, repositoryRoot, sourceManifest.Units); err != nil {
 		return nil, "", err
 	}
 
 	var aggregate *orderedValue
 	var totalInputBytes int64
 	rootCount := 0
-	for index, entry := range sourceManifest.Fragments {
-		if _, ok := knownOwners[entry.OwnerID]; !ok {
-			return nil, "", fmt.Errorf("fragment %d references unknown active owner %q", index+1, entry.OwnerID)
+	units := append([]unitEntry(nil), sourceManifest.Units...)
+	sort.Slice(units, func(left, right int) bool {
+		if units[left].Role != units[right].Role {
+			return units[left].Role == unitRootRole
 		}
-		ownerPrefix := strings.TrimSuffix(sourceManifest.FragmentRoot, "/") + "/" + entry.OwnerID + "/"
+		if units[left].OwnerID != units[right].OwnerID {
+			return units[left].OwnerID < units[right].OwnerID
+		}
+		return units[left].Path < units[right].Path
+	})
+	for index, entry := range units {
+		if _, ok := knownOwners[entry.OwnerID]; !ok {
+			return nil, "", fmt.Errorf("unit %d references unknown active owner %q", index+1, entry.OwnerID)
+		}
+		ownerPrefix := strings.TrimSuffix(sourceManifest.UnitRoot, "/") + "/" + entry.OwnerID + "/"
 		if !strings.HasPrefix(entry.Path, ownerPrefix) {
 			return nil, "", fmt.Errorf(
-				"fragment %q must be stored below its declared owner directory %q",
+				"unit %q must be stored below its declared owner directory %q",
 				entry.Path,
 				ownerPrefix,
 			)
 		}
-		if entry.Role == fragmentRootRole {
+		if entry.Role == unitRootRole {
 			rootCount++
 			if entry.OwnerID != "platform.openapi" {
-				return nil, "", fmt.Errorf("root fragment owner must be platform.openapi, got %q", entry.OwnerID)
+				return nil, "", fmt.Errorf("root unit owner must be platform.openapi, got %q", entry.OwnerID)
 			}
 		}
 		if _, err := safePath(repositoryRoot, entry.Path); err != nil {
-			return nil, "", fmt.Errorf("fragment %d path: %w", index+1, err)
+			return nil, "", fmt.Errorf("unit %d path: %w", index+1, err)
 		}
 		info, err := repositoryFiles.Lstat(entry.Path)
 		if err != nil {
-			return nil, "", fmt.Errorf("stat fragment %q: %w", entry.Path, err)
+			return nil, "", fmt.Errorf("stat unit %q: %w", entry.Path, err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return nil, "", fmt.Errorf("fragment %q must not be a symlink", entry.Path)
+			return nil, "", fmt.Errorf("unit %q must not be a symlink", entry.Path)
 		}
 		if !info.Mode().IsRegular() {
-			return nil, "", fmt.Errorf("fragment %q must be a regular file", entry.Path)
+			return nil, "", fmt.Errorf("unit %q must be a regular file", entry.Path)
 		}
-		if info.Size() > sourceManifest.Limits.MaxFragmentBytes {
-			return nil, "", fmt.Errorf("fragment %q exceeds max_fragment_bytes", entry.Path)
+		if info.Size() > policy.Limits.MaxUnitBytes {
+			return nil, "", fmt.Errorf("unit %q exceeds max_unit_bytes", entry.Path)
 		}
 		totalInputBytes += info.Size()
-		if totalInputBytes > sourceManifest.Limits.MaxTotalInputBytes {
-			return nil, "", errors.New("fragment inputs exceed max_total_input_bytes")
+		if totalInputBytes > policy.Limits.MaxTotalInputBytes {
+			return nil, "", errors.New("unit inputs exceed max_total_input_bytes")
 		}
 		content, err := repositoryFiles.ReadFile(entry.Path)
 		if err != nil {
-			return nil, "", fmt.Errorf("read fragment %q: %w", entry.Path, err)
+			return nil, "", fmt.Errorf("read unit %q: %w", entry.Path, err)
 		}
-		fragment, err := parseOrderedJSON(content, sourceManifest.Limits.MaxJSONDepth)
+		unit, err := parseOrderedJSON(content, policy.Limits.MaxJSONDepth)
 		if err != nil {
-			return nil, "", fmt.Errorf("parse fragment %q: %w", entry.Path, err)
+			return nil, "", fmt.Errorf("parse unit %q: %w", entry.Path, err)
 		}
-		if err := validateFragmentShape(fragment, entry); err != nil {
-			return nil, "", fmt.Errorf("fragment %q: %w", entry.Path, err)
+		if err := validateUnitShape(unit, entry); err != nil {
+			return nil, "", fmt.Errorf("unit %q: %w", entry.Path, err)
 		}
 		if aggregate == nil {
 			aggregate = &orderedValue{kind: objectKind}
 		}
-		if err := mergeFragment(aggregate, fragment, entry); err != nil {
-			return nil, "", fmt.Errorf("fragment %q: %w", entry.Path, err)
+		if err := mergeUnit(aggregate, unit, entry); err != nil {
+			return nil, "", fmt.Errorf("unit %q: %w", entry.Path, err)
 		}
 	}
 	if rootCount != 1 {
-		return nil, "", fmt.Errorf("manifest must contain exactly one root fragment, got %d", rootCount)
+		return nil, "", fmt.Errorf("manifest must contain exactly one root unit, got %d", rootCount)
 	}
 	if aggregate == nil {
 		return nil, "", errors.New("assembly produced no document")
 	}
-	if err := validateAggregate(aggregate, sourceManifest.Limits, waivers); err != nil {
+	if err := validateAggregate(aggregate, policy.Limits); err != nil {
 		return nil, "", err
 	}
+	sortCanonicalObjectMembers(aggregate, true)
 	var output bytes.Buffer
-	writeOrderedJSON(&output, aggregate, sourceManifest.Indent, 0)
-	if sourceManifest.TrailingNewline {
+	writeOrderedJSON(&output, aggregate, policy.Indent, 0)
+	if policy.TrailingNewline {
 		output.WriteByte('\n')
 	}
 	return output.Bytes(), target, nil
 }
 
-func validateManifest(sourceManifest manifest) error {
+func validateManifest(sourceManifest manifest, policy assemblyPolicy) error {
 	if sourceManifest.SchemaID != manifestSchemaID {
 		return fmt.Errorf("manifest schema_id must be %q", manifestSchemaID)
 	}
 	if sourceManifest.Target == "" ||
 		sourceManifest.RequirementsRegistry == "" ||
-		sourceManifest.CompatibilityWaivers == "" ||
-		sourceManifest.FragmentRoot == "" {
-		return errors.New("target, requirements_registry, compatibility_waivers, and fragment_root are required")
+		sourceManifest.Policy == "" ||
+		sourceManifest.UnitRoot == "" {
+		return errors.New("target, requirements_registry, policy, and unit_root are required")
 	}
-	if sourceManifest.Indent != "  " || !sourceManifest.TrailingNewline {
-		return errors.New("serialization profile must use two-space indentation and one trailing newline")
-	}
-	limits := sourceManifest.Limits
-	if limits.MaxFragments != 256 ||
-		limits.MaxFragmentBytes != 2*1024*1024 ||
+	limits := policy.Limits
+	if limits.MaxUnits != 256 ||
+		limits.MaxUnitBytes != 2*1024*1024 ||
 		limits.MaxTotalInputBytes != 16*1024*1024 ||
 		limits.MaxJSONDepth != 128 ||
 		limits.MaxPaths != 2048 ||
@@ -313,24 +277,33 @@ func validateManifest(sourceManifest manifest) error {
 		limits.MaxNamedComponents != 16384 {
 		return errors.New("manifest resource limits must match the platform.openapi contract")
 	}
-	if len(sourceManifest.Fragments) == 0 || len(sourceManifest.Fragments) > limits.MaxFragments {
-		return fmt.Errorf("fragments must contain between 1 and %d entries", limits.MaxFragments)
+	if len(sourceManifest.Units) == 0 || len(sourceManifest.Units) > limits.MaxUnits {
+		return fmt.Errorf("units must contain between 1 and %d entries", limits.MaxUnits)
 	}
-	seenPaths := make(map[string]struct{}, len(sourceManifest.Fragments))
-	for index, entry := range sourceManifest.Fragments {
+	seenPaths := make(map[string]struct{}, len(sourceManifest.Units))
+	seenOwners := make(map[string]struct{}, len(sourceManifest.Units))
+	rootCount := 0
+	for index, entry := range sourceManifest.Units {
 		if entry.OwnerID == "" || entry.Path == "" {
-			return fmt.Errorf("fragment %d requires owner_id and path", index+1)
+			return fmt.Errorf("unit %d requires owner_id and path", index+1)
 		}
-		if entry.Role != fragmentRootRole && entry.Role != fragmentOwnerRole {
-			return fmt.Errorf("fragment %d has invalid role %q", index+1, entry.Role)
+		if entry.Role != unitRootRole && entry.Role != unitOwnerRole {
+			return fmt.Errorf("unit %d has invalid role %q", index+1, entry.Role)
 		}
 		if _, duplicate := seenPaths[entry.Path]; duplicate {
-			return fmt.Errorf("fragment path %q is listed more than once", entry.Path)
+			return fmt.Errorf("unit path %q is listed more than once", entry.Path)
 		}
 		seenPaths[entry.Path] = struct{}{}
+		if _, duplicate := seenOwners[entry.OwnerID]; duplicate {
+			return fmt.Errorf("owner %q has more than one source unit", entry.OwnerID)
+		}
+		seenOwners[entry.OwnerID] = struct{}{}
+		if entry.Role == unitRootRole {
+			rootCount++
+		}
 	}
-	if sourceManifest.Fragments[0].Role != fragmentRootRole {
-		return errors.New("the root fragment must be first")
+	if rootCount != 1 {
+		return fmt.Errorf("manifest must contain exactly one root unit, got %d", rootCount)
 	}
 	return nil
 }
@@ -400,198 +373,58 @@ func loadKnownOwners(repositoryFiles *os.Root, path string) (map[string]struct{}
 	return owners, nil
 }
 
-func loadCompatibilityWaivers(
-	repositoryFiles *os.Root,
-	path string,
-	knownOwners map[string]struct{},
-) (compatibilityWaivers, error) {
-	empty := compatibilityWaivers{}
+func loadAssemblyPolicy(repositoryFiles *os.Root, path string) (assemblyPolicy, error) {
+	var policy assemblyPolicy
 	info, err := repositoryFiles.Lstat(path)
 	if err != nil {
-		return empty, fmt.Errorf("stat compatibility waivers: %w", err)
+		return policy, fmt.Errorf("stat assembly policy: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return empty, errors.New("compatibility waiver registry must not be a symlink")
+		return policy, errors.New("assembly policy must not be a symlink")
 	}
 	content, err := repositoryFiles.ReadFile(path)
 	if err != nil {
-		return empty, fmt.Errorf("read compatibility waivers: %w", err)
+		return policy, fmt.Errorf("read assembly policy: %w", err)
 	}
 	if _, err := parseOrderedJSON(content, 128); err != nil {
-		return empty, fmt.Errorf("parse compatibility waivers: %w", err)
+		return policy, fmt.Errorf("parse assembly policy: %w", err)
 	}
-	var registry compatibilityWaiverRegistry
-	if err := json.Unmarshal(content, &registry); err != nil {
-		return empty, fmt.Errorf("decode compatibility waivers: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(content))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&policy); err != nil {
+		return policy, fmt.Errorf("decode assembly policy: %w", err)
 	}
-	responseWaivers, err := loadOperationWaivers("response", registry.ResponseWaivers, knownOwners)
-	if err != nil {
-		return empty, err
+	if policy.SchemaID != policySchemaID {
+		return policy, fmt.Errorf("assembly policy schema_id must be %q", policySchemaID)
 	}
-	securityClassificationWaivers, err := loadOperationWaivers(
-		"security-classification",
-		registry.SecurityClassificationWaivers,
-		knownOwners,
-	)
-	if err != nil {
-		return empty, err
+	if policy.Indent != "  " || !policy.TrailingNewline {
+		return policy, errors.New("serialization profile must use two-space indentation and one trailing newline")
 	}
-	securitySchemeWaivers, err := loadNamedWaivers("security-scheme", registry.SecuritySchemeWaivers, knownOwners)
-	if err != nil {
-		return empty, err
-	}
-	pathParameterWaivers, err := loadPathParameterWaivers(registry.PathParameterWaivers, knownOwners)
-	if err != nil {
-		return empty, err
-	}
-	return compatibilityWaivers{
-		responses:               responseWaivers,
-		securityClassifications: securityClassificationWaivers,
-		securitySchemes:         securitySchemeWaivers,
-		pathParameters:          pathParameterWaivers,
-	}, nil
+	return policy, nil
 }
 
-func loadOperationWaivers(
-	label string,
-	groups []operationWaiverGroup,
-	knownOwners map[string]struct{},
-) (map[string]struct{}, error) {
-	waivers := make(map[string]struct{})
-	seenWaiverIDs := make(map[string]struct{})
-	for _, group := range groups {
-		if err := validateWaiverMetadata(label, group.WaiverID, group.OwnerID, group.CorrectionID, group.Reason, group.RemovalCondition, knownOwners); err != nil {
-			return nil, err
-		}
-		if _, duplicate := seenWaiverIDs[group.WaiverID]; duplicate {
-			return nil, fmt.Errorf("duplicate %s waiver ID %q", label, group.WaiverID)
-		}
-		seenWaiverIDs[group.WaiverID] = struct{}{}
-		if len(group.OperationIDs) == 0 {
-			return nil, fmt.Errorf("%s waiver %q has no operations", label, group.WaiverID)
-		}
-		for _, operationID := range group.OperationIDs {
-			if operationID == "" {
-				return nil, fmt.Errorf("%s waiver %q has an empty operation ID", label, group.WaiverID)
-			}
-			if _, duplicate := waivers[operationID]; duplicate {
-				return nil, fmt.Errorf("multiple %s waivers for operation %q", label, operationID)
-			}
-			waivers[operationID] = struct{}{}
-		}
-	}
-	return waivers, nil
-}
-
-func loadNamedWaivers(
-	label string,
-	groups []namedWaiver,
-	knownOwners map[string]struct{},
-) (map[string]struct{}, error) {
-	waivers := make(map[string]struct{})
-	seenWaiverIDs := make(map[string]struct{})
-	for _, group := range groups {
-		if err := validateWaiverMetadata(label, group.WaiverID, group.OwnerID, group.CorrectionID, group.Reason, group.RemovalCondition, knownOwners); err != nil {
-			return nil, err
-		}
-		if _, duplicate := seenWaiverIDs[group.WaiverID]; duplicate {
-			return nil, fmt.Errorf("duplicate %s waiver ID %q", label, group.WaiverID)
-		}
-		seenWaiverIDs[group.WaiverID] = struct{}{}
-		if group.Name == "" {
-			return nil, fmt.Errorf("%s waiver %q has an empty name", label, group.WaiverID)
-		}
-		if _, duplicate := waivers[group.Name]; duplicate {
-			return nil, fmt.Errorf("multiple %s waivers for %q", label, group.Name)
-		}
-		waivers[group.Name] = struct{}{}
-	}
-	return waivers, nil
-}
-
-func validateWaiverMetadata(
-	label, waiverID, ownerID, correctionID, reason, removalCondition string,
-	knownOwners map[string]struct{},
-) error {
-	if waiverID == "" || ownerID == "" || correctionID == "" || reason == "" || removalCondition == "" {
-		return fmt.Errorf("%s waiver metadata must be non-empty", label)
-	}
-	if _, ok := knownOwners[ownerID]; !ok {
-		return fmt.Errorf("%s waiver %q has unknown owner %q", label, waiverID, ownerID)
-	}
-	return nil
-}
-
-func loadPathParameterWaivers(
-	groups []pathParameterWaiverGroup,
-	knownOwners map[string]struct{},
-) (map[string]pathParameterWaivedOperation, error) {
-	waivers := make(map[string]pathParameterWaivedOperation)
-	seenWaiverIDs := make(map[string]struct{})
-	for _, group := range groups {
-		if err := validateWaiverMetadata(
-			"path-parameter",
-			group.WaiverID,
-			group.OwnerID,
-			group.CorrectionID,
-			group.Reason,
-			group.RemovalCondition,
-			knownOwners,
-		); err != nil {
-			return nil, err
-		}
-		if _, duplicate := seenWaiverIDs[group.WaiverID]; duplicate {
-			return nil, fmt.Errorf("duplicate path-parameter waiver ID %q", group.WaiverID)
-		}
-		seenWaiverIDs[group.WaiverID] = struct{}{}
-		if len(group.Operations) == 0 {
-			return nil, fmt.Errorf("path-parameter waiver %q has no operations", group.WaiverID)
-		}
-		for _, operation := range group.Operations {
-			if operation.Method == "" ||
-				operation.Path == "" ||
-				operation.OperationID == "" ||
-				len(operation.MissingParameters) == 0 {
-				return nil, fmt.Errorf("path-parameter waiver %q has an incomplete operation", group.WaiverID)
-			}
-			if operation.Method != strings.ToUpper(operation.Method) {
-				return nil, fmt.Errorf("path-parameter waiver method %q must be uppercase", operation.Method)
-			}
-			if !sort.StringsAreSorted(operation.MissingParameters) {
-				return nil, fmt.Errorf("path-parameter waiver %s %s parameters must be sorted", operation.Method, operation.Path)
-			}
-			key := operation.Method + " " + operation.Path
-			if _, duplicate := waivers[key]; duplicate {
-				return nil, fmt.Errorf("multiple path-parameter waivers for %s", key)
-			}
-			waivers[key] = operation
-		}
-	}
-	return waivers, nil
-}
-
-func validateFragmentInventory(fragmentRoot, manifestDir string, fragments []fragmentEntry) error {
-	rootInfo, err := os.Lstat(fragmentRoot)
+func validateUnitInventory(unitRoot, manifestDir string, units []unitEntry) error {
+	rootInfo, err := os.Lstat(unitRoot)
 	if err != nil {
-		return fmt.Errorf("stat fragment root: %w", err)
+		return fmt.Errorf("stat unit root: %w", err)
 	}
 	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
-		return errors.New("fragment_root must be a real directory, not a symlink")
+		return errors.New("unit_root must be a real directory, not a symlink")
 	}
-	listed := make(map[string]struct{}, len(fragments))
-	for _, entry := range fragments {
+	listed := make(map[string]struct{}, len(units))
+	for _, entry := range units {
 		path, err := safePath(manifestDir, entry.Path)
 		if err != nil {
 			return err
 		}
-		relative, err := filepath.Rel(fragmentRoot, path)
+		relative, err := filepath.Rel(unitRoot, path)
 		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			return fmt.Errorf("fragment %q is outside fragment_root", entry.Path)
+			return fmt.Errorf("unit %q is outside unit_root", entry.Path)
 		}
 		listed[filepath.Clean(path)] = struct{}{}
 	}
 	found := make(map[string]struct{})
-	err = filepath.WalkDir(fragmentRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+	err = filepath.WalkDir(unitRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -600,13 +433,13 @@ func validateFragmentInventory(fragmentRoot, manifestDir string, fragments []fra
 			return err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("fragment inventory contains symlink %q", path)
+			return fmt.Errorf("unit inventory contains symlink %q", path)
 		}
 		if entry.IsDir() {
 			return nil
 		}
 		if !info.Mode().IsRegular() {
-			return fmt.Errorf("fragment inventory contains non-regular file %q", path)
+			return fmt.Errorf("unit inventory contains non-regular file %q", path)
 		}
 		found[filepath.Clean(path)] = struct{}{}
 		return nil
@@ -616,12 +449,12 @@ func validateFragmentInventory(fragmentRoot, manifestDir string, fragments []fra
 	}
 	for path := range found {
 		if _, ok := listed[path]; !ok {
-			return fmt.Errorf("orphan fragment %q is not listed in the manifest", path)
+			return fmt.Errorf("orphan unit %q is not listed in the manifest", path)
 		}
 	}
 	for path := range listed {
 		if _, ok := found[path]; !ok {
-			return fmt.Errorf("listed fragment %q is missing from fragment_root", path)
+			return fmt.Errorf("listed unit %q is missing from unit_root", path)
 		}
 	}
 	return nil
@@ -709,18 +542,18 @@ func parseValue(decoder *json.Decoder, depth, maxDepth int) (*orderedValue, erro
 	}
 }
 
-func validateFragmentShape(fragment *orderedValue, entry fragmentEntry) error {
-	if fragment.kind != objectKind {
-		return errors.New("fragment must be an object")
+func validateUnitShape(unit *orderedValue, entry unitEntry) error {
+	if unit.kind != objectKind {
+		return errors.New("unit must be an object")
 	}
-	if len(fragment.object) == 0 {
-		return errors.New("fragment must not be empty")
+	if len(unit.object) == 0 {
+		return errors.New("unit must not be empty")
 	}
-	for _, member := range fragment.object {
+	for _, member := range unit.object {
 		switch member.name {
 		case "openapi", "info":
-			if entry.Role != fragmentRootRole || entry.OwnerID != "platform.openapi" {
-				return fmt.Errorf("%q may be contributed only by the platform.openapi root fragment", member.name)
+			if entry.Role != unitRootRole || entry.OwnerID != "platform.openapi" {
+				return fmt.Errorf("%q may be contributed only by the platform.openapi root unit", member.name)
 			}
 		case "tags":
 			if member.value.kind != arrayKind {
@@ -731,14 +564,14 @@ func validateFragmentShape(fragment *orderedValue, entry fragmentEntry) error {
 				return fmt.Errorf("%s must be an object", member.name)
 			}
 		default:
-			return fmt.Errorf("unknown fragment top-level key %q", member.name)
+			return fmt.Errorf("unknown unit top-level key %q", member.name)
 		}
 	}
 	return nil
 }
 
-func mergeFragment(aggregate, fragment *orderedValue, entry fragmentEntry) error {
-	for _, member := range fragment.object {
+func mergeUnit(aggregate, unit *orderedValue, entry unitEntry) error {
+	for _, member := range unit.object {
 		existing, ok := objectMember(aggregate, member.name)
 		if !ok {
 			aggregate.object = append(aggregate.object, cloneMember(member))
@@ -807,7 +640,6 @@ func mergeComponents(target, source *orderedValue) error {
 func validateAggregate(
 	document *orderedValue,
 	limits resourceLimits,
-	waivers compatibilityWaivers,
 ) error {
 	openapi, ok := objectMember(document, "openapi")
 	if !ok || openapi.kind != stringKind {
@@ -831,9 +663,6 @@ func validateAggregate(
 		return err
 	}
 	usedSecuritySchemes := make(map[string]struct{})
-	usedResponseWaivers := make(map[string]struct{})
-	usedSecurityClassificationWaivers := make(map[string]struct{})
-	usedPathParameterWaivers := make(map[string]struct{})
 	for _, pathMember := range paths.object {
 		if !strings.HasPrefix(pathMember.name, "/") || pathMember.value.kind != objectKind {
 			return fmt.Errorf("invalid path item %q", pathMember.name)
@@ -864,31 +693,19 @@ func validateAggregate(
 				return fmt.Errorf("%s: %w", key, err)
 			}
 			if len(missingParameters) > 0 {
-				waiver, waived := waivers.pathParameters[key]
-				if !waived ||
-					waiver.OperationID != operationID ||
-					strings.Join(waiver.MissingParameters, "\x00") != strings.Join(missingParameters, "\x00") {
-					return fmt.Errorf(
-						"%s path placeholders without exact parameter declarations: %s",
-						key,
-						strings.Join(missingParameters, ", "),
-					)
-				}
-				usedPathParameterWaivers[key] = struct{}{}
+				return fmt.Errorf(
+					"%s path placeholders without exact parameter declarations: %s",
+					key,
+					strings.Join(missingParameters, ", "),
+				)
 			}
 			if _, declared := objectMember(pathItemMember.value, "responses"); !declared {
-				if _, waived := waivers.responses[operationID]; !waived {
-					return fmt.Errorf("%s: operation requires responses", key)
-				}
-				usedResponseWaivers[operationID] = struct{}{}
+				return fmt.Errorf("%s: operation requires responses", key)
 			} else if err := validateOperationResponses(pathItemMember.value); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
 			if _, declared := objectMember(pathItemMember.value, "security"); !declared {
-				if _, waived := waivers.securityClassifications[operationID]; !waived {
-					return fmt.Errorf("%s: operation requires explicit security", key)
-				}
-				usedSecurityClassificationWaivers[operationID] = struct{}{}
+				return fmt.Errorf("%s: operation requires explicit security", key)
 			} else if err := validateOperationSecurity(pathItemMember.value, declaredSecuritySchemes, usedSecuritySchemes); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
@@ -920,34 +737,9 @@ func validateAggregate(
 			return fmt.Errorf("unresolved reference %q", ref)
 		}
 	}
-	for operationID := range waivers.responses {
-		if _, used := usedResponseWaivers[operationID]; !used {
-			return fmt.Errorf("stale response waiver for operation %q", operationID)
-		}
-	}
-	for operationID := range waivers.securityClassifications {
-		if _, used := usedSecurityClassificationWaivers[operationID]; !used {
-			return fmt.Errorf("stale security-classification waiver for operation %q", operationID)
-		}
-	}
 	for schemeName := range declaredSecuritySchemes {
-		_, used := usedSecuritySchemes[schemeName]
-		_, waived := waivers.securitySchemes[schemeName]
-		switch {
-		case used && waived:
-			return fmt.Errorf("stale security-scheme waiver for used scheme %q", schemeName)
-		case !used && !waived:
-			return fmt.Errorf("unused security scheme %q has no exact waiver", schemeName)
-		}
-	}
-	for schemeName := range waivers.securitySchemes {
-		if _, declared := declaredSecuritySchemes[schemeName]; !declared {
-			return fmt.Errorf("stale security-scheme waiver for undeclared scheme %q", schemeName)
-		}
-	}
-	for key := range waivers.pathParameters {
-		if _, used := usedPathParameterWaivers[key]; !used {
-			return fmt.Errorf("stale path-parameter waiver for %s", key)
+		if _, used := usedSecuritySchemes[schemeName]; !used {
+			return fmt.Errorf("unused security scheme %q", schemeName)
 		}
 	}
 	return nil
@@ -1201,6 +993,48 @@ func cloneValue(value *orderedValue) *orderedValue {
 		cloned.object = append(cloned.object, cloneMember(member))
 	}
 	return cloned
+}
+
+func sortCanonicalObjectMembers(value *orderedValue, documentRoot bool) {
+	switch value.kind {
+	case arrayKind:
+		for _, child := range value.array {
+			sortCanonicalObjectMembers(child, false)
+		}
+	case objectKind:
+		for _, member := range value.object {
+			sortCanonicalObjectMembers(member.value, false)
+		}
+		if documentRoot {
+			rank := map[string]int{
+				"openapi":           0,
+				"info":              1,
+				"jsonSchemaDialect": 2,
+				"servers":           3,
+				"tags":              4,
+				"paths":             5,
+				"webhooks":          6,
+				"components":        7,
+				"security":          8,
+				"externalDocs":      9,
+			}
+			sort.SliceStable(value.object, func(left, right int) bool {
+				leftRank, leftKnown := rank[value.object[left].name]
+				rightRank, rightKnown := rank[value.object[right].name]
+				if leftKnown != rightKnown {
+					return leftKnown
+				}
+				if leftKnown && leftRank != rightRank {
+					return leftRank < rightRank
+				}
+				return value.object[left].name < value.object[right].name
+			})
+			return
+		}
+		sort.SliceStable(value.object, func(left, right int) bool {
+			return value.object[left].name < value.object[right].name
+		})
+	}
 }
 
 func writeOrderedJSON(output *bytes.Buffer, value *orderedValue, indent string, depth int) {

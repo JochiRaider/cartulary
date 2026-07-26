@@ -1,0 +1,2895 @@
+{
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "loginLocalUser",
+        "summary": "Authenticate a local user and issue a base-profile session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthLoginRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "logoutCurrentSession",
+        "summary": "Revoke the current session and clear the auth cookies.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthLogoutSuccessResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getCurrentSession",
+        "summary": "Inspect the current session without sliding idle expiry.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/providers": {
+      "get": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "listEnterpriseAuthProviders",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "List enabled interactive OIDC and SAML providers for Enterprise Authentication.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnterpriseProviderListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProfileNotFoundResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/providers/{provider_key}/begin": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "beginEnterpriseAuth",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Begin an Enterprise Authentication provider sign-in transaction.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnterpriseAuthBeginSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/oidc/{provider_key}/callback": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "completeEnterpriseOIDC",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Complete an OIDC auth-code Enterprise Authentication callback.",
+        "responses": {
+          "303": {
+            "$ref": "#/components/responses/EnterpriseAuthRedirectResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseAuthCompletionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/saml/{provider_key}/acs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "completeEnterpriseSAML",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Complete a SAML SP-initiated Enterprise Authentication ACS response.",
+        "responses": {
+          "303": {
+            "$ref": "#/components/responses/EnterpriseAuthRedirectResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseSAMLCompletionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/saml/{provider_key}/acs/complete": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProviderKeyPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "finishEnterpriseSAML",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Finish the browser-bound SAML authentication transaction after ACS validation.",
+        "responses": {
+          "303": {
+            "$ref": "#/components/responses/EnterpriseAuthRedirectResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseProviderNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseSAMLCompletionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/credential-state": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getCredentialState",
+        "summary": "Inspect local password and TOTP credential state for the current user.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthCredentialStateSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "changeCurrentPassword",
+        "summary": "Change the current user's password and revoke all active sessions.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthPasswordChangeSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthPasswordConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/totp/begin": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "beginTOTPEnrollment",
+        "summary": "Begin first-time or replacement TOTP enrollment using a bootstrap_token or an active session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTOTPBeginSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthTOTPBeginConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          },
+          {
+            "credentialBootstrapBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/totp/complete": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "completeTOTPEnrollment",
+        "summary": "Complete TOTP enrollment using a bootstrap_token or an active session.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTOTPCompleteSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthCredentialRejectedResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthTOTPCompleteConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          },
+          {
+            "credentialBootstrapBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/account/profile": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getCurrentAccountProfile",
+        "summary": "Read the current authenticated user's account profile.",
+        "responses": {
+          "200": {
+            "description": "Current account profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfileEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "patchCurrentAccountProfile",
+        "summary": "Update the current authenticated user's display name.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProfilePatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current account profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfileEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthAccountProfileConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/account/preferences": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getCurrentAccountPreferences",
+        "summary": "Read the current authenticated user's account preferences.",
+        "responses": {
+          "200": {
+            "description": "Current account preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferencesEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "putCurrentAccountPreferences",
+        "summary": "Update the current authenticated user's density preference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current account preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferencesEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthCSRFFailedResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthAccountPreferencesConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/administrative-audit-events": {
+      "get": {
+        "tags": [
+          "administrative-audit"
+        ],
+        "operationId": "listAdministrativeAuditEvents",
+        "summary": "List the immutable safe deployment-scoped administrative-audit projection.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque keyset cursor bound to this route, caller, page size, and normalized filter set."
+          },
+          {
+            "name": "actor_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Return only events attributed to this user actor."
+          },
+          {
+            "name": "action_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account_preferences_updated",
+                "auth_binding_created",
+                "auth_binding_retired",
+                "auth_binding_rotated",
+                "backup_created",
+                "bootstrap_admin_created",
+                "deployment_admin_granted",
+                "deployment_admin_revoked",
+                "password_changed",
+                "password_reset",
+                "restore_completed",
+                "restore_failed",
+                "restore_started",
+                "restore_verification_completed",
+                "sessions_revoked",
+                "totp_enrollment_begun",
+                "totp_enrollment_completed",
+                "totp_reset",
+                "user_created",
+                "user_profile_updated",
+                "user_status_changed"
+              ]
+            },
+            "description": "Return only events with this exact action code."
+          },
+          {
+            "name": "target_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "account_preferences",
+                "auth_binding",
+                "backup_set",
+                "restore_operation",
+                "user"
+              ]
+            },
+            "description": "Return only deployment events with this target kind."
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Return only events with this exact target identifier. target_kind is required when target_id is present."
+          },
+          {
+            "name": "occurred_at_gte",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive UTC occurrence-time lower bound."
+          },
+          {
+            "name": "occurred_at_lt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive UTC occurrence-time upper bound; it must be later than occurred_at_gte."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment-scoped administrative-audit page ordered by occurred_at and audit_event_id descending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeAuditEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter, range, page size, or cursor is invalid or does not match the normalized query.",
+            "x-cartulary-error-codes": [
+              "invalid_list_query",
+              "invalid_pagination_request"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "A current authenticated session is required.",
+            "x-cartulary-error-codes": [
+              "session_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The authenticated caller is not a deployment administrator.",
+            "x-cartulary-error-codes": [
+              "authorization_denied"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A credential-bootstrap bearer was presented to a route that accepts only session credentials.",
+            "x-cartulary-error-codes": [
+              "credential_bootstrap_rejected"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal dependency or persistence operation failed.",
+            "x-cartulary-error-codes": [
+              "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "listDeploymentUsers",
+        "summary": "List deployment-scoped local users.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor returned by a prior page for the same normalized user-list query."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "Optional list_search_v1 search text over user_id, email, and display_name. Omission or normalized-empty means no search predicate."
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Optional exact lowercase boolean filter. Omission means no is_active predicate."
+          },
+          {
+            "name": "is_deployment_admin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Optional exact lowercase boolean filter. Omission means no is_deployment_admin predicate."
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserListSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthListInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminReadForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "createDeploymentUser",
+        "summary": "Create a deployment-scoped local user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentUserCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserCreateConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "getDeploymentUser",
+        "summary": "Fetch a deployment-scoped local user by identifier.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthSingletonReadInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminReadForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthUserNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthBootstrapRejectedResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "patchDeploymentUser",
+        "summary": "Patch a deployment-scoped local user with optimistic version checks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentUserPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserPatchConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/password/reset": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "resetDeploymentUserPassword",
+        "summary": "Reset a local user's password and revoke all active sessions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentUserPasswordResetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserVersionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/mfa/totp/reset": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "resetDeploymentUserTOTP",
+        "summary": "Reset a local user's TOTP factor and reopen the bootstrap-token enrollment flow.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentUserTOTPResetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthUserVersionConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/sessions/revoke-all": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "revokeAllDeploymentUserSessions",
+        "summary": "Explicitly revoke all sessions for a deployment-scoped local user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentUserSessionsRevokeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSessionRevocationSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthMutationInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthSessionRevocationConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "createEnterpriseAuthBinding",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Create an enterprise auth binding for an existing deployment-local user.",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/AuthBindingIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "rotateEnterpriseAuthBinding",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Rotate an active enterprise auth binding to a new provider subject.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/AuthBindingIDPathParameter"
+        }
+      ],
+      "delete": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "retireEnterpriseAuthBinding",
+        "x-cartulary-availability": "enterprise_authentication",
+        "summary": "Retire an active enterprise auth binding and revoke target sessions.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/EnterpriseAuthInvalidRequestResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthSessionRequiredResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthDeploymentAdminForbiddenResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/EnterpriseBindingNotFoundResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/EnterpriseBindingConflictResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthInternalErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DensityMode": {
+        "type": "string",
+        "enum": [
+          "compact",
+          "default",
+          "comfortable"
+        ]
+      },
+      "DeploymentUserCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "auth_kind": {
+            "const": "local"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "initial_password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "default": true
+          },
+          "is_deployment_admin": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "auth_kind",
+          "email",
+          "display_name",
+          "initial_password"
+        ]
+      },
+      "DeploymentUserPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "base_user_version"
+        ]
+      },
+      "DeploymentUserPasswordResetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id",
+          "new_password"
+        ]
+      },
+      "DeploymentUserTOTPResetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id"
+        ]
+      },
+      "DeploymentUserSessionsRevokeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "AccountProfilePatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id",
+          "display_name"
+        ]
+      },
+      "AccountPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_preferences_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "density_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DensityMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "base_preferences_version",
+          "client_txn_id",
+          "density_mode"
+        ]
+      },
+      "AccountProfileResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "user_version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "user_version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AccountPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "density_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DensityMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preferences_version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "density_mode",
+          "preferences_version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AccountProfileEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AccountProfileResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "AccountPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AccountPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SessionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "local",
+              "oidc",
+              "saml"
+            ]
+          },
+          "mfa_state": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "satisfied"
+            ]
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "authenticated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absolute_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "session_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionMembershipResource"
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "provider_type",
+          "mfa_state",
+          "is_deployment_admin",
+          "authenticated_at",
+          "idle_expires_at",
+          "absolute_expires_at",
+          "session_expires_at",
+          "memberships"
+        ]
+      },
+      "SessionMembershipResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "reviewer",
+              "editor",
+              "admin"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "role"
+        ]
+      },
+      "CredentialStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auth_kind": {
+            "const": "local"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "recovery_model": {
+            "const": "admin_assisted"
+          },
+          "password": {
+            "$ref": "#/components/schemas/CredentialPasswordStateResource"
+          },
+          "totp": {
+            "$ref": "#/components/schemas/CredentialTOTPStateResource"
+          }
+        },
+        "required": [
+          "user_id",
+          "auth_kind",
+          "mfa_required",
+          "recovery_model",
+          "password",
+          "totp"
+        ]
+      },
+      "CredentialPasswordStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "changed_at"
+        ]
+      },
+      "CredentialTOTPStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_enrolled",
+              "pending",
+              "active"
+            ]
+          },
+          "enrolled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "pending_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "state",
+          "enrolled_at",
+          "pending_expires_at"
+        ]
+      },
+      "SafeUserResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "last_login_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "user_version": {
+            "type": "integer"
+          },
+          "auth_bindings": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/LocalAuthBindingResource"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterpriseAuthBindingResource"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "is_active",
+          "mfa_required",
+          "is_deployment_admin",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id",
+          "last_login_at",
+          "user_version",
+          "auth_bindings"
+        ]
+      },
+      "LocalAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_type": {
+            "const": "local"
+          },
+          "provider_key": {
+            "const": "local"
+          },
+          "username": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_type",
+          "provider_key",
+          "username",
+          "created_at"
+        ]
+      },
+      "EnterpriseAuthBindingResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "auth_binding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "provider_subject": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_auth_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "auth_binding_id",
+          "provider_key",
+          "provider_type",
+          "provider_subject",
+          "created_at",
+          "last_auth_at"
+        ]
+      },
+      "TOTPBeginResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enrollment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totp_setup": {
+            "$ref": "#/components/schemas/TOTPSetupResource"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "expires_at",
+          "totp_setup"
+        ]
+      },
+      "TOTPSetupResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "secret_base32": {
+            "type": "string"
+          },
+          "otpauth_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "algorithm": {
+            "const": "SHA1"
+          },
+          "digits": {
+            "const": 6
+          },
+          "period_seconds": {
+            "const": 30
+          }
+        },
+        "required": [
+          "secret_base32",
+          "otpauth_uri",
+          "algorithm",
+          "digits",
+          "period_seconds"
+        ]
+      },
+      "SessionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CredentialStateEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CredentialStateResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SafeUserEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SafeUserResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SafeUserListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SafeUserResource"
+            }
+          }
+        },
+        "required": [
+          "users"
+        ]
+      },
+      "SafeUserListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SafeUserListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "LogoutResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessions_revoked": {
+            "const": false
+          },
+          "logged_out": {
+            "const": true
+          }
+        },
+        "required": [
+          "user_id",
+          "sessions_revoked",
+          "logged_out"
+        ]
+      },
+      "LogoutEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LogoutResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PasswordChangeResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "$ref": "#/components/schemas/CredentialPasswordStateResource"
+          },
+          "sessions_revoked": {
+            "const": true
+          }
+        },
+        "required": [
+          "user_id",
+          "password",
+          "sessions_revoked"
+        ]
+      },
+      "PasswordChangeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PasswordChangeResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TOTPBeginEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TOTPBeginResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TOTPCompleteStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enrolled_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enrolled_at"
+        ]
+      },
+      "TOTPCompleteResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totp": {
+            "$ref": "#/components/schemas/TOTPCompleteStateResource"
+          },
+          "sessions_revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "user_id",
+          "totp",
+          "sessions_revoked"
+        ]
+      },
+      "TOTPCompleteEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TOTPCompleteResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "SessionRevocationResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessions_revoked": {
+            "const": true
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "sessions_revoked",
+          "revoked_at"
+        ]
+      },
+      "SessionRevocationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionRevocationResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EnterpriseAuthProviderResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_key",
+          "provider_type",
+          "display_name"
+        ]
+      },
+      "EnterpriseAuthProviderListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnterpriseAuthProviderResource"
+            }
+          }
+        },
+        "required": [
+          "providers"
+        ]
+      },
+      "EnterpriseAuthProviderListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnterpriseAuthProviderListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "EnterpriseAuthBeginResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "redirect_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_key",
+          "provider_type",
+          "redirect_url",
+          "expires_at"
+        ]
+      },
+      "EnterpriseAuthBeginEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnterpriseAuthBeginResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    },
+    "responses": {
+      "AuthSessionSuccessResponse": {
+        "description": "Current session resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SessionEnvelope"
+            }
+          }
+        }
+      },
+      "AuthLogoutSuccessResponse": {
+        "description": "Current session revoked and authentication cookies cleared",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogoutEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCredentialStateSuccessResponse": {
+        "description": "Current local credential state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CredentialStateEnvelope"
+            }
+          }
+        }
+      },
+      "AuthPasswordChangeSuccessResponse": {
+        "description": "Password changed and all active sessions revoked",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PasswordChangeEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPBeginSuccessResponse": {
+        "description": "Pending TOTP enrollment and one-time setup material",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TOTPBeginEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPCompleteSuccessResponse": {
+        "description": "TOTP enrollment completion state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TOTPCompleteEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserSuccessResponse": {
+        "description": "Deployment-safe user resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserCreatedResponse": {
+        "description": "Created deployment-safe user resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSafeUserListSuccessResponse": {
+        "description": "Deployment-user page",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SafeUserListEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRevocationSuccessResponse": {
+        "description": "All target-user sessions revoked",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SessionRevocationEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProviderListSuccessResponse": {
+        "description": "Enabled interactive enterprise authentication providers",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EnterpriseAuthProviderListEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthBeginSuccessResponse": {
+        "description": "Enterprise authentication redirect transaction",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EnterpriseAuthBeginEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthRedirectResponse": {
+        "description": "Enterprise authentication flow continues at the Location response header"
+      },
+      "AuthInvalidRequestResponse": {
+        "description": "Authentication request body is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_auth_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSingletonReadInvalidRequestResponse": {
+        "description": "Singleton query contains unsupported list or pagination members",
+        "x-cartulary-error-codes": [
+          "invalid_list_query"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthMutationInvalidRequestResponse": {
+        "description": "Mutation request body is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_mutation_payload"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthListInvalidRequestResponse": {
+        "description": "List query, page size, or cursor is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_list_query",
+          "invalid_pagination_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthInvalidRequestResponse": {
+        "description": "Enterprise authentication or binding request is invalid",
+        "x-cartulary-error-codes": [
+          "invalid_enterprise_auth_request"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRequiredResponse": {
+        "description": "A valid current session is required",
+        "x-cartulary-error-codes": [
+          "session_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthLoginRejectedResponse": {
+        "description": "Local credentials or required second-factor state did not authorize a session",
+        "x-cartulary-error-codes": [
+          "invalid_credentials",
+          "invalid_second_factor",
+          "mfa_required",
+          "mfa_setup_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCredentialRejectedResponse": {
+        "description": "A session or second-factor credential is missing or invalid",
+        "x-cartulary-error-codes": [
+          "invalid_second_factor",
+          "session_required"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthCSRFFailedResponse": {
+        "description": "Cookie-authenticated mutation failed CSRF verification",
+        "x-cartulary-error-codes": [
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthDeploymentAdminForbiddenResponse": {
+        "description": "Deployment-admin authorization or cookie CSRF verification failed",
+        "x-cartulary-error-codes": [
+          "authorization_denied",
+          "csrf_verification_failed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthDeploymentAdminReadForbiddenResponse": {
+        "description": "The authenticated caller is not a deployment administrator",
+        "x-cartulary-error-codes": [
+          "authorization_denied"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProviderNotFoundResponse": {
+        "description": "Enterprise profile or requested provider is not available",
+        "x-cartulary-error-codes": [
+          "auth_provider_disabled",
+          "auth_provider_not_found",
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseProfileNotFoundResponse": {
+        "description": "Enterprise authentication profile is not admitted",
+        "x-cartulary-error-codes": [
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserNotFoundResponse": {
+        "description": "Requested deployment user is absent",
+        "x-cartulary-error-codes": [
+          "user_not_found"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseBindingNotFoundResponse": {
+        "description": "Enterprise profile, provider, or authentication binding is absent",
+        "x-cartulary-error-codes": [
+          "auth_binding_not_found",
+          "auth_provider_not_found",
+          "extension_profile_not_claimed"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthBootstrapRejectedResponse": {
+        "description": "Credential-bootstrap bearer is invalid for this route or request state",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthPasswordConflictResponse": {
+        "description": "Password state or client transaction conflicts with the committed result",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_current_password"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPBeginConflictResponse": {
+        "description": "TOTP begin state or client transaction conflicts with the request",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_current_password"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthTOTPCompleteConflictResponse": {
+        "description": "TOTP enrollment or credential-bootstrap state cannot be completed",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "totp_setup_not_pending"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthAccountProfileConflictResponse": {
+        "description": "Profile version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthAccountPreferencesConflictResponse": {
+        "description": "Preferences version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "preferences_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserCreateConflictResponse": {
+        "description": "User creation, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "invalid_mutation_payload"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserPatchConflictResponse": {
+        "description": "User version, last-admin invariant, unique email, or credential mode conflicts",
+        "x-cartulary-error-codes": [
+          "credential_bootstrap_rejected",
+          "invalid_mutation_payload",
+          "last_deployment_admin",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthUserVersionConflictResponse": {
+        "description": "User version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthSessionRevocationConflictResponse": {
+        "description": "Credential mode or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "client_txn_conflict",
+          "credential_bootstrap_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseAuthCompletionConflictResponse": {
+        "description": "Enterprise transaction, provider response, or provider identity was rejected",
+        "x-cartulary-error-codes": [
+          "enterprise_auth_transaction_rejected",
+          "provider_identity_rejected",
+          "provider_response_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseSAMLCompletionConflictResponse": {
+        "description": "Enterprise transaction or SAML provider response was rejected",
+        "x-cartulary-error-codes": [
+          "enterprise_auth_transaction_rejected",
+          "provider_response_rejected"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "EnterpriseBindingConflictResponse": {
+        "description": "Binding state, user version, credential mode, or client transaction conflicts",
+        "x-cartulary-error-codes": [
+          "auth_binding_conflict",
+          "client_txn_conflict",
+          "credential_bootstrap_rejected",
+          "user_version_conflict"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "AuthInternalErrorResponse": {
+        "description": "Authentication or persistence dependency failed",
+        "x-cartulary-error-codes": [
+          "internal_error"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    }
+  }
+}

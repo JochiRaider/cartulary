@@ -74,6 +74,7 @@ import {
   incidentControlsTriggerTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
+  incidentMembershipAuditRowTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipEmailInputTestId,
@@ -1059,6 +1060,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(incidentControlsActionMessageTestId()).toBe(
       "incident-admin-action-message",
     );
+    expect(
+      incidentMembershipAuditRowTestId("00000000-0000-4000-8000-000000002001"),
+    ).toBe("membership-audit-row-00000000-0000-4000-8000-000000002001");
     expect(incidentControlsCloseButtonTestId()).toBe("incident-controls-close");
     expect(timelineInspectorSections).toEqual([
       "operational-text",

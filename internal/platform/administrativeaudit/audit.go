@@ -12,59 +12,58 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/gen/administrativeauditregistry"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const (
-	ScopeDeployment = "deployment"
-	ScopeIncident   = "incident"
+	ScopeDeployment = administrativeauditregistry.ScopeDeployment
+	ScopeIncident   = administrativeauditregistry.ScopeIncident
 
-	ActorOperator = "operator"
-	ActorSystem   = "system"
-	ActorUser     = "user"
+	ActorOperator = administrativeauditregistry.ActorOperator
+	ActorSystem   = administrativeauditregistry.ActorSystem
+	ActorUser     = administrativeauditregistry.ActorUser
 
-	SourceAPI      = "api"
-	SourceOperator = "operator"
-	SourceStartup  = "startup"
-	SourceSystem   = "system"
-	SourceUI       = "ui"
+	SourceAPI      = administrativeauditregistry.SourceApi
+	SourceOperator = administrativeauditregistry.SourceOperator
+	SourceStartup  = administrativeauditregistry.SourceStartup
+	SourceSystem   = administrativeauditregistry.SourceSystem
+	SourceUI       = administrativeauditregistry.SourceUi
 
-	ValueRedacted = "redacted"
-	ValueVisible  = "visible"
+	ValueRedacted = administrativeauditregistry.ValueRedacted
+	ValueVisible  = administrativeauditregistry.ValueVisible
 
-	ActionAccountPreferencesUpdated    = "account_preferences_updated"
-	ActionAuthBindingCreated           = "auth_binding_created"
-	ActionAuthBindingRetired           = "auth_binding_retired"
-	ActionAuthBindingRotated           = "auth_binding_rotated"
-	ActionBackupCreated                = "backup_created"
-	ActionBootstrapAdminCreated        = "bootstrap_admin_created"
-	ActionDeploymentAdminGranted       = "deployment_admin_granted"
-	ActionDeploymentAdminRevoked       = "deployment_admin_revoked"
-	ActionLegacyAdministrativeEvent    = "legacy_administrative_event"
-	ActionMembershipCreated            = "membership_created"
-	ActionMembershipDeleted            = "membership_deleted"
-	ActionMembershipRoleChanged        = "membership_role_changed"
-	ActionPasswordChanged              = "password_changed"
-	ActionPasswordReset                = "password_reset"
-	ActionRestoreCompleted             = "restore_completed"
-	ActionRestoreFailed                = "restore_failed"
-	ActionRestoreStarted               = "restore_started"
-	ActionRestoreVerificationCompleted = "restore_verification_completed"
-	ActionSessionsRevoked              = "sessions_revoked"
-	ActionTOTPEnrollmentBegun          = "totp_enrollment_begun"
-	ActionTOTPEnrollmentCompleted      = "totp_enrollment_completed"
-	ActionTOTPReset                    = "totp_reset"
-	ActionUserCreated                  = "user_created"
-	ActionUserProfileUpdated           = "user_profile_updated"
-	ActionUserStatusChanged            = "user_status_changed"
+	ActionAccountPreferencesUpdated    = administrativeauditregistry.ActionAccountPreferencesUpdated
+	ActionAuthBindingCreated           = administrativeauditregistry.ActionAuthBindingCreated
+	ActionAuthBindingRetired           = administrativeauditregistry.ActionAuthBindingRetired
+	ActionAuthBindingRotated           = administrativeauditregistry.ActionAuthBindingRotated
+	ActionBackupCreated                = administrativeauditregistry.ActionBackupCreated
+	ActionBootstrapAdminCreated        = administrativeauditregistry.ActionBootstrapAdminCreated
+	ActionDeploymentAdminGranted       = administrativeauditregistry.ActionDeploymentAdminGranted
+	ActionDeploymentAdminRevoked       = administrativeauditregistry.ActionDeploymentAdminRevoked
+	ActionMembershipCreated            = administrativeauditregistry.ActionMembershipCreated
+	ActionMembershipDeleted            = administrativeauditregistry.ActionMembershipDeleted
+	ActionMembershipRoleChanged        = administrativeauditregistry.ActionMembershipRoleChanged
+	ActionPasswordChanged              = administrativeauditregistry.ActionPasswordChanged
+	ActionPasswordReset                = administrativeauditregistry.ActionPasswordReset
+	ActionRestoreCompleted             = administrativeauditregistry.ActionRestoreCompleted
+	ActionRestoreFailed                = administrativeauditregistry.ActionRestoreFailed
+	ActionRestoreStarted               = administrativeauditregistry.ActionRestoreStarted
+	ActionRestoreVerificationCompleted = administrativeauditregistry.ActionRestoreVerificationCompleted
+	ActionSessionsRevoked              = administrativeauditregistry.ActionSessionsRevoked
+	ActionTOTPEnrollmentBegun          = administrativeauditregistry.ActionTotpEnrollmentBegun
+	ActionTOTPEnrollmentCompleted      = administrativeauditregistry.ActionTotpEnrollmentCompleted
+	ActionTOTPReset                    = administrativeauditregistry.ActionTotpReset
+	ActionUserCreated                  = administrativeauditregistry.ActionUserCreated
+	ActionUserProfileUpdated           = administrativeauditregistry.ActionUserProfileUpdated
+	ActionUserStatusChanged            = administrativeauditregistry.ActionUserStatusChanged
 
-	TargetAccountPreferences        = "account_preferences"
-	TargetAuthBinding               = "auth_binding"
-	TargetBackupSet                 = "backup_set"
-	TargetIncidentMembership        = "incident_membership"
-	TargetLegacyAdministrativeEvent = "legacy_administrative_event"
-	TargetRestoreOperation          = "restore_operation"
-	TargetUser                      = "user"
+	TargetAccountPreferences = administrativeauditregistry.TargetAccountPreferences
+	TargetAuthBinding        = administrativeauditregistry.TargetAuthBinding
+	TargetBackupSet          = administrativeauditregistry.TargetBackupSet
+	TargetIncidentMembership = administrativeauditregistry.TargetIncidentMembership
+	TargetRestoreOperation   = administrativeauditregistry.TargetRestoreOperation
+	TargetUser               = administrativeauditregistry.TargetUser
 )
 
 var (
@@ -112,33 +111,16 @@ type actionBinding struct {
 	targetKind string
 }
 
-var actionBindings = map[string][]actionBinding{
-	ActionAccountPreferencesUpdated:    {{ScopeDeployment, TargetAccountPreferences}},
-	ActionAuthBindingCreated:           {{ScopeDeployment, TargetAuthBinding}},
-	ActionAuthBindingRetired:           {{ScopeDeployment, TargetAuthBinding}},
-	ActionAuthBindingRotated:           {{ScopeDeployment, TargetAuthBinding}},
-	ActionBackupCreated:                {{ScopeDeployment, TargetBackupSet}},
-	ActionBootstrapAdminCreated:        {{ScopeDeployment, TargetUser}},
-	ActionDeploymentAdminGranted:       {{ScopeDeployment, TargetUser}},
-	ActionDeploymentAdminRevoked:       {{ScopeDeployment, TargetUser}},
-	ActionLegacyAdministrativeEvent:    {{ScopeDeployment, TargetLegacyAdministrativeEvent}, {ScopeIncident, TargetLegacyAdministrativeEvent}},
-	ActionMembershipCreated:            {{ScopeIncident, TargetIncidentMembership}},
-	ActionMembershipDeleted:            {{ScopeIncident, TargetIncidentMembership}},
-	ActionMembershipRoleChanged:        {{ScopeIncident, TargetIncidentMembership}},
-	ActionPasswordChanged:              {{ScopeDeployment, TargetUser}},
-	ActionPasswordReset:                {{ScopeDeployment, TargetUser}},
-	ActionRestoreCompleted:             {{ScopeDeployment, TargetRestoreOperation}},
-	ActionRestoreFailed:                {{ScopeDeployment, TargetRestoreOperation}},
-	ActionRestoreStarted:               {{ScopeDeployment, TargetRestoreOperation}},
-	ActionRestoreVerificationCompleted: {{ScopeDeployment, TargetRestoreOperation}},
-	ActionSessionsRevoked:              {{ScopeDeployment, TargetUser}},
-	ActionTOTPEnrollmentBegun:          {{ScopeDeployment, TargetUser}},
-	ActionTOTPEnrollmentCompleted:      {{ScopeDeployment, TargetUser}},
-	ActionTOTPReset:                    {{ScopeDeployment, TargetUser}},
-	ActionUserCreated:                  {{ScopeDeployment, TargetUser}},
-	ActionUserProfileUpdated:           {{ScopeDeployment, TargetUser}},
-	ActionUserStatusChanged:            {{ScopeDeployment, TargetUser}},
-}
+var actionBindings = func() map[string][]actionBinding {
+	bindings := make(map[string][]actionBinding, len(administrativeauditregistry.ActionBindings))
+	for _, binding := range administrativeauditregistry.ActionBindings {
+		bindings[binding.ActionCode] = append(bindings[binding.ActionCode], actionBinding{
+			scopeKind:  binding.ScopeKind,
+			targetKind: binding.TargetKind,
+		})
+	}
+	return bindings
+}()
 
 func ActionCodes(scopeKind string) []string {
 	actionCodes := make([]string, 0, len(actionBindings))
@@ -171,29 +153,7 @@ func TargetKinds(scopeKind string) []string {
 	return targetKinds
 }
 
-var forbiddenVisibleFieldTokens = []string{
-	"access_token",
-	"bootstrap_token",
-	"credential",
-	"dsn",
-	"id_token",
-	"initial_password",
-	"new_password",
-	"object_key",
-	"otpauth_uri",
-	"password",
-	"password_hash",
-	"private_key",
-	"provider_assertion",
-	"provider_token",
-	"raw_saml_response",
-	"recovery_key",
-	"reset_password",
-	"secret",
-	"session_token",
-	"storage_key",
-	"totp_secret",
-}
+var forbiddenVisibleFieldTokens = administrativeauditregistry.ForbiddenVisibleFieldTokens
 
 func Visible(fieldPath string, before any, after any) Change {
 	return Change{FieldPath: fieldPath, ValueState: ValueVisible, Before: before, After: after}
@@ -364,11 +324,7 @@ func validateAndNormalizeEvent(event Event) ([]Change, error) {
 	if !validActionBinding(event.ActionCode, event.ScopeKind, event.TargetKind) {
 		return nil, fmt.Errorf("%w: action %q cannot target %s/%s", ErrInvalidEvent, event.ActionCode, event.ScopeKind, event.TargetKind)
 	}
-	if event.ActionCode == ActionLegacyAdministrativeEvent {
-		if event.TargetID != nil {
-			return nil, fmt.Errorf("%w: legacy target_id must be nil", ErrInvalidEvent)
-		}
-	} else if event.TargetID == nil || strings.TrimSpace(*event.TargetID) == "" {
+	if event.TargetID == nil || strings.TrimSpace(*event.TargetID) == "" {
 		return nil, fmt.Errorf("%w: target_id is required", ErrInvalidEvent)
 	}
 
@@ -376,7 +332,7 @@ func validateAndNormalizeEvent(event Event) ([]Change, error) {
 	sort.Slice(changes, func(i, j int) bool {
 		return changes[i].FieldPath < changes[j].FieldPath
 	})
-	if len(changes) == 0 && event.ActionCode != ActionLegacyAdministrativeEvent {
+	if len(changes) == 0 {
 		return nil, fmt.Errorf("%w: current action requires changes", ErrInvalidEvent)
 	}
 	for index, change := range changes {

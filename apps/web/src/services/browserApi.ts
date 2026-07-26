@@ -1,3 +1,10 @@
+import {
+  buildHTTPOperationPath,
+  encodeHTTPOperationQuery,
+  type HTTPOperationID,
+  type HTTPQueryValue,
+  validateHTTPOperationResponse,
+} from "@cartulary/protocol-ts";
 import { type PublicAPIError, publicErrorView } from "../shared/publicError";
 import { createClientTransactionId } from "./clientTransactionId";
 import {
@@ -40,6 +47,49 @@ export async function fetchJSON<T>(
     contentType: "mutations",
     responseParsing: "content-aware",
   }) as Promise<APIResult<T>>;
+}
+
+export async function fetchHTTPOperation<T>(options: {
+  apiBase?: string | undefined;
+  init?: RequestInit | undefined;
+  operationID: HTTPOperationID;
+  pathParameters?: Readonly<Record<string, string | number>> | undefined;
+  query?: Readonly<Record<string, HTTPQueryValue>> | undefined;
+}): Promise<APIResult<T>> {
+  const path =
+    buildHTTPOperationPath(options.operationID, options.pathParameters) +
+    encodeHTTPOperationQuery(options.operationID, options.query);
+  const result = await fetchJSON<T>(
+    apiPath(options.apiBase, path),
+    options.init,
+  );
+  if (!result.ok) {
+    return result;
+  }
+  const validation = validateHTTPOperationResponse(
+    options.operationID,
+    result.payload,
+  );
+  if (validation.ok) {
+    return result;
+  }
+  return {
+    ok: false,
+    status: 502,
+    payload: {
+      error: {
+        code: "invalid_public_contract_response",
+        details: {
+          instance_path: validation.instancePath,
+          operation_id: options.operationID,
+          schema_id: validation.schemaId,
+        },
+        message: "The server returned an invalid public contract response.",
+        retryable: true,
+        status: 502,
+      },
+    },
+  };
 }
 
 export function extractError(payload: unknown): APIError | null {

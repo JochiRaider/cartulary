@@ -42,7 +42,9 @@
         "web.application"
       ],
       "verification_ids": [
-        "module.incidents.verification.behavior_contract"
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
       ],
       "runner": "playwright",
       "selector": {
@@ -216,6 +218,58 @@
       "resource_profile_id": "browser_exclusive",
       "fixture_profile_id": "service_stack",
       "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.frontend.lifecycle_product_surface",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "package.protocol_ts",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.lifecycle_openapi_alignment"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "titles": [
+          "IncidentAdminPanel uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidents.frontend.membership_audit_product_surface",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "package.protocol_ts",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "titles": [
+          "IncidentAdminPanel keeps membership audit placement inside incident admin controls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },

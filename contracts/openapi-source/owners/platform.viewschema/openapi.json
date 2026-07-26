@@ -1,0 +1,655 @@
+{
+  "paths": {
+    "/api/v1/view-schemas": {
+      "get": {
+        "tags": [
+          "view-schemas"
+        ],
+        "operationId": "listViewSchemas",
+        "summary": "List standardized current-profile view schema resources.",
+        "responses": {
+          "200": {
+            "description": "View schema list response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewSchemaListEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/view-schemas/{view_schema_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "view-schemas"
+        ],
+        "operationId": "getViewSchema",
+        "summary": "Fetch one standardized current-profile view schema resource.",
+        "responses": {
+          "200": {
+            "description": "View schema singleton response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewSchemaEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SyntheticFilterPredicate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "filter_ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field_key",
+          "label",
+          "filter_ops"
+        ]
+      },
+      "ViewFieldEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "default_hidden": {
+            "type": "boolean"
+          },
+          "sortable": {
+            "type": "boolean"
+          },
+          "header_sort_field_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filter_ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupable": {
+            "type": "boolean"
+          },
+          "read_kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "boolean",
+              "timestamp",
+              "date",
+              "enum",
+              "collection"
+            ]
+          },
+          "write_kind": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "direct_value",
+              "action_payload"
+            ]
+          },
+          "grid_editable": {
+            "type": "boolean"
+          },
+          "conflict_resolution_class": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entity_binding_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "string_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direct_scalar_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direct_reference_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clearable": {
+            "type": "boolean"
+          },
+          "enum_values": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field_key",
+          "label",
+          "default_hidden",
+          "sortable",
+          "header_sort_field_key",
+          "filter_ops",
+          "groupable",
+          "read_kind",
+          "write_kind",
+          "grid_editable",
+          "conflict_resolution_class",
+          "entity_binding_mode",
+          "string_contract_id",
+          "direct_scalar_contract_id",
+          "direct_reference_contract_id",
+          "clearable",
+          "enum_values"
+        ]
+      },
+      "InspectorSubjectBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "selected_record"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "InspectorPanelV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "panel_id": {
+            "type": "string",
+            "enum": [
+              "details",
+              "relationships",
+              "evidence",
+              "history",
+              "workflow"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "panel_id",
+          "label"
+        ]
+      },
+      "InspectorRouteBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "panel_read",
+              "view_row_create",
+              "record_patch",
+              "record_action",
+              "entity_mention_action",
+              "evidence_access",
+              "surface_pivot"
+            ]
+          },
+          "owner": {
+            "type": "string",
+            "enum": [
+              "current_row_projection",
+              "view_query_route",
+              "view_row_create_route",
+              "record_patch_route",
+              "record_mark_reviewed_route",
+              "record_supersede_route",
+              "record_delete_route",
+              "record_restore_route",
+              "record_history_route",
+              "record_rollback_route",
+              "record_merge_route",
+              "entity_mention_resolve_route",
+              "evidence_attach_blob_route",
+              "evidence_preview_handle_route",
+              "evidence_download_handle_route"
+            ]
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "action_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "owner"
+        ]
+      },
+      "InspectorSeedSourceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "selected_record_id",
+              "selected_field_value",
+              "literal"
+            ]
+          },
+          "source_field_key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "InspectorSeedBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_field_key": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/InspectorSeedSourceV1"
+          }
+        },
+        "required": [
+          "target_field_key",
+          "source"
+        ]
+      },
+      "InspectorFeatureGroupV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "feature_group_key": {
+            "type": "string"
+          },
+          "panel_id": {
+            "type": "string",
+            "enum": [
+              "details",
+              "relationships",
+              "evidence",
+              "history",
+              "workflow"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "minimum_incident_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "viewer",
+              "editor",
+              "reviewer",
+              "admin",
+              null
+            ]
+          },
+          "mutates": {
+            "type": "boolean"
+          },
+          "requires_confirmation": {
+            "type": "boolean"
+          },
+          "route_binding": {
+            "$ref": "#/components/schemas/InspectorRouteBindingV1"
+          },
+          "seed_bindings": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/InspectorSeedBindingV1"
+            }
+          },
+          "disabled_when": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "enum": [
+                "no_row_selected",
+                "incident_closed",
+                "authorization_lost",
+                "row_version_changed",
+                "record_deleted",
+                "record_merged",
+                "evidence_preview_unavailable",
+                "merge_target_unavailable",
+                "record_not_deleted",
+                "rollback_target_unavailable",
+                "party_text_unavailable",
+                "pivot_target_unavailable"
+              ]
+            }
+          },
+          "success_result_behavior": {
+            "type": "string",
+            "enum": [
+              "preserve_selected_row",
+              "retarget_selected_row",
+              "clear_to_no_row_selected",
+              "surface_pivot"
+            ]
+          },
+          "failure_result_behavior": {
+            "type": "string",
+            "enum": [
+              "show_same_shell_error_preserve_selection",
+              "show_same_shell_error_invalidate_pending_action",
+              "show_same_shell_error_clear_subject"
+            ]
+          }
+        },
+        "required": [
+          "feature_group_key",
+          "panel_id",
+          "label",
+          "minimum_incident_role",
+          "mutates",
+          "requires_confirmation",
+          "route_binding",
+          "seed_bindings",
+          "disabled_when",
+          "success_result_behavior",
+          "failure_result_behavior"
+        ]
+      },
+      "InspectorConfigV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inspector_config_schema_id": {
+            "type": "string",
+            "const": "cartulary.inspector_config.v1"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "default_open": {
+            "type": "boolean",
+            "const": false
+          },
+          "subject_binding": {
+            "$ref": "#/components/schemas/InspectorSubjectBindingV1"
+          },
+          "no_row_state": {
+            "type": "string",
+            "const": "no_row_selected"
+          },
+          "unsupported_feature_behavior": {
+            "type": "string",
+            "const": "omit_feature"
+          },
+          "panels": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/InspectorPanelV1"
+            }
+          },
+          "feature_groups": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/InspectorFeatureGroupV1"
+            }
+          }
+        },
+        "required": [
+          "inspector_config_schema_id",
+          "view_schema_id",
+          "default_open",
+          "subject_binding",
+          "no_row_state",
+          "unsupported_feature_behavior",
+          "panels",
+          "feature_groups"
+        ]
+      },
+      "ViewSchemaResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "surface_kind": {
+            "type": "string",
+            "enum": [
+              "built_in_sheet",
+              "system_view"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "source_record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "technical_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_reference_pack_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default_sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "sort_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort_null_order": {
+            "type": "string",
+            "enum": [
+              "last"
+            ]
+          },
+          "filter_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "synthetic_filter_predicates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyntheticFilterPredicate"
+            }
+          },
+          "grouping_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inline_create": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minimum_create_field_sets": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "permits_zero_field_create": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "minimum_create_field_sets",
+              "permits_zero_field_create"
+            ]
+          },
+          "inspector_config": {
+            "$ref": "#/components/schemas/InspectorConfigV1"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewFieldEntry"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "surface_kind",
+          "title",
+          "source_record_types",
+          "technical_fields",
+          "required_reference_pack_keys",
+          "default_sort",
+          "sort_fields",
+          "sort_null_order",
+          "filter_fields",
+          "synthetic_filter_predicates",
+          "grouping_fields",
+          "inline_create",
+          "inspector_config",
+          "fields"
+        ]
+      },
+      "ViewSchemaListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schemas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewSchemaResource"
+            }
+          }
+        },
+        "required": [
+          "view_schemas"
+        ]
+      },
+      "ViewSchemaListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ViewSchemaListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ViewSchemaEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ViewSchemaResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

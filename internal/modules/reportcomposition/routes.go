@@ -36,19 +36,17 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions", service.handleCollection)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		httpapi.HandlePublicRoute(mux, "PATCH /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		httpapi.HandlePublicRoute(mux, "DELETE /api/v1/incidents/{incident_id}/report-compositions/{composition_id}", service.handleResource)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions", service.handleVersions)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}", service.handleVersion)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate", service.handleValidate)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview", service.handlePreview)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.reportcomposition", map[string]http.HandlerFunc{
+			"createReportComposition":        service.handleCollection,
+			"freezeReportCompositionVersion": service.handleVersions,
+			"getReportComposition":           service.handleResource,
+			"getReportCompositionVersion":    service.handleVersion,
+			"listReportCompositions":         service.handleCollection,
+			"previewReportComposition":       service.handlePreview,
+			"retireReportComposition":        service.handleResource,
+			"updateReportCompositionDraft":   service.handleResource,
+			"validateReportComposition":      service.handleValidate,
+		})
 	}
 }
 

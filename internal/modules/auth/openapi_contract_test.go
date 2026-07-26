@@ -3,6 +3,7 @@ package auth
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
@@ -22,6 +23,7 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		"completeTOTPEnrollment":          {"200", "400", "401", "403", "409", "500"},
 		"createDeploymentUser":            {"201", "400", "401", "403", "409", "500"},
 		"createEnterpriseAuthBinding":     {"201", "400", "401", "403", "404", "409", "500"},
+		"finishEnterpriseSAML":            {"303", "404", "409", "500"},
 		"getCredentialState":              {"200", "400", "401", "409", "500"},
 		"getCurrentAccountPreferences":    {"200", "400", "401", "409", "500"},
 		"getCurrentAccountProfile":        {"200", "400", "401", "409", "500"},
@@ -42,16 +44,13 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		"rotateEnterpriseAuthBinding":     {"200", "400", "401", "403", "404", "409", "500"},
 	}
 
-	descriptors := append(PublicOperations(), EnterprisePublicOperations()...)
-	if len(descriptors) != len(expectedStatuses) {
-		t.Fatalf("auth descriptor inventory changed: got %d want %d", len(descriptors), len(expectedStatuses))
-	}
+	descriptors := httpapi.ContractOperationsForOwner("module.auth")
 	seen := make(map[string]struct{}, len(descriptors))
 	for _, descriptor := range descriptors {
 		operation := authOpenAPIObjectAt(
 			t,
 			authOpenAPIObjectAt(t, paths, descriptor.PathTemplate),
-			authOpenAPIMethodKey(descriptor.Method),
+			strings.ToLower(descriptor.Method),
 		)
 		if operation["operationId"] != descriptor.OperationID {
 			t.Fatalf("%s operationId mismatch: %#v", descriptor.OperationID, operation["operationId"])
@@ -75,8 +74,8 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 			}
 		}
 
-		if want := authOpenAPISecurityForDescriptor(descriptor); !reflect.DeepEqual(operation["security"], want) {
-			t.Fatalf("%s security mismatch: got %#v want %#v", descriptor.OperationID, operation["security"], want)
+		if got := authOpenAPISecurity(operation["security"]); !reflect.DeepEqual(got, descriptor.Security) {
+			t.Fatalf("%s security mismatch: got %#v want %#v", descriptor.OperationID, got, descriptor.Security)
 		}
 		seen[descriptor.OperationID] = struct{}{}
 	}
@@ -92,27 +91,22 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 	assertAuthResponseSchemaChain(t, document, "AuthTOTPBeginSuccessResponse", "TOTPBeginEnvelope", "TOTPBeginResponse")
 }
 
-func authOpenAPISecurityForDescriptor(descriptor httpapi.PublicOperation) []any {
-	if descriptor.Authentication == httpapi.PublicAuthenticationPublic {
-		return []any{}
-	}
-	if descriptor.Authentication == httpapi.PublicAuthenticationSessionOrBootstrap {
-		return []any{
-			map[string]any{"sessionCookie": []any{}, "csrfCookie": []any{}, "csrfHeader": []any{}},
-			map[string]any{"bearerSession": []any{}},
-			map[string]any{"credentialBootstrapBearer": []any{}},
+func authOpenAPISecurity(raw any) [][]string {
+	alternatives, _ := raw.([]any)
+	result := make([][]string, 0, len(alternatives))
+	for _, alternative := range alternatives {
+		requirement, _ := alternative.(map[string]any)
+		schemes := make([]string, 0, len(requirement))
+		for scheme := range requirement {
+			schemes = append(schemes, scheme)
 		}
+		slices.Sort(schemes)
+		result = append(result, schemes)
 	}
-	if descriptor.StateChanging {
-		return []any{
-			map[string]any{"sessionCookie": []any{}, "csrfCookie": []any{}, "csrfHeader": []any{}},
-			map[string]any{"bearerSession": []any{}},
-		}
-	}
-	return []any{
-		map[string]any{"sessionCookie": []any{}},
-		map[string]any{"bearerSession": []any{}},
-	}
+	slices.SortFunc(result, func(left, right []string) int {
+		return strings.Compare(strings.Join(left, ","), strings.Join(right, ","))
+	})
+	return result
 }
 
 func assertAuthResponseSchemaChain(t testing.TB, document map[string]any, responseName, envelopeName, resourceName string) {
@@ -159,21 +153,4 @@ func authOpenAPISortedKeys(object map[string]any) []string {
 	}
 	slices.Sort(keys)
 	return keys
-}
-
-func authOpenAPIMethodKey(method string) string {
-	switch method {
-	case "DELETE":
-		return "delete"
-	case "GET":
-		return "get"
-	case "PATCH":
-		return "patch"
-	case "POST":
-		return "post"
-	case "PUT":
-		return "put"
-	default:
-		return method
-	}
 }

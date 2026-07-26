@@ -803,6 +803,18 @@ test("lets incident admins manage memberships and hides those controls from non-
     page.getByTestId(incidentMembershipVersionTestId(memberUser.user_id)),
   ).toHaveText("Version 2");
 
+  await closeIncidentControlsIfOpen(page);
+  await openIncidentControls(page, "membership-audit");
+  await expect(page.getByTestId("membership-audit-list")).toBeVisible();
+  await expect(page.getByText("Membership role changed")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("membership-audit-list")
+      .getByText(memberUser.user_id)
+      .first(),
+  ).toBeVisible();
+  await closeIncidentControlsIfOpen(page);
+
   const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
     createdBy: "incident_membership non-admin membership view",
     email: memberEmail,
@@ -837,8 +849,31 @@ test("lets incident admins manage memberships and hides those controls from non-
       incidentMembershipDeleteButtonTestId(memberUser.user_id),
     ),
   ).toHaveCount(0);
+  await closeIncidentControlsIfOpen(memberPage);
+  await openIncidentControls(memberPage, "membership-audit");
+  await expect(memberPage.getByTestId("membership-audit-note")).toContainText(
+    "Only incident admins",
+  );
   await memberPage.context().close();
 
+  await openIncidentControls(page, "summary");
+  await page
+    .getByTestId("incident-lifecycle-reason")
+    .fill("Membership access review complete");
+  await page.getByTestId("incident-close-button").click();
+  await expect(page.getByTestId("incident-summary-status")).toHaveText(
+    "Closed, read-only",
+  );
+  await page
+    .getByTestId("incident-lifecycle-reason")
+    .fill("Additional membership cleanup required");
+  await page.getByTestId("incident-reopen-button").click();
+  await expect(page.getByTestId("incident-summary-status")).toHaveText(
+    "active",
+  );
+  await closeIncidentControlsIfOpen(page);
+
+  await openIncidentControls(page, "memberships");
   await page
     .getByTestId(incidentMembershipDeleteButtonTestId(memberUser.user_id))
     .click();

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -149,7 +148,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 	}
 
-	descriptors := PublicOperations()
+	descriptors := httpapi.ContractOperationsForOwner("module.incidents")
 	if len(descriptors) != len(expected) {
 		t.Fatalf("incident descriptor inventory changed: got %d want %d", len(descriptors), len(expected))
 	}
@@ -167,8 +166,8 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		if operation["operationId"] != descriptor.OperationID {
 			t.Fatalf("%s operationId mismatch: %#v", descriptor.OperationID, operation["operationId"])
 		}
-		if want := incidentOpenAPISecurityForDescriptor(descriptor); !reflect.DeepEqual(operation["security"], want) {
-			t.Fatalf("%s security mismatch: got %#v want %#v", descriptor.OperationID, operation["security"], want)
+		if got := incidentOpenAPISecurity(operation["security"]); !reflect.DeepEqual(got, descriptor.Security) {
+			t.Fatalf("%s security mismatch: got %#v want %#v", descriptor.OperationID, got, descriptor.Security)
 		}
 
 		responses := openAPIObjectAt(t, operation, "responses")
@@ -185,11 +184,10 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		if !slices.Equal(gotStatuses, wantStatuses) {
 			t.Fatalf("%s response statuses changed: got %v want %v", descriptor.OperationID, gotStatuses, wantStatuses)
 		}
-		if _, ok := responses[http.StatusText(descriptor.SuccessStatus)]; ok {
-			t.Fatalf("%s used a status phrase instead of a numeric OpenAPI response key", descriptor.OperationID)
-		}
-		if _, ok := responses[statusCodeString(descriptor.SuccessStatus)]; !ok {
-			t.Fatalf("%s omitted runtime primary success status %d", descriptor.OperationID, descriptor.SuccessStatus)
+		for _, successStatus := range descriptor.SuccessStatuses {
+			if _, ok := responses[http.StatusText(successStatus)]; ok {
+				t.Fatalf("%s used a status phrase instead of a numeric OpenAPI response key", descriptor.OperationID)
+			}
 		}
 
 		for status, wantCodes := range expectation.statuses {
@@ -224,17 +222,22 @@ type incidentOpenAPIExpectation struct {
 	successSchemas map[string]string
 }
 
-func incidentOpenAPISecurityForDescriptor(descriptor httpapi.PublicOperation) []any {
-	if descriptor.StateChanging {
-		return []any{
-			map[string]any{"sessionCookie": []any{}, "csrfCookie": []any{}, "csrfHeader": []any{}},
-			map[string]any{"bearerSession": []any{}},
+func incidentOpenAPISecurity(raw any) [][]string {
+	alternatives, _ := raw.([]any)
+	result := make([][]string, 0, len(alternatives))
+	for _, alternative := range alternatives {
+		requirement, _ := alternative.(map[string]any)
+		schemes := make([]string, 0, len(requirement))
+		for scheme := range requirement {
+			schemes = append(schemes, scheme)
 		}
+		slices.Sort(schemes)
+		result = append(result, schemes)
 	}
-	return []any{
-		map[string]any{"sessionCookie": []any{}},
-		map[string]any{"bearerSession": []any{}},
-	}
+	slices.SortFunc(result, func(left, right []string) int {
+		return strings.Compare(strings.Join(left, ","), strings.Join(right, ","))
+	})
+	return result
 }
 
 func incidentOpenAPIResolvedResponse(t testing.TB, components map[string]any, raw any) map[string]any {
@@ -296,8 +299,4 @@ func incidentOpenAPIRequireListChain(
 
 func incidentOpenAPIMethodKey(method string) string {
 	return strings.ToLower(method)
-}
-
-func statusCodeString(status int) string {
-	return strconv.Itoa(status)
 }

@@ -33,46 +33,82 @@ import (
 )
 
 type Service struct {
-	queryRows      workbookQueryPort
-	mutations      workbookMutationPort
-	recordTargets  workbookRecordTargetPort
-	timelineOwner  workbookTimelineMutationPort
-	entityOwner    workbookEntityMutationPort
-	indicatorOwner workbookIndicatorMutationPort
-	conflictTokens workbookConflictTokenPort
-	incidentAccess incidents.Access
-	startupStore   *workbookstartup.Store
-	authStore      *authn.Store
-	publisher      workbookPublicationPort
-	cursorCodec    *pagination.Codec
-	keys           authn.MasterKeys
-	now            func() time.Time
-	serviceVersion string
+	queryRows         workbookQueryPort
+	mutations         workbookMutationPort
+	recordTargets     workbookRecordTargetPort
+	timelineOwner     workbookTimelineMutationPort
+	entityOwner       workbookEntityMutationPort
+	indicatorOwner    workbookIndicatorMutationPort
+	conflictTokens    workbookConflictTokenPort
+	incidentAccess    incidents.Access
+	startupStore      *workbookstartup.Store
+	authStore         *authn.Store
+	publisher         workbookPublicationPort
+	cursorCodec       *pagination.Codec
+	keys              authn.MasterKeys
+	now               func() time.Time
+	serviceVersion    string
+	createRowHandlers map[string]http.HandlerFunc
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type CreateRowHandlerFactory func(httpapi.DependencySet) (http.HandlerFunc, error)
+
+type RouteOption func(*routeOptions)
+
+type routeOptions struct {
+	createRowHandlerFactories map[string]CreateRowHandlerFactory
+}
+
+func WithCreateRowHandler(viewSchemaID string, factory CreateRowHandlerFactory) RouteOption {
+	return func(options *routeOptions) {
+		if options.createRowHandlerFactories == nil {
+			options.createRowHandlerFactories = make(map[string]CreateRowHandlerFactory)
+		}
+		options.createRowHandlerFactories[viewSchemaID] = factory
+	}
+}
+
+func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		settings := routeOptions{}
+		for _, option := range options {
+			if option != nil {
+				option(&settings)
+			}
+		}
 		service, err := newService(deps)
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
+		service.createRowHandlers = make(map[string]http.HandlerFunc, len(settings.createRowHandlerFactories))
+		for viewSchemaID, factory := range settings.createRowHandlerFactories {
+			if viewSchemaID == "" || factory == nil {
+				return errors.New("workbook create-row provider requires a view schema ID and factory")
+			}
+			handler, factoryErr := factory(deps)
+			if factoryErr != nil {
+				return fmt.Errorf("create workbook row provider %q: %w", viewSchemaID, factoryErr)
+			}
+			if handler == nil {
+				return fmt.Errorf("workbook create-row provider %q returned a nil handler", viewSchemaID)
+			}
+			service.createRowHandlers[viewSchemaID] = handler
 		}
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleQuery)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", service.handleClipboardPaste)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", service.handleBulkMutations)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleCreate)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
-		httpapi.HandlePublicRoute(mux, "PUT /api/v1/incidents/{incident_id}/workbook-preferences/default", service.handleWorkbookPreferencesDefault)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
-		httpapi.HandlePublicRoute(mux, "PUT /api/v1/incidents/{incident_id}/workbook-preferences/me", service.handleWorkbookPreferencesMe)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/incidents/{incident_id}/workbook-startup", service.handleWorkbookStartup)
-		httpapi.HandlePublicRoute(mux, "PATCH /api/v1/records/{record_id}", service.handlePatch)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/linked-notes", service.handleLinkedNoteCreate)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", service.handleConflictResolve)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.workbook", map[string]http.HandlerFunc{
+			"applyWorkbookBulkMutation":             service.handleBulkMutations,
+			"createRecordLinkedNote":                service.handleLinkedNoteCreate,
+			"createViewRow":                         service.handleCreate,
+			"getCurrentUserWorkbookPreferences":     service.handleWorkbookPreferencesMe,
+			"getIncidentDefaultWorkbookPreferences": service.handleWorkbookPreferencesDefault,
+			"getIncidentWorkbookStartup":            service.handleWorkbookStartup,
+			"patchRecord":                           service.handlePatch,
+			"pasteWorkbookClipboard":                service.handleClipboardPaste,
+			"putCurrentUserWorkbookPreferences":     service.handleWorkbookPreferencesMe,
+			"putIncidentDefaultWorkbookPreferences": service.handleWorkbookPreferencesDefault,
+			"queryWorkbookView":                     service.handleQuery,
+			"resolveRecordSameFieldConflict":        service.handleConflictResolve,
+			"supersedeRecord":                       service.handleSupersede,
+		})
 	}
 }
 
@@ -629,6 +665,10 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	viewSchemaID := r.PathValue("view_schema_id")
+	if handler, ok := s.createRowHandlers[viewSchemaID]; ok {
+		handler(w, r)
+		return
+	}
 	timing := newTimelineCreateTiming(r, viewSchemaID)
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {

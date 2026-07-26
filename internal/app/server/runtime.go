@@ -70,26 +70,6 @@ var (
 	readSecureFile    = securefile.Read
 )
 
-func productionPublicOperations() []httpapi.PublicOperation {
-	operations := append(auth.PublicOperations(), auth.EnterprisePublicOperations()...)
-	operations = append(operations, entities.PublicOperations()...)
-	operations = append(operations, evidence.PublicOperations()...)
-	operations = append(operations, extensiondiscovery.PublicOperations()...)
-	operations = append(operations, imports.PublicOperations()...)
-	operations = append(operations, incidentbundles.PublicOperations()...)
-	operations = append(operations, incidents.PublicOperations()...)
-	operations = append(operations, jobapi.PublicOperations()...)
-	operations = append(operations, reference_data.PublicOperations()...)
-	operations = append(operations, reportcomposition.PublicOperations()...)
-	operations = append(operations, reporting.PublicOperations()...)
-	operations = append(operations, revisions.PublicOperations()...)
-	operations = append(operations, savedviews.PublicOperations()...)
-	operations = append(operations, timeline.PublicOperations()...)
-	operations = append(operations, viewschemas.PublicOperations()...)
-	operations = append(operations, workbook.PublicOperations()...)
-	return operations
-}
-
 type Options struct {
 	Env         map[string]string
 	HTTP        httpapi.Options
@@ -117,6 +97,7 @@ type Runtime struct {
 	ProcessLease           *processlease.Lease
 	Lifecycle              *processlifecycle.Controller
 	Publication            *PublicationController
+	PublicHTTP             httpapi.RouteDiagnostics
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
@@ -796,8 +777,12 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg))},
 		{id: "entities", registrar: entities.RegisterRoutes()},
 		{id: "evidence", registrar: evidence.RegisterRoutes(evidenceSettings(normalizedCfg))},
-		{id: "assessments", registrar: assessments.RegisterRoutes()},
-		{id: "workbook", registrar: workbook.RegisterRoutes()},
+		{
+			id: "workbook",
+			registrar: workbook.RegisterRoutes(
+				workbook.WithCreateRowHandler(workbook.AssessmentsViewSchemaID, assessments.CreateRowHandler),
+			),
+		},
 		{id: "timeline", registrar: timeline.RegisterRoutes()},
 		{id: "revisions", registrar: revisionRoutes},
 	}, []extensionRouteBinding{
@@ -835,6 +820,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		return nil, fmt.Errorf("compose built-in routes: %w", err)
 	}
 	httpOptions.AdditionalRoutes = append(builtInRoutes, httpOptions.AdditionalRoutes...)
+	httpOptions.ValidatePublicRoutes = true
 	readinessProbes := []httpapi.DependencyReadinessProbe{}
 	if runtime.StagedHealth != nil {
 		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: runtime.StagedHealth})
@@ -865,6 +851,15 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.Close()
 		return nil, err
 	}
+	if httpOptions.Dependencies.PublicRoutes == nil {
+		httpOptions.Dependencies.PublicRoutes, err = httpapi.NewRouteRegistry(
+			httpapi.ExtensionClaimsFromDependencies(httpOptions.Dependencies),
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("initialize public route registry: %w", err)
+		}
+	}
 	handler, err := newHTTPHandler(httpOptions)
 	if err != nil {
 		runtime.Close()
@@ -872,6 +867,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	}
 
 	runtime.Handler = handler
+	runtime.PublicHTTP = httpOptions.Dependencies.PublicRoutes.Diagnostics()
 	if err := publication.Acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err

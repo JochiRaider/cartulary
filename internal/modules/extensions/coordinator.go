@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 )
 
 const generatedExtensionsRoot = "contracts/extensions/generated/"
@@ -31,7 +31,7 @@ type ArtifactSource interface {
 type generatedArtifactSource struct{}
 
 func (generatedArtifactSource) Artifact(path string) (PackagedArtifact, bool) {
-	artifact, ok := contractsgen.ExtensionArtifactsIndex[path]
+	artifact, ok := contractsgen.Index[path]
 	if !ok {
 		return PackagedArtifact{}, false
 	}

@@ -117,7 +117,10 @@ import {
   ownerChildRunID,
 } from "../owner-slice/execution.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
-import { ownerSliceChildEnvironment } from "../owner-slice/scheduler.mjs";
+import {
+  buildOwnerSliceWorkUnits,
+  ownerSliceChildEnvironment,
+} from "../owner-slice/scheduler.mjs";
 import { buildModuleAuthorTaskGuide, explainTestOwner } from "../diagnostics/owner-diagnostics.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -303,8 +306,8 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 53);
   assert.equal(catalog.summary.family_count, 187);
-  assert.equal(catalog.summary.row_count, 926);
-  assert.equal(catalog.summary.selector_count, 1588);
+  assert.equal(catalog.summary.row_count, 925);
+  assert.equal(catalog.summary.selector_count, 1589);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -709,6 +712,76 @@ test("owner slice children cannot inherit parent identity, selectors, or Make ov
     ownerChildRunID("unit.go.backend", 0),
     "work units cannot collide on child run ID",
   );
+});
+
+test("owner slice managed services wait for current service artifact readiness", () => {
+  const targetDir = mkdtempSync(path.join(repoRoot, "tmp", "owner-service-readiness."));
+  try {
+    const workUnits = [
+      {
+        work_unit_id: "unit.go.managed",
+        runner: "go",
+        target_name: "backend-integration",
+        row_ids: ["module.fixture.backend.integration_0000000000"],
+        managed_service_ids: ["postgres"],
+        runtime_binary_ids: [],
+        resource_claims: { process: 1 },
+        dependencies: [],
+        timeout_seconds: 60,
+      },
+      {
+        work_unit_id: "unit.playwright.managed",
+        runner: "playwright",
+        target_name: "browser-e2e-webserver-backed",
+        row_ids: ["module.fixture.browser.webserver_0000000000"],
+        managed_service_ids: ["postgres", "object_store"],
+        runtime_binary_ids: [],
+        resource_claims: { process: 1 },
+        dependencies: [],
+        timeout_seconds: 60,
+      },
+    ];
+    const units = buildOwnerSliceWorkUnits(
+      repoRoot,
+      {
+        target: "test-slice",
+        owner_id: "module.fixture",
+        workers: { playwright: 1, vitest: 1 },
+        work_units: workUnits,
+        finalizers: [{
+          finalizer_id: "finalizer.owner_slice_cleanup",
+          dependencies: workUnits.map((unit) => unit.work_unit_id),
+        }],
+      },
+      path.join(targetDir, "plan.json"),
+      targetDir,
+    );
+    const serviceReadiness = units.find(
+      (unit) => unit.id === "readiness.owner_service_runtime",
+    );
+    assert.ok(serviceReadiness);
+    assert.deepEqual(
+      serviceReadiness.command.args,
+      ["--silent", "--no-print-directory", "test-service-images"],
+    );
+    for (const unitID of ["unit.go.managed", "unit.playwright.managed"]) {
+      assert.ok(
+        units.find((unit) => unit.id === unitID)?.needs.includes(serviceReadiness.id),
+        `${unitID} must wait for current test-services binary and images`,
+      );
+    }
+    const browserReadiness = units.find(
+      (unit) => unit.id === "readiness.owner_browser_runtime",
+    );
+    assert.ok(browserReadiness);
+    assert.equal(
+      browserReadiness.command.args.includes("testservices-build"),
+      false,
+      "browser artifact readiness must not race service artifact readiness",
+    );
+  } finally {
+    rmSync(targetDir, { recursive: true, force: true });
+  }
 });
 
 test("stateful owner browser rows execute as isolated single-worker partitions", () => {
@@ -3140,7 +3213,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "56dde503eecb093bce023dc651d96d68c58f3b2d671d37bae8282a53f65e7b8d",
+    "c97e00fa2ef090cd1e107473579d25ded7c91df393c2408c1f8b86b20c4ff765",
     "public target and command ID inventory changed; revise the authored owner and this explicit interface digest together",
   );
   for (const target of publicTargets) {

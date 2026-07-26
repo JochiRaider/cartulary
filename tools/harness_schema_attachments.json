@@ -296,6 +296,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.network_flow_frontend_entrypoints.v2",
+      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "Network Flow frontend contract owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v1",
       "path": "tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v1.schema.json",
       "classification": "owner_input",
@@ -310,22 +317,29 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.openapi_baseline.v1",
-      "path": "tools/schemas/cartulary.openapi_baseline.v1.schema.json",
+      "schema_id": "cartulary.openapi_assembly_policy.v1",
+      "path": "tools/schemas/cartulary.openapi_assembly_policy.v1.schema.json",
       "classification": "owner_input",
       "producer": "OpenAPI aggregation owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.openapi_compatibility_waivers.v1",
-      "path": "tools/schemas/cartulary.openapi_compatibility_waivers.v1.schema.json",
+      "schema_id": "cartulary.openapi_release_change_set.v1",
+      "path": "tools/schemas/cartulary.openapi_release_change_set.v1.schema.json",
       "classification": "owner_input",
-      "producer": "OpenAPI aggregation owner",
+      "producer": "OpenAPI release compatibility owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.openapi_source_manifest.v1",
-      "path": "tools/schemas/cartulary.openapi_source_manifest.v1.schema.json",
+      "schema_id": "cartulary.openapi_release_registry.v1",
+      "path": "tools/schemas/cartulary.openapi_release_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "OpenAPI release compatibility owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.openapi_source_manifest.v2",
+      "path": "tools/schemas/cartulary.openapi_source_manifest.v2.schema.json",
       "classification": "owner_input",
       "producer": "OpenAPI aggregation owner",
       "validation": "json-shape-check"
@@ -342,6 +356,20 @@
       "path": "tools/schemas/cartulary.projection_provider_manifest.v4.schema.json",
       "classification": "owner_input",
       "producer": "projection provider owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v1",
+      "path": "tools/schemas/cartulary.protocol_ts_frontend_entrypoints.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "protocol TypeScript package owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.protocol_ts_http_operations.v1",
+      "path": "tools/schemas/cartulary.protocol_ts_http_operations.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "protocol TypeScript package owner",
       "validation": "json-shape-check"
     },
     {
@@ -636,6 +664,13 @@
       "path": "tools/schemas/cartulary.verification_registry.v2.schema.json",
       "classification": "owner_input",
       "producer": "verification registry owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.view_schema_source.v1",
+      "path": "tools/schemas/cartulary.view_schema_source.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "view-schema contract owner",
       "validation": "json-shape-check"
     },
     {

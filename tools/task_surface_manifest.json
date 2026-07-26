@@ -35,6 +35,7 @@
       "lint-scripts",
       "lint-shell",
       "migration-drift",
+      "openapi-compatibility-check",
       "otel-conformance",
       "release-check",
       "release-readiness-evidence",
@@ -513,6 +514,10 @@
         "profile_id": "standard_no_regression"
       },
       {
+        "target": "openapi-compatibility-check",
+        "profile_id": "standard_no_regression"
+      },
+      {
         "target": "otel-conformance",
         "profile_id": "standard_no_regression"
       },
@@ -928,6 +933,10 @@
         {
           "target": "migration-drift",
           "description": "verify migrations against a scratch database"
+        },
+        {
+          "target": "openapi-compatibility-check",
+          "description": "classify the candidate OpenAPI against immutable release history"
         },
         {
           "target": "agent-finalize",
@@ -2172,6 +2181,28 @@
         "input"
       ],
       "test_target": "self"
+    },
+    "openapi-compatibility-check": {
+      "prerequisites": [
+        "codegen-toolchain"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "openapi-compatibility-check",
+      "env": {
+        "GOCACHE": "$(GO_CACHE_DIR)",
+        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)"
+      },
+      "command": [
+        "$(GO)",
+        "run",
+        "./tools/openapi-compatibility",
+        "-quiet",
+        "-report",
+        "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json"
+      ],
+      "test_target": "self",
+      "success_summary": true
     },
     "migration-scratch-apply": {
       "prerequisites": [
@@ -4825,6 +4856,61 @@
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.json_shape_check.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "check"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "openapi-compatibility-check",
+      "backing_scripts": [
+        "tools/openapi-compatibility/main.go",
+        "internal/platform/openapicompat/compatibility.go",
+        "contracts/openapi-releases/index.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.openapi_compatibility_check.v1",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",

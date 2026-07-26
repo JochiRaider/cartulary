@@ -143,13 +143,13 @@ describe("ordinary shell support", () => {
   it("loads, filters, selects, and pages deployment users", async () => {
     const usersPageOne = [
       userResource({
-        user_id: "user-alpha",
+        user_id: "00000000-0000-4000-8000-000000000101",
         email: "alpha@example.test",
         display_name: "Alpha Admin",
         is_deployment_admin: true,
       }),
       userResource({
-        user_id: "user-bravo",
+        user_id: "00000000-0000-4000-8000-000000000102",
         email: "bravo@example.test",
         display_name: "Bravo Analyst",
       }),
@@ -157,7 +157,7 @@ describe("ordinary shell support", () => {
     const bravoUser = usersPageOne[1] ?? userResource({});
     const usersPageTwo = [
       userResource({
-        user_id: "user-charlie",
+        user_id: "00000000-0000-4000-8000-000000000103",
         email: "charlie@example.test",
         display_name: "Charlie Reviewer",
       }),
@@ -173,11 +173,19 @@ describe("ordinary shell support", () => {
       if (url === "/api/v1/users?limit=100&search=bravo" && method === "GET") {
         return Promise.resolve(userListResponse([bravoUser], null, false));
       }
-      if (url === "/api/v1/users/user-bravo" && method === "GET") {
-        return Promise.resolve(jsonResponse({ data: bravoUser }));
+      if (
+        url === "/api/v1/users/00000000-0000-4000-8000-000000000102" &&
+        method === "GET"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: bravoUser,
+            meta: { request_id: "request-test" },
+          }),
+        );
       }
       if (
-        url === "/api/v1/users?limit=100&cursor_token=cursor-2" &&
+        url === "/api/v1/users?cursor_token=cursor-2&limit=100" &&
         method === "GET"
       ) {
         return Promise.resolve(userListResponse(usersPageTwo, null, false));
@@ -194,7 +202,9 @@ describe("ordinary shell support", () => {
     );
 
     expect(
-      await screen.findByTestId(deploymentUserRowTestId("user-alpha")),
+      await screen.findByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000101"),
+      ),
     ).toBeTruthy();
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent?.trim(),
@@ -206,30 +216,36 @@ describe("ordinary shell support", () => {
     fireEvent.keyDown(userFilter, { key: "Enter" });
     await waitFor(() => {
       expect(
-        screen.queryByTestId(deploymentUserRowTestId("user-alpha")),
+        screen.queryByTestId(
+          deploymentUserRowTestId("00000000-0000-4000-8000-000000000101"),
+        ),
       ).toBeNull();
     });
     const bravoRow = await screen.findByTestId(
-      deploymentUserRowTestId("user-bravo"),
+      deploymentUserRowTestId("00000000-0000-4000-8000-000000000102"),
     );
     expect(bravoRow.textContent).toContain("Bravo Analyst");
     fireEvent.click(bravoRow);
     await waitFor(() => {
       expect(
         screen.getByTestId(deploymentAdminTestId("target-user-id")).textContent,
-      ).toBe("user-bravo");
+      ).toBe("00000000-0000-4000-8000-000000000102");
     });
 
     fireEvent.change(userFilter, {
       target: { value: "" },
     });
     fireEvent.keyDown(userFilter, { key: "Enter" });
-    await screen.findByTestId(deploymentUserRowTestId("user-alpha"));
+    await screen.findByTestId(
+      deploymentUserRowTestId("00000000-0000-4000-8000-000000000101"),
+    );
     fireEvent.click(
       screen.getByTestId(deploymentAdminTestId("load-more-users")),
     );
     expect(
-      await screen.findByTestId(deploymentUserRowTestId("user-charlie")),
+      await screen.findByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000103"),
+      ),
     ).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
@@ -282,7 +298,7 @@ describe("ordinary shell support", () => {
 
   it("renders claimed enterprise binding controls only inside the selected-user inspector and calls binding routes", async () => {
     const loadedUser = userResource({
-      user_id: "user-enterprise",
+      user_id: "00000000-0000-4000-8000-000000000104",
       email: "enterprise@example.test",
       display_name: "Enterprise User",
       user_version: 5,
@@ -294,7 +310,7 @@ describe("ordinary shell support", () => {
           created_at: "2026-06-18T12:00:00Z",
         },
         {
-          auth_binding_id: "binding-1",
+          auth_binding_id: "00000000-0000-4000-8000-000000000201",
           provider_type: "oidc",
           provider_key: "corp-oidc",
           provider_subject: "subject-1",
@@ -324,11 +340,20 @@ describe("ordinary shell support", () => {
           }),
         );
       }
-      if (url === "/api/v1/users/user-enterprise" && method === "GET") {
-        return Promise.resolve(jsonResponse({ data: loadedUser }));
+      if (
+        url === "/api/v1/users/00000000-0000-4000-8000-000000000104" &&
+        method === "GET"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: loadedUser,
+            meta: { request_id: "request-test" },
+          }),
+        );
       }
       if (
-        url === "/api/v1/users/user-enterprise/auth-bindings" &&
+        url ===
+          "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings" &&
         method === "POST"
       ) {
         return Promise.resolve(
@@ -337,7 +362,7 @@ describe("ordinary shell support", () => {
       }
       if (
         url ===
-          "/api/v1/users/user-enterprise/auth-bindings/binding-1/rotate" &&
+          "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings/00000000-0000-4000-8000-000000000201/rotate" &&
         method === "POST"
       ) {
         return Promise.resolve(
@@ -345,7 +370,8 @@ describe("ordinary shell support", () => {
         );
       }
       if (
-        url === "/api/v1/users/user-enterprise/auth-bindings/binding-1" &&
+        url ===
+          "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings/00000000-0000-4000-8000-000000000201" &&
         method === "DELETE"
       ) {
         return Promise.resolve(
@@ -371,7 +397,7 @@ describe("ordinary shell support", () => {
     );
 
     const row = await screen.findByTestId(
-      deploymentUserRowTestId("user-enterprise"),
+      deploymentUserRowTestId("00000000-0000-4000-8000-000000000104"),
     );
     fireEvent.click(row);
     await screen.findByText("Subject: subject-1");
@@ -418,7 +444,7 @@ describe("ordinary shell support", () => {
     expect(
       jsonRequestBody(
         fetchMock,
-        "/api/v1/users/user-enterprise/auth-bindings",
+        "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings",
         "POST",
       ),
     ).toMatchObject({
@@ -430,7 +456,7 @@ describe("ordinary shell support", () => {
     expect(
       jsonRequestBody(
         fetchMock,
-        "/api/v1/users/user-enterprise/auth-bindings/binding-1/rotate",
+        "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings/00000000-0000-4000-8000-000000000201/rotate",
         "POST",
       ),
     ).toMatchObject({
@@ -441,7 +467,7 @@ describe("ordinary shell support", () => {
     expect(
       jsonRequestBody(
         fetchMock,
-        "/api/v1/users/user-enterprise/auth-bindings/binding-1",
+        "/api/v1/users/00000000-0000-4000-8000-000000000104/auth-bindings/00000000-0000-4000-8000-000000000201",
         "DELETE",
       ),
     ).toMatchObject({
@@ -505,13 +531,18 @@ function jsonRequestBody(
 
 function userResource(overrides: Partial<UserResource>): UserResource {
   return {
-    user_id: "user-default",
+    auth_bindings: [],
+    created_at: "2026-07-25T12:00:00Z",
+    user_id: "00000000-0000-4000-8000-000000000100",
     email: "default@example.test",
     display_name: "Default User",
     user_version: 1,
     is_active: true,
     mfa_required: true,
     is_deployment_admin: false,
+    last_login_at: null,
+    updated_at: "2026-07-25T12:00:00Z",
+    updated_by_user_id: null,
     ...overrides,
   };
 }

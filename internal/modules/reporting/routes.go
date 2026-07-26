@@ -33,14 +33,15 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/snapshots", service.handleSnapshotsCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/snapshots/", service.handleSnapshotsMember)
-		httpapi.HandlePublicRoute(mux, "/api/v1/releases", service.handleReleasesCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/releases/", service.handleReleasesMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.reporting", map[string]http.HandlerFunc{
+			"approveRelease":    service.handleReleasesMember,
+			"createRelease":     service.handleReleasesCollection,
+			"createSnapshot":    service.handleSnapshotsCollection,
+			"getRelease":        service.handleReleasesMember,
+			"getSnapshot":       service.handleSnapshotsMember,
+			"invalidateRelease": service.handleReleasesMember,
+			"publishRelease":    service.handleReleasesMember,
+		})
 	}
 }
 

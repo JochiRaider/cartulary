@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.openapi_assembly_policy.v1",
+  "indent": "  ",
+  "trailing_newline": true,
+  "limits": {
+    "max_units": 256,
+    "max_unit_bytes": 2097152,
+    "max_total_input_bytes": 16777216,
+    "max_json_depth": 128,
+    "max_paths": 2048,
+    "max_operations": 4096,
+    "max_named_components": 16384
+  }
+}

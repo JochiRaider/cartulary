@@ -7,7 +7,7 @@ import {
   type AccountProfileEnvelope,
   type AccountProfilePatchRequest,
   type AccountProfileResource,
-  accountProtocolSchemaNames,
+  buildHTTPOperationPath,
   type ContractArtifact,
   type DensityMode,
   type ErrorEnvelope,
@@ -16,7 +16,7 @@ import {
   type EvidenceHandleEnvelope,
   type EvidenceHandleIssueRequest,
   type ExtensionRegistryContract,
-  evidenceProtocolSchemaNames,
+  encodeHTTPOperationQuery,
   extensionDiscoveryDecoder,
   getContractArtifact,
   getErrorRegistryContract,
@@ -39,6 +39,7 @@ import {
   requireReasonCodeRegistry,
   requireViewSchemaRegistryEntry,
   type ViewSchemaRegistryContract,
+  validateHTTPOperationResponse,
 } from "./index";
 
 const requiredBaseViewSchemaIds = [
@@ -59,12 +60,50 @@ const requiredBaseViewSchemaIds = [
 ] as const;
 
 describe("@cartulary/protocol-ts facade", () => {
+  it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
+    expect(
+      buildHTTPOperationPath("getDeploymentUser", {
+        user_id: "user/id",
+      }),
+    ).toBe("/api/v1/users/user%2Fid");
+    expect(
+      encodeHTTPOperationQuery("listDeploymentUsers", {
+        search: "Alice Example",
+        limit: 25,
+      }),
+    ).toBe("?limit=25&search=Alice%20Example");
+    expect(() =>
+      encodeHTTPOperationQuery("getDeploymentUser", {
+        unsupported: "must-not-pass",
+      }),
+    ).toThrow("unexpected query parameter unsupported");
+
+    const invalid = validateHTTPOperationResponse(
+      "listAdministrativeAuditEvents",
+      {
+        data: {
+          audit_events: [
+            {
+              unexpected_secret: "must-not-leak",
+            },
+          ],
+        },
+        meta: { request_id: "request-test" },
+      },
+    );
+    expect(invalid).toEqual(
+      expect.objectContaining({
+        ok: false,
+        schemaId: "cartulary.core_http.AdministrativeAuditEnvelope.v1",
+      }),
+    );
+    expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
+  });
+
   it("exposes generated artifact families through stable facade helpers", () => {
     const families = listContractArtifactFamilies();
 
-    expect(families.openAPIArtifacts.map((artifact) => artifact.path)).toEqual([
-      "contracts/openapi/cartulary.openapi.yaml",
-    ]);
+    expect("openAPIArtifacts" in families).toBe(false);
     expect(families.wsArtifacts.map((artifact) => artifact.path)).toEqual([
       "contracts/ws/index.schema.json",
     ]);
@@ -266,26 +305,7 @@ describe("@cartulary/protocol-ts facade", () => {
     });
   });
 
-  it("anchors evidence protocol facade types to generated OpenAPI schema names", () => {
-    const openAPI = parseContractArtifact<{
-      components: { schemas: Record<string, unknown> };
-    }>("contracts/openapi/cartulary.openapi.yaml");
-
-    expect(Object.values(evidenceProtocolSchemaNames)).toEqual([
-      "EnvelopeMeta",
-      "ErrorEnvelope",
-      "EvidenceAttachBlobEnvelope",
-      "EvidenceAttachBlobRequest",
-      "EvidenceHandleEnvelope",
-      "EvidenceHandleIssueRequest",
-      "ObjectBlobCreateEnvelope",
-      "ObjectBlobCreateRequest",
-      "ObjectBlobUploadTarget",
-    ]);
-    for (const schemaName of Object.values(evidenceProtocolSchemaNames)) {
-      expect(openAPI.components.schemas[schemaName]).toBeDefined();
-    }
-
+  it("checks evidence protocol values through generated types", () => {
     const createRequest = {
       incident_id: "incident-1",
       client_txn_id: "txn-create-blob",
@@ -379,40 +399,7 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(errorEnvelope.error.details.reason_code).toBe("blob_failed");
   });
 
-  it("anchors account preference protocol facade types to generated OpenAPI schema names and routes", () => {
-    const openAPI = parseContractArtifact<{
-      components: { schemas: Record<string, unknown> };
-      paths: Record<
-        string,
-        Record<string, { operationId?: string; requestBody?: unknown }>
-      >;
-    }>("contracts/openapi/cartulary.openapi.yaml");
-
-    expect(Object.values(accountProtocolSchemaNames)).toEqual([
-      "AccountPreferencesEnvelope",
-      "AccountPreferencesPutRequest",
-      "AccountPreferencesResource",
-      "AccountProfileEnvelope",
-      "AccountProfilePatchRequest",
-      "AccountProfileResource",
-      "DensityMode",
-    ]);
-    for (const schemaName of Object.values(accountProtocolSchemaNames)) {
-      expect(openAPI.components.schemas[schemaName]).toBeDefined();
-    }
-    expect(openAPI.paths["/api/v1/account/profile"]?.get?.operationId).toBe(
-      "getCurrentAccountProfile",
-    );
-    expect(openAPI.paths["/api/v1/account/profile"]?.patch?.operationId).toBe(
-      "patchCurrentAccountProfile",
-    );
-    expect(openAPI.paths["/api/v1/account/preferences"]?.get?.operationId).toBe(
-      "getCurrentAccountPreferences",
-    );
-    expect(openAPI.paths["/api/v1/account/preferences"]?.put?.operationId).toBe(
-      "putCurrentAccountPreferences",
-    );
-
+  it("checks account preference values through generated types", () => {
     const densityMode = "compact" satisfies DensityMode;
     const profileResource = {
       user_id: "af0f2c88-1fd2-42ad-9631-4fbbef243f30",

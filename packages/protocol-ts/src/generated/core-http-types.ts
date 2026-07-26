@@ -2,6 +2,19 @@
 
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DensityMode".
+ */
+export type DensityMode = "compact" | "default" | "comfortable";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceAttachBlobData".
+ */
+export type EvidenceAttachBlobData = ViewMutationDataFields & {
+  object_blob_id: string;
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionProfileID".
  */
 export type ExtensionProfileID = string;
@@ -16,20 +29,172 @@ export interface HttpsContractsCartularyLocalGeneratedCoreHttpV1 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountPreferencesEnvelope".
+ */
+export interface AccountPreferencesEnvelope {
+  data: AccountPreferencesResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountPreferencesResource".
+ */
+export interface AccountPreferencesResource {
+  created_at: string;
+  density_mode: DensityMode | null;
+  preferences_version: number;
+  updated_at: string;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EnvelopeMeta".
  */
 export interface EnvelopeMeta {
-  request_id: string;
   paging?: PagingMeta;
+  request_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "PagingMeta".
  */
 export interface PagingMeta {
+  has_more: boolean;
   limit: number;
   next_cursor: string | null;
-  has_more: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountPreferencesPutRequest".
+ */
+export interface AccountPreferencesPutRequest {
+  base_preferences_version: number;
+  client_txn_id: string;
+  density_mode: DensityMode | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountProfileEnvelope".
+ */
+export interface AccountProfileEnvelope {
+  data: AccountProfileResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountProfileResource".
+ */
+export interface AccountProfileResource {
+  created_at: string;
+  display_name: string;
+  email: string;
+  updated_at: string;
+  user_id: string;
+  user_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AccountProfilePatchRequest".
+ */
+export interface AccountProfilePatchRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  display_name: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AdministrativeAuditEnvelope".
+ */
+export interface AdministrativeAuditEnvelope {
+  data: AdministrativeAuditData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AdministrativeAuditData".
+ */
+export interface AdministrativeAuditData {
+  audit_events: AdministrativeAuditResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AdministrativeAuditResource".
+ */
+export interface AdministrativeAuditResource {
+  action_code: string;
+  actor_kind: "operator" | "system" | "user";
+  actor_user_id: string | null;
+  audit_event_id: string;
+  changes: AdministrativeAuditChange[];
+  occurred_at: string;
+  reason_code: string | null;
+  scope_id: string | null;
+  scope_kind: "deployment" | "incident";
+  source: "api" | "operator" | "startup" | "system" | "ui";
+  target_id: string | null;
+  target_kind: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AdministrativeAuditChange".
+ */
+export interface AdministrativeAuditChange {
+  after: unknown;
+  before: unknown;
+  field_path: string;
+  value_state: "redacted" | "visible";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DeploymentUserCreateRequest".
+ */
+export interface DeploymentUserCreateRequest {
+  auth_kind: "local";
+  client_txn_id: string;
+  display_name: string;
+  email: string;
+  initial_password: string;
+  is_deployment_admin?: boolean;
+  mfa_required?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DeploymentUserPasswordResetRequest".
+ */
+export interface DeploymentUserPasswordResetRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  new_password: string;
+  reason?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DeploymentUserPatchRequest".
+ */
+export interface DeploymentUserPatchRequest {
+  base_user_version: number;
+  display_name?: string;
+  email?: string;
+  is_active?: boolean;
+  is_deployment_admin?: boolean;
+  mfa_required?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DeploymentUserSessionsRevokeRequest".
+ */
+export interface DeploymentUserSessionsRevokeRequest {
+  client_txn_id: string;
+  reason?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DeploymentUserTOTPResetRequest".
+ */
+export interface DeploymentUserTOTPResetRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  reason?: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -43,53 +208,116 @@ export interface ErrorEnvelope {
  * via the `definition` "ErrorObject".
  */
 export interface ErrorObject {
-  status: number;
   code: string;
-  message: string;
-  request_id: string;
-  retryable: boolean;
-  details: {
-    [k: string]: unknown;
-  };
   conflict?: {
     [k: string]: unknown;
   };
+  details: {
+    [k: string]: unknown;
+  };
+  message: string;
+  request_id: string;
+  retryable: boolean;
+  status: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ExtensionMappingPreviewEnvelope".
+ * via the `definition` "EvidenceAttachBlobEnvelope".
  */
-export interface ExtensionMappingPreviewEnvelope {
-  data: ExtensionMappingPreviewResource;
+export interface EvidenceAttachBlobEnvelope {
+  data: EvidenceAttachBlobData;
   meta: EnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ExtensionMappingPreviewResource".
+ * via the `definition` "ViewMutationDataFields".
  */
-export interface ExtensionMappingPreviewResource {
-  schema_id: "cartulary.imports.extension_mapping_preview_result.v1";
-  import_session_id: string;
-  import_unit_id: string;
-  target_kind: string;
-  extension_profile_id: string;
-  owner_result_schema_id: string;
-  owner_result: {
-    [k: string]: unknown;
-  };
+export interface ViewMutationDataFields {
+  change_set_id: string;
+  row: ViewRow;
+  view_schema_id:
+    | "cartulary.view.timeline.v2"
+    | "cartulary.view.hosts.v1"
+    | "cartulary.view.identities.v1"
+    | "cartulary.view.indicators.v1"
+    | "cartulary.view.assessments.v1"
+    | "cartulary.view.evidence.v1"
+    | "cartulary.view.notes.v1"
+    | "cartulary.view.task_requests.v1"
+    | "cartulary.view.decisions.v1"
+    | "cartulary.view.parties.v1"
+    | "cartulary.view.comm_log.v1"
+    | "cartulary.view.handoff.v1"
+    | "cartulary.view.status_review.v1"
+    | "cartulary.view.lesson.v1";
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ExtensionMappingPreviewRequest".
+ * via the `definition` "ViewRow".
  */
-export interface ExtensionMappingPreviewRequest {
-  target_kind: string;
-  extension_profile_id: string;
-  owner_mapping_schema_id: string;
-  owner_mapping: {
+export interface ViewRow {
+  cells: {
+    [k: string]: ViewCell;
+  };
+  group_values?: {
     [k: string]: unknown;
   };
+  record_id: string;
+  row_version: number;
 }
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewCell".
+ */
+export interface ViewCell {
+  value: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceAttachBlobRequest".
+ */
+export interface EvidenceAttachBlobRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  object_blob_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceHandleEnvelope".
+ */
+export interface EvidenceHandleEnvelope {
+  data: EvidenceHandleData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceHandleData".
+ */
+export interface EvidenceHandleData {
+  content_type: string;
+  disposition: "inline" | "attachment";
+  evidence_lifecycle_state: string;
+  expires_at: string;
+  filename: string;
+  handle_kind: "preview" | "download";
+  href: string;
+  incident_id: string;
+  media_class: string;
+  method: "GET";
+  object_blob_id: string;
+  preview_kind?: string;
+  record_id: string;
+  sha256: string | null;
+  single_use: boolean;
+  size_bytes: number;
+  upload_state: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceHandleIssueRequest".
+ */
+export interface EvidenceHandleIssueRequest {}
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionDiscoveryEnvelope".
@@ -110,11 +338,2549 @@ export interface ExtensionDiscoveryData {
  * via the `definition` "ExtensionProfileResource".
  */
 export interface ExtensionProfileResource {
-  profile_id: ExtensionProfileID;
+  capabilities: string[];
   claimable: boolean;
   claimed: boolean;
   contract_major: number | null;
+  profile_id: ExtensionProfileID;
   route_families: ExtensionRouteFamily[];
   workspace_keys: string[];
-  capabilities: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewEnvelope".
+ */
+export interface ExtensionMappingPreviewEnvelope {
+  data: ExtensionMappingPreviewResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewResource".
+ */
+export interface ExtensionMappingPreviewResource {
+  extension_profile_id: string;
+  import_session_id: string;
+  import_unit_id: string;
+  owner_result: {
+    [k: string]: unknown;
+  };
+  owner_result_schema_id: string;
+  schema_id: "cartulary.imports.extension_mapping_preview_result.v1";
+  target_kind: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionMappingPreviewRequest".
+ */
+export interface ExtensionMappingPreviewRequest {
+  extension_profile_id: string;
+  owner_mapping: {
+    [k: string]: unknown;
+  };
+  owner_mapping_schema_id: string;
+  target_kind: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentEnvelope".
+ */
+export interface IncidentEnvelope {
+  data: IncidentResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentResource".
+ */
+export interface IncidentResource {
+  closed_at: string | null;
+  created_at: string;
+  created_by_user_id: string;
+  current_phase: string | null;
+  description: string | null;
+  incident_id: string;
+  incident_key: string;
+  incident_version: number;
+  primary_external_case_ref: string | null;
+  severity: string | null;
+  status: "active" | "closed";
+  title: string;
+  tlp: "TLP:CLEAR" | "TLP:GREEN" | "TLP:AMBER" | "TLP:AMBER+STRICT" | "TLP:RED" | null;
+  updated_at: string;
+  updated_by_user_id: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentLifecycleRequest".
+ */
+export interface IncidentLifecycleRequest {
+  base_incident_version: number;
+  client_txn_id: string;
+  reason: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobCreateEnvelope".
+ */
+export interface ObjectBlobCreateEnvelope {
+  data: ObjectBlobCreateData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobCreateData".
+ */
+export interface ObjectBlobCreateData {
+  accepted_contract: ObjectBlobAcceptedContract;
+  incident_id: string;
+  object_blob_id: string;
+  pending_expires_at: string;
+  target_expires_at: string;
+  upload_state: "pending";
+  upload_target: ObjectBlobUploadTarget;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobAcceptedContract".
+ */
+export interface ObjectBlobAcceptedContract {
+  byte_size: number;
+  content_type_hint: string | null;
+  filename_hint: string | null;
+  incident_id: string;
+  sha256_hex: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobUploadTarget".
+ */
+export interface ObjectBlobUploadTarget {
+  expires_at: string;
+  headers: {
+    [k: string]: unknown;
+  };
+  /**
+   * Opaque same-origin app-owned upload capability path in the base profile.
+   */
+  href: string;
+  method: "PUT";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobCreateRequest".
+ */
+export interface ObjectBlobCreateRequest {
+  byte_size: number;
+  client_txn_id: string;
+  content_type_hint?: string | null;
+  filename_hint?: string | null;
+  incident_id: string;
+  sha256_hex?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SafeUserEnvelope".
+ */
+export interface SafeUserEnvelope {
+  data: SafeUserResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SafeUserResource".
+ */
+export interface SafeUserResource {
+  auth_bindings: (LocalAuthBindingResource | EnterpriseAuthBindingResource)[];
+  created_at: string;
+  display_name: string;
+  email: string;
+  is_active: boolean;
+  is_deployment_admin: boolean;
+  last_login_at: string | null;
+  mfa_required: boolean;
+  updated_at: string;
+  updated_by_user_id: string | null;
+  user_id: string;
+  user_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LocalAuthBindingResource".
+ */
+export interface LocalAuthBindingResource {
+  created_at: string;
+  provider_key: "local";
+  provider_type: "local";
+  username: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBindingResource".
+ */
+export interface EnterpriseAuthBindingResource {
+  auth_binding_id: string;
+  created_at: string;
+  last_auth_at: string | null;
+  provider_key: string;
+  provider_subject: string;
+  provider_type: "oidc" | "saml";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SafeUserListEnvelope".
+ */
+export interface SafeUserListEnvelope {
+  data: SafeUserListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SafeUserListData".
+ */
+export interface SafeUserListData {
+  users: SafeUserResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SessionEnvelope".
+ */
+export interface SessionEnvelope {
+  data: SessionResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SessionResource".
+ */
+export interface SessionResource {
+  absolute_expires_at: string;
+  authenticated_at: string;
+  display_name: string;
+  idle_expires_at: string;
+  is_deployment_admin: boolean;
+  memberships: SessionMembershipResource[];
+  mfa_state: "not_required" | "satisfied";
+  provider_type: "local" | "oidc" | "saml";
+  session_expires_at: string;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SessionMembershipResource".
+ */
+export interface SessionMembershipResource {
+  incident_id: string;
+  role: "viewer" | "reviewer" | "editor" | "admin";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SessionRevocationEnvelope".
+ */
+export interface SessionRevocationEnvelope {
+  data: SessionRevocationResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SessionRevocationResource".
+ */
+export interface SessionRevocationResource {
+  revoked_at: string;
+  sessions_revoked: true;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewSchemaEnvelope".
+ */
+export interface ViewSchemaEnvelope {
+  data: ViewSchemaResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewSchemaResource".
+ */
+export interface ViewSchemaResource {
+  default_sort: SortEntry[];
+  fields: ViewFieldEntry[];
+  filter_fields: string[];
+  grouping_fields: string[];
+  inline_create: {
+    minimum_create_field_sets: string[][];
+    permits_zero_field_create: boolean;
+  };
+  inspector_config: InspectorConfigV1;
+  required_reference_pack_keys: string[];
+  sort_fields: string[];
+  sort_null_order: "last";
+  source_record_types: string[];
+  surface_kind: "built_in_sheet" | "system_view";
+  synthetic_filter_predicates: SyntheticFilterPredicate[];
+  technical_fields: string[];
+  title: string;
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SortEntry".
+ */
+export interface SortEntry {
+  direction: "asc" | "desc";
+  field_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewFieldEntry".
+ */
+export interface ViewFieldEntry {
+  clearable: boolean;
+  conflict_resolution_class: string | null;
+  default_hidden: boolean;
+  direct_reference_contract_id: string | null;
+  direct_scalar_contract_id: string | null;
+  entity_binding_mode: string | null;
+  enum_values: string[] | null;
+  field_key: string;
+  filter_ops: string[];
+  grid_editable: boolean;
+  groupable: boolean;
+  header_sort_field_key: string | null;
+  label: string;
+  read_kind: "text" | "number" | "boolean" | "timestamp" | "date" | "enum" | "collection";
+  sortable: boolean;
+  string_contract_id: string | null;
+  write_kind: "read_only" | "direct_value" | "action_payload";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorConfigV1".
+ */
+export interface InspectorConfigV1 {
+  default_open: false;
+  /**
+   * @maxItems 64
+   */
+  feature_groups: InspectorFeatureGroupV1[];
+  inspector_config_schema_id: "cartulary.inspector_config.v1";
+  no_row_state: "no_row_selected";
+  /**
+   * @minItems 1
+   * @maxItems 5
+   */
+  panels:
+    | [InspectorPanelV1]
+    | [InspectorPanelV1, InspectorPanelV1]
+    | [InspectorPanelV1, InspectorPanelV1, InspectorPanelV1]
+    | [InspectorPanelV1, InspectorPanelV1, InspectorPanelV1, InspectorPanelV1]
+    | [InspectorPanelV1, InspectorPanelV1, InspectorPanelV1, InspectorPanelV1, InspectorPanelV1];
+  subject_binding: InspectorSubjectBindingV1;
+  unsupported_feature_behavior: "omit_feature";
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorFeatureGroupV1".
+ */
+export interface InspectorFeatureGroupV1 {
+  /**
+   * @maxItems 16
+   */
+  disabled_when:
+    | []
+    | [
+        | "no_row_selected"
+        | "incident_closed"
+        | "authorization_lost"
+        | "row_version_changed"
+        | "record_deleted"
+        | "record_merged"
+        | "evidence_preview_unavailable"
+        | "merge_target_unavailable"
+        | "record_not_deleted"
+        | "rollback_target_unavailable"
+        | "party_text_unavailable"
+        | "pivot_target_unavailable"
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ]
+    | [
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        ),
+        (
+          | "no_row_selected"
+          | "incident_closed"
+          | "authorization_lost"
+          | "row_version_changed"
+          | "record_deleted"
+          | "record_merged"
+          | "evidence_preview_unavailable"
+          | "merge_target_unavailable"
+          | "record_not_deleted"
+          | "rollback_target_unavailable"
+          | "party_text_unavailable"
+          | "pivot_target_unavailable"
+        )
+      ];
+  failure_result_behavior:
+    | "show_same_shell_error_preserve_selection"
+    | "show_same_shell_error_invalidate_pending_action"
+    | "show_same_shell_error_clear_subject";
+  feature_group_key: string;
+  label: string;
+  minimum_incident_role: "viewer" | "editor" | "reviewer" | "admin" | null;
+  mutates: boolean;
+  panel_id: "details" | "relationships" | "evidence" | "history" | "workflow";
+  requires_confirmation: boolean;
+  route_binding: InspectorRouteBindingV1;
+  /**
+   * @maxItems 16
+   */
+  seed_bindings:
+    | []
+    | [InspectorSeedBindingV1]
+    | [InspectorSeedBindingV1, InspectorSeedBindingV1]
+    | [InspectorSeedBindingV1, InspectorSeedBindingV1, InspectorSeedBindingV1]
+    | [InspectorSeedBindingV1, InspectorSeedBindingV1, InspectorSeedBindingV1, InspectorSeedBindingV1]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ]
+    | [
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1,
+        InspectorSeedBindingV1
+      ];
+  success_result_behavior:
+    "preserve_selected_row" | "retarget_selected_row" | "clear_to_no_row_selected" | "surface_pivot";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorRouteBindingV1".
+ */
+export interface InspectorRouteBindingV1 {
+  action_key?: string;
+  kind:
+    | "panel_read"
+    | "view_row_create"
+    | "record_patch"
+    | "record_action"
+    | "entity_mention_action"
+    | "evidence_access"
+    | "surface_pivot";
+  owner:
+    | "current_row_projection"
+    | "view_query_route"
+    | "view_row_create_route"
+    | "record_patch_route"
+    | "record_mark_reviewed_route"
+    | "record_supersede_route"
+    | "record_delete_route"
+    | "record_restore_route"
+    | "record_history_route"
+    | "record_rollback_route"
+    | "record_merge_route"
+    | "entity_mention_resolve_route"
+    | "evidence_attach_blob_route"
+    | "evidence_preview_handle_route"
+    | "evidence_download_handle_route";
+  target_view_schema_id?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorSeedBindingV1".
+ */
+export interface InspectorSeedBindingV1 {
+  source: InspectorSeedSourceV1;
+  target_field_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorSeedSourceV1".
+ */
+export interface InspectorSeedSourceV1 {
+  kind: "selected_record_id" | "selected_field_value" | "literal";
+  source_field_key?: string;
+  value?: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorPanelV1".
+ */
+export interface InspectorPanelV1 {
+  label: string;
+  panel_id: "details" | "relationships" | "evidence" | "history" | "workflow";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorSubjectBindingV1".
+ */
+export interface InspectorSubjectBindingV1 {
+  kind: "selected_record";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SyntheticFilterPredicate".
+ */
+export interface SyntheticFilterPredicate {
+  field_key: string;
+  filter_ops: string[];
+  label: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewSchemaListEnvelope".
+ */
+export interface ViewSchemaListEnvelope {
+  data: ViewSchemaListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewSchemaListData".
+ */
+export interface ViewSchemaListData {
+  view_schemas: ViewSchemaResource[];
 }

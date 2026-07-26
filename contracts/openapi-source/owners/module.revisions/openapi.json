@@ -1,0 +1,744 @@
+{
+  "paths": {
+    "/api/v1/records/{record_id}": {
+      "delete": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "deleteRecord",
+        "summary": "Soft-delete one first-class record with optimistic concurrency and idempotent replay.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDeleteRestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Soft-delete response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordDeleteRestoreEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid delete payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible record but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Delete concurrency, tombstone, precondition, lock, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/restore": {
+      "post": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "restoreRecord",
+        "summary": "Restore one soft-deleted first-class record with tombstone concurrency and idempotent replay.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDeleteRestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restore response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordDeleteRestoreEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid restore payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible record but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Restore concurrency, tombstone, lock, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/rollback": {
+      "post": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "rollbackRecord",
+        "summary": "Rollback one visible record-history target with destructive-operation locking and idempotent replay.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rollback response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRollbackEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rollback payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible record but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record or rollback target is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rollback concurrency, lock, precondition, tombstone, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/history": {
+      "get": {
+        "tags": [
+          "revisions"
+        ],
+        "operationId": "getRecordHistory",
+        "summary": "Read retained row-centric history for one record with cursor pagination.",
+        "description": "Returns newest-first retained row-centric history. Cursor tokens are bound to the addressed record_id, and pagination aliases such as page, offset, page_size, and block_size are rejected.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum history items to return. Values below 1, above 500, or non-integer values fail with invalid_pagination_request.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor token issued by this record-history route for the same record_id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record history response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordHistoryEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RecordDeleteRestoreRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "RecordRollbackHistoryEntryTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "history_entry"
+          },
+          "history_entry_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "history_entry_ref"
+        ]
+      },
+      "RecordRollbackChangeSetTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "change_set"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "kind",
+          "change_set_id"
+        ]
+      },
+      "RecordRollbackRowRestoreTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "row_restore"
+          },
+          "restore_to_revision_no": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "kind",
+          "restore_to_revision_no"
+        ]
+      },
+      "RecordRollbackTarget": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RecordRollbackHistoryEntryTarget"
+          },
+          {
+            "$ref": "#/components/schemas/RecordRollbackChangeSetTarget"
+          },
+          {
+            "$ref": "#/components/schemas/RecordRollbackRowRestoreTarget"
+          }
+        ]
+      },
+      "RecordRollbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/RecordRollbackTarget"
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id",
+          "target"
+        ]
+      },
+      "RecordHistoryDiffSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "summary",
+          "units"
+        ]
+      },
+      "RecordHistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history_item_ref": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "diff_summary": {
+            "$ref": "#/components/schemas/RecordHistoryDiffSummary"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "available_rollback_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "history_entry",
+                "change_set",
+                "row_restore"
+              ]
+            }
+          },
+          "history_entry_ref": {
+            "type": "string"
+          },
+          "revision_no": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "actor_user_id",
+          "committed_at",
+          "history_item_ref",
+          "operation",
+          "diff_summary",
+          "change_set_id",
+          "reversible",
+          "available_rollback_actions"
+        ]
+      },
+      "RecordHistoryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordHistoryItem"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "record_id",
+          "row_version",
+          "deleted",
+          "items"
+        ]
+      },
+      "RecordHistoryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordHistoryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RecordHistoryEnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordHistoryEnvelopeMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          }
+        },
+        "required": [
+          "request_id",
+          "paging"
+        ]
+      },
+      "RecordDeleteRestoreData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "deleted_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "record_id",
+          "incident_id",
+          "row_version",
+          "deleted",
+          "deleted_at",
+          "deleted_by_user_id",
+          "change_set_id"
+        ]
+      },
+      "RecordDeleteRestoreEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordDeleteRestoreData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordRollbackData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "target": {
+            "$ref": "#/components/schemas/RecordRollbackTarget"
+          },
+          "target_change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rollback_change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "affected_record_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "record_id",
+          "row_version",
+          "target",
+          "target_change_set_id",
+          "rollback_change_set_id",
+          "affected_record_ids"
+        ]
+      },
+      "RecordRollbackEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordRollbackData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      }
+    }
+  }
+}

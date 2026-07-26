@@ -1043,7 +1043,7 @@ function validateContractFamilyRegistryShape(file) {
       for (const generatedOutput of generatedOutputs) {
         requireRepoRelativePath(generatedOutput, `${label}.generated_outputs[]`);
         if (
-          !generatedOutput.startsWith("internal/gen/contracts/") &&
+          !generatedOutput.startsWith("internal/gen/") &&
           !generatedOutput.startsWith("packages/protocol-ts/src/generated/")
         ) {
           throw new Error(
@@ -1054,8 +1054,13 @@ function validateContractFamilyRegistryShape(file) {
       const typeScriptRuntimePrefixes = requireStringArray(
         entry.typescript_runtime_artifact_prefixes,
         `${label}.typescript_runtime_artifact_prefixes`,
-        { nonEmpty: true },
+        { nonEmpty: familyID !== "openapi" },
       );
+      if (familyID === "openapi" && typeScriptRuntimePrefixes.length !== 0) {
+        throw new Error(
+          `${label}.typescript_runtime_artifact_prefixes must stay empty so the raw OpenAPI document cannot enter runtime bundles`,
+        );
+      }
       assertUnique(
         typeScriptRuntimePrefixes,
         `${label}.typescript_runtime_artifact_prefixes`,

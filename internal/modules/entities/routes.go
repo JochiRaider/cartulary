@@ -34,12 +34,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.entities", map[string]http.HandlerFunc{
+			"mergeEntityRecord":    service.handleMerge,
+			"resolveEntityMention": service.handleMentionAction,
+		})
 	}
 }
 

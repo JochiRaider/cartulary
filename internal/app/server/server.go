@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
@@ -49,6 +50,7 @@ type serverRuntime struct {
 	FatalEvents          <-chan processlifecycle.FatalSignal
 	Fatal                func(string) bool
 	ShutdownDrainSeconds int64
+	PublicHTTP           httpapi.RouteDiagnostics
 }
 
 func RunServerContext(ctx context.Context, stdout io.Writer, stderr io.Writer) int {
@@ -79,6 +81,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 				Handler: runtime.Handler, Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
 				FatalEvents: runtime.FatalEvents(), Fatal: runtime.PublishedComponentLost,
 				ShutdownDrainSeconds: runtime.Settings.ShutdownDrainSeconds,
+				PublicHTTP:           runtime.PublicHTTP,
 			}, nil
 		},
 		lookupEnv: os.LookupEnv,
@@ -126,6 +129,14 @@ func (runner serverRunner) run(ctx context.Context) int {
 		runner.writeStartupError(errors.New("extension_publication_failed"), logger, "activate publication")
 		return 2
 	}
+	logger.Info(
+		"public HTTP contract admitted",
+		slog.String("openapi_version", runtime.PublicHTTP.DocumentVersion),
+		slog.String("openapi_sha256", runtime.PublicHTTP.CanonicalSHA256),
+		slog.Int("supported_operation_count", runtime.PublicHTTP.SupportedOperationCount),
+		slog.Int("active_operation_count", runtime.PublicHTTP.ActiveOperationCount),
+		slog.Any("claimed_profiles", runtime.PublicHTTP.ClaimedProfiles),
+	)
 
 	address := httpruntime.DefaultAddress
 	if configuredAddress, ok := runner.lookupEnv(httpAddrEnv); ok && configuredAddress != "" {

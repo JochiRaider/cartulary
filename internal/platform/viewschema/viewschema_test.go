@@ -102,7 +102,7 @@ func TestViewSchemaDiscovery_Unit(t *testing.T) {
 	}
 }
 
-func TestOpenAPIViewFieldEntryGridEditableContract_Unit(t *testing.T) {
+func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 	document := contracttest.OpenAPIDocument(t)
 	components := requireObject(t, document["components"], "components")
 	schemas := requireObject(t, components["schemas"], "components.schemas")
@@ -137,10 +137,11 @@ func TestOpenAPIViewFieldEntryGridEditableContract_Unit(t *testing.T) {
 			}
 		}
 	}
+	verifyOpenAPIViewSchemaInlineCreateProjection(t, document)
 }
 
-func TestOpenAPIViewSchemaInlineCreateContract_Unit(t *testing.T) {
-	document := contracttest.OpenAPIDocument(t)
+func verifyOpenAPIViewSchemaInlineCreateProjection(t *testing.T, document map[string]any) {
+	t.Helper()
 	components := requireObject(t, document["components"], "components")
 	schemas := requireObject(t, components["schemas"], "components.schemas")
 	viewSchemaResource := requireObject(t, schemas["ViewSchemaResource"], "ViewSchemaResource")

@@ -8,6 +8,10 @@ import type {
   ObjectBlobCreateRequest,
   ObjectBlobUploadTarget,
 } from "@cartulary/protocol-ts";
+import {
+  buildHTTPOperationPath,
+  validateHTTPOperationResponse,
+} from "@cartulary/protocol-ts";
 import { publicErrorStatusText } from "../shared/publicError";
 import type { EvidenceLifecycleViewModel } from "../workbook/models/evidenceLifecycleViewModel";
 import { apiPath } from "./browserApi";
@@ -98,7 +102,7 @@ export async function createAndAttachEvidenceBlob({
     content_type_hint: file.type || null,
   } satisfies ObjectBlobCreateRequest;
   const createBlob = await fetchWorkbookJSON<ObjectBlobCreateEnvelope>(
-    apiPath(apiBase, "/api/v1/object-blobs"),
+    apiPath(apiBase, buildHTTPOperationPath("createObjectBlobSlot")),
     {
       method: "POST",
       body: JSON.stringify(createBlobRequest),
@@ -106,6 +110,12 @@ export async function createAndAttachEvidenceBlob({
   );
   if (!createBlob.ok) {
     throw new Error(evidencePublicErrorMessage(createBlob.payload));
+  }
+  if (
+    !validateHTTPOperationResponse("createObjectBlobSlot", createBlob.payload)
+      .ok
+  ) {
+    throw new Error("invalid_public_contract_response");
   }
   const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
     createBlob.payload,
@@ -120,7 +130,9 @@ export async function createAndAttachEvidenceBlob({
   const attach = await fetchWorkbookJSON<EvidenceAttachBlobEnvelope>(
     apiPath(
       apiBase,
-      `/api/v1/evidence-records/${evidenceRecordId}/attach-blob`,
+      buildHTTPOperationPath("attachBlobToEvidenceRecord", {
+        record_id: evidenceRecordId,
+      }),
     ),
     {
       method: "POST",
@@ -129,6 +141,12 @@ export async function createAndAttachEvidenceBlob({
   );
   if (!attach.ok) {
     throw new Error(evidencePublicErrorMessage(attach.payload));
+  }
+  if (
+    !validateHTTPOperationResponse("attachBlobToEvidenceRecord", attach.payload)
+      .ok
+  ) {
+    throw new Error("invalid_public_contract_response");
   }
 }
 
@@ -254,10 +272,16 @@ export async function issueEvidenceAccessHandle({
   readonly kind: EvidenceHandleKind;
 }): Promise<IssuedEvidenceHandle> {
   const handleRequest = {} satisfies EvidenceHandleIssueRequest;
+  const operationID =
+    kind === "preview"
+      ? "issueEvidencePreviewHandle"
+      : "issueEvidenceDownloadHandle";
   const result = await fetchWorkbookJSON<EvidenceHandleEnvelope>(
     apiPath(
       apiBase,
-      `/api/v1/evidence-records/${evidenceRecordId}/${kind}-handle`,
+      buildHTTPOperationPath(operationID, {
+        record_id: evidenceRecordId,
+      }),
     ),
     { method: "POST", body: JSON.stringify(handleRequest) },
   );
@@ -268,6 +292,12 @@ export async function issueEvidenceAccessHandle({
         result.payload,
         "Evidence access failed.",
       ),
+    };
+  }
+  if (!validateHTTPOperationResponse(operationID, result.payload).ok) {
+    return {
+      ok: false,
+      message: "Evidence access returned an invalid response.",
     };
   }
   const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);

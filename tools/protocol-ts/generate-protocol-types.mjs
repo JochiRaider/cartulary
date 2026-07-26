@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +25,68 @@ const generatedMarker =
 
 function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repositoryRoot, relativePath), "utf8"));
+}
+
+function writeFilesAtomically(outputs) {
+  const seen = new Set();
+  const transactionID = `${process.pid}-${Date.now()}`;
+  const prepared = [];
+  try {
+    for (const [index, output] of outputs
+      .slice()
+      .sort((left, right) => left.path.localeCompare(right.path))
+      .entries()) {
+      if (seen.has(output.path)) {
+        throw new Error(`generated output ${output.path} was staged more than once`);
+      }
+      seen.add(output.path);
+      mkdirSync(path.dirname(output.path), { recursive: true });
+      const temporary = `${output.path}.tmp-${transactionID}-${index}`;
+      const previous = existsSync(output.path)
+        ? readFileSync(output.path)
+        : undefined;
+      writeFileSync(temporary, output.content, { flag: "wx", mode: 0o644 });
+      prepared.push({ ...output, previous, temporary });
+    }
+  } catch (error) {
+    for (const output of prepared) {
+      rmSync(output.temporary, { force: true });
+    }
+    throw error;
+  }
+
+  let published = 0;
+  try {
+    for (const output of prepared) {
+      renameSync(output.temporary, output.path);
+      published += 1;
+    }
+  } catch (error) {
+    const rollbackErrors = [];
+    for (let index = published - 1; index >= 0; index -= 1) {
+      const output = prepared[index];
+      try {
+        if (typeof output.previous === "undefined") {
+          rmSync(output.path, { force: true });
+        } else {
+          const rollback = `${output.path}.rollback-${transactionID}-${index}`;
+          writeFileSync(rollback, output.previous, { flag: "wx", mode: 0o644 });
+          renameSync(rollback, output.path);
+        }
+      } catch (rollbackError) {
+        rollbackErrors.push(String(rollbackError));
+      }
+    }
+    for (const output of prepared.slice(published)) {
+      rmSync(output.temporary, { force: true });
+    }
+    if (rollbackErrors.length > 0) {
+      throw new Error(
+        `generated output publication failed: ${String(error)}; rollback failed: ${rollbackErrors.join("; ")}`,
+      );
+    }
+    throw error;
+  }
 }
 
 function requireObject(value, label) {
@@ -41,6 +110,16 @@ function requireStringArray(value, label) {
   return value.map((entry, index) =>
     requireString(entry, `${label}[${index}]`),
   );
+}
+
+function requireSortedUniqueStrings(value, label) {
+  const entries = requireStringArray(value, label);
+  for (let index = 0; index < entries.length; index += 1) {
+    if (index > 0 && entries[index - 1] >= entries[index]) {
+      throw new Error(`${label} must be sorted and unique`);
+    }
+  }
+  return entries;
 }
 
 function pascalCase(value) {
@@ -225,6 +304,9 @@ function validatorSource(entries) {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
   );
   ajv.addFormat("date-time", true);
+  ajv.addFormat("email", /^[^@\s]+@[^@\s]+\.[^@\s]+$/u);
+  ajv.addFormat("uri", /^[a-z][a-z0-9+.-]*:[^\s]+$/iu);
+  ajv.addFormat("binary", true);
 
   const exports = {};
   for (const entry of entries) {
@@ -259,10 +341,238 @@ function generatedConstSource(exportName, value) {
   )} as const;\n`;
 }
 
+function localComponentName(reference, componentKind) {
+  const prefix = `#/components/${componentKind}/`;
+  if (typeof reference !== "string" || !reference.startsWith(prefix)) {
+    return undefined;
+  }
+  return reference.slice(prefix.length);
+}
+
+function operationBindings(openAPI, selection, definitions) {
+  const selectedIDs = requireSortedUniqueStrings(
+    selection.operation_ids,
+    "http operation_ids",
+  );
+  const forwardTolerant = new Set(
+    requireSortedUniqueStrings(
+      selection.forward_tolerant_response_operation_ids,
+      "http forward_tolerant_response_operation_ids",
+    ),
+  );
+  for (const operationID of forwardTolerant) {
+    if (!selectedIDs.includes(operationID)) {
+      throw new Error(`forward-tolerant operation ${operationID} is not selected`);
+    }
+  }
+  const found = new Map();
+  for (const [pathTemplate, rawPathItem] of Object.entries(
+    requireObject(openAPI.paths, "OpenAPI paths"),
+  )) {
+    const pathItem = requireObject(rawPathItem, `OpenAPI path ${pathTemplate}`);
+    for (const method of ["delete", "get", "patch", "post", "put"]) {
+      const rawOperation = pathItem[method];
+      if (rawOperation === undefined) {
+        continue;
+      }
+      const operation = requireObject(rawOperation, `${method} ${pathTemplate}`);
+      if (!selectedIDs.includes(operation.operationId)) {
+        continue;
+      }
+      if (found.has(operation.operationId)) {
+        throw new Error(`duplicate selected operation ${operation.operationId}`);
+      }
+      const pascalID = pascalCase(operation.operationId);
+      const requestSchema = operation.requestBody?.content?.["application/json"]?.schema;
+      let requestType;
+      if (requestSchema) {
+        requestType = localComponentName(requestSchema.$ref, "schemas");
+        if (!requestType) {
+          requestType = `${pascalID}RequestBody`;
+          definitions[requestType] = cloneWithRewrittenReferences(
+            requestSchema,
+            "#/components/schemas/",
+            "#/$defs/",
+          );
+        }
+      }
+      const responses = requireObject(operation.responses, `${operation.operationId} responses`);
+      const successStatuses = Object.keys(responses)
+        .filter((status) => /^[23][0-9][0-9]$/u.test(status))
+        .sort();
+      let responseType;
+      for (const status of successStatuses) {
+        let response = requireObject(responses[status], `${operation.operationId} ${status}`);
+        const responseComponent = localComponentName(response.$ref, "responses");
+        if (responseComponent) {
+          response = requireObject(
+            openAPI.components?.responses?.[responseComponent],
+            `OpenAPI response ${responseComponent}`,
+          );
+        }
+        const responseSchema = response.content?.["application/json"]?.schema;
+        if (!responseSchema) {
+          continue;
+        }
+        responseType = localComponentName(responseSchema.$ref, "schemas");
+        if (!responseType) {
+          responseType = `${pascalID}ResponseBody`;
+          definitions[responseType] = cloneWithRewrittenReferences(
+            responseSchema,
+            "#/components/schemas/",
+            "#/$defs/",
+          );
+        }
+        break;
+      }
+      const parameters = [
+        ...(Array.isArray(pathItem.parameters) ? pathItem.parameters : []),
+        ...(Array.isArray(operation.parameters) ? operation.parameters : []),
+      ];
+      const queryParameters = parameters
+        .filter((parameter) => parameter?.in === "query")
+        .map((parameter) => requireString(parameter.name, `${operation.operationId} query parameter`))
+        .sort();
+      found.set(operation.operationId, {
+        operationID: operation.operationId,
+        method: method.toUpperCase(),
+        pathTemplate,
+        pathParameters: [...pathTemplate.matchAll(/\{([^}]+)\}/gu)].map((match) => match[1]),
+        queryParameters,
+        requestType,
+        responseType,
+        successStatuses,
+        responseTolerance: forwardTolerant.has(operation.operationId)
+          ? "forward_tolerant_vocabulary"
+          : "closed",
+      });
+    }
+  }
+  for (const operationID of selectedIDs) {
+    if (!found.has(operationID)) {
+      throw new Error(`selected OpenAPI operation ${operationID} does not exist`);
+    }
+  }
+  return selectedIDs.map((operationID) => found.get(operationID));
+}
+
+function httpOperationBindingSource(operations) {
+  const typeNames = [
+    ...new Set(
+      operations.flatMap((operation) =>
+        [operation.requestType, operation.responseType].filter(Boolean),
+      ),
+    ),
+  ].sort();
+  const lines = [generatedMarker, ""];
+  if (typeNames.length > 0) {
+    lines.push(
+      `import type { ${typeNames.join(", ")} } from "./core-http-types.js";`,
+      'import * as validators from "./protocol-validators.js";',
+      "",
+    );
+  }
+  lines.push(
+    `export const httpOperationBindings = ${JSON.stringify(
+      Object.fromEntries(
+        operations.map((operation) => [
+          operation.operationID,
+          {
+            method: operation.method,
+            path_template: operation.pathTemplate,
+            path_parameters: operation.pathParameters,
+            query_parameters: operation.queryParameters,
+            success_statuses: operation.successStatuses.map(Number),
+            response_schema_id: operation.responseType
+              ? `cartulary.core_http.${operation.responseType}.v1`
+              : null,
+            response_tolerance: operation.responseTolerance,
+          },
+        ]),
+      ),
+      null,
+      2,
+    )} as const;`,
+    "",
+    "export type HTTPOperationID = keyof typeof httpOperationBindings;",
+    "export type HTTPPathParameters = Readonly<Record<string, string | number>>;",
+    "export type HTTPQueryValue = string | number | boolean | null | undefined | readonly string[];",
+    "",
+    "export function buildHTTPOperationPath(operationID: HTTPOperationID, parameters: HTTPPathParameters = {}): string {",
+    "  const binding = httpOperationBindings[operationID];",
+    "  const expected = new Set<string>(binding.path_parameters);",
+    "  for (const key of Object.keys(parameters)) {",
+    "    if (!expected.has(key)) throw new Error(`unexpected path parameter ${key} for ${operationID}`);",
+    "  }",
+    "  return binding.path_parameters.reduce((path, key) => {",
+    "    const value = parameters[key];",
+    "    if (value === undefined || String(value) === \"\") throw new Error(`missing path parameter ${key} for ${operationID}`);",
+    "    return path.replace(`{${key}}`, encodeURIComponent(String(value)));",
+    "  }, binding.path_template as string);",
+    "}",
+    "",
+    "export function encodeHTTPOperationQuery(operationID: HTTPOperationID, query: Readonly<Record<string, HTTPQueryValue>> = {}): string {",
+    "  const allowed = new Set<string>(httpOperationBindings[operationID].query_parameters);",
+    "  const encoded: string[] = [];",
+    "  for (const key of Object.keys(query).sort()) {",
+    "    if (!allowed.has(key)) throw new Error(`unexpected query parameter ${key} for ${operationID}`);",
+    "    const value = query[key];",
+    "    if (value === undefined || value === null) continue;",
+    "    for (const item of Array.isArray(value) ? value : [value]) encoded.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);",
+    "  }",
+    "  const text = encoded.join(\"&\");",
+    "  return text === \"\" ? \"\" : `?${text}`;",
+    "}",
+    "",
+    "export type HTTPResponseValidation =",
+    "  | { readonly ok: true }",
+    "  | { readonly ok: false; readonly schemaId: string; readonly instancePath: string };",
+    "",
+  );
+  const responseValidators = operations
+    .filter((operation) => operation.responseType)
+    .map(
+      (operation) =>
+        `  ${JSON.stringify(operation.operationID)}: validators.validate${pascalCase(
+          `cartulary.core_http.${operation.responseType}.v1`,
+        )},`,
+    );
+  lines.push(
+    "const httpResponseValidators: Partial<Record<HTTPOperationID, ((value: unknown) => boolean) & { errors?: readonly { instancePath?: string }[] | null }>> = {",
+    ...responseValidators,
+    "};",
+    "",
+    "export function validateHTTPOperationResponse(operationID: HTTPOperationID, value: unknown): HTTPResponseValidation {",
+    "  const validator = httpResponseValidators[operationID];",
+    "  const schemaId = httpOperationBindings[operationID].response_schema_id;",
+    "  if (!validator || !schemaId || validator(value)) return { ok: true };",
+    "  return { ok: false, schemaId, instancePath: validator.errors?.[0]?.instancePath ?? \"\" };",
+    "}",
+    "",
+  );
+  for (const operation of operations) {
+    const name = pascalCase(operation.operationID);
+    lines.push(
+      `export type ${name}Request = ${operation.requestType ?? "undefined"};`,
+      `export type ${name}Response = ${operation.responseType ?? "unknown"};`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 const entrypoints = readJSON(
-  "contracts/network-flow/frontend-entrypoints.v1.json",
+  "contracts/protocol-ts/frontend-entrypoints.v1.json",
 );
-const networkFlowConfig = requireObject(entrypoints.network_flow, "network_flow");
+const networkFlowEntrypoints = readJSON(
+  requireString(
+    entrypoints.network_flow_entrypoints_path,
+    "network_flow_entrypoints_path",
+  ),
+);
+const networkFlowConfig = requireObject(
+  networkFlowEntrypoints.network_flow,
+  "network_flow",
+);
 const networkFlowIndex = readJSON(
   requireString(networkFlowConfig.contract_index_path, "network_flow.contract_index_path"),
 );
@@ -307,10 +617,27 @@ const openAPIDefinitions = cloneWithRewrittenReferences(
   "#/components/schemas/",
   "#/$defs/",
 );
-const coreHTTPEntrypoints = requireStringArray(
+const selectedHTTPOperations = operationBindings(
+  openAPI,
+  readJSON(
+    requireString(
+      entrypoints.http_operation_selection_path,
+      "http_operation_selection_path",
+    ),
+  ),
+  openAPIDefinitions,
+);
+const coreHTTPEntrypoints = [
+  ...new Set([
+    ...requireStringArray(
   coreHTTPConfig.component_schema_names,
   "core_http.component_schema_names",
-);
+    ),
+    ...selectedHTTPOperations.flatMap((operation) =>
+      [operation.requestType, operation.responseType].filter(Boolean),
+    ),
+  ]),
+].sort();
 const coreHTTPDefinitions = definitionClosure(
   openAPIDefinitions,
   coreHTTPEntrypoints,
@@ -345,32 +672,11 @@ const collaborationBundle = schemaBundle(
   collaboration.definitions,
 );
 
-writeFileSync(
-  path.join(generatedRoot, "network-flow-types.ts"),
-  await generatedTypes(networkFlowBundle, "NetworkFlowPublicSchemas"),
-);
-writeFileSync(
-  path.join(generatedRoot, "core-http-types.ts"),
-  await generatedTypes(coreHTTPBundle, "CoreHTTPEntrypoints"),
-);
-writeFileSync(
-  path.join(generatedRoot, "collaboration-types.ts"),
-  await generatedTypes(collaborationBundle, "CollaborationMessages"),
-);
-writeFileSync(
-  path.join(generatedRoot, "protocol-validators.ts"),
-  validatorSource([
-    {
-      bundle: networkFlowBundle,
-      publicDefinitions: networkFlowPublicDefinitions,
-    },
-    { bundle: coreHTTPBundle, publicDefinitions: coreHTTPPublicDefinitions },
-    {
-      bundle: collaborationBundle,
-      publicDefinitions: collaboration.schemaIDs,
-    },
-  ]),
-);
+const [networkFlowTypes, coreHTTPTypes, collaborationTypes] = await Promise.all([
+  generatedTypes(networkFlowBundle, "NetworkFlowPublicSchemas"),
+  generatedTypes(coreHTTPBundle, "CoreHTTPEntrypoints"),
+  generatedTypes(collaborationBundle, "CollaborationMessages"),
+]);
 
 const descriptor = {
   profile_id: requireString(networkFlowIndex.profile_id, "network-flow profile_id"),
@@ -380,24 +686,57 @@ const descriptor = {
     "network-flow document_version",
   ),
 };
-writeFileSync(
-  path.join(generatedRoot, "network-flow-descriptor.ts"),
-  `${generatedMarker}\n\nexport const networkFlowContractDescriptor = ${JSON.stringify(
-    descriptor,
-    null,
-    2,
-  )} as const;\n`,
-);
-writeFileSync(
-  path.join(generatedRoot, "network-flow-presentation.ts"),
-  generatedConstSource("networkFlowPresentationRegistry", networkFlowPresentation),
-);
-writeFileSync(
-  path.join(generatedRoot, "network-flow-mapping-registry.ts"),
-  generatedConstSource("networkFlowMappingRegistry", networkFlowMappingRegistry),
-);
-
-writeFileSync(
-  path.join(generatedRoot, "index.ts"),
-  `${generatedMarker}\n\nexport * from "./contracts.js";\n`,
-);
+writeFilesAtomically([
+  {
+    path: path.join(generatedRoot, "network-flow-types.ts"),
+    content: networkFlowTypes,
+  },
+  {
+    path: path.join(generatedRoot, "core-http-types.ts"),
+    content: coreHTTPTypes,
+  },
+  {
+    path: path.join(generatedRoot, "collaboration-types.ts"),
+    content: collaborationTypes,
+  },
+  {
+    path: path.join(generatedRoot, "protocol-validators.ts"),
+    content: validatorSource([
+      {
+        bundle: networkFlowBundle,
+        publicDefinitions: networkFlowPublicDefinitions,
+      },
+      { bundle: coreHTTPBundle, publicDefinitions: coreHTTPPublicDefinitions },
+      {
+        bundle: collaborationBundle,
+        publicDefinitions: collaboration.schemaIDs,
+      },
+    ]),
+  },
+  {
+    path: path.join(generatedRoot, "http-operation-bindings.ts"),
+    content: httpOperationBindingSource(selectedHTTPOperations),
+  },
+  {
+    path: path.join(generatedRoot, "network-flow-descriptor.ts"),
+    content: `${generatedMarker}\n\nexport const networkFlowContractDescriptor = ${JSON.stringify(
+      descriptor,
+      null,
+      2,
+    )} as const;\n`,
+  },
+  {
+    path: path.join(generatedRoot, "network-flow-presentation.ts"),
+    content: generatedConstSource(
+      "networkFlowPresentationRegistry",
+      networkFlowPresentation,
+    ),
+  },
+  {
+    path: path.join(generatedRoot, "network-flow-mapping-registry.ts"),
+    content: generatedConstSource(
+      "networkFlowMappingRegistry",
+      networkFlowMappingRegistry,
+    ),
+  },
+]);

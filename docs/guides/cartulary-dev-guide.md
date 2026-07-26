@@ -44,12 +44,12 @@ Unless a narrower banner is stated for a subsection, this guide is written for t
 
 ### Terminology used by this guide
 
-Use `docs/domain.md` as the project-wide domain vocabulary and concept reference when terminology is ambiguous. The table below is a guide-local summary for implementation-support language; owner sections still govern behavior.
+Use `docs/domain.md` as human-facing vocabulary guidance when terminology is ambiguous. Executable behavior remains governed by the requirement registry, owner catalogs, and typed machine contracts; this guide and `docs/domain.md` are not machine inputs.
 
 | Term                                    | Required meaning in this guide                                                                                                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `implementation guide`                  | This document. It is not a sole behavioral authority.                                                                                                        |
-| `repo-local derived contract artifacts` | Machine-readable contract files under `/contracts/*` that are derived from owner documents and drive code generation.                                        |
+| `repo-local machine contracts`          | Machine-readable owner inputs under `/contracts/*` that govern typed behavior and drive downstream generation.                                             |
 | `artifact`                              | The record family defined by Core 02. It is not synonymous with the Notes workbook surface.                                                                  |
 | `Notes`                                 | One workbook surface backed by `artifact_type='note'`.                                                                                                       |
 | `system view`                           | A workbook-native surface beyond the five built-in tabs.                                                                                                     |
@@ -359,14 +359,14 @@ The path tree below is an intended baseline shape, not an independently verified
       /reporting                     # Snapshots, releases, export models, renders
       /collaboration                 # Presence, replayable events, resume handling
     /gen
-      /contracts                     # Generated Go code derived from /contracts
+      /contract<family>              # Family-scoped generated Go contract code
       /sql                           # Generated Go code derived from /db/queries
 
   /db
     /migrations                      # Numbered SQL migrations
     /queries                         # Authored SQL consumed by sqlc
 
-  /contracts                         # Repo-local derived contract artifacts
+  /contracts                         # Repo-local typed machine authority
     /openapi
       cartulary.openapi.yaml
     /ws
@@ -406,7 +406,7 @@ The path tree below is an intended baseline shape, not an independently verified
 
 | Path family                              | Path status                         | Authoritative input                 | Edit policy                      |
 | ---------------------------------------- | ----------------------------------- | ----------------------------------- | -------------------------------- |
-| `/contracts/**`                          | Authored derived contract artifacts | Owner core docs and adopted NLSpecs | Hand-editable after owner change |
+| `/contracts/**`                          | Authored typed machine contracts and generated aggregates | Requirement owner catalogs and typed owner inputs | Edit owner inputs; regenerate downstream outputs |
 | `/db/queries/**`                         | Authored source                     | Repo-local query definitions        | Hand-editable                    |
 | `/db/migrations/**`                      | Authored source                     | Schema evolution                    | Hand-editable                    |
 | `/internal/gen/**`                       | Generated                           | `/contracts/**` or `/db/queries/**` | MUST NOT be hand-edited          |
@@ -432,19 +432,19 @@ The path tree below is an intended baseline shape, not an independently verified
 
 ### 4.1 Derivation model
 
-The contract layer is a **repo-local derived artifact layer**, not the primary behavioral authority.
+The contract layer is the repo-local typed machine authority alongside the requirement registry and owner catalogs. Generated code and aggregate documents are downstream artifacts.
 
 The required derivation chain is:
 
-`owner section in Core or adopted NLSpec` → `/contracts/*` repo-local machine-readable artifact → generated Go and TypeScript code → runtime consumers
+`contracts/requirements/registry.json` and owner catalogs + typed `/contracts/*` owner inputs → aggregate contracts → generated Go and TypeScript code → runtime consumers
 
-The guide MUST NOT refer to `/contracts/*` as the product “source of truth.” The only acceptable interpretation in this guide is that `/contracts/*` are the machine-readable contract artifacts from which the repository derives transport types, view adapters, validation helpers, and drift checks.
+Human Core and NLSpec documents may explain intent and vocabulary, but generators, tests, runtime metadata, conformance, and release evidence MUST consume the machine-owned inputs. Generated roots and aggregate contracts MUST be changed through their owner inputs and official generation.
 
 ### 4.2 Contract family owner map
 
 | Contract family                             | Primary owner                                                                                                      | Repo-local artifact                         | Generated or runtime consumers                                           | Edit rule                                          |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
-| HTTP route surface                          | Machine requirement and semantic route owner                                                                       | `/contracts/openapi-source/owners/<owner_id>/*.openapi.json`, assembled as `/contracts/openapi/cartulary.openapi.yaml` | Go transport types, handler tests, TypeScript request and response types | Change the owner contract and fragment, then run generation |
+| HTTP route surface                          | Machine requirement and semantic route owner                                                                       | `/contracts/openapi-source/owners/<owner_id>/openapi.json`, assembled as `/contracts/openapi/cartulary.openapi.yaml` | Go operation catalog, route binder, handler tests, TypeScript operation bindings | Change the owner unit, then run generation |
 | WebSocket messages                          | Core 01 collaboration transport plus Core 03 collaboration behavior                                                | `/contracts/ws/*.schema.json`               | Go WebSocket transport, TypeScript message types, protocol tests         | Change owner contract first, then WS schemas       |
 | View schemas and write-back contracts       | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json`            | Grid wrapper, filter builders, write routing, saved-view normalization   | Change owner contract first, then view schemas     |
 | Error registries and reason-code registries | Core 01 error-envelope owner sections                                                                              | `/contracts/errors/*.json`                  | Go error helpers, TypeScript enums, test fixtures                        | Change owner contract first, then error registries |
@@ -452,18 +452,18 @@ The guide MUST NOT refer to `/contracts/*` as the product “source of truth.”
 Route query types MUST derive from `/contracts/openapi/cartulary.openapi.yaml` and the generated protocol artifacts. When a Core 01 route owner adds query members such as incident/user list `search`, `status`, `is_active`, or `is_deployment_admin`, handwritten backend or frontend request types may wrap generated types but MUST NOT omit, rename, or independently redefine those members.
 
 The canonical OpenAPI artifact is generated and MUST NOT be hand-edited. Its
-closed manifest selects semantic-owner fragments; the `platform.openapi` root
-fragment alone owns the dialect and `info` metadata. Document versions follow
+closed manifest selects one source unit per semantic owner; the
+`platform.openapi` root unit alone owns the dialect and `info` metadata.
+Document versions follow
 SemVer: breaking wire changes increment the major version, additive public
 behavior increments the minor version, and non-behavioral contract corrections
 increment the patch version.
 
-The `1.0.0` contract is a coordinated compatibility release. External
-consumers must regenerate their clients: the release adds the incident
-lifecycle and administrative-audit operations, requires the view editability
-and inline-create fields, removes the obsolete administrative-audit response
-key and ambiguous bearer scheme, and drops unused timeline aliases. The bundled
-backend and frontend are expected to deploy together at this boundary.
+The `2.0.0` contract is a coordinated compatibility boundary. External
+consumers must regenerate their clients because the release removes the
+ambiguous legacy administrative-audit query vocabulary and enforces exact
+operation-bound route dispatch. The `/api/v1` namespace remains stable; the
+bundled backend and frontend are expected to deploy together at this boundary.
 
 ### 4.3 Generated artifact rules
 
@@ -1560,7 +1560,7 @@ This guide rewrite is complete only when all of the following are true:
 
 1. The opening status block makes the guide explicitly non-normative relative to product behavior, explicitly subordinate to Core 00 through Core 04 for implementation-conformance behavior, and explicitly subordinate to Core 05 where claim-bearing publication behavior is discussed.
 2. The guide no longer claims to be the single reference for what to build, where to put it, or how product behavior works.
-3. `/contracts/*` is described only as a repo-local derived contract layer with an explicit derivation chain and drift policy.
+3. `/contracts/*` is described as the repo-local typed machine authority with an explicit one-way generation chain and drift policy.
 4. Generated paths are explicitly marked non-editable and tied to code-generation drift checks.
 5. Extension-only topics are visibly profile-gated, and Base-only behavior remains the default interpretation when no narrower banner is stated.
 6. The guide contains an explicit section-class legend so a new implementer can distinguish implementation baseline from derived behavioral summary without inference.

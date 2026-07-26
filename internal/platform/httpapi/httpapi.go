@@ -42,7 +42,7 @@ type DependencySet struct {
 	Readiness           ReadinessChecker
 	Admission           AdmissionGate
 	PublicErrorFaults   PublicErrorFaultStore
-	PublicOperations    *PublicOperationRegistry
+	PublicRoutes        *RouteRegistry
 	TestResetBootstrap  func(context.Context, pgx.Tx) error
 	ModuleOverrides     map[string]any
 	Now                 func() time.Time
@@ -63,9 +63,10 @@ func (deps DependencySet) PostgresHandle() postgres.DB {
 type RouteRegistrar func(*http.ServeMux, DependencySet) error
 
 type Options struct {
-	Dependencies      DependencySet
-	AdditionalRoutes  []RouteRegistrar
-	RequestIDSequence func() string
+	Dependencies         DependencySet
+	AdditionalRoutes     []RouteRegistrar
+	RequestIDSequence    func() string
+	ValidatePublicRoutes bool
 }
 
 type EnvelopeMeta struct {
@@ -140,8 +141,11 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if readiness == nil {
 		readiness = NewDependencyReadinessChecker(option.Dependencies.Postgres, option.Dependencies.ObjectStore)
 	}
-	if option.Dependencies.PublicOperations == nil {
-		option.Dependencies.PublicOperations = NewPublicOperationRegistry()
+	if option.Dependencies.PublicRoutes == nil {
+		option.Dependencies.PublicRoutes, err = NewRouteRegistry(ExtensionClaimsFromDependencies(option.Dependencies))
+		if err != nil {
+			return nil, fmt.Errorf("initialize public route registry: %w", err)
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -182,6 +186,11 @@ func NewHandler(options ...Options) (http.Handler, error) {
 			if err := registrar(mux, option.Dependencies); err != nil {
 				return nil, err
 			}
+		}
+	}
+	if option.ValidatePublicRoutes {
+		if err := option.Dependencies.PublicRoutes.ValidateActive(); err != nil {
+			return nil, err
 		}
 	}
 

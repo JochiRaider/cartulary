@@ -81,42 +81,13 @@ func TestProductionCompletenessFoundation(t *testing.T) {
 		}
 	}
 
-	waiverPath := filepath.Join("..", "..", "..", "contracts", "openapi-source", "compatibility-waivers.json")
-	waiverContent, err := os.ReadFile(waiverPath)
-	if err != nil {
-		t.Fatalf("read compatibility waivers: %v", err)
-	}
-	var registry compatibilityWaiverRegistry
-	if err := json.Unmarshal(waiverContent, &registry); err != nil {
-		t.Fatalf("decode compatibility waivers: %v", err)
-	}
-	if len(registry.PathParameterWaivers) != 0 {
-		t.Fatalf("resolved path-parameter waivers remain: %#v", registry.PathParameterWaivers)
-	}
-	if countOperationWaivers(registry.ResponseWaivers) != 0 {
-		t.Fatalf("response waiver inventory must remain empty")
-	}
-	if countOperationWaivers(registry.SecurityClassificationWaivers) != 0 {
-		t.Fatalf("security waiver inventory must remain empty")
-	}
-	schemeWaiverNames := make([]string, 0, len(registry.SecuritySchemeWaivers))
-	for _, waiver := range registry.SecuritySchemeWaivers {
-		schemeWaiverNames = append(schemeWaiverNames, waiver.Name)
-	}
-	sort.Strings(schemeWaiverNames)
-	if len(schemeWaiverNames) != 0 {
-		t.Fatalf("security-scheme waivers remain after credential-bootstrap classification: %#v", schemeWaiverNames)
-	}
-	if len(registry.ComponentWaivers) != 0 {
-		t.Fatalf("component waivers remain after component closure: %#v", registry.ComponentWaivers)
-	}
 }
 
-func TestAssemblyPreservesManifestAndMemberOrder(t *testing.T) {
-	fixture := newAssemblyFixture(t, []fragmentEntry{
-		{OwnerID: "platform.openapi", Path: "contracts/openapi-source/owners/platform.openapi/root.json", Role: fragmentRootRole},
-		{OwnerID: "module.auth", Path: "contracts/openapi-source/owners/module.auth/auth.json", Role: fragmentOwnerRole},
-		{OwnerID: "module.incidents", Path: "contracts/openapi-source/owners/module.incidents/incidents.json", Role: fragmentOwnerRole},
+func TestAssemblyIgnoresManifestAndMemberOrder(t *testing.T) {
+	fixture := newAssemblyFixture(t, []unitEntry{
+		{OwnerID: "platform.openapi", Path: "contracts/openapi-source/owners/platform.openapi/root.json", Role: unitRootRole},
+		{OwnerID: "module.auth", Path: "contracts/openapi-source/owners/module.auth/auth.json", Role: unitOwnerRole},
+		{OwnerID: "module.incidents", Path: "contracts/openapi-source/owners/module.incidents/incidents.json", Role: unitOwnerRole},
 	}, map[string]string{
 		"contracts/openapi-source/owners/platform.openapi/root.json":      `{"openapi":"3.1.0","info":{"title":"fixture","version":"1"},"paths":{},"components":{"schemas":{}}}`,
 		"contracts/openapi-source/owners/module.auth/auth.json":           `{"paths":{"/z":{"get":{"operationId":"z"}}},"components":{"schemas":{"Z":{"type":"string"}}}}`,
@@ -133,155 +104,164 @@ func TestAssemblyPreservesManifestAndMemberOrder(t *testing.T) {
 	if !bytes.Equal(first, second) {
 		t.Fatal("repeated assembly changed bytes")
 	}
-	if strings.Index(string(first), `"/z"`) > strings.Index(string(first), `"/a"`) {
-		t.Fatal("path order does not follow manifest order")
+	fixture.manifest.Units[1], fixture.manifest.Units[2] = fixture.manifest.Units[2], fixture.manifest.Units[1]
+	fixture.writeManifest(t)
+	permuted, _, err := Assemble(fixture.manifestPath)
+	if err != nil {
+		t.Fatalf("permuted assembly: %v", err)
 	}
-	if strings.Index(string(first), `"Z"`) > strings.Index(string(first), `"A"`) {
-		t.Fatal("component order does not follow manifest order")
+	if !bytes.Equal(first, permuted) {
+		t.Fatal("manifest permutation changed canonical bytes")
+	}
+	if strings.Index(string(first), `"/a"`) > strings.Index(string(first), `"/z"`) {
+		t.Fatal("paths are not serialized canonically")
+	}
+	if strings.Index(string(first), `"A"`) > strings.Index(string(first), `"Z"`) {
+		t.Fatal("components are not serialized canonically")
 	}
 }
 
 func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 	tests := []struct {
 		name      string
-		fragments []fragmentEntry
+		units     []unitEntry
 		contents  map[string]string
 		mutate    func(*testing.T, *assemblyFixture)
 		wantError string
 	}{
 		{
-			name:      "duplicate JSON key",
-			fragments: rootOnlyFragments(),
+			name:  "duplicate JSON key",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 			},
 			wantError: "duplicate object key",
 		},
 		{
-			name:      "duplicate operation ID",
-			fragments: rootOnlyFragments(),
+			name:  "duplicate operation ID",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"same"}},"/b":{"get":{"operationId":"same"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"same"}},"/b":{"get":{"operationId":"same"}}}}`,
 			},
 			wantError: "duplicate operationId",
 		},
 		{
 			name: "path method collision",
-			fragments: []fragmentEntry{
-				{OwnerID: "platform.openapi", Path: rootFragmentPath(), Role: fragmentRootRole},
-				{OwnerID: "module.auth", Path: authFragmentPath(), Role: fragmentOwnerRole},
+			units: []unitEntry{
+				{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
+				{OwnerID: "module.auth", Path: authUnitPath(), Role: unitOwnerRole},
 			},
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"root"}}}}`,
-				authFragmentPath(): `{"paths":{"/a":{"get":{"operationId":"owner"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"root"}}}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"owner"}}}}`,
 			},
 			wantError: "path/method collision",
 		},
 		{
-			name:      "unresolved reference",
-			fragments: rootOnlyFragments(),
+			name:  "unresolved reference",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"$ref":"#/components/responses/Missing"}}}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"$ref":"#/components/responses/Missing"}}}}}}`,
 			},
 			wantError: "unresolved reference",
 		},
 		{
-			name:      "unwaived placeholder",
-			fragments: rootOnlyFragments(),
+			name:  "unwaived placeholder",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
 			},
 			wantError: "without exact parameter declarations",
 		},
 		{
 			name: "unknown owner",
-			fragments: []fragmentEntry{
-				{OwnerID: "platform.openapi", Path: rootFragmentPath(), Role: fragmentRootRole},
-				{OwnerID: "module.unknown", Path: authFragmentPath(), Role: fragmentOwnerRole},
+			units: []unitEntry{
+				{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
+				{OwnerID: "module.unknown", Path: authUnitPath(), Role: unitOwnerRole},
 			},
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authFragmentPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
 			},
 			wantError: "unknown active owner",
 		},
 		{
 			name: "owner directory mismatch",
-			fragments: []fragmentEntry{
-				{OwnerID: "platform.openapi", Path: rootFragmentPath(), Role: fragmentRootRole},
-				{OwnerID: "module.incidents", Path: authFragmentPath(), Role: fragmentOwnerRole},
+			units: []unitEntry{
+				{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
+				{OwnerID: "module.incidents", Path: authUnitPath(), Role: unitOwnerRole},
 			},
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authFragmentPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
 			},
 			wantError: "declared owner directory",
 		},
 		{
 			name: "retired bootstrap role",
-			fragments: []fragmentEntry{
-				{OwnerID: "platform.openapi", Path: rootFragmentPath(), Role: fragmentRootRole},
-				{OwnerID: "module.auth", Path: authFragmentPath(), Role: "bootstrap"},
+			units: []unitEntry{
+				{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
+				{OwnerID: "module.auth", Path: authUnitPath(), Role: "bootstrap"},
 			},
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authFragmentPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
 			},
 			wantError: "invalid role",
 		},
 		{
-			name:      "orphan fragment",
-			fragments: rootOnlyFragments(),
+			name:  "orphan unit",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 			},
 			mutate: func(t *testing.T, fixture *assemblyFixture) {
 				t.Helper()
 				writeFixtureFile(t, fixture.root, "contracts/openapi-source/owners/module.auth/orphan.json", `{}`)
 			},
-			wantError: "orphan fragment",
+			wantError: "orphan unit",
 		},
 		{
-			name:      "absolute fragment path",
-			fragments: rootOnlyFragments(),
+			name:  "absolute unit path",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 			},
 			mutate: func(t *testing.T, fixture *assemblyFixture) {
 				t.Helper()
-				fixture.manifest.Fragments[0].Path = filepath.Join(fixture.root, rootFragmentPath())
+				fixture.manifest.Units[0].Path = filepath.Join(fixture.root, rootUnitPath())
 				fixture.writeManifest(t)
 			},
 			wantError: "relative slash path",
 		},
 		{
-			name:      "traversal fragment path",
-			fragments: rootOnlyFragments(),
+			name:  "traversal unit path",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 			},
 			mutate: func(t *testing.T, fixture *assemblyFixture) {
 				t.Helper()
-				fixture.manifest.Fragments[0].Path = "../root.json"
+				fixture.manifest.Units[0].Path = "../root.json"
 				fixture.writeManifest(t)
 			},
 			wantError: "escapes its base directory",
 		},
 		{
-			name:      "symlink fragment",
-			fragments: rootOnlyFragments(),
+			name:  "symlink unit",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 			},
 			mutate: func(t *testing.T, fixture *assemblyFixture) {
 				t.Helper()
-				path := filepath.Join(fixture.root, filepath.FromSlash(rootFragmentPath()))
+				path := filepath.Join(fixture.root, filepath.FromSlash(rootUnitPath()))
 				target := filepath.Join(fixture.root, "outside.json")
 				if err := os.WriteFile(target, []byte(`{}`), 0o644); err != nil {
 					t.Fatalf("write symlink target: %v", err)
 				}
 				if err := os.Remove(path); err != nil {
-					t.Fatalf("remove fragment: %v", err)
+					t.Fatalf("remove unit: %v", err)
 				}
 				if err := os.Symlink(target, path); err != nil {
 					t.Fatalf("create symlink: %v", err)
@@ -290,25 +270,25 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			wantError: "symlink",
 		},
 		{
-			name:      "depth limit",
-			fragments: rootOnlyFragments(),
+			name:  "depth limit",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): deeplyNestedRootFragment(130),
+				rootUnitPath(): deeplyNestedRootUnit(130),
 			},
 			wantError: "JSON depth exceeds 128",
 		},
 		{
-			name:      "fragment byte limit",
-			fragments: rootOnlyFragments(),
+			name:  "unit byte limit",
+			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"` + strings.Repeat("x", 2*1024*1024) + `","version":"1"},"paths":{}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"` + strings.Repeat("x", 2*1024*1024) + `","version":"1"},"paths":{}}`,
 			},
-			wantError: "exceeds max_fragment_bytes",
+			wantError: "exceeds max_unit_bytes",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fixture := newAssemblyFixture(t, test.fragments, test.contents)
+			fixture := newAssemblyFixture(t, test.units, test.contents)
 			if test.mutate != nil {
 				test.mutate(t, fixture)
 			}
@@ -320,14 +300,11 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 	}
 }
 
-func TestCompletenessFoundationRejectsUnwaivedOrMalformedOperations(t *testing.T) {
+func TestCompletenessFoundationRejectsIncompleteOrMalformedOperations(t *testing.T) {
 	tests := []struct {
-		name                string
-		document            string
-		responseWaivers     []string
-		securityWaivers     []string
-		securitySchemeNames []string
-		wantError           string
+		name      string
+		document  string
+		wantError string
 	}{
 		{
 			name:      "new operation without responses",
@@ -354,38 +331,17 @@ func TestCompletenessFoundationRejectsUnwaivedOrMalformedOperations(t *testing.T
 			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"bearerSession":["invalid"]}]}}}}`,
 			wantError: "scopes must be an empty array",
 		},
-		{
-			name:            "stale response waiver",
-			document:        `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[]}}}}`,
-			responseWaivers: []string{"a"},
-			wantError:       "stale response waiver",
-		},
-		{
-			name:                "stale used scheme waiver",
-			document:            `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"bearerSession":[]}]}}}}`,
-			securitySchemeNames: append([]string(nil), requiredSecuritySchemeNames...),
-			wantError:           "stale security-scheme waiver for used scheme",
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fixture := newAssemblyFixture(t, rootOnlyFragments(), map[string]string{
-				rootFragmentPath(): test.document,
+			fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{
+				rootUnitPath(): test.document,
 			})
-			schemeNames := test.securitySchemeNames
-			if schemeNames == nil {
-				schemeNames = requiredSecuritySchemeNames
-			}
 			writeFixtureFile(
 				t,
 				fixture.root,
-				"contracts/openapi-source/compatibility-waivers.json",
-				fixtureWaiverRegistryJSON(
-					t,
-					test.responseWaivers,
-					test.securityWaivers,
-					schemeNames,
-				),
+				rootUnitPath(),
+				fixtureDocument(t, test.document, true, false),
 			)
 			_, _, err := Assemble(fixture.manifestPath)
 			if err == nil || !strings.Contains(err.Error(), test.wantError) {
@@ -396,8 +352,8 @@ func TestCompletenessFoundationRejectsUnwaivedOrMalformedOperations(t *testing.T
 }
 
 func TestAssemblyFailureDoesNotTouchTarget(t *testing.T) {
-	fixture := newAssemblyFixture(t, rootOnlyFragments(), map[string]string{
-		rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
+	fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{
+		rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
 	})
 	target := filepath.Join(fixture.root, "contracts", "openapi", "cartulary.openapi.yaml")
 	before, err := os.ReadFile(target)
@@ -417,8 +373,8 @@ func TestAssemblyFailureDoesNotTouchTarget(t *testing.T) {
 }
 
 func TestCheckAndAtomicWriteModes(t *testing.T) {
-	fixture := newAssemblyFixture(t, rootOnlyFragments(), map[string]string{
-		rootFragmentPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
+	fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{
+		rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/health":{"get":{"operationId":"fixtureHealth"}}}}`,
 	})
 	output, target, err := Assemble(fixture.manifestPath)
 	if err != nil {
@@ -468,15 +424,7 @@ func TestAggregateResourceLimits(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateAggregate(cloneValue(document), test.limits, compatibilityWaivers{
-				securitySchemes: map[string]struct{}{
-					"bearerSession":             {},
-					"credentialBootstrapBearer": {},
-					"csrfCookie":                {},
-					"csrfHeader":                {},
-					"sessionCookie":             {},
-				},
-			})
+			err := validateAggregate(cloneValue(document), test.limits)
 			if err == nil || !strings.Contains(err.Error(), test.wantError) {
 				t.Fatalf("validate error = %v, want substring %q", err, test.wantError)
 			}
@@ -492,7 +440,7 @@ type assemblyFixture struct {
 
 func prepareFixtureContents(
 	t *testing.T,
-	fragments []fragmentEntry,
+	units []unitEntry,
 	contents map[string]string,
 ) map[string]string {
 	t.Helper()
@@ -500,121 +448,86 @@ func prepareFixtureContents(
 	for path, content := range contents {
 		prepared[path] = content
 	}
-	for _, fragment := range fragments {
-		if fragment.Role != fragmentRootRole {
-			continue
-		}
-		content, ok := prepared[fragment.Path]
+	for _, unit := range units {
+		content, ok := prepared[unit.Path]
 		if !ok {
 			continue
 		}
-		document, err := parseOrderedJSON([]byte(content), 128)
-		if err != nil || document.kind != objectKind {
-			continue
-		}
+		prepared[unit.Path] = fixtureDocument(t, content, unit.Role == unitRootRole, true)
+	}
+	return prepared
+}
+
+func fixtureDocument(t *testing.T, content string, addSecuritySchemes, completeOperations bool) string {
+	t.Helper()
+	document, err := parseOrderedJSON([]byte(content), 128)
+	if err != nil || document.kind != objectKind {
+		return content
+	}
+	if addSecuritySchemes {
 		components, ok := objectMember(document, "components")
 		if !ok {
 			components = &orderedValue{kind: objectKind}
 			document.object = append(document.object, orderedMember{name: "components", value: components})
 		}
 		if components.kind != objectKind {
-			continue
+			return content
 		}
 		if _, ok := objectMember(components, "securitySchemes"); !ok {
-			schemes, err := parseOrderedJSON(
+			schemes, parseErr := parseOrderedJSON(
 				[]byte(`{"bearerSession":{},"credentialBootstrapBearer":{},"csrfCookie":{},"csrfHeader":{},"sessionCookie":{}}`),
 				128,
 			)
-			if err != nil {
-				t.Fatalf("parse fixture security schemes: %v", err)
+			if parseErr != nil {
+				t.Fatalf("parse fixture security schemes: %v", parseErr)
 			}
 			components.object = append(components.object, orderedMember{name: "securitySchemes", value: schemes})
 		}
-		var output bytes.Buffer
-		writeOrderedJSON(&output, document, "  ", 0)
-		prepared[fragment.Path] = output.String()
 	}
-	return prepared
+	if completeOperations {
+		completeFixtureOperations(t, document)
+	}
+	var output bytes.Buffer
+	writeOrderedJSON(&output, document, "  ", 0)
+	return output.String()
 }
 
-func fixtureCompatibilityWaiverJSON(t *testing.T, contents map[string]string) string {
+func completeFixtureOperations(t *testing.T, document *orderedValue) {
 	t.Helper()
-	responseOperationIDSet := make(map[string]struct{})
-	securityOperationIDSet := make(map[string]struct{})
-	for _, content := range contents {
-		document, err := parseOrderedJSON([]byte(content), 128)
-		if err != nil {
+	paths, ok := objectMember(document, "paths")
+	if !ok || paths.kind != objectKind {
+		return
+	}
+	firstOperation := true
+	for _, path := range paths.object {
+		if path.value.kind != objectKind {
 			continue
 		}
-		paths, ok := objectMember(document, "paths")
-		if !ok || paths.kind != objectKind {
-			continue
-		}
-		for _, path := range paths.object {
-			if path.value.kind != objectKind {
+		for _, method := range path.value.object {
+			if _, ok := operationKeys[method.name]; !ok || method.value.kind != objectKind {
 				continue
 			}
-			for _, method := range path.value.object {
-				if _, ok := operationKeys[method.name]; !ok || method.value.kind != objectKind {
-					continue
+			if _, ok := objectMember(method.value, "responses"); !ok {
+				responses, err := parseOrderedJSON([]byte(`{"200":{"description":"ok"}}`), 128)
+				if err != nil {
+					t.Fatalf("parse fixture responses: %v", err)
 				}
-				operationID, ok := objectMember(method.value, "operationId")
-				if !ok || operationID.kind != stringKind {
-					continue
-				}
-				id := operationID.scalar.(string)
-				if _, ok := objectMember(method.value, "responses"); !ok {
-					responseOperationIDSet[id] = struct{}{}
-				}
-				if _, ok := objectMember(method.value, "security"); !ok {
-					securityOperationIDSet[id] = struct{}{}
-				}
+				method.value.object = append(method.value.object, orderedMember{name: "responses", value: responses})
 			}
+			if _, ok := objectMember(method.value, "security"); !ok {
+				rawSecurity := `[]`
+				if firstOperation {
+					rawSecurity = `[{"bearerSession":[],"credentialBootstrapBearer":[],"csrfCookie":[],"csrfHeader":[],"sessionCookie":[]}]`
+				}
+				security, err := parseOrderedJSON([]byte(rawSecurity), 128)
+				if err != nil {
+					t.Fatalf("parse fixture security: %v", err)
+				}
+				method.value.object = append(method.value.object, orderedMember{name: "security", value: security})
+			}
+			firstOperation = false
 		}
 	}
-	responseOperationIDs := sortedStringSet(responseOperationIDSet)
-	securityOperationIDs := sortedStringSet(securityOperationIDSet)
-	return fixtureWaiverRegistryJSON(
-		t,
-		responseOperationIDs,
-		securityOperationIDs,
-		requiredSecuritySchemeNames,
-	)
-}
-
-func fixtureWaiverRegistryJSON(
-	t *testing.T,
-	responseOperationIDs, securityOperationIDs, securitySchemeNames []string,
-) string {
-	t.Helper()
-	securitySchemeWaivers := make([]namedWaiver, 0, len(securitySchemeNames))
-	for _, name := range securitySchemeNames {
-		securitySchemeWaivers = append(
-			securitySchemeWaivers,
-			fixtureNamedWaiver("scheme."+strings.ToLower(name), name),
-		)
-	}
-	registry := compatibilityWaiverRegistry{
-		ResponseWaivers:               fixtureOperationWaiverGroups("response.fixture", responseOperationIDs),
-		SecurityClassificationWaivers: fixtureOperationWaiverGroups("security.fixture", securityOperationIDs),
-		SecuritySchemeWaivers:         securitySchemeWaivers,
-		ComponentWaivers:              []namedWaiver{},
-		PathParameterWaivers:          []pathParameterWaiverGroup{},
-	}
-	content, err := json.Marshal(registry)
-	if err != nil {
-		t.Fatalf("marshal fixture compatibility waivers: %v", err)
-	}
-	return string(content)
-}
-
-func sortedStringSet(values map[string]struct{}) []string {
-	result := make([]string, 0, len(values))
-	for value := range values {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func sortedMapKeysForTest(values map[string]any) []string {
@@ -651,42 +564,9 @@ func requireBearerScheme(t *testing.T, schemes map[string]any, name string) {
 	}
 }
 
-func countOperationWaivers(groups []operationWaiverGroup) int {
-	total := 0
-	for _, group := range groups {
-		total += len(group.OperationIDs)
-	}
-	return total
-}
-
-func fixtureOperationWaiverGroups(waiverID string, operationIDs []string) []operationWaiverGroup {
-	if len(operationIDs) == 0 {
-		return []operationWaiverGroup{}
-	}
-	return []operationWaiverGroup{{
-		WaiverID:         waiverID,
-		OwnerID:          "platform.openapi",
-		CorrectionID:     "OAPI-CORR-06A",
-		Reason:           "Test fixture compatibility waiver.",
-		RemovalCondition: "Remove with the test fixture gap.",
-		OperationIDs:     operationIDs,
-	}}
-}
-
-func fixtureNamedWaiver(waiverID, name string) namedWaiver {
-	return namedWaiver{
-		WaiverID:         waiverID,
-		OwnerID:          "platform.openapi",
-		CorrectionID:     "OAPI-CORR-06A",
-		Reason:           "Test fixture security-scheme waiver.",
-		RemovalCondition: "Remove when the fixture uses the scheme.",
-		Name:             name,
-	}
-}
-
 func newAssemblyFixture(
 	t *testing.T,
-	fragments []fragmentEntry,
+	units []unitEntry,
 	contents map[string]string,
 ) *assemblyFixture {
 	t.Helper()
@@ -698,13 +578,8 @@ func newAssemblyFixture(
 		"contracts/requirements/registry.json",
 		`{"owners":[{"owner_id":"platform.openapi","status":"active"},{"owner_id":"module.auth","status":"active"},{"owner_id":"module.incidents","status":"active"}]}`,
 	)
-	writeFixtureFile(
-		t,
-		root,
-		"contracts/openapi-source/compatibility-waivers.json",
-		fixtureCompatibilityWaiverJSON(t, contents),
-	)
-	preparedContents := prepareFixtureContents(t, fragments, contents)
+	writeFixtureFile(t, root, "contracts/openapi-source/assembly-policy.json", fixturePolicyJSON(t))
+	preparedContents := prepareFixtureContents(t, units, contents)
 	for path, content := range preparedContents {
 		writeFixtureFile(t, root, path, content)
 	}
@@ -716,24 +591,35 @@ func newAssemblyFixture(
 			SchemaID:             manifestSchemaID,
 			Target:               "contracts/openapi/cartulary.openapi.yaml",
 			RequirementsRegistry: "contracts/requirements/registry.json",
-			CompatibilityWaivers: "contracts/openapi-source/compatibility-waivers.json",
-			FragmentRoot:         "contracts/openapi-source/owners",
-			Indent:               "  ",
-			TrailingNewline:      true,
-			Limits: resourceLimits{
-				MaxFragments:       256,
-				MaxFragmentBytes:   2 * 1024 * 1024,
-				MaxTotalInputBytes: 16 * 1024 * 1024,
-				MaxJSONDepth:       128,
-				MaxPaths:           2048,
-				MaxOperations:      4096,
-				MaxNamedComponents: 16384,
-			},
-			Fragments: fragments,
+			Policy:               "contracts/openapi-source/assembly-policy.json",
+			UnitRoot:             "contracts/openapi-source/owners",
+			Units:                units,
 		},
 	}
 	fixture.writeManifest(t)
 	return fixture
+}
+
+func fixturePolicyJSON(t *testing.T) string {
+	t.Helper()
+	content, err := json.MarshalIndent(assemblyPolicy{
+		SchemaID:        policySchemaID,
+		Indent:          "  ",
+		TrailingNewline: true,
+		Limits: resourceLimits{
+			MaxUnits:           256,
+			MaxUnitBytes:       2 * 1024 * 1024,
+			MaxTotalInputBytes: 16 * 1024 * 1024,
+			MaxJSONDepth:       128,
+			MaxPaths:           2048,
+			MaxOperations:      4096,
+			MaxNamedComponents: 16384,
+		},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal fixture policy: %v", err)
+	}
+	return string(append(content, '\n'))
 }
 
 func (fixture *assemblyFixture) writeManifest(t *testing.T) {
@@ -759,21 +645,21 @@ func writeFixtureFile(t *testing.T, root, relativePath, content string) {
 	}
 }
 
-func rootOnlyFragments() []fragmentEntry {
-	return []fragmentEntry{
-		{OwnerID: "platform.openapi", Path: rootFragmentPath(), Role: fragmentRootRole},
+func rootOnlyUnits() []unitEntry {
+	return []unitEntry{
+		{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
 	}
 }
 
-func rootFragmentPath() string {
+func rootUnitPath() string {
 	return "contracts/openapi-source/owners/platform.openapi/root.json"
 }
 
-func authFragmentPath() string {
+func authUnitPath() string {
 	return "contracts/openapi-source/owners/module.auth/auth.json"
 }
 
-func deeplyNestedRootFragment(depth int) string {
+func deeplyNestedRootUnit(depth int) string {
 	value := `"leaf"`
 	for index := 0; index < depth; index++ {
 		value = `{"nested":` + value + `}`

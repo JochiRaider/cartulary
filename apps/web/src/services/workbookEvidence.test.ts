@@ -95,21 +95,51 @@ describe("workbookEvidence", () => {
         return Promise.resolve(
           jsonResponse({
             data: {
-              object_blob_id: "blob-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              object_blob_id: "00000000-0000-4000-8000-000000003001",
+              upload_state: "pending",
+              target_expires_at: "2026-07-26T12:05:00Z",
+              pending_expires_at: "2026-07-26T12:10:00Z",
               upload_target: {
-                href: "/upload/blob-1",
+                href: "/api/v1/object-uploads/upload-token",
                 method: "PUT",
+                expires_at: "2026-07-26T12:05:00Z",
                 headers: { "X-Upload": "yes" },
               },
+              accepted_contract: {
+                incident_id: "00000000-0000-4000-8000-000000001001",
+                byte_size: 3,
+                filename_hint: "evidence.txt",
+                content_type_hint: "text/plain",
+                sha256_hex: null,
+              },
             },
+            meta: { request_id: "request-create" },
           }),
         );
       }
-      if (url === "/base/upload/blob-1") {
+      if (url === "/base/api/v1/object-uploads/upload-token") {
         return Promise.resolve(new Response("", { status: 200 }));
       }
-      if (url === "/base/api/v1/evidence-records/evidence-1/attach-blob") {
-        return Promise.resolve(jsonResponse({ data: { ok: true } }));
+      if (
+        url ===
+        "/base/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              view_schema_id: "cartulary.view.evidence.v1",
+              change_set_id: "00000000-0000-4000-8000-000000005001",
+              row: {
+                record_id: "00000000-0000-4000-8000-000000004001",
+                row_version: 10,
+                cells: {},
+              },
+              object_blob_id: "00000000-0000-4000-8000-000000003001",
+            },
+            meta: { request_id: "request-attach" },
+          }),
+        );
       }
       return Promise.resolve(
         jsonResponse({ error: { code: "unexpected" } }, 500),
@@ -121,9 +151,9 @@ describe("workbookEvidence", () => {
       attachClientTxnId: () => "attach-txn-1",
       baseRowVersion: 9,
       createClientTxnId: () => "blob-txn-1",
-      evidenceRecordId: "evidence-1",
+      evidenceRecordId: "00000000-0000-4000-8000-000000004001",
       file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
-      incidentId: "incident-1",
+      incidentId: "00000000-0000-4000-8000-000000001001",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -132,7 +162,7 @@ describe("workbookEvidence", () => {
       "test-csrf",
     );
     expect(JSON.parse(String(createInit.body))).toMatchObject({
-      incident_id: "incident-1",
+      incident_id: "00000000-0000-4000-8000-000000001001",
       client_txn_id: "blob-txn-1",
       filename_hint: "evidence.txt",
       content_type_hint: "text/plain",
@@ -140,7 +170,9 @@ describe("workbookEvidence", () => {
     });
 
     const uploadInit = fetchMock.mock.calls[1]?.[1] as RequestInit;
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/base/upload/blob-1");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "/base/api/v1/object-uploads/upload-token",
+    );
     expect(uploadInit.credentials).toBe("omit");
     expect(new Headers(uploadInit.headers).get("Content-Type")).toBe(
       "text/plain",
@@ -149,7 +181,7 @@ describe("workbookEvidence", () => {
 
     const attachInit = fetchMock.mock.calls[2]?.[1] as RequestInit;
     expect(JSON.parse(String(attachInit.body))).toEqual({
-      object_blob_id: "blob-1",
+      object_blob_id: "00000000-0000-4000-8000-000000003001",
       base_row_version: 9,
       client_txn_id: "attach-txn-1",
     });

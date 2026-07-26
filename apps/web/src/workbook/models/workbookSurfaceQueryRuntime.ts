@@ -17,23 +17,19 @@ export type WorkbookQuerySurfaceSlot =
 const allWorkbookContracts = listWorkbookSurfaceRegistryEntries().map(
   (entry) => entry.contract,
 );
-const fallbackWorkbookContract =
-  allWorkbookContracts.find(
-    (contract) => contract.viewSchemaId === timelineViewSchemaId,
-  ) ?? allWorkbookContracts[0];
 
 export function workbookContractForViewSchemaId(
   viewSchemaId: string,
 ): ViewContract {
-  return (
-    allWorkbookContracts.find(
-      (contract) => contract.viewSchemaId === viewSchemaId,
-    ) ??
-    fallbackWorkbookContract ??
-    (() => {
-      throw new Error("Workbook surface registry has no contracts.");
-    })()
+  const contract = allWorkbookContracts.find(
+    (candidate) => candidate.viewSchemaId === viewSchemaId,
   );
+  if (contract === undefined) {
+    throw new Error(
+      `Unknown workbook view schema: ${viewSchemaId || "<empty>"}`,
+    );
+  }
+  return contract;
 }
 
 export function workbookQuerySurfaceSlot(

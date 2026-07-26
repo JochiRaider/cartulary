@@ -84,12 +84,18 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/import-sessions", service.handleImportSessionsCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/import-sessions/", service.handleImportSessionsMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.imports", map[string]http.HandlerFunc{
+			"applyImportSession":                service.handleImportSessionsMember,
+			"createImportSession":               service.handleImportSessionsCollection,
+			"getImportSession":                  service.handleImportSessionsMember,
+			"getImportUnit":                     service.handleImportSessionsMember,
+			"getImportUnitPreview":              service.handleImportSessionsMember,
+			"listImportUnits":                   service.handleImportSessionsMember,
+			"previewImportUnitExtensionMapping": service.handleImportSessionsMember,
+			"putImportUnitMapping":              service.handleImportSessionsMember,
+			"selectImportUnit":                  service.handleImportSessionsMember,
+			"skipImportUnit":                    service.handleImportSessionsMember,
+		})
 	}
 }
 

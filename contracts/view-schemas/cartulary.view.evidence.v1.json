@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.view_schema_source.v1",
   "view_schema_id": "cartulary.view.evidence.v1",
   "title": "Evidence",
   "surface_kind": "built_in_sheet",

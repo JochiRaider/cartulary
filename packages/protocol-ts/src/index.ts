@@ -9,10 +9,9 @@ import type {
   ExtensionProfileResource as GeneratedExtensionProfileResource,
 } from "./generated/core-http-types.js";
 import {
-  contractArtifactIndex,
   errorArtifacts,
   extensionArtifacts,
-  openAPIArtifacts,
+  networkFlowArtifacts,
   viewSchemaArtifacts,
   wsArtifacts,
 } from "./generated/index.js";
@@ -32,7 +31,9 @@ import type {
 } from "./generated/network-flow-types.js";
 import * as generatedProtocolValidators from "./generated/protocol-validators.js";
 
+export * from "./generated/http-operation-bindings.js";
 export type * from "./generated/network-flow-types.js";
+export type * from "./generated/view-schema-source-types.js";
 export type {
   EnvelopeMeta,
   ErrorEnvelope,
@@ -215,28 +216,6 @@ export function decodeExtensionDiscoveryItem(
     capabilities,
   };
 }
-
-export const evidenceProtocolSchemaNames = Object.freeze({
-  envelopeMeta: "EnvelopeMeta",
-  errorEnvelope: "ErrorEnvelope",
-  evidenceAttachBlobEnvelope: "EvidenceAttachBlobEnvelope",
-  evidenceAttachBlobRequest: "EvidenceAttachBlobRequest",
-  evidenceHandleEnvelope: "EvidenceHandleEnvelope",
-  evidenceHandleIssueRequest: "EvidenceHandleIssueRequest",
-  objectBlobCreateEnvelope: "ObjectBlobCreateEnvelope",
-  objectBlobCreateRequest: "ObjectBlobCreateRequest",
-  objectBlobUploadTarget: "ObjectBlobUploadTarget",
-} as const);
-
-export const accountProtocolSchemaNames = Object.freeze({
-  accountPreferencesEnvelope: "AccountPreferencesEnvelope",
-  accountPreferencesPutRequest: "AccountPreferencesPutRequest",
-  accountPreferencesResource: "AccountPreferencesResource",
-  accountProfileEnvelope: "AccountProfileEnvelope",
-  accountProfilePatchRequest: "AccountProfilePatchRequest",
-  accountProfileResource: "AccountProfileResource",
-  densityMode: "DensityMode",
-} as const);
 
 export type ViewCell = {
   readonly value?: unknown;
@@ -549,22 +528,29 @@ export const incidentStreamMessageDecoder =
     "cartulary.ws.incident_stream_message.v1",
   );
 
-const openAPIArtifactList = Object.freeze([...openAPIArtifacts]);
 const wsArtifactList = Object.freeze([...wsArtifacts]);
 const viewSchemaArtifactList = Object.freeze([...viewSchemaArtifacts]);
 const errorArtifactList = Object.freeze([...errorArtifacts]);
 const extensionArtifactList = Object.freeze([...extensionArtifacts]);
+const networkFlowArtifactList = Object.freeze([...networkFlowArtifacts]);
+const contractArtifactIndex = Object.freeze(
+  Object.fromEntries(
+    [
+      ...wsArtifactList,
+      ...viewSchemaArtifactList,
+      ...errorArtifactList,
+      ...extensionArtifactList,
+      ...networkFlowArtifactList,
+    ].map((artifact) => [artifact.path, artifact]),
+  ),
+) as Readonly<Record<string, ContractArtifact>>;
 const contractArtifactLists = Object.freeze({
-  openAPIArtifacts: openAPIArtifactList,
   wsArtifacts: wsArtifactList,
   viewSchemaArtifacts: viewSchemaArtifactList,
   errorArtifacts: errorArtifactList,
   extensionArtifacts: extensionArtifactList,
+  networkFlowArtifacts: networkFlowArtifactList,
 });
-
-export function listOpenAPIArtifacts(): readonly ContractArtifact[] {
-  return openAPIArtifactList;
-}
 
 export function listWSArtifacts(): readonly ContractArtifact[] {
   return wsArtifactList;
@@ -583,11 +569,11 @@ export function listExtensionArtifacts(): readonly ContractArtifact[] {
 }
 
 export function listContractArtifactFamilies(): Readonly<{
-  openAPIArtifacts: readonly ContractArtifact[];
   wsArtifacts: readonly ContractArtifact[];
   viewSchemaArtifacts: readonly ContractArtifact[];
   errorArtifacts: readonly ContractArtifact[];
   extensionArtifacts: readonly ContractArtifact[];
+  networkFlowArtifacts: readonly ContractArtifact[];
 }> {
   return contractArtifactLists;
 }

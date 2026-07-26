@@ -1,0 +1,2620 @@
+{
+  "paths": {
+    "/api/v1/incidents/{incident_id}/workbook-preferences/default": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentDefaultWorkbookPreferences",
+        "summary": "Read the incident-wide default workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putIncidentDefaultWorkbookPreferences",
+        "summary": "Set or clear the incident-wide default workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        }
+      ],
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getCurrentUserWorkbookPreferences",
+        "summary": "Read the caller's per-incident workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putCurrentUserWorkbookPreferences",
+        "summary": "Set or clear the caller's per-incident home workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-startup": {
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentWorkbookStartup",
+        "summary": "Resolve the caller's workbook startup sheet for one incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view_schema_id",
+            "in": "query",
+            "required": false,
+            "description": "Legacy explicit launch pointer for a base view-schema surface.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sheet_ref_kind",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer kind. Must be paired with sheet_ref_id and must not be combined with view_schema_id.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view_schema",
+                "saved_view",
+                "extension_workspace"
+              ]
+            }
+          },
+          {
+            "name": "sheet_ref_id",
+            "in": "query",
+            "required": false,
+            "description": "Explicit launch pointer identifier. Must be paired with sheet_ref_kind; carries workspace_key for extension_workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extension_profile_id",
+            "in": "query",
+            "required": false,
+            "description": "Required only when sheet_ref_kind=extension_workspace and forbidden for other selectors.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workbook startup selection response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookStartupEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unavailable explicit workbook startup selector",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "queryWorkbookView",
+        "summary": "Query rows from a projection-backed workbook surface with cursor pagination.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookQueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workbook query response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookQueryEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "createViewRow",
+        "summary": "Create one row through the view-scoped row-create route for writable workbook surfaces.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TimelineCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HostCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/IdentityCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/IndicatorCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AssessmentCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EvidenceCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NoteCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TaskRequestCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DecisionCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PartyCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommLogCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HandoffCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/StatusReviewCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LessonCreateRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent view row-create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created view row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "pasteWorkbookClipboard",
+        "summary": "Apply an ephemeral tabular clipboard paste through the shared tabular-ingest mapping contract.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookClipboardPasteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Clipboard paste batch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookBatchMutationEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Entity exact-match conflict, row-version conflict, or idempotency conflict. Paste-time same-field conflicts are returned as 200 batch result conflicts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IncidentIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ViewSchemaIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "applyWorkbookBulkMutation",
+        "summary": "Apply an explicit workbook bulk mutation batch such as fill-down or multi-row tag assignment.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkbookBulkMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk mutation batch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookBatchMutationEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Same-field conflict batch, row-version conflict, or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "patch": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "patchRecord",
+        "summary": "Patch one workbook-backed record with field-level optimistic concurrency and idempotent replay.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Record patch row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/linked-notes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "createRecordLinkedNote",
+        "summary": "Create one Notes artifact linked to an existing workbook record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkedNoteCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent linked-note create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created linked note row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid linked-note mutation payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Incident state, idempotency, lifecycle, or owner-validation conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        },
+        {
+          "$ref": "#/components/parameters/ConflictTokenPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "workbook"
+        ],
+        "operationId": "resolveRecordSameFieldConflict",
+        "summary": "Resolve one same-field workbook conflict explicitly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConflictResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conflict resolution row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ViewMutationEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RecordConflictClearEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authorized caller supplied an invalid conflict token or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current session is missing, invalid, or inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed or the visible record requires a higher incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Path record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale conflict token or same-field conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/records/{record_id}/supersede": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/RecordIDPathParameter"
+        }
+      ],
+      "post": {
+        "tags": [
+          "timeline",
+          "workbook"
+        ],
+        "operationId": "supersedeRecord",
+        "summary": "Explicitly supersede a Timeline or Decision record using the record type selected by the path record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineSupersedeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline or Decision supersede response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TimelineActionEnvelope"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecisionSupersedeEnvelope"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "WorkbookQueryMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          },
+          "query": {
+            "$ref": "#/components/schemas/WorkbookQueryMetaQuery"
+          }
+        },
+        "required": [
+          "request_id",
+          "query"
+        ]
+      },
+      "WorkbookQueryMetaQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sort",
+          "filters"
+        ]
+      },
+      "SheetRef": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ViewSchemaSheetRef"
+          },
+          {
+            "$ref": "#/components/schemas/SavedViewSheetRef"
+          },
+          {
+            "$ref": "#/components/schemas/ExtensionWorkspaceSheetRef"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "view_schema": "#/components/schemas/ViewSchemaSheetRef",
+            "saved_view": "#/components/schemas/SavedViewSheetRef",
+            "extension_workspace": "#/components/schemas/ExtensionWorkspaceSheetRef"
+          }
+        }
+      },
+      "ViewSchemaSheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "view_schema"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "SavedViewSheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "saved_view"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "ExtensionWorkspaceSheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "extension_workspace"
+          },
+          "extension_profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workspace_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "extension_profile_id",
+          "workspace_key"
+        ]
+      },
+      "DefaultWorkbookPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "default_sheet_ref"
+        ]
+      },
+      "UserWorkbookPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "home_sheet_ref"
+        ]
+      },
+      "DefaultWorkbookPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "incident_id",
+          "default_sheet_ref",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id"
+        ]
+      },
+      "UserWorkbookPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "incident_id",
+          "user_id",
+          "home_sheet_ref",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DefaultWorkbookPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DefaultWorkbookPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UserWorkbookPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UserWorkbookPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkbookStartupSource": {
+        "type": "string",
+        "enum": [
+          "explicit",
+          "home",
+          "default",
+          "timeline"
+        ]
+      },
+      "WorkbookStartupClearedPointer": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "home",
+              "default"
+            ]
+          },
+          "sheet_ref": {
+            "$ref": "#/components/schemas/SheetRef"
+          },
+          "reason_code": {
+            "type": "string",
+            "description": "Current-profile emitted values are drawn from the workbook-startup cleared-pointer registry: invalid_sheet_ref, unsupported_sheet_ref_kind, unknown_view_schema, invalid_saved_view_id, saved_view_not_found, saved_view_not_visible, required_reference_pack_unavailable, invalid_extension_profile_id, invalid_extension_workspace_key, extension_profile_not_claimed, extension_workspace_unavailable, extension_workspace_not_visible."
+          }
+        },
+        "required": [
+          "source",
+          "sheet_ref",
+          "reason_code"
+        ]
+      },
+      "ExtensionWorkspaceAvailabilityRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extension_profile_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "workspace_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          }
+        },
+        "required": [
+          "extension_profile_id",
+          "workspace_key"
+        ]
+      },
+      "ExtensionWorkspaceAvailability": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "cartulary.extension_workspace_availability.v1"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaces": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/ExtensionWorkspaceAvailabilityRow"
+            }
+          }
+        },
+        "required": [
+          "schema_id",
+          "incident_id",
+          "workspaces"
+        ]
+      },
+      "WorkbookStartupResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "selected_sheet_ref": {
+            "$ref": "#/components/schemas/SheetRef"
+          },
+          "selected_view_schema_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selected_saved_view": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SavedViewResource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/WorkbookStartupSource"
+          },
+          "cleared_pointers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkbookStartupClearedPointer"
+            }
+          },
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extension_workspace_availability": {
+            "$ref": "#/components/schemas/ExtensionWorkspaceAvailability"
+          }
+        },
+        "required": [
+          "incident_id",
+          "selected_sheet_ref",
+          "selected_view_schema_id",
+          "selected_saved_view",
+          "source",
+          "cleared_pointers",
+          "home_sheet_ref",
+          "default_sheet_ref",
+          "extension_workspace_availability"
+        ]
+      },
+      "WorkbookStartupEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookStartupResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkbookQueryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewQueryFilter"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "cursor_token": {
+            "type": "string"
+          }
+        }
+      },
+      "TimelineCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "timeline.date_entered_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.analyst_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.mitre_stage_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.device_object_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.ip_address_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_utc_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_local_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.raw_activity_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_synopsis_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.data_source_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.host_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.identity_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.attached_evidence_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "HostCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "host.display_name": {
+            "type": "string"
+          },
+          "host.aad_device_id": {
+            "type": "string"
+          },
+          "host.fqdn": {
+            "type": "string"
+          },
+          "host.hostname": {
+            "type": "string"
+          },
+          "host.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "host.host_state": {
+            "type": "string"
+          },
+          "host.location": {
+            "type": "string"
+          },
+          "host.os_platform": {
+            "type": "string"
+          },
+          "host.business_owner": {
+            "type": "string"
+          },
+          "host.criticality": {
+            "type": "string"
+          },
+          "host.containment_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IdentityCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "identity.display_name": {
+            "type": "string"
+          },
+          "identity.aad_object_id": {
+            "type": "string"
+          },
+          "identity.sid": {
+            "type": "string"
+          },
+          "identity.upn": {
+            "type": "string"
+          },
+          "identity.email": {
+            "type": "string"
+          },
+          "identity.sam_account_name": {
+            "type": "string"
+          },
+          "identity.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "identity.identity_state": {
+            "type": "string"
+          },
+          "identity.privilege_level": {
+            "type": "string"
+          },
+          "identity.mfa_state": {
+            "type": "string"
+          },
+          "identity.reset_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IndicatorCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "indicator.indicator_type": {
+            "type": "string"
+          },
+          "indicator.value_kind": {
+            "type": "string"
+          },
+          "indicator.display_value": {
+            "type": "string"
+          },
+          "indicator.normalized_value": {
+            "type": "string"
+          },
+          "indicator.defanged_value": {
+            "type": "string"
+          },
+          "indicator.hash_algorithm": {
+            "type": "string"
+          },
+          "indicator.hash_value": {
+            "type": "string"
+          },
+          "indicator.stix_pattern": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "EvidenceCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "evidence.title": {
+            "type": "string"
+          },
+          "evidence.lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "pending_receipt",
+              "received",
+              "available",
+              "quarantined",
+              "released"
+            ]
+          },
+          "evidence.requested_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.received_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.storage_ref": {
+            "type": "string"
+          },
+          "evidence.collector_party_text": {
+            "type": "string"
+          },
+          "evidence.collector_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "evidence.source_party_text": {
+            "type": "string"
+          },
+          "evidence.source_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "NoteCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "note.title": {
+            "type": "string"
+          },
+          "note.body": {
+            "type": "string"
+          },
+          "note.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LinkedNoteCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "note.title": {
+            "type": "string"
+          },
+          "note.body": {
+            "type": "string"
+          },
+          "note.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "TaskRequestCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "task.title": {
+            "type": "string"
+          },
+          "task.status": {
+            "type": "string"
+          },
+          "task.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "task.priority": {
+            "type": "string"
+          },
+          "task.task_kind": {
+            "type": "string"
+          },
+          "task.workstream": {
+            "type": "string"
+          },
+          "task.due_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "task.requester_party_text": {
+            "type": "string"
+          },
+          "task.requester_party_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "task.blocked_reason": {
+            "type": "string"
+          },
+          "task.completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "task.external_ticket_ref": {
+            "type": "string"
+          },
+          "task.closure_summary": {
+            "type": "string"
+          },
+          "task.linked_record_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "task.decision_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "DecisionCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "decision.summary": {
+            "type": "string"
+          },
+          "decision.status": {
+            "type": "string"
+          },
+          "decision.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision.decision_type": {
+            "type": "string"
+          },
+          "decision.decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decision.rationale": {
+            "type": "string"
+          },
+          "decision.support_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "decision.affected_record_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "PartyCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "party.display_name": {
+            "type": "string"
+          },
+          "party.party_kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "team",
+              "organization",
+              "distribution_list",
+              "other"
+            ]
+          },
+          "party.organization_name": {
+            "type": "string"
+          },
+          "party.role_title": {
+            "type": "string"
+          },
+          "party.primary_email": {
+            "type": "string"
+          },
+          "party.timezone_name": {
+            "type": "string"
+          },
+          "party.external_ref": {
+            "type": "string"
+          },
+          "party.notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "CommLogCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "comm_log.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comm_log.comm_type": {
+            "type": "string",
+            "enum": [
+              "meeting",
+              "notification",
+              "approval",
+              "briefing",
+              "handoff"
+            ]
+          },
+          "comm_log.audience": {
+            "type": "string"
+          },
+          "comm_log.channel_or_meeting": {
+            "type": "string"
+          },
+          "comm_log.summary": {
+            "type": "string"
+          },
+          "comm_log.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "comm_log.privilege_tag": {
+            "type": "string"
+          },
+          "comm_log.decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.action_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.audience_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.attendee_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "HandoffCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "handoff.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "handoff.outgoing_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.incoming_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.current_state_summary": {
+            "type": "string"
+          },
+          "handoff.open_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_risk_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.next_checks": {
+            "type": "string"
+          },
+          "handoff.acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "StatusReviewCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "status_review.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_review.review_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status_review.current_state_summary": {
+            "type": "string"
+          },
+          "status_review.blocked_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.pending_evidence_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.active_risks_summary": {
+            "type": "string"
+          },
+          "status_review.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LessonCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "lesson.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lesson.summary": {
+            "type": "string"
+          },
+          "lesson.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lesson.closure_state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "lesson.follow_up_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "lesson.evidence_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "RecordPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/RecordPatchChange"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "base_row_version",
+          "client_txn_id",
+          "changes"
+        ]
+      },
+      "RecordConflictResolveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conflict_token": {
+            "type": "string"
+          },
+          "resolution_kind": {
+            "type": "string",
+            "enum": [
+              "keep_saved",
+              "use_unsaved",
+              "merged_value"
+            ]
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "resolved_value": {
+            "oneOf": [
+              {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/CollectionActionsV1"
+              }
+            ]
+          }
+        },
+        "required": [
+          "conflict_token",
+          "resolution_kind",
+          "client_txn_id"
+        ]
+      },
+      "RecordPatchChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "value": {},
+          "action_payload": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "field_key"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "value"
+            ],
+            "not": {
+              "required": [
+                "action_payload"
+              ]
+            }
+          },
+          {
+            "required": [
+              "action_payload"
+            ],
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        ]
+      },
+      "CollectionActionsV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "collection_actions_v1"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CollectionAddTokenAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddAliasAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveAliasAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddTagAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveTagAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddRecordRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveRecordRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddPartyRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemovePartyRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddRiskRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveRiskRefAction"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "actions"
+        ]
+      },
+      "CollectionAddTokenAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_token"
+          },
+          "raw_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "raw_text"
+        ]
+      },
+      "CollectionAddAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_alias"
+          },
+          "alias_text": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "op",
+          "alias_text"
+        ]
+      },
+      "CollectionRemoveAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_alias"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_alias:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_tag"
+          },
+          "tag_name": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "op",
+          "tag_name"
+        ]
+      },
+      "CollectionRemoveTagAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_tag"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^record_tag:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddRecordRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_record_ref"
+          },
+          "linked_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "linked_record_id"
+        ]
+      },
+      "CollectionRemoveRecordRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_record_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^record_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddPartyRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_party_ref"
+          },
+          "party_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "party_id"
+        ]
+      },
+      "CollectionRemovePartyRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_party_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^party_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddRiskRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_risk_ref"
+          },
+          "risk_ref_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "risk_ref_text"
+        ]
+      },
+      "CollectionRemoveRiskRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_risk_ref"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^risk_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "WorkbookQueryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewRow"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "view_schema_id",
+          "rows"
+        ]
+      },
+      "WorkbookQueryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookQueryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkbookQueryMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ViewMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ViewMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "WorkbookClipboardPasteTarget": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "create"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "record"
+              },
+              "record_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Active record in the path incident for the addressed workbook view. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation."
+              },
+              "base_row_version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "kind",
+              "record_id",
+              "base_row_version"
+            ]
+          }
+        ]
+      },
+      "WorkbookClipboardPasteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "enum": [
+              "cartulary.view.timeline.v2",
+              "cartulary.view.hosts.v1",
+              "cartulary.view.identities.v1"
+            ]
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clipboard_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "tsv",
+              "csv"
+            ]
+          },
+          "start_field_key": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string"
+            }
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/WorkbookClipboardPasteTarget"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "client_txn_id",
+          "clipboard_text",
+          "start_field_key",
+          "columns",
+          "targets"
+        ]
+      },
+      "WorkbookBulkMutationTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Active Timeline record in the path incident. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation."
+          },
+          "base_row_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "record_id",
+          "base_row_version"
+        ]
+      },
+      "WorkbookBulkMutationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "const": "cartulary.view.timeline.v2"
+          },
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fill_down_v1",
+              "multi_row_tag_assignment_v1"
+            ]
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "tag_name": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/WorkbookBulkMutationTarget"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "client_txn_id",
+          "kind",
+          "targets"
+        ]
+      },
+      "WorkbookBatchMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewRow"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "rows"
+        ]
+      },
+      "WorkbookBatchMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkbookBatchMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "RecordConflictClearData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "row": {
+            "$ref": "#/components/schemas/ViewRow"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "row"
+        ]
+      },
+      "RecordConflictClearEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordConflictClearData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ViewCell": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {}
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "ViewRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "cells": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ViewCell"
+            }
+          },
+          "group_values": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "record_id",
+          "row_version",
+          "cells"
+        ]
+      },
+      "ViewMutationDataFields": {
+        "type": "object",
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "enum": [
+              "cartulary.view.timeline.v2",
+              "cartulary.view.hosts.v1",
+              "cartulary.view.identities.v1",
+              "cartulary.view.indicators.v1",
+              "cartulary.view.assessments.v1",
+              "cartulary.view.evidence.v1",
+              "cartulary.view.notes.v1",
+              "cartulary.view.task_requests.v1",
+              "cartulary.view.decisions.v1",
+              "cartulary.view.parties.v1",
+              "cartulary.view.comm_log.v1",
+              "cartulary.view.handoff.v1",
+              "cartulary.view.status_review.v1",
+              "cartulary.view.lesson.v1"
+            ]
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row": {
+            "$ref": "#/components/schemas/ViewRow"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "change_set_id",
+          "row"
+        ]
+      },
+      "ViewMutationData": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationDataFields"
+          }
+        ],
+        "unevaluatedProperties": false
+      }
+    }
+  }
+}

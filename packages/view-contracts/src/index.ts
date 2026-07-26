@@ -1,3 +1,10 @@
+import type {
+  ViewSchemaSourceDocument,
+  ViewSchemaSourceInspectorConfig,
+  ViewSchemaSourceInspectorFeatureGroup,
+  ViewSchemaSourceInspectorRouteBinding,
+  ViewSchemaSourceInspectorSeedBinding,
+} from "@cartulary/protocol-ts";
 import {
   getViewSchemaRegistryContract,
   listViewSchemaArtifacts,
@@ -215,108 +222,12 @@ export type NormalizedViewRowV1 = {
   readonly groupValues?: Readonly<Record<string, unknown>> | undefined;
 };
 
-type RawField = {
-  readonly clearable?: boolean;
-  readonly conflict_resolution_class?: string | null;
-  readonly create_writable?: boolean;
-  readonly default_hidden?: boolean;
-  readonly direct_reference_contract_id?: string | null;
-  readonly direct_scalar_contract_id?: string | null;
-  readonly entity_binding_mode?: string | null;
-  readonly enum_values?: readonly string[] | null;
-  readonly field_key?: string;
-  readonly filter_ops?: readonly string[];
-  readonly groupable?: boolean;
-  readonly header_sort_field_key?: string | null;
-  readonly label: string;
-  readonly read_kind?: string;
-  readonly sortable?: boolean;
-  readonly string_contract_id?: string | null;
-  readonly write_action?: string | null;
-  readonly write_kind?: "read_only" | "direct_value" | "action_payload";
-  readonly grid_editable: boolean;
-};
-
-type RawSyntheticFilterPredicate = {
-  readonly field_key?: string;
-  readonly filter_ops?: readonly string[];
-  readonly label: string;
-};
-
-type RawInspectorConfig = {
-  readonly default_open?: boolean;
-  readonly feature_groups?: readonly RawInspectorFeatureGroup[];
-  readonly inspector_config_schema_id?: string;
-  readonly no_row_state?: string;
-  readonly panels?: readonly RawInspectorPanel[];
-  readonly subject_binding?: {
-    readonly kind?: string;
-  };
-  readonly unsupported_feature_behavior?: string;
-  readonly view_schema_id?: string;
-};
-
-type RawInspectorPanel = {
-  readonly label?: string;
-  readonly panel_id?: string;
-};
-
-type RawInspectorFeatureGroup = {
-  readonly disabled_when?: readonly string[];
-  readonly failure_result_behavior?: string;
-  readonly feature_group_key?: string;
-  readonly label?: string;
-  readonly minimum_incident_role?: string | null;
-  readonly mutates?: boolean;
-  readonly panel_id?: string;
-  readonly requires_confirmation?: boolean;
-  readonly route_binding?: RawInspectorRouteBinding;
-  readonly seed_bindings?: readonly RawInspectorSeedBinding[];
-  readonly success_result_behavior?: string;
-};
-
-type RawInspectorRouteBinding = {
-  readonly action_key?: string;
-  readonly kind?: string;
-  readonly owner?: string;
-  readonly target_view_schema_id?: string;
-};
-
-type RawInspectorSeedBinding = {
-  readonly source?: RawInspectorSeedSource;
-  readonly target_field_key?: string;
-};
-
-type RawInspectorSeedSource = {
-  readonly kind?: string;
-  readonly source_field_key?: string;
-  readonly value?: unknown;
-};
-
-type RawViewContract = {
-  readonly default_hidden_fields?: readonly string[];
-  readonly default_sort?: ReadonlyArray<{
-    readonly field_key: string;
-    readonly direction: "asc" | "desc";
-  }>;
-  readonly default_visible_fields?: readonly string[];
-  readonly fields?: readonly RawField[];
-  readonly filter_fields?: readonly string[];
-  readonly grouping_fields?: readonly string[];
-  readonly inline_create: {
-    readonly minimum_create_field_sets: readonly (readonly string[])[];
-    readonly permits_zero_field_create: boolean;
-  };
-  readonly inspector_config?: RawInspectorConfig;
-  readonly required_reference_pack_keys?: unknown;
-  readonly sort_fields?: readonly string[];
-  readonly sort_null_order?: "last";
-  readonly surface_kind: string;
-  readonly synthetic_filter_predicates?: readonly RawSyntheticFilterPredicate[];
-  readonly technical_fields?: readonly string[];
-  readonly title: string;
-  readonly view_schema_id: string;
-};
+type RawInspectorConfig = ViewSchemaSourceInspectorConfig;
+type RawInspectorPanel = ViewSchemaSourceInspectorConfig["panels"][number];
+type RawInspectorFeatureGroup = ViewSchemaSourceInspectorFeatureGroup;
+type RawInspectorRouteBinding = ViewSchemaSourceInspectorRouteBinding;
+type RawInspectorSeedBinding = ViewSchemaSourceInspectorSeedBinding;
+type RawViewContract = ViewSchemaSourceDocument;
 
 // unit.stage-0.row-02 exposes this narrow parser error contract for malformed
 // view-schema adapter inputs that could otherwise drift away from field_key.

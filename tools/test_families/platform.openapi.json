@@ -3,39 +3,18 @@
   "owner_id": "platform.openapi",
   "rows": [
     {
-      "row_id": "platform.openapi.unit.canonical_baseline_3783384fab",
+      "row_id": "platform.openapi.unit.contract_integrity",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
       "collaborator_ids": ["harness.generated_artifacts"],
       "verification_ids": [
-        "platform.openapi.verification.baseline_characterization"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/httpapi",
-        "tests": ["TestCanonicalBaseline"]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "platform.openapi.unit.completeness_foundation_7e728705d9",
-      "owner_id": "platform.openapi",
-      "family_id": "platform.openapi.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
-      "verification_ids": [
-        "platform.openapi.verification.completeness_foundation"
+        "platform.openapi.verification.contract_integrity"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/platform/openapiassembly",
         "tests": [
-          "TestCompletenessFoundationRejectsUnwaivedOrMalformedOperations",
+          "TestCompletenessFoundationRejectsIncompleteOrMalformedOperations",
           "TestProductionCompletenessFoundation"
         ]
       },
@@ -61,7 +40,7 @@
         "tests": [
           "TestAggregateResourceLimits",
           "TestAssemblyFailureDoesNotTouchTarget",
-          "TestAssemblyPreservesManifestAndMemberOrder",
+          "TestAssemblyIgnoresManifestAndMemberOrder",
           "TestAssemblyRejectsUnsafeOrAmbiguousInputs",
           "TestCheckAndAtomicWriteModes",
           "TestProductionAssemblyIsByteIdentical"
@@ -76,67 +55,28 @@
       "status": "active"
     },
     {
-      "row_id": "platform.openapi.unit.metadata_and_completeness_c55f58a09b",
+      "row_id": "platform.openapi.unit.release_compatibility",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
-      "collaborator_ids": [
-        "harness.generated_artifacts",
-        "package.protocol_ts"
-      ],
+      "collaborator_ids": ["harness.generated_artifacts"],
       "verification_ids": [
-        "platform.openapi.verification.metadata_and_completeness"
+        "platform.openapi.verification.release_compatibility"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/httpapi",
-        "tests": ["TestStableOpenAPIMetadataAndCompatibilityClosure"]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "platform.openapi.unit.runtime_characterization_21fb9a15ec",
-      "owner_id": "platform.openapi",
-      "family_id": "platform.openapi.unit",
-      "collaborator_ids": [
-        "module.auth",
-        "module.entities",
-        "module.evidence",
-        "module.extensions",
-        "module.imports",
-        "module.incidentbundles",
-        "module.incidents",
-        "module.jobapi",
-        "module.reference_data",
-        "module.reportcomposition",
-        "module.reporting",
-        "module.revisions",
-        "module.savedviews",
-        "module.timeline",
-        "module.workbook",
-        "platform.viewschema"
-      ],
-      "verification_ids": [
-        "platform.openapi.verification.runtime_characterization"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/server",
+        "package": "./internal/platform/openapicompat",
         "tests": [
-          "TestProductionPublicRoutesUseRegistrationBoundary",
-          "TestRuntimeOpenAPICharacterization"
+          "TestCompatibilityClassificationAndVersionPolicy",
+          "TestCompatibilityRejectsBreakingChangeWithoutMajorVersion",
+          "TestProductionContractPassesReleaseCompatibilityGate",
+          "TestReleaseRegistryRejectsModifiedSnapshot"
         ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "go_balanced",
       "fixture_profile_id": "none",
-      "default_check": false,
+      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -168,7 +108,32 @@
       "runner": "go",
       "selector": {
         "package": "./internal/app/server",
-        "tests": ["TestRuntimeOpenAPIContractParity"]
+        "tests": ["TestGeneratedRuntimeOpenAPIContractParity"]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.openapi.unit.runtime_profile_catalog",
+      "owner_id": "platform.openapi",
+      "family_id": "platform.openapi.unit",
+      "collaborator_ids": ["harness.generated_artifacts"],
+      "verification_ids": [
+        "platform.openapi.verification.runtime_profile_parity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestGeneratedContractOperationCatalogIsClosed",
+          "TestRouteRegistryBindsGeneratedPatternAndMetadata",
+          "TestRouteRegistryRejectsUnknownOwnerDuplicateAndProfileMismatch"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

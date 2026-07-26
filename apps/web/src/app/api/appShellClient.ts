@@ -1,41 +1,35 @@
 import type {
   AccountPreferencesResource,
   AccountProfileResource,
+  CreateDeploymentUserRequest,
   DensityMode,
   ExtensionDiscoveryEnvelope,
   GeneratedExtensionProfileResource,
+  GetCurrentSessionResponse,
+  GetDeploymentUserResponse,
+  ListDeploymentUsersResponse,
+  PatchDeploymentUserRequest,
+  ResetDeploymentUserPasswordRequest,
+  ResetDeploymentUserTOTPRequest,
+  RevokeAllDeploymentUserSessionsRequest,
 } from "@cartulary/protocol-ts";
-import { extensionDiscoveryDecoder } from "@cartulary/protocol-ts";
 import {
   type APIResult,
   clientTxnID,
+  fetchHTTPOperation,
   fetchJSON,
 } from "../../services/browserApi";
-import { requestJSON } from "../../services/httpTransport";
 
-export type SessionMembership = {
-  incident_id: string;
-  role: string;
-};
-
-export type SessionProviderType = "local" | "oidc" | "saml";
-export type SessionMFAState = "not_required" | "satisfied";
+export type SessionMembership =
+  GetCurrentSessionResponse["data"]["memberships"][number];
+export type SessionProviderType =
+  GetCurrentSessionResponse["data"]["provider_type"];
+export type SessionMFAState = GetCurrentSessionResponse["data"]["mfa_state"];
 export type CredentialAuthKind = "local";
 export type CredentialRecoveryModel = "admin_assisted";
 export type CredentialTOTPState = "not_enrolled" | "pending" | "active";
 
-export type SessionData = {
-  user_id: string;
-  display_name: string;
-  provider_type: SessionProviderType;
-  mfa_state: SessionMFAState;
-  is_deployment_admin: boolean;
-  authenticated_at: string;
-  idle_expires_at: string;
-  absolute_expires_at: string;
-  session_expires_at: string;
-  memberships: SessionMembership[];
-};
+export type SessionData = GetCurrentSessionResponse["data"];
 
 export type CredentialState = {
   user_id: string;
@@ -49,58 +43,21 @@ export type CredentialState = {
   };
 };
 
-export type UserResource = {
-  user_id: string;
-  email: string;
-  display_name: string;
-  user_version: number;
-  is_active: boolean;
-  mfa_required: boolean;
-  is_deployment_admin: boolean;
-  auth_bindings?: AuthBindingSummary[];
-  created_at?: string;
-  updated_at?: string;
-  updated_by_user_id?: string | null;
-  last_login_at?: string | null;
-};
+export type UserResource = GetDeploymentUserResponse["data"];
 
 export type { AccountPreferencesResource, AccountProfileResource, DensityMode };
 
 export type ExtensionProfileResource = GeneratedExtensionProfileResource;
 
-export type PagingMeta = {
-  limit: number;
-  has_more: boolean;
-  next_cursor: string | null;
-};
+export type PagingMeta = NonNullable<
+  ListDeploymentUsersResponse["meta"]["paging"]
+>;
 
-export type UserListEnvelope = {
-  data: {
-    users: UserResource[];
-  };
-  meta: {
-    paging: PagingMeta;
-    request_id: string;
-  };
-};
+export type UserListEnvelope = ListDeploymentUsersResponse;
 
 export type TotpAuthMode = "bootstrap" | "session";
 
-export type AuthBindingSummary =
-  | {
-      provider_type: "local";
-      provider_key: "local";
-      username: string;
-      created_at: string;
-    }
-  | {
-      auth_binding_id: string;
-      provider_type: "oidc" | "saml";
-      provider_key: string;
-      provider_subject: string;
-      created_at: string;
-      last_auth_at: string | null;
-    };
+export type AuthBindingSummary = UserResource["auth_bindings"][number];
 
 export type EnterpriseAuthProvider = {
   provider_key: string;
@@ -209,10 +166,11 @@ export function loadSession(apiBaseOrOptions?: string | ShellGetOptions) {
       : {
           signal: options.signal,
         };
-  return fetchJSON<DataEnvelope<SessionData>>(
-    apiPath(options.apiBase, "/api/v1/auth/session"),
-    requestInit,
-  );
+  return fetchHTTPOperation<GetCurrentSessionResponse>({
+    apiBase: options.apiBase,
+    init: requestInit,
+    operationID: "getCurrentSession",
+  });
 }
 
 export function loadCredentialState(
@@ -238,14 +196,16 @@ export function loadCredentialState(
 }
 
 export function loadAccountProfile(options?: ShellGetOptions) {
-  return fetchJSON<DataEnvelope<AccountProfileResource>>(
-    apiPath(options?.apiBase, "/api/v1/account/profile"),
-    typeof options?.signal === "undefined"
-      ? undefined
-      : {
-          signal: options.signal,
-        },
-  );
+  return fetchHTTPOperation<DataEnvelope<AccountProfileResource>>({
+    apiBase: options?.apiBase,
+    init:
+      typeof options?.signal === "undefined"
+        ? undefined
+        : {
+            signal: options.signal,
+          },
+    operationID: "getCurrentAccountProfile",
+  });
 }
 
 export function patchAccountProfile(options: {
@@ -254,9 +214,9 @@ export function patchAccountProfile(options: {
   clientTxnId?: string;
   displayName: string;
 }) {
-  return fetchJSON<DataEnvelope<AccountProfileResource>>(
-    apiPath(options.apiBase, "/api/v1/account/profile"),
-    {
+  return fetchHTTPOperation<DataEnvelope<AccountProfileResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "PATCH",
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
@@ -265,18 +225,21 @@ export function patchAccountProfile(options: {
         display_name: options.displayName,
       }),
     },
-  );
+    operationID: "patchCurrentAccountProfile",
+  });
 }
 
 export function loadAccountPreferences(options?: ShellGetOptions) {
-  return fetchJSON<DataEnvelope<AccountPreferencesResource>>(
-    apiPath(options?.apiBase, "/api/v1/account/preferences"),
-    typeof options?.signal === "undefined"
-      ? undefined
-      : {
-          signal: options.signal,
-        },
-  );
+  return fetchHTTPOperation<DataEnvelope<AccountPreferencesResource>>({
+    apiBase: options?.apiBase,
+    init:
+      typeof options?.signal === "undefined"
+        ? undefined
+        : {
+            signal: options.signal,
+          },
+    operationID: "getCurrentAccountPreferences",
+  });
 }
 
 export function putAccountPreferences(options: {
@@ -285,9 +248,9 @@ export function putAccountPreferences(options: {
   clientTxnId?: string;
   densityMode: DensityMode | null;
 }) {
-  return fetchJSON<DataEnvelope<AccountPreferencesResource>>(
-    apiPath(options.apiBase, "/api/v1/account/preferences"),
-    {
+  return fetchHTTPOperation<DataEnvelope<AccountPreferencesResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "PUT",
       body: JSON.stringify({
         base_preferences_version: options.basePreferencesVersion,
@@ -296,19 +259,21 @@ export function putAccountPreferences(options: {
         density_mode: options.densityMode,
       }),
     },
-  );
+    operationID: "putCurrentAccountPreferences",
+  });
 }
 
 export function loadExtensions(options?: ShellGetOptions) {
-  return requestJSON<ExtensionDiscoveryEnvelope>(
-    apiPath(options?.apiBase, "/api/v1/extensions"),
-    typeof options?.signal === "undefined"
-      ? undefined
-      : {
-          signal: options.signal,
-        },
-    { decoder: extensionDiscoveryDecoder },
-  );
+  return fetchHTTPOperation<ExtensionDiscoveryEnvelope>({
+    apiBase: options?.apiBase,
+    init:
+      typeof options?.signal === "undefined"
+        ? undefined
+        : {
+            signal: options.signal,
+          },
+    operationID: "listDeploymentExtensions",
+  });
 }
 
 export function loginLocal(options: {
@@ -452,22 +417,24 @@ export function createLocalUser(options: {
   isDeploymentAdmin: boolean;
   mfaRequired: boolean;
 }) {
-  return fetchJSON<DataEnvelope<UserResource>>(
-    apiPath(options.apiBase, "/api/v1/users"),
-    {
+  const request = {
+    client_txn_id:
+      options.clientTxnId ?? clientTxnID("authentication-ui-user-create"),
+    auth_kind: "local",
+    email: options.email,
+    display_name: options.displayName,
+    initial_password: options.initialPassword,
+    mfa_required: options.mfaRequired,
+    is_deployment_admin: options.isDeploymentAdmin,
+  } satisfies CreateDeploymentUserRequest;
+  return fetchHTTPOperation<DataEnvelope<UserResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "POST",
-      body: JSON.stringify({
-        client_txn_id:
-          options.clientTxnId ?? clientTxnID("authentication-ui-user-create"),
-        auth_kind: "local",
-        email: options.email,
-        display_name: options.displayName,
-        initial_password: options.initialPassword,
-        mfa_required: options.mfaRequired,
-        is_deployment_admin: options.isDeploymentAdmin,
-      }),
+      body: JSON.stringify(request),
     },
-  );
+    operationID: "createDeploymentUser",
+  });
 }
 
 export function listUsers(options?: {
@@ -479,21 +446,22 @@ export function listUsers(options?: {
   search?: string | undefined;
   signal?: AbortSignal | undefined;
 }) {
-  const params = new URLSearchParams();
-  params.set("limit", String(options?.limit ?? 100));
+  const query: Record<string, string | number> = {
+    limit: options?.limit ?? 100,
+  };
   const cursorToken = options?.cursorToken?.trim() ?? "";
   if (cursorToken !== "") {
-    params.set("cursor_token", cursorToken);
+    query.cursor_token = cursorToken;
   }
   const search = options?.search?.trim() ?? "";
   if (search !== "") {
-    params.set("search", search);
+    query.search = search;
   }
   if (typeof options?.isActive === "boolean") {
-    params.set("is_active", String(options.isActive));
+    query.is_active = String(options.isActive);
   }
   if (typeof options?.isDeploymentAdmin === "boolean") {
-    params.set("is_deployment_admin", String(options.isDeploymentAdmin));
+    query.is_deployment_admin = String(options.isDeploymentAdmin);
   }
   const requestInit =
     typeof options?.signal === "undefined"
@@ -501,19 +469,23 @@ export function listUsers(options?: {
       : {
           signal: options.signal,
         };
-  return fetchJSON<UserListEnvelope>(
-    apiPath(options?.apiBase, `/api/v1/users?${params.toString()}`),
-    requestInit,
-  );
+  return fetchHTTPOperation<UserListEnvelope>({
+    apiBase: options?.apiBase,
+    init: requestInit,
+    operationID: "listDeploymentUsers",
+    query,
+  });
 }
 
 export function loadUser(options: {
   apiBase?: string | undefined;
   userId: string;
 }) {
-  return fetchJSON<DataEnvelope<UserResource>>(
-    apiPath(options.apiBase, `/api/v1/users/${options.userId}`),
-  );
+  return fetchHTTPOperation<DataEnvelope<UserResource>>({
+    apiBase: options.apiBase,
+    operationID: "getDeploymentUser",
+    pathParameters: { user_id: options.userId },
+  });
 }
 
 export function patchLocalUser(options: {
@@ -526,20 +498,23 @@ export function patchLocalUser(options: {
   mfaRequired: boolean;
   userId: string;
 }) {
-  return fetchJSON<DataEnvelope<UserResource>>(
-    apiPath(options.apiBase, `/api/v1/users/${options.userId}`),
-    {
+  const request = {
+    base_user_version: options.baseUserVersion,
+    email: options.email,
+    display_name: options.displayName,
+    mfa_required: options.mfaRequired,
+    is_active: options.isActive,
+    is_deployment_admin: options.isDeploymentAdmin,
+  } satisfies PatchDeploymentUserRequest;
+  return fetchHTTPOperation<DataEnvelope<UserResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "PATCH",
-      body: JSON.stringify({
-        base_user_version: options.baseUserVersion,
-        email: options.email,
-        display_name: options.displayName,
-        mfa_required: options.mfaRequired,
-        is_active: options.isActive,
-        is_deployment_admin: options.isDeploymentAdmin,
-      }),
+      body: JSON.stringify(request),
     },
-  );
+    operationID: "patchDeploymentUser",
+    pathParameters: { user_id: options.userId },
+  });
 }
 
 export function createEnterpriseAuthBinding(options: {
@@ -630,20 +605,22 @@ export function adminResetPassword(options: {
   reason: string;
   userId: string;
 }) {
-  return fetchJSON<DataEnvelope<UserResource>>(
-    apiPath(options.apiBase, `/api/v1/users/${options.userId}/password/reset`),
-    {
+  const request = {
+    base_user_version: options.baseUserVersion,
+    client_txn_id:
+      options.clientTxnId ?? clientTxnID("authentication-ui-password-reset"),
+    new_password: options.newPassword,
+    reason: options.reason,
+  } satisfies ResetDeploymentUserPasswordRequest;
+  return fetchHTTPOperation<DataEnvelope<UserResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "POST",
-      body: JSON.stringify({
-        base_user_version: options.baseUserVersion,
-        client_txn_id:
-          options.clientTxnId ??
-          clientTxnID("authentication-ui-password-reset"),
-        new_password: options.newPassword,
-        reason: options.reason,
-      }),
+      body: JSON.stringify(request),
     },
-  );
+    operationID: "resetDeploymentUserPassword",
+    pathParameters: { user_id: options.userId },
+  });
 }
 
 export function adminResetTotp(options: {
@@ -653,18 +630,21 @@ export function adminResetTotp(options: {
   reason: string;
   userId: string;
 }) {
-  return fetchJSON<DataEnvelope<UserResource>>(
-    apiPath(options.apiBase, `/api/v1/users/${options.userId}/mfa/totp/reset`),
-    {
+  const request = {
+    base_user_version: options.baseUserVersion,
+    client_txn_id:
+      options.clientTxnId ?? clientTxnID("authentication-ui-totp-reset"),
+    reason: options.reason,
+  } satisfies ResetDeploymentUserTOTPRequest;
+  return fetchHTTPOperation<DataEnvelope<UserResource>>({
+    apiBase: options.apiBase,
+    init: {
       method: "POST",
-      body: JSON.stringify({
-        base_user_version: options.baseUserVersion,
-        client_txn_id:
-          options.clientTxnId ?? clientTxnID("authentication-ui-totp-reset"),
-        reason: options.reason,
-      }),
+      body: JSON.stringify(request),
     },
-  );
+    operationID: "resetDeploymentUserTOTP",
+    pathParameters: { user_id: options.userId },
+  });
 }
 
 export function adminRevokeAllSessions(options: {
@@ -673,18 +653,18 @@ export function adminRevokeAllSessions(options: {
   reason: string;
   userId: string;
 }) {
-  return fetchJSON(
-    apiPath(
-      options.apiBase,
-      `/api/v1/users/${options.userId}/sessions/revoke-all`,
-    ),
-    {
+  const request = {
+    client_txn_id:
+      options.clientTxnId ?? clientTxnID("authentication-ui-revoke-all"),
+    reason: options.reason,
+  } satisfies RevokeAllDeploymentUserSessionsRequest;
+  return fetchHTTPOperation({
+    apiBase: options.apiBase,
+    init: {
       method: "POST",
-      body: JSON.stringify({
-        client_txn_id:
-          options.clientTxnId ?? clientTxnID("authentication-ui-revoke-all"),
-        reason: options.reason,
-      }),
+      body: JSON.stringify(request),
     },
-  );
+    operationID: "revokeAllDeploymentUserSessions",
+    pathParameters: { user_id: options.userId },
+  });
 }

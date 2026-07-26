@@ -520,11 +520,23 @@ describe("WorkbookShell surface selection", () => {
           handleHrefByRecordID[recordId]?.[kind] ??
           `/api/v1/evidence-handles/${kind}-token`;
         return successEnvelope({
+          incident_id: "00000000-0000-4000-8000-000000001001",
+          record_id: "00000000-0000-4000-8000-000000004002",
+          object_blob_id: "00000000-0000-4000-8000-000000003001",
+          handle_kind: kind,
           href,
           method: "GET",
+          expires_at: "2026-07-26T12:05:00Z",
+          single_use: true,
+          media_class: "text",
           filename: "evidence.txt",
           ...(kind === "preview" ? { preview_kind: "text_inline" } : {}),
+          disposition: kind === "preview" ? "inline" : "attachment",
           content_type: "text/plain",
+          size_bytes: 18,
+          sha256: null,
+          evidence_lifecycle_state: "available",
+          upload_state: "available",
         });
       }
       if (
@@ -536,8 +548,12 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope(
           {
             view_schema_id: evidenceViewSchemaId,
-            change_set_id: "change-evidence",
-            row: evidenceRow("evidence-created", 1, "Attached screenshot"),
+            change_set_id: "00000000-0000-4000-8000-000000005001",
+            row: evidenceRow(
+              "00000000-0000-4000-8000-000000004001",
+              1,
+              "Attached screenshot",
+            ),
           },
           201,
         );
@@ -545,13 +561,25 @@ describe("WorkbookShell surface selection", () => {
       if (method === "POST" && url.endsWith("/api/v1/object-blobs")) {
         return successEnvelope(
           {
-            object_blob_id: "blob-created",
+            incident_id: "00000000-0000-4000-8000-000000001001",
+            object_blob_id: "00000000-0000-4000-8000-000000003001",
+            upload_state: "pending",
+            target_expires_at: "2026-07-26T12:05:00Z",
+            pending_expires_at: "2026-07-26T12:10:00Z",
             upload_target: {
               href: "/api/v1/object-uploads/test-token",
               method: "PUT",
+              expires_at: "2026-07-26T12:05:00Z",
               headers: {
                 "X-Upload-Contract": "evidence_lifecycle",
               },
+            },
+            accepted_contract: {
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              byte_size: 15,
+              filename_hint: "screenshot.txt",
+              content_type_hint: "text/plain",
+              sha256_hex: null,
             },
           },
           201,
@@ -565,11 +593,19 @@ describe("WorkbookShell surface selection", () => {
       }
       if (
         method === "POST" &&
-        url.endsWith("/api/v1/evidence-records/evidence-created/attach-blob")
+        url.endsWith(
+          "/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob",
+        )
       ) {
         return successEnvelope({
-          record_id: "evidence-created",
-          row_version: 2,
+          view_schema_id: evidenceViewSchemaId,
+          change_set_id: "00000000-0000-4000-8000-000000005002",
+          row: evidenceRow(
+            "00000000-0000-4000-8000-000000004001",
+            2,
+            "Attached screenshot",
+          ),
+          object_blob_id: "00000000-0000-4000-8000-000000003001",
         });
       }
       const attachMatch = url.match(
@@ -593,9 +629,9 @@ describe("WorkbookShell surface selection", () => {
         ];
         return successEnvelope({
           view_schema_id: evidenceViewSchemaId,
-          change_set_id: "change-evidence-attach",
+          change_set_id: "00000000-0000-4000-8000-000000005003",
           row,
-          object_blob_id: "blob-created",
+          object_blob_id: "00000000-0000-4000-8000-000000003001",
         });
       }
       if (method === "PATCH" && url.includes("/api/v1/records/")) {
@@ -2509,7 +2545,7 @@ describe("WorkbookShell surface selection", () => {
   it("issues opaque evidence preview and download handles from the evidence surface", async () => {
     evidenceRows = [
       {
-        record_id: "evidence-1",
+        record_id: "00000000-0000-4000-8000-000000004002",
         row_version: 4,
         cells: {
           "evidence.title": { value: "EDR package" },
@@ -2536,24 +2572,28 @@ describe("WorkbookShell surface selection", () => {
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
     );
     fireEvent.click(
-      await screen.findByTestId(evidencePreviewButtonTestId("evidence-1")),
+      await screen.findByTestId(
+        evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004002"),
+      ),
     );
 
     const frame = await screen.findByTestId(
-      evidencePreviewFrameTestId("evidence-1"),
+      evidencePreviewFrameTestId("00000000-0000-4000-8000-000000004002"),
     );
     expect(frame.getAttribute("src")).toBe(
       "/api/v1/evidence-handles/preview-token",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
-        "/api/v1/evidence-records/evidence-1/preview-handle",
+        "/api/v1/evidence-records/00000000-0000-4000-8000-000000004002/preview-handle",
       ),
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
 
     fireEvent.click(
-      screen.getByTestId(evidenceDownloadButtonTestId("evidence-1")),
+      screen.getByTestId(
+        evidenceDownloadButtonTestId("00000000-0000-4000-8000-000000004002"),
+      ),
     );
 
     await waitFor(() => {
@@ -2561,7 +2601,7 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
-        "/api/v1/evidence-records/evidence-1/download-handle",
+        "/api/v1/evidence-records/00000000-0000-4000-8000-000000004002/download-handle",
       ),
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
@@ -2569,37 +2609,69 @@ describe("WorkbookShell surface selection", () => {
 
   it("Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.", async () => {
     evidenceRows = [
-      evidenceStateRow("evidence-attach", 4, "Attach target", {
-        lifecycleState: "available",
-        uploadState: "available",
-      }),
-      evidenceStateRow("evidence-blocked", 5, "Blocked target", {
-        lifecycleState: "quarantined",
-        uploadState: "available",
-      }),
-      evidenceStateRow("evidence-failed", 6, "Failed target", {
-        lifecycleState: "available",
-        uploadState: "failed",
-      }),
-      evidenceStateRow("evidence-inconsistent", 7, "Inconsistent target", {
-        lifecycleState: "available",
-        uploadState: "storage-backend-mismatch",
-      }),
-      evidenceStateRow("evidence-raw-handle", 8, "Raw handle target", {
-        lifecycleState: "available",
-        uploadState: "available",
-      }),
-      evidenceStateRow("evidence-public-error", 9, "Public error target", {
-        lifecycleState: "available",
-        uploadState: "available",
-      }),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004010",
+        4,
+        "Attach target",
+        {
+          lifecycleState: "available",
+          uploadState: "available",
+        },
+      ),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004011",
+        5,
+        "Blocked target",
+        {
+          lifecycleState: "quarantined",
+          uploadState: "available",
+        },
+      ),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004012",
+        6,
+        "Failed target",
+        {
+          lifecycleState: "available",
+          uploadState: "failed",
+        },
+      ),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004013",
+        7,
+        "Inconsistent target",
+        {
+          lifecycleState: "available",
+          uploadState: "storage-backend-mismatch",
+        },
+      ),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004014",
+        8,
+        "Raw handle target",
+        {
+          lifecycleState: "available",
+          uploadState: "available",
+        },
+      ),
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004015",
+        9,
+        "Public error target",
+        {
+          lifecycleState: "available",
+          uploadState: "available",
+        },
+      ),
     ];
-    handleHrefByRecordID["evidence-raw-handle"] = {
+    handleHrefByRecordID["00000000-0000-4000-8000-000000004014"] = {
       preview:
         "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
     };
-    handleErrorByRecordID["evidence-public-error"] = rawStorageErrorEnvelope();
-    attachErrorByRecordID["evidence-public-error"] = rawStorageErrorEnvelope();
+    handleErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
+      rawStorageErrorEnvelope();
+    attachErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
+      rawStorageErrorEnvelope();
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -2611,12 +2683,12 @@ describe("WorkbookShell surface selection", () => {
     );
 
     for (const recordId of [
-      "evidence-attach",
-      "evidence-blocked",
-      "evidence-failed",
-      "evidence-inconsistent",
-      "evidence-raw-handle",
-      "evidence-public-error",
+      "00000000-0000-4000-8000-000000004010",
+      "00000000-0000-4000-8000-000000004011",
+      "00000000-0000-4000-8000-000000004012",
+      "00000000-0000-4000-8000-000000004013",
+      "00000000-0000-4000-8000-000000004014",
+      "00000000-0000-4000-8000-000000004015",
     ]) {
       const attachInput = await screen.findByTestId(
         evidenceAttachFileInputTestId(recordId),
@@ -2638,39 +2710,44 @@ describe("WorkbookShell surface selection", () => {
     expect(
       (
         screen.getByTestId(
-          evidencePreviewButtonTestId("evidence-blocked"),
+          evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004011"),
         ) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
     expect(
       (
         screen.getByTestId(
-          evidenceDownloadButtonTestId("evidence-failed"),
+          evidenceDownloadButtonTestId("00000000-0000-4000-8000-000000004012"),
         ) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
     expect(
       (
         screen.getByTestId(
-          evidencePreviewButtonTestId("evidence-inconsistent"),
+          evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004013"),
         ) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
     expect(
-      screen.getByTestId(evidenceAccessMessageTestId("evidence-blocked"))
-        .textContent,
+      screen.getByTestId(
+        evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004011"),
+      ).textContent,
     ).toContain("Blocked:");
     expect(
-      screen.getByTestId(evidenceAccessMessageTestId("evidence-failed"))
-        .textContent,
+      screen.getByTestId(
+        evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004012"),
+      ).textContent,
     ).toContain("Failed:");
     expect(
-      screen.getByTestId(evidenceAccessMessageTestId("evidence-inconsistent"))
-        .textContent,
+      screen.getByTestId(
+        evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004013"),
+      ).textContent,
     ).toContain("Inconsistent:");
 
     fireEvent.change(
-      screen.getByTestId(evidenceAttachFileInputTestId("evidence-attach")),
+      screen.getByTestId(
+        evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004010"),
+      ),
       {
         target: {
           files: [
@@ -2683,8 +2760,9 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(evidenceAccessMessageTestId("evidence-attach"))
-          .textContent,
+        screen.getByTestId(
+          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004010"),
+        ).textContent,
       ).toBe("Evidence attached.");
     });
     const createBlobCall = fetchMock.mock.calls.find(([input]) =>
@@ -2702,19 +2780,19 @@ describe("WorkbookShell surface selection", () => {
     });
     const attachCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith(
-        "/api/v1/evidence-records/evidence-attach/attach-blob",
+        "/api/v1/evidence-records/00000000-0000-4000-8000-000000004010/attach-blob",
       ),
     );
     expect(attachCall).toBeDefined();
     expect(JSON.parse(String((attachCall?.[1] as RequestInit).body))).toEqual({
-      object_blob_id: "blob-created",
+      object_blob_id: "00000000-0000-4000-8000-000000003001",
       base_row_version: 4,
       client_txn_id: expect.stringMatching(/^evidence-attach-/u),
     });
 
     fireEvent.change(
       screen.getByTestId(
-        evidenceAttachFileInputTestId("evidence-public-error"),
+        evidenceAttachFileInputTestId("00000000-0000-4000-8000-000000004015"),
       ),
       {
         target: {
@@ -2728,45 +2806,58 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(evidenceAccessMessageTestId("evidence-public-error"))
-          .textContent,
+        screen.getByTestId(
+          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004015"),
+        ).textContent,
       ).toBe("Conflict.");
     });
 
     fireEvent.click(
-      screen.getByTestId(evidencePreviewButtonTestId("evidence-raw-handle")),
+      screen.getByTestId(
+        evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004014"),
+      ),
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(evidenceAccessMessageTestId("evidence-raw-handle"))
-          .textContent,
+        screen.getByTestId(
+          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004014"),
+        ).textContent,
       ).toBe("Evidence handle is unavailable.");
     });
     expect(
-      screen.queryByTestId(evidencePreviewFrameTestId("evidence-raw-handle")),
+      screen.queryByTestId(
+        evidencePreviewFrameTestId("00000000-0000-4000-8000-000000004014"),
+      ),
     ).toBeNull();
 
     fireEvent.click(
-      screen.getByTestId(evidencePreviewButtonTestId("evidence-public-error")),
+      screen.getByTestId(
+        evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004015"),
+      ),
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(evidenceAccessMessageTestId("evidence-public-error"))
-          .textContent,
+        screen.getByTestId(
+          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004015"),
+        ).textContent,
       ).toBe("Conflict.");
     });
 
     fireEvent.click(
-      screen.getByTestId(evidencePreviewButtonTestId("evidence-attach")),
+      screen.getByTestId(
+        evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004010"),
+      ),
     );
     const frame = await screen.findByTestId(
-      evidencePreviewFrameTestId("evidence-attach"),
+      evidencePreviewFrameTestId("00000000-0000-4000-8000-000000004010"),
     );
     expect(frame.getAttribute("src")).toBe(
       "/api/v1/evidence-handles/preview-token",
     );
     fireEvent.click(
-      screen.getByTestId(evidenceDownloadButtonTestId("evidence-attach")),
+      screen.getByTestId(
+        evidenceDownloadButtonTestId("00000000-0000-4000-8000-000000004010"),
+      ),
     );
     await waitFor(() => {
       expect(anchorClick).toHaveBeenCalled();
@@ -2811,7 +2902,7 @@ describe("WorkbookShell surface selection", () => {
       );
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining(
-          "/api/v1/evidence-records/evidence-created/attach-blob",
+          "/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob",
         ),
         expect.objectContaining({ method: "POST" }),
       );

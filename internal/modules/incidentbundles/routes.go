@@ -83,13 +83,11 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err := service.recoverIncidentBundleJobs(context.Background()); err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/incident-bundles/export", service.handleExport)
-		httpapi.HandlePublicRoute(mux, "/api/v1/incident-bundles/import", service.handleImport)
-		httpapi.HandlePublicRoute(mux, "/api/v1/incident-bundles/", service.handleBundleMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.incidentbundles", map[string]http.HandlerFunc{
+			"exportIncidentBundle":        service.handleExport,
+			"getIncidentBundleDescriptor": service.handleBundleMember,
+			"importIncidentBundle":        service.handleImport,
+		})
 	}
 }
 

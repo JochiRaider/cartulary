@@ -142,6 +142,9 @@ describe("workbookQuery", () => {
     expect(
       workbookContractForViewSchemaId("cartulary.view.notes.v1").viewSchemaId,
     ).toBe("cartulary.view.notes.v1");
+    expect(() =>
+      workbookContractForViewSchemaId("cartulary.view.unknown.v1"),
+    ).toThrow("Unknown workbook view schema");
   });
 
   it("keeps a full semantic layout permutation while compiling visible columns", () => {

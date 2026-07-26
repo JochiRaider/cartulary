@@ -16,6 +16,7 @@ const contractDraft202012Schema = "https://json-schema.org/draft/2020-12/schema"
 var (
 	viewSchemaTopLevelKeys = stringSet(
 		"$schema",
+		"schema_id",
 		"view_schema_id",
 		"title",
 		"surface_kind",
@@ -358,6 +359,13 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	}
 	if err := requireDraftSchema(object, relativePath); err != nil {
 		return err
+	}
+	schemaID, err := requiredString(object, "schema_id", relativePath)
+	if err != nil {
+		return err
+	}
+	if schemaID != "cartulary.view_schema_source.v1" {
+		return fmt.Errorf("%s.schema_id must be cartulary.view_schema_source.v1", relativePath)
 	}
 	viewSchemaID, err := requiredString(object, "view_schema_id", relativePath)
 	if err != nil {

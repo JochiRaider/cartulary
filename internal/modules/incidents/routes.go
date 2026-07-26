@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -41,13 +40,19 @@ func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return fmt.Errorf("declare incident public operations: %w", err)
-		}
-
-		httpapi.HandlePublicRoute(mux, "/api/v1/incidents", service.handleIncidentsCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/incidents/", service.handleIncidentsMember)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.incidents", map[string]http.HandlerFunc{
+			"closeIncident":                     service.handleIncidentsMember,
+			"createIncident":                    service.handleIncidentsCollection,
+			"createIncidentMembership":          service.handleIncidentsMember,
+			"deleteIncidentMembership":          service.handleIncidentsMember,
+			"getIncident":                       service.handleIncidentsMember,
+			"listIncidentMembershipAuditEvents": service.handleIncidentsMember,
+			"listIncidentMemberships":           service.handleIncidentsMember,
+			"listVisibleIncidents":              service.handleIncidentsCollection,
+			"patchIncident":                     service.handleIncidentsMember,
+			"patchIncidentMembership":           service.handleIncidentsMember,
+			"reopenIncident":                    service.handleIncidentsMember,
+		})
 	}
 }
 

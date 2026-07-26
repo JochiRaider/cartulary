@@ -4,10 +4,10 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   type APIError,
   extractError,
-  fetchJSON,
+  fetchHTTPOperation,
   publicErrorView,
 } from "../services/browserApi";
-import { administrativeAuditEventsFromPayload } from "./deploymentAuditContract";
+import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 import { formatNullableDateTime } from "./LandingAdminDisplay";
 import {
   auditChangeTableStyle,
@@ -59,7 +59,7 @@ export function AdministrativeAuditPanel() {
 
   const loadAudit = useCallback(async () => {
     setStatus("Loading administrative audit.");
-    const params = new URLSearchParams({ limit: "100" });
+    const query: Record<string, string | number> = { limit: 100 };
     for (const [key, value] of [
       ["actor_user_id", actorUserID],
       ["action_code", actionCode],
@@ -70,32 +70,24 @@ export function AdministrativeAuditPanel() {
     ] as const) {
       const trimmed = value.trim();
       if (trimmed !== "") {
-        params.set(key, trimmed);
+        query[key] = trimmed;
       }
     }
-    const result = await fetchJSON<{
-      data: { audit_events: AdministrativeAuditEvent[] };
-    }>(`/api/v1/administrative-audit-events?${params.toString()}`);
+    const result =
+      await fetchHTTPOperation<ListAdministrativeAuditEventsResponse>({
+        operationID: "listAdministrativeAuditEvents",
+        query,
+      });
     const nextError = extractError(result.payload);
     setError(nextError);
     if (!result.ok) {
       setStatus("Administrative audit unavailable.");
       return;
     }
-    const nextEvents = administrativeAuditEventsFromPayload(result.payload);
-    if (nextEvents === null) {
-      setEvents([]);
-      setError({
-        code: "invalid_administrative_audit_response",
-        details: {},
-        message: "Administrative audit returned an invalid response.",
-        retryable: true,
-        status: 502,
-      });
-      setStatus("Administrative audit unavailable.");
-      return;
-    }
-    setEvents(nextEvents);
+    setEvents(
+      (result.payload as ListAdministrativeAuditEventsResponse).data
+        .audit_events,
+    );
     setStatus("Administrative audit loaded.");
   }, [
     actionCode,
@@ -165,7 +157,6 @@ export function AdministrativeAuditPanel() {
             <option value="auth_binding">Auth binding</option>
             <option value="backup_set">Backup set</option>
             <option value="restore_operation">Restore operation</option>
-            <option value="legacy_administrative_event">Legacy event</option>
           </select>
         </label>
         <label style={labelBlockStyle}>
@@ -397,8 +388,6 @@ function formatAuditTarget(event: AdministrativeAuditEvent) {
       return targetID === ""
         ? "Restore operation"
         : `Restore operation ${targetID}`;
-    case "legacy_administrative_event":
-      return "Legacy event";
     default:
       return targetID === ""
         ? event.target_kind
@@ -415,7 +404,6 @@ const auditActionLabels: Record<string, string> = {
   bootstrap_admin_created: "Bootstrap admin created",
   deployment_admin_granted: "Deployment admin granted",
   deployment_admin_revoked: "Deployment admin revoked",
-  legacy_administrative_event: "Legacy administrative event",
   password_changed: "Password changed",
   password_reset: "Password reset",
   restore_completed: "Restore completed",

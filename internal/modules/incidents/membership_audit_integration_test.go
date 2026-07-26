@@ -197,8 +197,9 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeID:      firstIncidentID,
 		OccurredAt:   occurredAt,
 		ActorUserID:  adminID,
-		ActionCode:   administrativeaudit.ActionLegacyAdministrativeEvent,
-		TargetKind:   administrativeaudit.TargetLegacyAdministrativeEvent,
+		ActionCode:   administrativeaudit.ActionMembershipDeleted,
+		TargetKind:   administrativeaudit.TargetIncidentMembership,
+		TargetID:     targetID,
 		ChangesJSON:  `[{"field_path":"password","value_state":"redacted","before":null,"after":null},{"field_path":"alpha","value_state":"visible","before":null,"after":"safe"}]`,
 	})
 	insertIncidentAuditProjection(t, harness.DB, incidentAuditFixture{
@@ -243,14 +244,14 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		t.Fatalf("expected descending UUID tie-breaker, got first event %v", got)
 	}
 	requireMembershipAuditResource(t, rows[0], firstIncidentID)
-	legacyChanges := rows[2]["changes"].([]any)
+	safeChanges := rows[2]["changes"].([]any)
 	if got := []string{
-		legacyChanges[0].(map[string]any)["field_path"].(string),
-		legacyChanges[1].(map[string]any)["field_path"].(string),
+		safeChanges[0].(map[string]any)["field_path"].(string),
+		safeChanges[1].(map[string]any)["field_path"].(string),
 	}; !reflect.DeepEqual(got, []string{"alpha", "password"}) {
 		t.Fatalf("changes must be field_path sorted, got %v", got)
 	}
-	redacted := legacyChanges[1].(map[string]any)
+	redacted := safeChanges[1].(map[string]any)
 	if redacted["value_state"] != administrativeaudit.ValueRedacted || redacted["before"] != nil || redacted["after"] != nil {
 		t.Fatalf("redacted change exposed a value: %#v", redacted)
 	}

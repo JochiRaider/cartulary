@@ -979,33 +979,6 @@
       "status": "active"
     },
     {
-      "row_id": "web.application.regression.deploymentauditcontract_rejects_obsolete_alias_62ca5d89e1",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [
-        "platform.audit"
-      ],
-      "verification_ids": [
-        "web.application.verification.administrative_audit_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/deploymentAuditContract.test.ts",
-        "titles": [
-          "deployment administrative-audit contract accepts the canonical response key and forward-compatible action and target values",
-          "deployment administrative-audit contract rejects malformed event shapes while preserving redacted null values",
-          "deployment administrative-audit contract rejects the obsolete response alias and mixed response shapes"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "web.application.regression.importcoordinator_suite_fd42b7df92",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1043,29 +1016,6 @@
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
           "IncidentAdminPanel keeps incident summary visible when a workbook preference route fails"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.application.regression.incidentadminpanel_keeps_membership_audit_placem_0b30c15d7e",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
-        "titles": [
-          "IncidentAdminPanel keeps membership audit placement inside incident admin controls"
         ]
       },
       "evidence_class": "unit",

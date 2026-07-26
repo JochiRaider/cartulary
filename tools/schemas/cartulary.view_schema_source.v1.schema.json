@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.view_schema_source.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "view_schema_id",
+    "title",
+    "surface_kind",
+    "source_record_types",
+    "technical_fields",
+    "required_reference_pack_keys",
+    "default_visible_fields",
+    "default_hidden_fields",
+    "default_sort",
+    "sort_fields",
+    "sort_null_order",
+    "filter_fields",
+    "synthetic_filter_predicates",
+    "grouping_fields",
+    "inline_create",
+    "inspector_config",
+    "fields"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": {
+      "const": "cartulary.view_schema_source.v1"
+    },
+    "view_schema_id": { "$ref": "#/$defs/stableKey" },
+    "title": { "$ref": "#/$defs/nonEmptyString" },
+    "surface_kind": {
+      "enum": ["built_in_sheet", "system_view"]
+    },
+    "source_record_types": { "$ref": "#/$defs/stringArray" },
+    "base_projection": { "$ref": "#/$defs/nonEmptyString" },
+    "canonical_source_filter": {
+      "$ref": "#/$defs/canonicalSourceFilter"
+    },
+    "technical_fields": { "$ref": "#/$defs/stringArray" },
+    "required_reference_pack_keys": { "$ref": "#/$defs/stringArray" },
+    "default_visible_fields": { "$ref": "#/$defs/stringArray" },
+    "default_hidden_fields": { "$ref": "#/$defs/stringArray" },
+    "default_sort": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sortEntry" }
+    },
+    "sort_fields": { "$ref": "#/$defs/stringArray" },
+    "sort_null_order": { "const": "last" },
+    "filter_fields": { "$ref": "#/$defs/stringArray" },
+    "synthetic_filter_predicates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/syntheticFilterPredicate" }
+    },
+    "grouping_fields": { "$ref": "#/$defs/stringArray" },
+    "inline_create": { "$ref": "#/$defs/inlineCreate" },
+    "inspector_config": { "$ref": "#/$defs/inspectorConfig" },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/field" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stableKey": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "nullableStableKey": {
+      "oneOf": [
+        { "$ref": "#/$defs/stableKey" },
+        { "type": "null" }
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "sortEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "direction"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/stableKey" },
+        "direction": { "enum": ["asc", "desc"] }
+      }
+    },
+    "canonicalSourceFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "field", "value"],
+      "properties": {
+        "kind": { "const": "artifact_type" },
+        "field": { "const": "artifact_type" },
+        "value": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "inlineCreate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_create_field_sets", "permits_zero_field_create"],
+      "properties": {
+        "minimum_create_field_sets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stringArray" }
+        },
+        "permits_zero_field_create": { "type": "boolean" }
+      }
+    },
+    "syntheticFilterPredicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "label", "filter_ops"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/stableKey" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "filter_ops": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_key",
+        "label",
+        "default_hidden",
+        "sortable",
+        "header_sort_field_key",
+        "filter_ops",
+        "groupable",
+        "read_kind",
+        "write_kind",
+        "grid_editable",
+        "conflict_resolution_class",
+        "entity_binding_mode",
+        "string_contract_id",
+        "direct_scalar_contract_id",
+        "direct_reference_contract_id",
+        "clearable",
+        "enum_values",
+        "writable",
+        "read_model"
+      ],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/stableKey" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "default_hidden": { "type": "boolean" },
+        "sortable": { "type": "boolean" },
+        "header_sort_field_key": { "$ref": "#/$defs/nullableStableKey" },
+        "filter_ops": { "$ref": "#/$defs/stringArray" },
+        "groupable": { "type": "boolean" },
+        "read_kind": { "$ref": "#/$defs/stableKey" },
+        "write_kind": {
+          "enum": ["read_only", "direct_value", "action_payload"]
+        },
+        "grid_editable": { "type": "boolean" },
+        "conflict_resolution_class": {
+          "oneOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            { "type": "null" }
+          ]
+        },
+        "entity_binding_mode": { "$ref": "#/$defs/nullableStableKey" },
+        "string_contract_id": { "$ref": "#/$defs/nullableStableKey" },
+        "direct_scalar_contract_id": { "$ref": "#/$defs/nullableStableKey" },
+        "direct_reference_contract_id": { "$ref": "#/$defs/nullableStableKey" },
+        "clearable": { "type": "boolean" },
+        "enum_values": {
+          "oneOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "type": "null" }
+          ]
+        },
+        "writable": { "type": "boolean" },
+        "read_model": { "$ref": "#/$defs/nonEmptyString" },
+        "write_target": { "$ref": "#/$defs/nonEmptyString" },
+        "write_action": { "$ref": "#/$defs/nonEmptyString" },
+        "create_writable": { "type": "boolean" }
+      }
+    },
+    "inspectorConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspector_config_schema_id",
+        "view_schema_id",
+        "default_open",
+        "subject_binding",
+        "no_row_state",
+        "unsupported_feature_behavior",
+        "panels",
+        "feature_groups"
+      ],
+      "properties": {
+        "inspector_config_schema_id": {
+          "const": "cartulary.inspector_config.v1"
+        },
+        "view_schema_id": { "$ref": "#/$defs/stableKey" },
+        "default_open": { "type": "boolean" },
+        "subject_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "$ref": "#/$defs/stableKey" }
+          }
+        },
+        "no_row_state": { "$ref": "#/$defs/stableKey" },
+        "unsupported_feature_behavior": { "$ref": "#/$defs/stableKey" },
+        "panels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["panel_id", "label"],
+            "properties": {
+              "panel_id": { "$ref": "#/$defs/stableKey" },
+              "label": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "feature_groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inspectorFeatureGroup" }
+        }
+      }
+    },
+    "inspectorFeatureGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_group_key",
+        "panel_id",
+        "label",
+        "minimum_incident_role",
+        "mutates",
+        "requires_confirmation",
+        "route_binding",
+        "seed_bindings",
+        "disabled_when",
+        "success_result_behavior",
+        "failure_result_behavior"
+      ],
+      "properties": {
+        "feature_group_key": { "$ref": "#/$defs/stableKey" },
+        "panel_id": { "$ref": "#/$defs/stableKey" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "minimum_incident_role": { "$ref": "#/$defs/nullableStableKey" },
+        "mutates": { "type": "boolean" },
+        "requires_confirmation": { "type": "boolean" },
+        "route_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "owner"],
+          "properties": {
+            "kind": { "$ref": "#/$defs/stableKey" },
+            "owner": { "$ref": "#/$defs/stableKey" },
+            "target_view_schema_id": { "$ref": "#/$defs/stableKey" },
+            "action_key": { "$ref": "#/$defs/stableKey" }
+          }
+        },
+        "seed_bindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["target_field_key", "source"],
+            "properties": {
+              "target_field_key": { "$ref": "#/$defs/stableKey" },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": { "$ref": "#/$defs/stableKey" },
+                  "source_field_key": { "$ref": "#/$defs/stableKey" },
+                  "value": true
+                }
+              }
+            }
+          }
+        },
+        "disabled_when": { "$ref": "#/$defs/stringArray" },
+        "success_result_behavior": { "$ref": "#/$defs/stableKey" },
+        "failure_result_behavior": { "$ref": "#/$defs/stableKey" }
+      }
+    }
+  }
+}

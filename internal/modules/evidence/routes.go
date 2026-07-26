@@ -53,16 +53,14 @@ func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/object-blobs", service.handleCreateBlob)
-		httpapi.HandlePublicRoute(mux, "PUT /api/v1/object-uploads/{upload_token}", service.handleUploadTarget)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/evidence-records/{record_id}/attach-blob", service.handleAttachBlob)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/evidence-records/{record_id}/preview-handle", service.handlePreviewHandle)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/evidence-records/{record_id}/download-handle", service.handleDownloadHandle)
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/evidence-handles/{handle_token}", service.handleRedeemHandle)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.evidence", map[string]http.HandlerFunc{
+			"attachBlobToEvidenceRecord":  service.handleAttachBlob,
+			"createObjectBlobSlot":        service.handleCreateBlob,
+			"issueEvidenceDownloadHandle": service.handleDownloadHandle,
+			"issueEvidencePreviewHandle":  service.handlePreviewHandle,
+			"redeemEvidenceHandle":        service.handleRedeemHandle,
+			"uploadObjectBlobContent":     service.handleUploadTarget,
+		})
 	}
 }
 

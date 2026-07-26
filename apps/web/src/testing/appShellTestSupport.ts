@@ -189,7 +189,7 @@ export function installLandingShellFetch(
 
 export function sessionResource(overrides?: Partial<SessionData>): SessionData {
   return {
-    user_id: "user-1",
+    user_id: "00000000-0000-4000-8000-000000000001",
     display_name: "Operator",
     provider_type: "local",
     mfa_state: "not_required",
@@ -282,7 +282,10 @@ async function dataResponse<TValue extends object>(
   if (value instanceof Response) {
     return value;
   }
-  return jsonResponse({ data: value });
+  return jsonResponse({
+    data: value,
+    meta: { request_id: "request-test" },
+  });
 }
 
 function waitForAbortWindow(signal: AbortSignal | undefined) {

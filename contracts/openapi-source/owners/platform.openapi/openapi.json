@@ -1,0 +1,267 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cartulary HTTP API",
+    "version": "2.0.0",
+    "description": "Canonical public HTTP contract assembled from machine-owned semantic-owner inputs. Runtime behavior remains owned by the corresponding application and module contracts."
+  },
+  "paths": {},
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cartulary_session"
+      },
+      "csrfCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cartulary_csrf"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      },
+      "bearerSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Cartulary session bearer credential. Credential-bootstrap tokens are rejected."
+      },
+      "credentialBootstrapBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Single-purpose credential-bootstrap bearer accepted only by TOTP enrollment operations."
+      }
+    },
+    "schemas": {
+      "EnvelopeMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          }
+        },
+        "required": [
+          "request_id"
+        ]
+      },
+      "PagingMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "limit",
+          "next_cursor",
+          "has_more"
+        ]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ErrorObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "object"
+          },
+          "conflict": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message",
+          "request_id",
+          "retryable",
+          "details"
+        ]
+      }
+    },
+    "parameters": {
+      "AuthBindingIDPathParameter": {
+        "name": "auth_binding_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ConflictTokenPathParameter": {
+        "name": "conflict_token",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EvidenceHandleTokenPathParameter": {
+        "name": "handle_token",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IncidentIDPathParameter": {
+        "name": "incident_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ProviderKeyPathParameter": {
+        "name": "provider_key",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RecordIDPathParameter": {
+        "name": "record_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "UserIDPathParameter": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ViewSchemaIDPathParameter": {
+        "name": "view_schema_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequestErrorResponse": {
+        "description": "Malformed or invalid request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ConflictErrorResponse": {
+        "description": "State, concurrency, transition, or idempotency conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ForbiddenErrorResponse": {
+        "description": "Authenticated caller lacks the required authorization or CSRF verification failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "InternalServerErrorResponse": {
+        "description": "Unexpected server failure",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotFoundErrorResponse": {
+        "description": "Resource is absent or intentionally hidden from the caller",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "TooManyRequestsErrorResponse": {
+        "description": "Request rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "UnauthorizedErrorResponse": {
+        "description": "Required session credential is missing, invalid, inactive, or expired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    }
+  }
+}

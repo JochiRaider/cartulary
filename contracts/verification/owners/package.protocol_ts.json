@@ -15,6 +15,18 @@
       ]
     },
     {
+      "verification_id": "package.protocol_ts.verification.openapi_generated_surface",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "package.protocol_ts.requirement.openapi_generated_surface"
+      ]
+    },
+    {
       "verification_id": "package.protocol_ts.verification.shared_contract",
       "behavior_class": "architecture",
       "profile": "support",

@@ -186,23 +186,33 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return fmt.Errorf("declare authentication public operations: %w", err)
+		handlers := map[string]http.HandlerFunc{
+			"beginTOTPEnrollment":             service.handleTOTPBegin,
+			"changeCurrentPassword":           service.handlePasswordChange,
+			"completeTOTPEnrollment":          service.handleTOTPComplete,
+			"createDeploymentUser":            service.handleUsersCollection,
+			"getCredentialState":              service.handleCredentialState,
+			"getCurrentAccountPreferences":    service.handleAccountPreferences,
+			"getCurrentAccountProfile":        service.handleAccountProfile,
+			"getCurrentSession":               service.handleSession,
+			"getDeploymentUser":               service.handleUsersMember,
+			"listAdministrativeAuditEvents":   service.handleAdministrativeAuditEvents,
+			"listDeploymentUsers":             service.handleUsersCollection,
+			"loginLocalUser":                  service.handleLogin,
+			"logoutCurrentSession":            service.handleLogout,
+			"patchCurrentAccountProfile":      service.handleAccountProfile,
+			"patchDeploymentUser":             service.handleUsersMember,
+			"putCurrentAccountPreferences":    service.handleAccountPreferences,
+			"resetDeploymentUserPassword":     service.handleUsersMember,
+			"resetDeploymentUserTOTP":         service.handleUsersMember,
+			"revokeAllDeploymentUserSessions": service.handleUsersMember,
 		}
-
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/login", service.handleLogin)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/session", service.handleSession)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/logout", service.handleLogout)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/credential-state", service.handleCredentialState)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/password/change", service.handlePasswordChange)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/mfa/totp/complete", service.handleTOTPComplete)
-		httpapi.HandlePublicRoute(mux, "/api/v1/account/profile", service.handleAccountProfile)
-		httpapi.HandlePublicRoute(mux, "/api/v1/account/preferences", service.handleAccountPreferences)
-		httpapi.HandlePublicRoute(mux, "/api/v1/administrative-audit-events", service.handleAdministrativeAuditEvents)
-		httpapi.HandlePublicRoute(mux, "/api/v1/users", service.handleUsersCollection)
-		httpapi.HandlePublicRoute(mux, "/api/v1/users/", service.handleUsersMember)
-		return nil
+		if settings.enterpriseAuthBindings {
+			handlers["createEnterpriseAuthBinding"] = service.handleUsersMember
+			handlers["retireEnterpriseAuthBinding"] = service.handleUsersMember
+			handlers["rotateEnterpriseAuthBinding"] = service.handleUsersMember
+		}
+		return httpapi.BindOwnerRoutes(mux, deps, "module.auth", handlers)
 	}
 }
 
@@ -218,14 +228,13 @@ func RegisterEnterpriseRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, EnterprisePublicOperations()...); err != nil {
-			return fmt.Errorf("declare enterprise authentication public operations: %w", err)
-		}
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/providers", service.handleEnterpriseProviders)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/providers/", service.handleEnterpriseProviders)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
-		httpapi.HandlePublicRoute(mux, "/api/v1/auth/saml/", service.handleEnterpriseSAML)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.auth", map[string]http.HandlerFunc{
+			"beginEnterpriseAuth":         service.handleEnterpriseProviders,
+			"completeEnterpriseOIDC":      service.handleEnterpriseOIDC,
+			"completeEnterpriseSAML":      service.handleEnterpriseSAML,
+			"finishEnterpriseSAML":        service.handleEnterpriseSAML,
+			"listEnterpriseAuthProviders": service.handleEnterpriseProviders,
+		})
 	}
 }
 

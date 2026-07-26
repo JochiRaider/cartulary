@@ -31,14 +31,12 @@ func RegisterRoutes(commands *CommandService) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := httpapi.DeclarePublicOperations(deps, PublicOperations()...); err != nil {
-			return err
-		}
-		httpapi.HandlePublicRoute(mux, "GET /api/v1/records/{record_id}/history", service.handleRecordHistory)
-		httpapi.HandlePublicRoute(mux, "DELETE /api/v1/records/{record_id}", service.handleRecordDelete)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/restore", service.handleRecordRestore)
-		httpapi.HandlePublicRoute(mux, "POST /api/v1/records/{record_id}/rollback", service.handleRecordRollback)
-		return nil
+		return httpapi.BindOwnerRoutes(mux, deps, "module.revisions", map[string]http.HandlerFunc{
+			"deleteRecord":     service.handleRecordDelete,
+			"getRecordHistory": service.handleRecordHistory,
+			"restoreRecord":    service.handleRecordRestore,
+			"rollbackRecord":   service.handleRecordRollback,
+		})
 	}
 }
 

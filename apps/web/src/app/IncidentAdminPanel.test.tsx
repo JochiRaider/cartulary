@@ -3,6 +3,7 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentMembershipAdminNoteTestId,
+  incidentMembershipAuditRowTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipEmailInputTestId,
@@ -40,16 +41,29 @@ describe("IncidentAdminPanel", () => {
   it("ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost", async () => {
     const onIncidentAccessLost = vi.fn();
     const memberships = [
-      membershipRecord("user-1", "Operator", "admin", 1),
-      membershipRecord("user-2", "Viewer Analyst", "viewer", 1),
+      membershipRecord(
+        "00000000-0000-4000-8000-000000000001",
+        "Operator",
+        "admin",
+        1,
+      ),
+      membershipRecord(
+        "00000000-0000-4000-8000-000000000002",
+        "Viewer Analyst",
+        "viewer",
+        1,
+      ),
     ];
 
     fetchMock.mockImplementation((input) => {
       const url = String(input);
-      if (url === "/api/v1/incidents/incident-1") {
+      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1/memberships") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
@@ -58,22 +72,28 @@ describe("IncidentAdminPanel", () => {
           }),
         );
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
               default_sheet_ref: null,
             },
           }),
         );
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: null,
             },
           }),
@@ -89,7 +109,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="incident-fields"
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -104,11 +124,15 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="memberships"
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
-    await screen.findByTestId(incidentMembershipRoleDisplayTestId("user-2"));
+    await screen.findByTestId(
+      incidentMembershipRoleDisplayTestId(
+        "00000000-0000-4000-8000-000000000002",
+      ),
+    );
     expect(
       screen.queryByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeNull();
@@ -116,15 +140,18 @@ describe("IncidentAdminPanel", () => {
       screen.getByTestId(incidentMembershipAdminNoteTestId()).textContent,
     ).toContain("Only incident admins");
     expect(
-      screen.getByTestId(incidentMembershipRoleDisplayTestId("user-2"))
-        .textContent,
+      screen.getByTestId(
+        incidentMembershipRoleDisplayTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ).textContent,
     ).toBe("viewer");
 
     view.rerender(
       <IncidentAdminPanel
         activeSection="incident-fields"
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -134,7 +161,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="memberships"
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -149,19 +176,31 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="memberships"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
-    await screen.findByTestId(incidentMembershipPatchButtonTestId("user-2"));
+    await screen.findByTestId(
+      incidentMembershipPatchButtonTestId(
+        "00000000-0000-4000-8000-000000000002",
+      ),
+    );
     expect(
       screen.getByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(incidentMembershipPatchButtonTestId("user-2")),
+      screen.getByTestId(
+        incidentMembershipPatchButtonTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(incidentMembershipDeleteButtonTestId("user-2")),
+      screen.getByTestId(
+        incidentMembershipDeleteButtonTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ),
     ).toBeTruthy();
     expect(
       screen.queryByTestId(incidentMembershipAdminNoteTestId()),
@@ -171,7 +210,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="incident-fields"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -193,25 +232,31 @@ describe("IncidentAdminPanel", () => {
   it("renders null and view-schema workbook preference sheet refs without treating refs as strings", async () => {
     fetchMock.mockImplementation((input) => {
       const url = String(input);
-      if (url === "/api/v1/incidents/incident-1") {
+      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
               default_sheet_ref: null,
             },
           }),
         );
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: {
                 kind: "view_schema",
                 id: "cartulary.view.timeline.v2",
@@ -227,7 +272,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="summary"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
@@ -243,14 +288,17 @@ describe("IncidentAdminPanel", () => {
   it("renders saved-view workbook preference sheet refs and marks malformed refs unavailable", async () => {
     fetchMock.mockImplementation((input) => {
       const url = String(input);
-      if (url === "/api/v1/incidents/incident-1") {
+      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
               default_sheet_ref: {
                 kind: "saved_view",
                 id: "saved-view-1",
@@ -259,12 +307,15 @@ describe("IncidentAdminPanel", () => {
           }),
         );
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: {
                 kind: "legacy_workspace",
                 id: "legacy-1",
@@ -280,7 +331,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="summary"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
@@ -306,10 +357,16 @@ describe("IncidentAdminPanel", () => {
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/incidents/incident-1" && method === "GET") {
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "GET"
+      ) {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1" && method === "PATCH") {
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "PATCH"
+      ) {
         patchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
           string,
           unknown
@@ -334,7 +391,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="incident-fields"
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
@@ -388,30 +445,42 @@ describe("IncidentAdminPanel", () => {
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/incidents/incident-1" && method === "GET") {
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "GET"
+      ) {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1" && method === "PATCH") {
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "PATCH"
+      ) {
         return patchResponse.promise;
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default"
+      ) {
         defaultPreferenceReads += 1;
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
               default_sheet_ref: null,
             },
           }),
         );
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me"
+      ) {
         userPreferenceReads += 1;
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: null,
             },
           }),
@@ -424,7 +493,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="incident-fields"
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
@@ -438,7 +507,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="summary"
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
     await waitFor(() => {
@@ -482,48 +551,239 @@ describe("IncidentAdminPanel", () => {
   });
 
   it("keeps membership audit placement inside incident admin controls", async () => {
+    let auditReads = 0;
     fetchMock.mockImplementation((input) => {
       const url = String(input);
-      if (url === "/api/v1/incidents/incident-1") {
+      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (
+        url.startsWith(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/membership-audit-events?",
+        )
+      ) {
+        auditReads += 1;
+        const continuation = url.includes("cursor_token=membership-next");
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              audit_events: [
+                membershipAuditEvent(
+                  continuation
+                    ? "00000000-0000-4000-8000-000000002002"
+                    : "00000000-0000-4000-8000-000000002001",
+                  continuation
+                    ? "membership_deleted"
+                    : "membership_role_changed",
+                ),
+              ],
+            },
+            meta: {
+              paging: {
+                has_more: !continuation,
+                limit: 50,
+                next_cursor: continuation ? null : "membership-next",
+              },
+              request_id: `request-${auditReads}`,
+            },
+          }),
+        );
       }
       throw new Error(`unexpected fetch: ${url}`);
     });
 
-    render(
+    const view = render(
       <IncidentAdminPanel
         activeSection="membership-audit"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
-    expect(await screen.findByTestId("membership-audit-note")).toBeTruthy();
-    expect(screen.getByTestId("membership-audit-note").textContent).toContain(
-      "incident-scoped",
+    expect(
+      await screen.findByTestId(
+        incidentMembershipAuditRowTestId(
+          "00000000-0000-4000-8000-000000002001",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByTestId("membership-audit-status").textContent).toBe(
+      "Membership audit loaded.",
     );
     expect(
+      screen.getByTestId(
+        incidentMembershipAuditRowTestId(
+          "00000000-0000-4000-8000-000000002001",
+        ),
+      ).textContent,
+    ).toContain("redacted");
+    fireEvent.click(screen.getByTestId("membership-audit-load-more"));
+    expect(
+      await screen.findByTestId(
+        incidentMembershipAuditRowTestId(
+          "00000000-0000-4000-8000-000000002002",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(auditReads).toBe(2);
+    expect(
       fetchMock.mock.calls.some(([input]) =>
-        String(input).includes("administrative-audit"),
+        String(input).includes("/api/v1/administrative-audit-events"),
       ),
     ).toBe(false);
+
+    view.rerender(
+      <IncidentAdminPanel
+        activeSection="membership-audit"
+        currentIncidentRole="reviewer"
+        incidentId="00000000-0000-4000-8000-000000001001"
+      />,
+    );
+    expect(await screen.findByTestId("membership-audit-note")).toBeTruthy();
+    expect(screen.getByTestId("membership-audit-note").textContent).toContain(
+      "Only incident admins",
+    );
+    expect(auditReads).toBe(2);
+  });
+
+  it("uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry", async () => {
+    const lifecycleRequests: Array<Record<string, unknown>> = [];
+    const onIncidentSnapshot = vi.fn();
+    let currentIncident = incidentSummary();
+    let incidentReads = 0;
+
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "GET"
+      ) {
+        incidentReads += 1;
+        return Promise.resolve(jsonResponse({ data: currentIncident }));
+      }
+      if (
+        (url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default" ||
+          url ===
+            "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me") &&
+        method === "GET"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: url.endsWith("/default")
+              ? {
+                  default_sheet_ref: null,
+                  incident_id: "00000000-0000-4000-8000-000000001001",
+                }
+              : {
+                  home_sheet_ref: null,
+                  incident_id: "00000000-0000-4000-8000-000000001001",
+                  user_id: "00000000-0000-4000-8000-000000000001",
+                },
+          }),
+        );
+      }
+      if (
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/close" &&
+        method === "POST"
+      ) {
+        lifecycleRequests.push(JSON.parse(String(init?.body)));
+        currentIncident = incidentSummary({
+          closed_at: "2026-07-26T12:00:00Z",
+          incident_version: 2,
+          status: "closed",
+        });
+        return Promise.resolve(
+          jsonResponse({
+            data: currentIncident,
+            meta: { request_id: "close-request" },
+          }),
+        );
+      }
+      if (
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/reopen" &&
+        method === "POST"
+      ) {
+        lifecycleRequests.push(JSON.parse(String(init?.body)));
+        currentIncident = incidentSummary({
+          closed_at: "2026-07-26T12:00:00Z",
+          incident_version: 3,
+          status: "closed",
+        });
+        return Promise.resolve(errorResponse("incident_version_conflict", 409));
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="summary"
+        currentIncidentRole="admin"
+        incidentId="00000000-0000-4000-8000-000000001001"
+        onIncidentSnapshot={onIncidentSnapshot}
+      />,
+    );
+
+    await screen.findByText("Incident controls synced.");
+    fireEvent.change(screen.getByTestId("incident-lifecycle-reason"), {
+      target: { value: "  containment complete  " },
+    });
+    fireEvent.click(screen.getByTestId("incident-close-button"));
+    await screen.findByText("Incident closed.");
+    expect(screen.getByTestId("incident-summary-status").textContent).toBe(
+      "Closed, read-only",
+    );
+    expect(lifecycleRequests[0]).toMatchObject({
+      base_incident_version: 1,
+      reason: "containment complete",
+    });
+    expect(typeof lifecycleRequests[0]?.client_txn_id).toBe("string");
+    expect(onIncidentSnapshot).toHaveBeenLastCalledWith(currentIncident);
+
+    fireEvent.change(screen.getByTestId("incident-lifecycle-reason"), {
+      target: { value: "new evidence" },
+    });
+    fireEvent.click(screen.getByTestId("incident-reopen-button"));
+    await screen.findByText(
+      "Incident changed; refreshed current state. Review and retry.",
+    );
+    expect(lifecycleRequests[1]).toMatchObject({
+      base_incident_version: 2,
+      reason: "new evidence",
+    });
+    expect(incidentReads).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.getByTestId("incident-summary-version").textContent,
+    ).toContain("3");
+    expect(
+      screen.getByTestId("incident-reopen-button").getAttribute("disabled"),
+    ).toBeNull();
   });
 
   it("keeps incident summary visible when a workbook preference route fails", async () => {
     fetchMock.mockImplementation((input) => {
       const url = String(input);
-      if (url === "/api/v1/incidents/incident-1") {
+      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default"
+      ) {
         return Promise.resolve(errorResponse("preference_unavailable", 500));
       }
-      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+      if (
+        url ===
+        "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me"
+      ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: null,
             },
           }),
@@ -536,7 +796,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="summary"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
@@ -562,17 +822,28 @@ describe("IncidentAdminPanel", () => {
       body: Record<string, unknown> | null;
       headers: Headers;
     }> = [];
-    let memberships = [membershipRecord("user-1", "Operator", "admin", 1)];
+    let memberships = [
+      membershipRecord(
+        "00000000-0000-4000-8000-000000000001",
+        "Operator",
+        "admin",
+        1,
+      ),
+    ];
 
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
 
-      if (url === "/api/v1/incidents/incident-1" && method === "GET") {
+      if (
+        url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001" &&
+        method === "GET"
+      ) {
         return Promise.resolve(jsonResponse({ data: incidentSummary() }));
       }
       if (
-        url === "/api/v1/incidents/incident-1/memberships" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships" &&
         method === "GET"
       ) {
         return Promise.resolve(
@@ -584,34 +855,37 @@ describe("IncidentAdminPanel", () => {
         );
       }
       if (
-        url === "/api/v1/incidents/incident-1/workbook-preferences/default" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/default" &&
         method === "GET"
       ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
               default_sheet_ref: null,
             },
           }),
         );
       }
       if (
-        url === "/api/v1/incidents/incident-1/workbook-preferences/me" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/workbook-preferences/me" &&
         method === "GET"
       ) {
         return Promise.resolve(
           jsonResponse({
             data: {
-              incident_id: "incident-1",
-              user_id: "user-1",
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: null,
             },
           }),
         );
       }
       if (
-        url === "/api/v1/incidents/incident-1/memberships" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships" &&
         method === "POST"
       ) {
         const body = JSON.parse(String(init?.body ?? "{}")) as Record<
@@ -626,17 +900,30 @@ describe("IncidentAdminPanel", () => {
         });
         memberships = [
           ...memberships,
-          membershipRecord("user-2", "Analyst", String(body.role), 1),
+          membershipRecord(
+            "00000000-0000-4000-8000-000000000002",
+            "Analyst",
+            String(body.role),
+            1,
+          ),
         ];
         return Promise.resolve(
           jsonResponse(
-            { data: membershipRecord("user-2", "Analyst", "viewer", 1) },
+            {
+              data: membershipRecord(
+                "00000000-0000-4000-8000-000000000002",
+                "Analyst",
+                "viewer",
+                1,
+              ),
+            },
             201,
           ),
         );
       }
       if (
-        url === "/api/v1/incidents/incident-1/memberships/user-2" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships/00000000-0000-4000-8000-000000000002" &&
         method === "PATCH"
       ) {
         const body = JSON.parse(String(init?.body ?? "{}")) as Record<
@@ -650,18 +937,29 @@ describe("IncidentAdminPanel", () => {
           headers: new Headers(init?.headers),
         });
         memberships = memberships.map((membership) =>
-          membership.user_id === "user-2"
-            ? membershipRecord("user-2", "Analyst", String(body.role), 2)
+          membership.user_id === "00000000-0000-4000-8000-000000000002"
+            ? membershipRecord(
+                "00000000-0000-4000-8000-000000000002",
+                "Analyst",
+                String(body.role),
+                2,
+              )
             : membership,
         );
         return Promise.resolve(
           jsonResponse({
-            data: membershipRecord("user-2", "Analyst", "reviewer", 2),
+            data: membershipRecord(
+              "00000000-0000-4000-8000-000000000002",
+              "Analyst",
+              "reviewer",
+              2,
+            ),
           }),
         );
       }
       if (
-        url === "/api/v1/incidents/incident-1/memberships/user-2" &&
+        url ===
+          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships/00000000-0000-4000-8000-000000000002" &&
         method === "DELETE"
       ) {
         const body = JSON.parse(String(init?.body ?? "{}")) as Record<
@@ -675,7 +973,8 @@ describe("IncidentAdminPanel", () => {
           headers: new Headers(init?.headers),
         });
         memberships = memberships.filter(
-          (membership) => membership.user_id !== "user-2",
+          (membership) =>
+            membership.user_id !== "00000000-0000-4000-8000-000000000002",
         );
         return Promise.resolve(new Response(null, { status: 204 }));
       }
@@ -687,7 +986,7 @@ describe("IncidentAdminPanel", () => {
       <IncidentAdminPanel
         activeSection="memberships"
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="00000000-0000-4000-8000-000000001001"
         onSessionRoleChange={onSessionRoleChange}
       />,
     );
@@ -704,29 +1003,45 @@ describe("IncidentAdminPanel", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(incidentMembershipRowTestId("user-2")),
+        screen.getByTestId(
+          incidentMembershipRowTestId("00000000-0000-4000-8000-000000000002"),
+        ),
       ).toBeTruthy();
     });
 
     fireEvent.change(
-      screen.getByTestId(incidentMembershipRoleInputTestId("user-2")),
+      screen.getByTestId(
+        incidentMembershipRoleInputTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ),
       {
         target: { value: "reviewer" },
       },
     );
     fireEvent.click(
-      screen.getByTestId(incidentMembershipPatchButtonTestId("user-2")),
+      screen.getByTestId(
+        incidentMembershipPatchButtonTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ),
     );
 
     await waitFor(() => {
       expect(onSessionRoleChange).toHaveBeenCalledTimes(2);
     });
     expect(
-      screen.getByTestId(incidentMembershipVersionTestId("user-2")).textContent,
+      screen.getByTestId(
+        incidentMembershipVersionTestId("00000000-0000-4000-8000-000000000002"),
+      ).textContent,
     ).toContain("Version 2");
 
     fireEvent.click(
-      screen.getByTestId(incidentMembershipDeleteButtonTestId("user-2")),
+      screen.getByTestId(
+        incidentMembershipDeleteButtonTestId(
+          "00000000-0000-4000-8000-000000000002",
+        ),
+      ),
     );
 
     await waitFor(() => {
@@ -734,13 +1049,17 @@ describe("IncidentAdminPanel", () => {
     });
     await waitFor(() => {
       expect(
-        screen.queryByTestId(incidentMembershipRowTestId("user-2")),
+        screen.queryByTestId(
+          incidentMembershipRowTestId("00000000-0000-4000-8000-000000000002"),
+        ),
       ).toBeNull();
     });
 
     expect(requests).toHaveLength(3);
     expect(requests[0]?.method).toBe("POST");
-    expect(requests[0]?.url).toBe("/api/v1/incidents/incident-1/memberships");
+    expect(requests[0]?.url).toBe(
+      "/api/v1/incidents/00000000-0000-4000-8000-000000001001/memberships",
+    );
     expect(requests[0]?.body?.email).toBe("analyst@example.test");
     expect(requests[0]?.body?.role).toBe("viewer");
     expect(typeof requests[0]?.body?.client_txn_id).toBe("string");
@@ -764,9 +1083,11 @@ describe("IncidentAdminPanel", () => {
 
 function incidentSummary(overrides?: Record<string, unknown>) {
   return {
-    incident_id: "incident-1",
+    incident_id: "00000000-0000-4000-8000-000000001001",
     incident_key: "IR-201",
     title: "Incident 201",
+    created_at: "2026-07-26T10:00:00Z",
+    created_by_user_id: "00000000-0000-4000-8000-000000000010",
     description: null,
     severity: null,
     tlp: "TLP:AMBER",
@@ -775,6 +1096,8 @@ function incidentSummary(overrides?: Record<string, unknown>) {
     incident_version: 1,
     status: "active",
     closed_at: null,
+    updated_at: "2026-07-26T11:00:00Z",
+    updated_by_user_id: "00000000-0000-4000-8000-000000000010",
     ...overrides,
   };
 }
@@ -786,11 +1109,35 @@ function membershipRecord(
   membershipVersion: number,
 ) {
   return {
-    incident_id: "incident-1",
+    incident_id: "00000000-0000-4000-8000-000000001001",
     user_id: userId,
     display_name: displayName,
     role,
     membership_version: membershipVersion,
+  };
+}
+
+function membershipAuditEvent(auditEventID: string, actionCode: string) {
+  return {
+    action_code: actionCode,
+    actor_kind: "user",
+    actor_user_id: "00000000-0000-4000-8000-000000000010",
+    audit_event_id: auditEventID,
+    changes: [
+      {
+        after: null,
+        before: null,
+        field_path: "role",
+        value_state: "redacted",
+      },
+    ],
+    occurred_at: "2026-07-26T12:00:00Z",
+    reason_code: null,
+    scope_id: "00000000-0000-4000-8000-000000001001",
+    scope_kind: "incident",
+    source: "ui",
+    target_id: "00000000-0000-4000-8000-000000000020",
+    target_kind: "incident_membership",
   };
 }
 

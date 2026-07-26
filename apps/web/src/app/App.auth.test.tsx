@@ -1085,13 +1085,13 @@ describe("ordinary app shell", () => {
 
   it("ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
     const createdUser = userResource({
-      user_id: "user-2",
+      user_id: "00000000-0000-4000-8000-000000000002",
       email: "authentication-debug-admin@example.test",
       display_name: "Authentication Admin Target",
       user_version: 1,
     });
     const adminTarget = userResource({
-      user_id: "user-1",
+      user_id: "00000000-0000-4000-8000-000000000001",
       email: "deployment-admin@example.test",
       display_name: "Deployment Admin",
       user_version: 9,
@@ -1133,6 +1133,7 @@ describe("ordinary app shell", () => {
                 users: [adminTarget],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -1147,32 +1148,35 @@ describe("ordinary app shell", () => {
           handler: () =>
             jsonResponse({
               data: createdUser,
+              meta: { request_id: "request-test" },
             }),
         },
         {
           method: "GET",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () =>
             jsonResponse({
               data: createdUser,
+              meta: { request_id: "request-test" },
             }),
         },
         {
           method: "PATCH",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () => errorResponse("user_version_conflict", 409),
         },
         {
           method: "GET",
-          url: "/api/v1/users/user-1",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000001",
           handler: () =>
             jsonResponse({
               data: adminTarget,
+              meta: { request_id: "request-test" },
             }),
         },
         {
           method: "PATCH",
-          url: "/api/v1/users/user-1",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000001",
           handler: () => errorResponse("last_deployment_admin", 409),
         },
       ],
@@ -1273,7 +1277,7 @@ describe("ordinary app shell", () => {
     });
     const patchConflictRequest = requireJSONRequest(
       fetchMock,
-      "/api/v1/users/user-2",
+      "/api/v1/users/00000000-0000-4000-8000-000000000002",
       "PATCH",
     );
     expect(patchConflictRequest.body).toEqual({
@@ -1286,7 +1290,9 @@ describe("ordinary app shell", () => {
     });
 
     fireEvent.click(
-      await screen.findByTestId(deploymentUserRowTestId("user-1")),
+      await screen.findByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000001"),
+      ),
     );
     await waitFor(() => {
       expect(
@@ -1315,7 +1321,7 @@ describe("ordinary app shell", () => {
     });
     const lastAdminPatchRequest = requireJSONRequest(
       fetchMock,
-      "/api/v1/users/user-1",
+      "/api/v1/users/00000000-0000-4000-8000-000000000001",
       "PATCH",
     );
     expect(lastAdminPatchRequest.body).toEqual({
@@ -1331,21 +1337,37 @@ describe("ordinary app shell", () => {
     ).toBe("Patch local user failed");
     expect(findFetchCalls(fetchMock, "/api/v1/users", "POST")).toHaveLength(1);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "PATCH",
+      ),
     ).toHaveLength(1);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-1", "PATCH"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000001",
+        "PATCH",
+      ),
     ).toHaveLength(1);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
-    ).toHaveLength(0);
-    expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2/mfa/totp/reset", "POST"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/password/reset",
+        "POST",
+      ),
     ).toHaveLength(0);
     expect(
       findFetchCalls(
         fetchMock,
-        "/api/v1/users/user-2/sessions/revoke-all",
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/mfa/totp/reset",
+        "POST",
+      ),
+    ).toHaveLength(0);
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/sessions/revoke-all",
         "POST",
       ),
     ).toHaveLength(0);
@@ -1353,7 +1375,7 @@ describe("ordinary app shell", () => {
 
   it("keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable", async () => {
     const loadedUser = userResource({
-      user_id: "user-2",
+      user_id: "00000000-0000-4000-8000-000000000002",
       email: "loaded-target@example.test",
       display_name: "Loaded Target",
       user_version: 7,
@@ -1375,6 +1397,7 @@ describe("ordinary app shell", () => {
                 users: [loadedUser],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -1385,12 +1408,12 @@ describe("ordinary app shell", () => {
         },
         {
           method: "GET",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () => pendingLoad.promise,
         },
         {
           method: "PATCH",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () => errorResponse("user_version_conflict", 409),
         },
       ],
@@ -1408,7 +1431,9 @@ describe("ordinary app shell", () => {
     );
 
     fireEvent.click(
-      await screen.findByTestId(deploymentUserRowTestId("user-2")),
+      await screen.findByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000002"),
+      ),
     );
     await waitFor(() => {
       expect(
@@ -1423,13 +1448,26 @@ describe("ordinary app shell", () => {
       null,
     );
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/password/reset",
+        "POST",
+      ),
     ).toHaveLength(0);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "PATCH",
+      ),
     ).toHaveLength(0);
 
-    pendingLoad.resolve(jsonResponse({ data: loadedUser }));
+    pendingLoad.resolve(
+      jsonResponse({
+        data: loadedUser,
+        meta: { request_id: "request-test" },
+      }),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(deploymentAdminTestId("target-user-version"))
@@ -1459,15 +1497,23 @@ describe("ordinary app shell", () => {
     ).toBe("Patch local user failed");
     const patchRequest = requireJSONRequest(
       fetchMock,
-      "/api/v1/users/user-2",
+      "/api/v1/users/00000000-0000-4000-8000-000000000002",
       "PATCH",
     );
     expect(patchRequest.body.base_user_version).toBe(7);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "PATCH",
+      ),
     ).toHaveLength(1);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "GET",
+      ),
     ).toHaveLength(1);
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent,
@@ -1476,7 +1522,7 @@ describe("ordinary app shell", () => {
 
   it("route-boundary deployment-admin load and action errors render public envelopes without private details", async () => {
     const loadedUser = userResource({
-      user_id: "user-2",
+      user_id: "00000000-0000-4000-8000-000000000002",
       email: "loaded-target@example.test",
       display_name: "Loaded Target",
       user_version: 7,
@@ -1499,6 +1545,7 @@ describe("ordinary app shell", () => {
                 users: [loadedUser],
               },
               meta: {
+                request_id: "request-test",
                 paging: {
                   limit: 100,
                   has_more: false,
@@ -1521,7 +1568,7 @@ describe("ordinary app shell", () => {
         },
         {
           method: "GET",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () => {
             loadAttempt += 1;
             if (loadAttempt === 1) {
@@ -1535,12 +1582,13 @@ describe("ordinary app shell", () => {
             }
             return jsonResponse({
               data: loadedUser,
+              meta: { request_id: "request-test" },
             });
           },
         },
         {
           method: "PATCH",
-          url: "/api/v1/users/user-2",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
           handler: () =>
             publicErrorResponse("invalid_user_patch", 400, {
               message: "User patch request is invalid.",
@@ -1552,7 +1600,7 @@ describe("ordinary app shell", () => {
         },
         {
           method: "POST",
-          url: "/api/v1/users/user-2/password/reset",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002/password/reset",
           handler: () =>
             publicErrorResponse("user_version_conflict", 409, {
               message: "User version conflict.",
@@ -1564,7 +1612,7 @@ describe("ordinary app shell", () => {
         },
         {
           method: "POST",
-          url: "/api/v1/users/user-2/mfa/totp/reset",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002/mfa/totp/reset",
           handler: () => {
             resetAttempt += 1;
             return publicErrorResponse("invalid_mutation_payload", 400, {
@@ -1578,7 +1626,7 @@ describe("ordinary app shell", () => {
         },
         {
           method: "POST",
-          url: "/api/v1/users/user-2/sessions/revoke-all",
+          url: "/api/v1/users/00000000-0000-4000-8000-000000000002/sessions/revoke-all",
           handler: () =>
             publicErrorResponse("authorization_denied", 403, {
               message: "Revoke-all request is denied.",
@@ -1637,7 +1685,9 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByLabelText("Close create user"));
 
     fireEvent.click(
-      await screen.findByTestId(deploymentUserRowTestId("user-2")),
+      await screen.findByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000002"),
+      ),
     );
 
     await waitFor(() => {
@@ -1671,7 +1721,11 @@ describe("ordinary app shell", () => {
     );
     expectPrivateErrorProbeNotRendered();
 
-    fireEvent.click(screen.getByTestId(deploymentUserRowTestId("user-2")));
+    fireEvent.click(
+      screen.getByTestId(
+        deploymentUserRowTestId("00000000-0000-4000-8000-000000000002"),
+      ),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(deploymentAdminTestId("target-user-version"))
@@ -1790,21 +1844,37 @@ describe("ordinary app shell", () => {
     expectPrivateErrorProbeNotRendered();
     expect(findFetchCalls(fetchMock, "/api/v1/users", "POST")).toHaveLength(1);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "GET",
+      ),
     ).toHaveLength(2);
     expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
-    ).toHaveLength(1);
-    expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
-    ).toHaveLength(1);
-    expect(
-      findFetchCalls(fetchMock, "/api/v1/users/user-2/mfa/totp/reset", "POST"),
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002",
+        "PATCH",
+      ),
     ).toHaveLength(1);
     expect(
       findFetchCalls(
         fetchMock,
-        "/api/v1/users/user-2/sessions/revoke-all",
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/password/reset",
+        "POST",
+      ),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/mfa/totp/reset",
+        "POST",
+      ),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/00000000-0000-4000-8000-000000000002/sessions/revoke-all",
         "POST",
       ),
     ).toHaveLength(1);
@@ -1984,13 +2054,18 @@ function userResource(
   }>,
 ) {
   return {
-    user_id: "user-2",
+    user_id: "00000000-0000-4000-8000-000000000002",
     email: "user-2@example.test",
     display_name: "User Two",
     user_version: 1,
     is_active: true,
     mfa_required: true,
     is_deployment_admin: false,
+    created_at: "2026-04-20T12:00:00Z",
+    updated_at: "2026-04-20T12:00:00Z",
+    updated_by_user_id: null,
+    last_login_at: null,
+    auth_bindings: [],
     ...overrides,
   };
 }

@@ -209,7 +209,7 @@ describe("App-shell API route boundaries", () => {
         body: null,
         csrfHeader: "",
         method: "GET",
-        url: "/api/v1/users?limit=50&cursor_token=cursor-2",
+        url: "/api/v1/users?cursor_token=cursor-2&limit=50",
       },
       {
         body: null,

@@ -10,6 +10,10 @@
     "vitest": "4.1.4"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./collaboration": "./src/generated/collaboration-types.ts",
+    "./core-http": "./src/generated/core-http-types.ts",
+    "./http": "./src/generated/http-operation-bindings.ts",
+    "./network-flow": "./src/generated/network-flow-types.ts"
   }
 }
