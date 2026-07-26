@@ -2,7 +2,6 @@ package timeline
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -126,7 +127,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		}, nil
 	}
 
-	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -144,7 +145,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	for _, row := range applied {
 		beforeVersion := ""
 		afterVersion := versionID(row.After.RecordID, row.After.RowVersion)
-		params := timelineMutationParams{
+		params := MutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     sequenceNo,
 			TargetKind:     "timeline_record",
@@ -170,7 +171,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
-		revision := timelineRecordRevisionParams{
+		revision := RecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    row.After.RecordID,
 			RowVersion:  row.After.RowVersion,
@@ -202,7 +203,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			actor.ID,
 			row.ChangedFieldKeys,
 			row.AfterRow,
-			len(resultRows)+1,
+			len(resultRows),
 			request.Now,
 		); err != nil {
 			return ClipboardPasteResult{}, err
@@ -296,8 +297,8 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 
 type clipboardAppliedRow struct {
 	Operation                 string
-	Before                    *projectedRecord
-	After                     projectedRecord
+	Before                    *workbookprojection.DerivedRecord
+	After                     workbookprojection.DerivedRecord
 	BeforeRow                 map[string]any
 	AfterRow                  map[string]any
 	ChangedFieldKeys          []string
@@ -308,11 +309,10 @@ type clipboardAppliedRow struct {
 
 func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, error) {
 	recordID := uuid.New()
-	current := sourceRecord{
+	current := sourcerepository.Snapshot{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		ActivityTimePairState: "disabled",
-		RawCapture:            rawCaptureWithImportColumns(nil, rowPlan.Unmapped),
 		CaptureState:          InitialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
@@ -328,10 +328,6 @@ func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor au
 		return clipboardAppliedRow{}, err
 	}
 	applyTimelineTimeConversion(&current, profile)
-	rawCaptureJSON, err := json.Marshal(current.RawCapture)
-	if err != nil {
-		return clipboardAppliedRow{}, fmt.Errorf("encode raw capture: %w", err)
-	}
 	if _, err := s.recordStore.InsertTx(ctx, tx, RecordCreateParams{
 		RecordID:        &current.RecordID,
 		IncidentID:      incidentID,
@@ -361,7 +357,6 @@ INSERT INTO timeline_events (
     activity_utc_generated,
     activity_local_generated,
     activity_time_pair_state,
-    raw_capture,
     capture_state,
     row_version,
     recorded_at,
@@ -369,15 +364,18 @@ INSERT INTO timeline_events (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'rough', 1, $4, $4, $3, $3)
-`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON); err != nil {
+VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rough', 1, $4, $4, $3, $3)
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState); err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste timeline row: %w", err)
+	}
+	if err := insertSourceProvenanceTx(ctx, tx, current.RecordID, rowPlan.Unmapped); err != nil {
+		return clipboardAppliedRow{}, err
 	}
 	mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
+	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
 		return clipboardAppliedRow{}, err
 	}
 	tagMutations, err := s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
@@ -404,7 +402,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	}, nil
 }
 
-func ensureClipboardPasteRecordIncident(current sourceRecord, incidentID uuid.UUID) error {
+func ensureClipboardPasteRecordIncident(current sourcerepository.Snapshot, incidentID uuid.UUID) error {
 	if current.IncidentID != incidentID {
 		return ErrRecordNotFound
 	}
@@ -454,7 +452,6 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	for _, cell := range acceptedCells {
 		applyPatchChangeToSource(&next, cell.Change)
 	}
-	next.RawCapture = rawCaptureWithImportColumns(current.RawCapture, rowPlan.Unmapped)
 	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
@@ -467,13 +464,14 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	mentionChanged := pasteCellsIncludeField(acceptedCells, "timeline.host_refs") || pasteCellsIncludeField(acceptedCells, "timeline.identity_refs")
 	tagChanged := pasteCellsIncludeField(acceptedCells, "timeline.tags")
 	evidenceChanged := pasteCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
-	materialChanged := hasMaterialChange(current, next)
+	provenanceChanged := len(rowPlan.Unmapped) > 0
+	materialChanged := hasMaterialChange(current, next) || provenanceChanged
 	if mentionChanged {
 		mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
-		if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
+		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
 	}
@@ -516,10 +514,6 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 		next.ReviewedAt = nil
 		next.ReviewedByUserID = nil
 	}
-	rawCaptureJSON, err := json.Marshal(next.RawCapture)
-	if err != nil {
-		return clipboardAppliedRow{}, nil, fmt.Errorf("encode raw capture: %w", err)
-	}
 	if err := tx.QueryRow(ctx, `
 UPDATE timeline_events
    SET date_entered_text = $2,
@@ -535,21 +529,23 @@ UPDATE timeline_events
        activity_utc_generated = $12,
        activity_local_generated = $13,
        activity_time_pair_state = $14,
-       raw_capture = $15,
-       capture_state = $16,
-       row_version = $17,
-       edited_at = $18,
-       updated_by_user_id = $19,
-       reviewed_at = $20,
-       reviewed_by_user_id = $21
+       capture_state = $15,
+       row_version = $16,
+       edited_at = $17,
+       updated_by_user_id = $18,
+       reviewed_at = $19,
+       reviewed_by_user_id = $20
  WHERE record_id = $1
-   AND incident_id = $22
+   AND incident_id = $21
 RETURNING recorded_at
-`, recordID, next.DateEnteredText, next.AnalystText, next.MitreStageText, next.DeviceObjectText, next.IPAddressText, next.ActivityUTCText, next.ActivityLocalText, next.RawActivityText, next.ActivitySynopsisText, next.DataSourceText, next.ActivityUTCGenerated, next.ActivityLocalGenerated, next.ActivityTimePairState, rawCaptureJSON, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
+`, recordID, next.DateEnteredText, next.AnalystText, next.MitreStageText, next.DeviceObjectText, next.IPAddressText, next.ActivityUTCText, next.ActivityLocalText, next.RawActivityText, next.ActivitySynopsisText, next.DataSourceText, next.ActivityUTCGenerated, next.ActivityLocalGenerated, next.ActivityTimePairState, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return clipboardAppliedRow{}, nil, ErrRecordNotFound
 		}
 		return clipboardAppliedRow{}, nil, fmt.Errorf("update timeline clipboard paste record: %w", err)
+	}
+	if err := insertSourceProvenanceTx(ctx, tx, recordID, rowPlan.Unmapped); err != nil {
+		return clipboardAppliedRow{}, nil, err
 	}
 	afterProjected := projectRecord(next, nil)
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
@@ -570,7 +566,7 @@ RETURNING recorded_at
 	}, conflicts, nil
 }
 
-func applyPatchChangeToSource(record *sourceRecord, change PatchChange) {
+func applyPatchChangeToSource(record *sourcerepository.Snapshot, change PatchChange) {
 	switch change.FieldKey {
 	case "timeline.date_entered_text":
 		record.DateEnteredText = change.TextValue
@@ -613,16 +609,14 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		if cell.FieldKey == "timeline.identity_refs" {
 			entityType = "identity"
 		}
-		linked, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
+		targets, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
 			originKind:                     originKind,
 		}, now)
 		if err != nil {
 			return mentionProjectionRefresh{}, err
 		}
-		if linked {
-			refresh.include(cell.FieldKey)
-		}
+		refresh.merge(targets)
 	}
 	return refresh, nil
 }
@@ -655,66 +649,4 @@ func (s *store) applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.
 		mutations = append(mutations, applied...)
 	}
 	return mutations, nil
-}
-
-func rawCaptureWithImportColumns(existing map[string]any, additions []ClipboardRawImportColumn) map[string]any {
-	next := map[string]any{}
-	for key, value := range existing {
-		next[key] = value
-	}
-	if len(additions) == 0 {
-		return next
-	}
-	columns := make([]any, 0)
-	if existingColumns, ok := next["import_columns"].([]any); ok {
-		columns = append(columns, existingColumns...)
-	}
-	for _, addition := range additions {
-		column := map[string]any{
-			"source_kind":           addition.SourceKind,
-			"source_row_ordinal":    addition.SourceRowOrdinal,
-			"source_column_ordinal": addition.SourceColumnOrdinal,
-			"source_header_text":    addition.SourceHeaderText,
-			"raw_value":             addition.RawValue,
-		}
-		if addition.PasteClientTxnID != "" {
-			column["paste_client_txn_id"] = addition.PasteClientTxnID
-		}
-		if addition.ImportSessionID != "" {
-			column["import_session_id"] = addition.ImportSessionID
-		}
-		if addition.ImportUnitID != "" {
-			column["import_unit_id"] = addition.ImportUnitID
-		}
-		if addition.MappingFingerprint != "" {
-			column["mapping_fingerprint"] = addition.MappingFingerprint
-		}
-		if addition.SourceFileKind != "" {
-			column["source_file_kind"] = addition.SourceFileKind
-		}
-		if addition.SourceContentSHA256 != "" {
-			column["source_content_sha256"] = addition.SourceContentSHA256
-		}
-		if addition.ParserProfileID != "" {
-			column["parser_profile_id"] = addition.ParserProfileID
-		}
-		if addition.ParserVersion != "" {
-			column["parser_version"] = addition.ParserVersion
-		}
-		if addition.LocatorKind != "" {
-			column["locator_kind"] = addition.LocatorKind
-		}
-		if addition.Locator != "" {
-			column["locator"] = addition.Locator
-		}
-		if addition.SourceRectA1 != "" {
-			column["source_rect_a1"] = addition.SourceRectA1
-		}
-		if addition.CellKind != "" {
-			column["cell_kind"] = addition.CellKind
-		}
-		columns = append(columns, column)
-	}
-	next["import_columns"] = columns
-	return next
 }

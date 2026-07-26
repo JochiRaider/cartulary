@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -52,6 +54,31 @@ func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "bucket") || strings.Contains(stdout.String(), "endpoint") {
 		t.Fatalf("object-store init result exposed storage details: %s", stdout.String())
+	}
+}
+
+func TestOperatorCollaborationRequeueArgs_U_RequireExactIncident(t *testing.T) {
+	var stderr bytes.Buffer
+	incidentID := uuid.New()
+	parsed := parseCollaborationRequeueArgs(
+		[]string{"--incident-id", incidentID.String(), "-config", "/etc/cartulary/config.toml"},
+		&stderr,
+	)
+	if parsed.stop || parsed.incidentID != incidentID || parsed.configPath != "/etc/cartulary/config.toml" {
+		t.Fatalf("unexpected collaboration requeue arguments: %#v stderr=%s", parsed, stderr.String())
+	}
+
+	for _, args := range [][]string{
+		nil,
+		{"--incident-id", uuid.Nil.String()},
+		{"--incident-id", "invalid"},
+		{"--incident-id", incidentID.String(), "extra"},
+	} {
+		stderr.Reset()
+		invalid := parseCollaborationRequeueArgs(args, &stderr)
+		if !invalid.stop || invalid.exitCode != 2 || !strings.Contains(stderr.String(), "--incident-id") {
+			t.Fatalf("invalid collaboration requeue arguments were admitted: args=%v parsed=%#v stderr=%s", args, invalid, stderr.String())
+		}
 	}
 }
 

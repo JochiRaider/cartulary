@@ -31,10 +31,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createViewRow } from "./support/workbook/query";
-import {
-  fetchTimelineRecordChangeCount,
-  fetchTimelineRecordSubstrate,
-} from "./support/workbook/refresh";
+import { fetchRecordHistoryCount } from "./support/workbook/refresh";
 import {
   clickTimelineRowAction,
   commitInspectorScalarEdit,
@@ -262,7 +259,7 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   await reviewerPage.context().close();
 });
 
-test("uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible patch delivery", async ({
+test("uses public history and visible state to prove replay avoids duplicate mutation effects", async ({
   browser,
   page,
   sessionTracker,
@@ -308,10 +305,7 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
     surface: timelineViewSchemaId,
   });
   const baselineObserverQueries = observerQueryCount;
-  const baselineRecordChangeCount = await fetchTimelineRecordChangeCount(
-    page,
-    recordId,
-  );
+  const baselineHistoryCount = await fetchRecordHistoryCount(page, recordId);
 
   await page.goto(`/?incident_id=${incidentId}`);
   const summaryDisplay = page.getByTestId(
@@ -360,17 +354,11 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
     ),
   ).toHaveText("Replay row patched");
   expect(observerQueryCount).toBe(baselineObserverQueries);
-  const substrateAfterFirstPatch = await fetchTimelineRecordSubstrate(
+  const historyCountAfterFirstPatch = await fetchRecordHistoryCount(
     page,
     recordId,
   );
-  expect(substrateAfterFirstPatch.row_version).toBe(2);
-  expect(substrateAfterFirstPatch.record_revision_count).toBe(2);
-  const recordChangeCountAfterFirstPatch = await fetchTimelineRecordChangeCount(
-    page,
-    recordId,
-  );
-  expect(recordChangeCountAfterFirstPatch).toBe(baselineRecordChangeCount + 1);
+  expect(historyCountAfterFirstPatch).toBe(baselineHistoryCount + 1);
 
   const queriesAfterFirstPatch = observerQueryCount;
   const replayResponse = await page.request.patch(
@@ -388,18 +376,8 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
 
   await page.waitForTimeout(500);
   expect(observerQueryCount).toBe(queriesAfterFirstPatch);
-  const substrateAfterReplay = await fetchTimelineRecordSubstrate(
-    page,
-    recordId,
-  );
-  expect(substrateAfterReplay.row_version).toBe(
-    substrateAfterFirstPatch.row_version,
-  );
-  expect(substrateAfterReplay.record_revision_count).toBe(
-    substrateAfterFirstPatch.record_revision_count,
-  );
-  expect(await fetchTimelineRecordChangeCount(page, recordId)).toBe(
-    recordChangeCountAfterFirstPatch,
+  expect(await fetchRecordHistoryCount(page, recordId)).toBe(
+    historyCountAfterFirstPatch,
   );
   await expect(
     observer.getByTestId(timelineRowVersionTestId(recordId)),

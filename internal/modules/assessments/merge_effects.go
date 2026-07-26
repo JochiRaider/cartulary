@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 )
 
 var ErrMergeProtectedSetChanged = errors.New("assessments: merge protected set changed")
@@ -154,7 +152,7 @@ UPDATE assessments
 		}
 		record.SubjectRecordID = command.SurvivorRecordID
 		record.UpdatedAt = command.Now.UTC()
-		if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, record.RecordID); err != nil {
+		if err := s.projectionRows.RefreshTx(ctx, tx, record.RecordID); err != nil {
 			return RepointMergedAssessmentsResult{}, err
 		}
 		result.Mutations = append(result.Mutations, MergeMutation{

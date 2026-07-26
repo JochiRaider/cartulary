@@ -4,10 +4,8 @@ import type {
   GridCellStateInput,
   GridColumn,
   GridDataRow,
-  GridDensity,
   GridFillIntent,
   GridHandle,
-  GridInteractionMode,
   GridRowStateInput,
 } from "@cartulary/grid-adapter";
 import {
@@ -21,10 +19,7 @@ import {
   type ViewContract,
 } from "@cartulary/view-contracts";
 import {
-  type Dispatch,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-  type SetStateAction,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -53,21 +48,11 @@ import {
   workbookGridDataState,
 } from "../../models/workbookGridState";
 import { selectInspectorConfig } from "../../models/workbookInspectorModel";
-import {
-  applyWorkbookLayoutToColumns,
-  defaultWorkbookLayoutState,
-  moveWorkbookColumn,
-  reorderWorkbookColumns,
-  setWorkbookColumnHidden,
-  setWorkbookColumnWidth,
-  type WorkbookResolvedLayoutState,
-} from "../../models/workbookLayout";
+import { applyWorkbookLayoutToColumns } from "../../models/workbookLayout";
 import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
-  type FilterDraft,
   removeFilterField,
-  type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
@@ -141,6 +126,7 @@ import {
 } from "../models/timelinePendingReplayModel";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
 import type { TimelineEntityCatalogInput } from "../models/timelineViewportContinuityModel";
+import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
@@ -151,7 +137,6 @@ import {
   type CollectionDraftKey,
   type CollectionFieldKey,
   createDraftRow,
-  type EntityApiRow,
   type FocusFieldKey,
   inputFocusKey,
   type LocalConflictState,
@@ -234,10 +219,6 @@ const createRelatedTargetContracts = new Map<string, ViewContract>(
     requireViewContract(viewSchemaId),
   ]),
 );
-type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
-type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
-export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
-
 const bulkActionFieldsetStyle = {
   border: 0,
   display: "inline-flex",
@@ -266,75 +247,17 @@ function rowStillHasAutoResolvedNotice(
 }
 
 export type TimelineWorkbookProps = {
-  incidentId: string;
-  apiBase?: string | undefined;
-  currentUserId?: string | null | undefined;
-  sheetRef?: WorkbookSheetRef | undefined;
-  inspectorResetKey?: string | undefined;
-  reloadToken?: number | undefined;
-  renderInlineQueryControls?: boolean | undefined;
-  savedViewSelector?: ReactNode | undefined;
-  filterDraft?: FilterDraft | undefined;
-  onFilterDraftChange?: FilterDraftSetter | undefined;
-  onQueryStateChange?: WorkbookQueryStateSetter | undefined;
-  queryState?: WorkbookQueryState | undefined;
-  hostEntities?: EntityRow[];
-  identityEntities?: EntityRow[];
-  entityIndex?: Record<string, EntityRow>;
-  currentIncidentRole?: IncidentRole | null;
-  density?: GridDensity | undefined;
-  layoutState?: WorkbookResolvedLayoutState | undefined;
-  onColumnHiddenChange?:
-    | ((fieldKey: string, hidden: boolean) => void)
-    | undefined;
-  onColumnMove?:
-    | ((fieldKey: string, direction: "earlier" | "later") => void)
-    | undefined;
-  onColumnReorder?:
-    | ((sourceFieldKey: string, targetFieldKey: string) => void)
-    | undefined;
-  onColumnWidthChange?: ((fieldKey: string, width: number) => void) | undefined;
-  onResetColumns?: (() => void) | undefined;
-  onRefreshEntities?: () => Promise<void> | void;
-  interactionMode?: GridInteractionMode | undefined;
-  onIncidentAccessLost?: (() => void) | undefined;
-};
-
-type EntityRow = {
-  entityType: "host" | "identity";
-  recordId: string;
-  rowVersion: number;
-  label: string;
-  secondaryText: string;
-  state: string;
-  aliasTexts: string[];
-  linkedEventCount: number;
-  rawRow: EntityApiRow;
-  identifiers: Array<{
-    key: string;
-    label: string;
-    value: string;
-  }>;
+  readonly runtime: TimelineWorkbookSurfaceRuntime;
 };
 
 function recordWorkbookTiming(
   name: string,
   details: Record<string, unknown> = {},
 ) {
-  const probe =
-    typeof window === "undefined"
-      ? undefined
-      : window.__cartularyWorkbookTimingProbe;
-  if (probe === undefined) {
+  if (typeof performance === "undefined") {
     return;
   }
-  const event = {
-    at: performance.now(),
-    name,
-    ...details,
-  };
-  probe.events.push(event);
-  probe.mark?.(event);
+  performance.mark(`cartulary.workbook.${name}`, { detail: details });
 }
 
 function ensureDraftRowWithFreshIndex(
@@ -418,33 +341,45 @@ function pruneDismissedMentions(
 }
 
 function TimelineWorkbookContent({
-  incidentId,
-  apiBase,
-  currentUserId = null,
-  sheetRef,
-  inspectorResetKey,
-  reloadToken = 0,
-  renderInlineQueryControls = true,
-  savedViewSelector,
-  filterDraft: controlledFilterDraft,
-  onFilterDraftChange,
-  onQueryStateChange,
-  queryState: controlledQueryState,
-  hostEntities = [],
-  identityEntities = [],
-  entityIndex = {},
-  currentIncidentRole = "",
-  density = "compact",
-  layoutState: controlledLayoutState,
-  onColumnHiddenChange: controlledColumnHiddenChange,
-  onColumnMove: controlledColumnMove,
-  onColumnReorder: controlledColumnReorder,
-  onColumnWidthChange: controlledColumnWidthChange,
-  onResetColumns: controlledResetColumns,
-  onRefreshEntities,
-  interactionMode = { kind: "editable" },
+  incident,
+  query,
+  entities,
+  layout,
   onIncidentAccessLost,
-}: TimelineWorkbookProps) {
+}: TimelineWorkbookSurfaceRuntime) {
+  const {
+    id: incidentId,
+    apiBase,
+    currentUserId,
+    sheetRef,
+    inspectorResetKey,
+    reloadToken,
+    currentRole: currentIncidentRole,
+  } = incident;
+  const {
+    filterDraft: shellFilterDraft,
+    setFilterDraft: setShellFilterDraft,
+    state: shellQueryState,
+    setState: setShellQueryState,
+    renderInlineControls: renderInlineQueryControls,
+    savedViewSelector,
+  } = query;
+  const {
+    hosts: hostEntities,
+    identities: identityEntities,
+    index: entityIndex,
+    refresh: onRefreshEntities,
+  } = entities;
+  const {
+    density,
+    interactionMode,
+    state: layoutState,
+    setColumnHidden: handleColumnHiddenChange,
+    moveColumn: handleColumnMove,
+    reorderColumn: handleColumnReorder,
+    setColumnWidth: handleColumnWidthChange,
+    resetColumns: handleResetColumns,
+  } = layout;
   const { clientInstanceId, connectionId } = useIncidentCollaborationSession();
   const entityCatalogInput = useMemo(
     () =>
@@ -455,10 +390,10 @@ function TimelineWorkbookContent({
     [hostEntities, identityEntities],
   );
   const timelineRuntime = useTimelineWorkbookRuntime({
-    controlledFilterDraft,
-    controlledQueryState,
-    onFilterDraftChange,
-    onQueryStateChange,
+    filterDraft: shellFilterDraft,
+    queryState: shellQueryState,
+    setFilterDraft: setShellFilterDraft,
+    setQueryState: setShellQueryState,
   });
   const {
     isInitialLoading,
@@ -483,71 +418,6 @@ function TimelineWorkbookContent({
     setFilterDraft,
     setQueryState,
   } = timelineRuntime.query;
-  const [uncontrolledLayoutState, setUncontrolledLayoutState] =
-    useState<WorkbookResolvedLayoutState>(() =>
-      defaultWorkbookLayoutState(timelineContract),
-    );
-  const layoutState = controlledLayoutState ?? uncontrolledLayoutState;
-  const handleColumnHiddenChange = useCallback(
-    (fieldKey: string, hidden: boolean) => {
-      if (controlledColumnHiddenChange !== undefined) {
-        controlledColumnHiddenChange(fieldKey, hidden);
-        return;
-      }
-      setUncontrolledLayoutState((current) =>
-        setWorkbookColumnHidden(timelineContract, current, fieldKey, hidden),
-      );
-    },
-    [controlledColumnHiddenChange],
-  );
-  const handleColumnMove = useCallback(
-    (fieldKey: string, direction: "earlier" | "later") => {
-      if (controlledColumnMove !== undefined) {
-        controlledColumnMove(fieldKey, direction);
-        return;
-      }
-      setUncontrolledLayoutState((current) =>
-        moveWorkbookColumn(timelineContract, current, fieldKey, direction),
-      );
-    },
-    [controlledColumnMove],
-  );
-  const handleColumnReorder = useCallback(
-    (sourceFieldKey: string, targetFieldKey: string) => {
-      if (controlledColumnReorder !== undefined) {
-        controlledColumnReorder(sourceFieldKey, targetFieldKey);
-        return;
-      }
-      setUncontrolledLayoutState((current) =>
-        reorderWorkbookColumns(
-          timelineContract,
-          current,
-          sourceFieldKey,
-          targetFieldKey,
-        ),
-      );
-    },
-    [controlledColumnReorder],
-  );
-  const handleColumnWidthChange = useCallback(
-    (fieldKey: string, width: number) => {
-      if (controlledColumnWidthChange !== undefined) {
-        controlledColumnWidthChange(fieldKey, width);
-        return;
-      }
-      setUncontrolledLayoutState((current) =>
-        setWorkbookColumnWidth(timelineContract, current, fieldKey, width),
-      );
-    },
-    [controlledColumnWidthChange],
-  );
-  const handleResetColumns = useCallback(() => {
-    if (controlledResetColumns !== undefined) {
-      controlledResetColumns();
-      return;
-    }
-    setUncontrolledLayoutState(defaultWorkbookLayoutState(timelineContract));
-  }, [controlledResetColumns]);
   const initialTimelineRows = useMemo(() => [createDraftRow(1)], []);
   const rowsRef = useRef<WorkbookRow[]>(initialTimelineRows);
   const draftCounterRef = useRef(2);
@@ -1786,7 +1656,12 @@ function TimelineWorkbookContent({
     conflictQueueRef,
     handleMutationConflict,
     latestCommittedTimelineRow,
+    loadRowsRef,
     pendingSavesRefsRef,
+    postMutationQueryRefreshRequired:
+      queryState.filters.length > 0 ||
+      queryState.sort.length > 0 ||
+      queryState.groupBy !== null,
     publishPendingQueueState,
     reconcileDiscardedPendingUnit,
     recordWorkbookTiming,
@@ -2951,19 +2826,17 @@ function TimelineWorkbookContent({
 }
 
 export function TimelineWorkbook(props: TimelineWorkbookProps) {
+  const { runtime } = props;
   return (
     <IncidentCollaborationBoundary
-      apiBase={props.apiBase}
-      incidentId={props.incidentId}
+      apiBase={runtime.incident.apiBase}
+      incidentId={runtime.incident.id}
       initialPresence={{
-        sheet_ref: props.sheetRef ?? {
-          kind: "view_schema",
-          id: timelineViewSchemaId,
-        },
+        sheet_ref: runtime.incident.sheetRef,
         mode: "viewing",
       }}
     >
-      <TimelineWorkbookContent {...props} key={props.incidentId} />
+      <TimelineWorkbookContent {...runtime} key={runtime.incident.id} />
     </IncidentCollaborationBoundary>
   );
 }

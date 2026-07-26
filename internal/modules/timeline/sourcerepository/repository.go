@@ -2,7 +2,6 @@ package sourcerepository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -52,7 +51,6 @@ type Snapshot struct {
 	ActivityUTCGenerated   bool
 	ActivityLocalGenerated bool
 	ActivityTimePairState  string
-	RawCapture             map[string]any
 	CaptureState           string
 	RowVersion             int64
 	RecordedAt             time.Time
@@ -237,7 +235,6 @@ SELECT
     activity_utc_generated,
     activity_local_generated,
     activity_time_pair_state,
-    raw_capture,
     capture_state,
     recorded_at,
     edited_at,
@@ -253,7 +250,6 @@ type rowScanner interface {
 
 func scanSource(row rowScanner) (Snapshot, error) {
 	var snapshot Snapshot
-	var rawCapture []byte
 	if err := row.Scan(
 		&snapshot.RecordID,
 		&snapshot.IncidentID,
@@ -270,7 +266,6 @@ func scanSource(row rowScanner) (Snapshot, error) {
 		&snapshot.ActivityUTCGenerated,
 		&snapshot.ActivityLocalGenerated,
 		&snapshot.ActivityTimePairState,
-		&rawCapture,
 		&snapshot.CaptureState,
 		&snapshot.RecordedAt,
 		&snapshot.EditedAt,
@@ -280,14 +275,6 @@ func scanSource(row rowScanner) (Snapshot, error) {
 		&snapshot.SupersededAt,
 	); err != nil {
 		return Snapshot{}, err
-	}
-	if len(rawCapture) == 0 {
-		snapshot.RawCapture = map[string]any{}
-	} else if err := json.Unmarshal(rawCapture, &snapshot.RawCapture); err != nil {
-		return Snapshot{}, fmt.Errorf("decode timeline raw capture: %w", err)
-	}
-	if snapshot.RawCapture == nil {
-		snapshot.RawCapture = map[string]any{}
 	}
 	snapshot.RecordedAt = snapshot.RecordedAt.UTC()
 	snapshot.EditedAt = snapshot.EditedAt.UTC()

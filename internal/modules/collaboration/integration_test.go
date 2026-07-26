@@ -16,6 +16,7 @@ import (
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
@@ -356,6 +357,8 @@ func setupSocketIncidentWithAdminID(t testing.TB, runtime *collabscenariotest.Ru
 
 func publishJobProgress(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, jobID string, status string) {
 	t.Helper()
+	_ = jobID
+	_ = status
 
 	var actorUserID string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -368,16 +371,27 @@ SELECT user_id::text
 		t.Fatalf("load job progress actor: %v", err)
 	}
 	now := harness.Server.Clock.Now().UTC()
-	stableJobID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(jobID))
-	if _, err := harness.DB.ExecContext(context.Background(), `
-INSERT INTO jobs (
-    job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
-    submitted_at, updated_at, progress_completed, progress_total, auth_policy
-) VALUES ($1, 'incident', $2::uuid, $3, TRUE, $4::uuid, $5, $5, 1, 2, 'incident_membership')
-`, stableJobID, incidentID, status, actorUserID, now); err != nil {
+	tx, err := harness.Pool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin job progress transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	incidentUUID := uuid.MustParse(incidentID)
+	actorUUID := uuid.MustParse(actorUserID)
+	if _, err := jobs.CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentUUID},
+		SubmittedByUserID: actorUUID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 1, Total: intPointer(2)},
+	}, now); err != nil {
 		t.Fatalf("append durable job progress: %v", err)
 	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit job progress: %v", err)
+	}
 }
+
+func intPointer(value int) *int { return &value }
 
 func waitForReplayEventCount(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, want int) {
 	t.Helper()

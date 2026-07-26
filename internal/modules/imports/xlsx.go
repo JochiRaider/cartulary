@@ -198,14 +198,6 @@ func parseXLSXTables(data []byte, importLimits Limits, archiveLimits ArchiveLimi
 	return tables, nil
 }
 
-func parseXLSXTable(data []byte, importLimits Limits, archiveLimits ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
-	tables, apiErr := parseXLSXTables(data, importLimits, archiveLimits)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-	return tables[0].Rows, nil
-}
-
 func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *httpapi.APIError) {
 	data, ok := readZipFile(files, "xl/sharedStrings.xml")
 	if !ok {

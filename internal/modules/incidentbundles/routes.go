@@ -29,12 +29,13 @@ type Service struct {
 type RouteOption func(*routeOptions)
 
 type routeOptions struct {
-	importFinalizer incidents.IncidentBundleImportFinalizer
-	jobFinalizer    JobSuccessFinalizer
-	portability     *PortabilityOrchestrator
-	transactions    *crossownertransaction.Coordinator
-	storage         BundleStorage
-	limits          Limits
+	importFinalizer   incidents.IncidentBundleImportFinalizer
+	jobFinalizer      JobSuccessFinalizer
+	portability       *PortabilityOrchestrator
+	transactions      *crossownertransaction.Coordinator
+	storage           BundleStorage
+	limits            Limits
+	projectionRebuild importProjectionRebuilder
 }
 
 func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
@@ -65,6 +66,12 @@ func WithStorage(storage BundleStorage) RouteOption {
 func WithLimits(limits Limits) RouteOption {
 	return func(options *routeOptions) {
 		options.limits = limits
+	}
+}
+
+func WithProjectionRebuild(rebuilder importProjectionRebuilder) RouteOption {
+	return func(options *routeOptions) {
+		options.projectionRebuild = rebuilder
 	}
 }
 
@@ -104,6 +111,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.storage == nil {
 		return nil, fmt.Errorf("incident bundle storage is required")
 	}
+	if options.projectionRebuild == nil {
+		return nil, fmt.Errorf("incident bundle projection rebuild is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -117,7 +127,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.limits, now, workerStartHook)
+	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.limits, now, workerStartHook)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

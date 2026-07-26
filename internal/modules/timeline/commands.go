@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -42,7 +43,7 @@ type PatchRowCommand struct {
 type ConflictResolveCommand struct {
 	Actor       authn.UserRecord
 	RecordID    uuid.UUID
-	Claims      TimelineConflictTokenClaims
+	Claims      conflicttokens.ConflictTokenClaims
 	Request     ConflictResolveRequest
 	RequestHash []byte
 	RequestID   string

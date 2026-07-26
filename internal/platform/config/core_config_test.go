@@ -352,7 +352,12 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 						return
 					}
 
-					requireDiagnostic(t, err, "roots."+rootName+".binding_kind", "profile_incompatible_binding")
+					reasonCode := "profile_incompatible_binding"
+					if profile != "disconnected" &&
+						(rootName == "reference_pack_storage" || rootName == "export_outputs") {
+						reasonCode = "process_model_incompatible_binding"
+					}
+					requireDiagnostic(t, err, "roots."+rootName+".binding_kind", reasonCode)
 				})
 			}
 		}
@@ -585,6 +590,46 @@ func TestResourceLimits_Unit(t *testing.T) {
 		if cfg.Limits.Imports.MaxRows != 777 {
 			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
 		}
+	})
+}
+
+func TestApplicationProcessModels_Unit(t *testing.T) {
+	t.Run("omission defaults to the fenced single-process model", func(t *testing.T) {
+		cfg := BaseConfig(t)
+		if cfg.Application.ProcessModel != ProcessModelSingle {
+			t.Fatalf("default process model = %q want %q", cfg.Application.ProcessModel, ProcessModelSingle)
+		}
+	})
+
+	t.Run("replicated requires shared durable bindings and one publication object service", func(t *testing.T) {
+		cfg := bootstrapDeploymentProfileConfig(t, "on_prem")
+		cfg.Application.ProcessModel = ProcessModelReplicated
+		cfg.Roots.DatabaseStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
+		cfg.Roots.ObjectStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+		cfg.Roots.BackupStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "backup-primary"}
+		cfg.Roots.ReferencePackStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+		cfg.Roots.ExportOutputs = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+		if _, err := validate(cfg); err != nil {
+			t.Fatalf("validate replicated process model: %v", err)
+		}
+
+		cfg.Roots.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: "/srv/cartulary/exports"}
+		_, err := validate(cfg)
+		requireDiagnostic(t, err, "roots.export_outputs.binding_kind", "replicated_shared_binding_required")
+	})
+
+	t.Run("replicated is rejected for disconnected deployments", func(t *testing.T) {
+		cfg := bootstrapDeploymentProfileConfig(t, "disconnected")
+		cfg.Application.ProcessModel = ProcessModelReplicated
+		_, err := validate(cfg)
+		requireDiagnostic(t, err, "application.process_model", "profile_incompatible_process_model")
+	})
+
+	t.Run("rejects unknown process models", func(t *testing.T) {
+		cfg := BaseConfig(t)
+		cfg.Application.ProcessModel = "best_effort"
+		_, err := validate(cfg)
+		requireDiagnostic(t, err, "application.process_model", "invalid_enum")
 	})
 }
 

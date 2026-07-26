@@ -24,7 +24,7 @@ const (
 	blobCreateRouteKey = "object_blobs.create"
 	blobAttachRouteKey = "evidence.attach_blob"
 
-	evidenceViewSchemaID = "cartulary.view.evidence.v1"
+	ViewSchemaID = "cartulary.view.evidence.v1"
 )
 
 var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)

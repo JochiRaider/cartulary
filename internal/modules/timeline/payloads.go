@@ -1,8 +1,12 @@
 package timeline
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
 
-func BuildActionPayload(record projectedRecord, changeSetID uuid.UUID, reason *string) map[string]any {
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+)
+
+func BuildActionPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID, reason *string) map[string]any {
 	payload := map[string]any{
 		"record_id":             record.RecordID.String(),
 		"incident_id":           record.IncidentID.String(),
@@ -15,7 +19,7 @@ func BuildActionPayload(record projectedRecord, changeSetID uuid.UUID, reason *s
 	return payload
 }
 
-func BuildMutationPayload(record projectedRecord, changeSetID uuid.UUID) map[string]any {
+func BuildMutationPayload(record workbookprojection.DerivedRecord, changeSetID uuid.UUID) map[string]any {
 	return map[string]any{
 		"view_schema_id": TimelineViewSchemaID,
 		"change_set_id":  changeSetID.String(),

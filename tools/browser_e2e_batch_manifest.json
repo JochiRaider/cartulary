@@ -1045,8 +1045,7 @@
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
             "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
-            "module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0",
-            "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10"
+            "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10"
           ],
           "specs": [
             "apps/web/e2e/timeline.support.spec.ts"

@@ -272,13 +272,18 @@
           "surface_id": "core04.process_lease",
           "decision_rows": [
             {
-              "predicate": "initial_acquisition_timeout",
+              "predicate": "single_process_model_and_initial_acquisition_timeout",
               "outcome": "exit_2",
               "condition_id": "extension_application_lease_timeout"
             },
             {
-              "predicate": "held_session_confirmed_lost",
+              "predicate": "single_process_model_and_held_session_confirmed_lost",
               "outcome": "exit_70",
+              "condition_id": "extension_application_lease_lost"
+            },
+            {
+              "predicate": "replicated_process_model_and_component_lease_lost",
+              "outcome": "component_unready_without_process_exit",
               "condition_id": "extension_application_lease_lost"
             }
           ],

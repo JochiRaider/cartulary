@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   buildRecordChangedPayload,
   emitRecordChanged,
@@ -20,7 +21,6 @@ import {
   timelineRow,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 
 describe("Timeline workbook", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -70,7 +70,7 @@ describe("Timeline workbook", () => {
     );
     fetchMock.mockReturnValueOnce(pendingPatch.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
 
     const summaryInput = (await findWorkbookCell(
       document.body,

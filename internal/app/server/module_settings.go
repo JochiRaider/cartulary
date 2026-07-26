@@ -81,5 +81,6 @@ func runtimeSettings(cfg configassembly.Deployment) RuntimeSettings {
 		ReconciliationSeconds:    cfg.Timeouts.Extensions.ReconciliationSeconds,
 		StagedObjectSweepSeconds: cfg.Intervals.Extensions.StagedObjectSweepSeconds,
 		ShutdownDrainSeconds:     cfg.Timeouts.Extensions.ShutdownDrainSeconds,
+		ProcessModel:             cfg.Application.ProcessModel,
 	}
 }

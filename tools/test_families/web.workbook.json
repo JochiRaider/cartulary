@@ -3,7 +3,7 @@
   "owner_id": "web.workbook",
   "rows": [
     {
-      "row_id": "web.workbook.boundary_support.timelinecontrollerboundarypolicy_suite_0d3042d183",
+      "row_id": "web.workbook.boundary_support.timeline_runtime_state_trace_0d3042d183",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.boundary_support",
       "collaborator_ids": [],
@@ -12,14 +12,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineControllerBoundaryPolicy.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineWorkbookRuntime.test.ts",
         "titles": [
-          "Timeline controller boundary policy composes every capability family through an explicit controller",
-          "Timeline controller boundary policy keeps socket lifecycle and private resume state outside Timeline",
-          "Timeline controller boundary policy prevents capability controllers from importing sibling controllers"
+          "Timeline workbook runtime reduces load, refresh, save, conflict, and recovery transitions deterministically"
         ]
       },
-      "evidence_class": "static",
+      "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
       "fixture_profile_id": "none",

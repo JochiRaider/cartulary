@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -1031,22 +1029,6 @@ func adaptOwnerCreateValidationError(err error) error {
 		}
 	}
 	return err
-}
-
-func changedFieldKeys(before map[string]any, after map[string]any) []string {
-	afterCells, _ := after["cells"].(map[string]any)
-	beforeCells := map[string]any{}
-	if before != nil {
-		beforeCells, _ = before["cells"].(map[string]any)
-	}
-	keys := make([]string, 0)
-	for fieldKey, afterValue := range afterCells {
-		if beforeValue, ok := beforeCells[fieldKey]; !ok || !reflect.DeepEqual(beforeValue, afterValue) {
-			keys = append(keys, fieldKey)
-		}
-	}
-	slices.Sort(keys)
-	return keys
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {

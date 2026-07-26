@@ -85,7 +85,12 @@ func (m *Manager) ClaimHandlerJob(ctx context.Context, jobID uuid.UUID, handlerN
 		leaseDuration = 30 * time.Second
 	}
 	now := m.now().UTC()
-	tag, err := m.pool.Exec(ctx, `
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `
 UPDATE jobs
    SET handler_attempts = handler_attempts + 1,
        handler_lease_owner = $3,
@@ -102,7 +107,20 @@ UPDATE jobs
 	if err != nil {
 		return false, err
 	}
-	return tag.RowsAffected() == 1, nil
+	if tag.RowsAffected() == 0 {
+		return false, tx.Commit(ctx)
+	}
+	resource, err := getJobTx(ctx, tx, jobID)
+	if err != nil {
+		return false, err
+	}
+	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (m *Manager) ReleaseHandlerLease(ctx context.Context, jobID uuid.UUID, owner string) error {
@@ -132,7 +150,12 @@ func (m *Manager) RecordHandlerError(ctx context.Context, jobID uuid.UUID, owner
 		return err
 	}
 	now := m.now().UTC()
-	_, err = m.pool.Exec(ctx, `
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `
 UPDATE jobs
    SET handler_last_error = $3,
        handler_lease_owner = CASE WHEN handler_attempts >= handler_max_attempts THEN NULL ELSE handler_lease_owner END,
@@ -148,7 +171,20 @@ UPDATE jobs
    AND handler_lease_owner = $2
    AND status IN ('queued', 'running', 'cancel_requested')
 `, jobID, owner, message, now, now.Add(7*24*time.Hour), failureJSON)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return tx.Commit(ctx)
+	}
+	resource, err := getJobTx(ctx, tx, jobID)
+	if err != nil {
+		return err
+	}
+	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (m *Manager) failExhaustedHandlerJobs(ctx context.Context, handlerName string) error {
@@ -157,7 +193,12 @@ func (m *Manager) failExhaustedHandlerJobs(ctx context.Context, handlerName stri
 	if err != nil {
 		return err
 	}
-	_, err = m.pool.Exec(ctx, `
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	rows, err := tx.Query(ctx, `
 UPDATE jobs
    SET status = 'failed',
        cancelable = false,
@@ -172,8 +213,35 @@ UPDATE jobs
  WHERE handler_name = $1
    AND status IN ('queued', 'running', 'cancel_requested')
    AND handler_attempts >= handler_max_attempts
+RETURNING job_id
 `, handlerName, now, now.Add(7*24*time.Hour), failureJSON, HandlerAttemptsExhausted)
-	return err
+	if err != nil {
+		return err
+	}
+	var jobIDs []uuid.UUID
+	for rows.Next() {
+		var jobID uuid.UUID
+		if err := rows.Scan(&jobID); err != nil {
+			rows.Close()
+			return err
+		}
+		jobIDs = append(jobIDs, jobID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, jobID := range jobIDs {
+		resource, err := getJobTx(ctx, tx, jobID)
+		if err != nil {
+			return err
+		}
+		if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func handlerFailureJSON(code string, message string, retryable bool) ([]byte, error) {

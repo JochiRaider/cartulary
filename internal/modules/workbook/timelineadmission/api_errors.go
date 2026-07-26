@@ -1,9 +1,10 @@
-package timeline
+package timelineadmission
 
 import (
 	"errors"
 	"net/http"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
@@ -21,30 +22,30 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 		return nil, false
 	}
 
-	var sameFieldConflict *SameFieldConflictError
-	var rowConflict *RowVersionConflictError
-	var transitionErr *IllegalTransitionError
+	var sameFieldConflict *timeline.SameFieldConflictError
+	var rowConflict *timeline.RowVersionConflictError
+	var transitionErr *timeline.IllegalTransitionError
 
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return httpapi.ClientTxnConflictError(context.ClientTxnID), true
-	case errors.Is(err, ErrIncidentClosed):
+	case errors.Is(err, timeline.ErrIncidentClosed):
 		return incidentClosedError(), true
-	case errors.Is(err, ErrRecordNotFound):
+	case errors.Is(err, timeline.ErrRecordNotFound):
 		return incidentNotFoundError(), true
-	case errors.Is(err, ErrRecordDeleted):
+	case errors.Is(err, timeline.ErrRecordDeleted):
 		return recordDeletedUseRestoreError(), true
 	case errors.As(err, &sameFieldConflict):
 		return sameFieldConflictAPIError(sameFieldConflict), true
 	case errors.As(err, &rowConflict):
 		return rowVersionConflictError(rowConflict.Details()), true
-	case errors.Is(err, ErrRowVersionConflict):
+	case errors.Is(err, timeline.ErrRowVersionConflict):
 		return rowVersionConflictError(map[string]any{}), true
 	case errors.As(err, &transitionErr):
 		return illegalTransitionError(context.IllegalTransitionReasonCode, transitionErr), true
-	case errors.Is(err, ErrIllegalTransition):
+	case errors.Is(err, timeline.ErrIllegalTransition):
 		return illegalTransitionError(context.IllegalTransitionReasonCode), true
-	case errors.Is(err, ErrNoEffectiveChange):
+	case errors.Is(err, timeline.ErrNoEffectiveChange):
 		field := context.NoEffectiveChangeField
 		if field == "" {
 			field = "changes"
@@ -64,7 +65,7 @@ func recordDeletedUseRestoreError() *httpapi.APIError {
 	}
 }
 
-func sameFieldConflictAPIError(err *SameFieldConflictError) *httpapi.APIError {
+func sameFieldConflictAPIError(err *timeline.SameFieldConflictError) *httpapi.APIError {
 	conflict := any(nil)
 	if err != nil {
 		conflict = err.Conflict
@@ -166,7 +167,7 @@ func rowVersionConflictError(details ...map[string]any) *httpapi.APIError {
 
 func illegalTransitionError(reasonCode string, sourceErr ...error) *httpapi.APIError {
 	details := map[string]any{}
-	var transitionErr *IllegalTransitionError
+	var transitionErr *timeline.IllegalTransitionError
 	for _, err := range sourceErr {
 		if errors.As(err, &transitionErr) {
 			break

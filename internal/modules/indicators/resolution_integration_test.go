@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
@@ -98,7 +97,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 		t.Fatalf("clear indicator projections: %v", err)
 	}
-	if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentIndicators(context.Background(), incidentID); err != nil {
+	if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildIndicators(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild indicator projections: %v", err)
 	}
 	rowAfterRebuild := scenariotest.FindRow(t, scenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, login), recordID.String())

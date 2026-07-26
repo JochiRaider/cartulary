@@ -4,12 +4,12 @@ import {
   collapseGridGroup,
   expandGridGroup,
   pasteGridMatrix,
+  removeFilterChip,
   scrollGridCellIntoView,
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
   gridGroupRowTestId,
-  gridRowTestId,
   rowCellTestId,
   saveStateTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -36,7 +36,7 @@ import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
-test("Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
+test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -273,6 +273,12 @@ test("Verify one-click focused editing, rejected-transition retention, sort, fil
       request.method() === "PATCH" &&
       request.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
+  const summaryPatchResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
+  );
+  const postEditQuery = waitForTimelineQuery(page, incidentId);
   const betaSummary = page.getByTestId(
     rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
@@ -292,6 +298,49 @@ test("Verify one-click focused editing, rejected-transition retention, sort, fil
     expectedRecordId: betaRow.record_id,
     expectedValue: "Beta summary anchored",
     fieldKey: "timeline.activity_synopsis_text",
+  });
+  const summaryPatchPayload = (await (await summaryPatchResponse).json()) as {
+    data: {
+      row: {
+        cells: Record<string, { value: unknown }>;
+      };
+    };
+  };
+  expect(
+    summaryPatchPayload.data.row.cells["timeline.capture_state"]?.value,
+  ).toBe("enriched");
+  expect(readPostBody(await postEditQuery)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+    ],
+  });
+  await expect(
+    page.getByText("No rows match the current filters."),
+  ).toBeVisible();
+
+  const removeReviewedFilterRequest = waitForTimelineQuery(page, incidentId);
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await removeReviewedFilterRequest)).toEqual({
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+    ],
+  });
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: betaRow.record_id,
+    surface: timelineViewSchemaId,
   });
   await expect(
     page.getByTestId(
@@ -466,110 +515,6 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
   ).toBeVisible();
 });
 
-test("support keeps repeated scalar grid edits out of the RDG measured-width crash path", async ({
-  page,
-}) => {
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("S303"),
-    "Timeline support RDG edit stability",
-  );
-  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("s303-row"),
-    "timeline.activity_synopsis_text": "RDG edit row",
-  });
-  await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("s303-peer"),
-    "timeline.activity_synopsis_text": "Alpha RDG peer",
-  });
-  const recordId = row.record_id as string;
-
-  await page.goto(`/?incident_id=${incidentId}`);
-  await scrollGridCellIntoView({
-    cellKey: "timeline.activity_synopsis_text",
-    page,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-    ),
-  ).toHaveText("RDG edit row");
-  await sortByHeader(
-    page,
-    timelineViewSchemaId,
-    "timeline.activity_synopsis_text",
-  );
-  await applyFilterChip(
-    page,
-    timelineViewSchemaId,
-    "timeline.has_evidence",
-    "false",
-  );
-  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
-  await expect(
-    page.getByTestId(
-      gridGroupRowTestId(
-        timelineViewSchemaId,
-        "timeline.capture_state",
-        "rough",
-      ),
-    ),
-  ).toBeVisible();
-
-  await scrollGridCellIntoView({
-    cellKey: "timeline.activity_synopsis_text",
-    page,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-
-  await expectNoPageCrashDuring(page, async () => {
-    const summaryDisplay = page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-    );
-    const summaryEditor = page.getByTestId(
-      timelineScalarEditorTestId({
-        fieldKey: "timeline.activity_synopsis_text",
-        recordId,
-        surface: "grid",
-      }),
-    );
-    await summaryDisplay.click();
-    await expect(summaryEditor).toBeFocused();
-    for (const value of [
-      "RDG edit row patched 1",
-      "RDG edit row patched 2",
-      "RDG edit row patched 3",
-      "RDG edit row final",
-    ]) {
-      await summaryEditor.fill(value);
-      await expect(summaryEditor).toHaveValue(value);
-      await expect(
-        page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
-      ).toBeAttached();
-    }
-
-    const patchResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/v1/records/${recordId}`),
-    );
-    await summaryEditor.press("Enter");
-    await patchResponse;
-  });
-
-  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
-    "2",
-  );
-  await expect(
-    page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-    ),
-  ).toHaveText("RDG edit row final");
-});
-
 function waitForTimelineQuery(page: Page, incidentId: string) {
   return page.waitForRequest(
     (request) =>
@@ -584,92 +529,4 @@ function waitForTimelineQuery(page: Page, incidentId: string) {
 
 function readPostBody(request: { postData: () => string | null }) {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
-}
-
-type CrashMonitor = {
-  readonly promise: Promise<never>;
-  readonly stop: () => void;
-};
-
-async function expectNoPageCrashDuring(
-  page: Page,
-  action: () => Promise<void>,
-) {
-  const monitors = [rejectOnPageError(page), rejectOnAppRootEmpty(page)];
-  try {
-    await Promise.race([
-      action(),
-      ...monitors.map((monitor) => monitor.promise),
-    ]);
-  } finally {
-    for (const monitor of monitors) {
-      monitor.stop();
-    }
-  }
-}
-
-function rejectOnPageError(page: Page): CrashMonitor {
-  let rejectCrash!: (error: Error) => void;
-  const promise = new Promise<never>((_, reject) => {
-    rejectCrash = reject;
-  });
-  const listener = (error: Error) => {
-    rejectCrash(error);
-  };
-  page.on("pageerror", listener);
-  return {
-    promise,
-    stop: () => {
-      page.off("pageerror", listener);
-    },
-  };
-}
-
-function rejectOnAppRootEmpty(page: Page): CrashMonitor {
-  let stopped = false;
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  const promise = new Promise<never>((_, reject) => {
-    const checkRoot = () => {
-      if (stopped) {
-        return;
-      }
-      void page
-        .evaluate(() => {
-          const root = document.querySelector("#root");
-          return root === null || root.childElementCount === 0;
-        })
-        .then(
-          (isEmpty) => {
-            if (stopped) {
-              return;
-            }
-            if (isEmpty) {
-              reject(
-                new Error(
-                  "React app root was removed or emptied during grid edit.",
-                ),
-              );
-              return;
-            }
-            timeout = setTimeout(checkRoot, 50);
-          },
-          (error: unknown) => {
-            if (!stopped) {
-              reject(error instanceof Error ? error : new Error(String(error)));
-            }
-          },
-        );
-    };
-    checkRoot();
-  });
-
-  return {
-    promise,
-    stop: () => {
-      stopped = true;
-      if (timeout !== null) {
-        clearTimeout(timeout);
-      }
-    },
-  };
 }

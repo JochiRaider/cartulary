@@ -47,11 +47,6 @@ func (h *Hub) startEventSend(eventType string) func(result string, dropReason st
 	}
 }
 
-func (h *Hub) recordEventSend(eventType string, result string, dropReason string) {
-	finish := h.startEventSend(eventType)
-	finish(result, dropReason)
-}
-
 func (h *Hub) finishEventSend(ctx context.Context, span trace.Span, eventType string, result string, dropReason string) {
 	eventType = safeWebSocketEventType(eventType)
 	result = safeWebSocketResult(result)

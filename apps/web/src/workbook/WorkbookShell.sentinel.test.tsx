@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -35,7 +36,6 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { clipboardTextLooksTabular } from "./utils/workbookClipboard";
 
 vi.mock(
@@ -241,7 +241,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -346,7 +348,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -411,7 +415,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -515,7 +521,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -570,7 +578,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
@@ -641,7 +651,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(
       container,
@@ -702,7 +714,7 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await screen.findByTestId(saveStateTestId());
 
     const clipboardText = "2026-06-14,test1,host1\n2026-06-15,test2,host2";
@@ -825,7 +837,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, [
       "record-3",
@@ -964,7 +978,9 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
 
@@ -1127,7 +1143,10 @@ describe("keyboard and grid anchor coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbook currentIncidentRole="editor" incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
+        incidentId="incident-1"
+      />,
     );
     await waitForTimelineWorkbookReady(container, 2);
     fireEvent.click(

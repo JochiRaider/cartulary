@@ -23,7 +23,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
@@ -290,7 +289,7 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	}
 	projectionRebuild := i.projectionRebuild
 	if projectionRebuild == nil {
-		projectionRebuild = projectionadapters.NewIncidentImportRebuilder(i.pool)
+		return uuid.UUID{}, errors.New("incident bundle projection rebuild is required")
 	}
 	if err := projectionRebuild.RebuildImportedIncidentTx(ctx, tx, incidentID); err != nil {
 		return uuid.UUID{}, err

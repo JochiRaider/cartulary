@@ -3,9 +3,7 @@ package scenariotest
 import (
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -35,15 +33,5 @@ func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string
 		Prefix:        prefix,
 		Dependencies:  deps,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-}
-
-func (h *RuntimeHarness) StartServerWithTimelineDependencies(t testing.TB, prefix string, factory func(postgres.DB) timeline.Dependencies) *ServerHarness {
-	t.Helper()
-
-	return h.Runtime.StartServer(t, appsupport.ServerOptions{
-		Prefix:               prefix,
-		TestRouteMode:        httptestx.TestRouteModeDisabled,
-		TimelineDependencies: factory,
 	})
 }

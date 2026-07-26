@@ -623,6 +623,13 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		return MergeResult{}, err
 	}
 	timelineInvalidations := mergeTimelineInvalidations(mentionTimelineInvalidations, relationshipTimelineInvalidations)
+	timelineRecordIDs := make([]uuid.UUID, 0, len(timelineInvalidations))
+	for _, invalidation := range timelineInvalidations {
+		timelineRecordIDs = append(timelineRecordIDs, invalidation.RecordID)
+	}
+	if err := s.ports.timeline.RefreshTimelineProjectionRowsTx(ctx, tx, timelineRecordIDs); err != nil {
+		return MergeResult{}, err
+	}
 
 	result := MergeResult{
 		StatusCode:       http.StatusOK,

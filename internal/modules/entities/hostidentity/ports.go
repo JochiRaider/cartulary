@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -81,7 +81,7 @@ func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
-		projections: entityProjectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
+		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
 }
 
@@ -118,15 +118,15 @@ func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pg
 }
 
 type entityProjectionAdapter struct {
-	projector *projectionadapters.RowProjector
+	rows *projections.EntityRows
 }
 
 func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+		return a.rows.RefreshHostTx(ctx, tx, recordID)
 	case "identity":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
 	default:
 		return nil
 	}

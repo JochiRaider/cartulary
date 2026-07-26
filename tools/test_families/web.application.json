@@ -1170,7 +1170,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.application.regression.workbookapi_adds_the_timing_debug_header_only_fo_d76ad3c9b9",
+      "row_id": "web.application.regression.workbookapi_does_not_expose_a_private_timing_requ_8ce6af32c4",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
       "collaborator_ids": [],
@@ -1181,7 +1181,7 @@
       "selector": {
         "file": "apps/web/src/services/workbookApi.test.ts",
         "titles": [
-          "workbookApi adds the timing debug header only for timeline row POSTs when the probe is installed"
+          "workbookApi does not expose a private timing request protocol"
         ]
       },
       "evidence_class": "unit",

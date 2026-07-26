@@ -10,18 +10,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 )
 
-func (s *store) loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourceRecord, error) {
+func (s *store) loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourcerepository.Snapshot, error) {
 	record, err := s.sourceRepository.LoadTx(ctx, tx, recordID)
 	if errors.Is(err, sourcerepository.ErrNotFound) {
-		return sourceRecord{}, ErrRecordNotFound
+		return sourcerepository.Snapshot{}, ErrRecordNotFound
 	}
 	return record, err
 }
 
-func (s *store) loadSourceRecordForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (sourceRecord, error) {
+func (s *store) loadSourceRecordForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (sourcerepository.Snapshot, error) {
 	record, err := s.sourceRepository.LoadForIncidentTx(ctx, tx, incidentID, recordID)
 	if errors.Is(err, sourcerepository.ErrNotFound) {
-		return sourceRecord{}, ErrRecordNotFound
+		return sourcerepository.Snapshot{}, ErrRecordNotFound
 	}
 	return record, err
 }

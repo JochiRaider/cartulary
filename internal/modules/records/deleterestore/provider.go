@@ -15,7 +15,6 @@ import (
 type SourceProvider interface {
 	SnapshotTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error
-	TouchSourceRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, int64) error
 	ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error)
 	ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error)
 }
@@ -67,11 +66,6 @@ UPDATE %s
        updated_at = $2
  WHERE %s = $1
 `, p.SourceTable, p.SourceRecordCol), recordID, now.UTC())
-	return err
-}
-
-func (p TableProvider) TouchSourceRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, _ uuid.UUID, now time.Time, _ int64) error {
-	_, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET updated_at = $2 WHERE %s = $1`, p.SourceTable, p.SourceRecordCol), recordID, now.UTC())
 	return err
 }
 

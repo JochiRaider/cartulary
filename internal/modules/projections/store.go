@@ -2,6 +2,7 @@ package projections
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -14,37 +15,40 @@ import (
 )
 
 type Store struct {
-	pool           postgres.DB
-	registry       *providerRegistry
-	timelineSource TimelineSource
+	pool     postgres.DB
+	registry *providerRegistry
 }
-
-type TimelineProjectionInput = timelineprojection.ProjectionInput
 
 type TimelineSource interface {
 	BuildProjectionMutationTx(context.Context, pgx.Tx, uuid.UUID) (timelineprojection.ProjectionMutation, error)
 	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (timelineprojection.ProjectionInputPage, error)
 }
 
-type StoreOption func(*Store)
-
-func WithTimelineSource(source TimelineSource) StoreOption {
-	return func(store *Store) {
-		store.timelineSource = source
-	}
-}
-
-func NewStore(pool postgres.DB, options ...StoreOption) *Store {
-	store := &Store{pool: pool, registry: defaultProviderRegistry()}
-	for _, option := range options {
-		if option != nil {
-			option(store)
-		}
+func NewStore(pool postgres.DB, catalog *Catalog) *Store {
+	store := &Store{pool: pool}
+	if catalog != nil {
+		store.registry = catalog.registry
 	}
 	return store
 }
 
-func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input TimelineProjectionInput) error {
+func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
+	hostRefs, err := json.Marshal(input.HostRefs)
+	if err != nil {
+		return fmt.Errorf("encode timeline host refs: %w", err)
+	}
+	identityRefs, err := json.Marshal(input.IdentityRefs)
+	if err != nil {
+		return fmt.Errorf("encode timeline identity refs: %w", err)
+	}
+	tags, err := json.Marshal(input.Tags)
+	if err != nil {
+		return fmt.Errorf("encode timeline tags: %w", err)
+	}
+	attachedEvidence, err := json.Marshal(input.AttachedEvidence)
+	if err != nil {
+		return fmt.Errorf("encode timeline attached evidence refs: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO timeline_grid_projection (
     record_id,
@@ -69,7 +73,11 @@ INSERT INTO timeline_grid_projection (
     replacement_record_id,
     evidence_count,
     has_evidence,
-    has_unresolved_mentions
+    has_unresolved_mentions,
+    host_refs,
+    identity_refs,
+    tags,
+    attached_evidence_refs
 )
 VALUES (
     $1,
@@ -94,7 +102,11 @@ VALUES (
     $20,
     $21,
     $22,
-    $23
+    $23,
+    $24,
+    $25,
+    $26,
+    $27
 )
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
@@ -118,8 +130,12 @@ SET incident_id = EXCLUDED.incident_id,
     replacement_record_id = EXCLUDED.replacement_record_id,
     evidence_count = EXCLUDED.evidence_count,
     has_evidence = EXCLUDED.has_evidence,
-    has_unresolved_mentions = EXCLUDED.has_unresolved_mentions
-`, input.RecordID, input.IncidentID, input.RowVersion, input.DateEnteredText, input.AnalystText, input.MitreStageText, input.DeviceObjectText, input.IPAddressText, input.ActivityUTCText, input.ActivityLocalText, input.RawActivityText, input.ActivitySynopsisText, input.DataSourceText, input.RecordedAt.UTC(), input.EditedAt.UTC(), input.ActivitySortTS, input.DateEnteredSortDay, input.ActivityTimePairState, input.CaptureState, input.ReplacementRecordID, input.EvidenceCount, input.HasEvidence, input.HasUnresolvedMentions); err != nil {
+    has_unresolved_mentions = EXCLUDED.has_unresolved_mentions,
+    host_refs = EXCLUDED.host_refs,
+    identity_refs = EXCLUDED.identity_refs,
+    tags = EXCLUDED.tags,
+    attached_evidence_refs = EXCLUDED.attached_evidence_refs
+`, input.RecordID, input.IncidentID, input.RowVersion, input.DateEnteredText, input.AnalystText, input.MitreStageText, input.DeviceObjectText, input.IPAddressText, input.ActivityUTCText, input.ActivityLocalText, input.RawActivityText, input.ActivitySynopsisText, input.DataSourceText, input.RecordedAt.UTC(), input.EditedAt.UTC(), input.ActivitySortTS, input.DateEnteredSortDay, input.ActivityTimePairState, input.CaptureState, input.ReplacementRecordID, input.EvidenceCount, input.HasEvidence, input.HasUnresolvedMentions, string(hostRefs), string(identityRefs), string(tags), string(attachedEvidence)); err != nil {
 		return fmt.Errorf("upsert timeline projection row: %w", err)
 	}
 	return nil
@@ -142,11 +158,11 @@ func (s *Store) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation
 	}
 }
 
-func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	if s == nil || s.timelineSource == nil {
+func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, source TimelineSource) error {
+	if s == nil || source == nil {
 		return errors.New("timeline projection source is required")
 	}
-	mutation, err := s.timelineSource.BuildProjectionMutationTx(ctx, tx, recordID)
+	mutation, err := source.BuildProjectionMutationTx(ctx, tx, recordID)
 	if err != nil {
 		return err
 	}
@@ -178,8 +194,8 @@ func (s *Store) RebuildIncidentTimelineTx(ctx context.Context, tx pgx.Tx, incide
 	return s.rebuildProjectionIncidentTx(ctx, tx, timelineViewSchemaID, incidentID)
 }
 
-func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	if s == nil || s.timelineSource == nil {
+func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, source TimelineSource) error {
+	if s == nil || source == nil {
 		return errors.New("timeline projection source is required")
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM timeline_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
@@ -187,7 +203,7 @@ func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, in
 	}
 	var afterRecordID *uuid.UUID
 	for {
-		page, err := s.timelineSource.ListProjectionInputsTx(ctx, tx, incidentID, afterRecordID, 500)
+		page, err := source.ListProjectionInputsTx(ctx, tx, incidentID, afterRecordID, 500)
 		if err != nil {
 			return err
 		}

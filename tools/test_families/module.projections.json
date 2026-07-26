@@ -3,33 +3,6 @@
   "owner_id": "module.projections",
   "rows": [
     {
-      "row_id": "module.projections.adapters.owner_contracts_2c16689e50",
-      "owner_id": "module.projections",
-      "family_id": "module.projections.adapters",
-      "collaborator_ids": [
-        "module.recovery",
-        "module.workbook"
-      ],
-      "verification_ids": [
-        "module.projections.verification.provider_architecture"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/projections/adapters",
-        "tests": [
-          "TestRestoreRebuilderReturnsRecoveryContract",
-          "TestWorkbookRowsSupportProjectionQuerySurfaces"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.projections.architecture.boundaries_and_source_ownership_9b8de61f81",
       "owner_id": "module.projections",
       "family_id": "module.projections.architecture",
@@ -43,9 +16,33 @@
       "selector": {
         "package": "./internal/modules/projections",
         "tests": [
-          "TestProductionProjectionImportsUseApprovedFacades",
+          "TestProductionProjectionImportsUseApprovedFacades"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.assembly.catalog_and_source_ownership_927c3f08ce",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.assembly",
+      "collaborator_ids": [
+        "harness.evidence_accounting"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/projectionassembly",
+        "tests": [
+          "TestProjectionProviderManifestMirrorsCodeBackedRegistry",
           "TestProjectionProviderSQLSourceOwnership",
-          "TestProjectionSourceAuthorityModulesMirrorSchemaOwnershipManifest",
           "TestValidateProjectionProviderSQLReference"
         ]
       },
@@ -71,9 +68,8 @@
       "selector": {
         "package": "./internal/modules/projections",
         "tests": [
-          "TestProjectionProviderManifestMirrorsCodeBackedRegistry",
-          "TestProjectionProviderRegistryBuiltIns",
-          "TestProjectionProviderRegistryRejectsInvalidProviderSets"
+          "TestProjectionProviderRegistryOrdersAndIndexesContributions",
+          "TestProjectionProviderRegistryRejectsInvalidContributions"
         ]
       },
       "evidence_class": "static",
@@ -119,7 +115,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.projections.query.timeline_legacy_keyset_e67384caff",
+      "row_id": "module.projections.query.timeline_keyset_bounds_e67384caff",
       "owner_id": "module.projections",
       "family_id": "module.projections.query",
       "collaborator_ids": [

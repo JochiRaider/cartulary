@@ -13,10 +13,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	viewschematest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -48,12 +46,6 @@ func StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.Depen
 	return StartRuntime(t).StartServerWithDependencies(t, prefix, deps)
 }
 
-func StartServerWithTimelineDependencies(t testing.TB, prefix string, factory func(postgres.DB) timeline.Dependencies) *ServerHarness {
-	t.Helper()
-
-	return StartRuntime(t).StartServerWithTimelineDependencies(t, prefix, factory)
-}
-
 func StartServerWithConfig(t testing.TB, prefix string, mutate func(*configassembly.Deployment)) *ServerHarness {
 	t.Helper()
 
@@ -80,23 +72,6 @@ func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string
 
 	testDB := h.PrepareServerDatabase(t, prefix)
 	return h.StartServerWithDatabaseAndDependencies(t, prefix, testDB, deps)
-}
-
-func (h *RuntimeHarness) StartServerWithTimelineDependencies(t testing.TB, prefix string, factory func(postgres.DB) timeline.Dependencies) *ServerHarness {
-	t.Helper()
-
-	testDB := h.PrepareServerDatabase(t, prefix)
-	bucket := h.S3.PreparePackageBucketT(t, prefix)
-	env := serverDatabaseEnv(t, testDB)
-	for key, value := range h.S3.Env(bucket) {
-		env[key] = value
-	}
-	server := httptestx.StartServer(t, httptestx.ServerOptions{
-		Env:                  env,
-		TestRouteMode:        httptestx.TestRouteModeDisabled,
-		TimelineDependencies: factory,
-	})
-	return serverHarnessForDatabase(t, testDB, server)
 }
 
 func (h *RuntimeHarness) PrepareServerDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {

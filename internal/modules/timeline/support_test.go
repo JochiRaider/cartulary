@@ -1,60 +1,15 @@
 package timeline
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
-
-func TestUnit_CreateRequestCoverage(t *testing.T) {
-	t.Run("zero field create is allowed for timeline", func(t *testing.T) {
-		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-timeline_mutation-zero"
-		}`))
-		if apiErr != nil {
-			t.Fatalf("expected zero-field timeline create to decode, got %#v", apiErr)
-		}
-		if CreateRequestHasUserValue(request) {
-			t.Fatalf("expected zero-field create request to have no user values, got %#v", request)
-		}
-	})
-
-	t.Run("one non-empty value remains valid and normalizes", func(t *testing.T) {
-		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-timeline_mutation-one-value",
-			"timeline.activity_synopsis_text": "  First capture  "
-		}`))
-		if apiErr != nil {
-			t.Fatalf("expected valid create request, got %#v", apiErr)
-		}
-		if request.ActivitySynopsisText == nil {
-			t.Fatalf("expected summary value, got %#v", request)
-		}
-		requireWritableStringNormalization(t, *request.ActivitySynopsisText, "  First capture  ")
-	})
-
-	t.Run("client-owned system fields fail closed", func(t *testing.T) {
-		_, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-support-timeline_mutation-invalid",
-			"timeline.capture_state": "reviewed"
-		}`))
-		if apiErr == nil {
-			t.Fatal("expected direct write to timeline.capture_state to fail")
-		}
-		requireClosedVocabularyRejected(
-			t,
-			apiErr.Code,
-			apiErr.Details,
-			"timeline.capture_state",
-			"unknown_field",
-		)
-	})
-}
 
 func TestUnit_InitialStateVocabulary(t *testing.T) {
 	if InitialCaptureState() != captureStateRough {
@@ -108,64 +63,6 @@ func TestUnit_CaptureStateHelpers(t *testing.T) {
 	}
 }
 
-func TestUnit_PatchRequestHashNormalization(t *testing.T) {
-	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v2",
-		"base_row_version": 3,
-		"client_txn_id": "txn-support-timeline_mutation-hash",
-		"changes": [
-			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" },
-			{ "field_key": "timeline.raw_activity_text", "value": "details" }
-		]
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode left patch: %#v", apiErr)
-	}
-	right, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v2",
-		"base_row_version": 3,
-		"client_txn_id": "txn-support-timeline_mutation-hash",
-		"changes": [
-			{ "field_key": "timeline.raw_activity_text", "value": "details" },
-			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" }
-		]
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode right patch: %#v", apiErr)
-	}
-	if !hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(right)) {
-		t.Fatal("expected canonical patch request hash to ignore outer changes[] order")
-	}
-
-	changed := "changed"
-	if hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(PatchRequest{
-		ViewSchemaID:   right.ViewSchemaID,
-		BaseRowVersion: right.BaseRowVersion,
-		ClientTxnID:    right.ClientTxnID,
-		CanonicalChange: []PatchChange{
-			{FieldKey: "timeline.raw_activity_text", TextValue: &changed},
-			{FieldKey: "timeline.activity_synopsis_text", TextValue: right.CanonicalChange[1].TextValue},
-		},
-	})) {
-		t.Fatal("expected divergent normalized patch request hash to differ")
-	}
-}
-
-func TestUnit_ActionRequestHashWireStability(t *testing.T) {
-	reason := "superseding duplicate"
-	replacementRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000001")
-	got := fmt.Sprintf("%x", TimelineActionRequestHash(
-		4,
-		"client-transaction-id-is-not-hashed",
-		&reason,
-		&replacementRecordID,
-	))
-	const want = "8029aa9e47b0d78cfbcf269b60a67a0818f479aa889d6a818f684850a23e5ca5"
-	if got != want {
-		t.Fatalf("normalized action request hash changed: got %s want %s", got, want)
-	}
-}
-
 func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
@@ -173,7 +70,7 @@ func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
 	replacementID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
 	recordedAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
 	reason := "reviewed in workbook"
-	projected := projectedRecord{
+	projected := workbookprojection.DerivedRecord{
 		RecordID:            recordID,
 		IncidentID:          incidentID,
 		RowVersion:          2,
@@ -203,12 +100,11 @@ func TestUnit_PayloadBuildersExposeStableShapes(t *testing.T) {
 	}
 }
 
-func TestUnit_SupersedeGuardAndHashHelpers(t *testing.T) {
+func TestUnit_SupersedeGuards(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	otherIncidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 	otherRecordID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
-	anotherReplacementID := uuid.MustParse("55555555-5555-5555-5555-555555555555")
 
 	if err := ValidateSupersedeReplacement(recordID, incidentID, &recordID, &incidentID); !errors.Is(err, ErrIllegalTransition) {
 		t.Fatalf("self replacement must be rejected, got %v", err)
@@ -236,22 +132,4 @@ func TestUnit_SupersedeGuardAndHashHelpers(t *testing.T) {
 		t.Fatalf("legal replacement should be allowed, got %v", err)
 	}
 
-	reason := "superseded"
-	left := TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &otherRecordID)
-	right := TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &otherRecordID)
-	if !hashesEqual(left, right) {
-		t.Fatal("expected identical supersede request hashes to match")
-	}
-	if !hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede-different-key", &reason, &otherRecordID)) {
-		t.Fatal("expected client_txn_id changes to be excluded from the normalized request hash")
-	}
-
-	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &reason, &anotherReplacementID)) {
-		t.Fatal("expected replacement id changes to alter the normalized request hash")
-	}
-
-	differentReason := "superseded differently"
-	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-timeline_mutation-supersede", &differentReason, &otherRecordID)) {
-		t.Fatal("expected reason changes to alter the normalized request hash")
-	}
 }

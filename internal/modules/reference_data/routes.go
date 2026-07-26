@@ -104,13 +104,13 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	if deps.Jobs != nil && options.jobSuccessFinalizer == nil {
-		return nil, fmt.Errorf("Reference Pack admitted route requires a job success finalizer")
+		return nil, fmt.Errorf("reference pack admitted route requires a job success finalizer")
 	}
 	if deps.Jobs != nil && deps.JobRunner == nil {
-		return nil, fmt.Errorf("Reference Pack admitted route requires the shared job runner")
+		return nil, fmt.Errorf("reference pack admitted route requires the shared job runner")
 	}
 	if deps.Jobs != nil && options.storage == nil {
-		return nil, fmt.Errorf("Reference Pack admitted route requires storage")
+		return nil, fmt.Errorf("reference pack admitted route requires storage")
 	}
 	service := &Service{
 		store:               NewStore(deps.Postgres),
@@ -815,7 +815,7 @@ func (s *Service) finalizeReferencePackJobSuccess(
 	mutations ...JobSuccessMutation,
 ) error {
 	if s.jobSuccessFinalizer == nil {
-		return fmt.Errorf("Reference Pack job success finalizer is unavailable")
+		return fmt.Errorf("reference pack job success finalizer is unavailable")
 	}
 	var mutation JobSuccessMutation
 	if len(mutations) > 0 {

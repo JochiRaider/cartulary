@@ -34,9 +34,7 @@ export type ClientTimingEvent = {
 };
 
 type CommittedRowSummaryMatch = { recordId: string; rowVersion: number };
-type WorkbookTimingProbeWindow = Window & {
-  __cartularyWorkbookTimingProbe?: { events: ClientTimingEvent[] };
-};
+const workbookTimingMarkPrefix = "cartulary.workbook.";
 
 export async function measureTypingAck(
   page: Page,
@@ -95,10 +93,6 @@ export async function measureBlankRowCreate(
   const status =
     typeof responseEvent?.status === "number" ? responseEvent.status : 0;
   expect(status, JSON.stringify({ clientTimingEvents }, null, 2)).toBe(201);
-  const serverTiming =
-    typeof responseEvent?.serverTiming === "string"
-      ? responseEvent.serverTiming
-      : "";
   const networkDurationMs =
     typeof responseEvent?.at === "number"
       ? responseEvent.at - browserStart
@@ -109,8 +103,6 @@ export async function measureBlankRowCreate(
     networkDurationMs,
     recordId: committed.recordId,
     rowVersion: committed.rowVersion,
-    serverTiming,
-    serverTimingMetrics: parseServerTiming(serverTiming),
     status,
   };
 }
@@ -264,12 +256,11 @@ export async function waitForCommittedRowSummary(
           }
           observer.disconnect();
           const durationMs = performance.now() - startedAtMs;
-          const target = window as WorkbookTimingProbeWindow;
-          target.__cartularyWorkbookTimingProbe?.events.push({
-            at: performance.now(),
-            name: "committed_row_visible",
-            recordId: match.recordId,
-            rowVersion: match.rowVersion,
+          performance.mark("cartulary.workbook.committed_row_visible", {
+            detail: {
+              recordId: match.recordId,
+              rowVersion: match.rowVersion,
+            },
           });
           resolve({
             durationMs,
@@ -358,16 +349,35 @@ export function findCommittedRowSummaryInRoot(
 
 async function resetWorkbookClientTiming(page: Page) {
   await page.evaluate(() => {
-    const target = window as WorkbookTimingProbeWindow;
-    target.__cartularyWorkbookTimingProbe = { events: [] };
+    for (const entry of performance.getEntriesByType("mark")) {
+      if (entry.name.startsWith("cartulary.workbook.")) {
+        performance.clearMarks(entry.name);
+      }
+    }
   });
 }
 
-async function readWorkbookClientTiming(page: Page) {
-  return page.evaluate(() => {
-    const target = window as WorkbookTimingProbeWindow;
-    return [...(target.__cartularyWorkbookTimingProbe?.events ?? [])];
-  });
+async function readWorkbookClientTiming(
+  page: Page,
+): Promise<ClientTimingEvent[]> {
+  return page.evaluate<ClientTimingEvent[], string>((markPrefix) => {
+    return performance
+      .getEntriesByType("mark")
+      .filter((entry) => entry.name.startsWith(markPrefix))
+      .map((entry) => {
+        const detail =
+          "detail" in entry &&
+          entry.detail !== null &&
+          typeof entry.detail === "object"
+            ? (entry.detail as Record<string, unknown>)
+            : {};
+        return {
+          at: entry.startTime,
+          name: entry.name.slice(markPrefix.length),
+          ...detail,
+        };
+      });
+  }, workbookTimingMarkPrefix);
 }
 
 async function waitForInputValue(

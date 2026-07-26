@@ -13,8 +13,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
@@ -138,10 +136,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, golden.RecordCanonicalHostRecordID); err != nil {
 			t.Fatalf("corrupt resolved host linked-event count: %v", err)
 		}
-		if err := projectionadapters.NewRowProjector(
-			harness.Server.Runtime.Postgres,
-			timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
-		).RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild resolved host projection: %v", err)
 		}
 		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
@@ -856,14 +851,11 @@ SELECT COUNT(*)
 		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM identity_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 			t.Fatalf("clear identity projection rows: %v", err)
 		}
-		projectionStore := projectionadapters.NewRowProjector(
-			harness.Server.Runtime.Postgres,
-			timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
-		)
-		if err := projectionStore.RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+		projectionRebuild := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+		if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild host projections: %v", err)
 		}
-		if err := projectionStore.RebuildIncidentIdentities(context.Background(), incidentID); err != nil {
+		if err := projectionRebuild.RebuildIdentities(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild identity projections: %v", err)
 		}
 		hostProjectionAfter := lookupHostProjectionSnapshot(t, harness.DB, hostRecordID)

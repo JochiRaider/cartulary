@@ -160,7 +160,7 @@ Must-have on day one:
 - richer saved-view curation, seeding, and suggestion tooling beyond the base scope and startup-default contract
 - richer workflow presentation, automation, curation, and operating-model conveniences on top of the already standardized `task_request`, `decision`, `comm_log`, `handoff`, `status_review`, and `lesson` workbook surfaces
 - stronger evidence previews and metadata extraction
-- incident import assistant for XLSX files, prioritizing Timeline, Systems/Hosts, Accounts/Identities, Indicators, Evidence Tracker, and VERIS-like sheets when present; preserving unknown columns in `raw_capture` or `custom_attrs`
+- incident import assistant for XLSX files, prioritizing Timeline, Systems/Hosts, Accounts/Identities, Indicators, Evidence Tracker, and VERIS-like sheets when present; preserving unknown Timeline cells as normalized source provenance and other authorized extensions in `custom_attrs`
 - immutable incident snapshots and self-contained report exports with stable identifiers, versioned recipient-specific redaction profiles, and supported templates
 - integrity-checked ATT&CK/D3FEND/VERIS/reference-pack distribution for disconnected deployments
 - dedicated framework workbook-surface extension profiles if the product later standardizes ATT&CK, D3FEND, VERIS, or similar workbook surfaces, with per-framework or tightly bounded-family `view_schema_id`, field registry, required pack keys, startup eligibility, filter/sort/group semantics, writeability, degradation behavior, and export/redaction behavior

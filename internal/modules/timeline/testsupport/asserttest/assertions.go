@@ -109,19 +109,17 @@ func RowVersion(value int64) *int64 {
 	return &value
 }
 
-// AwaitIncidentStreamIdle establishes a deterministic subscription boundary
-// for tests that intentionally ignore mutations completed before subscribing.
-// Durable collaboration delivery is asynchronous, so an HTTP response alone
-// does not imply that its event has already crossed the ephemeral Hub.
+// AwaitIncidentStreamIdle waits for durable per-incident sequencing. Local API
+// tailers independently deliver the committed replay log to their own hubs.
 func AwaitIncidentStreamIdle(t testing.TB, db Database, incidentID string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		pending := queryCount(t, db, `
 SELECT COUNT(*)
-  FROM collaboration_event_intents
+ FROM collaboration_event_intents
  WHERE incident_id::text = $1
-   AND (dispatch_state = 'pending' OR delivered_at IS NULL)
+   AND dispatch_state = 'pending'
 `, incidentID)
 		if pending == 0 {
 			return

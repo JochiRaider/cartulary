@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
 func TestProjectionContract_Unit(t *testing.T) {
@@ -26,7 +29,7 @@ func TestProjectionContract_Unit(t *testing.T) {
 	synopsis := "Summary"
 	dataSource := "Source"
 
-	projected := projectRecord(sourceRecord{
+	projected := projectRecord(sourcerepository.Snapshot{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		DateEnteredText:       &dateEntered,
@@ -47,14 +50,12 @@ func TestProjectionContract_Unit(t *testing.T) {
 		CreatedByUserID:       actorID,
 		UpdatedByUserID:       actorID,
 	}, &replacementID)
-	projected.Tags = []map[string]any{
-		{
-			"item_ref":     "record_tag:55555555-5555-5555-5555-555555555555",
-			"item_kind":    "tag",
-			"display_text": "critical-host",
-			"raw_text":     "critical-host",
-		},
-	}
+	projected.Tags = []workbookprojection.TagRef{{
+		ItemRef:     "record_tag:" + recordID.String() + ":55555555-5555-5555-5555-555555555555",
+		ItemKind:    "tag",
+		DisplayText: "critical-host",
+		TagID:       uuid.MustParse("55555555-5555-5555-5555-555555555555"),
+	}}
 	row := buildRow(projected)
 
 	if row["record_id"] != recordID.String() || row["row_version"] != int64(4) {

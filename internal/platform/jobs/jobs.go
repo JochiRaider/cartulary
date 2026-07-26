@@ -217,7 +217,16 @@ func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, er
 		return Resource{}, err
 	}
 	ctx, span := m.startJobSpan(ctx, "cartulary.jobs.enqueue", jobKindFromScope(params.Scope), "enqueue")
-	resource, err := CreateQueuedTx(ctx, m.pool, params, m.now().UTC())
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		m.finishJobSpan(span, "enqueue", jobKindFromScope(params.Scope), "", resultForJobError(err), err)
+		return Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	resource, err := CreateQueuedTx(ctx, tx, params, m.now().UTC())
+	if err == nil {
+		err = tx.Commit(ctx)
+	}
 	m.finishJobSpan(span, "enqueue", jobKindFromScope(params.Scope), "", resultForJobError(err), err)
 	if err != nil {
 		return Resource{}, err
@@ -225,11 +234,7 @@ func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, er
 	return resource, nil
 }
 
-type queuedJobInserter interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
-func CreateQueuedTx(ctx context.Context, tx queuedJobInserter, params CreateParams, now time.Time) (Resource, error) {
+func CreateQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, now time.Time) (Resource, error) {
 	if err := validateScope(params.Scope); err != nil {
 		return Resource{}, err
 	}
@@ -274,6 +279,9 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		extensionOwner(params.Extension), extensionJobKind(params.Extension), extensionIdempotencyIdentity(params.Extension),
 		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension)))
 	if err != nil {
+		return Resource{}, err
+	}
+	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
 		return Resource{}, err
 	}
 	return record, nil
@@ -406,7 +414,12 @@ func (m *Manager) MarkRunning(ctx context.Context, jobID uuid.UUID, progress Pro
 		return Resource{}, err
 	}
 	now := m.now().UTC()
-	record, err := scanJob(m.pool.QueryRow(ctx, `
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		return Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	record, err := scanJob(tx.QueryRow(ctx, `
 UPDATE jobs
    SET status = 'running',
        started_at = COALESCE(started_at, $2),
@@ -425,6 +438,12 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		return Resource{}, ErrInvalidTransition
 	}
 	if err != nil {
+		return Resource{}, err
+	}
+	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
+		return Resource{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return Resource{}, err
 	}
 	return record, nil
@@ -479,7 +498,13 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Resource{}, ErrInvalidTransition
 	}
-	return record, err
+	if err != nil {
+		return Resource{}, err
+	}
+	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
+		return Resource{}, err
+	}
+	return record, nil
 }
 
 func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult, error) {
@@ -532,6 +557,9 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	if reason != "" {
 		return CancelResult{ReasonCode: reason}, ErrCancelRejected
 	}
+	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return CancelResult{}, err
+	}
 	if err := recordExtensionCancellationObservationTx(ctx, tx, key, params.JobID, resource.UpdatedAt); err != nil {
 		return CancelResult{}, err
 	}
@@ -580,7 +608,13 @@ func (m *Manager) completeTerminal(ctx context.Context, params TransitionParams,
 		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
-	record, err := scanJob(m.pool.QueryRow(ctx, `
+	tx, err := m.pool.Begin(ctx)
+	if err != nil {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
+		return Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	record, err := scanJob(tx.QueryRow(ctx, `
 UPDATE jobs
    SET status = $2,
        cancelable = false,
@@ -604,6 +638,14 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		return Resource{}, ErrInvalidTransition
 	}
 	if err != nil {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
+		return Resource{}, err
+	}
+	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
+		return Resource{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}

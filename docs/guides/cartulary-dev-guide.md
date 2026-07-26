@@ -996,6 +996,40 @@ The pre-release incident-bundle and Reference Pack storage-reference cutovers do
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 
+### 7.3.1 Process models and Timeline migration operations
+
+`application.process_model` accepts exactly `single` or `replicated`; omission
+selects `single`. Single mode retains the whole-process Postgres lease and
+filesystem publication roots. Replicated mode is rejected unless database,
+object, backup, Reference Pack, and export publication bindings are shared
+managed services using one publication object service. Replica-local temporary
+work remains namespaced by `service.instance.id` and is never durable state.
+
+Enable replicated mode only after copying existing durable publication objects
+to the admitted shared service, verifying their content hashes and descriptor
+references, and draining the old binary. All replicas must agree on the
+publication-plan digest. A staged-object janitor leader must be visible in
+readiness. To roll back, drain replicas, scale to one process, restore
+`process_model = "single"`, and use the verified pre-cutover bindings; do not
+serve both models concurrently.
+
+Apply Timeline migrations `00042` through `00048` in order. Expand migrations
+`00042`, `00045`, and `00047` precede their backfill or stream cutover.
+Contract migrations `00043`, `00046`, and `00048` run only after incompatible
+old writers are drained. Migration `00044` removes database event producers
+only after explicit source-owner producer parity. After a contract migration,
+prefer forward repair and projection/replay rebuild; use the documented
+pre-contract snapshot only when the affected contract explicitly requires
+snapshot rollback.
+
+Collaboration quarantines only the incident whose deterministic payload fails
+twelve sequencing attempts. Repair the owner payload or data first, then run
+`operator collaboration requeue --incident-id <uuid> [-config <path>]`.
+Requeue is rejected when the incident is not quarantined and never skips the
+failed event. Monitor queue depth and oldest age, sequence lag, replay resets,
+quarantine count, retry count, pruning, and slow-consumer disconnects without
+placing incident or record identifiers in metric labels.
+
 ### 7.4 Test strategy
 
 **Backend unit tests** cover module-local behavior with no external service dependency.

@@ -34,6 +34,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   cleanupTimelineWorkbookTestGlobals,
   errorEnvelope,
@@ -49,7 +50,6 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -110,7 +110,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ]),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
 
     expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
@@ -202,7 +204,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     );
 
     const { container, rerender } = render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         inspectorResetKey="cartulary.view.timeline.v2:base"
       />,
@@ -214,7 +216,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect(await screen.findByTestId(timelineInspectorTestId())).toBeTruthy();
 
     rerender(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         inspectorResetKey="cartulary.view.timeline.v2:saved-view"
       />,
@@ -233,7 +235,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
   it("renders the configured no-row state when no saved row is selected", async () => {
     fetchMock.mockResolvedValueOnce(timelineRowsEnvelope([]));
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, []);
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -302,7 +306,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ]),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
     fireEvent.contextMenu(
       screen.getByTestId(
@@ -435,7 +441,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container, rerender } = render(
-      <TimelineWorkbook incidentId="incident-1" reloadToken={0} />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={0}
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
     fireEvent.contextMenu(
@@ -504,7 +513,12 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ).length,
     ).toBeGreaterThan(0);
 
-    rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={1} />);
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={1}
+      />,
+    );
     await waitForVisibleGridRowRecordIds(container, [
       "record-3",
       "record-2",
@@ -539,7 +553,12 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       "timeline.activity_synopsis_text",
     );
     selectedCell.focus();
-    rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={2} />);
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={2}
+      />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-3", "record-1"]);
     await waitFor(() => {
       expect(
@@ -591,7 +610,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         }),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
     fireEvent.contextMenu(
       screen.getByTestId(
@@ -702,7 +723,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ]),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
     fireEvent.contextMenu(
       screen.getByTestId(
@@ -792,7 +815,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         );
 
       const { container } = render(
-        <TimelineWorkbook incidentId="incident-1" />,
+        <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
       );
       await waitForVisibleGridRowRecordIds(container, ["record-1"]);
       fireEvent.contextMenu(

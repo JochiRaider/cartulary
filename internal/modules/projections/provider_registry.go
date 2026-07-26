@@ -53,109 +53,79 @@ type ProviderDescriptor struct {
 	CharacterizationRefs      []string
 }
 
-type projectionProvider struct {
+type Provider struct {
 	descriptor        ProviderDescriptor
 	refreshRowTx      func(context.Context, *Store, pgx.Tx, uuid.UUID) error
 	rebuildIncidentTx func(context.Context, *Store, pgx.Tx, uuid.UUID) error
 }
 
 type providerRegistry struct {
-	providers     []*projectionProvider
-	byViewSchema  map[string]*projectionProvider
+	providers     []*Provider
+	byViewSchema  map[string]*Provider
 	querySurfaces map[string]genericSurface
-	rebuildOrder  []*projectionProvider
+	rebuildOrder  []*Provider
 }
 
-var requiredProjectionViewSchemaIDs = map[string]struct{}{
-	timelineViewSchemaID:     {},
-	hostsViewSchemaID:        {},
-	identitiesViewSchemaID:   {},
-	indicatorsViewSchemaID:   {},
-	assessmentsViewSchemaID:  {},
-	evidenceViewSchemaID:     {},
-	notesViewSchemaID:        {},
-	partiesViewSchemaID:      {},
-	taskRequestsViewSchemaID: {},
-	decisionsViewSchemaID:    {},
-	commLogViewSchemaID:      {},
-	handoffViewSchemaID:      {},
-	statusReviewViewSchemaID: {},
-	lessonViewSchemaID:       {},
+type Catalog struct {
+	registry *providerRegistry
 }
 
-var projectionTableSchemaOwners = map[string]string{
-	"timeline_grid_projection":     "projections",
-	"host_grid_projection":         "projections",
-	"identity_grid_projection":     "projections",
-	"indicator_grid_projection":    "projections",
-	"assessment_grid_projection":   "projections",
-	"artifact_grid_projection":     "projections",
-	"evidence_grid_projection":     "projections",
-	"party_grid_projection":        "projections",
-	"task_request_grid_projection": "projections",
-	"decision_grid_projection":     "projections",
-}
-
-var projectionSourceAuthorityModules = map[string]struct{}{
-	"assessments":         {},
-	"artifacts":           {},
-	"audit":               {},
-	"auth":                {},
-	"collaboration":       {},
-	"database_migrations": {},
-	"deployment_admin":    {},
-	"entities":            {},
-	"evidence":            {},
-	"extensions":          {},
-	"graphprojection":     {},
-	"harness_support":     {},
-	"imports":             {},
-	"incidentbundles":     {},
-	"incidents":           {},
-	"indicators":          {},
-	"jobapi":              {},
-	"links":               {},
-	"networkflow":         {},
-	"parties":             {},
-	"platform_jobs":       {},
-	"projections":         {},
-	"recovery":            {},
-	"reference_data":      {},
-	"reportcomposition":   {},
-	"reporting":           {},
-	"revisions":           {},
-	"savedviews":          {},
-	"tasksdecisions":      {},
-	"timeline":            {},
-	"viewschemas":         {},
-	"workbook":            {},
-}
-
-func defaultProviderRegistry() *providerRegistry {
-	registry, err := newProviderRegistry(builtInProjectionProviders())
+func NewCatalog(providers []Provider) (*Catalog, error) {
+	registry, err := newProviderRegistry(providers)
 	if err != nil {
-		panic(fmt.Sprintf("invalid built-in projection provider registry: %v", err))
+		return nil, err
 	}
-	return registry
+	return &Catalog{registry: registry}, nil
+}
+
+func (c *Catalog) Descriptors() []ProviderDescriptor {
+	if c == nil || c.registry == nil {
+		return []ProviderDescriptor{}
+	}
+	descriptors := make([]ProviderDescriptor, 0, len(c.registry.providers))
+	for _, provider := range c.registry.providers {
+		descriptor := provider.descriptor
+		descriptor.ViewSchemaIDs = append([]string(nil), descriptor.ViewSchemaIDs...)
+		descriptor.SourceRecordTypes = append([]string(nil), descriptor.SourceRecordTypes...)
+		descriptor.SourceAuthorityModules = append([]string(nil), descriptor.SourceAuthorityModules...)
+		descriptor.ProjectionTableFamilies = append([]string(nil), descriptor.ProjectionTableFamilies...)
+		descriptor.QuerySurfaces = append([]providercontract.QuerySurface(nil), descriptor.QuerySurfaces...)
+		descriptor.FacadePackages = append([]string(nil), descriptor.FacadePackages...)
+		descriptor.RebuildAfter = append([]string(nil), descriptor.RebuildAfter...)
+		descriptor.CharacterizationRefs = append([]string(nil), descriptor.CharacterizationRefs...)
+		descriptors = append(descriptors, descriptor)
+	}
+	return descriptors
+}
+
+func (c *Catalog) RebuildOrder() []string {
+	if c == nil || c.registry == nil {
+		return []string{}
+	}
+	keys := make([]string, 0, len(c.registry.rebuildOrder))
+	for _, provider := range c.registry.rebuildOrder {
+		keys = append(keys, provider.descriptor.ProviderKey)
+	}
+	return keys
 }
 
 func (s *Store) providerRegistry() *providerRegistry {
 	if s == nil || s.registry == nil {
-		return defaultProviderRegistry()
+		panic("projection catalog is required")
 	}
 	return s.registry
 }
 
-func newProviderRegistry(providers []projectionProvider) (*providerRegistry, error) {
+func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 	if len(providers) == 0 {
 		return nil, fmt.Errorf("projection provider registry is empty")
 	}
 	registry := &providerRegistry{
-		providers:     make([]*projectionProvider, 0, len(providers)),
-		byViewSchema:  map[string]*projectionProvider{},
+		providers:     make([]*Provider, 0, len(providers)),
+		byViewSchema:  map[string]*Provider{},
 		querySurfaces: map[string]genericSurface{},
 	}
-	byProviderKey := map[string]*projectionProvider{}
+	byProviderKey := map[string]*Provider{}
 	for index := range providers {
 		provider := providers[index]
 		if err := validateProvider(provider); err != nil {
@@ -190,11 +160,6 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 			registry.querySurfaces[surface.viewSchemaID] = surface
 		}
 	}
-	for viewSchemaID := range requiredProjectionViewSchemaIDs {
-		if registry.byViewSchema[viewSchemaID] == nil {
-			return nil, fmt.Errorf("required projection surface %q has no provider", viewSchemaID)
-		}
-	}
 	rebuildOrder, err := topologicalProviderOrder(registry.providers, byProviderKey)
 	if err != nil {
 		return nil, err
@@ -203,7 +168,7 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 	return registry, nil
 }
 
-func (r *providerRegistry) providerForView(viewSchemaID string) (*projectionProvider, bool) {
+func (r *providerRegistry) providerForView(viewSchemaID string) (*Provider, bool) {
 	if r == nil {
 		return nil, false
 	}

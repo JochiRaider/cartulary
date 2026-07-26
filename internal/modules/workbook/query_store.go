@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -17,7 +18,14 @@ import (
 type QueryStore struct {
 	entityStore    entityQueryPort
 	indicatorStore indicatorQueryPort
-	projectionRows *projectionadapters.WorkbookRows
+	projectionRows workbookProjectionQueryPort
+}
+
+type workbookProjectionQueryPort interface {
+	Supports(string) bool
+	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
+	QueryRowsPage(context.Context, uuid.UUID, string, viewschema.QueryMeta, querypage.Window) (querypage.Result, error)
+	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
 }
 
 type entityQueryPort interface {
@@ -32,11 +40,11 @@ type indicatorQueryPort interface {
 	QueryRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error)
 }
 
-func NewQueryStore(pool postgres.DB) *QueryStore {
+func NewQueryStore(pool postgres.DB, projectionQuery *projections.QueryService) *QueryStore {
 	return &QueryStore{
 		entityStore:    hostidentity.NewStore(pool),
 		indicatorStore: indicators.NewStore(pool),
-		projectionRows: projectionadapters.NewWorkbookRows(pool),
+		projectionRows: projectionQuery,
 	}
 }
 
@@ -65,6 +73,9 @@ func (s *QueryStore) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSc
 	case indicators.ViewSchemaID:
 		return s.indicatorStore.QueryRows(ctx, incidentID, query)
 	default:
+		if s.projectionRows == nil {
+			return nil, fmt.Errorf("workbook projection query service is required")
+		}
 		if !s.projectionRows.Supports(viewSchemaID) {
 			return nil, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)
 		}
@@ -81,6 +92,9 @@ func (s *QueryStore) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, vi
 	case indicators.ViewSchemaID:
 		return s.indicatorStore.QueryRowsPage(ctx, incidentID, query, window)
 	default:
+		if s.projectionRows == nil {
+			return querypage.Result{}, fmt.Errorf("workbook projection query service is required")
+		}
 		if !s.projectionRows.Supports(viewSchemaID) {
 			return querypage.Result{}, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)
 		}

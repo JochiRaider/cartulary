@@ -109,12 +109,51 @@ SELECT count(*)
 		}
 	})
 
+	t.Run("intent keys are immutable across exact and divergent replay", func(t *testing.T) {
+		intent := requireJobIntent(t, atomicIncidentUUID, "immutable-intent-key", time.Now().UTC())
+		appendCommittedIntent(t, pool, store, intent)
+		appendCommittedIntent(t, pool, store, intent)
+
+		divergent := intent
+		divergent.SourceIdentity = divergent.SourceIdentity + ":divergent"
+		tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin divergent intent transaction: %v", err)
+		}
+		err = store.AppendIntentTx(ctx, tx, divergent)
+		if !errors.Is(err, collaboration.ErrIntentKeyCollision) {
+			_ = tx.Rollback(ctx)
+			t.Fatalf("divergent intent error = %v want ErrIntentKeyCollision", err)
+		}
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+			t.Fatalf("roll back divergent intent transaction: %v", rollbackErr)
+		}
+
+		var count int
+		if err := pool.QueryRow(ctx, `
+SELECT count(*)
+  FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, intent.IntentKey).Scan(&count); err != nil {
+			t.Fatalf("count immutable-key intents: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("immutable-key intent count = %d want 1", count)
+		}
+		if _, err := pool.Exec(ctx, `
+DELETE FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, intent.IntentKey); err != nil {
+			t.Fatalf("clean up immutable-key intent: %v", err)
+		}
+	})
+
 	dispatchIncidentID := createDurableStreamIncident(t, harness, admin, "dispatcher")
 	dispatchIncidentUUID := uuid.MustParse(dispatchIncidentID)
 	clockNow := time.Now().UTC().Add(time.Second)
 	appendCommittedIntent(t, pool, store, requireJobIntent(t, dispatchIncidentUUID, "dispatcher-outage", clockNow))
 
-	t.Run("outage retry and restart reuse event identity and sequence", func(t *testing.T) {
+	t.Run("process-local tail retry and restart reuse durable event identity", func(t *testing.T) {
 		var replayCount int
 		if err := pool.QueryRow(ctx, `
 SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $1
@@ -127,8 +166,8 @@ SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $1
 
 		broadcaster := &recordingBroadcaster{failRemaining: 1}
 		failingDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return clockNow })
-		if _, err := failingDispatcher.RunOnce(ctx); err != nil {
-			t.Fatalf("run failing dispatcher: %v", err)
+		if _, err := failingDispatcher.RunOnce(ctx); err == nil {
+			t.Fatal("failing local tailer did not report injected delivery failure")
 		}
 		attempts := broadcaster.snapshot()
 		if len(attempts) != 1 {
@@ -139,24 +178,22 @@ SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $1
 		var (
 			storedEventID uuid.UUID
 			storedSeq     int64
-			nextAttempt   time.Time
-			errorCode     *string
+			state         string
 		)
 		if err := pool.QueryRow(ctx, `
-SELECT replay.event_id, replay.stream_seq, intent.next_attempt_at, intent.last_error_code
+SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
   FROM collaboration_event_intents AS intent
   JOIN collaboration_replay_events AS replay
     ON replay.event_id = intent.sequenced_event_id
  WHERE intent.intent_key = $1
-`, "job_progress:dispatcher-outage").Scan(&storedEventID, &storedSeq, &nextAttempt, &errorCode); err != nil {
-			t.Fatalf("load failed durable delivery: %v", err)
+`, "job_progress:dispatcher-outage").Scan(&storedEventID, &storedSeq, &state); err != nil {
+			t.Fatalf("load durable sequenced event: %v", err)
 		}
-		if storedEventID.String() != firstAttempt.EventID || storedSeq != *firstAttempt.StreamSeq ||
-			errorCode == nil || *errorCode != "broadcast_failed" {
-			t.Fatalf("failed delivery was not retained canonically: event=%s seq=%d error=%v attempt=%#v", storedEventID, storedSeq, errorCode, firstAttempt)
+		if storedEventID.String() != firstAttempt.EventID || storedSeq != *firstAttempt.StreamSeq || state != "sequenced" {
+			t.Fatalf("failed local delivery changed durable event: event=%s seq=%d state=%s attempt=%#v", storedEventID, storedSeq, state, firstAttempt)
 		}
 
-		clockNow = nextAttempt.Add(time.Millisecond)
+		clockNow = clockNow.Add(time.Millisecond)
 		restartedDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return clockNow })
 		if _, err := restartedDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("run restarted dispatcher: %v", err)
@@ -167,17 +204,6 @@ SELECT replay.event_id, replay.stream_seq, intent.next_attempt_at, intent.last_e
 		}
 		if attempts[1].EventID != firstAttempt.EventID || *attempts[1].StreamSeq != *firstAttempt.StreamSeq {
 			t.Fatalf("restart changed durable event identity: first=%#v retry=%#v", firstAttempt, attempts[1])
-		}
-		var delivered bool
-		if err := pool.QueryRow(ctx, `
-SELECT delivered_at IS NOT NULL
-  FROM collaboration_event_intents
- WHERE intent_key = $1
-`, "job_progress:dispatcher-outage").Scan(&delivered); err != nil {
-			t.Fatalf("load retried delivery state: %v", err)
-		}
-		if !delivered {
-			t.Fatal("restarted dispatcher did not finish retained delivery")
 		}
 
 		clockNow = clockNow.Add(time.Second)
@@ -190,71 +216,123 @@ SELECT delivered_at IS NOT NULL
 		if _, err := noSubscriberDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("deliver with no subscribers: %v", err)
 		}
+		var sequenced bool
 		if err := pool.QueryRow(ctx, `
-SELECT delivered_at IS NOT NULL
+SELECT dispatch_state = 'sequenced'
   FROM collaboration_event_intents
  WHERE intent_key = $1
-`, "job_progress:no-subscribers").Scan(&delivered); err != nil {
-			t.Fatalf("load no-subscriber delivery state: %v", err)
+`, "job_progress:no-subscribers").Scan(&sequenced); err != nil {
+			t.Fatalf("load no-subscriber sequence state: %v", err)
 		}
-		if !delivered {
-			t.Fatal("no-subscriber delivery remained pending")
+		if !sequenced {
+			t.Fatal("no-subscriber event was not durably sequenced")
 		}
 	})
 
-	t.Run("duplicate claims retain one active delivery lease", func(t *testing.T) {
+	t.Run("every API process tails the same durable event", func(t *testing.T) {
 		incidentID := createDurableStreamIncident(t, harness, admin, "duplicate-claim")
 		incidentUUID := uuid.MustParse(incidentID)
 		claimNow := clockNow.Add(time.Second)
 		appendCommittedIntent(t, pool, store, requireJobIntent(t, incidentUUID, "duplicate-claim", claimNow))
 
-		broadcaster := newBlockingBroadcaster()
-		firstDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return claimNow })
-		secondDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return claimNow })
-		firstResult := make(chan error, 1)
-		go func() {
-			_, err := firstDispatcher.RunOnce(ctx)
-			firstResult <- err
-		}()
+		firstBroadcaster := &recordingBroadcaster{}
+		secondBroadcaster := &recordingBroadcaster{}
+		firstDispatcher := collaboration.NewDispatcher(store, firstBroadcaster, func() time.Time { return claimNow })
+		secondDispatcher := collaboration.NewDispatcher(store, secondBroadcaster, func() time.Time { return claimNow })
+		if _, err := firstDispatcher.RunOnce(ctx); err != nil {
+			t.Fatalf("run first process tailer: %v", err)
+		}
+		if _, err := secondDispatcher.RunOnce(ctx); err != nil {
+			t.Fatalf("run second process tailer: %v", err)
+		}
+		first := messagesForIncident(firstBroadcaster.snapshot(), incidentID)
+		second := messagesForIncident(secondBroadcaster.snapshot(), incidentID)
+		if len(first) != 1 || len(second) != 1 {
+			t.Fatalf("process-local deliveries = first %d second %d want 1/1", len(first), len(second))
+		}
+		if first[0].EventID != second[0].EventID || *first[0].StreamSeq != *second[0].StreamSeq {
+			t.Fatalf("process-local tailers observed different durable events: first=%#v second=%#v", first[0], second[0])
+		}
+	})
 
-		select {
-		case <-broadcaster.entered:
-		case <-time.After(5 * time.Second):
-			t.Fatal("first dispatcher did not claim delivery")
-		}
-		type dispatcherResult struct {
-			processed int
-			err       error
-		}
-		secondResult := make(chan dispatcherResult, 1)
-		go func() {
-			processed, err := secondDispatcher.RunOnce(ctx)
-			secondResult <- dispatcherResult{processed: processed, err: err}
-		}()
-		var (
-			second           dispatcherResult
-			duplicateBlocked bool
+	t.Run("deterministic payload failures quarantine only their incident and requeue explicitly", func(t *testing.T) {
+		poisonIncidentID := createDurableStreamIncident(t, harness, admin, "poison")
+		poisonIncidentUUID := uuid.MustParse(poisonIncidentID)
+		quarantineNow := clockNow.Add(2 * time.Second)
+		invalidIntent, err := collaboration.NewEventIntent(
+			"record_changed:invalid-payload",
+			poisonIncidentUUID,
+			collaboration.EventFamilyRecordChanged,
+			map[string]any{"not": "a record change"},
+			"record:invalid-payload",
+			0,
+			quarantineNow,
 		)
-		select {
-		case second = <-secondResult:
-		case <-time.After(500 * time.Millisecond):
-			duplicateBlocked = true
+		if err != nil {
+			t.Fatalf("create invalid legacy intent fixture: %v", err)
 		}
-		close(broadcaster.release)
-		if err := <-firstResult; err != nil {
-			t.Fatalf("finish first dispatcher: %v", err)
+		appendCommittedIntent(t, pool, store, invalidIntent)
+
+		dispatcher := collaboration.NewDispatcher(
+			store,
+			&recordingBroadcaster{},
+			func() time.Time { return quarantineNow },
+		)
+		for attempt := 1; attempt <= 12; attempt++ {
+			if _, err := dispatcher.RunOnce(ctx); err != nil {
+				t.Fatalf("run deterministic sequencing attempt %d: %v", attempt, err)
+			}
+			var nextAttempt time.Time
+			if err := pool.QueryRow(ctx, `
+SELECT next_attempt_at
+  FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, invalidIntent.IntentKey).Scan(&nextAttempt); err != nil {
+				t.Fatalf("load deterministic sequencing retry %d: %v", attempt, err)
+			}
+			quarantineNow = nextAttempt.Add(time.Millisecond)
 		}
-		if duplicateBlocked {
-			second = <-secondResult
+		var (
+			failureCount int
+			reason       *string
+		)
+		if err := pool.QueryRow(ctx, `
+SELECT failure_count, quarantine_reason
+  FROM collaboration_incident_stream_cursors
+ WHERE incident_id = $1
+`, poisonIncidentUUID).Scan(&failureCount, &reason); err != nil {
+			t.Fatalf("load quarantined incident cursor: %v", err)
 		}
-		if second.err != nil {
-			t.Fatalf("run competing dispatcher: %v", second.err)
+		if failureCount != 12 || reason == nil || *reason != "invalid_event_payload" {
+			t.Fatalf("quarantine state = count %d reason %v want 12/invalid_event_payload", failureCount, reason)
 		}
-		if duplicateBlocked || second.processed != 0 {
-			t.Fatalf("competing dispatcher acquired an active delivery lease: blocked=%v processed=%d", duplicateBlocked, second.processed)
+
+		healthyIncidentID := createDurableStreamIncident(t, harness, admin, "healthy-beside-poison")
+		healthyIncidentUUID := uuid.MustParse(healthyIncidentID)
+		appendCommittedIntent(t, pool, store, requireJobIntent(t, healthyIncidentUUID, "healthy-beside-poison", quarantineNow))
+		if _, err := dispatcher.RunOnce(ctx); err != nil {
+			t.Fatalf("sequence healthy incident beside quarantine: %v", err)
 		}
-		if got := broadcaster.count(); got != 1 {
-			t.Fatalf("duplicate claim broadcast count = %d want 1", got)
+		var healthyReplayCount int
+		if err := pool.QueryRow(ctx, `
+SELECT count(*)
+  FROM collaboration_replay_events
+ WHERE incident_id = $1
+`, healthyIncidentUUID).Scan(&healthyReplayCount); err != nil {
+			t.Fatalf("count healthy replay events: %v", err)
+		}
+		if healthyReplayCount != 1 {
+			t.Fatalf("healthy incident replay count = %d want 1", healthyReplayCount)
+		}
+
+		if _, err := pool.Exec(ctx, `
+DELETE FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, invalidIntent.IntentKey); err != nil {
+			t.Fatalf("remove repaired invalid intent fixture: %v", err)
+		}
+		if err := store.RequeueIncident(ctx, poisonIncidentUUID, quarantineNow.Add(time.Second)); err != nil {
+			t.Fatalf("release repaired incident quarantine: %v", err)
 		}
 	})
 
@@ -357,8 +435,8 @@ SELECT gen_random_uuid(),
        'job_progress',
        '{}'::jsonb,
        CASE
-           WHEN sequence = 1 THEN $2::timestamptz - interval '5 minutes 1 microsecond'
-           WHEN sequence = 2 THEN $2::timestamptz - interval '5 minutes'
+           WHEN sequence = 1 THEN $2::timestamptz - interval '24 hours 1 microsecond'
+           WHEN sequence = 2 THEN $2::timestamptz - interval '24 hours'
            ELSE $2::timestamptz
        END
   FROM generate_series(1, 10002) AS sequence
@@ -384,8 +462,8 @@ SELECT count(*), min(stream_seq)
 `, retentionIncidentUUID).Scan(&retainedCount, &firstSequence); err != nil {
 			t.Fatalf("load retained replay range: %v", err)
 		}
-		if retainedCount != platformws.MinimumReplayRetention+1 || firstSequence != 2 {
-			t.Fatalf("retained replay range = count %d first %d want %d/2", retainedCount, firstSequence, platformws.MinimumReplayRetention+1)
+		if retainedCount != 10001 || firstSequence != 2 {
+			t.Fatalf("retained replay range = count %d first %d want 10001/2", retainedCount, firstSequence)
 		}
 	})
 }
@@ -461,33 +539,12 @@ func (b *recordingBroadcaster) snapshot() []platformws.Message {
 	return append([]platformws.Message(nil), b.messages...)
 }
 
-type blockingBroadcaster struct {
-	entered chan struct{}
-	release chan struct{}
-	once    sync.Once
-
-	mu       sync.Mutex
-	messages []platformws.Message
-}
-
-func newBlockingBroadcaster() *blockingBroadcaster {
-	return &blockingBroadcaster{
-		entered: make(chan struct{}),
-		release: make(chan struct{}),
+func messagesForIncident(messages []platformws.Message, incidentID string) []platformws.Message {
+	filtered := make([]platformws.Message, 0, len(messages))
+	for _, message := range messages {
+		if message.IncidentID == incidentID {
+			filtered = append(filtered, message)
+		}
 	}
-}
-
-func (b *blockingBroadcaster) DeliverReplayable(message platformws.Message) error {
-	b.mu.Lock()
-	b.messages = append(b.messages, message)
-	b.mu.Unlock()
-	b.once.Do(func() { close(b.entered) })
-	<-b.release
-	return nil
-}
-
-func (b *blockingBroadcaster) count() int {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return len(b.messages)
+	return filtered
 }

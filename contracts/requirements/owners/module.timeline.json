@@ -13,6 +13,16 @@
       "status": "active"
     },
     {
+      "requirement_id": "module.timeline.requirement.complete_projection_input",
+      "statement": "Timeline derives one complete typed projection input, including scalar fields and ordered mention, evidence-reference, and tag collections, from one source snapshot plus typed caller-transaction peer facts; no query, mutation, rebuild, reporting, rollback, restore, or portability path independently reconstructs the public row.",
+      "status": "active"
+    },
+    {
+      "requirement_id": "module.timeline.requirement.normalized_source_provenance",
+      "statement": "Timeline preserves unmapped source-cell provenance as bounded typed record-lifetime source state with deterministic identity, exact replay, divergent-replay rejection, and no projection, reporting, or collaboration inclusion unless separately authorized.",
+      "status": "active"
+    },
+    {
       "requirement_id": "module.timeline.requirement.owner_batch_application",
       "statement": "Timeline applies admitted owner_batch_apply_v1 commands atomically in caller transaction order, validates every stable target before version evaluation, preserves exact replay, and uses a distinct handler for each operation discriminator.",
       "status": "active"

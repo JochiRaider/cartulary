@@ -8,8 +8,15 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
+
+type emptyWorkbookProjectionQuery struct{}
+
+func (emptyWorkbookProjectionQuery) QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error) {
+	return []map[string]any{}, nil
+}
 
 func TestRestoreVerificationWorkbookProbe(t *testing.T) {
 	ctx := context.Background()
@@ -22,7 +29,7 @@ func TestRestoreVerificationWorkbookProbe(t *testing.T) {
 
 	t.Run("zero incidents skips", func(t *testing.T) {
 		db := pgtest.Start(t).BeginRollbackDBT(t, "restore-workbook-probe-zero-incidents")
-		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
+		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db, Query: emptyWorkbookProjectionQuery{}}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
 			t.Fatalf("zero incidents should skip probe: %v", err)
 		}
 	})
@@ -51,7 +58,7 @@ VALUES ($1, 'RESTORE-PROBE', 'restore-probe', 'Restore Probe', 'active', $2, $2)
 `, incidentID, userID); err != nil {
 			t.Fatalf("seed incident: %v", err)
 		}
-		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
+		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db, Query: emptyWorkbookProjectionQuery{}}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
 			t.Fatalf("empty timeline query should not fail probe: %v", err)
 		}
 	})

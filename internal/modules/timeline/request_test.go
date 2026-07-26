@@ -7,7 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
 
@@ -27,7 +27,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 			t.Fatalf("marshal Record relationships collection patch payload: %v", err)
 		}
 
-		request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+		request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(data))
 		if apiErr != nil {
 			t.Fatalf("expected Record relationships Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
 		}
@@ -58,7 +58,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 					t.Fatalf("marshal Record relationships collection patch payload: %v", err)
 				}
 
-				request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+				request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(data))
 				if apiErr != nil {
 					t.Fatalf("expected suppressor/forbidden rewrite token %q to decode, got %#v", rawText, apiErr)
 				}
@@ -87,7 +87,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 			t.Fatalf("marshal manual relationship payload: %v", err)
 		}
 
-		request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+		request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(data))
 		if apiErr != nil {
 			t.Fatalf("expected manual relationship mutation without confidence to decode, got %#v", apiErr)
 		}
@@ -108,7 +108,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 			t.Fatalf("marshal create manual relationship payload: %v", err)
 		}
 
-		request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(data))
+		request, apiErr := timelineadmission.DecodeTimelineCreateRequest(bytes.NewReader(data))
 		if apiErr != nil {
 			t.Fatalf("expected create-time manual relationship mutation without confidence to decode, got %#v", apiErr)
 		}
@@ -208,7 +208,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 					t.Fatalf("marshal forbidden metadata payload: %v", err)
 				}
 
-				_, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+				_, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(data))
 				if apiErr == nil {
 					t.Fatal("expected client-supplied metadata to fail closed")
 				}

@@ -11,9 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -21,7 +24,8 @@ import (
 )
 
 const (
-	OperatorObjectStoreInitResultSchemaID = "cartulary.operator.object_store_init_result.v1"
+	OperatorObjectStoreInitResultSchemaID      = "cartulary.operator.object_store_init_result.v1"
+	OperatorCollaborationRequeueResultSchemaID = "cartulary.operator.collaboration_requeue_result.v1"
 )
 
 type operatorPostgresPool interface {
@@ -54,6 +58,19 @@ type OperatorObjectStoreInitResult struct {
 	Result        string `json:"result"`
 	Created       bool   `json:"created"`
 	AlreadyExists bool   `json:"already_exists"`
+}
+
+type OperatorCollaborationRequeueResult struct {
+	SchemaID   string `json:"schema_id"`
+	Result     string `json:"result"`
+	IncidentID string `json:"incident_id"`
+}
+
+type collaborationRequeueArgs struct {
+	stop       bool
+	exitCode   int
+	configPath string
+	incidentID uuid.UUID
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
@@ -170,7 +187,56 @@ func (runner operatorRunner) commandRegistry() (operatorCommandRegistry, error) 
 			Usage:  "operator object-store init [-config <path>]",
 			Run:    runner.runObjectStoreInitCommand,
 		},
+		{
+			Tokens: []string{"collaboration", "requeue"},
+			Owner:  "collaboration",
+			Usage:  "operator collaboration requeue --incident-id <uuid> [-config <path>]",
+			Run:    runner.runCollaborationRequeueCommand,
+		},
 	})
+}
+
+func (runner operatorRunner) runCollaborationRequeueCommand(ctx context.Context, args []string) int {
+	parsed := parseCollaborationRequeueArgs(args[2:], runner.stderr)
+	if parsed.stop {
+		return parsed.exitCode
+	}
+	loaded, err := runner.loadConfig(parsed.configPath)
+	if err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	settings, err := postgres.ResolveSettings(
+		configassembly.PostgresBinding(loaded.Deployment()),
+		nil,
+	)
+	if err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	pool, err := runner.setupPostgres(ctx, settings)
+	if err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	defer pool.Close()
+	if err := collaboration.NewStore(pool, runner.now).RequeueIncident(
+		ctx,
+		parsed.incidentID,
+		runner.now(),
+	); err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	if err := runner.encodeJSON(OperatorCollaborationRequeueResult{
+		SchemaID:   OperatorCollaborationRequeueResultSchemaID,
+		Result:     "collaboration_incident_requeued",
+		IncidentID: parsed.incidentID.String(),
+	}); err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	return 0
 }
 
 func (runner operatorRunner) runMigrationEvidenceCommand(ctx context.Context, args []string) int {
@@ -233,6 +299,28 @@ func parseObjectStoreInitArgs(args []string, stderr io.Writer) operatorCLIResult
 	return operatorCLIResult{
 		command:          "object-store init",
 		sourceConfigPath: strings.TrimSpace(*sourceConfig),
+	}
+}
+
+func parseCollaborationRequeueArgs(args []string, stderr io.Writer) collaborationRequeueArgs {
+	flags := flag.NewFlagSet("operator collaboration requeue", flag.ContinueOnError)
+	flags.SetOutput(normalizeOperatorWriter(stderr))
+	configPath := flags.String("config", "", "optional deployment config path")
+	incidentIDText := flags.String("incident-id", "", "quarantined incident UUID")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return collaborationRequeueArgs{stop: true, exitCode: 0}
+		}
+		return collaborationRequeueArgs{stop: true, exitCode: 2}
+	}
+	incidentID, err := uuid.Parse(strings.TrimSpace(*incidentIDText))
+	if err != nil || incidentID == uuid.Nil || flags.NArg() != 0 {
+		fmt.Fprintln(normalizeOperatorWriter(stderr), "operator collaboration requeue requires exactly one non-zero --incident-id UUID")
+		return collaborationRequeueArgs{stop: true, exitCode: 2}
+	}
+	return collaborationRequeueArgs{
+		configPath: strings.TrimSpace(*configPath),
+		incidentID: incidentID,
 	}
 }
 

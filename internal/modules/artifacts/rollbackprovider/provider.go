@@ -67,11 +67,6 @@ func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontra
 	}
 }
 
-func (Provider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	_, err := tx.Exec(ctx, `UPDATE artifacts SET updated_at = $2 WHERE record_id = $1`, request.RecordID, request.Now.UTC())
-	return err
-}
-
 func restoreNoteTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
 	titleP, title := rawPair(source, "title")
 	bodyP, body := rawPair(source, "body")

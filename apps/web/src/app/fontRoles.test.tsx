@@ -5,6 +5,7 @@ import {
   installLandingShellFetch,
   sessionResource,
 } from "../testing/appShellTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   cleanupTimelineWorkbookTestGlobals,
   installTimelineWorkbookTestGlobals,
@@ -12,7 +13,6 @@ import {
   timelineRow,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import { App } from "./App";
 
 describe("vendored font role activation", () => {
@@ -55,7 +55,7 @@ describe("vendored font role activation", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
 
     expect(
       (await screen.findByTestId(saveStateTestId())).getAttribute(

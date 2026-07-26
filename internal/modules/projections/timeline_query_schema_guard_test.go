@@ -15,7 +15,7 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 	if !ok {
 		t.Fatalf("timeline schema %s not registered", timelineViewSchemaID)
 	}
-	surface, ok := defaultProviderRegistry().querySurfaceForView(timelineViewSchemaID)
+	surface, ok := querySurfacesForTest()[timelineViewSchemaID]
 	if !ok {
 		t.Fatal("timeline query surface is not registered")
 	}

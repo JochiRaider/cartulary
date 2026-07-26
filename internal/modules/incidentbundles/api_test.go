@@ -112,8 +112,8 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 1 {
-		t.Fatalf("manifest bundle_version must be numeric 1, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 2 {
+		t.Fatalf("manifest bundle_version must be numeric 2, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -132,8 +132,9 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 		"data/incident.json",
 		"data/actors.ndjson",
 		"data/records.ndjson",
-		"data/timeline_time_conversion_profiles.ndjson",
-		"data/timeline_events.ndjson",
+		"data/timeline_time_profiles.ndjson",
+		"data/timeline_records.ndjson",
+		"data/timeline_source_provenance.ndjson",
 		"data/parties.ndjson",
 		"data/entity_mentions.ndjson",
 		"data/hosts.ndjson",

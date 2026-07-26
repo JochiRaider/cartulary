@@ -40,13 +40,16 @@
     "confirmed_loss_exit": 70,
     "uncertainty_closes_admission": true,
     "recovery_proof": "original_session_only",
-    "loss_irreversible": true
+    "loss_irreversible": true,
+    "whole_process_scope": "single_only",
+    "replicated_scope": "component_specific"
   },
   "staged_object": {
     "expiry_access": "immediate",
     "upload_abandonment": "immediate",
     "deletion_transaction": "forbidden",
     "sweep_serialization": "single",
+    "sweep_fencing": "whole_process_in_single_component_lease_in_replicated",
     "missed_interval_policy": "coalesce_one"
   },
   "restore": {

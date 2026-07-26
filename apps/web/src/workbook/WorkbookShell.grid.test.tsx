@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred, requireFetchCall } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   buildRecordChangedPayload,
   changeInputValue,
@@ -41,7 +42,6 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { decideWorkbookRecordFreshness } from "./timeline/models/workbookTimelineModel";
 
 vi.mock(
@@ -107,7 +107,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     const grid = await waitForTimelineWorkbookReady(container, 1);
@@ -186,7 +188,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -248,7 +252,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 0);
@@ -320,7 +326,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 0);
@@ -416,7 +424,9 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockReturnValueOnce(pendingSortedRows.promise);
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -487,7 +497,9 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(errorEnvelope("projection_failed", 500));
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);
@@ -571,7 +583,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
@@ -705,7 +719,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
@@ -769,7 +785,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
@@ -911,7 +929,9 @@ describe("Timeline workbook grid coverage", () => {
       }),
     );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
 
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 2);

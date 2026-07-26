@@ -8,13 +8,14 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
-func buildRow(record projectedRecord) map[string]any {
+func buildRow(record workbookprojection.DerivedRecord) map[string]any {
 	return rowpresenter.BuildRow(record.PresenterRecord())
 }
 
-func ComputeChangedFieldKeys(before *projectedRecord, after projectedRecord) []string {
+func ComputeChangedFieldKeys(before *workbookprojection.DerivedRecord, after workbookprojection.DerivedRecord) []string {
 	beforeCells := map[string]any{}
 	if before != nil {
 		beforeRow := buildRow(*before)
@@ -57,13 +58,6 @@ func formatUUIDPointer(value *uuid.UUID) any {
 }
 
 func derefString(value *string) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
-func derefInt(value *int) any {
 	if value == nil {
 		return nil
 	}

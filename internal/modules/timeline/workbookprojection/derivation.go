@@ -34,10 +34,10 @@ type DerivedRecord struct {
 	EvidenceCount         int
 	HasEvidence           bool
 	HasUnresolvedMentions bool
-	HostRefs              []map[string]any
-	IdentityRefs          []map[string]any
-	AttachedEvidence      []map[string]any
-	Tags                  []map[string]any
+	HostRefs              []MentionRef
+	IdentityRefs          []MentionRef
+	AttachedEvidence      []EvidenceRef
+	Tags                  []TagRef
 }
 
 func Derive(snapshot sourcerepository.Snapshot, replacementRecordID *uuid.UUID) DerivedRecord {
@@ -62,10 +62,10 @@ func Derive(snapshot sourcerepository.Snapshot, replacementRecordID *uuid.UUID) 
 		ActivityTimePairState: snapshot.ActivityTimePairState,
 		CaptureState:          snapshot.CaptureState,
 		ReplacementRecordID:   cloneUUIDPointer(replacementRecordID),
-		HostRefs:              []map[string]any{},
-		IdentityRefs:          []map[string]any{},
-		AttachedEvidence:      []map[string]any{},
-		Tags:                  []map[string]any{},
+		HostRefs:              []MentionRef{},
+		IdentityRefs:          []MentionRef{},
+		AttachedEvidence:      []EvidenceRef{},
+		Tags:                  []TagRef{},
 	}
 }
 
@@ -94,6 +94,10 @@ func (record DerivedRecord) ProjectionInput() ProjectionInput {
 		EvidenceCount:         record.EvidenceCount,
 		HasEvidence:           record.HasEvidence,
 		HasUnresolvedMentions: record.HasUnresolvedMentions,
+		HostRefs:              append(make([]MentionRef, 0, len(record.HostRefs)), record.HostRefs...),
+		IdentityRefs:          append(make([]MentionRef, 0, len(record.IdentityRefs)), record.IdentityRefs...),
+		AttachedEvidence:      append(make([]EvidenceRef, 0, len(record.AttachedEvidence)), record.AttachedEvidence...),
+		Tags:                  append(make([]TagRef, 0, len(record.Tags)), record.Tags...),
 	}
 }
 
@@ -122,10 +126,10 @@ func (record DerivedRecord) PresenterRecord() rowpresenter.Record {
 		EvidenceCount:         record.EvidenceCount,
 		HasEvidence:           record.HasEvidence,
 		HasUnresolvedMentions: record.HasUnresolvedMentions,
-		HostRefs:              record.HostRefs,
-		IdentityRefs:          record.IdentityRefs,
-		AttachedEvidence:      record.AttachedEvidence,
-		Tags:                  record.Tags,
+		HostRefs:              mentionRefsToMaps(record.HostRefs),
+		IdentityRefs:          mentionRefsToMaps(record.IdentityRefs),
+		AttachedEvidence:      evidenceRefsToMaps(record.AttachedEvidence),
+		Tags:                  tagRefsToMaps(record.Tags),
 	}
 }
 

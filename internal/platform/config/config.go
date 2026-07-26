@@ -35,6 +35,9 @@ const (
 	DefaultPreviewMaxTextInlineBytes             int64 = 1048576
 	DefaultExtensionStagedObjectCleanupBatch     int64 = 1000
 	DefaultExtensionMaxNonterminalJobsPerProfile int64 = 100000
+
+	ProcessModelSingle     = "single"
+	ProcessModelReplicated = "replicated"
 )
 
 type LoadOptions struct {
@@ -76,6 +79,7 @@ type document struct {
 
 type ApplicationConfig struct {
 	PublicOrigin string `toml:"public_origin"`
+	ProcessModel string `toml:"process_model"`
 }
 
 type RootBindings struct {
@@ -314,10 +318,6 @@ func loadFromOptions(options LoadOptions, catalog Catalog) (document, error) {
 		}})
 	}
 	return decodeDocumentWithCatalog(data, options, catalog)
-}
-
-func decodeDocument(data []byte, options LoadOptions) (document, error) {
-	return decodeDocumentWithCatalog(data, options, Catalog{})
 }
 
 func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog) (document, error) {

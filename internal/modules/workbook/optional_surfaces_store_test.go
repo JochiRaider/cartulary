@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
@@ -20,7 +21,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-store")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
 
@@ -121,7 +122,7 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 
 func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-query")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
 
@@ -176,7 +177,7 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 
 func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-findings-confidence-boundaries")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
 

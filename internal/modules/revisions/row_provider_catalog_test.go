@@ -16,10 +16,6 @@ func (catalogRowProvider) ValidateRollbackValue(map[string]any) error { return n
 func (catalogRowProvider) RestoreTx(context.Context, pgx.Tx, rollbackcontract.RestoreRequest) error {
 	return nil
 }
-func (catalogRowProvider) TouchTx(context.Context, pgx.Tx, rollbackcontract.TouchRequest) error {
-	return nil
-}
-
 func TestRowProviderCatalogRejectsDuplicateAndMissingRegistrations(t *testing.T) {
 	t.Parallel()
 

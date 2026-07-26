@@ -7,6 +7,7 @@ import {
 import * as viewContracts from "@cartulary/view-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -20,7 +21,6 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -181,7 +181,10 @@ describe("Timeline query row identity integration", () => {
     );
 
     const { container, rerender } = render(
-      <TimelineWorkbook incidentId="incident-1" reloadToken={0} />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={0}
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "record-alpha",
@@ -237,7 +240,12 @@ describe("Timeline query row identity integration", () => {
         rows: [betaPatch, alpha],
       }),
     );
-    rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={1} />);
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={1}
+      />,
+    );
     await waitForVisibleGridRowRecordIds(container, [
       "record-beta",
       "record-alpha",
@@ -290,7 +298,12 @@ describe("Timeline query row identity integration", () => {
         rows: [created, alpha, betaPatch],
       }),
     );
-    rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={2} />);
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        reloadToken={2}
+      />,
+    );
     await waitForVisibleGridRowRecordIds(container, [
       "record-created",
       "record-alpha",

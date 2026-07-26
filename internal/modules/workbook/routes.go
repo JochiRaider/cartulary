@@ -8,18 +8,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -56,11 +57,18 @@ type RouteOption func(*routeOptions)
 type routeOptions struct {
 	createRowHandlerFactories map[string]CreateRowHandlerFactory
 	timelineOwner             *timeline.Facade
+	projectionQuery           *projections.QueryService
 }
 
 func WithTimelineOwner(owner *timeline.Facade) RouteOption {
 	return func(options *routeOptions) {
 		options.timelineOwner = owner
+	}
+}
+
+func WithProjectionQuery(query *projections.QueryService) RouteOption {
+	return func(options *routeOptions) {
+		options.projectionQuery = query
 	}
 }
 
@@ -81,7 +89,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps, settings.timelineOwner)
+		service, err := newService(deps, settings.timelineOwner, settings.projectionQuery)
 		if err != nil {
 			return err
 		}
@@ -175,7 +183,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
-	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
+	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
@@ -246,7 +254,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
-	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
+	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
@@ -330,7 +338,7 @@ func timelineOwnerBatchTargets(targets []TimelineBatchTarget) []timeline.OwnerBa
 	return converted
 }
 
-func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade) (*Service, error) {
+func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade, projectionQuery *projections.QueryService) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -345,13 +353,14 @@ func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade) (*Se
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	if timelineStore == nil {
-		return nil, errors.New("Workbook route composition requires a Timeline owner")
+		return nil, errors.New("workbook route composition requires a Timeline owner")
+	}
+	if projectionQuery == nil {
+		return nil, errors.New("workbook route composition requires projection queries")
 	}
 	conflictTokens := conflicttokens.NewConflictTokenCodec(keys)
-	timelineStore.SetConflictTokenCodec(conflictTokens)
-	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore)
-	store.SetConflictTokenCodec(conflictTokens)
-	queryStore := NewQueryStore(deps.PostgresHandle())
+	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore, conflictTokens, projectionQuery)
+	queryStore := NewQueryStore(deps.PostgresHandle(), projectionQuery)
 	entityStore := hostidentity.NewStore(deps.PostgresHandle())
 	indicatorStore := indicators.NewStore(deps.PostgresHandle())
 	return &Service{
@@ -675,7 +684,6 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		handler(w, r)
 		return
 	}
-	timing := newTimelineCreateTiming(r, viewSchemaID)
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {
 		return
@@ -685,14 +693,12 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	timing.mark("auth")
 	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	timing.mark("role_check")
 	if viewSchemaID == timeline.TimelineViewSchemaID {
-		s.handleTimelineCreate(w, r, principal, incidentID, timing)
+		s.handleTimelineCreate(w, r, principal, incidentID)
 		return
 	}
 	if viewSchemaID == hostidentity.HostsViewSchemaID || viewSchemaID == hostidentity.IdentitiesViewSchemaID {
@@ -934,7 +940,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := timeline.DecodeTimelineSupersedeRequest(r.Body)
+	request, apiErr := timelineadmission.DecodeTimelineSupersedeRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -943,7 +949,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 	case "timeline_event":
 		s.handleTimelineSupersede(w, r, &principal, recordID, request)
 	case "decision":
-		requestHash := timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
+		requestHash := timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
 		s.handleDecisionSupersede(w, r, &principal, recordID, request, requestHash)
 	default:
 		writeAPIError(w, r, &httpapi.APIError{
@@ -960,13 +966,19 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, recordID uuid.UUID, request timeline.SupersedeRequest) {
 	result, err := s.timelineOwner.SupersedeRow(r.Context(), timeline.SupersedeCommand{
-		Actor:     principal.User,
-		RecordID:  recordID,
-		Request:   request,
+		Actor:    principal.User,
+		RecordID: recordID,
+		Request:  request,
+		RequestHash: timelineadmission.ActionRequestHash(
+			request.BaseRowVersion,
+			request.ClientTxnID,
+			&request.Reason,
+			request.ReplacementRecordID,
+		),
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
 		Now:       s.now(),
 	})
-	if apiErr, ok := timeline.ClassifyMutationAPIError(err, timeline.MutationAPIErrorContext{
+	if apiErr, ok := timelineadmission.ClassifyMutationAPIError(err, timelineadmission.MutationAPIErrorContext{
 		ClientTxnID:                 request.ClientTxnID,
 		IllegalTransitionReasonCode: "supersede_not_allowed",
 	}); ok {
@@ -1087,17 +1099,21 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
-func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, incidentID uuid.UUID, recordID uuid.UUID, token string, claims timeline.TimelineConflictTokenClaims) {
-	request, apiErr := timeline.DecodeTimelineConflictResolveRequest(r.Body, token, claims)
+func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, incidentID uuid.UUID, recordID uuid.UUID, token string, claims conflicttokens.ConflictTokenClaims) {
+	request, apiErr := timelineadmission.DecodeTimelineConflictResolveRequest(r.Body, token, claims)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	result, err := s.timelineOwner.ResolveConflict(r.Context(), timeline.ConflictResolveCommand{
-		Actor:     principal.User,
-		RecordID:  recordID,
-		Claims:    claims,
-		Request:   request,
+		Actor:    principal.User,
+		RecordID: recordID,
+		Claims:   claims,
+		Request:  request,
+		RequestHash: timelineadmission.ConflictResolveRequestHash(
+			claims,
+			request,
+		),
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
 		Now:       s.now(),
 	})
@@ -1106,7 +1122,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
-	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
+	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
@@ -1128,23 +1144,20 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, timing *timelineCreateTiming) {
-	request, apiErr := timeline.DecodeTimelineCreateRequest(r.Body)
+func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID) {
+	request, apiErr := timelineadmission.DecodeTimelineCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	timing.mark("decode")
-	timing.mark("hash")
-	storeCtx := timeline.WithCreateTimingRecorder(r.Context(), timing)
-	result, err := s.timelineOwner.CreateRow(storeCtx, timeline.CreateRowCommand{
-		Actor:      principal.User,
-		IncidentID: incidentID,
-		Request:    request,
-		RequestID:  httpapi.RequestIDFromContext(r.Context()),
-		Now:        s.now(),
+	result, err := s.timelineOwner.CreateRow(r.Context(), timeline.CreateRowCommand{
+		Actor:       principal.User,
+		IncidentID:  incidentID,
+		Request:     request,
+		RequestHash: timelineadmission.CreateRequestHash(request),
+		RequestID:   httpapi.RequestIDFromContext(r.Context()),
+		Now:         s.now(),
 	})
-	timing.mark("store_create")
 	var mutationErr *MutationValidationError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -1164,9 +1177,6 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	timing.mark("session_slide")
-	timing.mark("response_prep")
-	timing.write(w)
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
@@ -1184,24 +1194,25 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(body))
+	request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(body))
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	result, err := s.timelineOwner.PatchRow(r.Context(), timeline.PatchRowCommand{
-		Actor:     principal.User,
-		RecordID:  recordID,
-		Request:   request,
-		RequestID: httpapi.RequestIDFromContext(r.Context()),
-		Now:       s.now(),
+		Actor:       principal.User,
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: timelineadmission.PatchRequestHash(request),
+		RequestID:   httpapi.RequestIDFromContext(r.Context()),
+		Now:         s.now(),
 	})
 	var (
 		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
-	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{
+	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{
 		ClientTxnID:                 request.ClientTxnID,
 		IllegalTransitionReasonCode: "superseded_terminal",
 		NoEffectiveChangeField:      "changes",
@@ -1278,8 +1289,8 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func classifyTimelineMutationError(w http.ResponseWriter, r *http.Request, err error, context timeline.MutationAPIErrorContext) bool {
-	apiErr, ok := timeline.ClassifyMutationAPIError(err, context)
+func classifyTimelineMutationError(w http.ResponseWriter, r *http.Request, err error, context timelineadmission.MutationAPIErrorContext) bool {
+	apiErr, ok := timelineadmission.ClassifyMutationAPIError(err, context)
 	if !ok {
 		return false
 	}
@@ -1295,54 +1306,6 @@ func patchViewSchemaID(body []byte) string {
 	var viewSchemaID string
 	_ = json.Unmarshal(raw["view_schema_id"], &viewSchemaID)
 	return viewSchemaID
-}
-
-type timelineCreateTiming struct {
-	enabled bool
-	last    time.Time
-	parts   []string
-}
-
-func newTimelineCreateTiming(r *http.Request, viewSchemaID string) *timelineCreateTiming {
-	if viewSchemaID != timeline.TimelineViewSchemaID || r.Header.Get("X-Cartulary-Timing-Debug") != "1" {
-		return nil
-	}
-	return &timelineCreateTiming{
-		enabled: true,
-		last:    time.Now(),
-	}
-}
-
-func (t *timelineCreateTiming) MarkTimelineCreateTiming(name string) {
-	t.mark(name)
-}
-
-func (t *timelineCreateTiming) AddTimelineCreateTiming(name string, duration time.Duration) {
-	if t == nil || !t.enabled {
-		return
-	}
-	t.parts = append(t.parts, fmt.Sprintf("%s;dur=%.3f", name, float64(duration.Microseconds())/1000))
-	t.last = time.Now()
-}
-
-func (t *timelineCreateTiming) mark(name string) {
-	if t == nil || !t.enabled {
-		return
-	}
-	now := time.Now()
-	if t.last.IsZero() {
-		t.last = now
-		return
-	}
-	t.parts = append(t.parts, fmt.Sprintf("%s;dur=%.3f", name, float64(now.Sub(t.last).Microseconds())/1000))
-	t.last = now
-}
-
-func (t *timelineCreateTiming) write(w http.ResponseWriter) {
-	if t == nil || !t.enabled || len(t.parts) == 0 {
-		return
-	}
-	w.Header().Set("Server-Timing", strings.Join(t.parts, ", "))
 }
 
 func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *httpapi.APIError) {

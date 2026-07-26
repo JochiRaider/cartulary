@@ -1,15 +1,18 @@
-package conflicttokens
+package conflicttokens_test
 
 import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
-	codec := NewConflictTokenCodecForTesting("revisions-owner")
+	codec := conflicttest.NewCodec("revisions-owner")
 	recordID := uuid.New()
-	claims := ConflictTokenClaims{
+	claims := conflicttokens.ConflictTokenClaims{
 		RouteKey:                "workbook.records.conflicts.resolve",
 		RecordID:                recordID.String(),
 		ViewSchemaID:            "cartulary.view.notes.v1",
@@ -17,7 +20,7 @@ func TestConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
 		ConflictResolutionClass: "text_compare_merge",
 		BaseRowVersion:          1,
 		CurrentRowVersion:       2,
-		RequestHash:             RequestHashTokenValue([]byte("request")),
+		RequestHash:             conflicttokens.RequestHashTokenValue([]byte("request")),
 	}
 
 	token := codec.Issue(claims)
@@ -25,7 +28,7 @@ func TestConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
 	if !ok {
 		t.Fatal("expected issued conflict token to parse")
 	}
-	if parsed.Version != ConflictTokenVersion ||
+	if parsed.Version != conflicttokens.ConflictTokenVersion ||
 		parsed.RouteKey != claims.RouteKey ||
 		parsed.RecordID != claims.RecordID ||
 		parsed.ViewSchemaID != claims.ViewSchemaID ||
@@ -46,8 +49,8 @@ func TestConflictTokenCodecRoundTripsAndRejectsTampering(t *testing.T) {
 }
 
 func TestConflictTokenCodecRejectsInvalidClaims(t *testing.T) {
-	codec := NewConflictTokenCodecForTesting("revisions-owner-invalid")
-	valid := ConflictTokenClaims{
+	codec := conflicttest.NewCodec("revisions-owner-invalid")
+	valid := conflicttokens.ConflictTokenClaims{
 		RouteKey:                "timeline.records.conflicts.resolve",
 		RecordID:                uuid.NewString(),
 		ViewSchemaID:            "cartulary.view.timeline.v2",
@@ -55,27 +58,27 @@ func TestConflictTokenCodecRejectsInvalidClaims(t *testing.T) {
 		ConflictResolutionClass: "text_compare_merge",
 		BaseRowVersion:          1,
 		CurrentRowVersion:       1,
-		RequestHash:             RequestHashTokenValue([]byte("request")),
+		RequestHash:             conflicttokens.RequestHashTokenValue([]byte("request")),
 	}
 
-	cases := map[string]func(ConflictTokenClaims) ConflictTokenClaims{
-		"nil_record": func(claims ConflictTokenClaims) ConflictTokenClaims {
+	cases := map[string]func(conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims{
+		"nil_record": func(claims conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims {
 			claims.RecordID = uuid.Nil.String()
 			return claims
 		},
-		"missing_route": func(claims ConflictTokenClaims) ConflictTokenClaims {
+		"missing_route": func(claims conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims {
 			claims.RouteKey = ""
 			return claims
 		},
-		"missing_field": func(claims ConflictTokenClaims) ConflictTokenClaims {
+		"missing_field": func(claims conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims {
 			claims.FieldKey = ""
 			return claims
 		},
-		"current_before_base": func(claims ConflictTokenClaims) ConflictTokenClaims {
+		"current_before_base": func(claims conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims {
 			claims.CurrentRowVersion = claims.BaseRowVersion - 1
 			return claims
 		},
-		"missing_request_hash": func(claims ConflictTokenClaims) ConflictTokenClaims {
+		"missing_request_hash": func(claims conflicttokens.ConflictTokenClaims) conflicttokens.ConflictTokenClaims {
 			claims.RequestHash = ""
 			return claims
 		},

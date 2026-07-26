@@ -1005,8 +1005,8 @@ VALUES ($1, $2, $3, 'details', 'source', 'rough', 1, $4, $4, $5, $5)
 	mustExec(t, db, `
 INSERT INTO timeline_grid_projection (
     record_id, incident_id, row_version, activity_synopsis_text, raw_activity_text, data_source_text, recorded_at, edited_at,
-    activity_sort_ts, capture_state, date_entered_sort_day, evidence_count, has_evidence
-) VALUES ($1, $2, 1, $3, 'details', 'source', $4, $4, $4, 'rough', ($4::timestamptz AT TIME ZONE 'UTC')::date, $5, $6)
+    capture_state, evidence_count, has_evidence
+) VALUES ($1, $2, 1, $3, 'details', 'source', $4, $4, 'rough', $5, $6)
 `, timelineID, incidentID, label, now, evidenceCount, evidenceCount > 0)
 
 	evidenceID := uuid.New()
@@ -1022,6 +1022,24 @@ INSERT INTO object_blobs (
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, requested_at, received_at, created_at, updated_at)
 VALUES ($1, $2, $3, 'available', 'available', $4, $5, $5, $5, $5)
 `, evidenceID, incidentID, label+" Evidence", blobID, now)
+	mustExec(t, db, `
+INSERT INTO evidence_grid_projection (
+    record_id, incident_id, row_version, title, lifecycle_state, requested_at, received_at,
+    blob_hash, upload_state, linked_record_count, edited_at
+) VALUES ($1, $2, 1, $3, 'available', $4, $4, NULL, 'available', $5, $4)
+`, evidenceID, incidentID, label+" Evidence", now, evidenceCount)
+	if evidenceCount > 0 {
+		mustExec(t, db, `
+UPDATE timeline_grid_projection
+   SET attached_evidence_refs = jsonb_build_array(jsonb_build_object(
+           'item_ref', 'record_ref:' || $2::text,
+           'item_kind', 'record_ref',
+           'display_text', $3::text,
+           'linked_record_id', $2::text
+       ))
+ WHERE record_id = $1
+`, timelineID, evidenceID, label+" Evidence")
+	}
 	return timelineID, evidenceID
 }
 

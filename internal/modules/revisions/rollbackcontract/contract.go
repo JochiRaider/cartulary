@@ -68,15 +68,7 @@ type RestoreRequest struct {
 	RetainedValue  map[string]any
 }
 
-type TouchRequest struct {
-	RecordID       uuid.UUID
-	ActorUserID    uuid.UUID
-	Now            time.Time
-	NextRowVersion int64
-}
-
 type RowSourceProvider interface {
 	ValidateRollbackValue(value map[string]any) error
 	RestoreTx(ctx context.Context, tx pgx.Tx, request RestoreRequest) error
-	TouchTx(ctx context.Context, tx pgx.Tx, request TouchRequest) error
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func validateProvider(provider projectionProvider) error {
+func validateProvider(provider Provider) error {
 	descriptor := provider.descriptor
 	if descriptor.SchemaVersion != projectionProviderDescriptorSchemaVersion {
 		return fmt.Errorf("projection provider %q declares unsupported schema_version %q", descriptor.ProviderKey, descriptor.SchemaVersion)
@@ -130,14 +130,8 @@ func validateProvider(provider projectionProvider) error {
 		}
 		seenFacadePackages[packagePath] = struct{}{}
 	}
-	for _, family := range descriptor.ProjectionTableFamilies {
-		owner, ok := projectionTableSchemaOwners[family]
-		if !ok {
-			return fmt.Errorf("projection provider %q declares unknown projection table family %q", descriptor.ProviderKey, family)
-		}
-		if owner != descriptor.ProjectionStorageOwnerKey {
-			return fmt.Errorf("projection provider %q projection_storage_owner_key=%q does not match %s owner %q", descriptor.ProviderKey, descriptor.ProjectionStorageOwnerKey, family, owner)
-		}
+	if descriptor.ProjectionStorageOwnerKey != "projections" {
+		return fmt.Errorf("projection provider %q projection_storage_owner_key=%q must be projections", descriptor.ProviderKey, descriptor.ProjectionStorageOwnerKey)
 	}
 	return nil
 }
@@ -162,9 +156,6 @@ func validateSourceAuthorityModules(descriptor ProviderDescriptor) error {
 	}
 	includesSourceOwner := false
 	for _, module := range descriptor.SourceAuthorityModules {
-		if _, ok := projectionSourceAuthorityModules[module]; !ok {
-			return fmt.Errorf("projection provider %q declares unknown source_authority_module %q", descriptor.ProviderKey, module)
-		}
 		if module == descriptor.SourceOwnerKey {
 			includesSourceOwner = true
 		}
@@ -175,7 +166,7 @@ func validateSourceAuthorityModules(descriptor ProviderDescriptor) error {
 	return nil
 }
 
-func providerQuerySurfaces(provider projectionProvider) ([]genericSurface, error) {
+func providerQuerySurfaces(provider Provider) ([]genericSurface, error) {
 	surfaces := make([]genericSurface, 0, len(provider.descriptor.QuerySurfaces))
 	for _, surface := range provider.descriptor.QuerySurfaces {
 		converted, err := genericSurfaceFromContract(surface)
@@ -206,8 +197,8 @@ func validateFacadePackagePath(packagePath string) error {
 	return nil
 }
 
-func topologicalProviderOrder(providers []*projectionProvider, byProviderKey map[string]*projectionProvider) ([]*projectionProvider, error) {
-	remaining := map[string]*projectionProvider{}
+func topologicalProviderOrder(providers []*Provider, byProviderKey map[string]*Provider) ([]*Provider, error) {
+	remaining := map[string]*Provider{}
 	indegree := map[string]int{}
 	outgoing := map[string][]string{}
 	for _, provider := range providers {
@@ -225,9 +216,9 @@ func topologicalProviderOrder(providers []*projectionProvider, byProviderKey map
 			outgoing[dependency] = append(outgoing[dependency], key)
 		}
 	}
-	ordered := make([]*projectionProvider, 0, len(providers))
+	ordered := make([]*Provider, 0, len(providers))
 	for len(remaining) > 0 {
-		ready := make([]*projectionProvider, 0)
+		ready := make([]*Provider, 0)
 		for key, provider := range remaining {
 			if indegree[key] == 0 {
 				ready = append(ready, provider)
@@ -250,7 +241,7 @@ func topologicalProviderOrder(providers []*projectionProvider, byProviderKey map
 	return ordered, nil
 }
 
-func providerSortKey(provider *projectionProvider) string {
+func providerSortKey(provider *Provider) string {
 	viewIDs := append([]string(nil), provider.descriptor.ViewSchemaIDs...)
 	sort.Strings(viewIDs)
 	firstView := ""

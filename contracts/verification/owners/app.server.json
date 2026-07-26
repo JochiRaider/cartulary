@@ -12,7 +12,8 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "app.server.requirement.behavior_contract"
+        "app.server.requirement.behavior_contract",
+        "app.server.requirement.deployment_process_models"
       ]
     }
   ]

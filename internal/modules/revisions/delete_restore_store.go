@@ -179,7 +179,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 		}
 	}
 
-	beforeSnapshot, err := provider.SnapshotTx(ctx, tx, record.RecordID)
+	beforeSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, provider)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -193,7 +193,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	afterSnapshot, err := provider.SnapshotTx(ctx, tx, record.RecordID)
+	afterSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, provider)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -246,21 +246,6 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	}
 	current, err := loadDeleteRestoreRecordTx(ctx, tx, recordID)
 	if err != nil {
-		return DeleteRestoreResult{}, err
-	}
-	if err := s.appendDeleteRestoreRecordChangeIntentTx(
-		ctx,
-		tx,
-		record.IncidentID,
-		actor.ID,
-		request.ClientTxnID,
-		changeSetID,
-		record.RecordID,
-		nextRowVersion,
-		viewSchemaID,
-		changeKind,
-		now,
-	); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	payload := buildDeleteRestorePayload(current, changeSetID, deleted)

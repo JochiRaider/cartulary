@@ -65,7 +65,9 @@ export function useTimelinePendingReplayController({
   conflictQueueRef,
   handleMutationConflict,
   latestCommittedTimelineRow,
+  loadRowsRef,
   pendingSavesRefsRef,
+  postMutationQueryRefreshRequired,
   publishPendingQueueState,
   reconcileDiscardedPendingUnit,
   recordWorkbookTiming,
@@ -101,9 +103,13 @@ export function useTimelinePendingReplayController({
     surface: TimelineScalarEditorSurface,
   ) => boolean;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
+  readonly loadRowsRef: TimelineMutableRef<
+    (options: { readonly showLoading: boolean }) => Promise<void>
+  >;
   readonly pendingSavesRefsRef: TimelineMutableRef<
     TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
   >;
+  readonly postMutationQueryRefreshRequired: boolean;
   readonly publishPendingQueueState: () => void;
   readonly reconcileDiscardedPendingUnit: (
     discardedUnit: PendingReplayUnitState,
@@ -655,6 +661,13 @@ export function useTimelinePendingReplayController({
       });
       publishPendingQueueState();
       return;
+    }
+    if (postMutationQueryRefreshRequired) {
+      try {
+        await loadRowsRef.current({ showLoading: false });
+      } catch {
+        setRefreshError("Timeline projection refresh failed.");
+      }
     }
     recordWorkbookTiming("pending_result_apply_end", {
       clientTxnId: dispatchedUnit.clientTxnId,

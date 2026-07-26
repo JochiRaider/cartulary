@@ -12,6 +12,7 @@ import {
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   buildRecordChangedPayload,
   changeInputValue,
@@ -33,7 +34,6 @@ import {
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 
 vi.mock(
@@ -87,7 +87,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const activatedEditor = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -203,7 +203,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -277,7 +277,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
 
     const input = (await findWorkbookCell(
       document.body,
@@ -366,7 +366,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
 
     const input = (await findWorkbookCell(
       document.body,
@@ -438,7 +438,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -510,7 +510,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -573,7 +573,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
     routedFetch.mockRecordPatchOnce(secondPendingPatch.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
 
     const firstInput = (await findWorkbookCell(
       document.body,
@@ -696,7 +696,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -808,7 +808,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -869,7 +869,7 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -927,7 +927,7 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(errorEnvelope("session_required", 401));
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -996,7 +996,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const retryFirstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -1044,7 +1044,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("future_terminal_public_error", 409),
     );
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const haltInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -1095,7 +1095,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -1170,7 +1170,7 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -1208,7 +1208,7 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

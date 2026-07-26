@@ -273,7 +273,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	for _, memberPath := range []string{
 		"integrity/checksums.sha256",
 		"data/record_tags.ndjson",
-		"data/timeline_time_conversion_profiles.ndjson",
+		"data/timeline_time_profiles.ndjson",
 		"data/parties.ndjson",
 		"data/entity_preserved_identifiers.ndjson",
 		"data/artifact_findings.ndjson",
@@ -717,7 +717,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 				if err := json.Unmarshal(original, &manifest); err != nil {
 					t.Fatalf("decode manifest: %v", err)
 				}
-				manifest["bundle_version"] = float64(2)
+				manifest["bundle_version"] = float64(3)
 				payload, err := json.Marshal(manifest)
 				if err != nil {
 					t.Fatalf("encode manifest: %v", err)

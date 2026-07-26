@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -919,16 +918,4 @@ func requireExactStrings(t testing.TB, got, want []string, label string) {
 			t.Fatalf("%s = %v; want %v", label, got, want)
 		}
 	}
-}
-
-func requireContains(t testing.TB, values []string, want string) {
-	t.Helper()
-	for _, value := range values {
-		if value == want {
-			return
-		}
-	}
-	sorted := append([]string(nil), values...)
-	sort.Strings(sorted)
-	t.Fatalf("missing %s from %s", want, fmt.Sprint(sorted))
 }

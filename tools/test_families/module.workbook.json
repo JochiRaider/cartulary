@@ -2112,6 +2112,58 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.unit.timeline_admission_decoding_and_hashing_46ac663c5c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/timelineadmission",
+        "tests": [
+          "TestPatchPayloadValidation_Unit",
+          "TestTimelineAdmissionCreateAndHashContracts",
+          "TestUnit_TimelineVisibleTextContract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.unit.timeline_admission_maps_public_errors_c11874aa1a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/timelineadmission",
+        "tests": [
+          "TestTimelineMutationAPIErrorClassifier_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

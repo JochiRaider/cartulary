@@ -118,11 +118,6 @@ UPDATE task_requests
 	return err
 }
 
-func (TaskRequestProvider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	_, err := tx.Exec(ctx, `UPDATE task_requests SET updated_at = $2 WHERE record_id = $1`, request.RecordID, request.Now.UTC())
-	return err
-}
-
 type decisionMachine struct {
 	incidentID         uuid.UUID
 	status             string
@@ -184,11 +179,6 @@ UPDATE decisions
        updated_at = $14
  WHERE record_id = $1
 `, append([]any{request.RecordID}, append(values, request.Now.UTC())...)...)
-	return err
-}
-
-func (DecisionProvider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	_, err := tx.Exec(ctx, `UPDATE decisions SET updated_at = $2 WHERE record_id = $1`, request.RecordID, request.Now.UTC())
 	return err
 }
 

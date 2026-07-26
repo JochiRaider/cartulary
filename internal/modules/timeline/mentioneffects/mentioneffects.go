@@ -25,7 +25,7 @@ type RecordPort interface {
 }
 
 type CollectionPort interface {
-	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *workbookprojection.DerivedRecord) error
+	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (workbookprojection.CollectionFacts, error)
 }
 
 type ProjectionPort interface {
@@ -33,18 +33,20 @@ type ProjectionPort interface {
 }
 
 type Provider struct {
-	records     RecordPort
-	collections CollectionPort
-	projections ProjectionPort
-	source      *sourcerepository.Repository
+	records          RecordPort
+	collections      CollectionPort
+	projections      ProjectionPort
+	source           *sourcerepository.Repository
+	projectionSource *workbookprojection.Source
 }
 
 func NewProvider(records RecordPort, collections CollectionPort, projections ProjectionPort) *Provider {
 	return &Provider{
-		records:     records,
-		collections: collections,
-		projections: projections,
-		source:      sourcerepository.New(records),
+		records:          records,
+		collections:      collections,
+		projections:      projections,
+		source:           sourcerepository.New(records),
+		projectionSource: workbookprojection.NewSource(records, collections),
 	}
 }
 
@@ -105,9 +107,11 @@ UPDATE timeline_events
 		return ActionResult{}, err
 	}
 	derived := workbookprojection.Derive(record, nil)
-	if err := p.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+	facts, err := p.collections.LoadTimelineCollectionFactsTx(ctx, tx, derived.IncidentID, derived.RecordID)
+	if err != nil {
 		return ActionResult{}, err
 	}
+	workbookprojection.ApplyCollectionFacts(&derived, facts)
 	if err := p.projections.ApplyTimelineMutationTx(ctx, tx, workbookprojection.ProjectionMutation{
 		Kind:     workbookprojection.ProjectionMutationUpsert,
 		RecordID: state.SourceRecordID,
@@ -169,6 +173,27 @@ func (p *Provider) LoadRelationshipInvalidationsTx(ctx context.Context, tx pgx.T
 	return p.LoadTimelineInvalidationsTx(ctx, tx, fieldKeysByRecord)
 }
 
+func (p *Provider) RefreshTimelineProjectionRowsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	if p == nil || p.projectionSource == nil || p.projections == nil {
+		return errors.New("timeline mention effect dependencies are required")
+	}
+	recordIDs = append([]uuid.UUID(nil), recordIDs...)
+	slices.SortFunc(recordIDs, func(left uuid.UUID, right uuid.UUID) int {
+		return strings.Compare(left.String(), right.String())
+	})
+	recordIDs = slices.Compact(recordIDs)
+	for _, recordID := range recordIDs {
+		mutation, err := p.projectionSource.BuildProjectionMutationTx(ctx, tx, recordID)
+		if err != nil {
+			return fmt.Errorf("build exact timeline projection mutation for %s: %w", recordID, err)
+		}
+		if err := p.projections.ApplyTimelineMutationTx(ctx, tx, mutation); err != nil {
+			return fmt.Errorf("apply exact timeline projection mutation for %s: %w", recordID, err)
+		}
+	}
+	return nil
+}
+
 type TimelineInvalidation struct {
 	RecordID         uuid.UUID
 	RowVersion       int64
@@ -187,9 +212,11 @@ func (p *Provider) loadRecordAndRowTx(ctx context.Context, tx pgx.Tx, recordID u
 		return sourcerepository.Snapshot{}, nil, err
 	}
 	derived := workbookprojection.Derive(record, nil)
-	if err := p.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+	facts, err := p.collections.LoadTimelineCollectionFactsTx(ctx, tx, derived.IncidentID, derived.RecordID)
+	if err != nil {
 		return sourcerepository.Snapshot{}, nil, err
 	}
+	workbookprojection.ApplyCollectionFacts(&derived, facts)
 	return record, rowpresenter.BuildRow(derived.PresenterRecord()), nil
 }
 

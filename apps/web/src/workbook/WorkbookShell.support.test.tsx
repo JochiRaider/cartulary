@@ -36,6 +36,7 @@ import {
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   buildRecordChangedPayload,
   emitRecordChanged,
@@ -45,7 +46,6 @@ import {
   timelineRowsEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
@@ -60,8 +60,12 @@ vi.mock(
 
 // Support-only mocked component coverage for Record relationships workbook helpers.
 // This file is not authoritative Record relationships evidence.
-type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
-type EntityIndex = NonNullable<TimelineWorkbookProps["entityIndex"]>;
+type TimelineWorkbookRuntimeFixtureProps = ComponentProps<
+  typeof TimelineWorkbookRuntimeFixture
+>;
+type EntityIndex = NonNullable<
+  TimelineWorkbookRuntimeFixtureProps["entityIndex"]
+>;
 type EntityRowFixture = EntityIndex[string];
 
 describe("support workbook helpers", () => {
@@ -342,7 +346,7 @@ describe("support workbook helpers", () => {
   });
 });
 
-describe("support TimelineWorkbook", () => {
+describe("support TimelineWorkbookRuntimeFixture", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let webSocketInstance: {
     onmessage: ((event: MessageEvent) => void) | null;
@@ -394,7 +398,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     const summaryCell = await screen.findByTestId(
@@ -463,7 +470,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     const draftRow = await screen.findByTestId(
@@ -532,7 +542,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -641,7 +654,7 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         currentIncidentRole="admin"
         hostEntities={[existingHost]}
@@ -774,14 +787,14 @@ describe("support TimelineWorkbook", () => {
       ]),
     );
 
-    let rerenderTimelineWorkbook:
+    let rerenderTimelineWorkbookRuntimeFixture:
       | ReturnType<typeof render>["rerender"]
       | undefined;
     const refreshGate = deferred<void>();
     const onRefreshEntities = vi.fn(async () => {
       const renderRefreshedWorkbook = (identity: EntityRowFixture) => {
-        rerenderTimelineWorkbook?.(
-          <TimelineWorkbook
+        rerenderTimelineWorkbookRuntimeFixture?.(
+          <TimelineWorkbookRuntimeFixture
             incidentId="incident-1"
             currentIncidentRole="admin"
             identityEntities={[identity]}
@@ -803,13 +816,13 @@ describe("support TimelineWorkbook", () => {
     });
 
     const renderResult = render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         currentIncidentRole="admin"
         onRefreshEntities={onRefreshEntities}
       />,
     );
-    rerenderTimelineWorkbook = renderResult.rerender;
+    rerenderTimelineWorkbookRuntimeFixture = renderResult.rerender;
 
     await screen.findByTestId(
       rowCellTestId("record-1", "timeline.activity_synopsis_text"),
@@ -898,7 +911,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1026,7 +1042,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1101,7 +1120,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1200,7 +1222,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1283,7 +1308,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1325,7 +1353,10 @@ describe("support TimelineWorkbook", () => {
     fetchMock.mockReturnValueOnce(secondPatch.promise);
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1435,7 +1466,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1469,7 +1503,10 @@ describe("support TimelineWorkbook", () => {
     });
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");
@@ -1513,7 +1550,10 @@ describe("support TimelineWorkbook", () => {
     });
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await screen.findByTestId(
@@ -1627,7 +1667,10 @@ describe("support TimelineWorkbook", () => {
     );
 
     render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await openTimelineInspectorFromContext("record-1");

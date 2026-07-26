@@ -3,12 +3,10 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
-  useState,
+  useReducer,
 } from "react";
 import {
   applyFilterDraft,
-  defaultFilterDraft,
-  emptyWorkbookQueryState,
   type FilterDraft,
   replaceWorkbookSort,
   updateGroupBy,
@@ -18,17 +16,70 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 const timelineRuntimeContract = requireViewContract(timelineViewSchemaId);
 
-type TimelineWorkbookRuntimeSaveState = "Syncing" | "Saved" | "Conflict";
+export type TimelineWorkbookRuntimeSaveState = "Syncing" | "Saved" | "Conflict";
 
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 
 export type TimelineWorkbookRuntimeInput = {
-  readonly controlledFilterDraft?: FilterDraft | undefined;
-  readonly controlledQueryState?: WorkbookQueryState | undefined;
-  readonly onFilterDraftChange?: FilterDraftSetter | undefined;
-  readonly onQueryStateChange?: WorkbookQueryStateSetter | undefined;
+  readonly filterDraft: FilterDraft;
+  readonly queryState: WorkbookQueryState;
+  readonly setFilterDraft: FilterDraftSetter;
+  readonly setQueryState: WorkbookQueryStateSetter;
 };
+
+export type TimelineWorkbookLifecycleState = {
+  readonly isInitialLoading: boolean;
+  readonly isRefreshing: boolean;
+  readonly loadError: string | null;
+  readonly refreshError: string | null;
+  readonly saveState: TimelineWorkbookRuntimeSaveState;
+  readonly saveStateSecondaryMessage: string | null;
+};
+
+export type TimelineWorkbookLifecycleAction =
+  | { readonly type: "initial_loading"; readonly value: boolean }
+  | { readonly type: "refreshing"; readonly value: boolean }
+  | { readonly type: "load_error"; readonly value: string | null }
+  | { readonly type: "refresh_error"; readonly value: string | null }
+  | {
+      readonly type: "save_state";
+      readonly value: TimelineWorkbookRuntimeSaveState;
+    }
+  | {
+      readonly type: "save_state_secondary_message";
+      readonly value: string | null;
+    };
+
+export const initialTimelineWorkbookLifecycleState: TimelineWorkbookLifecycleState =
+  {
+    isInitialLoading: true,
+    isRefreshing: false,
+    loadError: null,
+    refreshError: null,
+    saveState: "Saved",
+    saveStateSecondaryMessage: null,
+  };
+
+export function reduceTimelineWorkbookLifecycle(
+  state: TimelineWorkbookLifecycleState,
+  action: TimelineWorkbookLifecycleAction,
+): TimelineWorkbookLifecycleState {
+  switch (action.type) {
+    case "initial_loading":
+      return { ...state, isInitialLoading: action.value };
+    case "refreshing":
+      return { ...state, isRefreshing: action.value };
+    case "load_error":
+      return { ...state, loadError: action.value };
+    case "refresh_error":
+      return { ...state, refreshError: action.value };
+    case "save_state":
+      return { ...state, saveState: action.value };
+    case "save_state_secondary_message":
+      return { ...state, saveStateSecondaryMessage: action.value };
+  }
+}
 
 function clearAppliedTimelineFilterDraft(current: FilterDraft): FilterDraft {
   return {
@@ -48,29 +99,45 @@ function applyTimelineFilterDraftToQuery(
 }
 
 export function useTimelineWorkbookRuntime({
-  controlledFilterDraft,
-  controlledQueryState,
-  onFilterDraftChange,
-  onQueryStateChange,
+  filterDraft,
+  queryState,
+  setFilterDraft,
+  setQueryState,
 }: TimelineWorkbookRuntimeInput) {
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [saveState, setSaveState] =
-    useState<TimelineWorkbookRuntimeSaveState>("Saved");
-  const [saveStateSecondaryMessage, setSaveStateSecondaryMessage] = useState<
-    string | null
-  >(null);
-  const [uncontrolledQueryState, setUncontrolledQueryState] =
-    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
-  const [uncontrolledFilterDraft, setUncontrolledFilterDraft] =
-    useState<FilterDraft>(() => defaultFilterDraft(timelineRuntimeContract));
-
-  const queryState = controlledQueryState ?? uncontrolledQueryState;
-  const setQueryState = onQueryStateChange ?? setUncontrolledQueryState;
-  const filterDraft = controlledFilterDraft ?? uncontrolledFilterDraft;
-  const setFilterDraft = onFilterDraftChange ?? setUncontrolledFilterDraft;
+  const [lifecycle, dispatchLifecycle] = useReducer(
+    reduceTimelineWorkbookLifecycle,
+    initialTimelineWorkbookLifecycleState,
+  );
+  const setIsInitialLoading = useCallback(
+    (value: boolean) => dispatchLifecycle({ type: "initial_loading", value }),
+    [],
+  );
+  const setIsRefreshing = useCallback(
+    (value: boolean) => dispatchLifecycle({ type: "refreshing", value }),
+    [],
+  );
+  const setLoadError = useCallback(
+    (value: string | null) => dispatchLifecycle({ type: "load_error", value }),
+    [],
+  );
+  const setRefreshError = useCallback(
+    (value: string | null) =>
+      dispatchLifecycle({ type: "refresh_error", value }),
+    [],
+  );
+  const setSaveState = useCallback(
+    (value: TimelineWorkbookRuntimeSaveState) =>
+      dispatchLifecycle({ type: "save_state", value }),
+    [],
+  );
+  const setSaveStateSecondaryMessage = useCallback(
+    (value: string | null) =>
+      dispatchLifecycle({
+        type: "save_state_secondary_message",
+        value,
+      }),
+    [],
+  );
 
   const applyQueryFilter = useCallback(
     (draft: FilterDraft = filterDraft) => {
@@ -99,12 +166,7 @@ export function useTimelineWorkbookRuntime({
 
   return {
     lifecycle: {
-      isInitialLoading,
-      isRefreshing,
-      loadError,
-      refreshError,
-      saveState,
-      saveStateSecondaryMessage,
+      ...lifecycle,
       setIsInitialLoading,
       setIsRefreshing,
       setLoadError,

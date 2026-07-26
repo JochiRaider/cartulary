@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
@@ -26,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
@@ -80,7 +80,7 @@ func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
 func TestCreateFromMention_Unit(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-host-reuse")
-		mentionStore := timelineassembly.NewEntityMentionStore(harness.DB)
+		mentionStore := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMentionStore
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships entity-storage host")
 
@@ -144,7 +144,7 @@ SELECT display_name, hostname, host_state
 
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-identity-create")
-		mentionStore := timelineassembly.NewEntityMentionStore(harness.DB)
+		mentionStore := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMentionStore
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships entity-storage identity")
 
@@ -176,12 +176,10 @@ SELECT display_name, hostname, host_state
 // entity-storage / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-04")
-	mentionStore := timelineassembly.NewEntityMentionStore(harness.DB)
-	timelineFacade := timelineassembly.NewFacade(harness.DB)
-	timelineProjectionStore := projectionadapters.NewRowProjector(
-		harness.DB,
-		timelineassembly.NewProjectionSource(harness.DB),
-	)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline"))
+	mentionStore := timelineBundle.EntityMentionStore
+	timelineFacade := timelineBundle.Facade
+	timelineProjectionStore := timelineBundle.ProjectionCatalog.Query
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
 
@@ -582,7 +580,7 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentHostID, golden.RecordDuplicateHostRecordID, "host", "confirmed")
 		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 
-		result, err := timelineassembly.NewEntityMergeStore(harness.DB).MergeEntity(context.Background(), actor, golden.RecordCanonicalHostRecordID, merge.MergeRequest{
+		result, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalHostRecordID, merge.MergeRequest{
 			LoserRecordID:          golden.RecordDuplicateHostRecordID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -671,7 +669,7 @@ SELECT COUNT(*)
 		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
 		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordIdentityMentionID)
 
-		result, err := timelineassembly.NewEntityMergeStore(harness.DB).MergeEntity(context.Background(), actor, golden.RecordCanonicalIdentityID, merge.MergeRequest{
+		result, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalIdentityID, merge.MergeRequest{
 			LoserRecordID:          golden.RecordDuplicateIdentityID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -737,7 +735,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "WS-023", "WS-023", "ws-023.current.example.test", "")
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Legacy WS-023", "LEGACY-WS-023", "legacy-ws-023.example.test", "")
 
-		if _, err := timelineassembly.NewEntityMergeStore(harness.DB).MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
+		if _, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -781,7 +779,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "Alex Survivor", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Alex Analyst Legacy", "alex.legacy@example.test", "alex.legacy@example.test", "ALEXLEGACY")
 
-		if _, err := timelineassembly.NewEntityMergeStore(harness.DB).MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
+		if _, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,

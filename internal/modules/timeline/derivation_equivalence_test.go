@@ -8,20 +8,26 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
-func TestCanonicalRowDerivationEquivalence_Unit(t *testing.T) {
+func TestCanonicalRowDerivesCompleteTypedCollections_Unit(t *testing.T) {
 	recordID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
 	incidentID := uuid.MustParse("20000000-0000-4000-8000-000000000002")
 	replacementID := uuid.MustParse("30000000-0000-4000-8000-000000000003")
+	hostMentionID := uuid.MustParse("40000000-0000-4000-8000-000000000004")
+	identityMentionID := uuid.MustParse("50000000-0000-4000-8000-000000000005")
+	evidenceID := uuid.MustParse("60000000-0000-4000-8000-000000000006")
+	tagID := uuid.MustParse("70000000-0000-4000-8000-000000000007")
+	hostID := uuid.MustParse("81000000-0000-4000-8000-000000000008")
 	dateEntered := "2026-07-24T23:30:00-04:00"
 	activityUTC := "2026-07-25T03:30:00Z"
 	activityLocal := "2026-07-24T23:30:00-04:00"
 	synopsis := "canonical derivation"
 	recordedAt := time.Date(2026, 7, 25, 3, 31, 0, 0, time.UTC)
 
-	source := sourceRecord{
+	source := sourcerepository.Snapshot{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		DateEnteredText:       &dateEntered,
@@ -34,45 +40,48 @@ func TestCanonicalRowDerivationEquivalence_Unit(t *testing.T) {
 		RecordedAt:            recordedAt,
 		EditedAt:              recordedAt.Add(time.Minute),
 	}
-	formerPath := projectRecord(source, &replacementID)
-	formerPath.HostRefs = []map[string]any{{
-		"item_ref":            "entity_mention:40000000-0000-4000-8000-000000000004",
-		"item_kind":           "resolved_ref",
-		"display_text":        "host-a",
-		"provenance":          "auto_match",
-		"mention_row_version": int64(2),
-	}}
-	formerPath.IdentityRefs = []map[string]any{{
-		"item_ref":     "entity_mention:50000000-0000-4000-8000-000000000005",
-		"item_kind":    "unresolved_mention",
-		"display_text": "analyst@example.test",
-	}}
-	formerPath.AttachedEvidence = []map[string]any{{
-		"item_ref":         "record:60000000-0000-4000-8000-000000000006",
-		"item_kind":        "record_ref",
-		"display_text":     "packet.pcap",
-		"linked_record_id": "60000000-0000-4000-8000-000000000006",
-	}}
-	formerPath.Tags = []map[string]any{{
-		"item_ref":     "record_tag:70000000-0000-4000-8000-000000000007",
-		"item_kind":    "tag",
-		"display_text": "critical",
-	}}
-	formerPath.EvidenceCount = 1
-	formerPath.HasEvidence = true
-	formerPath.HasUnresolvedMentions = true
-
 	canonicalPath := workbookprojection.Derive(source, &replacementID)
-	canonicalPath.HostRefs = formerPath.HostRefs
-	canonicalPath.IdentityRefs = formerPath.IdentityRefs
-	canonicalPath.AttachedEvidence = formerPath.AttachedEvidence
-	canonicalPath.Tags = formerPath.Tags
-	canonicalPath.EvidenceCount = formerPath.EvidenceCount
-	canonicalPath.HasEvidence = formerPath.HasEvidence
-	canonicalPath.HasUnresolvedMentions = formerPath.HasUnresolvedMentions
-
-	assertCanonicalJSONEqual(t, formerPath.ProjectionInput(), canonicalPath.ProjectionInput())
-	assertCanonicalJSONEqual(t, buildRow(formerPath), rowpresenter.BuildRow(canonicalPath.PresenterRecord()))
+	method := "auto_match"
+	alias := "Host A"
+	workbookprojection.ApplyCollectionFacts(&canonicalPath, workbookprojection.CollectionFacts{
+		Mentions: []workbookprojection.MentionFact{
+			{
+				MentionID:        hostMentionID,
+				EntityType:       "host",
+				SourceFieldKey:   "timeline.host_refs",
+				RawText:          "host-a",
+				ResolutionStatus: "resolved",
+				RowVersion:       2,
+				ResolvedRecordID: &hostID,
+				ResolutionMethod: &method,
+				MatchedAliasText: &alias,
+			},
+			{
+				MentionID:        identityMentionID,
+				EntityType:       "identity",
+				SourceFieldKey:   "timeline.identity_refs",
+				RawText:          "analyst@example.test",
+				ResolutionStatus: "unresolved",
+				RowVersion:       1,
+			},
+		},
+		ResolvedLinks: []workbookprojection.LinkFact{{
+			TargetRecordID: hostID,
+			LinkType:       "observed_on_host",
+			Provenance:     "auto_match",
+		}},
+		Tags: []workbookprojection.TagFact{{
+			RecordTagID: tagID,
+			TagName:     "critical",
+		}},
+		AttachedEvidence: []workbookprojection.EvidenceFact{{
+			RecordID:       evidenceID,
+			Title:          "packet.pcap",
+			LifecycleState: "available",
+			UploadState:    "available",
+		}},
+		ReplacementRecordID: &replacementID,
+	})
 
 	row := buildRow(canonicalPath)
 	cells := row["cells"].(map[string]any)
@@ -86,10 +95,17 @@ func TestCanonicalRowDerivationEquivalence_Unit(t *testing.T) {
 	if groupValues["timeline.has_evidence"] != true || groupValues["timeline.has_unresolved_mentions"] != true {
 		t.Fatalf("canonical group values lost collection state: %#v", groupValues)
 	}
+	input := canonicalPath.ProjectionInput()
+	if len(input.HostRefs) != 1 || input.HostRefs[0].MatchedAliasText == nil || *input.HostRefs[0].MatchedAliasText != alias {
+		t.Fatalf("typed host references lost owner facts: %#v", input.HostRefs)
+	}
+	if len(input.AttachedEvidence) != 1 || input.AttachedEvidence[0].LinkedRecordID != evidenceID {
+		t.Fatalf("typed evidence references lost owner facts: %#v", input.AttachedEvidence)
+	}
 }
 
-func TestCanonicalRowDerivationNullableEquivalence_Unit(t *testing.T) {
-	source := sourceRecord{
+func TestCanonicalRowDerivationPreservesNullableFields_Unit(t *testing.T) {
+	source := sourcerepository.Snapshot{
 		RecordID:              uuid.MustParse("80000000-0000-4000-8000-000000000008"),
 		IncidentID:            uuid.MustParse("90000000-0000-4000-8000-000000000009"),
 		ActivityTimePairState: "unpaired",
@@ -98,11 +114,8 @@ func TestCanonicalRowDerivationNullableEquivalence_Unit(t *testing.T) {
 		RecordedAt:            time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC),
 		EditedAt:              time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC),
 	}
-	formerPath := projectRecord(source, nil)
 	canonicalPath := workbookprojection.Derive(source, nil)
-
-	assertCanonicalJSONEqual(t, formerPath.ProjectionInput(), canonicalPath.ProjectionInput())
-	assertCanonicalJSONEqual(t, buildRow(formerPath), rowpresenter.BuildRow(canonicalPath.PresenterRecord()))
+	assertCanonicalJSONEqual(t, buildRow(canonicalPath), rowpresenter.BuildRow(canonicalPath.PresenterRecord()))
 
 	cells := buildRow(canonicalPath)["cells"].(map[string]any)
 	for _, fieldKey := range []string{
@@ -130,7 +143,7 @@ func TestCanonicalRowDerivationNullableEquivalence_Unit(t *testing.T) {
 
 func TestProjectionMutationContractRejectsMalformed_Unit(t *testing.T) {
 	recordID := uuid.MustParse("a0000000-0000-4000-8000-00000000000a")
-	input := workbookprojection.Derive(sourceRecord{
+	input := workbookprojection.Derive(sourcerepository.Snapshot{
 		RecordID:              recordID,
 		IncidentID:            uuid.MustParse("b0000000-0000-4000-8000-00000000000b"),
 		ActivityTimePairState: "empty",

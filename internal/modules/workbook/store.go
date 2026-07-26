@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -45,48 +45,32 @@ type Store struct {
 	partyMutations    *parties.WorkbookFacade
 	taskMutations     *tasksdecisions.WorkbookFacade
 	supersedeStore    *tasksdecisions.SupersedeFacade
-	projectionRows    *projectionadapters.WorkbookRows
+	projectionRows    workbookProjectionQueryPort
 	conflictTokens    conflicttokens.ConflictTokenCodec
 }
 
-func NewStore(pool postgres.DB) *Store {
-	return newStoreWithTimelineFacade(pool, nil)
+func NewStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec, projectionQuery *projections.QueryService) *Store {
+	return newStoreWithTimelineFacade(pool, nil, conflictTokens, projectionQuery)
 }
 
-func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade) *Store {
+func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade, conflictTokens conflicttokens.ConflictTokenCodec, projectionQuery *projections.QueryService) *Store {
+	if projectionQuery == nil {
+		panic("workbook projection query is required")
+	}
 	return &Store{
 		pool:              pool,
 		authStore:         authn.NewStore(pool),
 		recordTargets:     records.NewRouteTargetResolver(pool),
 		timelineStore:     timelineStore,
-		artifactMutations: artifacts.NewWorkbookFacade(pool),
+		artifactMutations: artifacts.NewWorkbookFacade(pool, conflictTokens),
 		linkedNoteStore:   linkednotes.NewFacade(pool),
-		evidenceMutations: evidence.NewWorkbookFacade(pool),
+		evidenceMutations: evidence.NewWorkbookFacade(pool, conflictTokens),
 		entityStore:       hostidentity.NewStore(pool),
 		indicatorStore:    indicators.NewStore(pool),
-		partyMutations:    parties.NewWorkbookFacade(pool),
-		taskMutations:     tasksdecisions.NewWorkbookFacade(pool),
+		partyMutations:    parties.NewWorkbookFacade(pool, conflictTokens),
+		taskMutations:     tasksdecisions.NewWorkbookFacade(pool, conflictTokens),
 		supersedeStore:    tasksdecisions.NewSupersedeFacade(pool),
-		projectionRows:    projectionadapters.NewWorkbookRows(pool),
-		conflictTokens:    conflicttokens.NewConflictTokenCodecForTesting("workbook"),
-	}
-}
-
-func (s *Store) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	s.conflictTokens = codec
-	if s.timelineStore != nil {
-		s.timelineStore.SetConflictTokenCodec(codec)
-	}
-	if s.artifactMutations != nil {
-		s.artifactMutations.SetConflictTokenCodec(codec)
-	}
-	if s.evidenceMutations != nil {
-		s.evidenceMutations.SetConflictTokenCodec(codec)
-	}
-	if s.partyMutations != nil {
-		s.partyMutations.SetConflictTokenCodec(codec)
-	}
-	if s.taskMutations != nil {
-		s.taskMutations.SetConflictTokenCodec(codec)
+		projectionRows:    projectionQuery,
+		conflictTokens:    conflictTokens,
 	}
 }

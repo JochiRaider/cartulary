@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle_compatibility.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "current_export_version", "retained_imports"],
+  "properties": {
+    "schema_id": { "const": "cartulary.incident_bundle_compatibility.v1" },
+    "current_export_version": { "const": 2 },
+    "retained_imports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface_id",
+          "bundle_version",
+          "owner_id",
+          "status",
+          "export_allowed",
+          "deprecation_started_on",
+          "minimum_stable_releases",
+          "minimum_retention_days",
+          "zero_successful_import_days",
+          "operator_inventory_clear_required",
+          "telemetry_event",
+          "removal_trigger"
+        ],
+        "properties": {
+          "surface_id": { "const": "incident_bundle_v1_import" },
+          "bundle_version": { "const": 1 },
+          "owner_id": { "const": "module.incidentbundles" },
+          "status": { "const": "deprecated" },
+          "export_allowed": { "const": false },
+          "deprecation_started_on": { "type": "string", "format": "date" },
+          "minimum_stable_releases": { "type": "integer", "minimum": 2 },
+          "minimum_retention_days": { "type": "integer", "minimum": 180 },
+          "zero_successful_import_days": { "type": "integer", "minimum": 30 },
+          "operator_inventory_clear_required": { "const": true },
+          "telemetry_event": { "type": "string", "minLength": 1 },
+          "removal_trigger": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

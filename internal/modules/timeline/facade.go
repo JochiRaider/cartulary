@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,19 +16,17 @@ type Facade struct {
 	store *store
 }
 
-func NewFacade(pool postgres.DB, dependencies Dependencies) *Facade {
-	return newFacadeWithStore(newStore(pool, dependencies))
+var errRequestFingerprintRequired = errors.New("timeline mutation request fingerprint is required")
+
+func NewFacade(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *Facade {
+	return newFacadeWithStore(newStore(pool, collaborators, conflictTokens))
 }
 
 func newFacadeWithStore(store *store) *Facade {
 	return &Facade{store: store}
 }
 
-func (f *Facade) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	f.store.setConflictTokenCodec(codec)
-}
-
-func (f *Facade) ParseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
+func (f *Facade) ParseConflictToken(token string) (conflicttokens.ConflictTokenClaims, bool) {
 	return f.store.parseConflictToken(token)
 }
 
@@ -44,38 +43,37 @@ func (f *Facade) PutTimeConversionProfile(ctx context.Context, actor authn.UserR
 }
 
 func (f *Facade) CreateRow(ctx context.Context, command CreateRowCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineCreateRequestHash(command.Request)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.CreateRow(ctx, command.Actor, command.IncidentID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.CreateRow(ctx, command.Actor, command.IncidentID, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) CreateImportedRow(ctx context.Context, command CreateRowCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineCreateRequestHash(command.Request)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.CreateImportedRow(ctx, command.Actor, command.IncidentID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.CreateImportedRow(ctx, command.Actor, command.IncidentID, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) PatchRow(ctx context.Context, command PatchRowCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelinePatchRequestHash(command.Request)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.PatchRow(ctx, command.Actor, command.RecordID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.PatchRow(ctx, command.Actor, command.RecordID, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) ResolveConflict(ctx context.Context, command ConflictResolveCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineConflictResolveRequestHash(command.Claims, command.Request)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.ResolveConflict(ctx, command.Actor, command.RecordID, command.Claims, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.ResolveConflict(ctx, command.Actor, command.RecordID, command.Claims, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPasteCommand) (ClipboardPasteResult, error) {
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	rows, err := buildClipboardOwnerRows(command.Plan)
 	if err != nil {
 		return ClipboardPasteResult{}, err
@@ -92,6 +90,9 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 }
 
 func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (ClipboardPasteResult, error) {
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	rows, err := buildFillDownOwnerRows(command.FieldKey, command.Value, len(command.Targets))
 	if err != nil {
 		return ClipboardPasteResult{}, err
@@ -108,6 +109,9 @@ func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (Cl
 }
 
 func (f *Facade) ApplyMultiRowTagAssignment(ctx context.Context, command MultiRowTagAssignmentCommand) (ClipboardPasteResult, error) {
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	rows, err := buildTagAssignmentOwnerRows(command.TagName, command.NormalizedTag, len(command.Targets))
 	if err != nil {
 		return ClipboardPasteResult{}, err
@@ -124,17 +128,22 @@ func (f *Facade) ApplyMultiRowTagAssignment(ctx context.Context, command MultiRo
 }
 
 func (f *Facade) MarkReviewedRow(ctx context.Context, command MarkReviewedCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineActionRequestHash(command.Request.BaseRowVersion, command.Request.ClientTxnID, command.Request.Reason, nil)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.MarkReviewed(ctx, command.Actor, command.RecordID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.MarkReviewed(ctx, command.Actor, command.RecordID, command.Request, command.RequestHash, command.RequestID, command.Now)
 }
 
 func (f *Facade) SupersedeRow(ctx context.Context, command SupersedeCommand) (MutationResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineActionRequestHash(command.Request.BaseRowVersion, command.Request.ClientTxnID, &command.Request.Reason, command.Request.ReplacementRecordID)
+	if err := requireRequestFingerprint(command.RequestHash); err != nil {
+		return MutationResult{}, err
 	}
-	return f.store.Supersede(ctx, command.Actor, command.RecordID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.Supersede(ctx, command.Actor, command.RecordID, command.Request, command.RequestHash, command.RequestID, command.Now)
+}
+
+func requireRequestFingerprint(fingerprint []byte) error {
+	if len(fingerprint) == 0 {
+		return errRequestFingerprintRequired
+	}
+	return nil
 }

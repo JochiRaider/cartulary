@@ -36,6 +36,10 @@ type ProjectionInput struct {
 	EvidenceCount         int
 	HasEvidence           bool
 	HasUnresolvedMentions bool
+	HostRefs              []MentionRef
+	IdentityRefs          []MentionRef
+	AttachedEvidence      []EvidenceRef
+	Tags                  []TagRef
 }
 
 type ProjectionMutationKind string
@@ -62,7 +66,7 @@ func (mutation ProjectionMutation) Validate() error {
 		}
 		return validateProjectionInput(mutation.Input)
 	case ProjectionMutationDelete:
-		if mutation.Input != (ProjectionInput{}) {
+		if !isZeroProjectionInput(mutation.Input) {
 			return errors.New("timeline projection delete must not carry an input")
 		}
 		return nil
@@ -71,16 +75,16 @@ func (mutation ProjectionMutation) Validate() error {
 	}
 }
 
-type CollectionHydrator interface {
-	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *DerivedRecord) error
+type CollectionFactReader interface {
+	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (CollectionFacts, error)
 }
 
 type Source struct {
 	repository  *sourcerepository.Repository
-	collections CollectionHydrator
+	collections CollectionFactReader
 }
 
-func NewSource(envelopes sourcerepository.EnvelopeReader, collections CollectionHydrator) *Source {
+func NewSource(envelopes sourcerepository.EnvelopeReader, collections CollectionFactReader) *Source {
 	return &Source{
 		repository:  sourcerepository.New(envelopes),
 		collections: collections,
@@ -102,9 +106,11 @@ func (s *Source) BuildProjectionMutationTx(ctx context.Context, tx pgx.Tx, recor
 		return ProjectionMutation{}, err
 	}
 	derived := Derive(snapshot, nil)
-	if err := s.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+	facts, err := s.collections.LoadTimelineCollectionFactsTx(ctx, tx, derived.IncidentID, derived.RecordID)
+	if err != nil {
 		return ProjectionMutation{}, err
 	}
+	ApplyCollectionFacts(&derived, facts)
 	input := derived.ProjectionInput()
 	if err := validateProjectionInput(input); err != nil {
 		return ProjectionMutation{}, err
@@ -135,9 +141,11 @@ func (s *Source) ListProjectionInputsTx(ctx context.Context, tx pgx.Tx, incident
 	inputs := make([]ProjectionInput, 0, len(sourcePage.Snapshots))
 	for _, snapshot := range sourcePage.Snapshots {
 		derived := Derive(snapshot, nil)
-		if err := s.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+		facts, err := s.collections.LoadTimelineCollectionFactsTx(ctx, tx, derived.IncidentID, derived.RecordID)
+		if err != nil {
 			return ProjectionInputPage{}, err
 		}
+		ApplyCollectionFacts(&derived, facts)
 		input := derived.ProjectionInput()
 		if err := validateProjectionInput(input); err != nil {
 			return ProjectionInputPage{}, err
@@ -162,6 +170,14 @@ func validateProjectionInput(input ProjectionInput) error {
 		return errors.New("timeline projection input recorded_at is required")
 	case input.EditedAt.IsZero():
 		return errors.New("timeline projection input edited_at is required")
+	case input.HostRefs == nil:
+		return errors.New("timeline projection input host_refs is required")
+	case input.IdentityRefs == nil:
+		return errors.New("timeline projection input identity_refs is required")
+	case input.AttachedEvidence == nil:
+		return errors.New("timeline projection input attached_evidence is required")
+	case input.Tags == nil:
+		return errors.New("timeline projection input tags is required")
 	}
 	switch input.CaptureState {
 	case "rough", "enriched", "reviewed", "superseded":
@@ -174,4 +190,34 @@ func validateProjectionInput(input ProjectionInput) error {
 		return fmt.Errorf("timeline projection input activity_time_pair_state %q is invalid", input.ActivityTimePairState)
 	}
 	return nil
+}
+
+func isZeroProjectionInput(input ProjectionInput) bool {
+	return input.RecordID == uuid.Nil &&
+		input.IncidentID == uuid.Nil &&
+		input.RowVersion == 0 &&
+		input.DateEnteredText == nil &&
+		input.AnalystText == nil &&
+		input.MitreStageText == nil &&
+		input.DeviceObjectText == nil &&
+		input.IPAddressText == nil &&
+		input.ActivityUTCText == nil &&
+		input.ActivityLocalText == nil &&
+		input.RawActivityText == nil &&
+		input.ActivitySynopsisText == nil &&
+		input.DataSourceText == nil &&
+		input.RecordedAt.IsZero() &&
+		input.EditedAt.IsZero() &&
+		input.ActivitySortTS == nil &&
+		input.DateEnteredSortDay == nil &&
+		input.ActivityTimePairState == "" &&
+		input.CaptureState == "" &&
+		input.ReplacementRecordID == nil &&
+		input.EvidenceCount == 0 &&
+		!input.HasEvidence &&
+		!input.HasUnresolvedMentions &&
+		input.HostRefs == nil &&
+		input.IdentityRefs == nil &&
+		input.AttachedEvidence == nil &&
+		input.Tags == nil
 }

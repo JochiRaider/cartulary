@@ -222,6 +222,44 @@ func TestHubDeliverJobProgress(t *testing.T) {
 		}
 	})
 
+	t.Run("disconnects a slow subscriber instead of silently dropping", func(t *testing.T) {
+		hub := NewHub()
+		incidentID := uuid.New()
+		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
+		defer unsubscribe()
+		now := time.Now().UTC()
+
+		firstSequence := int64(1)
+		if err := hub.DeliverReplayable(Message{
+			Type:       "job_progress",
+			IncidentID: incidentID.String(),
+			EventID:    uuid.NewString(),
+			EmittedAt:  now.Format(time.RFC3339Nano),
+			StreamSeq:  &firstSequence,
+			Payload:    RawPayload(map[string]any{"job_id": "first"}),
+		}); err != nil {
+			t.Fatalf("deliver first slow-consumer event: %v", err)
+		}
+		secondSequence := int64(2)
+		if err := hub.DeliverReplayable(Message{
+			Type:       "job_progress",
+			IncidentID: incidentID.String(),
+			EventID:    uuid.NewString(),
+			EmittedAt:  now.Format(time.RFC3339Nano),
+			StreamSeq:  &secondSequence,
+			Payload:    RawPayload(map[string]any{"job_id": "second"}),
+		}); err != nil {
+			t.Fatalf("deliver second slow-consumer event: %v", err)
+		}
+
+		if first, ok := <-messages; !ok || first.StreamSeq == nil || *first.StreamSeq != 1 {
+			t.Fatalf("buffered event = %#v open=%t want stream sequence 1", first, ok)
+		}
+		if _, ok := <-messages; ok {
+			t.Fatal("slow subscriber remained connected after its buffer filled")
+		}
+	})
+
 	t.Run("rejects deployment scoped payload on incident stream", func(t *testing.T) {
 		incidentID := uuid.New()
 		err := ValidateIncidentJobProgressPayload(incidentID, JobProgressPayload{
@@ -428,8 +466,10 @@ func requireNoIncidentMessage(t testing.TB, messages <-chan Message) {
 	t.Helper()
 
 	select {
-	case got := <-messages:
-		t.Fatalf("unexpected websocket incident message: %#v", got)
+	case got, open := <-messages:
+		if open {
+			t.Fatalf("unexpected websocket incident message: %#v", got)
+		}
 	default:
 	}
 }

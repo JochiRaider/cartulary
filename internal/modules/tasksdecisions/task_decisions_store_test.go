@@ -14,14 +14,17 @@ import (
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-task-requests")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-task@example.test", "TaskDecision Task", "TaskDecisionTask1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-incident", "IR-TASK-DECISION-TASK", "Workbook inspector task and decision workflow task requests")
 
@@ -220,7 +223,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-task-guard-failures")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-task-guards@example.test", "TaskDecision Task Guards", "TaskDecisionTaskGuards1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-guard-incident", "IR-TASK-DECISION-TASK-GUARDS", "Workbook inspector task and decision workflow task guard failures")
 
@@ -322,7 +325,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decisions")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision@example.test", "TaskDecision Decision", "TaskDecisionDecision1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-incident", "IR-TASK-DECISION-DECISION", "Workbook inspector task and decision workflow decisions")
 
@@ -404,7 +407,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		Reason:              "Supersede with better containment rationale.",
 		ReplacementRecordID: &source,
 	}
-	result, err := store.SupersedeDecision(ctx, actor, target, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede", Time(time.Hour))
+	result, err := store.SupersedeDecision(ctx, actor, target, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede", Time(time.Hour))
 	if err != nil {
 		t.Fatalf("supersede proposed target: %v", err)
 	}
@@ -437,7 +440,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if len(sourceRows) != 1 || sourceRows[0]["record_id"] != source.String() {
 		t.Fatalf("superseding decision missing from projection rows: %#v", sourceRows)
 	}
-	replay, err := store.SupersedeDecision(ctx, actor, target, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-replay", Time(2*time.Hour))
+	replay, err := store.SupersedeDecision(ctx, actor, target, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-replay", Time(2*time.Hour))
 	if err != nil {
 		t.Fatalf("replay decision supersede: %v", err)
 	}
@@ -456,7 +459,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 		Reason:              "Supersede executed decision.",
 		ReplacementRecordID: &executedSource,
 	}
-	if _, err := store.SupersedeDecision(ctx, actor, executedTarget, executedRequest, timeline.TimelineActionRequestHash(executedRequest.BaseRowVersion, executedRequest.ClientTxnID, &executedRequest.Reason, executedRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-executed", Time(3*time.Hour)); err != nil {
+	if _, err := store.SupersedeDecision(ctx, actor, executedTarget, executedRequest, timelineadmission.ActionRequestHash(executedRequest.BaseRowVersion, executedRequest.ClientTxnID, &executedRequest.Reason, executedRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-executed", Time(3*time.Hour)); err != nil {
 		t.Fatalf("supersede executed target: %v", err)
 	}
 	row := QueryOne(t, store, incident.ID, workbook.DecisionsViewSchemaID, "decision.is_superseded", true, executedTarget)
@@ -508,7 +511,7 @@ INSERT INTO record_links (
 func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decision-supersede-inconsistent")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision-supersede-inconsistent@example.test", "TaskDecision Decision Supersede Inconsistent", "TaskDecisionDecisionSupersede1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-supersede-inconsistent-incident", "IR-TASK-DECISION-DECISION-SUPERSEDE-INCONSISTENT", "Workbook inspector task and decision workflow decision supersede inconsistent")
 
@@ -526,7 +529,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 		Reason:              "Attempt explicit supersession with inconsistent source.",
 		ReplacementRecordID: &inconsistentSource,
 	}
-	_, err := store.SupersedeDecision(ctx, actor, validTarget, sourceRequest, timeline.TimelineActionRequestHash(sourceRequest.BaseRowVersion, sourceRequest.ClientTxnID, &sourceRequest.Reason, sourceRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-inconsistent-source-route", Time(2*time.Hour))
+	_, err := store.SupersedeDecision(ctx, actor, validTarget, sourceRequest, timelineadmission.ActionRequestHash(sourceRequest.BaseRowVersion, sourceRequest.ClientTxnID, &sourceRequest.Reason, sourceRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-inconsistent-source-route", Time(2*time.Hour))
 	requireLifecycle(t, err)
 	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, inconsistentSource), sourceBefore, "inconsistent source supersede")
 	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, sourceExistingTarget), sourceExistingTargetBefore, "inconsistent source existing target")
@@ -555,7 +558,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 		Reason:              "Attempt explicit supersession against inconsistent target.",
 		ReplacementRecordID: &validSource,
 	}
-	_, err = store.SupersedeDecision(ctx, actor, inconsistentTarget, targetRequest, timeline.TimelineActionRequestHash(targetRequest.BaseRowVersion, targetRequest.ClientTxnID, &targetRequest.Reason, targetRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-inconsistent-target-route", Time(4*time.Hour))
+	_, err = store.SupersedeDecision(ctx, actor, inconsistentTarget, targetRequest, timelineadmission.ActionRequestHash(targetRequest.BaseRowVersion, targetRequest.ClientTxnID, &targetRequest.Reason, targetRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-inconsistent-target-route", Time(4*time.Hour))
 	requireLifecycle(t, err)
 	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, validSource), validSourceBefore, "valid source rejected by inconsistent target")
 	requireDecisionSnapshot(t, DecisionSnapshot(t, harness.DB, inconsistentTarget), inconsistentTargetBefore, "inconsistent target supersede")
@@ -573,7 +576,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 
 func TestDecisionTerminalTransitionMatrix_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decision-terminal-matrix")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision-terminal@example.test", "TaskDecision Decision Terminal", "TaskDecisionDecisionTerminal1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-terminal-incident", "IR-TASK-DECISION-DECISION-TERMINAL", "Workbook inspector task and decision workflow decision terminal matrix")
 
@@ -638,7 +641,7 @@ func mustCreateDecisionInTerminalState(t testing.TB, store *workbook.Store, acto
 		Reason:              "Create explicit superseded terminal state.",
 		ReplacementRecordID: &source,
 	}
-	if _, err := store.SupersedeDecision(context.Background(), actor, target, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-"+clientTxnID+"-supersede", Time(time.Hour)); err != nil {
+	if _, err := store.SupersedeDecision(context.Background(), actor, target, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-"+clientTxnID+"-supersede", Time(time.Hour)); err != nil {
 		t.Fatalf("create superseded decision %s: %v", clientTxnID, err)
 	}
 	return target

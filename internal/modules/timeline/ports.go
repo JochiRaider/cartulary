@@ -14,20 +14,32 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-// Dependencies are source-owner ports supplied by application assembly. Every
-// mutation method receives Timeline's initiating transaction and must not
-// commit, roll back, publish, or start a nested transaction.
-type Dependencies struct {
-	Idempotency   IdempotencyPort
-	Incidents     IncidentPort
-	Records       RecordPort
-	Revisions     RevisionPort
-	Projections   ProjectionPort
-	Links         LinkPort
-	Mentions      MentionPort
-	Entities      EntityPort
-	Evidence      EvidencePort
-	Collections   CollectionReadPort
+// Collaborators are source-owner ports supplied by application assembly.
+// Every mutation method receives Timeline's initiating transaction and must
+// not commit, roll back, publish, or start a nested transaction.
+type Collaborators struct {
+	Core        CoreCollaborators
+	Collections CollectionCollaborators
+	Commit      CommitCollaborators
+}
+
+type CoreCollaborators struct {
+	Idempotency IdempotencyPort
+	Incidents   IncidentPort
+	Records     RecordPort
+	Revisions   RevisionPort
+}
+
+type CollectionCollaborators struct {
+	Links    LinkPort
+	Mentions MentionPort
+	Entities EntityPort
+	Evidence EvidencePort
+	Facts    CollectionFactPort
+}
+
+type CommitCollaborators struct {
+	Projection    ProjectionPort
 	Collaboration CollaborationPort
 }
 
@@ -39,8 +51,6 @@ type IdempotencyPort interface {
 type IncidentPort interface {
 	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
-
-type RecordEnvelope = sourcerepository.Envelope
 
 type RecordCreateParams struct {
 	RecordID        *uuid.UUID
@@ -57,8 +67,8 @@ type RecordPort interface {
 	InsertTx(context.Context, pgx.Tx, RecordCreateParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (RecordEnvelope, error)
-	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]RecordEnvelope, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (sourcerepository.Envelope, error)
+	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]sourcerepository.Envelope, error)
 	ResolveIncident(context.Context, uuid.UUID) (uuid.UUID, error)
 }
 
@@ -110,8 +120,8 @@ type RecordRevisionWindowEntry struct {
 
 type ProjectionPort interface {
 	ApplyTimelineMutationTx(context.Context, pgx.Tx, workbookprojection.ProjectionMutation) error
-	RebuildIncidentHostsTx(context.Context, pgx.Tx, uuid.UUID) error
-	RebuildIncidentIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error
+	RefreshHostTx(context.Context, pgx.Tx, uuid.UUID) error
+	RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type LinkPort interface {
@@ -240,8 +250,8 @@ type EvidencePort interface {
 	ValidateTimelineAttachmentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) error
 }
 
-type CollectionReadPort interface {
-	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *workbookprojection.DerivedRecord) error
+type CollectionFactPort interface {
+	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (workbookprojection.CollectionFacts, error)
 }
 
 type RecordChangeIntentParams struct {
@@ -263,45 +273,6 @@ type RecordChangeIntentParams struct {
 type CollaborationPort interface {
 	AppendRecordChangeIntentTx(context.Context, pgx.Tx, RecordChangeIntentParams) error
 }
-
-type timelineStorePorts struct {
-	idempotency   IdempotencyPort
-	incidents     IncidentPort
-	records       RecordPort
-	revisions     RevisionPort
-	projections   ProjectionPort
-	links         LinkPort
-	mentions      MentionPort
-	entities      EntityPort
-	evidence      EvidencePort
-	collections   CollectionReadPort
-	collaboration CollaborationPort
-}
-
-type timelineIdempotencyPort = IdempotencyPort
-type timelineIncidentPort = IncidentPort
-type timelineRecordPort = RecordPort
-type timelineRevisionPort = RevisionPort
-type timelineProjectionPort = ProjectionPort
-type timelineLinkPort = LinkPort
-type timelineMentionPort = MentionPort
-type timelineEntityPort = EntityPort
-type timelineEvidencePort = EvidencePort
-type timelineCollectionReadPort = CollectionReadPort
-type timelineCollaborationPort = CollaborationPort
-type timelineChangeSetParams = ChangeSetParams
-type timelineMutationParams = MutationParams
-type timelineRecordRevisionParams = RecordRevisionParams
-type insertSupersedesCommand = InsertSupersedesCommand
-type upsertLinkCommand = UpsertLinkCommand
-type linkType = string
-type linkProvenance = string
-type supersedesLink = SupersedesLink
-type recordRefCollectionCommand = RecordRefCollectionCommand
-type tagCollectionCommand = TagCollectionCommand
-type tagCollectionAdd = TagCollectionAdd
-type recordTagRef = RecordTagRef
-type linkCollectionMutationResult = CollectionMutationResult
 
 func linkRecordRefItemRef(recordID uuid.UUID) string {
 	return "record_ref:" + recordID.String()

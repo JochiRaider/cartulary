@@ -1,4 +1,4 @@
-package timeline
+package timelineadmission
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -37,7 +38,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "incident closed",
-			err:     ErrIncidentClosed,
+			err:     timeline.ErrIncidentClosed,
 			status:  http.StatusConflict,
 			code:    "incident_closed",
 			message: "incident closed",
@@ -45,14 +46,14 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "record not found",
-			err:     ErrRecordNotFound,
+			err:     timeline.ErrRecordNotFound,
 			status:  http.StatusNotFound,
 			code:    "incident_not_found",
 			details: map[string]any{},
 		},
 		{
 			name:    "deleted record use restore",
-			err:     ErrRecordDeleted,
+			err:     timeline.ErrRecordDeleted,
 			status:  http.StatusConflict,
 			code:    "record_deleted_use_restore",
 			message: "record deleted use restore",
@@ -60,7 +61,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:     "same field conflict",
-			err:      &SameFieldConflictError{Conflict: conflict},
+			err:      &timeline.SameFieldConflictError{Conflict: conflict},
 			status:   http.StatusConflict,
 			code:     "same_field_conflict",
 			message:  "same field conflict",
@@ -69,7 +70,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name: "typed row version conflict",
-			err: &RowVersionConflictError{
+			err: &timeline.RowVersionConflictError{
 				RecordID:          recordID,
 				BaseRowVersion:    3,
 				CurrentRowVersion: 4,
@@ -84,14 +85,19 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "sentinel row version conflict",
-			err:     ErrRowVersionConflict,
+			err:     timeline.ErrRowVersionConflict,
 			status:  http.StatusConflict,
 			code:    "row_version_conflict",
 			details: map[string]any{},
 		},
 		{
-			name:    "typed illegal transition",
-			err:     newIllegalTransitionError("typed_reason", "rough", "reviewed", "guard_a"),
+			name: "typed illegal transition",
+			err: &timeline.IllegalTransitionError{
+				ReasonCode:     "typed_reason",
+				FromStatus:     "rough",
+				ToStatus:       "reviewed",
+				ViolatedGuards: []string{"guard_a"},
+			},
 			context: MutationAPIErrorContext{IllegalTransitionReasonCode: "fallback_reason"},
 			status:  http.StatusConflict,
 			code:    "illegal_transition",
@@ -105,7 +111,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "sentinel illegal transition",
-			err:     ErrIllegalTransition,
+			err:     timeline.ErrIllegalTransition,
 			context: MutationAPIErrorContext{IllegalTransitionReasonCode: "superseded_terminal"},
 			status:  http.StatusConflict,
 			code:    "illegal_transition",
@@ -114,7 +120,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "no effective change",
-			err:     ErrNoEffectiveChange,
+			err:     timeline.ErrNoEffectiveChange,
 			context: MutationAPIErrorContext{NoEffectiveChangeField: "action_payload"},
 			status:  http.StatusBadRequest,
 			code:    "invalid_mutation_payload",

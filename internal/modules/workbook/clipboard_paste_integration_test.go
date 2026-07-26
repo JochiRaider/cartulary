@@ -3,7 +3,6 @@ package workbook_test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -64,8 +63,8 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	requireMutationTargets(t, harness, changeSetID, []string{existingID.String(), createdID.String()})
 	requireRevisionCount(t, harness, existingID, 2)
 	requireRevisionCount(t, harness, createdID, 1)
-	requireRawCaptureValue(t, harness, existingID, "preserve-me")
-	requireRawCaptureValue(t, harness, createdID, "preserve-new")
+	requireProvenanceValue(t, harness, existingID, "preserve-me")
+	requireProvenanceValue(t, harness, createdID, "preserve-new")
 	requireMentionOriginKind(t, harness, existingID, "timeline.host_refs", "clipboard_paste")
 	requireMentionOriginKind(t, harness, createdID, "timeline.host_refs", "clipboard_paste")
 
@@ -457,27 +456,21 @@ func requireRevisionCount(t testing.TB, harness *workbookscenariotest.ServerHarn
 	}
 }
 
-func requireRawCaptureValue(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, want string) {
+func requireProvenanceValue(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, want string) {
 	t.Helper()
-	var raw []byte
-	if err := harness.DB.QueryRowContext(context.Background(), `SELECT raw_capture FROM timeline_events WHERE record_id = $1`, recordID).Scan(&raw); err != nil {
-		t.Fatalf("query raw_capture: %v", err)
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM timeline_source_provenance
+ WHERE record_id = $1
+   AND source_kind = 'clipboard_paste'
+   AND raw_value = $2
+`, recordID, want).Scan(&count); err != nil {
+		t.Fatalf("query timeline source provenance: %v", err)
 	}
-	var capture map[string]any
-	if err := json.Unmarshal(raw, &capture); err != nil {
-		t.Fatalf("decode raw_capture: %v", err)
+	if count != 1 {
+		t.Fatalf("timeline source provenance count for %q: got %d want 1", want, count)
 	}
-	columns, ok := capture["import_columns"].([]any)
-	if !ok {
-		t.Fatalf("raw_capture missing import_columns: %#v", capture)
-	}
-	for _, entry := range columns {
-		object := entry.(map[string]any)
-		if object["source_kind"] == "clipboard_paste" && object["raw_value"] == want {
-			return
-		}
-	}
-	t.Fatalf("raw_capture did not preserve %q: %#v", want, capture)
 }
 
 func requireMentionOriginKind(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, fieldKey string, want string) {

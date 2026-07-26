@@ -30,5 +30,5 @@ func (a revisionAppendAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (a revisionAppendAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, params)
 }

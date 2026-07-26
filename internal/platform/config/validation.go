@@ -86,13 +86,14 @@ func validateConfigStructure(cfg *document, presence configPresence, inactivePol
 		})
 	}
 
-	validatePublicOrigin(&cfg.Application, &diagnostics)
+	validateApplication(&cfg.Application, &diagnostics)
 	validateRootBinding(&cfg.Roots.DatabaseStorage, "roots.database_storage", cfg.DeploymentProfile, true, true, &diagnostics)
 	validateRootBinding(&cfg.Roots.ObjectStorage, "roots.object_storage", cfg.DeploymentProfile, true, true, &diagnostics)
 	validateRootBinding(&cfg.Roots.BackupStorage, "roots.backup_storage", cfg.DeploymentProfile, true, true, &diagnostics)
-	validateRootBinding(&cfg.Roots.ReferencePackStorage, "roots.reference_pack_storage", cfg.DeploymentProfile, false, false, &diagnostics)
+	validateRootBinding(&cfg.Roots.ReferencePackStorage, "roots.reference_pack_storage", cfg.DeploymentProfile, true, true, &diagnostics)
 	validateRootBinding(&cfg.Roots.TemporaryWork, "roots.temporary_work", cfg.DeploymentProfile, false, false, &diagnostics)
-	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
+	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, true, true, &diagnostics)
+	validateProcessModelBindings(cfg, &diagnostics)
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
 	applyDefaultExtensionRuntimeValues(cfg, presence)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
@@ -107,7 +108,17 @@ func validateConfigStructure(cfg *document, presence configPresence, inactivePol
 	return diagnostics
 }
 
-func validatePublicOrigin(application *ApplicationConfig, diagnostics *[]Diagnostic) {
+func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnostic) {
+	if application.ProcessModel == "" {
+		application.ProcessModel = ProcessModelSingle
+	}
+	if application.ProcessModel != ProcessModelSingle && application.ProcessModel != ProcessModelReplicated {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.process_model",
+			ReasonCode: "invalid_enum",
+			Message:    fmt.Sprintf("application process_model %q is not supported", application.ProcessModel),
+		})
+	}
 	if strings.TrimSpace(application.PublicOrigin) == "" {
 		*diagnostics = append(*diagnostics, Diagnostic{
 			Path:       "application.public_origin",
@@ -143,6 +154,71 @@ func validatePublicOrigin(application *ApplicationConfig, diagnostics *[]Diagnos
 		return
 	}
 	application.PublicOrigin = parsed.Scheme + "://" + parsed.Host
+}
+
+func validateProcessModelBindings(cfg *document, diagnostics *[]Diagnostic) {
+	if cfg.Application.ProcessModel == ProcessModelSingle {
+		for _, required := range []struct {
+			path    string
+			binding RootBinding
+		}{
+			{"roots.reference_pack_storage.binding_kind", cfg.Roots.ReferencePackStorage},
+			{"roots.temporary_work.binding_kind", cfg.Roots.TemporaryWork},
+			{"roots.export_outputs.binding_kind", cfg.Roots.ExportOutputs},
+		} {
+			if required.binding.BindingKind != "" && required.binding.BindingKind != "filesystem_root" {
+				*diagnostics = append(*diagnostics, Diagnostic{
+					Path:       required.path,
+					ReasonCode: "process_model_incompatible_binding",
+					Message:    "single process_model requires filesystem-root publication and temporary-work bindings",
+				})
+			}
+		}
+		return
+	}
+	if cfg.Application.ProcessModel != ProcessModelReplicated {
+		return
+	}
+	if cfg.DeploymentProfile == "disconnected" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.process_model",
+			ReasonCode: "profile_incompatible_process_model",
+			Message:    "replicated process_model is unavailable for the disconnected deployment profile",
+		})
+	}
+	for _, required := range []struct {
+		path    string
+		binding RootBinding
+	}{
+		{"roots.database_storage.binding_kind", cfg.Roots.DatabaseStorage},
+		{"roots.object_storage.binding_kind", cfg.Roots.ObjectStorage},
+		{"roots.backup_storage.binding_kind", cfg.Roots.BackupStorage},
+		{"roots.reference_pack_storage.binding_kind", cfg.Roots.ReferencePackStorage},
+		{"roots.export_outputs.binding_kind", cfg.Roots.ExportOutputs},
+	} {
+		if required.binding.BindingKind != "" && required.binding.BindingKind != "managed_service" {
+			*diagnostics = append(*diagnostics, Diagnostic{
+				Path:       required.path,
+				ReasonCode: "replicated_shared_binding_required",
+				Message:    "replicated process_model requires every durable binding to use a managed service",
+			})
+		}
+	}
+	for _, binding := range []struct {
+		path       string
+		serviceRef string
+	}{
+		{"roots.reference_pack_storage.service_ref", cfg.Roots.ReferencePackStorage.ServiceRef},
+		{"roots.export_outputs.service_ref", cfg.Roots.ExportOutputs.ServiceRef},
+	} {
+		if binding.serviceRef != "" && binding.serviceRef != cfg.Roots.ObjectStorage.ServiceRef {
+			*diagnostics = append(*diagnostics, Diagnostic{
+				Path:       binding.path,
+				ReasonCode: "replicated_publication_binding_mismatch",
+				Message:    "replicated publication storage must resolve to the admitted shared object service",
+			})
+		}
+	}
 }
 
 func validateStartupFilesystemRoots(cfg *document) []Diagnostic {

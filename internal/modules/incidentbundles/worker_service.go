@@ -12,7 +12,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -20,36 +19,38 @@ import (
 const incidentBundleJobHandlerName = BundleWorkerKind
 
 type incidentBundleWorker struct {
-	store           *Store
-	jobManager      *jobs.Manager
-	jobRunner       *jobs.Runner
-	results         incidentBundleJobResultSink
-	storage         BundleStorage
-	importFinalizer incidents.IncidentBundleImportFinalizer
-	jobFinalizer    JobSuccessFinalizer
-	portability     *PortabilityOrchestrator
-	transactions    *crossownertransaction.Coordinator
-	limits          Limits
-	deps            httpapi.DependencySet
-	now             func() time.Time
-	startHook       func(string)
+	store             *Store
+	jobManager        *jobs.Manager
+	jobRunner         *jobs.Runner
+	results           incidentBundleJobResultSink
+	storage           BundleStorage
+	importFinalizer   incidents.IncidentBundleImportFinalizer
+	jobFinalizer      JobSuccessFinalizer
+	portability       *PortabilityOrchestrator
+	transactions      *crossownertransaction.Coordinator
+	projectionRebuild importProjectionRebuilder
+	limits            Limits
+	deps              httpapi.DependencySet
+	now               func() time.Time
+	startHook         func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, limits Limits, now func() time.Time, startHook func(string)) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, limits Limits, now func() time.Time, startHook func(string)) *incidentBundleWorker {
 	return &incidentBundleWorker{
-		store:           store,
-		jobManager:      deps.Jobs,
-		jobRunner:       deps.JobRunner,
-		results:         incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
-		storage:         storage,
-		importFinalizer: importFinalizer,
-		jobFinalizer:    jobFinalizer,
-		portability:     portability,
-		transactions:    transactions,
-		limits:          limits,
-		deps:            deps,
-		now:             now,
-		startHook:       startHook,
+		store:             store,
+		jobManager:        deps.Jobs,
+		jobRunner:         deps.JobRunner,
+		results:           incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
+		storage:           storage,
+		importFinalizer:   importFinalizer,
+		jobFinalizer:      jobFinalizer,
+		portability:       portability,
+		transactions:      transactions,
+		projectionRebuild: projectionRebuild,
+		limits:            limits,
+		deps:              deps,
+		now:               now,
+		startHook:         startHook,
 	}
 }
 
@@ -223,7 +224,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		pool:              w.deps.Postgres,
 		objectStore:       w.deps.ObjectStore,
 		finalizer:         w.importFinalizer,
-		projectionRebuild: projectionadapters.NewIncidentImportRebuilder(w.deps.Postgres),
+		projectionRebuild: w.projectionRebuild,
 	}
 	importParams := ImportParams{
 		ActorUserID: payload.ActorUserID,

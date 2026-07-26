@@ -386,7 +386,7 @@ test("soft-deletes and restores a row with tombstone concurrency", async ({
     )
     .click();
   const deleted = await deleteResponse;
-  expect(deleted.ok()).toBeTruthy();
+  expect(deleted.ok(), await deleted.text()).toBeTruthy();
   const deleteBody = JSON.parse(deleted.request().postData() ?? "{}");
   expect(deleteBody.base_row_version).toBe(row.row_version);
   const removeMessage = await socketMonitor.waitForMessage("record_changed", {

@@ -322,8 +322,8 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	requireTimelineHostMentionUnresolved(t, rowsBySummary["Alpha summary"], "host-1")
 	requireTimelineHostMentionUnresolved(t, rowsBySummary["Beta summary"], "host-2")
 	requireImportedHostMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "host-1")
-	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:C3")
-	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:C3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:C3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:C3")
 
 	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-second"})
 	errBody := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
@@ -711,22 +711,40 @@ SELECT COUNT(*)
 	}
 }
 
-func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int, columnOrdinal int, sourceRect string) {
+func requireTimelineImportProvenance(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int, columnOrdinal int, sourceRect string) {
 	t.Helper()
 
-	var raw []byte
-	if err := db.QueryRowContext(context.Background(), `SELECT raw_capture FROM timeline_events WHERE record_id::text = $1`, recordID).Scan(&raw); err != nil {
-		t.Fatalf("query timeline raw_capture: %v", err)
+	var (
+		metadataJSON []byte
+		headerJSON   []byte
+		storedRaw    string
+		cellKind     *string
+		storedRow    int
+		storedColumn int
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT source_metadata, source_header_json, raw_value, cell_kind,
+       source_row_ordinal, source_column_ordinal
+  FROM timeline_source_provenance
+ WHERE record_id::text = $1
+`, recordID).Scan(&metadataJSON, &headerJSON, &storedRaw, &cellKind, &storedRow, &storedColumn); err != nil {
+		t.Fatalf("query timeline source provenance: %v", err)
 	}
-	var capture map[string]any
-	if err := json.Unmarshal(raw, &capture); err != nil {
-		t.Fatalf("decode timeline raw_capture: %v", err)
+	var column map[string]any
+	if err := json.Unmarshal(metadataJSON, &column); err != nil {
+		t.Fatalf("decode timeline source metadata: %v", err)
 	}
-	columns, ok := capture["import_columns"].([]any)
-	if !ok || len(columns) != 1 {
-		t.Fatalf("expected one raw import column, got %#v", capture)
+	var storedHeader any
+	if err := json.Unmarshal(headerJSON, &storedHeader); err != nil {
+		t.Fatalf("decode timeline source header: %v", err)
 	}
-	column := columns[0].(map[string]any)
+	column["source_header_text"] = storedHeader
+	column["raw_value"] = storedRaw
+	column["source_row_ordinal"] = storedRow
+	column["source_column_ordinal"] = storedColumn
+	if cellKind != nil {
+		column["cell_kind"] = *cellKind
+	}
 	want := map[string]any{
 		"source_kind":           "file_import",
 		"import_session_id":     sessionID,
@@ -740,16 +758,16 @@ func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, 
 		"source_header_text":    header,
 		"raw_value":             rawValue,
 		"cell_kind":             "string",
-		"source_row_ordinal":    float64(rowOrdinal),
-		"source_column_ordinal": float64(columnOrdinal),
+		"source_row_ordinal":    rowOrdinal,
+		"source_column_ordinal": columnOrdinal,
 	}
 	for key, wantValue := range want {
 		if column[key] != wantValue {
-			t.Fatalf("unexpected raw import column %s: got %#v want %#v column=%#v", key, column[key], wantValue, column)
+			t.Fatalf("unexpected source provenance %s: got %#v want %#v column=%#v", key, column[key], wantValue, column)
 		}
 	}
 	if column["mapping_fingerprint"] == "" || column["source_content_sha256"] == "" {
-		t.Fatalf("expected mapping fingerprint and source content hash in raw import column, got %#v", column)
+		t.Fatalf("expected mapping fingerprint and source content hash in source provenance, got %#v", column)
 	}
 }
 
@@ -940,39 +958,6 @@ func writeFilePart(t testing.TB, writer *multipart.Writer, filename string, cont
 	if _, err := part.Write(file); err != nil {
 		t.Fatalf("write file part: %v", err)
 	}
-}
-
-func minimalXLSX(t testing.TB) []byte {
-	t.Helper()
-	var buffer bytes.Buffer
-	writer := zip.NewWriter(&buffer)
-	writeZipText(t, writer, "[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-</Types>`)
-	writeZipText(t, writer, "xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
-</workbook>`)
-	writeZipText(t, writer, "xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-</Relationships>`)
-	writeZipText(t, writer, "xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData>
-    <row r="1"><c r="A1" t="inlineStr"><is><t>host</t></is></c><c r="B1" t="inlineStr"><is><t>summary</t></is></c></row>
-    <row r="2"><c r="A2" t="inlineStr"><is><t>host-1</t></is></c><c r="B2" t="inlineStr"><is><t>Alpha summary</t></is></c></row>
-    <row r="3"><c r="A3" t="inlineStr"><is><t>host-2</t></is></c><c r="B3" t="inlineStr"><is><t>Beta summary</t></is></c></row>
-  </sheetData>
-</worksheet>`)
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close XLSX zip: %v", err)
-	}
-	return buffer.Bytes()
 }
 
 func multipleSheetXLSX(t testing.TB) []byte {

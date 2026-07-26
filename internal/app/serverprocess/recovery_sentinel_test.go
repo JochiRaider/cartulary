@@ -62,6 +62,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		t.Fatalf("restore verification basis: %v", err)
 	}
 	verificationTarget := prepareRestoreTarget(t, "backup_restore-i-10-02-verification-target")
+	verificationRebuilder, verificationQuery := timelineassembly.NewRecoveryProjectionServices(verificationTarget.Postgres)
 	verification, err := recovery.NewRestoreVerificationService(
 		fixture.SourceStore,
 		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
@@ -70,9 +71,9 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 			Stopped:     true,
 			Postgres:    verificationTarget.Postgres,
 			ObjectStore: verificationTarget.ObjectStore,
-			Projections: timelineassembly.NewRestoreRebuilder(verificationTarget.Postgres),
+			Projections: verificationRebuilder,
 		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres, Query: verificationQuery},
 	}, fixture.AsOf, basis)
 	if err != nil {
 		t.Fatalf("verify restored process fixture: %v", err)

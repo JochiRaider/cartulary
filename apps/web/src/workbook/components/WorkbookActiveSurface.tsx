@@ -1,11 +1,17 @@
 import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useState,
+} from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import type { WorkbookQueryLoadState } from "../models/workbookGridState";
 import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
 import {
+  defaultFilterDraft,
   emptyWorkbookQueryState,
   replaceWorkbookSort,
   type WorkbookQueryState,
@@ -114,33 +120,50 @@ export function WorkbookActiveSurface({
   timelineQueryState,
 }: WorkbookActiveSurfaceProps) {
   const registration = requireWorkbookSurfaceRegistration(surface);
+  const [timelineFilterDraft, setTimelineFilterDraft] = useState(() =>
+    defaultFilterDraft(
+      requireWorkbookSurfaceRegistration("cartulary.view.timeline.v2").contract,
+    ),
+  );
   if (registration.renderer === "timeline") {
     return (
       <TimelineWorkbook
-        apiBase={apiBase}
-        currentIncidentRole={currentIncidentRole}
-        currentUserId={currentUserId}
-        density={density}
-        entityIndex={entityIndex}
-        hostEntities={hostRows}
-        identityEntities={identityRows}
-        incidentId={incidentId}
-        interactionMode={interactionMode}
-        inspectorResetKey={inspectorResetKey}
-        layoutState={layoutState}
-        onColumnHiddenChange={onColumnHiddenChange}
-        onColumnMove={onColumnMove}
-        onColumnReorder={onColumnReorder}
-        onColumnWidthChange={onColumnWidthChange}
-        onResetColumns={onResetColumns}
-        onQueryStateChange={setTimelineQueryState}
-        onRefreshEntities={loadEntities}
-        onIncidentAccessLost={onIncidentAccessLost}
-        queryState={timelineQueryState}
-        reloadToken={sheetReloadToken}
-        renderInlineQueryControls={false}
-        savedViewSelector={savedViewSelector}
-        sheetRef={sheetRef}
+        runtime={{
+          incident: {
+            id: incidentId,
+            apiBase,
+            currentUserId,
+            currentRole: currentIncidentRole,
+            sheetRef,
+            inspectorResetKey,
+            reloadToken: sheetReloadToken,
+          },
+          query: {
+            state: timelineQueryState,
+            setState: setTimelineQueryState,
+            filterDraft: timelineFilterDraft,
+            setFilterDraft: setTimelineFilterDraft,
+            renderInlineControls: false,
+            savedViewSelector,
+          },
+          entities: {
+            hosts: hostRows,
+            identities: identityRows,
+            index: entityIndex,
+            refresh: loadEntities,
+          },
+          layout: {
+            density,
+            interactionMode,
+            state: layoutState,
+            setColumnHidden: onColumnHiddenChange,
+            moveColumn: onColumnMove,
+            reorderColumn: onColumnReorder,
+            setColumnWidth: onColumnWidthChange,
+            resetColumns: onResetColumns,
+          },
+          onIncidentAccessLost,
+        }}
       />
     );
   }

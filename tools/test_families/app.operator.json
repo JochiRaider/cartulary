@@ -26,6 +26,31 @@
       "status": "active"
     },
     {
+      "row_id": "app.operator.unit.collaboration_requeue_args_6a57fb3221",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestOperatorCollaborationRequeueArgs_U_RequireExactIncident"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.operator.unit.migration_history_evidence_parsing_audits_embedd_e6e8ea0237",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",

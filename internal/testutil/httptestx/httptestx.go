@@ -13,10 +13,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -38,13 +36,12 @@ const (
 )
 
 type ServerOptions struct {
-	Config               configassembly.Deployment
-	Env                  map[string]string
-	Dependencies         httpapi.DependencySet
-	AdditionalRoutes     []httpapi.RouteRegistrar
-	ObjectStore          objectstore.Store
-	TestRouteMode        TestRouteMode
-	TimelineDependencies func(postgres.DB) timeline.Dependencies
+	Config           configassembly.Deployment
+	Env              map[string]string
+	Dependencies     httpapi.DependencySet
+	AdditionalRoutes []httpapi.RouteRegistrar
+	ObjectStore      objectstore.Store
+	TestRouteMode    TestRouteMode
 }
 
 type AuthCookies = authcookietest.AuthCookies
@@ -80,10 +77,9 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	clock := httpapi.NewTestClock()
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
 	runtime, err := server.NewRuntime(context.Background(), cfg, server.Options{
-		Env:                  env,
-		Now:                  clock.Now,
-		ObjectStore:          options.ObjectStore,
-		TimelineDependencies: options.TimelineDependencies,
+		Env:         env,
+		Now:         clock.Now,
+		ObjectStore: options.ObjectStore,
 		HTTP: httpapi.Options{
 			Dependencies:     options.Dependencies,
 			AdditionalRoutes: routes,

@@ -24,7 +24,6 @@ const (
 	HeartbeatTimeout        = 45 * time.Second
 	PresenceTTL             = 45 * time.Second
 	ResumeWindow            = 5 * time.Minute
-	MinimumReplayRetention  = 10000
 	ResumeStatusReplayed    = "replayed"
 	ResumeStatusResetNeeded = "reset_required"
 	IncidentTerminalClosed  = "incident_closed"
@@ -233,26 +232,33 @@ func (h *Hub) DeliverReplayable(message Message) error {
 		return errors.New("invalid replayable websocket message")
 	}
 	finishTelemetry := h.startEventSend(message.Type)
-	defer finishTelemetry("success", "")
 
 	h.mu.Lock()
-	streamSubscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
-	for subscriber := range h.incidentStreams[incidentID] {
-		streamSubscribers = append(streamSubscribers, subscriber)
-	}
 	if message.Type == "record_changed" {
 		if _, err := RecordChangeFromSequencedMessage(message); err != nil {
 			h.mu.Unlock()
+			finishTelemetry("rejected", "")
 			return err
 		}
 	}
-	h.mu.Unlock()
-
-	for _, subscriber := range streamSubscribers {
+	droppedSlowConsumer := false
+	for subscriber := range h.incidentStreams[incidentID] {
 		select {
 		case subscriber <- message:
 		default:
+			delete(h.incidentStreams[incidentID], subscriber)
+			close(subscriber)
+			droppedSlowConsumer = true
 		}
+	}
+	if len(h.incidentStreams[incidentID]) == 0 {
+		delete(h.incidentStreams, incidentID)
+	}
+	h.mu.Unlock()
+	if droppedSlowConsumer {
+		finishTelemetry("dropped", "queue_full")
+	} else {
+		finishTelemetry("success", "")
 	}
 	return nil
 }
@@ -277,8 +283,6 @@ func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Messag
 	h.mu.Unlock()
 
 	return ch, func() {
-		// Detach without closing: a publisher may already own a snapshot of ch.
-		// The caller's surrounding context owns consumer termination.
 		h.mu.Lock()
 		if subscribers := h.incidentStreams[incidentID]; subscribers != nil {
 			delete(subscribers, ch)
@@ -545,10 +549,6 @@ func (h *Hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 	}
 }
 
-func (h *Hub) broadcastIncident(incidentID uuid.UUID, message Message) {
-	h.broadcastIncidentExcept(incidentID, message, nil)
-}
-
 func (h *Hub) broadcastIncidentExcept(incidentID uuid.UUID, message Message, excluded <-chan Message) {
 	h.mu.Lock()
 	subscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
@@ -640,7 +640,7 @@ func RecordChangeFromSequencedMessage(message Message) (RecordChange, error) {
 }
 
 func RecordChangePayload(change RecordChange) map[string]any {
-	changedKeys := append([]string(nil), change.ChangedFieldKeys...)
+	changedKeys := append(make([]string, 0, len(change.ChangedFieldKeys)), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
 	changedKeys = slices.Compact(changedKeys)
 	changeKind := change.ChangeKind

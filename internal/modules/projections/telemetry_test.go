@@ -6,7 +6,7 @@ func TestProjectionTelemetrySafeVocabulary(t *testing.T) {
 	if got := safeProjectionViewSchemaID(timelineViewSchemaID); got != timelineViewSchemaID {
 		t.Fatalf("timeline view schema = %q", got)
 	}
-	for viewSchemaID := range defaultProviderRegistry().querySurfaces {
+	for viewSchemaID := range querySurfacesForTest() {
 		if got := safeProjectionViewSchemaID(viewSchemaID); got != viewSchemaID {
 			t.Fatalf("generic projection view schema %s sanitized to %q", viewSchemaID, got)
 		}
@@ -17,7 +17,7 @@ func TestProjectionTelemetrySafeVocabulary(t *testing.T) {
 }
 
 func TestProjectionTelemetryNoSDK(t *testing.T) {
-	store := NewStore(nil)
+	store := NewStore(nil, nil)
 	_, finish := store.startProjectionSpan(t.Context(), timelineViewSchemaID)
 	finish(nil)
 	_, finish = store.startProjectionSpan(t.Context(), "incident/10000000")

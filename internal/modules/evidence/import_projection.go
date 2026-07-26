@@ -7,16 +7,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 )
 
 func (s *Store) RefreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	if viewSchemaID != evidenceViewSchemaID {
+	if viewSchemaID != ViewSchemaID {
 		return nil, fmt.Errorf("evidence import projection surface %q not mapped", viewSchemaID)
 	}
-	projector := projectionadapters.NewRowProjector(nil)
-	if err := projector.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
+	rows := projections.NewEvidenceRows(nil, evidenceprojection.QuerySurfaces()...)
+	if err := rows.RefreshTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}
-	return projector.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+	return rows.LoadTx(ctx, tx, recordID)
 }

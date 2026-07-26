@@ -58,7 +58,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		return s.finalizeImportRowTx(ctx, tx, command, recordID)
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		params := DecisionCreateParams{Values: values}
 		if err := ValidateDecisionCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err

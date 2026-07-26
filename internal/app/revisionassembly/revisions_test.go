@@ -39,6 +39,14 @@ func (revisionsCompositionTestProjection) RebuildIncidentTx(context.Context, pgx
 	return nil
 }
 
+func (revisionsCompositionTestProjection) Supports(string) bool {
+	return false
+}
+
+func (revisionsCompositionTestProjection) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
+	return nil, pgx.ErrNoRows
+}
+
 func TestRevisionsCompositionRegistersEveryRequiredProvider(t *testing.T) {
 	t.Parallel()
 	service, err := NewCommandService(revisionsCompositionTestDB{}, revisionsCompositionTestAttribution{}, revisionsCompositionTestProjection{})

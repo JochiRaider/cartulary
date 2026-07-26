@@ -15,7 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
@@ -26,7 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
+const TaskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
 
 type WorkbookFacade struct {
 	pool             postgres.DB
@@ -34,7 +34,7 @@ type WorkbookFacade struct {
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
 	linkStore        workbookCollectionLinkPort
-	rowProjector     *projectionadapters.RowProjector
+	projectionRows   *projections.TaskDecisionRows
 	revisionHistory  historyquery.Reader
 	revisionAppender revisions.Appender
 	store            *Store
@@ -133,23 +133,19 @@ func (e *SameFieldConflictError) Error() string {
 	return "tasksdecisions: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB) *WorkbookFacade {
+func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *WorkbookFacade {
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		recordStore:      records.NewStore(),
 		linkStore:        links.NewStore(),
-		rowProjector:     projectionadapters.NewRowProjector(pool),
+		projectionRows:   newTaskDecisionProjectionRows(pool),
 		revisionHistory:  historyquery.NewReader(),
 		revisionAppender: revisions.NewAppender(),
 		store:            NewStore(),
-		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("tasksdecisions-workbook"),
+		conflictTokens:   conflictTokens,
 	}
-}
-
-func (f *WorkbookFacade) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	f.conflictTokens = codec
 }
 
 func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
@@ -210,7 +206,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 		return WorkbookMutationResult{}, err
 	}
 	switch request.ViewSchemaID {
-	case taskRequestsViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		if err := f.store.InsertTaskRequestTx(ctx, tx, recordID, command.IncidentID, command.Actor.ID, TaskCreateParams{Values: request.Values}, now); err != nil {
 			return WorkbookMutationResult{}, err
 		}
@@ -219,7 +215,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 				return WorkbookMutationResult{}, err
 			}
 		}
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		if err := f.store.InsertDecisionTx(ctx, tx, recordID, command.IncidentID, command.Actor.ID, DecisionCreateParams{Values: request.Values}, now); err != nil {
 			return WorkbookMutationResult{}, err
 		}
@@ -232,7 +228,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, recordID)
+	row, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -342,7 +338,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+			current, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -367,7 +363,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -391,7 +387,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	afterRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -458,9 +454,9 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 
 func validateCreateRequest(request WorkbookCreateRequest) error {
 	switch request.ViewSchemaID {
-	case taskRequestsViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		return ValidateTaskCreateParams(TaskCreateParams{Values: request.Values})
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		return ValidateDecisionCreateParams(DecisionCreateParams{Values: request.Values})
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
@@ -576,13 +572,13 @@ func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 	var beforeTask TaskLifecycleState
 	var beforeDecisionStatus string
 	var err error
-	if request.ViewSchemaID == taskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
+	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
 		beforeTask, err = f.store.LoadTaskLifecycleStateTx(ctx, tx, recordID)
 		if err != nil {
 			return false, err
 		}
 	}
-	if request.ViewSchemaID == decisionsViewSchemaID {
+	if request.ViewSchemaID == DecisionsViewSchemaID {
 		if err := f.store.ValidateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
 			return false, err
 		}
@@ -610,14 +606,14 @@ func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 			changed = changed || applied
 		}
 	}
-	if request.ViewSchemaID == taskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
+	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
 		applied, err := f.store.NormalizeTaskLifecycleTx(ctx, tx, recordID, beforeTask, touchesField(request.Changes, "task.completed_at"), now)
 		if err != nil {
 			return false, err
 		}
 		changed = changed || applied
 	}
-	if request.ViewSchemaID == decisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
+	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
 		afterDecisionStatus, err := f.store.LoadDecisionStatusTx(ctx, tx, recordID)
 		if err != nil {
 			return false, err
@@ -634,12 +630,12 @@ func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 
 func (f *WorkbookFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change WorkbookPatchChange, now time.Time) (bool, error) {
 	switch viewSchemaID {
-	case taskRequestsViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		if err := ValidateTaskDirectPatchChange(change.FieldKey, *change.Value); err != nil {
 			return false, err
 		}
 		return f.store.ApplyTaskDirectChangeTx(ctx, tx, incidentID, recordID, actorID, change.FieldKey, *change.Value, now)
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		if err := ValidateDecisionDirectPatchChange(change.FieldKey, *change.Value); err != nil {
 			return false, err
 		}
@@ -753,9 +749,9 @@ func recordRefActions(descriptor collectionDescriptor, payload WorkbookCollectio
 
 func (f *WorkbookFacade) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
 	switch viewSchemaID {
-	case taskRequestsViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		return f.store.TouchTaskRequestTx(ctx, tx, recordID, now)
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		return f.store.TouchDecisionTx(ctx, tx, recordID, now)
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
@@ -764,10 +760,10 @@ func (f *WorkbookFacade) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSc
 
 func (f *WorkbookFacade) refreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	switch viewSchemaID {
-	case taskRequestsViewSchemaID:
-		return f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.TaskRequestsViewSchemaID, recordID)
-	case decisionsViewSchemaID:
-		return f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, recordID)
+	case TaskRequestsViewSchemaID:
+		return f.projectionRows.RefreshTaskRequestTx(ctx, tx, recordID)
+	case DecisionsViewSchemaID:
+		return f.projectionRows.RefreshDecisionTx(ctx, tx, recordID)
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
@@ -1044,9 +1040,9 @@ func recordTypeMatchesView(recordType string, viewSchemaID string) bool {
 
 func recordTypeForView(viewSchemaID string) string {
 	switch viewSchemaID {
-	case taskRequestsViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		return "task_request"
-	case decisionsViewSchemaID:
+	case DecisionsViewSchemaID:
 		return "decision"
 	default:
 		return ""

@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -37,7 +38,9 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 				defer storage.Close()
 				return storage.ReadMarker(operatorops.RestoreVerificationTargetMarkerMaximumBytes)
 			},
-			NewProjectionRebuilder: timelineassembly.NewRestoreRebuilder,
+			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery) {
+				return timelineassembly.NewRecoveryProjectionServices(db)
+			},
 			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
 				return recovery.LoadRecoveryEncryptionKey(nil)
 			},

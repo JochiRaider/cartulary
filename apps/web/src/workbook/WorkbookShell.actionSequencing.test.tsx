@@ -8,6 +8,7 @@ import {
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -24,7 +25,6 @@ import {
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -174,7 +174,7 @@ describe("Timeline workbook action sequencing", () => {
     );
 
     render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         currentIncidentRole="reviewer"
       />,
@@ -301,7 +301,7 @@ describe("Timeline workbook action sequencing", () => {
     );
 
     render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         currentIncidentRole="reviewer"
       />,
@@ -460,7 +460,7 @@ describe("Timeline workbook action sequencing", () => {
     );
 
     render(
-      <TimelineWorkbook
+      <TimelineWorkbookRuntimeFixture
         incidentId="incident-1"
         currentIncidentRole="reviewer"
       />,

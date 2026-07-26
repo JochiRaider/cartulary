@@ -23,6 +23,7 @@ type Store struct {
 type TimelineEffectsPort interface {
 	LoadTimelineInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]mentioneffects.TimelineInvalidation, error)
 	LoadRelationshipInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]mentioneffects.TimelineInvalidation, error)
+	RefreshTimelineProjectionRowsTx(context.Context, pgx.Tx, []uuid.UUID) error
 }
 
 type StoreOption func(*entityStorePorts)

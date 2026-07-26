@@ -3,12 +3,13 @@ package timelineassembly
 import (
 	"context"
 	"errors"
-	"net/http"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
@@ -16,98 +17,173 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func NewFacade(pool postgres.DB) *timeline.Facade {
-	return timeline.NewFacade(pool, Dependencies(pool))
+type Bundle struct {
+	Facade                *timeline.Facade
+	ProjectionSource      *timeline.ProjectionSource
+	MentionEffects        *mentioneffects.Provider
+	EntityMentionStore    *mentions.Store
+	EntityMergeStore      *merge.Store
+	EvidenceStore         *evidence.Store
+	ProjectionCatalog     *projectionassembly.Bundle
+	ProjectionCoordinator *projections.Coordinator
+	RestoreRebuilder      restorecontract.ProjectionRebuilder
+	Collaborators         timeline.Collaborators
 }
 
-func NewProjectionSource(pool postgres.DB) *timeline.ProjectionSource {
-	recordsAdapter := recordAdapter{
-		store:   records.NewStore(),
-		targets: records.NewRouteTargetResolver(pool),
+type composition struct {
+	projectionSource      *timeline.ProjectionSource
+	mentionEffects        *mentioneffects.Provider
+	entityMentionStore    *mentions.Store
+	entityMergeStore      *merge.Store
+	evidenceStore         *evidence.Store
+	projectionCatalog     *projectionassembly.Bundle
+	projectionCoordinator *projections.Coordinator
+	restoreRebuilder      restorecontract.ProjectionRebuilder
+	collaborators         timeline.Collaborators
+}
+
+func NewBundle(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *Bundle {
+	components := compose(pool)
+	return &Bundle{
+		Facade:                timeline.NewFacade(pool, components.collaborators, conflictTokens),
+		ProjectionSource:      components.projectionSource,
+		MentionEffects:        components.mentionEffects,
+		EntityMentionStore:    components.entityMentionStore,
+		EntityMergeStore:      components.entityMergeStore,
+		EvidenceStore:         components.evidenceStore,
+		ProjectionCatalog:     components.projectionCatalog,
+		ProjectionCoordinator: components.projectionCoordinator,
+		RestoreRebuilder:      components.restoreRebuilder,
+		Collaborators:         components.collaborators,
 	}
-	return timeline.NewProjectionSource(recordsAdapter, collectionReadAdapter{})
 }
 
-func NewMentionEffects(pool postgres.DB) *mentioneffects.Provider {
-	recordsAdapter := recordAdapter{
-		store:   records.NewStore(),
-		targets: records.NewRouteTargetResolver(pool),
-	}
-	return mentioneffects.NewProvider(
-		recordsAdapter,
-		collectionReadAdapter{},
-		projectionadapters.NewTimelineWriter(pool),
-	)
-}
-
-func NewEntityMentionStore(pool postgres.DB) *mentions.Store {
-	return mentions.NewStore(
-		pool,
-		mentions.WithTimelineEffects(NewMentionEffects(pool)),
-		mentions.WithCollaborationIntents(collaboration.NewStore(pool, nil)),
-	)
-}
-
-func NewEntityMergeStore(pool postgres.DB) *merge.Store {
-	return merge.NewStore(
-		pool,
-		merge.WithTimelineEffects(NewMentionEffects(pool)),
-		merge.WithCollaborationIntents(collaboration.NewStore(pool, nil)),
-	)
-}
-
-func NewEvidenceStore(pool postgres.DB) *evidence.Store {
-	return evidence.NewStore(
-		pool,
-		evidence.WithProjectionPort(NewRowProjector(pool)),
-		evidence.WithCollaborationIntents(collaboration.NewStore(pool, nil)),
-	)
-}
-
-func NewRowProjector(pool postgres.DB) *projectionadapters.RowProjector {
-	return projectionadapters.NewRowProjector(pool, NewProjectionSource(pool))
+// NewCollaborators composes Timeline's typed application boundary for focused
+// facade tests that replace one collaborator without starting a server.
+func NewCollaborators(pool postgres.DB) timeline.Collaborators {
+	return compose(pool).collaborators
 }
 
 func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
-	return projectionadapters.NewRestoreRebuilder(pool, NewProjectionSource(pool))
+	return compose(pool).restoreRebuilder
 }
 
-func RegisterTestRoutes() httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		return registerTestControlRoutes(mux, deps)
+func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, *projections.QueryService) {
+	components := compose(pool)
+	return components.restoreRebuilder, components.projectionCatalog.Query
+}
+
+func compose(pool postgres.DB) composition {
+	recordsPort := recordAdapter{
+		store:   records.NewStore(),
+		targets: records.NewRouteTargetResolver(pool),
 	}
-}
-
-func Dependencies(pool postgres.DB) timeline.Dependencies {
-	return timeline.Dependencies{
-		Idempotency: idempotencyAdapter{store: authn.NewStore(pool)},
-		Incidents:   incidentAdapter{access: incidents.NewAccess(pool)},
-		Records: recordAdapter{
-			store:   records.NewStore(),
-			targets: records.NewRouteTargetResolver(pool),
+	collectionFacts := newCollectionReadAdapter()
+	projectionSource := timeline.NewProjectionSource(recordsPort, collectionFacts)
+	projectionCatalog, err := projectionassembly.NewBundle(pool, projectionSource)
+	if err != nil {
+		panic(fmt.Sprintf("compose projection catalog: %v", err))
+	}
+	timelineWriter := timelineProjectionAdapter{
+		timeline: projectionCatalog.Timeline,
+		entities: projectionCatalog.Entities,
+	}
+	projectionCoordinator := projectionCatalog.Coordinator
+	collaborationStore := collaboration.NewStore(pool, nil)
+	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
+	evidenceStore := evidence.NewStore(
+		pool,
+		evidence.WithProjectionPort(evidenceProjectionAdapter{
+			rows:    projectionCatalog.Evidence,
+			rebuild: projectionCatalog.Rebuild,
+		}),
+		evidence.WithCollaborationIntents(collaborationStore),
+	)
+	collaborators := timeline.Collaborators{
+		Core: timeline.CoreCollaborators{
+			Idempotency: idempotencyAdapter{store: authn.NewStore(pool)},
+			Incidents:   incidentAdapter{access: incidents.NewAccess(pool)},
+			Records:     recordsPort,
+			Revisions:   revisionAdapter{appender: revisions.NewAppender(), reader: revisions.NewReader()},
 		},
-		Revisions:     revisionAdapter{appender: revisions.NewAppender(), reader: revisions.NewReader()},
-		Projections:   projectionadapters.NewTimelineWriter(pool),
-		Links:         linkAdapter{store: links.NewStore()},
-		Mentions:      mentionAdapter{store: mentions.NewStore(nil)},
-		Entities:      entityAdapter{store: hostidentity.NewStore(pool)},
-		Evidence:      evidenceAdapter{store: NewEvidenceStore(pool)},
-		Collections:   collectionReadAdapter{},
-		Collaboration: collaborationAdapter{store: collaboration.NewStore(pool, nil)},
+		Collections: timeline.CollectionCollaborators{
+			Links:    linkAdapter{store: links.NewStore()},
+			Mentions: mentionAdapter{store: mentions.NewStore(nil)},
+			Entities: entityAdapter{store: hostidentity.NewStore(pool)},
+			Evidence: evidenceAdapter{store: evidenceStore},
+			Facts:    collectionFacts,
+		},
+		Commit: timeline.CommitCollaborators{
+			Projection:    timelineWriter,
+			Collaboration: collaborationAdapter{store: collaborationStore},
+		},
 	}
+	return composition{
+		projectionSource: projectionSource,
+		mentionEffects:   mentionEffects,
+		entityMentionStore: mentions.NewStore(
+			pool,
+			mentions.WithTimelineEffects(mentionEffects),
+			mentions.WithCollaborationIntents(collaborationStore),
+		),
+		entityMergeStore: merge.NewStore(
+			pool,
+			merge.WithTimelineEffects(mentionEffects),
+			merge.WithCollaborationIntents(collaborationStore),
+		),
+		evidenceStore:         evidenceStore,
+		projectionCatalog:     projectionCatalog,
+		projectionCoordinator: projectionCoordinator,
+		restoreRebuilder:      projectionCatalog.Rebuild.RestoreRebuilder(),
+		collaborators:         collaborators,
+	}
+}
+
+type timelineProjectionAdapter struct {
+	timeline *projections.TimelineRows
+	entities *projections.EntityRows
+}
+
+func (a timelineProjectionAdapter) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation workbookprojection.ProjectionMutation) error {
+	return a.timeline.ApplyTimelineMutationTx(ctx, tx, mutation)
+}
+
+func (a timelineProjectionAdapter) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return a.entities.RefreshHostTx(ctx, tx, recordID)
+}
+
+func (a timelineProjectionAdapter) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return a.entities.RefreshIdentityTx(ctx, tx, recordID)
+}
+
+type evidenceProjectionAdapter struct {
+	rows    *projections.EvidenceRows
+	rebuild *projections.RebuildService
+}
+
+func (a evidenceProjectionAdapter) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return a.rows.RefreshTx(ctx, tx, recordID)
+}
+
+func (a evidenceProjectionAdapter) RefreshEvidenceSupportTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	return a.rebuild.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
+		timeline.TimelineViewSchemaID,
+		hostidentity.HostsViewSchemaID,
+		hostidentity.IdentitiesViewSchemaID,
+	})
 }
 
 type collaborationAdapter struct {
@@ -175,22 +251,22 @@ func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID
 	return a.store.LoadRowVersionTx(ctx, tx, recordID)
 }
 
-func (a recordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (timeline.RecordEnvelope, error) {
+func (a recordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (sourcerepository.Envelope, error) {
 	envelope, err := a.store.LoadEnvelopeTx(ctx, tx, recordID, lock)
 	if errors.Is(err, records.ErrEnvelopeNotFound) {
-		return timeline.RecordEnvelope{}, sourcerepository.ErrEnvelopeNotFound
+		return sourcerepository.Envelope{}, sourcerepository.ErrEnvelopeNotFound
 	}
-	return timeline.RecordEnvelope(envelope), err
+	return sourcerepository.Envelope(envelope), err
 }
 
-func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]timeline.RecordEnvelope, error) {
+func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]sourcerepository.Envelope, error) {
 	envelopes, err := a.store.LoadEnvelopesTx(ctx, tx, recordIDs, lock)
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[uuid.UUID]timeline.RecordEnvelope, len(envelopes))
+	result := make(map[uuid.UUID]sourcerepository.Envelope, len(envelopes))
 	for recordID, envelope := range envelopes {
-		result[recordID] = timeline.RecordEnvelope(envelope)
+		result[recordID] = sourcerepository.Envelope(envelope)
 	}
 	return result, nil
 }
@@ -213,7 +289,7 @@ func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params
 }
 
 func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params timeline.RecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {
@@ -374,10 +450,4 @@ func (a evidenceAdapter) ValidateTimelineAttachmentsTx(ctx context.Context, tx p
 		}
 	}
 	return err
-}
-
-type collectionReadAdapter struct{}
-
-func (collectionReadAdapter) HydrateTimelineCollectionsTx(ctx context.Context, tx pgx.Tx, record *workbookprojection.DerivedRecord) error {
-	return hydrateTimelineCollections(ctx, tx, record)
 }

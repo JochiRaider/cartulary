@@ -1,0 +1,20 @@
+{
+  "schema_id": "cartulary.incident_bundle_compatibility.v1",
+  "current_export_version": 2,
+  "retained_imports": [
+    {
+      "surface_id": "incident_bundle_v1_import",
+      "bundle_version": 1,
+      "owner_id": "module.incidentbundles",
+      "status": "deprecated",
+      "export_allowed": false,
+      "deprecation_started_on": "2026-07-26",
+      "minimum_stable_releases": 2,
+      "minimum_retention_days": 180,
+      "zero_successful_import_days": 30,
+      "operator_inventory_clear_required": true,
+      "telemetry_event": "cartulary.incident_bundle.v1_import",
+      "removal_trigger": "Remove only after two stable releases and 180 days from Bundle v2 GA, 30 consecutive days with zero successful v1 imports, and an operator inventory confirming that no supported recovery archive requires v1."
+    }
+  ]
+}

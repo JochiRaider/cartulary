@@ -1,11 +1,13 @@
 import { type RenderResult, render } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
+import { TimelineWorkbookRuntimeFixture } from "./TimelineWorkbookRuntimeFixture";
 
-type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
+type TimelineWorkbookProps = ComponentProps<
+  typeof TimelineWorkbookRuntimeFixture
+>;
 
 export function renderTimelineWorkbook(
   props: Partial<TimelineWorkbookProps> = {},
 ): RenderResult {
-  return render(<TimelineWorkbook incidentId="incident-1" {...props} />);
+  return render(<TimelineWorkbookRuntimeFixture {...props} />);
 }

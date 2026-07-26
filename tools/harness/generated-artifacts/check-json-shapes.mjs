@@ -3205,16 +3205,17 @@ function validateProjectionProviderManifestShape(file) {
     importPolicy.approved_root_importers,
     `${file}.import_policy.approved_root_importers`,
   );
-  if (approvedRootImporters.length !== 0) {
-    throw new Error(
-      `${file}.import_policy.approved_root_importers must be empty`,
+  for (const [index, importer] of approvedRootImporters.entries()) {
+    requireRepoRelativePath(
+      importer,
+      `${file}.import_policy.approved_root_importers[${index}]`,
+      { extension: ".go" },
     );
   }
 
   const approvedAdapterPackages = requireStringArray(
     importPolicy.approved_adapter_packages,
     `${file}.import_policy.approved_adapter_packages`,
-    { nonEmpty: true },
   );
   validateProjectionImportPolicyPackages(
     approvedAdapterPackages,

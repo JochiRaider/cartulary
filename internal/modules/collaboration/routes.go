@@ -27,6 +27,7 @@ const (
 	heartbeatCloseReason = "heartbeat_timeout"
 	sessionRevokedReason = "session_revoked"
 	incidentClosedReason = "incident_closed"
+	slowConsumerReason   = "slow_consumer"
 )
 
 type Service struct {
@@ -203,7 +204,19 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				closed = true
 			}
 			return
-		case message := <-messages:
+		case message, ok := <-messages:
+			if !ok {
+				lifecycleResult = "dropped"
+				lifecycleErrorCode = slowConsumerReason
+				_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+					"connection_id":                connectionID.String(),
+					"status":                       platformws.ResumeStatusResetNeeded,
+					"resume_token":                 "",
+					"server_high_water_stream_seq": handshake.LiveAfterStreamSeq,
+				}, s.now()), websocket.StatusCode(1013), slowConsumerReason)
+				closed = true
+				return
+			}
 			if message.StreamSeq != nil && *message.StreamSeq <= handshake.LiveAfterStreamSeq {
 				continue
 			}

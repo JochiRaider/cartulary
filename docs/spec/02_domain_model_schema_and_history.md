@@ -125,7 +125,7 @@ Verified by: AC-097, AC-098, AC-099, AC-100, AC-101, AC-231, AC-233, AC-234, AC-
 
 The following MAY remain flexible or extensible:
 
-- `raw_capture` on timeline events,
+- bounded normalized source provenance attached to Timeline records,
 - `custom_attrs` on major record types,
 - free-text details and notes,
 - low-frequency incident-specific metadata that is not promoted by §4.4 and §4.5.
@@ -305,7 +305,7 @@ Profiles: base
 Verified by: AC-231, AC-406
 
 **REQ-02-025A**
-A `timeline_event` MUST persist the ten Timeline v2 visible operational fields from Core 01 §7.4.1 as structured state, not only in `custom_attrs`, `raw_capture`, JSONB extension payloads, projection-only columns, or label-derived mappings. The fields are `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, and `data_source_text`. Derived MITRE, entity, indicator, tag, evidence, conversion, or link records MUST NOT overwrite these source-preserved text fields.
+A `timeline_event` MUST persist the ten Timeline v2 visible operational fields from Core 01 §7.4.1 as structured state, not only in `custom_attrs`, source-provenance rows, JSONB extension payloads, projection-only columns, or label-derived mappings. The fields are `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, and `data_source_text`. Derived MITRE, entity, indicator, tag, evidence, conversion, or link records MUST NOT overwrite these source-preserved text fields.
 Profiles: base
 Verified by: AC-444, AC-448, AC-452
 

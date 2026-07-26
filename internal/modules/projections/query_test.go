@@ -43,6 +43,7 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 		findingsViewSchemaID:             true,
 		forensicKeywordsViewSchemaID:     true,
 		handoffViewSchemaID:              true,
+		indicatorsViewSchemaID:           true,
 		investigativeQueriesViewSchemaID: true,
 		lessonViewSchemaID:               true,
 		notesViewSchemaID:                true,
@@ -365,7 +366,7 @@ func surfaceKeySet(surfaces map[string]genericSurface) map[string]bool {
 }
 
 func querySurfacesForTest() map[string]genericSurface {
-	return defaultProviderRegistry().querySurfaces
+	return contractQuerySurfacesForTest()
 }
 
 func genericSurfaceFieldKeys(surface genericSurface) []string {

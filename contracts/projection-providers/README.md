@@ -1,7 +1,7 @@
 # Projection Provider Manifest Maintenance
 
 `index.json` is an authored, validation-only projection of the code-backed
-registry rooted at `internal/modules/projections/provider_registry.go`. The Go
+registry rooted at `internal/app/projectionassembly/catalog.go`. The Go
 registry is runtime authority; this manifest is not runtime configuration and
 must not be loaded as one.
 
@@ -14,5 +14,5 @@ When provider descriptor content changes:
 4. run `make backend-unit` and `make json-shape-check`.
 
 There is intentionally no manifest generator. Exact registry/manifest parity
-is enforced by `internal/modules/projections/provider_manifest_test.go`, while
-the JSON schema validates the authored contract shape.
+is enforced by `internal/app/projectionassembly/catalog_manifest_test.go`,
+while the JSON schema validates the authored contract shape.

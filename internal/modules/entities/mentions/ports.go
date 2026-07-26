@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -64,7 +64,7 @@ type storePorts struct {
 	revisions     revisionPort
 	links         linkPort
 	projections   projectionPort
-	timeline      timelineEffectsPort
+	timeline      TimelineEffectsPort
 	collaboration collaboration.IntentAppender
 }
 
@@ -138,11 +138,6 @@ type recordLink struct {
 	DeletedAt    *time.Time
 }
 
-type timelineEffectsPort = TimelineEffectsPort
-type timelineMentionActionState = mentioneffects.ActionState
-type timelineMentionActionCommand = mentioneffects.ActionCommand
-type timelineMentionActionResult = mentioneffects.ActionResult
-
 var errRecordLinkNotFound = links.ErrRecordLinkNotFound
 
 func newStorePorts(pool postgres.DB) storePorts {
@@ -150,7 +145,7 @@ func newStorePorts(pool postgres.DB) storePorts {
 		records:     recordAdapter{store: records.NewStore()},
 		revisions:   revisionAdapter{appender: revisions.NewAppender()},
 		links:       linkAdapter{store: links.NewStore()},
-		projections: projectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
+		projections: projectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
 }
 
@@ -175,7 +170,7 @@ func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params
 }
 
 func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params recordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 type linkAdapter struct {
@@ -223,15 +218,15 @@ func recordLinkFromLinks(link links.RecordLink) recordLink {
 }
 
 type projectionAdapter struct {
-	projector *projectionadapters.RowProjector
+	rows *projections.EntityRows
 }
 
 func (a projectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+		return a.rows.RefreshHostTx(ctx, tx, recordID)
 	case "identity":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
 	default:
 		return nil
 	}

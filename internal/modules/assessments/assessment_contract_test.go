@@ -9,17 +9,21 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-assessments-u-9-06")
 	assessmentStore := assessments.NewStore(harness.DB)
-	workbookStore := workbook.NewStore(harness.DB)
+	projectionQuery := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).ProjectionCatalog.Query
+	workbookStore := workbook.NewStore(harness.DB, conflicttest.NewCodec("workbook"), projectionQuery)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
 
@@ -204,7 +208,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-assessments-u-9-12")
 	assessmentStore := assessments.NewStore(harness.DB)
-	workbookStore := workbook.NewStore(harness.DB)
+	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
 	hostID := uuid.New()

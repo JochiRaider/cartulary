@@ -1,15 +1,15 @@
 package appsupport
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -24,17 +24,17 @@ type Runtime struct {
 type ServerHarness struct {
 	Server *httptestx.Server
 	DB     *sql.DB
+	Pool   *pgxpool.Pool
 }
 
 type ServerOptions struct {
-	Prefix               string
-	Database             *pgtest.TestDatabase
-	Env                  map[string]string
-	Dependencies         httpapi.DependencySet
-	AdditionalRoutes     []httpapi.RouteRegistrar
-	ObjectStore          objectstore.Store
-	TestRouteMode        httptestx.TestRouteMode
-	TimelineDependencies func(postgres.DB) timeline.Dependencies
+	Prefix           string
+	Database         *pgtest.TestDatabase
+	Env              map[string]string
+	Dependencies     httpapi.DependencySet
+	AdditionalRoutes []httpapi.RouteRegistrar
+	ObjectStore      objectstore.Store
+	TestRouteMode    httptestx.TestRouteMode
 }
 
 func StartRuntime(t testing.TB) *Runtime {
@@ -80,12 +80,11 @@ func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarnes
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
-		Env:                  env,
-		Dependencies:         options.Dependencies,
-		AdditionalRoutes:     append([]httpapi.RouteRegistrar(nil), options.AdditionalRoutes...),
-		ObjectStore:          options.ObjectStore,
-		TestRouteMode:        options.TestRouteMode,
-		TimelineDependencies: options.TimelineDependencies,
+		Env:              env,
+		Dependencies:     options.Dependencies,
+		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), options.AdditionalRoutes...),
+		ObjectStore:      options.ObjectStore,
+		TestRouteMode:    options.TestRouteMode,
 	})
 
 	db, err := sql.Open("pgx", testDB.DSN)
@@ -95,6 +94,11 @@ func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarnes
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
 
-	return &ServerHarness{Server: server, DB: db}
+	return &ServerHarness{Server: server, DB: db, Pool: pool}
 }

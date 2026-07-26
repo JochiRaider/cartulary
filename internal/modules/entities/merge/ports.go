@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -140,7 +140,7 @@ func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
 		links:       entityLinkAdapter{store: links.NewStore()},
-		projections: entityProjectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
+		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
 }
 
@@ -184,7 +184,7 @@ func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params entityRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 type entityLinkAdapter struct {
@@ -359,15 +359,15 @@ func mergeMutationsFromMentionMutations(mutations []mentions.MergeMutation) []me
 }
 
 type entityProjectionAdapter struct {
-	projector *projectionadapters.RowProjector
+	rows *projections.EntityRows
 }
 
 func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+		return a.rows.RefreshHostTx(ctx, tx, recordID)
 	case "identity":
-		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
 	default:
 		return nil
 	}
@@ -376,9 +376,9 @@ func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.
 func (a entityProjectionAdapter) DeleteEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return a.projector.DeleteRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+		return a.rows.DeleteHostTx(ctx, tx, recordID)
 	case "identity":
-		return a.projector.DeleteRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+		return a.rows.DeleteIdentityTx(ctx, tx, recordID)
 	default:
 		return nil
 	}
@@ -387,9 +387,9 @@ func (a entityProjectionAdapter) DeleteEntityRowTx(ctx context.Context, tx pgx.T
 func (a entityProjectionAdapter) RebuildEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return a.projector.RebuildIncidentViewTx(ctx, tx, projectionadapters.HostsViewSchemaID, incidentID)
+		return a.rows.RebuildHostsTx(ctx, tx, incidentID)
 	case "identity":
-		return a.projector.RebuildIncidentViewTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, incidentID)
+		return a.rows.RebuildIdentitiesTx(ctx, tx, incidentID)
 	default:
 		return nil
 	}

@@ -10,23 +10,6 @@ export type LatestQueryRequest = {
   signal: AbortSignal;
 };
 
-type WorkbookTimingEvent = {
-  at: number;
-  name: string;
-  [key: string]: unknown;
-};
-
-declare global {
-  interface Window {
-    __cartularyWorkbookTimingProbe?:
-      | {
-          events: WorkbookTimingEvent[];
-          mark?: (event: WorkbookTimingEvent) => void;
-        }
-      | undefined;
-  }
-}
-
 export function readEnvelope<T>(payload: unknown): T {
   return payload as T;
 }
@@ -77,16 +60,7 @@ export async function fetchWorkbookJSON<T>(
     | T
     | { error?: { code?: string; message?: string; details?: unknown } };
 }> {
-  const method = (init?.method ?? "GET").toUpperCase();
   const headers = new Headers(init?.headers);
-  const requestURL = input instanceof Request ? input.url : String(input);
-  if (
-    window.__cartularyWorkbookTimingProbe !== undefined &&
-    method === "POST" &&
-    requestURL.includes("/views/cartulary.view.timeline.v2/rows")
-  ) {
-    headers.set("X-Cartulary-Timing-Debug", "1");
-  }
   return requestJSON<T>(
     input,
     { ...init, headers },

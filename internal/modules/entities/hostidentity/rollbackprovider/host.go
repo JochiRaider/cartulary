@@ -68,11 +68,6 @@ UPDATE hosts
 	return nil
 }
 
-func (HostProvider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	_, err := tx.Exec(ctx, `UPDATE hosts SET row_version = $2, updated_at = $3, updated_by_user_id = $4 WHERE record_id = $1`, request.RecordID, request.NextRowVersion, request.Now.UTC(), request.ActorUserID)
-	return err
-}
-
 func hostSourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0

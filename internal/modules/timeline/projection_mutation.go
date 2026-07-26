@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
-func (s *store) upsertProjectionTx(ctx context.Context, tx pgx.Tx, record projectedRecord) error {
+func (s *store) upsertProjectionTx(ctx context.Context, tx pgx.Tx, record workbookprojection.DerivedRecord) error {
 	if s.projectionStore == nil {
 		return errors.New("timeline projection port is required")
 	}

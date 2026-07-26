@@ -248,6 +248,48 @@
       "filename": "00041_collaboration_durable_stream.sql",
       "sha256": "8fca76cb5cbacd951beef2a4f5df3ab49b754066175dc4669ac81854d8697c95",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 42,
+      "filename": "00042_timeline_projection_collections_expand.sql",
+      "sha256": "c2d7fcdb9f89843b81fa796690e8f77f672b29fa33be78329f1882caba28b181",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 43,
+      "filename": "00043_timeline_projection_collections_contract.sql",
+      "sha256": "878c0896d80f94a8eedf65c5126280e35c532999003dd4633ee4d9de6befa0b3",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 44,
+      "filename": "00044_collaboration_owner_producers.sql",
+      "sha256": "af4473d9da1b0525c2d6de55d395d530415374e68c02438d902d1dc8312c0ef6",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 45,
+      "filename": "00045_timeline_source_provenance_expand.sql",
+      "sha256": "0f0b6c62b9ae130d82dfcdd7481dc5a960fd1403c43d756761482a909774ecf5",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 46,
+      "filename": "00046_timeline_source_provenance_contract.sql",
+      "sha256": "d6bf6ef0b4dcee85b49510e1d2f15733eedad60f1aa416b4517d4ab95af4c0f8",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 47,
+      "filename": "00047_collaboration_stream_operations_expand.sql",
+      "sha256": "96b9e7bfab847ccddaea97dde238a9df48aea6bb20541c0556059f92ec4d068f",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 48,
+      "filename": "00048_collaboration_stream_operations_contract.sql",
+      "sha256": "82cb43718a2081063193571283cf28f7b5c827b858b0cbe668d32e9e039fc971",
+      "historical_phase_shaped": false
     }
   ]
 }

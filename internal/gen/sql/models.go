@@ -293,10 +293,7 @@ type CollaborationEventIntent struct {
 	SequencedEventID  pgtype.UUID        `json:"sequenced_event_id"`
 	AttemptCount      int32              `json:"attempt_count"`
 	NextAttemptAt     pgtype.Timestamptz `json:"next_attempt_at"`
-	LeaseOwner        pgtype.UUID        `json:"lease_owner"`
-	LeaseExpiresAt    pgtype.Timestamptz `json:"lease_expires_at"`
 	SequencedAt       pgtype.Timestamptz `json:"sequenced_at"`
-	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
 	LastErrorCode     pgtype.Text        `json:"last_error_code"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
@@ -306,6 +303,9 @@ type CollaborationIncidentStreamCursor struct {
 	IncidentID         pgtype.UUID        `json:"incident_id"`
 	HighWaterStreamSeq int64              `json:"high_water_stream_seq"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	FailureCount       int32              `json:"failure_count"`
+	QuarantinedAt      pgtype.Timestamptz `json:"quarantined_at"`
+	QuarantineReason   pgtype.Text        `json:"quarantine_reason"`
 }
 
 type CollaborationReplayEvent struct {
@@ -1696,7 +1696,6 @@ type TimelineEvent struct {
 	ReviewedAt             pgtype.Timestamptz `json:"reviewed_at"`
 	SupersededByUserID     pgtype.UUID        `json:"superseded_by_user_id"`
 	SupersededAt           pgtype.Timestamptz `json:"superseded_at"`
-	RawCapture             []byte             `json:"raw_capture"`
 	DateEnteredText        pgtype.Text        `json:"date_entered_text"`
 	AnalystText            pgtype.Text        `json:"analyst_text"`
 	MitreStageText         pgtype.Text        `json:"mitre_stage_text"`
@@ -1736,6 +1735,23 @@ type TimelineGridProjection struct {
 	ActivitySortTs        pgtype.Timestamptz `json:"activity_sort_ts"`
 	DateEnteredSortDay    pgtype.Date        `json:"date_entered_sort_day"`
 	ActivityTimePairState string             `json:"activity_time_pair_state"`
+	HostRefs              []byte             `json:"host_refs"`
+	IdentityRefs          []byte             `json:"identity_refs"`
+	Tags                  []byte             `json:"tags"`
+	AttachedEvidenceRefs  []byte             `json:"attached_evidence_refs"`
+}
+
+type TimelineSourceProvenance struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	SourceIdentityHash  []byte             `json:"source_identity_hash"`
+	SourceRowOrdinal    int32              `json:"source_row_ordinal"`
+	SourceColumnOrdinal int32              `json:"source_column_ordinal"`
+	SourceKind          string             `json:"source_kind"`
+	SourceMetadata      []byte             `json:"source_metadata"`
+	SourceHeaderJson    []byte             `json:"source_header_json"`
+	RawValue            string             `json:"raw_value"`
+	CellKind            pgtype.Text        `json:"cell_kind"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
 type TimelineTimeConversionProfile struct {

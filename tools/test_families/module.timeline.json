@@ -84,7 +84,7 @@
           "scenario_d844d91c9de8"
         ],
         "titles": [
-          "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible patch delivery"
+          "uses public history and visible state to prove replay avoids duplicate mutation effects"
         ]
       },
       "evidence_class": "browser",
@@ -127,7 +127,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.timeline.browser_support.keeps_repeated_scalar_grid_edits_out_of_the_rdg_3b2fc5f1f0",
+      "row_id": "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser_support",
       "collaborator_ids": [
@@ -143,10 +143,10 @@
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
-          "scenario_2b65ef8dfbae"
+          "scenario_43b01a263473"
         ],
         "titles": [
-          "support keeps repeated scalar grid edits out of the RDG measured-width crash path"
+          "Verify one-click focused editing, reviewed-edit demotion, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
         ]
       },
       "evidence_class": "browser",
@@ -178,37 +178,6 @@
         ],
         "titles": [
           "Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.timeline.browser_support.verify_one_click_focused_editing_rejected_transi_0e2d9a8f10",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.browser_support",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/timeline.support.spec.ts",
-        "project_id": "chromium",
-        "stage": "support",
-        "scenario_ids": [
-          "scenario_43b01a263473"
-        ],
-        "titles": [
-          "Verify one-click focused editing, rejected-transition retention, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
         ]
       },
       "evidence_class": "browser",
@@ -935,7 +904,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.timeline.support_unit.clipboard_paste_parsing_mapping_raw_capture_and_43e8f0fd4f",
+      "row_id": "module.timeline.support_unit.clipboard_paste_parsing_mapping_provenance_and_b_43e8f0fd4f",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.support_unit",
       "collaborator_ids": [],
@@ -946,7 +915,7 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestClipboardPasteParsingMappingRawCaptureAndBinding",
+          "TestClipboardPasteParsingMappingProvenanceAndBinding",
           "TestClipboardPasteRejectsCrossIncidentRecordTarget"
         ]
       },
@@ -1007,7 +976,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.timeline.support_unit.unit_create_request_coverage_cf5fa23763",
+      "row_id": "module.timeline.support_unit.unit_capture_state_and_payload_helpers_772e7f2e60",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.support_unit",
       "collaborator_ids": [],
@@ -1018,13 +987,10 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestUnit_ActionRequestHashWireStability",
           "TestUnit_CaptureStateHelpers",
-          "TestUnit_CreateRequestCoverage",
           "TestUnit_InitialStateVocabulary",
-          "TestUnit_PatchRequestHashNormalization",
           "TestUnit_PayloadBuildersExposeStableShapes",
-          "TestUnit_SupersedeGuardAndHashHelpers"
+          "TestUnit_SupersedeGuards"
         ]
       },
       "evidence_class": "unit",
@@ -1032,52 +998,6 @@
       "resource_profile_id": "go_balanced",
       "fixture_profile_id": "none",
       "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.timeline.support_unit.unit_timeline_visible_text_contract_2adbc9d247",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/timeline",
-        "tests": [
-          "TestUnit_TimelineVisibleTextContract"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.timeline.unit.patch_decode_fails_closed_on_missing_required_me_3052a6e921",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/timeline",
-        "tests": [
-          "TestPatchPayloadValidation_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -1105,29 +1025,6 @@
       "status": "active"
     },
     {
-      "row_id": "module.timeline.unit.timeline_mutation_error_classification_emits_sta_76ce05e9bd",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/timeline",
-        "tests": [
-          "TestTimelineMutationAPIErrorClassifier_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.unit",
@@ -1139,8 +1036,8 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestCanonicalRowDerivationEquivalence_Unit",
-          "TestCanonicalRowDerivationNullableEquivalence_Unit",
+          "TestCanonicalRowDerivationPreservesNullableFields_Unit",
+          "TestCanonicalRowDerivesCompleteTypedCollections_Unit",
           "TestProjectionContract_Unit",
           "TestProjectionMutationContractRejectsMalformed_Unit"
         ]

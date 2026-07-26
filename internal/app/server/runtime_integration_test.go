@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -81,6 +82,110 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 		})
 	}
 
+}
+
+func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "replicated-process-model")
+	pool, err := pgxpool.New(ctx, testDB.DSN)
+	if err != nil {
+		t.Fatalf("open replicated postgres pool: %v", err)
+	}
+	defer pool.Close()
+
+	s3Harness := s3test.Start(t)
+	bucket, err := s3Harness.BootstrapBucket(ctx, "replicated-process-model")
+	if err != nil {
+		t.Fatalf("bootstrap replicated object bucket: %v", err)
+	}
+	defer func() {
+		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Logf("cleanup replicated bucket: %v", err)
+		}
+	}()
+	s3Env := s3Harness.Env(bucket)
+	store, err := objectstore.Setup(ctx, objectstore.Settings{
+		BindingKind: "managed_service",
+		Endpoint:    s3Env[objectstore.EndpointEnv],
+		AccessKey:   s3Env[objectstore.AccessKeyEnv],
+		SecretKey:   s3Env[objectstore.SecretKeyEnv],
+		Secure:      s3Env[objectstore.SecureEnv] == "true",
+		Bucket:      s3Env[objectstore.BucketEnv],
+	}, objectstore.Instrumentation{})
+	if err != nil {
+		t.Fatalf("open replicated object store: %v", err)
+	}
+	defer store.Close()
+
+	cfg := RuntimeConfig(t)
+	cfg.DeploymentProfile = "on_prem"
+	cfg.Application.ProcessModel = config.ProcessModelReplicated
+	cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+	cfg.Roots.DatabaseStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
+	cfg.Roots.ObjectStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+	cfg.Roots.BackupStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "backup-primary"}
+	cfg.Roots.ReferencePackStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+	cfg.Roots.ExportOutputs = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
+
+	first, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
+	if err != nil {
+		t.Fatalf("start first replicated runtime: %v", err)
+	}
+	defer first.Close()
+	second, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
+	if err != nil {
+		t.Fatalf("start overlapping replicated runtime: %v", err)
+	}
+	defer second.Close()
+	if first.ProcessLease != nil || second.ProcessLease != nil {
+		t.Fatal("replicated runtimes acquired the single-process application lease")
+	}
+	if first.StagedJanitorLeader == nil || second.StagedJanitorLeader == nil {
+		t.Fatal("replicated runtimes did not compose component-fenced staged-object workers")
+	}
+	if err := first.ActivatePublication(); err != nil {
+		t.Fatalf("activate first replicated runtime: %v", err)
+	}
+	if err := second.ActivatePublication(); err != nil {
+		t.Fatalf("activate second replicated runtime: %v", err)
+	}
+
+	mismatched := cfg
+	mismatched.Import.Claimed = true
+	if third, err := NewRuntime(ctx, mismatched, Options{Postgres: pool, ObjectStore: store}); err == nil {
+		third.Close()
+		t.Fatal("replicated runtime admitted a conflicting publication plan")
+	} else if !strings.Contains(err.Error(), "publication-plan digest conflicts") {
+		t.Fatalf("conflicting publication plan error = %v", err)
+	}
+
+	waitForLeader := func(t *testing.T, runtime *Runtime, want bool) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if runtime.StagedJanitorLeader.IsLeader() == want {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		t.Fatalf("staged-object leader state = %v want %v", runtime.StagedJanitorLeader.IsLeader(), want)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) &&
+		first.StagedJanitorLeader.IsLeader() == second.StagedJanitorLeader.IsLeader() {
+		time.Sleep(20 * time.Millisecond)
+	}
+	var leader, follower *Runtime
+	if first.StagedJanitorLeader.IsLeader() {
+		leader, follower = first, second
+	} else {
+		leader, follower = second, first
+	}
+	waitForLeader(t, leader, true)
+	waitForLeader(t, follower, false)
+	leader.Close()
+	waitForLeader(t, follower, true)
 }
 
 func TestFirstAdminBootstrap_Integration(t *testing.T) {

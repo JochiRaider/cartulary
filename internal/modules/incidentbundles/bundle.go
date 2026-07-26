@@ -18,7 +18,8 @@ import (
 
 const (
 	BundleFormat              = "cartulary.incident_bundle"
-	BundleVersion             = 1
+	BundleVersion             = 2
+	LegacyBundleVersion       = 1
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -28,12 +29,13 @@ var incidentBundleOptionalSectionTokens = map[string]struct{}{
 	"snapshots":       {},
 }
 
-var requiredStructuredFiles = []string{
+var requiredStructuredFilesV2 = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
 	"data/records.ndjson",
-	"data/timeline_time_conversion_profiles.ndjson",
-	"data/timeline_events.ndjson",
+	"data/timeline_time_profiles.ndjson",
+	"data/timeline_records.ndjson",
+	"data/timeline_source_provenance.ndjson",
 	"data/parties.ndjson",
 	"data/entity_mentions.ndjson",
 	"data/hosts.ndjson",
@@ -63,6 +65,24 @@ var requiredStructuredFiles = []string{
 	"data/saved_views.ndjson",
 	"data/reference_pack_refs.json",
 }
+
+var requiredStructuredFilesV1 = func() []string {
+	files := append([]string(nil), requiredStructuredFilesV2...)
+	files = removeRequiredStructuredFile(files, "data/timeline_time_profiles.ndjson")
+	files = removeRequiredStructuredFile(files, "data/timeline_records.ndjson")
+	files = removeRequiredStructuredFile(files, "data/timeline_source_provenance.ndjson")
+	files = append(files,
+		"data/timeline_time_conversion_profiles.ndjson",
+		"data/timeline_events.ndjson",
+	)
+	sort.Strings(files)
+	return files
+}()
+
+// requiredStructuredFiles is the current export surface. It remains a named
+// value because tests and manifest construction intentionally prove that the
+// current source-file registry is closed.
+var requiredStructuredFiles = requiredStructuredFilesV2
 
 type ManifestInput struct {
 	BundleID             string
@@ -197,7 +217,10 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
-	if manifest.BundleFormat != BundleFormat || manifest.BundleVersion != BundleVersion || manifest.HistoryMode != HistoryModeFull || manifest.BlobMode != BlobModeFull {
+	if manifest.BundleFormat != BundleFormat ||
+		(manifest.BundleVersion != BundleVersion && manifest.BundleVersion != LegacyBundleVersion) ||
+		manifest.HistoryMode != HistoryModeFull ||
+		manifest.BlobMode != BlobModeFull {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
 	if !strings.HasPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix) {
@@ -215,7 +238,7 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if len(manifest.RequiredCapabilities) > 0 {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "unsupported_required_capability"}
 	}
-	for _, pathName := range requiredStructuredFiles {
+	for _, pathName := range requiredStructuredFilesForVersion(manifest.BundleVersion) {
 		if _, ok := files[pathName]; !ok {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 		}
@@ -268,6 +291,22 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 		Files:          files,
 		Checksums:      checksums,
 	}, nil
+}
+
+func requiredStructuredFilesForVersion(version int) []string {
+	if version == LegacyBundleVersion {
+		return requiredStructuredFilesV1
+	}
+	return requiredStructuredFilesV2
+}
+
+func removeRequiredStructuredFile(files []string, target string) []string {
+	for index, file := range files {
+		if file == target {
+			return append(files[:index], files[index+1:]...)
+		}
+	}
+	return files
 }
 
 func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []ManifestFile) bool {

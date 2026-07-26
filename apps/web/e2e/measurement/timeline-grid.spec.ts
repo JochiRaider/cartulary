@@ -17,7 +17,6 @@ import {
   measureTypingAck,
   ordinaryMeasurementSamplePolicy,
   percentile95,
-  type ServerTimingMetric,
 } from "./timingSupport";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
@@ -94,8 +93,6 @@ test("measures user-visible typing_ack and blank-row-create completion within th
     recordId: string;
     rowVersion: number;
     sampleIndex: number;
-    serverTiming: string;
-    serverTimingMetrics: ServerTimingMetric[];
     status: number;
     summary: string;
   }> = [];

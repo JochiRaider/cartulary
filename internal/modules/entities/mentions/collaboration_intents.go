@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 )
 
 const timelineViewSchemaID = "cartulary.view.timeline.v2"
@@ -20,8 +21,7 @@ func (s *Store) appendMentionActionIntentsTx(
 	actorUserID uuid.UUID,
 	clientTxnID string,
 	changeSetID uuid.UUID,
-	timelineResult timelineMentionActionResult,
-	timelineChangedFieldKeys []string,
+	timelineResult mentioneffects.ActionResult,
 	entityInvalidations []MentionEntityInvalidation,
 	createdAt time.Time,
 ) error {
@@ -29,6 +29,13 @@ func (s *Store) appendMentionActionIntentsTx(
 		return errors.New("entity mention collaboration intent port is not configured")
 	}
 
+	timelineChangedFieldKeys, err := collaboration.ChangedCellKeys(
+		timelineResult.BeforeRow,
+		timelineResult.AfterRow,
+	)
+	if err != nil {
+		return err
+	}
 	changes := make([]collaboration.RecordChange, 0, 1+len(entityInvalidations))
 	changes = append(changes, collaboration.RecordChange{
 		IncidentID:       incidentID,
@@ -39,6 +46,7 @@ func (s *Store) appendMentionActionIntentsTx(
 		ActorUserID:      actorUserID,
 		ChangedFieldKeys: timelineChangedFieldKeys,
 		ViewSchemaID:     timelineViewSchemaID,
+		Row:              timelineResult.AfterRow,
 	})
 	for _, invalidation := range entityInvalidations {
 		changes = append(changes, collaboration.RecordChange{

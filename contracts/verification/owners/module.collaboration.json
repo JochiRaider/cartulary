@@ -14,7 +14,9 @@
       "status": "active",
       "requirement_ids": [
         "module.collaboration.requirement.behavior_contract",
-        "module.collaboration.requirement.durable_replayable_stream"
+        "module.collaboration.requirement.bounded_stream_operations",
+        "module.collaboration.requirement.durable_replayable_stream",
+        "module.collaboration.requirement.source_owner_producer_exclusivity"
       ]
     }
   ]

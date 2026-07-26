@@ -162,6 +162,34 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.integration.replicated_model_fencing_6a57fb3221",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.config",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
       "owner_id": "app.server",
       "family_id": "app.server.integration",

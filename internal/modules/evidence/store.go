@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -69,8 +69,8 @@ type Store struct {
 }
 
 type ProjectionPort interface {
-	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
-	RebuildIncidentViewsTx(context.Context, pgx.Tx, uuid.UUID, []string) error
+	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
+	RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type StoreOption func(*Store)
@@ -210,7 +210,7 @@ func NewStore(pool postgres.DB, options ...StoreOption) *Store {
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
 		revisionStore:  newRevisionAppendAdapter(),
-		projections:    projectionadapters.NewRowProjector(pool),
+		projections:    evidenceProjectionAdapter{rows: projections.NewEvidenceRows(pool)},
 		collaboration:  collaboration.NewStore(pool, nil),
 	}
 	for _, option := range options {
@@ -447,7 +447,7 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := s.projections.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
+	if err := s.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
 		return AttachBlobResult{}, err
 	}
 	afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -491,7 +491,7 @@ UPDATE evidence
 		AttachRecordChange{
 			RecordID:         recordID,
 			RowVersion:       rowVersion,
-			ViewSchemaID:     evidenceViewSchemaID,
+			ViewSchemaID:     ViewSchemaID,
 			ChangedFieldKeys: changedFieldKeys,
 		},
 		afterRow,
@@ -501,7 +501,7 @@ UPDATE evidence
 		return AttachBlobResult{}, err
 	}
 	payload := map[string]any{
-		"view_schema_id": evidenceViewSchemaID,
+		"view_schema_id": ViewSchemaID,
 		"change_set_id":  changeSetID.String(),
 		"object_blob_id": request.ObjectBlobID.String(),
 		"row":            afterRow,
@@ -632,7 +632,7 @@ UPDATE evidence
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		if err := s.projections.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
+		if err := s.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
 			return QuarantineBlobResult{}, err
 		}
 		afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -659,7 +659,7 @@ UPDATE evidence
 			return QuarantineBlobResult{}, err
 		}
 		primaryChange := AttachRecordChange{
-			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: evidenceViewSchemaID,
+			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: ViewSchemaID,
 			ChangedFieldKeys: sortedChangedKeys(beforeRows[recordID], afterRow),
 		}
 		if err := appendEvidenceRecordChangeIntentsTx(
@@ -1267,14 +1267,22 @@ func (s *Store) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.
 	if len(changes) == 0 {
 		return nil, nil
 	}
-	if err := s.projections.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
-		projectionadapters.TimelineViewSchemaID,
-		projectionadapters.HostsViewSchemaID,
-		projectionadapters.IdentitiesViewSchemaID,
-	}); err != nil {
+	if err := s.projections.RefreshEvidenceSupportTx(ctx, tx, incidentID); err != nil {
 		return nil, err
 	}
 	return changes, nil
+}
+
+type evidenceProjectionAdapter struct {
+	rows *projections.EvidenceRows
+}
+
+func (a evidenceProjectionAdapter) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return a.rows.RefreshTx(ctx, tx, recordID)
+}
+
+func (a evidenceProjectionAdapter) RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
 }
 
 func loadEvidenceSupportRecordChangesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {

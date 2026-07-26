@@ -3,6 +3,11 @@
   "owner_id": "module.projections",
   "requirements": [
     {
+      "requirement_id": "module.projections.requirement.application_assembled_catalog",
+      "statement": "Application assembly supplies exactly one complete code-backed projection provider catalog whose source adapters are constructed by source owners and whose physical storage and query handlers are constructed by Projections; the machine manifest remains validation-only.",
+      "status": "active"
+    },
+    {
       "requirement_id": "module.projections.requirement.physical_query",
       "statement": "Projections owns deterministic compilation and execution of contract-backed projection queries, including filters, sorting, grouping, cursor binding, and keyset-bounded pagination.",
       "status": "active"

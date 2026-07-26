@@ -15,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestDirectPartyReferencesAcceptOnlyExactStableIDs_Unit(t *testing.T) {
@@ -110,7 +112,7 @@ func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit(t *testing
 func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-11-party-refs")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-incident", "IR-U911", "Workbook inspector party-storage")
 	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-other-incident", "IR-U911B", "Workbook inspector party-storage Other")

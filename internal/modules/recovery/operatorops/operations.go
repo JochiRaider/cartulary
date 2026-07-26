@@ -56,16 +56,16 @@ type Deployment struct {
 
 type DeploymentLoader func(string) (Deployment, error)
 type TargetMarkerReader func(bindingKind string, rootPath string) ([]byte, error)
-type ProjectionRebuilderFactory func(postgres.DB) restorecontract.ProjectionRebuilder
+type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery)
 type JournalKeyLoader func() (recovery.RecoveryEncryptionKey, error)
 
 type Service struct {
-	LoadDeployment         DeploymentLoader
-	ReadTargetMarker       TargetMarkerReader
-	NewProjectionRebuilder ProjectionRebuilderFactory
-	LoadJournalKey         JournalKeyLoader
-	ExtensionBackups       *recovery.ExtensionBackupCatalog
-	Now                    func() time.Time
+	LoadDeployment        DeploymentLoader
+	ReadTargetMarker      TargetMarkerReader
+	NewProjectionServices ProjectionServicesFactory
+	LoadJournalKey        JournalKeyLoader
+	ExtensionBackups      *recovery.ExtensionBackupCatalog
+	Now                   func() time.Time
 }
 
 var _ operatorcli.Operations = Service{}
@@ -388,7 +388,7 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operatorcl
 }
 
 func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore objectstore.Store) (recovery.RestoreTarget, error) {
-	rebuilder, err := service.newProjectionRebuilder(targetPool)
+	rebuilder, _, err := service.newProjectionServices(targetPool)
 	if err != nil {
 		return recovery.RestoreTarget{}, err
 	}
@@ -401,13 +401,18 @@ func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore o
 }
 
 func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetObjectStore objectstore.Store) (recovery.RestoreVerificationTarget, error) {
-	target, err := service.restoreTarget(targetPool, targetObjectStore)
+	rebuilder, query, err := service.newProjectionServices(targetPool)
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
 	return recovery.RestoreVerificationTarget{
-		RestoreTarget: target,
-		Probe:         recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool},
+		RestoreTarget: recovery.RestoreTarget{
+			Stopped:     true,
+			Postgres:    targetPool,
+			ObjectStore: targetObjectStore,
+			Projections: rebuilder,
+		},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool, Query: query},
 	}, nil
 }
 
@@ -726,15 +731,18 @@ func (service Service) newBackupStorage(deployment Deployment) (recovery.BackupS
 	return deployment.OpenBackup()
 }
 
-func (service Service) newProjectionRebuilder(db postgres.DB) (restorecontract.ProjectionRebuilder, error) {
-	if service.NewProjectionRebuilder == nil {
-		return nil, errors.New("operator recovery requires projection rebuilder")
+func (service Service) newProjectionServices(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery, error) {
+	if service.NewProjectionServices == nil {
+		return nil, nil, errors.New("operator recovery requires projection services")
 	}
-	rebuilder := service.NewProjectionRebuilder(db)
+	rebuilder, query := service.NewProjectionServices(db)
 	if rebuilder == nil {
-		return nil, errors.New("operator recovery requires projection rebuilder")
+		return nil, nil, errors.New("operator recovery requires projection rebuilder")
 	}
-	return rebuilder, nil
+	if query == nil {
+		return nil, nil, errors.New("operator recovery requires projection query")
+	}
+	return rebuilder, query, nil
 }
 
 func (service Service) now() time.Time {

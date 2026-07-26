@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"reflect"
 	"sort"
@@ -69,8 +68,6 @@ func (e *SameFieldConflictError) Error() string {
 	return "timeline: same field conflict"
 }
 
-type TimelineConflictTokenClaims = conflicttokens.ConflictTokenClaims
-
 type patchConflictWindow struct {
 	BaseRow       map[string]any
 	ChangedFields map[string]patchChangedField
@@ -84,24 +81,20 @@ type patchChangedField struct {
 
 type store struct {
 	pool             postgres.DB
-	idempotencyStore timelineIdempotencyPort
-	incidentAccess   timelineIncidentPort
-	recordStore      timelineRecordPort
-	revisionsStore   timelineRevisionPort
-	projectionStore  timelineProjectionPort
-	linkStore        timelineLinkPort
-	mentionStore     timelineMentionPort
-	entityStore      timelineEntityPort
-	evidenceStore    timelineEvidencePort
-	collectionReader timelineCollectionReadPort
-	collaboration    timelineCollaborationPort
+	idempotencyStore IdempotencyPort
+	incidentAccess   IncidentPort
+	recordStore      RecordPort
+	revisionsStore   RevisionPort
+	projectionStore  ProjectionPort
+	linkStore        LinkPort
+	mentionStore     MentionPort
+	entityStore      EntityPort
+	evidenceStore    EvidencePort
+	collectionReader CollectionFactPort
+	collaboration    CollaborationPort
 	sourceRepository *sourcerepository.Repository
 	conflictTokens   conflicttokens.ConflictTokenCodec
 }
-
-type projectedRecord = workbookprojection.DerivedRecord
-
-type sourceRecord = sourcerepository.Snapshot
 
 type attachedEvidenceMutation struct {
 	RecordLinkID uuid.UUID
@@ -132,43 +125,23 @@ type createRowOptions struct {
 	allowInteractiveAutoResolution bool
 }
 
-func newStore(pool postgres.DB, dependencies Dependencies) *store {
-	return newStoreWithPorts(pool, timelineStorePorts{
-		idempotency:   dependencies.Idempotency,
-		incidents:     dependencies.Incidents,
-		records:       dependencies.Records,
-		revisions:     dependencies.Revisions,
-		projections:   dependencies.Projections,
-		links:         dependencies.Links,
-		mentions:      dependencies.Mentions,
-		entities:      dependencies.Entities,
-		evidence:      dependencies.Evidence,
-		collections:   dependencies.Collections,
-		collaboration: dependencies.Collaboration,
-	})
-}
-
-func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts) *store {
+func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *store {
 	return &store{
 		pool:             pool,
-		idempotencyStore: ports.idempotency,
-		incidentAccess:   ports.incidents,
-		recordStore:      ports.records,
-		revisionsStore:   ports.revisions,
-		projectionStore:  ports.projections,
-		linkStore:        ports.links,
-		mentionStore:     ports.mentions,
-		entityStore:      ports.entities,
-		evidenceStore:    ports.evidence,
-		collectionReader: ports.collections,
-		collaboration:    ports.collaboration,
-		sourceRepository: sourcerepository.New(ports.records),
-		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("timeline"),
+		idempotencyStore: collaborators.Core.Idempotency,
+		incidentAccess:   collaborators.Core.Incidents,
+		recordStore:      collaborators.Core.Records,
+		revisionsStore:   collaborators.Core.Revisions,
+		projectionStore:  collaborators.Commit.Projection,
+		linkStore:        collaborators.Collections.Links,
+		mentionStore:     collaborators.Collections.Mentions,
+		entityStore:      collaborators.Collections.Entities,
+		evidenceStore:    collaborators.Collections.Evidence,
+		collectionReader: collaborators.Collections.Facts,
+		collaboration:    collaborators.Commit.Collaboration,
+		sourceRepository: sourcerepository.New(collaborators.Core.Records),
+		conflictTokens:   conflictTokens,
 	}
-}
-
-func (s *store) setConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	s.conflictTokens = codec
 }
 
 func (s *store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
@@ -198,7 +171,6 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		ClientTxnID: request.ClientTxnID,
 	}
 	if existing, err := s.idempotencyStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		markCreateTiming(ctx, "store_idempotency")
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -220,13 +192,10 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return MutationResult{}, fmt.Errorf("query timeline create idempotency: %w", err)
 	}
-	markCreateTiming(ctx, "store_idempotency")
-
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MutationResult{}, fmt.Errorf("begin timeline create transaction: %w", err)
 	}
-	markCreateTiming(ctx, "store_tx_begin")
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
@@ -235,7 +204,7 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	}
 	recordID := uuid.New()
 	changeSetID := uuid.New()
-	current := sourceRecord{
+	current := sourcerepository.Snapshot{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		DateEnteredText:       request.DateEnteredText,
@@ -249,7 +218,6 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		ActivitySynopsisText:  request.ActivitySynopsisText,
 		DataSourceText:        request.DataSourceText,
 		ActivityTimePairState: "disabled",
-		RawCapture:            rawCaptureWithImportColumns(nil, request.RawCaptureColumns),
 		CaptureState:          InitialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
@@ -262,11 +230,6 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		return MutationResult{}, err
 	}
 	applyTimelineTimeConversion(&current, profile)
-	rawCaptureJSON, err := json.Marshal(current.RawCapture)
-	if err != nil {
-		return MutationResult{}, fmt.Errorf("encode raw capture: %w", err)
-	}
-	recordInsertStarted := time.Now()
 	if _, err := s.recordStore.InsertTx(ctx, tx, RecordCreateParams{
 		RecordID:        &current.RecordID,
 		IncidentID:      incidentID,
@@ -279,28 +242,28 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	}); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline record envelope: %w", err)
 	}
-	markCreateTimingDuration(ctx, "store_record_envelope_insert", time.Since(recordInsertStarted))
-	timelineInsertStarted := time.Now()
 	if _, err := tx.Exec(ctx, `
 INSERT INTO timeline_events (
     record_id, incident_id, date_entered_text, analyst_text, mitre_stage_text,
     device_object_text, ip_address_text, activity_utc_text, activity_local_text,
     raw_activity_text, activity_synopsis_text, data_source_text,
     activity_utc_generated, activity_local_generated, activity_time_pair_state,
-    raw_capture, capture_state, row_version, recorded_at, edited_at,
+    capture_state, row_version, recorded_at, edited_at,
     created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'rough', 1, $4, $4, $3, $3)
-`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON); err != nil {
+VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rough', 1, $4, $4, $3, $3)
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline source row: %w", err)
 	}
-	markCreateTimingDuration(ctx, "store_timeline_event_insert", time.Since(timelineInsertStarted))
+	if err := insertSourceProvenanceTx(ctx, tx, current.RecordID, request.RawCaptureColumns); err != nil {
+		return MutationResult{}, err
+	}
 
 	mentionProjectionRefresh, err := s.applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, options, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
+	if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
 		return MutationResult{}, err
 	}
 	tagMutations, err := s.applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC())
@@ -311,7 +274,6 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	if err != nil {
 		return MutationResult{}, err
 	}
-	markCreateTiming(ctx, "store_collection_actions")
 
 	projected := projectRecord(current, nil)
 	if createRequestHasCollectionActions(request) {
@@ -319,8 +281,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 			return MutationResult{}, err
 		}
 	}
-	markCreateTiming(ctx, "store_project_row")
-	if _, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
+	if _, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		ChangeSetID: &changeSetID,
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -334,7 +295,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 
 	afterRow := buildRow(projected)
 	afterVersion := versionID(current.RecordID, projected.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "timeline_record",
@@ -351,7 +312,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  projected.RowVersion,
@@ -362,7 +323,6 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	if err := s.upsertProjectionTx(ctx, tx, projected); err != nil {
 		return MutationResult{}, err
 	}
-	markCreateTiming(ctx, "store_revision_projection")
 
 	payload := BuildMutationPayload(projected, changeSetID)
 	if err := s.appendRecordChangeIntentTx(
@@ -376,7 +336,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 		actor.ID,
 		ComputeChangedFieldKeys(nil, projected),
 		afterRow,
-		1,
+		0,
 		now,
 	); err != nil {
 		return MutationResult{}, err
@@ -387,11 +347,9 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 		}
 		return MutationResult{}, err
 	}
-	markCreateTiming(ctx, "store_route_idempotency")
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit timeline create transaction: %w", err)
 	}
-	markCreateTiming(ctx, "store_commit")
 	return MutationResult{
 		Payload:          payload,
 		StatusCode:       http.StatusCreated,
@@ -412,18 +370,11 @@ func createRequestHasCollectionActions(request CreateRequest) bool {
 		(request.AttachedEvidence != nil && len(request.AttachedEvidence.Actions) > 0)
 }
 
-func durationFromMilliseconds(milliseconds float64) time.Duration {
-	if milliseconds <= 0 || math.IsNaN(milliseconds) || math.IsInf(milliseconds, 0) {
-		return 0
-	}
-	return time.Duration(milliseconds * float64(time.Millisecond))
-}
-
 func (s *store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyPatch(ctx, actor, recordID, request, requestHash, requestID, now, patchRouteKey)
 }
 
-func (s *store) ResolveConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) ResolveConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims conflicttokens.ConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	if request.ResolutionKind == "keep_saved" {
 		return s.clearConflict(ctx, actor, recordID, claims, request, requestHash)
 	}
@@ -439,7 +390,7 @@ func (s *store) ResolveConflict(ctx context.Context, actor authn.UserRecord, rec
 	return s.applyPatch(ctx, actor, recordID, patch, requestHash, requestID, now, conflictResolveRouteKey)
 }
 
-func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
+func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims conflicttokens.ConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
 	if claims.ViewSchemaID != TimelineViewSchemaID {
 		return MutationResult{}, ErrRecordNotFound
 	}
@@ -633,7 +584,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
+		if err := s.refreshMentionEntityProjectionsTx(ctx, tx, mentionProjectionRefresh); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -709,7 +660,7 @@ RETURNING recorded_at
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -725,7 +676,7 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
@@ -744,7 +695,7 @@ RETURNING recorded_at
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  next.RowVersion,
@@ -769,7 +720,7 @@ RETURNING recorded_at
 		actor.ID,
 		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		afterRow,
-		1,
+		0,
 		now,
 	); err != nil {
 		return MutationResult{}, err
@@ -883,7 +834,7 @@ func overlappingPatchChange(changes []PatchChange, changedFields map[string]patc
 	return PatchChange{}, patchChangedField{}, false
 }
 
-func (s *store) buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
+func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookprojection.DerivedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
 	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
@@ -926,7 +877,7 @@ func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersio
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
-	return s.conflictTokens.Issue(TimelineConflictTokenClaims{
+	return s.conflictTokens.Issue(conflicttokens.ConflictTokenClaims{
 		RouteKey:                conflictResolveRouteKey,
 		RecordID:                recordID.String(),
 		ViewSchemaID:            TimelineViewSchemaID,
@@ -938,21 +889,17 @@ func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersio
 	})
 }
 
-func ParseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
-	return parseTimelineConflictTokenWithCodec(conflicttokens.NewConflictTokenCodecForTesting("timeline"), token)
-}
-
-func (s *store) parseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
+func (s *store) parseConflictToken(token string) (conflicttokens.ConflictTokenClaims, bool) {
 	return parseTimelineConflictTokenWithCodec(s.conflictTokens, token)
 }
 
-func parseTimelineConflictTokenWithCodec(codec conflicttokens.ConflictTokenCodec, token string) (TimelineConflictTokenClaims, bool) {
+func parseTimelineConflictTokenWithCodec(codec conflicttokens.ConflictTokenCodec, token string) (conflicttokens.ConflictTokenClaims, bool) {
 	claims, ok := codec.Parse(token)
 	if !ok {
-		return TimelineConflictTokenClaims{}, false
+		return conflicttokens.ConflictTokenClaims{}, false
 	}
 	if claims.RouteKey != conflictResolveRouteKey || claims.ViewSchemaID != TimelineViewSchemaID {
-		return TimelineConflictTokenClaims{}, false
+		return conflicttokens.ConflictTokenClaims{}, false
 	}
 	return claims, true
 }
@@ -1099,7 +1046,7 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action Collect
 }
 
 func clientCollectionLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
-	sum := hashRequestPayload(map[string]any{
+	sum := hashCanonicalValue(map[string]any{
 		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
 		"record_id":    recordID.String(),
 		"field_key":    fieldKey,
@@ -1111,7 +1058,7 @@ func clientCollectionLocalUUID(recordID uuid.UUID, fieldKey string, action Colle
 }
 
 func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) string {
-	sum := hashRequestPayload(map[string]any{
+	sum := hashCanonicalValue(map[string]any{
 		"request_hash":     base64.RawURLEncoding.EncodeToString(requestHash),
 		"field_key":        fieldKey,
 		"action_index":     actionIndex,
@@ -1176,7 +1123,7 @@ func versionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("timeline:%s:%d", recordID.String(), rowVersion)
 }
 
-func hasMaterialChange(current sourceRecord, next sourceRecord) bool {
+func hasMaterialChange(current sourcerepository.Snapshot, next sourcerepository.Snapshot) bool {
 	return !stringPointersEqual(current.DateEnteredText, next.DateEnteredText) ||
 		!stringPointersEqual(current.AnalystText, next.AnalystText) ||
 		!stringPointersEqual(current.MitreStageText, next.MitreStageText) ||
@@ -1189,8 +1136,7 @@ func hasMaterialChange(current sourceRecord, next sourceRecord) bool {
 		!stringPointersEqual(current.DataSourceText, next.DataSourceText) ||
 		current.ActivityUTCGenerated != next.ActivityUTCGenerated ||
 		current.ActivityLocalGenerated != next.ActivityLocalGenerated ||
-		current.ActivityTimePairState != next.ActivityTimePairState ||
-		!reflect.DeepEqual(current.RawCapture, next.RawCapture)
+		current.ActivityTimePairState != next.ActivityTimePairState
 }
 
 func isRecordLinkConflict(err error) bool {

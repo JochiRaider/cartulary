@@ -1,8 +1,8 @@
 package imports
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -121,7 +122,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	if options.timelineOwner == nil {
-		return nil, fmt.Errorf("Import route composition requires a Timeline owner")
+		return nil, fmt.Errorf("import route composition requires a Timeline owner")
 	}
 	timelineStore := options.timelineOwner
 	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
@@ -129,7 +130,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		return nil, err
 	}
 	if deps.Jobs != nil && options.jobSuccessFinalizer == nil {
-		return nil, fmt.Errorf("Import admitted route requires a job success finalizer")
+		return nil, fmt.Errorf("import admitted route requires a job success finalizer")
 	}
 	extensionProfileAdmitted := options.extensionProfileAdmitted
 	if extensionProfileAdmitted == nil {
@@ -975,26 +976,29 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 	for _, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		clientTxnID := fmt.Sprintf("import:%s:%s:%d:%s", start.ImportSessionID, unit.UnitID, rowRef, start.ClientTxnID)
-		payload, err := importRowPayload(unit.ApprovedMapping, sourceRow, clientTxnID)
+		request, err := importTimelineCreateRequest(unit.ApprovedMapping, sourceRow, clientTxnID)
 		if err != nil {
 			return nil, err
 		}
-		request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
-		if apiErr != nil {
-			return nil, fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
-		}
 		request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
 		if _, err := s.timelineStore.CreateImportedRow(ctx, timeline.CreateRowCommand{
-			Actor:      actor,
-			IncidentID: start.IncidentID,
-			Request:    request,
-			RequestID:  "req-" + clientTxnID,
-			Now:        s.now(),
+			Actor:       actor,
+			IncidentID:  start.IncidentID,
+			Request:     request,
+			RequestHash: importTimelineRequestFingerprint(request),
+			RequestID:   "req-" + clientTxnID,
+			Now:         s.now(),
 		}); err != nil {
 			return nil, err
 		}
 	}
 	return nil, nil
+}
+
+func importTimelineRequestFingerprint(request timeline.CreateRequest) []byte {
+	encoded, _ := json.Marshal(request)
+	sum := sha256.Sum256(encoded)
+	return append([]byte(nil), sum[:]...)
 }
 
 func importApplyResourceRefs(sessionID uuid.UUID, extensionRefs []jobs.ResourceRef) []jobs.ResourceRef {
@@ -1018,6 +1022,124 @@ func importApplyResourceRefs(sessionID uuid.UUID, extensionRefs []jobs.ResourceR
 		return sorted[i].ID < sorted[j].ID
 	})
 	return append(refs, sorted...)
+}
+
+func importTimelineCreateRequest(mapping ApprovedMapping, sourceRow map[string]any, clientTxnID string) (timeline.CreateRequest, error) {
+	request := timeline.CreateRequest{ClientTxnID: clientTxnID}
+	cellsByOrdinal := map[int]string{}
+	for ordinal, cell := range sourceRowCellsByOrdinal(sourceRow) {
+		if text, ok := cell["display_text"].(string); ok {
+			cellsByOrdinal[ordinal] = text
+		}
+	}
+	for _, column := range mapping.SourceColumns {
+		if column.FieldKey == nil {
+			continue
+		}
+		transformed, err := transformImportValue(cellsByOrdinal[column.SourceColumnOrdinal], column)
+		if err != nil {
+			return timeline.CreateRequest{}, err
+		}
+		if transformed == "" {
+			if column.EmptyValuePolicy == "omit_field" {
+				continue
+			}
+			if err := setTimelineImportScalar(&request, *column.FieldKey, nil); err != nil {
+				return timeline.CreateRequest{}, err
+			}
+			continue
+		}
+		value := transformed
+		switch *column.FieldKey {
+		case "timeline.host_refs":
+			normalized, ok := fieldnorm.NormalizeMentionToken(transformed)
+			if !ok {
+				return timeline.CreateRequest{}, fmt.Errorf("invalid imported Timeline host token")
+			}
+			appendTimelineImportCollection(&request.HostRefs, timeline.CollectionAction{
+				Op:             "add_token",
+				RawText:        transformed,
+				NormalizedText: normalized,
+			})
+		case "timeline.identity_refs":
+			normalized, ok := fieldnorm.NormalizeMentionToken(transformed)
+			if !ok {
+				return timeline.CreateRequest{}, fmt.Errorf("invalid imported Timeline identity token")
+			}
+			appendTimelineImportCollection(&request.IdentityRefs, timeline.CollectionAction{
+				Op:             "add_token",
+				RawText:        transformed,
+				NormalizedText: normalized,
+			})
+		case "timeline.tags":
+			label, normalized, ok := fieldnorm.NormalizeTagLabel(transformed)
+			if !ok {
+				return timeline.CreateRequest{}, fmt.Errorf("invalid imported Timeline tag")
+			}
+			appendTimelineImportCollection(&request.Tags, timeline.CollectionAction{
+				Op:             "add_tag",
+				RawText:        label,
+				NormalizedText: normalized,
+			})
+		default:
+			if !validTimelineImportVisibleText(value) {
+				return timeline.CreateRequest{}, fmt.Errorf("invalid imported Timeline field %s", *column.FieldKey)
+			}
+			if err := setTimelineImportScalar(&request, *column.FieldKey, &value); err != nil {
+				return timeline.CreateRequest{}, err
+			}
+		}
+	}
+	return request, nil
+}
+
+func appendTimelineImportCollection(payload **timeline.CollectionActionPayload, action timeline.CollectionAction) {
+	if *payload == nil {
+		*payload = &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{}}
+	}
+	(*payload).Actions = append((*payload).Actions, action)
+}
+
+func setTimelineImportScalar(request *timeline.CreateRequest, fieldKey string, value *string) error {
+	switch fieldKey {
+	case "timeline.date_entered_text":
+		request.DateEnteredText = value
+	case "timeline.analyst_text":
+		request.AnalystText = value
+	case "timeline.mitre_stage_text":
+		request.MitreStageText = value
+	case "timeline.device_object_text":
+		request.DeviceObjectText = value
+	case "timeline.ip_address_text":
+		request.IPAddressText = value
+	case "timeline.activity_utc_text":
+		request.ActivityUTCText = value
+	case "timeline.activity_local_text":
+		request.ActivityLocalText = value
+	case "timeline.raw_activity_text":
+		request.RawActivityText = value
+	case "timeline.activity_synopsis_text":
+		request.ActivitySynopsisText = value
+	case "timeline.data_source_text":
+		request.DataSourceText = value
+	default:
+		return fmt.Errorf("unsupported imported Timeline field %s", fieldKey)
+	}
+	return nil
+}
+
+func validTimelineImportVisibleText(value string) bool {
+	if len([]rune(value)) > 32768 {
+		return false
+	}
+	for _, current := range value {
+		if current == 0 ||
+			((current < 0x20 || (current >= 0x7f && current <= 0x9f)) &&
+				current != '\t' && current != '\n' && current != '\r') {
+			return false
+		}
+	}
+	return true
 }
 
 func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceRow map[string]any, rowRef int) []timeline.ClipboardRawImportColumn {
@@ -1053,44 +1175,6 @@ func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceR
 		})
 	}
 	return columns
-}
-
-func importRowPayload(mapping ApprovedMapping, sourceRow map[string]any, clientTxnID string) ([]byte, error) {
-	values := map[string]any{"client_txn_id": clientTxnID}
-	cellsByOrdinal := map[int]string{}
-	for ordinal, cell := range sourceRowCellsByOrdinal(sourceRow) {
-		if text, ok := cell["display_text"].(string); ok {
-			cellsByOrdinal[ordinal] = text
-		}
-	}
-	for _, column := range mapping.SourceColumns {
-		if column.FieldKey == nil {
-			continue
-		}
-		text := cellsByOrdinal[column.SourceColumnOrdinal]
-		transformed, err := transformImportValue(text, column)
-		if err != nil {
-			return nil, err
-		}
-		if transformed == "" {
-			if column.EmptyValuePolicy == "omit_field" {
-				continue
-			}
-			values[*column.FieldKey] = nil
-			continue
-		}
-		switch {
-		case mapping.TargetViewSchemaID == timeline.TimelineViewSchemaID && *column.FieldKey == "timeline.host_refs":
-			values[*column.FieldKey] = collectionPayload([]map[string]any{{"op": "add_token", "raw_text": transformed}})
-		case mapping.TargetViewSchemaID == timeline.TimelineViewSchemaID && *column.FieldKey == "timeline.identity_refs":
-			values[*column.FieldKey] = collectionPayload([]map[string]any{{"op": "add_token", "raw_text": transformed}})
-		case mapping.TargetViewSchemaID == timeline.TimelineViewSchemaID && *column.FieldKey == "timeline.tags":
-			values[*column.FieldKey] = collectionPayload([]map[string]any{{"op": "add_tag", "tag_name": transformed}})
-		default:
-			values[*column.FieldKey] = transformed
-		}
-	}
-	return json.Marshal(values)
 }
 
 func sourceRowCellsByOrdinal(sourceRow map[string]any) map[int]map[string]any {
@@ -1149,13 +1233,6 @@ func transformImportValue(value string, column SourceColumnMapping) (string, err
 		return strings.Join(out, delimiter), nil
 	default:
 		return "", fmt.Errorf("unsupported transform %q", *column.TransformID)
-	}
-}
-
-func collectionPayload(actions []map[string]any) map[string]any {
-	return map[string]any{
-		"kind":    "collection_actions_v1",
-		"actions": actions,
 	}
 }
 

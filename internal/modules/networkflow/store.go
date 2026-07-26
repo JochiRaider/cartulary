@@ -640,6 +640,9 @@ RETURNING `+tableColumnList(), incidentID, tableID, displayName, now)
 	if err != nil {
 		return TableRecord{}, fmt.Errorf("rename network flow table: %w", err)
 	}
+	if err := appendTableResourceIntentTx(ctx, tx, table, "invalidate", "renamed"); err != nil {
+		return TableRecord{}, err
+	}
 	return table, nil
 }
 
@@ -656,6 +659,9 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	table, err := scanTable(row)
 	if err != nil {
 		return TableRecord{}, fmt.Errorf("soft delete network flow table: %w", err)
+	}
+	if err := appendTableResourceIntentTx(ctx, tx, table, "remove", "soft_deleted"); err != nil {
+		return TableRecord{}, err
 	}
 	return table, nil
 }

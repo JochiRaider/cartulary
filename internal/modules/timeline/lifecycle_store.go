@@ -10,13 +10,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourceRecord) (sourceRecord, *string, error) {
+	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
 		if !CaptureStateAllowsMarkReviewed(current.CaptureState) {
-			return sourceRecord{}, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
+			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
 		}
 		next := current
 		next.CaptureState = captureStateReviewed
@@ -31,9 +32,9 @@ func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 }
 
 func (s *store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourceRecord) (sourceRecord, *string, error) {
+	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error) {
 		if !CaptureStateAllowsSupersede(current.CaptureState) {
-			return sourceRecord{}, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
+			return sourcerepository.Snapshot{}, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
 		}
 
 		next := current
@@ -60,7 +61,7 @@ func (s *store) applyAction(
 	now time.Time,
 	reason *string,
 	replacementRecordID *uuid.UUID,
-	prepare func(sourceRecord) (sourceRecord, *string, error),
+	prepare func(sourcerepository.Snapshot) (sourcerepository.Snapshot, *string, error),
 ) (MutationResult, error) {
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
@@ -148,9 +149,9 @@ RETURNING recorded_at
 		return MutationResult{}, fmt.Errorf("update timeline action state: %w", err)
 	}
 
-	var insertedLink *supersedesLink
+	var insertedLink *SupersedesLink
 	if routeKey == supersedeRouteKey && validatedReplacementID != nil {
-		link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, insertSupersedesCommand{
+		link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, InsertSupersedesCommand{
 			IncidentID:          current.IncidentID,
 			ReplacementRecordID: *validatedReplacementID,
 			SupersededRecordID:  current.RecordID,
@@ -170,7 +171,7 @@ RETURNING recorded_at
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -187,7 +188,7 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
@@ -205,7 +206,7 @@ RETURNING recorded_at
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
+		if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     2,
 			TargetKind:     "record_link",
@@ -217,7 +218,7 @@ RETURNING recorded_at
 			return MutationResult{}, err
 		}
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  next.RowVersion,
@@ -242,7 +243,7 @@ RETURNING recorded_at
 		actor.ID,
 		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		afterRow,
-		1,
+		0,
 		now,
 	); err != nil {
 		return MutationResult{}, err
@@ -269,7 +270,7 @@ RETURNING recorded_at
 	}, nil
 }
 
-func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sourceRecord, replacementRecordID *uuid.UUID) error {
+func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sourcerepository.Snapshot, replacementRecordID *uuid.UUID) error {
 	if replacementRecordID == nil {
 		return nil
 	}

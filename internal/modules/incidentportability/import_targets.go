@@ -24,12 +24,6 @@ var (
 	TargetRecords = newImportTargetDescriptor(ImportTargetDescriptor{
 		SourceFamily: "records", LogicalBundlePath: "data/records.ndjson", OwnerModule: "records", OwnerPortSymbol: "records.ImportIncidentBundleFilesTx", TargetRelation: "records", StableRowIdentity: []string{"record_id"}, RequiredColumnSet: []string{"record_id", "incident_id", "record_type", "row_version"}, NullableColumnPolicy: "owner-defined", PostImportInvariantCheck: "records owner projection/revision validation", VisibilityPrecondition: "incident unpublished",
 	})
-	TargetTimelineTimeConversionProfiles = newImportTargetDescriptor(ImportTargetDescriptor{
-		SourceFamily: "timeline", LogicalBundlePath: "data/timeline_time_conversion_profiles.ndjson", OwnerModule: "timeline", OwnerPortSymbol: "timeline.ImportIncidentBundleFilesTx", TargetRelation: "timeline_time_conversion_profiles", StableRowIdentity: []string{"incident_id"}, RequiredColumnSet: []string{"incident_id"}, NullableColumnPolicy: "owner-defined", PostImportInvariantCheck: "timeline owner validation", VisibilityPrecondition: "incident unpublished",
-	})
-	TargetTimelineEvents = newImportTargetDescriptor(ImportTargetDescriptor{
-		SourceFamily: "timeline", LogicalBundlePath: "data/timeline_events.ndjson", OwnerModule: "timeline", OwnerPortSymbol: "timeline.ImportIncidentBundleFilesTx", TargetRelation: "timeline_events", StableRowIdentity: []string{"record_id"}, RequiredColumnSet: []string{"record_id", "incident_id"}, NullableColumnPolicy: "owner-defined", PostImportInvariantCheck: "timeline owner validation", VisibilityPrecondition: "incident unpublished",
-	})
 	TargetParties = newImportTargetDescriptor(ImportTargetDescriptor{
 		SourceFamily: "parties", LogicalBundlePath: "data/parties.ndjson", OwnerModule: "parties", OwnerPortSymbol: "parties.ImportIncidentBundleFilesTx", TargetRelation: "parties", StableRowIdentity: []string{"record_id"}, RequiredColumnSet: []string{"record_id", "incident_id"}, NullableColumnPolicy: "owner-defined", PostImportInvariantCheck: "parties owner validation", VisibilityPrecondition: "incident unpublished",
 	})

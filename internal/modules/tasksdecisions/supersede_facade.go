@@ -16,20 +16,20 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const decisionsViewSchemaID = "cartulary.view.decisions.v1"
+const DecisionsViewSchemaID = "cartulary.view.decisions.v1"
 
 type SupersedeFacade struct {
 	pool           postgres.DB
 	authStore      *authn.Store
 	incidentAccess incidents.Access
-	rowProjector   *projectionadapters.RowProjector
+	projectionRows *projections.TaskDecisionRows
 	recordStore    *records.Store
 	revisionStore  revisionAppendPort
 	taskStore      *Store
@@ -81,7 +81,7 @@ func NewSupersedeFacade(pool postgres.DB) *SupersedeFacade {
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
-		rowProjector:   projectionadapters.NewRowProjector(pool),
+		projectionRows: newTaskDecisionProjectionRows(pool),
 		recordStore:    records.NewStore(),
 		revisionStore:  newRevisionAppendAdapter(),
 		taskStore:      NewStore(),
@@ -107,7 +107,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		if err != nil {
 			return SupersedeMutationResult{}, fmt.Errorf("decode replayed decision supersede payload: %w", err)
 		}
-		return SupersedeMutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: command.TargetRecordID, ViewSchemaID: decisionsViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+		return SupersedeMutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: command.TargetRecordID, ViewSchemaID: DecisionsViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return SupersedeMutationResult{}, fmt.Errorf("query decision supersede idempotency: %w", err)
 	}
@@ -171,17 +171,17 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		return SupersedeMutationResult{}, DecisionSupersedeValidationError("target_must_not_have_active_replacement")
 	}
 
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, command.TargetRecordID); err != nil {
+	if err := f.projectionRows.RefreshDecisionTx(ctx, tx, command.TargetRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, sourceRecordID); err != nil {
+	if err := f.projectionRows.RefreshDecisionTx(ctx, tx, sourceRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	beforeTargetRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
+	beforeTargetRow, err := f.projectionRows.LoadDecisionTx(ctx, tx, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	beforeSourceRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
+	beforeSourceRow, err := f.projectionRows.LoadDecisionTx(ctx, tx, sourceRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -209,17 +209,17 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if err := f.taskStore.MarkSupersededDecisionTx(ctx, tx, command.TargetRecordID, now); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, sourceRecordID); err != nil {
+	if err := f.projectionRows.RefreshDecisionTx(ctx, tx, sourceRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, command.TargetRecordID); err != nil {
+	if err := f.projectionRows.RefreshDecisionTx(ctx, tx, command.TargetRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	afterSourceRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
+	afterSourceRow, err := f.projectionRows.LoadDecisionTx(ctx, tx, sourceRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	afterTargetRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
+	afterTargetRow, err := f.projectionRows.LoadDecisionTx(ctx, tx, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -302,7 +302,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 
 	targetStatus := decisionRowStatus(afterTargetRow)
 	payload := map[string]any{
-		"view_schema_id":          decisionsViewSchemaID,
+		"view_schema_id":          DecisionsViewSchemaID,
 		"change_set_id":           changeSetID.String(),
 		"target_record_id":        command.TargetRecordID.String(),
 		"superseding_record_id":   sourceRecordID.String(),
@@ -329,7 +329,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       targetVersion,
-		ViewSchemaID:     decisionsViewSchemaID,
+		ViewSchemaID:     DecisionsViewSchemaID,
 		ChangedFieldKeys: changedFieldKeys(beforeTargetRow, afterTargetRow),
 	}
 	sourceChange := SupersedeMutationResult{
@@ -340,7 +340,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ChangeSetID:      changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       sourceVersion,
-		ViewSchemaID:     decisionsViewSchemaID,
+		ViewSchemaID:     DecisionsViewSchemaID,
 		ChangedFieldKeys: changedFieldKeys(beforeSourceRow, afterSourceRow),
 	}
 	return SupersedeMutationResult{
@@ -351,7 +351,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ChangeSetID:             changeSetID,
 		ClientTxnID:             request.ClientTxnID,
 		RowVersion:              targetVersion,
-		ViewSchemaID:            decisionsViewSchemaID,
+		ViewSchemaID:            DecisionsViewSchemaID,
 		ChangedFieldKeys:        targetChange.ChangedFieldKeys,
 		AdditionalRecordChanges: []SupersedeMutationResult{targetChange, sourceChange},
 	}, nil

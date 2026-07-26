@@ -398,7 +398,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
-        "github.com/JochiRaider/cartulary/internal/modules/projections/adapters",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
@@ -423,7 +423,6 @@
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/projections",
-        "github.com/JochiRaider/cartulary/internal/modules/projections/adapters",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
@@ -535,39 +534,10 @@
     {
       "id": "timeline-provider-query-read-shape",
       "allowed_tables": [
-        "active_record_links_v1",
-        "active_record_tags_v1",
-        "entity_aliases",
-        "entity_mentions",
-        "evidence",
-        "lateral",
         "records",
         "timeline_grid_projection"
       ],
       "scan_paths": ["internal/modules/timeline/workbookprojection/query_surfaces.go"]
-    },
-    {
-      "id": "timeline-assembly-collection-read-shape",
-      "allowed_tables": [
-        "active_record_links_v1",
-        "active_record_tags_v1",
-        "entity_aliases",
-        "entity_mentions",
-        "evidence",
-        "object_blobs"
-      ],
-      "scan_paths": ["internal/app/timelineassembly/collection_read.go"]
-    },
-    {
-      "id": "timeline-harness-read-shape",
-      "allowed_tables": [
-        "active_record_links_v1",
-        "collaboration_replay_events",
-        "record_revisions",
-        "records",
-        "timeline_events"
-      ],
-      "scan_paths": ["internal/app/timelineassembly/test_routes.go"]
     }
   ],
   "forbidden_go_calls": [
@@ -703,7 +673,7 @@
       ],
       "scan_paths": [
         "internal/modules/imports/routes.go",
-        "internal/modules/timeline/routes.go",
+        "internal/modules/workbook/timelineadmission/routes.go",
         "internal/modules/workbook/routes.go"
       ],
       "allowed_paths": [],

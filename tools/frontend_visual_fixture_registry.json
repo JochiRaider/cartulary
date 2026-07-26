@@ -538,8 +538,8 @@
       "theme_id": "dark_graphite",
       "density_id": "default",
       "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
+        "kind": "fixture_specific",
+        "description": "The focused conflict-resolver scenarios declare their workbook-grid position before capture; full conflict views normalize to the right edge while status-strip crops retain their scenario-owned anchor."
       },
       "capture_scope": {
         "kind": "full_viewport"

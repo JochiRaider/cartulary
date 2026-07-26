@@ -14,11 +14,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -389,10 +387,7 @@ UPDATE timeline_grid_projection
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 0, false)
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
-	if err := projectionadapters.NewRowProjector(
-		harness.Server.Runtime.Postgres,
-		timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
-	).RebuildIncidentTimeline(context.Background(), incidentID); err != nil {
+	if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 1, true)
@@ -510,21 +505,18 @@ INSERT INTO record_links (
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identity_grid_projection SET evidence_count = 0 WHERE record_id = $1`, identityRecordID); err != nil {
 		t.Fatalf("corrupt identity evidence count: %v", err)
 	}
-	projectionStore := projectionadapters.NewRowProjector(
-		harness.Server.Runtime.Postgres,
-		timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
-	)
-	if err := projectionStore.RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+	projectionRebuild := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+	if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild host evidence projection: %v", err)
 	}
-	if err := projectionStore.RebuildIncidentIdentities(context.Background(), incidentID); err != nil {
+	if err := projectionRebuild.RebuildIdentities(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild identity evidence projection: %v", err)
 	}
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 1)
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
 
 	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
-	quarantine, err := timelineassembly.NewEvidenceStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
+	quarantine, err := harness.Server.Runtime.Timeline.EvidenceStore.QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("quarantine entity-linked evidence: %v", err)
 	}
@@ -908,7 +900,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
 
-		store := timelineassembly.NewEvidenceStore(harness.Server.Runtime.Postgres)
+		store := harness.Server.Runtime.Timeline.EvidenceStore
 		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-evidence_lifecycle-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
 		}

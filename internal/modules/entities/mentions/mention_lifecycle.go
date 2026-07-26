@@ -200,7 +200,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	timelineResult, err := s.ports.timeline.ApplyMentionActionEffectsTx(ctx, tx, timelineState, timelineMentionActionCommand{
+	timelineResult, err := s.ports.timeline.ApplyMentionActionEffectsTx(ctx, tx, timelineState, mentioneffects.ActionCommand{
 		IncidentID:  mention.IncidentID,
 		ActorUserID: actor.ID,
 		EffectiveAt: now.UTC(),
@@ -307,7 +307,6 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		request.ClientTxnID,
 		changeSetID,
 		timelineResult,
-		mentionChangedFieldKeys(mention.SourceFieldKey),
 		entityInvalidations,
 		now.UTC(),
 	); err != nil {

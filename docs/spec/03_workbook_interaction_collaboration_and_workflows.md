@@ -1347,7 +1347,8 @@ Profiles: base
 Verified by: AC-003, AC-231
 
 **REQ-03-149**
-Unknown columns MUST be preserved in `raw_capture.import_columns` or equivalent structured raw-capture storage.
+Unknown columns MUST be preserved as bounded, normalized source-provenance
+entries or in an owner-authorized `custom_attrs` surface.
 Profiles: base
 Verified by: AC-003, AC-231
 
@@ -1411,7 +1412,8 @@ Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
 **REQ-03-159**
-The import path MUST preserve unknown columns in `raw_capture` or `custom_attrs`.
+The import path MUST preserve unknown columns in normalized source provenance
+or owner-authorized `custom_attrs`.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
@@ -1673,13 +1675,22 @@ For the current profile:
 - `split_delimited_v1` is the only transform that MAY use non-empty options, and those options are limited to `delimiter`, `trim_items`, and `drop_empty_items`;
 - `delimiter` for `split_delimited_v1` MUST be one of `,`, `;`, `|`, `\n`, or `\t`;
 - all current-profile transforms other than `split_delimited_v1` MUST use `transform_options = {}`;
-- `preserve_raw_capture` is legal only when the target view's authoritative record model exposes `raw_capture`;
+- `preserve_raw_capture` is the compatibility name for targets whose
+  authoritative record model supports normalized source provenance;
 - `preserve_custom_attrs` is legal only when the target view allows `custom_attrs`;
 - `reject_if_unmapped` blocks `ready` while any source column is intentionally unmapped;
 - `write_null` blocks `ready` when the target field is not clearable;
 - `formula_cached_value_missing` remains a `ready` blocker under the closed warning vocabulary in §11.2.6.
 
-When `target_view_schema_id='cartulary.view.timeline.v2'` and `unknown_column_policy='preserve_raw_capture'`, every intentionally unmapped source cell applied to a Timeline row MUST be copied onto that target Timeline row under `timeline_events.raw_capture.import_columns[]`. Each preserved entry MUST carry at least `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `source_rect_a1`, `source_row_ordinal`, `source_column_ordinal`, `source_header_text`, `raw_value`, and `cell_kind`. Preview-only import tables are not sufficient provenance for applied Timeline rows.
+When `target_view_schema_id='cartulary.view.timeline.v2'` and
+`unknown_column_policy='preserve_raw_capture'`, every intentionally unmapped
+source cell applied to a Timeline row MUST be persisted as one bounded
+`timeline_source_provenance` row. Each entry carries the source identity hash,
+row and column ordinal natural key, import-session and unit identity, mapping
+fingerprint, source file kind and content hash, parser profile and version,
+locator and source rectangle, scalar header JSON, raw value, and cell kind.
+Preview-only import tables are not sufficient provenance for applied Timeline
+rows.
 Profiles: import
 Verified by: AC-065, AC-232
 

@@ -1,4 +1,4 @@
-package timeline
+package timelineadmission
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -16,7 +16,7 @@ import (
 )
 
 type Service struct {
-	facade         *Facade
+	facade         *timeline.Facade
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	keys           authn.MasterKeys
@@ -24,7 +24,7 @@ type Service struct {
 }
 
 type RouteOptions struct {
-	Facade *Facade
+	Facade *timeline.Facade
 }
 
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
@@ -41,7 +41,7 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, facade *Facade) (*Service, error) {
+func newService(deps httpapi.DependencySet, facade *timeline.Facade) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -51,9 +51,8 @@ func newService(deps httpapi.DependencySet, facade *Facade) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	if facade == nil {
-		return nil, errors.New("Timeline route composition requires a façade")
+		return nil, errors.New("timeline route composition requires a façade")
 	}
-	facade.SetConflictTokenCodec(conflicttokens.NewConflictTokenCodec(keys))
 	return &Service{
 		facade:         facade,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
@@ -83,10 +82,16 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.facade.MarkReviewedRow(r.Context(), MarkReviewedCommand{
-		Actor:     principal.User,
-		RecordID:  recordID,
-		Request:   request,
+	result, err := s.facade.MarkReviewedRow(r.Context(), timeline.MarkReviewedCommand{
+		Actor:    principal.User,
+		RecordID: recordID,
+		Request:  request,
+		RequestHash: ActionRequestHash(
+			request.BaseRowVersion,
+			request.ClientTxnID,
+			request.Reason,
+			nil,
+		),
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
 		Now:       s.now(),
 	})
@@ -170,7 +175,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildTimeConversionProfilePayload(profile))
 }
 
-func buildTimeConversionProfilePayload(profile TimeConversionProfile) map[string]any {
+func buildTimeConversionProfilePayload(profile timeline.TimeConversionProfile) map[string]any {
 	return map[string]any{
 		"incident_id":          profile.IncidentID.String(),
 		"enabled":              profile.Enabled,
@@ -180,6 +185,24 @@ func buildTimeConversionProfilePayload(profile TimeConversionProfile) map[string
 		"updated_at":           formatTimestamp(profile.UpdatedAt),
 		"updated_by_user_id":   formatUUIDPointer(profile.UpdatedByUserID),
 	}
+}
+
+func derefInt(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func formatTimestamp(value time.Time) string {
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func formatUUIDPointer(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
@@ -192,7 +215,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 
 func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles ...string) (uuid.UUID, *httpapi.APIError) {
 	incidentID, err := s.facade.RecordIncident(ctx, recordID)
-	if errors.Is(err, ErrRecordNotFound) {
+	if errors.Is(err, timeline.ErrRecordNotFound) {
 		return uuid.UUID{}, incidentNotFoundError()
 	}
 	if err != nil {

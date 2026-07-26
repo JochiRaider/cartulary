@@ -160,11 +160,11 @@
       "owner": "timeline",
       "profiles": ["base"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(timeline_events|timeline_time_conversion_profiles)$" },
-        { "kind": "any", "name_pattern": "^(idx_timeline_events|idx_timeline_time_conversion_profiles|timeline_events_|timeline_time_conversion_profiles_).*$" }
+        { "kind": "any", "name_pattern": "^(timeline_events|timeline_source_provenance|timeline_time_conversion_profiles)$" },
+        { "kind": "any", "name_pattern": "^(idx_timeline_events|idx_timeline_source_provenance|idx_timeline_time_conversion_profiles|timeline_events_|timeline_source_provenance_|timeline_time_conversion_profiles_).*$" }
       ],
-      "downstream_surfaces": ["timeline routes", "timeline workbook surface", "timeline projections"],
-      "notes": "Source-state timeline rows and time-conversion profile schema."
+      "downstream_surfaces": ["timeline routes", "timeline workbook surface", "timeline projections", "source provenance", "incident portability"],
+      "notes": "Source-state Timeline rows, normalized source provenance, and time-conversion profile schema."
     },
     {
       "id": "record-revisions",

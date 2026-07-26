@@ -41,10 +41,6 @@ func (TimelineProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollba
 	return updateSourceTx(ctx, tx, request.RecordID, request.ActorUserID, request.Now, request.NextRowVersion, source)
 }
 
-func (TimelineProvider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	return touchSourceTx(ctx, tx, request.RecordID, request.ActorUserID, request.Now, request.NextRowVersion)
-}
-
 func sourceForRollbackValue(value map[string]any) (map[string]any, bool, error) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, true, nil
@@ -139,11 +135,6 @@ UPDATE timeline_events
 		nullableAny(source, "reviewed_at"),
 		nullableUUIDAny(source, "superseded_by_user_id"),
 		nullableAny(source, "superseded_at"))
-	return err
-}
-
-func touchSourceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64) error {
-	_, err := tx.Exec(ctx, `UPDATE timeline_events SET row_version = $2, edited_at = $3, updated_by_user_id = $4 WHERE record_id = $1`, recordID, rowVersion, now.UTC(), actorUserID)
 	return err
 }
 

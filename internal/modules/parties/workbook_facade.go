@@ -17,7 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
@@ -33,7 +34,7 @@ type WorkbookFacade struct {
 	authStore        *authn.Store
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
-	rowProjector     *projectionadapters.RowProjector
+	projectionRows   *projections.PartyRows
 	revisionHistory  historyquery.Reader
 	revisionAppender revisions.Appender
 	store            *Store
@@ -111,22 +112,18 @@ func (e *SameFieldConflictError) Error() string {
 	return "parties: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB) *WorkbookFacade {
+func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *WorkbookFacade {
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		recordStore:      records.NewStore(),
-		rowProjector:     projectionadapters.NewRowProjector(pool),
+		projectionRows:   projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
 		revisionHistory:  historyquery.NewReader(),
 		revisionAppender: revisions.NewAppender(),
 		store:            NewStore(pool),
-		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("parties-workbook"),
+		conflictTokens:   conflictTokens,
 	}
-}
-
-func (f *WorkbookFacade) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	f.conflictTokens = codec
 }
 
 func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
@@ -197,10 +194,10 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.store.InsertPartyTx(ctx, tx, recordID, command.IncidentID, params, now); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, recordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.rowProjector.LoadRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, recordID)
+	row, err := f.projectionRows.LoadTx(ctx, tx, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -260,10 +257,10 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 
 func (f *WorkbookFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command WorkbookCreateCommand, idempotencyKey authn.RouteIdempotencyKey, recordID uuid.UUID, now time.Time) (WorkbookMutationResult, error) {
 	request := command.Request
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, recordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.rowProjector.LoadRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, recordID)
+	row, err := f.projectionRows.LoadTx(ctx, tx, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -366,7 +363,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingPartyPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+			current, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -391,7 +388,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -409,10 +406,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.store.TouchPartyTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, command.RecordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	afterRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}

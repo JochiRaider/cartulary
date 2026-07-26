@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -96,7 +97,12 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 
 	noteID := uuid.New()
 	seedNoteRecord(t, harness.DB, incidentID, actorID, noteID)
-	httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, noteID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-u-7-03-delete-note"}), http.StatusOK)
+	noteDelete := deleteRecord(t, harness, login, noteID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-u-7-03-delete-note"})
+	if noteDelete.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(noteDelete.Body)
+		t.Fatalf("delete note status = %d body=%s", noteDelete.StatusCode, body)
+	}
+	httptestx.RequireSuccessEnvelope(t, noteDelete, http.StatusOK)
 	patch := workbookscenariotest.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+noteID.String(), map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": 2,

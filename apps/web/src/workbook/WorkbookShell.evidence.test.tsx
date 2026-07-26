@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   buildRecordChangedPayload,
   emitRecordChanged,
@@ -15,7 +16,6 @@ import {
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -88,7 +88,10 @@ describe("workbook evidence coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
     );
 
     await screen.findByText("Endpoint screenshot");

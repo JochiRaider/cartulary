@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -20,8 +19,7 @@ var ErrInvalidCommandServiceDependency = errors.New("revisions: invalid command 
 type CommandServiceDependencies struct {
 	Database                    postgres.DB
 	ImportedAttributionResolver ImportedAttributionResolver
-	ProjectionRebuilder         ProjectionRebuilder
-	CollaborationIntents        collaboration.IntentAppender
+	Projections                 ProjectionServices
 	ProviderContributions       []ProviderContribution
 }
 
@@ -41,8 +39,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 	}{
 		{name: "database", value: dependencies.Database},
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
-		{name: "projection rebuilder", value: dependencies.ProjectionRebuilder},
-		{name: "collaboration intents", value: dependencies.CollaborationIntents},
+		{name: "projection services", value: dependencies.Projections},
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
@@ -58,8 +55,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		appender:                    NewAppender(),
 		incidentAccess:              incidents.NewAccess(dependencies.Database),
 		importedAttributionResolver: dependencies.ImportedAttributionResolver,
-		projectionRebuilder:         dependencies.ProjectionRebuilder,
-		collaboration:               dependencies.CollaborationIntents,
+		projections:                 dependencies.Projections,
 		deleteRestoreProviders:      deleteRestoreProviders,
 		rowRollbackProviders:        rowRollbackProviders,
 		nonRowRollbackProviders:     nonRowRollbackProviders,

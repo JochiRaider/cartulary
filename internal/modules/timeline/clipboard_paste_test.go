@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/google/uuid"
 )
 
-func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
+func TestClipboardPasteParsingMappingProvenanceAndBinding(t *testing.T) {
 	tsv, err := tabularingest.ParseTable("alpha\tbravo\ncharlie\tdelta\n", "tsv")
 	if err != nil {
 		t.Fatalf("parse tsv clipboard: %v", err)
@@ -80,20 +81,18 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 		t.Fatalf("unexpected raw import column: %#v", unknown)
 	}
 
-	rawCapture := rawCaptureWithImportColumns(map[string]any{"kept": "value"}, row.Unmapped)
-	importColumns, ok := rawCapture["import_columns"].([]any)
-	if !ok || len(importColumns) != 1 {
-		t.Fatalf("expected structured import_columns raw capture, got %#v", rawCapture)
-	}
-	if rawCapture["kept"] != "value" {
-		t.Fatalf("raw capture did not preserve existing structure: %#v", rawCapture)
+	metadata := provenanceSourceMetadata(unknown)
+	if metadata["source_kind"] != "clipboard_paste" ||
+		metadata["paste_client_txn_id"] != clientTxnID ||
+		metadata["mapping_fingerprint"] != plan.MappingFingerprint {
+		t.Fatalf("unexpected normalized provenance metadata: %#v", metadata)
 	}
 }
 
 func TestClipboardPasteRejectsCrossIncidentRecordTarget(t *testing.T) {
 	authorizedIncidentID := uuid.New()
 	otherIncidentID := uuid.New()
-	current := sourceRecord{
+	current := sourcerepository.Snapshot{
 		RecordID:   uuid.New(),
 		IncidentID: otherIncidentID,
 	}

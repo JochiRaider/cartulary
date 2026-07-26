@@ -21,8 +21,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
-const routeRoot = "/api/v1/incidents/{incident_id}/network-flow"
-
 const (
 	routeKeyTablesPatch  = "nf.tables.patch"
 	routeKeyTablesDelete = "nf.tables.delete"

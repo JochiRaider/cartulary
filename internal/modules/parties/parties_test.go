@@ -14,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 type partyTestAttributionResolver struct{}
@@ -24,7 +26,7 @@ func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Contex
 
 func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-05-parties")
-	store := workbook.NewStore(harness.DB)
+	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector party-storage")
 	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector party-storage Other")
@@ -325,7 +327,8 @@ func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, inci
 
 func softDeletePartyFor(t testing.TB, harness *recordstoretest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
-	store, err := revisionassembly.NewCommandService(harness.DB, partyTestAttributionResolver{}, timelineassembly.NewRowProjector(harness.DB))
+	timelineBundle := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline"))
+	store, err := revisionassembly.NewCommandService(harness.DB, partyTestAttributionResolver{}, timelineBundle.ProjectionCoordinator)
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
 	}

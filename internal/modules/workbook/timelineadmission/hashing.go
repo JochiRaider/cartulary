@@ -1,13 +1,16 @@
-package timeline
+package timelineadmission
 
 import (
 	"crypto/sha256"
 	"encoding/json"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
-func TimelineCreateRequestHash(request CreateRequest) []byte {
+func CreateRequestHash(request timeline.CreateRequest) []byte {
 	payload := map[string]any{
 		"timeline.date_entered_text":      derefString(request.DateEnteredText),
 		"timeline.analyst_text":           derefString(request.AnalystText),
@@ -28,14 +31,14 @@ func TimelineCreateRequestHash(request CreateRequest) []byte {
 	return hashRequestPayload(payload)
 }
 
-func TimelinePatchRequestHash(request PatchRequest) []byte {
+func PatchRequestHash(request timeline.PatchRequest) []byte {
 	changes := make([]map[string]any, 0, len(request.CanonicalChange))
 	for _, change := range request.CanonicalChange {
 		entry := map[string]any{"field_key": change.FieldKey}
 		if change.ActionPayload != nil {
 			entry["action_payload"] = canonicalCollectionActionPayload(change.ActionPayload)
 		} else {
-			entry["value"] = canonicalChangeValue(change)
+			entry["value"] = derefString(change.TextValue)
 		}
 		changes = append(changes, entry)
 	}
@@ -46,7 +49,7 @@ func TimelinePatchRequestHash(request PatchRequest) []byte {
 	})
 }
 
-func TimelineConflictResolveRequestHash(claims TimelineConflictTokenClaims, request ConflictResolveRequest) []byte {
+func ConflictResolveRequestHash(claims conflicttokens.ConflictTokenClaims, request timeline.ConflictResolveRequest) []byte {
 	return hashRequestPayload(map[string]any{
 		"conflict_token":      request.ConflictToken,
 		"resolution_kind":     request.ResolutionKind,
@@ -58,7 +61,7 @@ func TimelineConflictResolveRequestHash(claims TimelineConflictTokenClaims, requ
 	})
 }
 
-func TimelineActionRequestHash(baseRowVersion int64, clientTxnID string, reason *string, replacementRecordID *uuid.UUID) []byte {
+func ActionRequestHash(baseRowVersion int64, clientTxnID string, reason *string, replacementRecordID *uuid.UUID) []byte {
 	payload := map[string]any{
 		"base_row_version":      baseRowVersion,
 		"reason":                derefString(reason),
@@ -70,11 +73,7 @@ func TimelineActionRequestHash(baseRowVersion int64, clientTxnID string, reason 
 	return hashRequestPayload(payload)
 }
 
-func canonicalChangeValue(change PatchChange) any {
-	return derefString(change.TextValue)
-}
-
-func canonicalCollectionActionPayload(payload *CollectionActionPayload) any {
+func canonicalCollectionActionPayload(payload *timeline.CollectionActionPayload) any {
 	if payload == nil {
 		return nil
 	}
@@ -106,27 +105,12 @@ func canonicalCollectionActionPayload(payload *CollectionActionPayload) any {
 func hashRequestPayload(payload any) []byte {
 	data, _ := json.Marshal(payload)
 	sum := sha256.Sum256(data)
-	hash := make([]byte, len(sum))
-	copy(hash, sum[:])
-	return hash
+	return append([]byte(nil), sum[:]...)
 }
 
-func hashesEqual(left []byte, right []byte) bool {
-	if len(left) != len(right) {
-		return false
+func derefString(value *string) any {
+	if value == nil {
+		return nil
 	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func decodeStoredResponse(data []byte) (map[string]any, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
+	return *value
 }

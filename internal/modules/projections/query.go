@@ -23,8 +23,11 @@ const (
 	statusReviewViewSchemaID         = "cartulary.view.status_review.v1"
 )
 
-func SupportsQuerySurface(viewSchemaID string) bool {
-	_, ok := defaultProviderRegistry().querySurfaceForView(viewSchemaID)
+func (s *Store) SupportsQuerySurface(viewSchemaID string) bool {
+	if s == nil || s.registry == nil {
+		return false
+	}
+	_, ok := s.registry.querySurfaceForView(viewSchemaID)
 	return ok
 }
 
@@ -60,6 +63,10 @@ func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, r
 	if !ok {
 		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}
+	return loadRowTx(ctx, tx, definition, recordID)
+}
+
+func loadRowTx(ctx context.Context, tx pgx.Tx, definition genericSurface, recordID uuid.UUID) (map[string]any, error) {
 	var builder strings.Builder
 	builder.WriteString("SELECT ")
 	builder.WriteString(definition.recordExpr)

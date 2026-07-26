@@ -29,17 +29,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -71,13 +71,14 @@ var (
 	readSecureFile    = securefile.Read
 )
 
+const stagedObjectJanitorAdvisoryKey int64 = 4850189438622597894
+
 type Options struct {
-	Env                  map[string]string
-	HTTP                 httpapi.Options
-	Postgres             *pgxpool.Pool
-	ObjectStore          objectstore.Store
-	Now                  func() time.Time
-	TimelineDependencies func(postgres.DB) timeline.Dependencies
+	Env         map[string]string
+	HTTP        httpapi.Options
+	Postgres    *pgxpool.Pool
+	ObjectStore objectstore.Store
+	Now         func() time.Time
 }
 
 type Runtime struct {
@@ -88,6 +89,7 @@ type Runtime struct {
 	ExtensionJobFinalizer   *extensionstore.OwnerFinalizer
 	StagedObjects           *stagedobjects.Service
 	StagedJanitor           *stagedobjects.Janitor
+	StagedJanitorLeader     *componentLeader
 	StagedHealth            *stagedobjects.Health
 	CrossOwnerTransactions  *crossownertransaction.Coordinator
 	Postgres                *pgxpool.Pool
@@ -97,6 +99,7 @@ type Runtime struct {
 	WSHub                   *platformws.Hub
 	CollaborationStore      *collaboration.Store
 	CollaborationDispatcher *collaboration.Dispatcher
+	Timeline                *timelineassembly.Bundle
 	Telemetry               *telemetry.Runtime
 	ProcessLease            *processlease.Lease
 	Lifecycle               *processlifecycle.Controller
@@ -114,6 +117,7 @@ type RuntimeSettings struct {
 	ReconciliationSeconds    int64
 	StagedObjectSweepSeconds int64
 	ShutdownDrainSeconds     int64
+	ProcessModel             string
 }
 
 func NewRuntime(ctx context.Context, deployment configassembly.Deployment, options Options) (*Runtime, error) {
@@ -146,33 +150,30 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		Settings:  runtimeSettings(normalizedCfg),
 		Lifecycle: processlifecycle.New(),
 	}
-	if normalizedCfg.Roots.TemporaryWork.BindingKind != "filesystem_root" ||
-		normalizedCfg.Roots.ExportOutputs.BindingKind != "filesystem_root" {
-		runtime.Close()
-		return nil, errors.New("incident bundle storage requires filesystem-root temporary_work and export_outputs bindings")
+	var incidentBundleStorage incidentbundles.BundleStorage
+	var referencePackStorage reference_data.Storage
+	if normalizedCfg.Application.ProcessModel == config.ProcessModelSingle {
+		rootIncidentBundleStorage, storageErr := newIncidentBundleRootStorage(
+			normalizedCfg.Roots.TemporaryWork.Path,
+			normalizedCfg.Roots.ExportOutputs.Path,
+		)
+		if storageErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose incident bundle storage: %w", storageErr)
+		}
+		incidentBundleStorage = rootIncidentBundleStorage
+		runtime.own(rootIncidentBundleStorage.Close)
+		rootReferencePackStorage, storageErr := newReferencePackRootStorage(
+			normalizedCfg.Roots.TemporaryWork.Path,
+			normalizedCfg.Roots.ReferencePackStorage.Path,
+		)
+		if storageErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Reference Pack storage: %w", storageErr)
+		}
+		referencePackStorage = rootReferencePackStorage
+		runtime.own(rootReferencePackStorage.Close)
 	}
-	incidentBundleStorage, err := newIncidentBundleRootStorage(
-		normalizedCfg.Roots.TemporaryWork.Path,
-		normalizedCfg.Roots.ExportOutputs.Path,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose incident bundle storage: %w", err)
-	}
-	runtime.own(incidentBundleStorage.Close)
-	if normalizedCfg.Roots.ReferencePackStorage.BindingKind != "filesystem_root" {
-		runtime.Close()
-		return nil, errors.New("Reference Pack storage requires filesystem-root reference_pack_storage binding")
-	}
-	referencePackStorage, err := newReferencePackRootStorage(
-		normalizedCfg.Roots.TemporaryWork.Path,
-		normalizedCfg.Roots.ReferencePackStorage.Path,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Reference Pack storage: %w", err)
-	}
-	runtime.own(referencePackStorage.Close)
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -196,7 +197,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			runtime.own(pool.Close)
 		}
 	}
-	if runtime.Postgres != nil {
+	if runtime.Postgres != nil && normalizedCfg.Application.ProcessModel == config.ProcessModelSingle {
 		lease, leaseErr := processlease.Acquire(
 			ctx,
 			processlease.PostgresBackend{Pool: runtime.Postgres},
@@ -481,6 +482,31 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			runtime.own(func() { _ = client.Close() })
 		}
 	}
+	if normalizedCfg.Application.ProcessModel == config.ProcessModelReplicated {
+		if runtime.ObjectStore == nil {
+			runtime.Close()
+			return nil, errors.New("replicated process model requires shared object storage")
+		}
+		incidentBundleStorage = newSharedIncidentBundleStorage(runtime.ObjectStore)
+		referencePackStorage = newSharedReferencePackStorage(runtime.ObjectStore)
+		agreement, agreementErr := admitPublicationPlanAgreement(
+			ctx,
+			runtime.Postgres,
+			runtime.ObjectStore,
+			extensionPlan.Summary(),
+			normalizedCfg.Telemetry.Resource.ServiceInstanceID,
+			now,
+		)
+		if agreementErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("admit replicated publication plan: %w", agreementErr)
+		}
+		runtime.own(agreement.Close)
+	}
+	if incidentBundleStorage == nil || referencePackStorage == nil {
+		runtime.Close()
+		return nil, errors.New("publication storage is unavailable for the admitted process model")
+	}
 	if extensionStateStore != nil && runtime.ObjectStore != nil {
 		stagedRepository, stagedRepositoryErr := extensionassembly.NewStagedObjectRepository(extensionStateStore)
 		if stagedRepositoryErr != nil {
@@ -520,19 +546,46 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object janitor: %w", janitorErr)
 		}
-		cleanupCtx, cancelCleanup := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.StagedObjectCleanupSeconds)*time.Second)
-		cleanupErr := janitor.Sweep(cleanupCtx)
-		cancelCleanup()
-		if cleanupErr != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("initial staged-object cleanup: %w", cleanupErr)
-		}
-		janitorCtx, cancelJanitor := context.WithCancel(context.Background())
 		runtime.StagedObjects = stagedService
 		runtime.StagedJanitor = janitor
 		runtime.StagedHealth = stagedHealth
-		runtime.stagedJanitorContext = janitorCtx
-		runtime.own(cancelJanitor)
+		if normalizedCfg.Application.ProcessModel == config.ProcessModelSingle {
+			cleanupCtx, cancelCleanup := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.StagedObjectCleanupSeconds)*time.Second)
+			cleanupErr := janitor.Sweep(cleanupCtx)
+			cancelCleanup()
+			if cleanupErr != nil {
+				runtime.Close()
+				return nil, fmt.Errorf("initial staged-object cleanup: %w", cleanupErr)
+			}
+			janitorCtx, cancelJanitor := context.WithCancel(context.Background())
+			runtime.stagedJanitorContext = janitorCtx
+			runtime.own(cancelJanitor)
+		} else {
+			runtime.StagedJanitorLeader = newComponentLeader(
+				processlease.PostgresBackend{
+					Pool:        runtime.Postgres,
+					AdvisoryKey: stagedObjectJanitorAdvisoryKey,
+					Purpose:     "staged-object janitor",
+				},
+				500*time.Millisecond,
+				time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second,
+				func(componentCtx context.Context) error {
+					if err := janitor.Sweep(componentCtx); err != nil {
+						return err
+					}
+					return janitor.Run(
+						componentCtx,
+						time.Duration(normalizedCfg.Intervals.Extensions.StagedObjectSweepSeconds)*time.Second,
+					)
+				},
+				func() {
+					if runtime.Publication != nil {
+						runtime.Publication.ComponentLost("staged_object_janitor")
+					}
+				},
+			)
+			runtime.own(runtime.StagedJanitorLeader.Close)
+		}
 	}
 	postgresHandle := instrumentedPostgres(
 		normalizedCfg.Telemetry.Enabled,
@@ -644,10 +697,15 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	incidentBundleImportFinalizer := incidents.NewStoreWithOptions(postgresHandle, incidents.StoreOptions{
 		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 	})
+	timelineBundle := timelineassembly.NewBundle(
+		postgresHandle,
+		conflicttokens.NewConflictTokenCodec(keys),
+	)
+	runtime.Timeline = timelineBundle
 	revisionCommands, err := revisionassembly.NewCommandService(
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
-		timelineassembly.NewRowProjector(postgresHandle),
+		timelineBundle.ProjectionCoordinator,
 	)
 	if err != nil {
 		runtime.Close()
@@ -655,11 +713,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
 	importStore := imports.NewStore(runtime.Postgres)
-	timelineDependencies := options.TimelineDependencies
-	if timelineDependencies == nil {
-		timelineDependencies = timelineassembly.Dependencies
-	}
-	timelineFacade := timeline.NewFacade(postgresHandle, timelineDependencies(postgresHandle))
+	timelineFacade := timelineBundle.Facade
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:      postgresHandle,
 		ImportSources: importStore,
@@ -678,10 +732,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.Postgres,
 		runtime.ObjectStore,
 		incidentBundleImportFinalizer,
-		projectionadapters.NewIncidentImportRebuilder(
-			runtime.Postgres,
-			timelineassembly.NewProjectionSource(runtime.Postgres),
-		),
+		timelineBundle.ProjectionCatalog.Rebuild,
 		now,
 	)
 	if err != nil {
@@ -740,6 +791,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			extensionassembly.NewIncidentBundleJobSuccessFinalizer(runtime.ExtensionJobFinalizer, now),
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
+		incidentbundles.WithProjectionRebuild(timelineBundle.ProjectionCatalog.Rebuild),
 	)
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importRoutes := imports.RegisterRoutes(
@@ -800,21 +852,22 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
 		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg))},
 		{id: "entities", registrar: entities.RegisterRoutes(entities.RouteOptions{
-			MergeStore:   timelineassembly.NewEntityMergeStore(postgresHandle),
-			MentionStore: timelineassembly.NewEntityMentionStore(postgresHandle),
+			MergeStore:   timelineBundle.EntityMergeStore,
+			MentionStore: timelineBundle.EntityMentionStore,
 		})},
 		{id: "evidence", registrar: evidence.RegisterRoutes(
 			evidenceSettings(normalizedCfg),
-			evidence.WithStore(timelineassembly.NewEvidenceStore(postgresHandle)),
+			evidence.WithStore(timelineBundle.EvidenceStore),
 		)},
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(
 				workbook.WithCreateRowHandler(workbook.AssessmentsViewSchemaID, assessments.CreateRowHandler),
 				workbook.WithTimelineOwner(timelineFacade),
+				workbook.WithProjectionQuery(timelineBundle.ProjectionCatalog.Query),
 			),
 		},
-		{id: "timeline", registrar: timeline.RegisterRoutes(timeline.RouteOptions{
+		{id: "timeline", registrar: timelineadmission.RegisterRoutes(timelineadmission.RouteOptions{
 			Facade: timelineFacade,
 		})},
 		{id: "revisions", registrar: revisionRoutes},
@@ -1184,7 +1237,9 @@ func (r *Runtime) ActivatePublication() error {
 		}
 	}
 	r.publicationOnce.Do(func() {
-		if r.StagedJanitor != nil && r.stagedJanitorContext != nil {
+		if r.StagedJanitorLeader != nil {
+			r.StagedJanitorLeader.Start(context.Background())
+		} else if r.StagedJanitor != nil && r.stagedJanitorContext != nil {
 			go func() {
 				defer func() {
 					if recovered := recover(); recovered != nil && r.Lifecycle != nil {

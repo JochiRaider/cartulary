@@ -80,6 +80,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 		ReconciliationSeconds:    72,
 		ShutdownDrainSeconds:     73,
 		StagedObjectSweepSeconds: 74,
+		ProcessModel:             cfg.Application.ProcessModel,
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime settings = %#v, want %#v", got, want)
 	}

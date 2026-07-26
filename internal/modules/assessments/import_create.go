@@ -10,7 +10,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -82,7 +81,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 	}
-	if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, recordID); err != nil {
+	if err := s.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	projected, err := loadProjectionRecordTx(ctx, tx, recordID)
@@ -125,10 +124,10 @@ func (s *Store) RefreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID 
 	if viewSchemaID != AssessmentsViewSchemaID {
 		return nil, fmt.Errorf("assessment import projection surface %q not mapped", viewSchemaID)
 	}
-	if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, recordID); err != nil {
+	if err := s.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}
-	return s.rowProjector.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+	return s.projectionRows.LoadTx(ctx, tx, recordID)
 }
 
 func assessmentCreateRequestFromImport(request ownerfacade.ImportOwnerCreateRequest, values map[string]ownerfacade.ImportScalarValue) (CreateRequest, error) {

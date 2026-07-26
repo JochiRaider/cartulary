@@ -1,6 +1,10 @@
 package timeline
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+)
 
 type MutationResult struct {
 	Payload          map[string]any
@@ -12,7 +16,7 @@ type MutationResult struct {
 	ClientTxnID      string
 	RowVersion       int64
 	ChangedFieldKeys []string
-	Row              projectedRecord
+	Row              workbookprojection.DerivedRecord
 }
 
 type ClipboardPasteResult struct {

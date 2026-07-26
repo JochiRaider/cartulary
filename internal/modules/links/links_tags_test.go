@@ -21,8 +21,10 @@ import (
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -252,7 +254,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
-	timelineFacade := timelineassembly.NewFacade(harness.DB)
+	timelineFacade := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).Facade
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {
 		baseTokens := []string{
@@ -298,7 +300,7 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 	})
 
 	t.Run("timeline tags use add_tag remove_tag and composite mutation targets", func(t *testing.T) {
-		request, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
+		request, apiErr := timelineadmission.DecodeTimelineCreateRequest(strings.NewReader(`{
 			"client_txn_id": "txn-saved_view_query-u-8-01-create-tags",
 			"timeline.activity_synopsis_text": "saved_view_query tags",
 			"timeline.tags": {
@@ -426,7 +428,7 @@ SELECT COUNT(*)
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				_, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
+				_, apiErr := timelineadmission.DecodeTimelineCreateRequest(strings.NewReader(`{
 					"client_txn_id": "txn-saved_view_query-u-8-01-invalid-tag",
 					"timeline.activity_synopsis_text": "invalid",
 					"timeline.tags": {

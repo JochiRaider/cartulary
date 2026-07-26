@@ -42,7 +42,11 @@ SELECT
     e.source_party_text,
     e.source_party_id,
     COALESCE(b.upload_state, e.upload_state),
-    0::integer,
+    (
+        SELECT COUNT(*)::integer
+          FROM active_record_links_v1 rl
+         WHERE rl.src_record_id = e.record_id OR rl.dst_record_id = e.record_id
+    ),
     e.updated_at
   FROM evidence e
   JOIN records r

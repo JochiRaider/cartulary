@@ -386,23 +386,24 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Coordinates Timeline row loading, query aborts, runtime status, and row reconciliation callbacks. |
 | `workbook/timeline/hooks/useTimelineSaveStatePresentation.ts` | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, replay scheduling, and beforeunload warning state. |
 | `workbook/timeline/hooks/useTimelineViewportContinuityController.ts` | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
-| `workbook/timeline/hooks/useTimelineWorkbookRuntime.ts` | Coordinates Timeline query/runtime state derived from workbook shell inputs. |
+| `workbook/timeline/hooks/useTimelineWorkbookRuntime.ts` | Reduces Timeline lifecycle state and translates shell-owned query commands into deterministic runtime transitions. |
 
 #### `workbook/timeline/models/`
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/timeline/models/timelineControllerBoundaryPolicy.test.ts` | Static enforcement for capability-controller composition, sibling isolation, and collaboration transport ownership. |
 | `workbook/timeline/models/timelineControllerPorts.ts` | Neutral capability-port contracts shared by isolated Timeline controllers. |
 | `workbook/timeline/models/timelineConflictModel.ts` | Same-field conflict parsing and model helpers. |
 | `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
 | `workbook/timeline/models/timelinePendingReplayModel.ts` | Pending-replay runtime state, admission contracts, refresh barriers, and tab-stable client identity. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
+| `workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts` | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |
 | `workbook/timeline/models/workbookTimelineModel.ts` | Timeline row model, field bindings, payload builders, normalization, patch intents, freshness decisions, and display helpers. |
 | `workbook/timeline/models/timelineConflictModel.test.ts` | Tests for Timeline conflict model helpers. |
 | `workbook/timeline/models/timelineRowsModel.test.ts` | Tests for Timeline row model helpers. |
+| `workbook/timeline/models/timelineWorkbookRuntime.test.ts` | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | `workbook/timeline/models/timelineViewportContinuityModel.test.ts` | Tests for viewport continuity and refresh barrier helpers. |
 | `workbook/timeline/models/workbookTimelineModel.test.ts` | Tests for Timeline row, payload, binding, normalization, and freshness helpers. |
 

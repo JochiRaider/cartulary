@@ -1,10 +1,12 @@
-package timeline
+package timelineadmission
 
 import (
 	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
 func TestPatchPayloadValidation_Unit(t *testing.T) {
@@ -43,7 +45,7 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			})
 		}
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-06-max-raw",
 			"changes":          rawChanges,
@@ -74,7 +76,7 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			})
 		}
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-06-max-actions",
 			"changes": []map[string]any{
@@ -352,7 +354,7 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			})
 		}
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-06-too-many",
 			"changes":          rawChanges,
@@ -378,7 +380,7 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 
 	t.Run("empty patch collection actions fail with collection count detail", func(t *testing.T) {
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-06-empty-actions",
 			"changes": []map[string]any{
@@ -418,7 +420,7 @@ func TestPatchPayloadValidation_Unit(t *testing.T) {
 			})
 		}
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-06-too-many-actions",
 			"changes": []map[string]any{
@@ -554,7 +556,7 @@ func TestUnit_TimelineVisibleTextContract(t *testing.T) {
 	t.Run("patch preserves source-like text", func(t *testing.T) {
 		sourceLike := `=HYPERLINK("https://example.test","click") <b>host</b> _markdown_`
 		payload, err := json.Marshal(map[string]any{
-			"view_schema_id":   TimelineViewSchemaID,
+			"view_schema_id":   timeline.TimelineViewSchemaID,
 			"base_row_version": 1,
 			"client_txn_id":    "txn-u-3-12-patch-visible-text",
 			"changes": []map[string]any{

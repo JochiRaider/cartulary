@@ -12,6 +12,7 @@
       ],
       "status": "active",
       "requirement_ids": [
+        "module.projections.requirement.application_assembled_catalog",
         "module.projections.requirement.provider_validation"
       ]
     },

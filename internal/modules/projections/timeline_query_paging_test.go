@@ -11,7 +11,7 @@ import (
 )
 
 func TestTimelinePageSQLIsKeysetBounded(t *testing.T) {
-	surface, ok := defaultProviderRegistry().querySurfaceForView(timelineViewSchemaID)
+	surface, ok := querySurfacesForTest()[timelineViewSchemaID]
 	if !ok {
 		t.Fatal("timeline projection query surface is not registered")
 	}

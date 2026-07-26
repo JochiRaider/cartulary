@@ -15,15 +15,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 )
 
@@ -36,7 +38,7 @@ func TestCreateCommitsAndAssignsIdentity_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-01-row",
 		ActivitySynopsisText: &summary,
 	}
-	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-timeline_mutation-u-3-01-row", BaseTime())
+	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timelineadmission.CreateRequestHash(request), "req-timeline_mutation-u-3-01-row", BaseTime())
 	if err != nil {
 		t.Fatalf("create row: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestInitialCreateState_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-02-row",
 		ActivitySynopsisText: &summary,
 	}
-	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-timeline_mutation-u-3-02-row", BaseTime())
+	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timelineadmission.CreateRequestHash(request), "req-timeline_mutation-u-3-02-row", BaseTime())
 	if err != nil {
 		t.Fatalf("create row: %v", err)
 	}
@@ -100,7 +102,7 @@ func TestCaptureStateLifecycle_Unit(t *testing.T) {
 		BaseRowVersion: 1,
 		ClientTxnID:    "txn-timeline_mutation-u-3-03-review-rough",
 	}
-	reviewedRough, err := store.MarkReviewed(context.Background(), actor, roughRow.RecordID, roughReview, timeline.TimelineActionRequestHash(roughReview.BaseRowVersion, roughReview.ClientTxnID, roughReview.Reason, nil), "req-timeline_mutation-u-3-03-review-rough", BaseTime().Add(time.Minute))
+	reviewedRough, err := store.MarkReviewed(context.Background(), actor, roughRow.RecordID, roughReview, timelineadmission.ActionRequestHash(roughReview.BaseRowVersion, roughReview.ClientTxnID, roughReview.Reason, nil), "req-timeline_mutation-u-3-03-review-rough", BaseTime().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("mark rough row reviewed: %v", err)
 	}
@@ -117,7 +119,7 @@ func TestCaptureStateLifecycle_Unit(t *testing.T) {
 			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("material edit")},
 		},
 	}
-	patched, err := store.PatchRow(context.Background(), actor, enrichedRow.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-03-patch", BaseTime().Add(3*time.Minute))
+	patched, err := store.PatchRow(context.Background(), actor, enrichedRow.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-03-patch", BaseTime().Add(3*time.Minute))
 	if err != nil {
 		t.Fatalf("patch rough row: %v", err)
 	}
@@ -129,7 +131,7 @@ func TestCaptureStateLifecycle_Unit(t *testing.T) {
 		BaseRowVersion: patched.RowVersion,
 		ClientTxnID:    "txn-timeline_mutation-u-3-03-review-enriched",
 	}
-	reviewedEnriched, err := store.MarkReviewed(context.Background(), actor, enrichedRow.RecordID, enrichedReview, timeline.TimelineActionRequestHash(enrichedReview.BaseRowVersion, enrichedReview.ClientTxnID, enrichedReview.Reason, nil), "req-timeline_mutation-u-3-03-review-enriched", BaseTime().Add(4*time.Minute))
+	reviewedEnriched, err := store.MarkReviewed(context.Background(), actor, enrichedRow.RecordID, enrichedReview, timelineadmission.ActionRequestHash(enrichedReview.BaseRowVersion, enrichedReview.ClientTxnID, enrichedReview.Reason, nil), "req-timeline_mutation-u-3-03-review-enriched", BaseTime().Add(4*time.Minute))
 	if err != nil {
 		t.Fatalf("mark enriched row reviewed: %v", err)
 	}
@@ -147,7 +149,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 		BaseRowVersion: 1,
 		ClientTxnID:    "txn-timeline_mutation-u-3-04-review",
 	}
-	reviewed, err := store.MarkReviewed(context.Background(), actor, row.RecordID, review, timeline.TimelineActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-timeline_mutation-u-3-04-review", BaseTime().Add(time.Minute))
+	reviewed, err := store.MarkReviewed(context.Background(), actor, row.RecordID, review, timelineadmission.ActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-timeline_mutation-u-3-04-review", BaseTime().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("mark reviewed: %v", err)
 	}
@@ -163,7 +165,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("demoted after edit")},
 		},
 	}
-	demoted, err := store.PatchRow(context.Background(), actor, row.RecordID, demotionPatch, timeline.TimelinePatchRequestHash(demotionPatch), "req-timeline_mutation-u-3-04-demote", BaseTime().Add(2*time.Minute))
+	demoted, err := store.PatchRow(context.Background(), actor, row.RecordID, demotionPatch, timelineadmission.PatchRequestHash(demotionPatch), "req-timeline_mutation-u-3-04-demote", BaseTime().Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("patch reviewed row: %v", err)
 	}
@@ -175,7 +177,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 		BaseRowVersion: demoted.RowVersion,
 		ClientTxnID:    "txn-timeline_mutation-u-3-04-review-again",
 	}
-	reviewedAgain, err := store.MarkReviewed(context.Background(), actor, row.RecordID, reviewAgain, timeline.TimelineActionRequestHash(reviewAgain.BaseRowVersion, reviewAgain.ClientTxnID, reviewAgain.Reason, nil), "req-timeline_mutation-u-3-04-review-again", BaseTime().Add(3*time.Minute))
+	reviewedAgain, err := store.MarkReviewed(context.Background(), actor, row.RecordID, reviewAgain, timelineadmission.ActionRequestHash(reviewAgain.BaseRowVersion, reviewAgain.ClientTxnID, reviewAgain.Reason, nil), "req-timeline_mutation-u-3-04-review-again", BaseTime().Add(3*time.Minute))
 	if err != nil {
 		t.Fatalf("mark reviewed again: %v", err)
 	}
@@ -193,7 +195,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 			},
 		},
 	}
-	tagged, err := store.PatchRow(context.Background(), actor, row.RecordID, tagOnlyPatch, timeline.TimelinePatchRequestHash(tagOnlyPatch), "req-timeline_mutation-u-3-04-tag-only", BaseTime().Add(4*time.Minute))
+	tagged, err := store.PatchRow(context.Background(), actor, row.RecordID, tagOnlyPatch, timelineadmission.PatchRequestHash(tagOnlyPatch), "req-timeline_mutation-u-3-04-tag-only", BaseTime().Add(4*time.Minute))
 	if err != nil {
 		t.Fatalf("patch reviewed row with tag only: %v", err)
 	}
@@ -208,7 +210,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 		Reason:              "superseded by a better row",
 		ReplacementRecordID: &replacement.RecordID,
 	}
-	superseded, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-04-supersede", BaseTime().Add(6*time.Minute))
+	superseded, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timelineadmission.ActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-04-supersede", BaseTime().Add(6*time.Minute))
 	if err != nil {
 		t.Fatalf("supersede row: %v", err)
 	}
@@ -224,7 +226,7 @@ func TestReviewedDemotionAndSupersedeTerminality_Unit(t *testing.T) {
 			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("blocked")},
 		},
 	}
-	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, patchAfterSupersede, timeline.TimelinePatchRequestHash(patchAfterSupersede), "req-timeline_mutation-u-3-04-after-supersede", BaseTime().Add(7*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
+	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, patchAfterSupersede, timelineadmission.PatchRequestHash(patchAfterSupersede), "req-timeline_mutation-u-3-04-after-supersede", BaseTime().Add(7*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
 		t.Fatalf("expected superseded rows to reject ordinary patch semantics, got %v", err)
 	}
 }
@@ -243,13 +245,13 @@ func TestPatchReplayStability_Unit(t *testing.T) {
 			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("summary")},
 		},
 	}
-	first, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-07-patch", BaseTime().Add(time.Minute))
+	first, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-07-patch", BaseTime().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("initial patch: %v", err)
 	}
 	beforeReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
-	replay, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-07-patch-replay", BaseTime().Add(2*time.Minute))
+	replay, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-07-patch-replay", BaseTime().Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("replay patch: %v", err)
 	}
@@ -265,7 +267,7 @@ func TestPatchReplayStability_Unit(t *testing.T) {
 	divergent.CanonicalChange = []timeline.PatchChange{
 		{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("different")},
 	}
-	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, divergent, timeline.TimelinePatchRequestHash(divergent), "req-timeline_mutation-u-3-07-divergent", BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
+	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, divergent, timelineadmission.PatchRequestHash(divergent), "req-timeline_mutation-u-3-07-divergent", BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("expected divergent replay conflict, got %v", err)
 	}
 }
@@ -284,7 +286,7 @@ func TestPatchFieldLevelConcurrency_Unit(t *testing.T) {
 				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("server summary")},
 			},
 		}
-		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-rebase-server", BaseTime().Add(time.Minute))
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timelineadmission.PatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-rebase-server", BaseTime().Add(time.Minute))
 		if err != nil {
 			t.Fatalf("server patch: %v", err)
 		}
@@ -297,7 +299,7 @@ func TestPatchFieldLevelConcurrency_Unit(t *testing.T) {
 				{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("client details")},
 			},
 		}
-		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-rebase-client", BaseTime().Add(2*time.Minute))
+		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timelineadmission.PatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-rebase-client", BaseTime().Add(2*time.Minute))
 		if err != nil {
 			t.Fatalf("stale different-field patch should rebase: %v", err)
 		}
@@ -326,7 +328,7 @@ func TestPatchFieldLevelConcurrency_Unit(t *testing.T) {
 				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("server summary")},
 			},
 		}
-		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-text-conflict-server", BaseTime().Add(time.Minute))
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timelineadmission.PatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-text-conflict-server", BaseTime().Add(time.Minute))
 		if err != nil {
 			t.Fatalf("server patch: %v", err)
 		}
@@ -340,7 +342,7 @@ func TestPatchFieldLevelConcurrency_Unit(t *testing.T) {
 				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("client summary")},
 			},
 		}
-		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-text-conflict-client", BaseTime().Add(2*time.Minute))
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timelineadmission.PatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-text-conflict-client", BaseTime().Add(2*time.Minute))
 		var conflict *timeline.SameFieldConflictError
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected same-field conflict, got %v", err)
@@ -392,7 +394,7 @@ SELECT COUNT(*)
 				}
 			]
 		}`)
-		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-collection-conflict-server", BaseTime().Add(time.Minute))
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timelineadmission.PatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-collection-conflict-server", BaseTime().Add(time.Minute))
 		if err != nil {
 			t.Fatalf("server collection patch: %v", err)
 		}
@@ -411,7 +413,7 @@ SELECT COUNT(*)
 				}
 			]
 		}`)
-		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-collection-conflict-client", BaseTime().Add(2*time.Minute))
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timelineadmission.PatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-collection-conflict-client", BaseTime().Add(2*time.Minute))
 		var conflict *timeline.SameFieldConflictError
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected collection same-field conflict, got %v", err)
@@ -446,7 +448,7 @@ SELECT COUNT(*)
 				}
 			]
 		}`)
-		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-tag-conflict-server", BaseTime().Add(time.Minute))
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timelineadmission.PatchRequestHash(serverPatch), "req-timeline_mutation-u-3-11-tag-conflict-server", BaseTime().Add(time.Minute))
 		if err != nil {
 			t.Fatalf("server tag patch: %v", err)
 		}
@@ -465,7 +467,7 @@ SELECT COUNT(*)
 				}
 			]
 		}`)
-		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-tag-conflict-client", BaseTime().Add(2*time.Minute))
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timelineadmission.PatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-tag-conflict-client", BaseTime().Add(2*time.Minute))
 		var conflict *timeline.SameFieldConflictError
 		if !errors.As(err, &conflict) {
 			t.Fatalf("expected tag same-field conflict, got %v", err)
@@ -490,7 +492,7 @@ SELECT COUNT(*)
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-timeline_mutation-u-3-11-lifecycle-rebase-review",
 		}
-		reviewed, err := store.MarkReviewed(context.Background(), actor, row.RecordID, review, timeline.TimelineActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-timeline_mutation-u-3-11-lifecycle-rebase-review", BaseTime().Add(time.Minute))
+		reviewed, err := store.MarkReviewed(context.Background(), actor, row.RecordID, review, timelineadmission.ActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-timeline_mutation-u-3-11-lifecycle-rebase-review", BaseTime().Add(time.Minute))
 		if err != nil {
 			t.Fatalf("mark reviewed: %v", err)
 		}
@@ -503,7 +505,7 @@ SELECT COUNT(*)
 				{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("stale lifecycle edit")},
 			},
 		}
-		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-lifecycle-rebase-patch", BaseTime().Add(2*time.Minute))
+		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timelineadmission.PatchRequestHash(stalePatch), "req-timeline_mutation-u-3-11-lifecycle-rebase-patch", BaseTime().Add(2*time.Minute))
 		if err != nil {
 			t.Fatalf("stale lifecycle-only patch should apply: %v", err)
 		}
@@ -526,7 +528,7 @@ func TestCreateAndPatchWriteHistory_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-09-create",
 		ActivitySynopsisText: &createSummary,
 	}
-	created, err := store.CreateRow(context.Background(), actor, incidentID, createRequest, timeline.TimelineCreateRequestHash(createRequest), "req-timeline_mutation-u-3-09-create", BaseTime())
+	created, err := store.CreateRow(context.Background(), actor, incidentID, createRequest, timelineadmission.CreateRequestHash(createRequest), "req-timeline_mutation-u-3-09-create", BaseTime())
 	if err != nil {
 		t.Fatalf("create row: %v", err)
 	}
@@ -550,7 +552,7 @@ func TestCreateAndPatchWriteHistory_Unit(t *testing.T) {
 			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("patched")},
 		},
 	}
-	patched, err := store.PatchRow(context.Background(), actor, created.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-09-patch", BaseTime().Add(time.Minute))
+	patched, err := store.PatchRow(context.Background(), actor, created.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-09-patch", BaseTime().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("patch row: %v", err)
 	}
@@ -590,7 +592,7 @@ func TestSupersedeReplayAndRollbackCoupling_Unit(t *testing.T) {
 			Reason:              "make replacement superseded",
 			ReplacementRecordID: &supersededReplacementNext.RecordID,
 		}
-		if _, err := store.Supersede(context.Background(), actor, supersededReplacement.RecordID, supersedeReplacement, timeline.TimelineActionRequestHash(supersedeReplacement.BaseRowVersion, supersedeReplacement.ClientTxnID, &supersedeReplacement.Reason, supersedeReplacement.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede-replacement", BaseTime().Add(5*time.Minute)); err != nil {
+		if _, err := store.Supersede(context.Background(), actor, supersededReplacement.RecordID, supersedeReplacement, timelineadmission.ActionRequestHash(supersedeReplacement.BaseRowVersion, supersedeReplacement.ClientTxnID, &supersedeReplacement.Reason, supersedeReplacement.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede-replacement", BaseTime().Add(5*time.Minute)); err != nil {
 			t.Fatalf("supersede replacement fixture: %v", err)
 		}
 		activeTarget := createTimelineSummaryRow(t, store, actor, incidentID, "txn-timeline_mutation-u-3-10-active-target", "target with active incoming replacement", BaseTime().Add(6*time.Minute))
@@ -649,7 +651,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			Reason:              "superseded by a better row",
 			ReplacementRecordID: &replacement.RecordID,
 		}
-		first, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede", BaseTime().Add(13*time.Minute))
+		first, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timelineadmission.ActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede", BaseTime().Add(13*time.Minute))
 		if err != nil {
 			t.Fatalf("supersede row: %v", err)
 		}
@@ -659,7 +661,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		}
 		beforeReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
-		replay, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede-replay", BaseTime().Add(14*time.Minute))
+		replay, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timelineadmission.ActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-timeline_mutation-u-3-10-supersede-replay", BaseTime().Add(14*time.Minute))
 		if err != nil {
 			t.Fatalf("replay supersede: %v", err)
 		}
@@ -676,7 +678,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 		divergent := supersede
 		divergent.ReplacementRecordID = &crossIncidentReplacement.RecordID
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, divergent, timeline.TimelineActionRequestHash(divergent.BaseRowVersion, divergent.ClientTxnID, &divergent.Reason, divergent.ReplacementRecordID), "req-timeline_mutation-u-3-10-divergent", BaseTime().Add(15*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
+		if _, err := store.Supersede(context.Background(), actor, row.RecordID, divergent, timelineadmission.ActionRequestHash(divergent.BaseRowVersion, divergent.ClientTxnID, &divergent.Reason, divergent.ReplacementRecordID), "req-timeline_mutation-u-3-10-divergent", BaseTime().Add(15*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
 			t.Fatalf("expected divergent supersede replay conflict, got %v", err)
 		}
 	})
@@ -706,7 +708,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			ReplacementRecordID: &replacement.RecordID,
 		}
 		beforeRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-timeline_mutation-u-3-10-rollback", BaseTime().Add(2*time.Minute)); err == nil {
+		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-timeline_mutation-u-3-10-rollback", BaseTime().Add(2*time.Minute)); err == nil {
 			t.Fatal("expected supersede rollback error")
 		}
 		afterRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
@@ -733,7 +735,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-14-create",
 		ActivitySynopsisText: &summary,
 	}
-	first, err := store.CreateRow(context.Background(), actor, incidentID, create, timeline.TimelineCreateRequestHash(create), "req-timeline_mutation-u-3-14-create", BaseTime())
+	first, err := store.CreateRow(context.Background(), actor, incidentID, create, timelineadmission.CreateRequestHash(create), "req-timeline_mutation-u-3-14-create", BaseTime())
 	if err != nil {
 		t.Fatalf("create before close: %v", err)
 	}
@@ -758,7 +760,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 		t.Fatalf("closed incident read should remain available, got %#v", rows)
 	}
 
-	replay, err := store.CreateRow(context.Background(), actor, incidentID, create, timeline.TimelineCreateRequestHash(create), "req-timeline_mutation-u-3-14-create-replay", BaseTime().Add(2*time.Minute))
+	replay, err := store.CreateRow(context.Background(), actor, incidentID, create, timelineadmission.CreateRequestHash(create), "req-timeline_mutation-u-3-14-create-replay", BaseTime().Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("exact replay after close: %v", err)
 	}
@@ -769,7 +771,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 	divergentSummary := "closed incident divergent row"
 	divergent := create
 	divergent.ActivitySynopsisText = &divergentSummary
-	if _, err := store.CreateRow(context.Background(), actor, incidentID, divergent, timeline.TimelineCreateRequestHash(divergent), "req-timeline_mutation-u-3-14-create-divergent", BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
+	if _, err := store.CreateRow(context.Background(), actor, incidentID, divergent, timelineadmission.CreateRequestHash(divergent), "req-timeline_mutation-u-3-14-create-divergent", BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("expected divergent replay conflict before closed check, got %v", err)
 	}
 
@@ -779,7 +781,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-14-create-fresh",
 		ActivitySynopsisText: &freshSummary,
 	}
-	if _, err := store.CreateRow(context.Background(), actor, incidentID, fresh, timeline.TimelineCreateRequestHash(fresh), "req-timeline_mutation-u-3-14-create-fresh", BaseTime().Add(4*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
+	if _, err := store.CreateRow(context.Background(), actor, incidentID, fresh, timelineadmission.CreateRequestHash(fresh), "req-timeline_mutation-u-3-14-create-fresh", BaseTime().Add(4*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
 		t.Fatalf("expected fresh create to reject closed incident, got %v", err)
 	}
 	patch := timeline.PatchRequest{
@@ -790,7 +792,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("blocked after close")},
 		},
 	}
-	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-14-patch", BaseTime().Add(5*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
+	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-14-patch", BaseTime().Add(5*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
 		t.Fatalf("expected fresh patch to reject closed incident, got %v", err)
 	}
 	after := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), first.RecordID.String())
@@ -853,7 +855,7 @@ func createTimelineSummaryRow(t testing.TB, store *eventTimelineCommands, actor 
 		ClientTxnID:          clientTxnID,
 		ActivitySynopsisText: &summary,
 	}
-	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-"+clientTxnID, now)
+	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timelineadmission.CreateRequestHash(request), "req-"+clientTxnID, now)
 	if err != nil {
 		t.Fatalf("create summary row: %v", err)
 	}
@@ -868,7 +870,7 @@ func createReviewedTimelineRow(t testing.TB, store *eventTimelineCommands, actor
 		BaseRowVersion: created.RowVersion,
 		ClientTxnID:    clientTxnID + "-review",
 	}
-	reviewed, err := store.MarkReviewed(context.Background(), actor, created.RecordID, review, timeline.TimelineActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-"+review.ClientTxnID, now.Add(time.Minute))
+	reviewed, err := store.MarkReviewed(context.Background(), actor, created.RecordID, review, timelineadmission.ActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-"+review.ClientTxnID, now.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("mark reviewed: %v", err)
 	}
@@ -903,22 +905,24 @@ func requireTimelineRecordOrder(t testing.TB, rows []map[string]any, wantRecordI
 
 type eventTimelineCommands struct {
 	facade      *timeline.Facade
-	projections *projectionadapters.WorkbookRows
+	projections *projections.QueryService
 }
 
 func newEventTimelineCommands(pool postgres.DB) *eventTimelineCommands {
+	bundle := timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline"))
 	return &eventTimelineCommands{
-		facade:      timelineassembly.NewFacade(pool),
-		projections: projectionadapters.NewWorkbookRows(pool),
+		facade:      bundle.Facade,
+		projections: bundle.ProjectionCatalog.Query,
 	}
 }
 
 func newEventTimelineCommandsWithProjectionFailure(pool postgres.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
-	dependencies := timelineassembly.Dependencies(pool)
-	dependencies.Projections = fakeports.Projection{Delegate: dependencies.Projections, FailApply: fail}
+	bundle := timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline-query"))
+	collaborators := timelineassembly.NewCollaborators(pool)
+	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
-		facade:      timeline.NewFacade(pool, dependencies),
-		projections: projectionadapters.NewWorkbookRows(pool),
+		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),
+		projections: bundle.ProjectionCatalog.Query,
 	}
 }
 
@@ -989,7 +993,7 @@ func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *eve
 	t.Helper()
 
 	before := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(db), incidentID.String(), recordID.String())
-	_, err := store.Supersede(context.Background(), actor, recordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), requestID, now)
+	_, err := store.Supersede(context.Background(), actor, recordID, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), requestID, now)
 	if !errors.Is(err, timeline.ErrIllegalTransition) {
 		t.Fatalf("expected supersede to fail with illegal transition, got %v", err)
 	}
@@ -1017,7 +1021,7 @@ func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *eve
 func decodeStorePatchRequest(t testing.TB, body string) timeline.PatchRequest {
 	t.Helper()
 
-	request, apiErr := timeline.DecodeTimelinePatchRequest(strings.NewReader(body))
+	request, apiErr := timelineadmission.DecodeTimelinePatchRequest(strings.NewReader(body))
 	if apiErr != nil {
 		t.Fatalf("decode patch request: %#v", apiErr)
 	}

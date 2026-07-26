@@ -67,11 +67,6 @@ UPDATE parties
 	return err
 }
 
-func (PartyProvider) TouchTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.TouchRequest) error {
-	_, err := tx.Exec(ctx, `UPDATE parties SET updated_at = $2 WHERE record_id = $1`, request.RecordID, request.Now.UTC())
-	return err
-}
-
 func partySourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0

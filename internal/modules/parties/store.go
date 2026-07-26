@@ -9,7 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -17,10 +18,10 @@ import (
 const ViewSchemaID = "cartulary.view.parties.v1"
 
 type Store struct {
-	pool          postgres.DB
-	recordStore   *records.Store
-	revisionStore revisionAppendPort
-	rowProjector  *projectionadapters.RowProjector
+	pool           postgres.DB
+	recordStore    *records.Store
+	revisionStore  revisionAppendPort
+	projectionRows *projections.PartyRows
 }
 
 type FieldValue struct {
@@ -46,10 +47,10 @@ func (e *ValidationError) Error() string {
 
 func NewStore(pool postgres.DB) *Store {
 	return &Store{
-		pool:          pool,
-		recordStore:   records.NewStore(),
-		revisionStore: newRevisionAppendAdapter(),
-		rowProjector:  projectionadapters.NewRowProjector(pool),
+		pool:           pool,
+		recordStore:    records.NewStore(),
+		revisionStore:  newRevisionAppendAdapter(),
+		projectionRows: projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
 	}
 }
 
@@ -153,11 +154,11 @@ func (s *Store) revisions() revisionAppendPort {
 	return s.revisionStore
 }
 
-func (s *Store) rowProjections() *projectionadapters.RowProjector {
-	if s != nil && s.rowProjector != nil {
-		return s.rowProjector
+func (s *Store) rowProjections() *projections.PartyRows {
+	if s != nil && s.projectionRows != nil {
+		return s.projectionRows
 	}
-	return projectionadapters.NewRowProjector(nil)
+	return projections.NewPartyRows(nil, partyprojection.QuerySurfaces()...)
 }
 
 func findUniqueReusablePartyByFieldTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, column string, normalizedValue string) (uuid.UUID, bool, error) {

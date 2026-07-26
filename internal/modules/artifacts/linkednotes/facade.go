@@ -16,9 +16,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -31,7 +32,7 @@ type Facade struct {
 	incidentAccess incidents.Access
 	artifactStore  *artifacts.Store
 	linkStore      linkedNoteLinkPort
-	rowProjector   *projectionadapters.RowProjector
+	projectionRows *projections.ArtifactRows
 	recordStore    *records.Store
 	revisionStore  revisionAppendPort
 }
@@ -105,7 +106,7 @@ func NewFacade(pool postgres.DB) *Facade {
 		incidentAccess: incidents.NewAccess(pool),
 		artifactStore:  artifacts.NewStore(),
 		linkStore:      links.NewStore(),
-		rowProjector:   projectionadapters.NewRowProjector(pool),
+		projectionRows: projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
 		recordStore:    records.NewStore(),
 		revisionStore:  newRevisionAppendAdapter(),
 	}
@@ -194,10 +195,10 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.NotesViewSchemaID, recordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return MutationResult{}, err
 	}
-	row, err := f.rowProjector.LoadRowTx(ctx, tx, artifacts.NotesViewSchemaID, recordID)
+	row, err := f.projectionRows.LoadTx(ctx, tx, artifacts.NotesViewSchemaID, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}

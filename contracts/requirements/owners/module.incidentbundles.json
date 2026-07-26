@@ -11,6 +11,11 @@
       "requirement_id": "module.incidentbundles.requirement.extensions_portability",
       "statement": "Incident Bundles applies the complete extension portability state and claim matrix, distinct export/import-preparation results, bounded scoped staging, and one final publication transaction.",
       "status": "active"
+    },
+    {
+      "requirement_id": "module.incidentbundles.requirement.timeline_portability_versions",
+      "statement": "Incident Bundles exports current Timeline source state only through the logical Bundle v2 owner codec, imports Bundle v1 only through a bounded time-limited compatibility decoder, and never treats Timeline physical table rows as the current portability contract.",
+      "status": "active"
     }
   ]
 }

@@ -1,4 +1,4 @@
-package timeline
+package timelineadmission
 
 import (
 	"reflect"
@@ -16,13 +16,6 @@ func requireClosedVocabularyRejected(t testing.TB, code string, details map[stri
 	}
 	if details["reason_code"] != wantReasonCode {
 		t.Fatalf("unexpected rejection reason_code: got %v want %q", details["reason_code"], wantReasonCode)
-	}
-}
-
-func requireWritableStringNormalization(t testing.TB, got string, want string) {
-	t.Helper()
-	if got != want {
-		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
 	}
 }
 

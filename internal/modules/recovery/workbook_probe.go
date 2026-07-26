@@ -8,18 +8,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
+type WorkbookProjectionQuery interface {
+	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
+}
+
 type RestoreVerificationWorkbookProbe struct {
 	Postgres postgres.DB
+	Query    WorkbookProjectionQuery
 }
 
 func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, _ RestoreResult) error {
 	if probe.Postgres == nil {
 		return fmt.Errorf("restore verification workbook probe requires postgres")
+	}
+	if probe.Query == nil {
+		return fmt.Errorf("restore verification workbook probe requires projection query")
 	}
 	var incidentID uuid.UUID
 	if err := probe.Postgres.QueryRow(ctx, `
@@ -33,11 +40,11 @@ LIMIT 1
 		}
 		return fmt.Errorf("restore verification workbook probe incident lookup: %w", err)
 	}
-	schema, ok := viewschema.Lookup(projectionadapters.TimelineViewSchemaID)
+	schema, ok := viewschema.Lookup(RestoreVerificationTimelineViewID)
 	if !ok {
 		return fmt.Errorf("restore verification workbook probe missing timeline view schema")
 	}
-	if _, err := projectionadapters.NewWorkbookRows(probe.Postgres).QueryRows(ctx, incidentID, projectionadapters.TimelineViewSchemaID, schema.DefaultQueryMeta()); err != nil {
+	if _, err := probe.Query.QueryRows(ctx, incidentID, RestoreVerificationTimelineViewID, schema.DefaultQueryMeta()); err != nil {
 		return fmt.Errorf("restore verification workbook probe timeline query: %w", err)
 	}
 	return nil

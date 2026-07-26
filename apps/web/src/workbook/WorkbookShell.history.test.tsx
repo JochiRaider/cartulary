@@ -22,6 +22,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -40,7 +41,6 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import { buildRecordRollbackTargetFromHistoryAction } from "./timeline/hooks/useTimelineHistoryActions";
 
 vi.mock(
@@ -165,7 +165,7 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -267,7 +267,7 @@ describe("workbook history support coverage", () => {
       )
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -350,7 +350,7 @@ describe("workbook history support coverage", () => {
       )
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -477,7 +477,7 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -563,7 +563,7 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -693,7 +693,9 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -782,7 +784,9 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
@@ -905,7 +909,9 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
     const input = (await findWorkbookCell(
       container,
@@ -1011,7 +1017,9 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    const { container } = render(
+      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+    );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
     const input = (await findWorkbookCell(
       container,
@@ -1098,7 +1106,7 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

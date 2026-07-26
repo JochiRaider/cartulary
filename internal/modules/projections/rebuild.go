@@ -16,12 +16,8 @@ type RestoreRebuilder struct {
 	store *Store
 }
 
-func NewRestoreRebuilder(pool postgres.DB, timelineSources ...TimelineSource) *RestoreRebuilder {
-	options := make([]StoreOption, 0, 1)
-	if len(timelineSources) > 0 && timelineSources[0] != nil {
-		options = append(options, WithTimelineSource(timelineSources[0]))
-	}
-	return NewRestoreRebuilderFromStore(NewStore(pool, options...))
+func NewRestoreRebuilder(pool postgres.DB, catalog *Catalog) *RestoreRebuilder {
+	return NewRestoreRebuilderFromStore(NewStore(pool, catalog))
 }
 
 func NewRestoreRebuilderFromStore(store *Store) *RestoreRebuilder {
@@ -195,9 +191,6 @@ func validateRestoreProjectionRebuildRequest(request restorecontract.ProjectionR
 func restoreProjectionProviderTableResults(ctx context.Context, tx pgx.Tx, tableFamilies []string) ([]restorecontract.ProjectionTableResult, error) {
 	results := make([]restorecontract.ProjectionTableResult, 0, len(tableFamilies))
 	for _, tableFamily := range tableFamilies {
-		if _, ok := projectionTableSchemaOwners[tableFamily]; !ok {
-			return nil, fmt.Errorf("unknown projection table family %q", tableFamily)
-		}
 		query := fmt.Sprintf("SELECT count(*) FROM %s", pgx.Identifier{tableFamily}.Sanitize())
 		var count int64
 		if err := tx.QueryRow(ctx, query).Scan(&count); err != nil {

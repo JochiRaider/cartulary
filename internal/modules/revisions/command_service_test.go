@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
 )
 
@@ -37,6 +36,14 @@ func (commandServiceTestProjection) RebuildIncidentTx(context.Context, pgx.Tx, u
 	return nil
 }
 
+func (commandServiceTestProjection) Supports(string) bool {
+	return false
+}
+
+func (commandServiceTestProjection) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
+	return nil, pgx.ErrNoRows
+}
+
 func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 	t.Parallel()
 	dependencies := validCommandServiceDependencies(t)
@@ -50,8 +57,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 	}{
 		{name: "database", mutate: func(value *CommandServiceDependencies) { value.Database = nil }},
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
-		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.ProjectionRebuilder = nil }},
-		{name: "collaboration", mutate: func(value *CommandServiceDependencies) { value.CollaborationIntents = nil }},
+		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
 		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
 	}
 	for _, test := range tests {
@@ -72,8 +78,7 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 	return CommandServiceDependencies{
 		Database:                    commandServiceTestDB{},
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
-		ProjectionRebuilder:         commandServiceTestProjection{},
-		CollaborationIntents:        collaboration.NewStore(commandServiceTestDB{}, nil),
+		Projections:                 commandServiceTestProjection{},
 		ProviderContributions:       validProviderContributions(),
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-var ErrJobFinalizationIndeterminate = errors.New("Reference Pack job finalization is indeterminate")
+var ErrJobFinalizationIndeterminate = errors.New("reference pack job finalization is indeterminate")
 
 type JobSuccessMutation func(context.Context, pgx.Tx) error
 

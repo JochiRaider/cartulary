@@ -1,4 +1,4 @@
-package projections
+package projectionassembly
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 )
 
 type projectionProviderManifest struct {
@@ -69,10 +71,13 @@ func TestProjectionProviderManifestMirrorsCodeBackedRegistry(t *testing.T) {
 func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest {
 	t.Helper()
 
-	providers := builtInProjectionProviders()
-	entries := make([]projectionProviderManifestEntry, 0, len(providers))
-	for _, provider := range providers {
-		descriptor := provider.descriptor
+	catalog, err := NewCatalog(nil)
+	if err != nil {
+		t.Fatalf("assemble projection catalog: %v", err)
+	}
+	descriptors := catalog.Descriptors()
+	entries := make([]projectionProviderManifestEntry, 0, len(descriptors))
+	for _, descriptor := range descriptors {
 		entries = append(entries, projectionProviderManifestEntry{
 			ProviderID:                   descriptor.ProviderKey,
 			SchemaVersion:                descriptor.SchemaVersion,
@@ -96,15 +101,16 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 		})
 	}
 
+	importPolicy := projections.ProductionImportPolicy()
 	return projectionProviderManifest{
 		SchemaID:        "cartulary.projection_provider_manifest.v4",
 		ManifestVersion: 4,
 		Authority:       "validation_only_code_backed_registry_authoritative",
-		SourceRegistry:  "internal/modules/projections/provider_registry.go",
+		SourceRegistry:  "internal/app/projectionassembly/catalog.go",
 		ImportPolicy: projectionProviderImportPolicy{
-			ApprovedRootImporters:    approvedProductionProjectionRootImporterPaths(),
-			ApprovedAdapterPackages:  approvedProductionProjectionAdapterPackages(),
-			ApprovedContractPackages: approvedProductionProjectionContractPackages(),
+			ApprovedRootImporters:    importPolicy.ApprovedRootImporters,
+			ApprovedAdapterPackages:  importPolicy.ApprovedAdapterPackages,
+			ApprovedContractPackages: importPolicy.ApprovedContractPackages,
 		},
 		Providers: entries,
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
@@ -146,4 +147,67 @@ func bytesWriter(data []byte) rootedfs.WriteFunc {
 		_, err := io.Copy(destination, bytes.NewReader(immutable))
 		return err
 	}
+}
+
+type sharedIncidentBundleStorage struct {
+	bytes sharedPublicationBytes
+}
+
+func newSharedIncidentBundleStorage(store objectstore.Store) incidentbundles.BundleStorage {
+	return &sharedIncidentBundleStorage{bytes: sharedPublicationBytes{store: store}}
+}
+
+func (storage *sharedIncidentBundleStorage) Stage(
+	ctx context.Context,
+	fileSHA string,
+	data []byte,
+) (incidentbundles.BundleStagingRef, error) {
+	namePrefix := fileSHA
+	if !incidentBundleSHA256Pattern.MatchString(namePrefix) {
+		namePrefix = uuid.NewString()
+	}
+	reference, err := incidentbundles.ParseBundleStagingRef(
+		"incident-bundles/imports/" + namePrefix + "-" + uuid.NewString() + ".bundle",
+	)
+	if err != nil {
+		return incidentbundles.BundleStagingRef{}, err
+	}
+	if err := storage.bytes.put(ctx, reference.String(), data, "application/octet-stream"); err != nil {
+		return incidentbundles.BundleStagingRef{}, err
+	}
+	return reference, nil
+}
+
+func (storage *sharedIncidentBundleStorage) Publish(
+	ctx context.Context,
+	bundleID string,
+	data []byte,
+) (incidentbundles.BundleStorageRef, error) {
+	parsedBundleID, err := uuid.Parse(bundleID)
+	if err != nil {
+		return incidentbundles.BundleStorageRef{}, errors.New("incident bundle export identifier is invalid")
+	}
+	reference, err := incidentbundles.ParseBundleStorageRef("incident-bundles/" + parsedBundleID.String() + ".zip")
+	if err != nil {
+		return incidentbundles.BundleStorageRef{}, err
+	}
+	if err := storage.bytes.put(ctx, reference.String(), data, "application/zip"); err != nil {
+		return incidentbundles.BundleStorageRef{}, err
+	}
+	return reference, nil
+}
+
+func (storage *sharedIncidentBundleStorage) ReadStaged(
+	reference incidentbundles.BundleStagingRef,
+	maxBytes int64,
+) ([]byte, error) {
+	return storage.bytes.read(reference.String(), maxBytes)
+}
+
+func (storage *sharedIncidentBundleStorage) RemoveStaged(reference incidentbundles.BundleStagingRef) error {
+	return storage.bytes.remove(reference.String())
+}
+
+func (storage *sharedIncidentBundleStorage) RemovePublished(reference incidentbundles.BundleStorageRef) error {
+	return storage.bytes.remove(reference.String())
 }

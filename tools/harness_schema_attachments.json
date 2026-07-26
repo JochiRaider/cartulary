@@ -268,6 +268,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.incident_bundle_compatibility.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_compatibility.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Incident Bundles compatibility owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.migration_history_manifest.v1",
       "path": "tools/schemas/cartulary.migration_history_manifest.v1.schema.json",
       "classification": "owner_input",

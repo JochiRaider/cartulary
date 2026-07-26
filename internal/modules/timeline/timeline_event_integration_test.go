@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,14 +17,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -446,14 +448,10 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
-		server, db := startServerWithFailingTimelineProjection(t, runtime, "timeline_mutation-i-3-01-rollback",
-			func(workbookprojection.ProjectionMutation) error {
-				return errors.New("forced timeline rollback")
-			},
-		)
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-01-rollback")
 		defer db.Close()
 
-		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
 			"client_txn_id": "txn-i-3-01-rollback-incident",
 			"incident_key":  "IR-I301R",
@@ -465,18 +463,25 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
-		createResp := doJSON(
-			t,
-			http.MethodPost,
-			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
-			map[string]any{
-				"client_txn_id":                   "txn-i-3-01-rollback-row",
-				"timeline.activity_synopsis_text": "Rollback row",
-			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-		)
-		httptestx.RequireErrorEnvelope(t, createResp, http.StatusInternalServerError, "internal_error")
+		facade := timelineFacadeWithProjectionFailure(t, server, func(workbookprojection.ProjectionMutation) error {
+			return errors.New("forced timeline rollback")
+		})
+		summary := "Rollback row"
+		request := timeline.CreateRequest{
+			ClientTxnID:          "txn-i-3-01-rollback-row",
+			ActivitySynopsisText: &summary,
+		}
+		_, err := facade.CreateRow(context.Background(), timeline.CreateRowCommand{
+			Actor:       loadTimelineTestUser(t, server, adminID),
+			IncidentID:  mustUUID(t, incidentID),
+			Request:     request,
+			RequestHash: timelineadmission.CreateRequestHash(request),
+			RequestID:   "req-i-3-01-rollback-row",
+			Now:         time.Now().UTC(),
+		})
+		if err == nil || !strings.Contains(err.Error(), "forced timeline rollback") {
+			t.Fatalf("expected forced projection rollback, got %v", err)
+		}
 
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 0 {
 			t.Fatalf("rollback must clear timeline_events, got %d", got)
@@ -950,6 +955,9 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 	)
+	if resolveResp.StatusCode != http.StatusOK {
+		t.Fatalf("resolve mention failed: status=%d body=%#v", resolveResp.StatusCode, httptestx.ReadJSONBody(t, resolveResp))
+	}
 	resolveData := httptestx.RequireSuccessEnvelope(t, resolveResp, http.StatusOK)["data"].(map[string]any)
 	if resolveData["source_record"].(map[string]any)["row_version"] != float64(2) {
 		t.Fatalf("expected mention resolution to advance source row_version, got %#v", resolveData)
@@ -1098,11 +1106,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 		t.Fatalf("query route must read projection rows, got %#v", emptyRows)
 	}
 
-	projectionStore := projectionadapters.NewRowProjector(
-		server.Runtime.Postgres,
-		timelineassembly.NewProjectionSource(server.Runtime.Postgres),
-	)
-	if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+	if err := server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	rebuiltEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
@@ -1582,17 +1586,10 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {
 		rollbackEnabled := false
-		server, db := startServerWithFailingTimelineProjection(t, runtime, "timeline_mutation-i-3-03-rollback",
-			func(workbookprojection.ProjectionMutation) error {
-				if rollbackEnabled {
-					return errors.New("forced supersede rollback")
-				}
-				return nil
-			},
-		)
+		server, db := startServer(t, runtime, "timeline_mutation-i-3-03-rollback")
 		defer db.Close()
 
-		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
 			"client_txn_id": "txn-i-3-03-rollback-incident",
 			"incident_key":  "IR-I303R",
@@ -1618,20 +1615,30 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		rollbackEnabled = true
-		supersede := doJSON(
-			t,
-			http.MethodPost,
-			server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
-			map[string]any{
-				"base_row_version":      1,
-				"client_txn_id":         "txn-i-3-03-rollback-supersede",
-				"reason":                "rollback me",
-				"replacement_record_id": replacementID,
-			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-		)
-		httptestx.RequireErrorEnvelope(t, supersede, http.StatusInternalServerError, "internal_error")
+		facade := timelineFacadeWithProjectionFailure(t, server, func(workbookprojection.ProjectionMutation) error {
+			if rollbackEnabled {
+				return errors.New("forced supersede rollback")
+			}
+			return nil
+		})
+		replacementRecordID := mustUUID(t, replacementID)
+		request := timeline.SupersedeRequest{
+			BaseRowVersion:      1,
+			ClientTxnID:         "txn-i-3-03-rollback-supersede",
+			Reason:              "rollback me",
+			ReplacementRecordID: &replacementRecordID,
+		}
+		_, err := facade.SupersedeRow(context.Background(), timeline.SupersedeCommand{
+			Actor:       loadTimelineTestUser(t, server, adminID),
+			RecordID:    mustUUID(t, recordID),
+			Request:     request,
+			RequestHash: timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID),
+			RequestID:   "req-i-3-03-rollback-supersede",
+			Now:         time.Now().UTC(),
+		})
+		if err == nil || !strings.Contains(err.Error(), "forced supersede rollback") {
+			t.Fatalf("expected forced supersede rollback, got %v", err)
+		}
 
 		after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		if before != after {
@@ -1920,10 +1927,6 @@ func toLogin(login loginResult) flowtest.LoginResult {
 	}
 }
 
-type recordChangeSocketPayload = scenariotest.RecordChangeSocketPayload
-
-type timelineSocketClient = scenariotest.TimelineSocketClient
-
 func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
@@ -1931,11 +1934,29 @@ func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix stri
 	return harness.Server, harness.DB
 }
 
-func startServerWithFailingTimelineProjection(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, fail func(workbookprojection.ProjectionMutation) error) (*httptestx.Server, *sql.DB) {
+func timelineFacadeWithProjectionFailure(t testing.TB, server *httptestx.Server, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
 	t.Helper()
 
-	harness := runtime.StartServerWithTimelineDependencies(t, prefix, fakeports.WithFailingProjection(timelineassembly.Dependencies, fail))
-	return harness.Server, harness.DB
+	collaborators := timelineassembly.NewCollaborators(server.Runtime.Postgres)
+	collaborators.Commit.Projection = fakeports.Projection{
+		Delegate:  collaborators.Commit.Projection,
+		FailApply: fail,
+	}
+	return timeline.NewFacade(
+		server.Runtime.Postgres,
+		collaborators,
+		conflicttest.NewCodec("timeline"),
+	)
+}
+
+func loadTimelineTestUser(t testing.TB, server *httptestx.Server, userID string) authn.UserRecord {
+	t.Helper()
+
+	user, err := authn.NewStore(server.Runtime.Postgres).GetUserByID(context.Background(), mustUUID(t, userID))
+	if err != nil {
+		t.Fatalf("load Timeline test user: %v", err)
+	}
+	return user
 }
 
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, string) {
@@ -1984,19 +2005,19 @@ func loginLocalUser(t testing.TB, server *httptestx.Server, username string, pas
 	return flowtest.LoginLocalUser(t, server.HTTP.URL, username, password, nil)
 }
 
-func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *timelineSocketClient {
+func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *scenariotest.TimelineSocketClient {
 	t.Helper()
 
 	return scenariotest.ConnectTimelineSocket(t, server, incidentID, sessionToken)
 }
 
-func requireTimelineSocketChange(t testing.TB, client *timelineSocketClient, wantRecordID string, wantRowVersion int64) recordChangeSocketPayload {
+func requireTimelineSocketChange(t testing.TB, client *scenariotest.TimelineSocketClient, wantRecordID string, wantRowVersion int64) scenariotest.RecordChangeSocketPayload {
 	t.Helper()
 
 	return scenariotest.RequireTimelineSocketChange(t, client, wantRecordID, wantRowVersion)
 }
 
-func expectNoTimelineSocketMessage(t testing.TB, client *timelineSocketClient) {
+func expectNoTimelineSocketMessage(t testing.TB, client *scenariotest.TimelineSocketClient) {
 	t.Helper()
 
 	scenariotest.ExpectNoTimelineSocketMessage(t, client)
@@ -2008,7 +2029,7 @@ func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recor
 	scenariotest.RequireMutationRecorded(t, db, changeSetID, recordID, wantActorUserID, wantSource, wantClientTxnID, wantMutationRows, wantRevisions)
 }
 
-func requireNoTimelineCollaborationEmission(t testing.TB, client *timelineSocketClient, changes <-chan platformws.Message) {
+func requireNoTimelineCollaborationEmission(t testing.TB, client *scenariotest.TimelineSocketClient, changes <-chan platformws.Message) {
 	t.Helper()
 
 	scenariotest.RequireNoTimelineCollaborationEmission(t, client, changes)

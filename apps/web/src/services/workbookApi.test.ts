@@ -18,7 +18,6 @@ describe("workbookApi", () => {
   });
 
   afterEach(() => {
-    window.__cartularyWorkbookTimingProbe = undefined;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -40,8 +39,7 @@ describe("workbookApi", () => {
     expect(request.headers.get(csrfHeaderName)).toBe("test-csrf");
   });
 
-  it("adds the timing debug header only for timeline row POSTs when the probe is installed", async () => {
-    window.__cartularyWorkbookTimingProbe = { events: [] };
+  it("does not expose a private timing request protocol", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
 
     await fetchWorkbookJSON(
@@ -51,7 +49,7 @@ describe("workbookApi", () => {
 
     expect(
       capturedRequest(fetchMock).headers.get("X-Cartulary-Timing-Debug"),
-    ).toBe("1");
+    ).toBeNull();
   });
 
   it("keeps latest-query requests exclusive and aborts superseded controllers", () => {

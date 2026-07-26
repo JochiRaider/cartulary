@@ -17,10 +17,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
@@ -37,7 +38,7 @@ type WorkbookFacade struct {
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
 	linkStore        artifactLinkPort
-	rowProjector     *projectionadapters.RowProjector
+	projectionRows   *projections.ArtifactRows
 	revisionHistory  historyquery.Reader
 	revisionAppender revisions.Appender
 	store            *Store
@@ -140,23 +141,19 @@ func (e *SameFieldConflictError) Error() string {
 	return "artifacts: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB) *WorkbookFacade {
+func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *WorkbookFacade {
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		recordStore:      records.NewStore(),
 		linkStore:        links.NewStore(),
-		rowProjector:     projectionadapters.NewRowProjector(pool),
+		projectionRows:   projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
 		revisionHistory:  historyquery.NewReader(),
 		revisionAppender: revisions.NewAppender(),
 		store:            NewStore(),
-		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("artifacts-workbook"),
+		conflictTokens:   conflictTokens,
 	}
-}
-
-func (f *WorkbookFacade) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
-	f.conflictTokens = codec
 }
 
 func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
@@ -218,10 +215,10 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.applyCollectionsTx(ctx, tx, command.IncidentID, recordID, command.Actor.ID, request.Collections, now); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, recordID)
+	row, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -334,7 +331,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingArtifactPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+			current, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -359,7 +356,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -380,10 +377,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.store.TouchRowTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.rowProjector.RefreshRowTx(ctx, tx, request.ViewSchemaID, command.RecordID); err != nil {
+	if err := f.projectionRows.RefreshTx(ctx, tx, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.rowProjector.LoadRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	afterRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}

@@ -221,11 +221,12 @@ func run() error {
 		return fmt.Errorf("open target object store: %w", err)
 	}
 
+	projectionRebuilder, projectionQuery := timelineassembly.NewRecoveryProjectionServices(targetPool)
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: timelineassembly.NewRestoreRebuilder(targetPool),
+		Projections: projectionRebuilder,
 	}, now.Add(time.Second))
 	if err != nil {
 		targetPool.Close()
@@ -237,7 +238,7 @@ func run() error {
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("restored backup_set_id %s, want %s", result.BackupSet.BackupSetID, backupSet.BackupSetID)
 	}
-	if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool}).ProbeRestoredBackup(ctx, result); err != nil {
+	if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool, Query: projectionQuery}).ProbeRestoredBackup(ctx, result); err != nil {
 		targetPool.Close()
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("probe restored workbook query: %w", err)

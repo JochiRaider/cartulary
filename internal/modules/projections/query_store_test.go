@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
@@ -17,14 +18,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 )
 
 func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "projection-query-load-row-parity")
-	workbookStore := workbook.NewStore(harness.DB)
+	projectionCatalog := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).ProjectionCatalog
+	workbookStore := workbook.NewStore(harness.DB, conflicttest.NewCodec("workbook"), projectionCatalog.Query)
 	assessmentStore := assessments.NewStore(harness.DB)
-	projectionStore := projections.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
@@ -100,12 +102,12 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	}
 	for _, target := range targets {
 		t.Run(target.viewSchemaID, func(t *testing.T) {
-			queryRows, err := projectionStore.QueryRows(ctx, incident.ID, target.viewSchemaID, defaultProjectionQuery(t, target.viewSchemaID))
+			queryRows, err := projectionCatalog.Query.QueryRows(ctx, incident.ID, target.viewSchemaID, defaultProjectionQuery(t, target.viewSchemaID))
 			if err != nil {
 				t.Fatalf("query projection rows: %v", err)
 			}
 			queried := requireProjectionRow(t, queryRows, target.recordID)
-			loaded := loadProjectionRowTx(t, ctx, harness.DB, projectionStore, target.viewSchemaID, target.recordID)
+			loaded := loadProjectionRowTx(t, ctx, harness.DB, projectionCatalog.Coordinator, target.viewSchemaID, target.recordID)
 			if !reflect.DeepEqual(queried, loaded) {
 				t.Fatalf("QueryRows and LoadRowTx diverged for %s\nquery: %s\nload:  %s", target.viewSchemaID, prettyRow(queried), prettyRow(loaded))
 			}
@@ -164,7 +166,7 @@ func requireProjectionRow(t testing.TB, rows []map[string]any, recordID uuid.UUI
 	return nil
 }
 
-func loadProjectionRowTx(t testing.TB, ctx context.Context, db postgres.DB, store *projections.Store, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func loadProjectionRowTx(t testing.TB, ctx context.Context, db postgres.DB, store *projections.Coordinator, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})

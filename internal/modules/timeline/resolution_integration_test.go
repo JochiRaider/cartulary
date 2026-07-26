@@ -11,16 +11,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
@@ -481,14 +479,7 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		harness := workbookscenariotest.StartServerWithTimelineDependencies(t, "entity_linking-u-4-08-rollback",
-			fakeports.WithFailingProjection(timelineassembly.Dependencies, func(mutation workbookprojection.ProjectionMutation) error {
-				if rollbackEnabled && mutation.RecordID == rollbackRecordID {
-					return errors.New("forced auto-match rollback")
-				}
-				return nil
-			}),
-		)
+		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-rollback")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
@@ -513,22 +504,40 @@ SELECT COUNT(*)
 		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
-		resp := doJSON(
-			t,
-			http.MethodPatch,
-			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
-			fixtures.TimelineCollectionPatchPayload(
-				golden.RecordFieldTimelineHostRefs,
-				1,
-				"txn-entity_linking-u-4-08-rollback-patch",
-				fixtures.CollectionActions(
-					fixtures.AddTokenAction(" vpn   gateway "),
-				),
-			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-		)
-		httptestx.RequireErrorEnvelope(t, resp, http.StatusInternalServerError, "internal_error")
+		facade := timelineFacadeWithProjectionFailure(t, harness.Server, func(mutation workbookprojection.ProjectionMutation) error {
+			if rollbackEnabled && mutation.RecordID == rollbackRecordID {
+				return errors.New("forced auto-match rollback")
+			}
+			return nil
+		})
+		normalized, ok := fieldnorm.NormalizeMentionToken(" vpn   gateway ")
+		if !ok {
+			t.Fatal("normalize rollback mention token")
+		}
+		request := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: 1,
+			ClientTxnID:    "txn-entity_linking-u-4-08-rollback-patch",
+			CanonicalChange: []timeline.PatchChange{{
+				FieldKey: golden.RecordFieldTimelineHostRefs,
+				ActionPayload: &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{{
+					Op:             "add_token",
+					RawText:        " vpn   gateway ",
+					NormalizedText: normalized,
+				}}},
+			}},
+		}
+		_, err := facade.PatchRow(context.Background(), timeline.PatchRowCommand{
+			Actor:       loadTimelineTestUser(t, harness.Server, adminID),
+			RecordID:    rollbackRecordID,
+			Request:     request,
+			RequestHash: timelineadmission.PatchRequestHash(request),
+			RequestID:   "req-entity_linking-u-4-08-rollback-patch",
+			Now:         time.Now().UTC(),
+		})
+		if err == nil || !strings.Contains(err.Error(), "forced auto-match rollback") {
+			t.Fatalf("expected forced projection rollback, got %v", err)
+		}
 
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if afterCounters != beforeCounters {
@@ -598,11 +607,7 @@ SELECT COUNT(*)
 		workbookscenariotest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		projectionStore := projectionadapters.NewRowProjector(
-			harness.Server.Runtime.Postgres,
-			timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
-		)
-		if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 			t.Fatalf("rebuild incident timeline: %v", err)
 		}
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)

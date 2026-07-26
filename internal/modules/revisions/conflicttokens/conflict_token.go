@@ -34,10 +34,6 @@ func NewConflictTokenCodec(keys authn.MasterKeys) ConflictTokenCodec {
 	return ConflictTokenCodec{key: authn.DerivePurposeKey(keys, "record-conflict-token-v2")}
 }
 
-func NewConflictTokenCodecForTesting(scope string) ConflictTokenCodec {
-	return ConflictTokenCodec{key: sha256.Sum256([]byte("cartulary-test-conflict-token-v2:" + scope))}
-}
-
 func RequestHashTokenValue(requestHash []byte) string {
 	return base64.RawURLEncoding.EncodeToString(requestHash)
 }

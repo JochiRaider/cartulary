@@ -1,5 +1,12 @@
 # timeline Module Refactoring Tracker and Handoff
 
+> **Historical handoff:** This tracker records the remediation completed at
+> commit `44c2ca0e`. It is not current architecture or executable authority.
+> Current implementation work is tracked in
+> `docs/handoffs/timeline-production-readiness-refactor-tracker.md`; executable
+> requirements, schemas, manifests, catalogs, and harness inputs under
+> `contracts/` and `tools/` remain authoritative.
+
 ## 1. Scope and Source Posture
 
 - **Target path:** `internal/modules/timeline`
@@ -64,7 +71,7 @@ recorded as `BLOCKED: owner contradiction` without choosing a side.
 - `docs/domain.md`
 - `docs/handoffs/cartulary_modular_refactor_planning_framework.md`
 - `docs/archive/Timeline-Module-Refactoring-Tracker-2.md`
-- `temp/analysis-notes.md`
+- an ephemeral `temp/analysis-notes.md` planning input that is no longer retained
 
 ### Repository files inspected
 
@@ -86,11 +93,10 @@ identified by live imports or contract identifiers.
   command façade and private store, but predates current subpackages such as
   `rowsnapshot`, `mentioneffects`, and `workbookprojection`. Its completion state
   is not current evidence and is not copied into this tracker.
-- `temp/analysis-notes.md` supplies the closure guidance adopted in the
-  `2026-07-25T23:18:54-04:00` session. It resolves planning intent but does not
-  replace Core or machine-owner authority. Its external research is informative
-  and was evaluated only through July 25, 2026; no source first published on July
-  26, 2026 is claimed as verified.
+- An ephemeral analysis note supplied closure guidance for the
+  `2026-07-25T23:18:54-04:00` session but was not retained as repository
+  guidance. The dated decision log below preserves the relevant forensic fact;
+  executable owner authority remains the only current behavioral source.
 
 ### Closure posture
 

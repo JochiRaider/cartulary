@@ -181,18 +181,18 @@ func registerNetworkFlowRoutes(mux *http.ServeMux, service *Service) error {
 	}
 	routes := networkflowroutes.All()
 	if len(routes) != len(handlers) {
-		return fmt.Errorf("Network Flow route parity failed: contract=%d handlers=%d", len(routes), len(handlers))
+		return fmt.Errorf("network flow route parity failed: contract=%d handlers=%d", len(routes), len(handlers))
 	}
 	for _, route := range routes {
 		handler, ok := handlers[route.RouteID]
 		if !ok {
-			return fmt.Errorf("Network Flow route %q has no handler", route.RouteID)
+			return fmt.Errorf("network flow route %q has no handler", route.RouteID)
 		}
 		mux.HandleFunc(route.Pattern, handler)
 		delete(handlers, route.RouteID)
 	}
 	if len(handlers) != 0 {
-		return fmt.Errorf("Network Flow has handlers outside its route contract")
+		return fmt.Errorf("network flow has handlers outside its route contract")
 	}
 	return nil
 }

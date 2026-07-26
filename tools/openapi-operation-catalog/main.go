@@ -279,13 +279,13 @@ func loadNetworkFlowRoutes(root string) ([]operation, error) {
 	for _, route := range contract.Routes {
 		pattern := route.Method + " " + route.Path
 		if route.RouteID == "" || route.Method == "" || route.Path == "" || len(route.SuccessHTTPStatuses) == 0 {
-			return nil, errors.New("Network Flow route metadata is incomplete")
+			return nil, errors.New("network flow route metadata is incomplete")
 		}
 		if _, duplicate := seenIDs[route.RouteID]; duplicate {
-			return nil, fmt.Errorf("duplicate Network Flow route ID %q", route.RouteID)
+			return nil, fmt.Errorf("duplicate network flow route ID %q", route.RouteID)
 		}
 		if _, duplicate := seenPatterns[pattern]; duplicate {
-			return nil, fmt.Errorf("duplicate Network Flow route pattern %q", pattern)
+			return nil, fmt.Errorf("duplicate network flow route pattern %q", pattern)
 		}
 		seenIDs[route.RouteID] = struct{}{}
 		seenPatterns[pattern] = struct{}{}

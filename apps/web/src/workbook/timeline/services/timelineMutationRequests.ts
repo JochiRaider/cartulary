@@ -154,7 +154,6 @@ export async function dispatchTimelinePendingReplayMutation({
           clientTxnId: unit.clientTxnId,
           kind: unit.kind,
           rowKey: unit.rowKey,
-          serverTiming: response.headers.get("server-timing") ?? "",
           status: response.status,
         });
       },

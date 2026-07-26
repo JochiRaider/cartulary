@@ -1,4 +1,4 @@
-package projections
+package projectionassembly
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 )
 
 type providerSQLSource struct {
@@ -41,16 +43,24 @@ var providerSQLReferencePattern = regexp.MustCompile(`(?i)\b(FROM|JOIN|UPDATE|IN
 func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	ownerPatterns := loadSchemaOwnerPatterns(t, root)
-	descriptors := map[string]ProviderDescriptor{}
-	for _, provider := range builtInProjectionProviders() {
-		descriptors[provider.descriptor.ProviderKey] = provider.descriptor
+	catalog, err := NewCatalog(nil)
+	if err != nil {
+		t.Fatalf("assemble projection catalog: %v", err)
+	}
+	descriptors := map[string]projections.ProviderDescriptor{}
+	for _, descriptor := range catalog.Descriptors() {
+		descriptors[descriptor.ProviderKey] = descriptor
 	}
 
 	sources := []providerSQLSource{
-		{path: "db/queries/timeline.sql", section: "ListTimelineProjectionSourceRows", provider: "timeline"},
+		{path: "internal/modules/timeline/sourcerepository/repository.go", provider: "timeline"},
+		{path: "internal/modules/entities/timelinefacts/reader.go", provider: "timeline"},
+		{path: "internal/modules/links/timeline_facts.go", provider: "timeline"},
+		{path: "internal/modules/evidence/timeline_facts.go", provider: "timeline"},
 		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "host"},
 		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "identity"},
 		{path: "internal/modules/indicators/projectionprovider/provider.go", provider: "indicator"},
+		{path: "internal/modules/indicators/projectionprovider/query_surfaces.go", provider: "indicator"},
 		{path: "internal/modules/assessments/projectionprovider/provider.go", provider: "assessment"},
 		{path: "internal/modules/assessments/projectionprovider/query_surfaces.go", provider: "assessment"},
 		{path: "internal/modules/artifacts/projectionprovider/provider.go", provider: "artifact"},
@@ -100,7 +110,7 @@ func TestValidateProjectionProviderSQLReference(t *testing.T) {
 		{owner: "revisions", pattern: regexp.MustCompile(`^records$`)},
 		{owner: "projections", pattern: regexp.MustCompile(`^host_grid_projection$`)},
 	}
-	descriptor := ProviderDescriptor{
+	descriptor := projections.ProviderDescriptor{
 		ProviderKey:            "host",
 		SourceAuthorityModules: []string{"entities"},
 	}
@@ -193,7 +203,7 @@ func providerSQLReferences(body string) []providerSQLReference {
 	return refs
 }
 
-func validateProviderSQLReference(descriptor ProviderDescriptor, ref providerSQLReference, patterns []schemaOwnerPattern) error {
+func validateProviderSQLReference(descriptor projections.ProviderDescriptor, ref providerSQLReference, patterns []schemaOwnerPattern) error {
 	owners := map[string]struct{}{}
 	for _, pattern := range patterns {
 		if pattern.pattern.MatchString(ref.table) {

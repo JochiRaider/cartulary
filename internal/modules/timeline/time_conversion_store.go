@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -138,7 +139,7 @@ SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version,
 	return profile, nil
 }
 
-func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionProfile) {
+func applyTimelineTimeConversion(record *sourcerepository.Snapshot, profile TimeConversionProfile) {
 	if !profile.Enabled || profile.LocalOffsetMinutes == nil {
 		record.ActivityTimePairState = "disabled"
 		return

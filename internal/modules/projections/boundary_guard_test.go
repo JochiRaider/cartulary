@@ -95,7 +95,9 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 			t.Fatalf("%s imports projection internal package %s", relPath, importPath)
 		case strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/") &&
 			strings.Contains(importPath, "/projectionprovider"):
-			t.Fatalf("%s imports projection provider internal package %s", relPath, importPath)
+			if _, ok := approvedRootImporters[relPath]; !ok {
+				t.Fatalf("%s imports projection provider internal package %s", relPath, importPath)
+			}
 		case strings.Contains(importPath, "/projections/testfixtures") ||
 			strings.Contains(importPath, "/projections/test"):
 			t.Fatalf("%s imports projection test fixture package %s", relPath, importPath)

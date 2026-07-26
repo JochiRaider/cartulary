@@ -11,9 +11,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
@@ -129,7 +131,7 @@ func TestBindingMode_Unit(t *testing.T) {
 			NormalizedText: importIdentityNormalizedToken,
 		}}},
 	}
-	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, TimelineCreateRequestHash(importRequest), "req-entity_linking-u-4-01-import-row", time.Now().UTC())
+	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, timelineadmission.CreateRequestHash(importRequest), "req-entity_linking-u-4-01-import-row", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("import create row: %v", err)
 	}
@@ -249,7 +251,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 			LinkedRecordID: &evidenceID,
 		}}},
 	}
-	created, err := store.CreateRow(context.Background(), actor, incident.ID, create, TimelineCreateRequestHash(create), "req-evidence_lifecycle-attached-create", time.Now().UTC())
+	created, err := store.CreateRow(context.Background(), actor, incident.ID, create, timelineadmission.CreateRequestHash(create), "req-evidence_lifecycle-attached-create", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create screenshot-only timeline row: %v", err)
 	}
@@ -268,7 +270,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 		ClientTxnID:          "txn-evidence_lifecycle-attached-existing",
 		ActivitySynopsisText: stringPtr("Existing row"),
 	}
-	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, TimelineCreateRequestHash(row), "req-evidence_lifecycle-attached-existing", time.Now().UTC())
+	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, timelineadmission.CreateRequestHash(row), "req-evidence_lifecycle-attached-existing", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("create existing row: %v", err)
 	}
@@ -285,7 +287,7 @@ func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 			}}},
 		}},
 	}
-	patched, err := store.PatchRow(context.Background(), actor, existing.RecordID, patch, TimelinePatchRequestHash(patch), "req-evidence_lifecycle-attached-patch", time.Now().UTC())
+	patched, err := store.PatchRow(context.Background(), actor, existing.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-evidence_lifecycle-attached-patch", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("patch existing row with attached evidence: %v", err)
 	}
@@ -303,7 +305,7 @@ type resolutionTimelineCommands struct {
 }
 
 func newResolutionTimelineCommands(pool postgres.DB) *resolutionTimelineCommands {
-	return &resolutionTimelineCommands{facade: timelineassembly.NewFacade(pool)}
+	return &resolutionTimelineCommands{facade: timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline")).Facade}
 }
 
 func (c *resolutionTimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

@@ -2347,10 +2347,10 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           }),
         ),
       ).toHaveValue("Conflict visual local");
+      await stabilizeConflictResolverVisual(page);
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
-      await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
         "collaboration-conflict-resolver",
@@ -3112,10 +3112,10 @@ test.describe("workbook visual evidence", () => {
         remoteValue: "Conflict visual server",
         txnPrefix: "visual-collaboration-conflict",
       });
+      await stabilizeConflictResolverVisual(page);
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
-      await stabilizeConflictResolverVisual(page);
 
       await assertViewportVisualRegression(
         page,
@@ -3203,10 +3203,10 @@ test.describe("workbook visual evidence", () => {
         txnPrefix: "visual-collaboration-pending-conflict",
       });
       await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
+      await stabilizeConflictResolverVisual(page);
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
-      await stabilizeConflictResolverVisual(page);
       await assertViewportVisualRegression(
         page,
         "collaboration-grid-blocked-conflict",

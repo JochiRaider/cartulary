@@ -8,7 +8,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 // Projection decorates Timeline's projection port for transaction-boundary
@@ -18,17 +17,6 @@ import (
 type Projection struct {
 	Delegate  timeline.ProjectionPort
 	FailApply func(workbookprojection.ProjectionMutation) error
-}
-
-func WithFailingProjection(base func(postgres.DB) timeline.Dependencies, fail func(workbookprojection.ProjectionMutation) error) func(postgres.DB) timeline.Dependencies {
-	return func(pool postgres.DB) timeline.Dependencies {
-		dependencies := base(pool)
-		dependencies.Projections = Projection{
-			Delegate:  dependencies.Projections,
-			FailApply: fail,
-		}
-		return dependencies
-	}
 }
 
 func (p Projection) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation workbookprojection.ProjectionMutation) error {
@@ -43,16 +31,16 @@ func (p Projection) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, muta
 	return nil
 }
 
-func (p Projection) RebuildIncidentHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+func (p Projection) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	if p.Delegate == nil {
 		return nil
 	}
-	return p.Delegate.RebuildIncidentHostsTx(ctx, tx, incidentID)
+	return p.Delegate.RefreshHostTx(ctx, tx, recordID)
 }
 
-func (p Projection) RebuildIncidentIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+func (p Projection) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	if p.Delegate == nil {
 		return nil
 	}
-	return p.Delegate.RebuildIncidentIdentitiesTx(ctx, tx, incidentID)
+	return p.Delegate.RefreshIdentityTx(ctx, tx, recordID)
 }

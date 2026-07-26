@@ -11,7 +11,8 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "module.incidentbundles.requirement.behavior_contract"
+        "module.incidentbundles.requirement.behavior_contract",
+        "module.incidentbundles.requirement.timeline_portability_versions"
       ]
     },
     {

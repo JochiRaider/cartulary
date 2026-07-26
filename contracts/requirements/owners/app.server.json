@@ -6,6 +6,11 @@
       "requirement_id": "app.server.requirement.behavior_contract",
       "statement": "server application composition and process lifecycle postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "status": "active"
+    },
+    {
+      "requirement_id": "app.server.requirement.deployment_process_models",
+      "statement": "The application process model is exactly single or replicated: omission selects single with the current whole-process lease, while replicated is admitted only with shared durable bindings, identical publication-plan identity, process-local ephemeral work, and component-scoped fenced workers.",
+      "status": "active"
     }
   ]
 }
