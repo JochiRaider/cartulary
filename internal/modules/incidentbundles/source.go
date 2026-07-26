@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -257,6 +258,9 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared *PreparedImport, params ImportParams) (uuid.UUID, error) {
 	if tx == nil || prepared == nil || prepared.IncidentID == uuid.Nil {
 		return uuid.UUID{}, errors.New("prepared incident bundle import is required")
+	}
+	if err := collaboration.SuppressHistoricalIntentsTx(ctx, tx); err != nil {
+		return uuid.UUID{}, err
 	}
 	incidentID := prepared.IncidentID
 	var existing int

@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -71,33 +72,36 @@ var (
 )
 
 type Options struct {
-	Env         map[string]string
-	HTTP        httpapi.Options
-	Postgres    *pgxpool.Pool
-	ObjectStore objectstore.Store
-	Now         func() time.Time
+	Env                  map[string]string
+	HTTP                 httpapi.Options
+	Postgres             *pgxpool.Pool
+	ObjectStore          objectstore.Store
+	Now                  func() time.Time
+	TimelineDependencies func(postgres.DB) timeline.Dependencies
 }
 
 type Runtime struct {
-	Settings               RuntimeSettings
-	Handler                http.Handler
-	Extensions             *extensions.Coordinator
-	ExtensionState         *extensions.StateRuntime
-	ExtensionJobFinalizer  *extensionstore.OwnerFinalizer
-	StagedObjects          *stagedobjects.Service
-	StagedJanitor          *stagedobjects.Janitor
-	StagedHealth           *stagedobjects.Health
-	CrossOwnerTransactions *crossownertransaction.Coordinator
-	Postgres               *pgxpool.Pool
-	ObjectStore            objectstore.Store
-	Jobs                   *jobs.Manager
-	JobRunner              *jobs.Runner
-	WSHub                  *platformws.Hub
-	Telemetry              *telemetry.Runtime
-	ProcessLease           *processlease.Lease
-	Lifecycle              *processlifecycle.Controller
-	Publication            *PublicationController
-	PublicHTTP             httpapi.RouteDiagnostics
+	Settings                RuntimeSettings
+	Handler                 http.Handler
+	Extensions              *extensions.Coordinator
+	ExtensionState          *extensions.StateRuntime
+	ExtensionJobFinalizer   *extensionstore.OwnerFinalizer
+	StagedObjects           *stagedobjects.Service
+	StagedJanitor           *stagedobjects.Janitor
+	StagedHealth            *stagedobjects.Health
+	CrossOwnerTransactions  *crossownertransaction.Coordinator
+	Postgres                *pgxpool.Pool
+	ObjectStore             objectstore.Store
+	Jobs                    *jobs.Manager
+	JobRunner               *jobs.Runner
+	WSHub                   *platformws.Hub
+	CollaborationStore      *collaboration.Store
+	CollaborationDispatcher *collaboration.Dispatcher
+	Telemetry               *telemetry.Runtime
+	ProcessLease            *processlease.Lease
+	Lifecycle               *processlifecycle.Controller
+	Publication             *PublicationController
+	PublicHTTP              httpapi.RouteDiagnostics
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
@@ -575,8 +579,15 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	})
 	hub := newWSHub()
 	runtime.WSHub = hub
+	runtime.CollaborationStore = collaboration.NewStore(postgresHandle, now)
+	runtime.CollaborationDispatcher = collaboration.NewDispatcher(runtime.CollaborationStore, hub, now)
+	dispatcher := runtime.CollaborationDispatcher
+	runtime.own(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = dispatcher.Close(closeCtx)
+	})
 	runtime.Jobs.Configure(runtime.Postgres, now)
-	runtime.Jobs.ConfigureProgressHub(hub)
 	extensionJobContracts, err := extensionassembly.JobContracts(publicationCatalog)
 	if err != nil {
 		runtime.Close()
@@ -633,13 +644,22 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	incidentBundleImportFinalizer := incidents.NewStoreWithOptions(postgresHandle, incidents.StoreOptions{
 		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 	})
-	revisionCommands, err := revisionassembly.NewCommandService(postgresHandle, attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID))
+	revisionCommands, err := revisionassembly.NewCommandService(
+		postgresHandle,
+		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
+		timelineassembly.NewRowProjector(postgresHandle),
+	)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
 	importStore := imports.NewStore(runtime.Postgres)
+	timelineDependencies := options.TimelineDependencies
+	if timelineDependencies == nil {
+		timelineDependencies = timelineassembly.Dependencies
+	}
+	timelineFacade := timeline.NewFacade(postgresHandle, timelineDependencies(postgresHandle))
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:      postgresHandle,
 		ImportSources: importStore,
@@ -658,7 +678,10 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.Postgres,
 		runtime.ObjectStore,
 		incidentBundleImportFinalizer,
-		projectionadapters.NewIncidentImportRebuilder(runtime.Postgres),
+		projectionadapters.NewIncidentImportRebuilder(
+			runtime.Postgres,
+			timelineassembly.NewProjectionSource(runtime.Postgres),
+		),
 		now,
 	)
 	if err != nil {
@@ -721,6 +744,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importRoutes := imports.RegisterRoutes(
 		imports.WithLimits(importOwnerLimits, importArchiveLimits),
+		imports.WithTimelineOwner(timelineFacade),
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),
@@ -775,15 +799,24 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
 		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg))},
-		{id: "entities", registrar: entities.RegisterRoutes()},
-		{id: "evidence", registrar: evidence.RegisterRoutes(evidenceSettings(normalizedCfg))},
+		{id: "entities", registrar: entities.RegisterRoutes(entities.RouteOptions{
+			MergeStore:   timelineassembly.NewEntityMergeStore(postgresHandle),
+			MentionStore: timelineassembly.NewEntityMentionStore(postgresHandle),
+		})},
+		{id: "evidence", registrar: evidence.RegisterRoutes(
+			evidenceSettings(normalizedCfg),
+			evidence.WithStore(timelineassembly.NewEvidenceStore(postgresHandle)),
+		)},
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(
 				workbook.WithCreateRowHandler(workbook.AssessmentsViewSchemaID, assessments.CreateRowHandler),
+				workbook.WithTimelineOwner(timelineFacade),
 			),
 		},
-		{id: "timeline", registrar: timeline.RegisterRoutes()},
+		{id: "timeline", registrar: timeline.RegisterRoutes(timeline.RouteOptions{
+			Facade: timelineFacade,
+		})},
 		{id: "revisions", registrar: revisionRoutes},
 	}, []extensionRouteBinding{
 		{
@@ -1142,6 +1175,12 @@ func (r *Runtime) ActivatePublication() error {
 		if err := r.JobRunner.Activate(recoveryCtx); err != nil {
 			r.Publication.ComponentLost("job_dequeue")
 			return fmt.Errorf("activate extension job recovery: %w", err)
+		}
+	}
+	if r.CollaborationDispatcher != nil {
+		if err := r.CollaborationDispatcher.Start(context.Background()); err != nil {
+			r.Publication.ComponentLost("collaboration_dispatcher")
+			return fmt.Errorf("activate collaboration dispatcher: %w", err)
 		}
 	}
 	r.publicationOnce.Do(func() {

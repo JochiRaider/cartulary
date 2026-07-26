@@ -169,6 +169,9 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition Surfa
 	if !ok {
 		return fmt.Errorf("filter field %q not mapped for %s", filter.FieldKey, definition.ViewSchemaID)
 	}
+	if field.Kind == FieldKindCollection && strings.HasSuffix(field.Key, ".tags") {
+		return appendTagFilter(builder, args, definition.RecordExpr, filter)
+	}
 	switch filter.Op {
 	case "eq":
 		return appendEqualityFilter(builder, args, field, filter.Arg)
@@ -421,6 +424,21 @@ func collectionItemsFromValue(value any) ([]map[string]any, bool) {
 		data = typed
 	case string:
 		data = []byte(typed)
+	case []map[string]any:
+		if typed == nil {
+			return []map[string]any{}, true
+		}
+		return typed, true
+	case []any:
+		items := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			mapped, ok := item.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			items = append(items, mapped)
+		}
+		return items, true
 	default:
 		return nil, false
 	}

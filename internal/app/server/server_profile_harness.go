@@ -6,10 +6,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
@@ -42,7 +42,7 @@ func (harnessServerProfile) runtimeOptions(lookup func(string) (string, bool)) O
 				harnessruntime.RegisterRoutes(harnessControls, testClock, networkFlowControls.Contribution()),
 				auth.RegisterTestRoutes(),
 				savedviews.RegisterTestRoutes(),
-				timeline.RegisterTestRoutes(),
+				timelineassembly.RegisterTestRoutes(),
 			),
 		},
 	}

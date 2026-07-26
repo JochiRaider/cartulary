@@ -1,0 +1,224 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "module.projections",
+  "rows": [
+    {
+      "row_id": "module.projections.adapters.owner_contracts_2c16689e50",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.adapters",
+      "collaborator_ids": [
+        "module.recovery",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/adapters",
+        "tests": [
+          "TestRestoreRebuilderReturnsRecoveryContract",
+          "TestWorkbookRowsSupportProjectionQuerySurfaces"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.architecture.boundaries_and_source_ownership_9b8de61f81",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.architecture",
+      "collaborator_ids": [
+        "harness.evidence_accounting"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestProductionProjectionImportsUseApprovedFacades",
+          "TestProjectionProviderSQLSourceOwnership",
+          "TestProjectionSourceAuthorityModulesMirrorSchemaOwnershipManifest",
+          "TestValidateProjectionProviderSQLReference"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.provider.catalog_validation_684d752cb4",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.provider",
+      "collaborator_ids": [
+        "harness.evidence_accounting"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestProjectionProviderManifestMirrorsCodeBackedRegistry",
+          "TestProjectionProviderRegistryBuiltIns",
+          "TestProjectionProviderRegistryRejectsInvalidProviderSets"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.query.contract_shape_and_keyset_59528aa56d",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.query",
+      "collaborator_ids": [
+        "platform.viewquery",
+        "platform.viewschema"
+      ],
+      "verification_ids": [
+        "module.projections.verification.query_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestArtifactProjectionSurfacesUseContractFilters",
+          "TestGenericProjectionCollectionAcceptsDecodedJSONB",
+          "TestGenericProjectionContractQueryFieldsAreMapped",
+          "TestGenericProjectionGroupedRowIsFullViewRow",
+          "TestGenericProjectionNullAndCollectionCellShape",
+          "TestGenericProjectionPageSQLIsKeysetBounded",
+          "TestGenericProjectionRowShapeForEverySurface",
+          "TestGenericProjectionSurfaceMatrixCoversRegisteredViews",
+          "TestUnit_TimelineQuerySchemaMappingGuard"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.query.timeline_legacy_keyset_e67384caff",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.query",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.projections.verification.query_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestTimelinePageSQLIsKeysetBounded"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.rebuild.restore_contract_206379110d",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.rebuild",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.projections.verification.rebuild"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails",
+          "TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess",
+          "TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows",
+          "TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.storage.query_row_parity_157462a15a",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.storage",
+      "collaborator_ids": [
+        "platform.viewquery"
+      ],
+      "verification_ids": [
+        "module.projections.verification.query_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestProjectionStoreQueryRowsAndLoadRowTxParity"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.projections.telemetry.safe_boundary_8e0e774b19",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.telemetry",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections",
+        "tests": [
+          "TestProjectionTelemetryNoSDK",
+          "TestProjectionTelemetrySafeVocabulary"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

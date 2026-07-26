@@ -292,10 +292,6 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	committed = true
 	prepared.stagedObjectKeys = nil
 	portability.Committed()
-	job, err := w.jobManager.Get(ctx, payload.JobID)
-	if err == nil {
-		w.jobManager.PublishProgress(job)
-	}
 }
 
 func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {

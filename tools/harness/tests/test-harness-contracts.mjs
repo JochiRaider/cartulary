@@ -304,10 +304,10 @@ test("owner catalog closes identities, selectors, profiles, and semantic digests
   const catalog = loadTestCatalog(repoRoot);
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
-  assert.equal(catalog.summary.owner_count, 53);
-  assert.equal(catalog.summary.family_count, 187);
-  assert.equal(catalog.summary.row_count, 925);
-  assert.equal(catalog.summary.selector_count, 1589);
+  assert.equal(catalog.summary.owner_count, 54);
+  assert.equal(catalog.summary.family_count, 194);
+  assert.equal(catalog.summary.row_count, 936);
+  assert.equal(catalog.summary.selector_count, 1623);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,

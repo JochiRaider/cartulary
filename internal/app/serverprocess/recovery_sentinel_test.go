@@ -15,7 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -36,7 +36,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		Stopped:     true,
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
-		Projections: projections.NewRestoreRebuilder(target.Postgres),
+		Projections: timelineassembly.NewRestoreRebuilder(target.Postgres),
 		Readiness:   gate,
 	}, fixture.AsOf)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 			Stopped:     true,
 			Postgres:    verificationTarget.Postgres,
 			ObjectStore: verificationTarget.ObjectStore,
-			Projections: projections.NewRestoreRebuilder(verificationTarget.Postgres),
+			Projections: timelineassembly.NewRestoreRebuilder(verificationTarget.Postgres),
 		},
 		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres},
 	}, fixture.AsOf, basis)

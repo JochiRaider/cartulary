@@ -127,6 +127,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.projections",
+      "contract_path": "contracts/verification/owners/module.projections.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "contract_path": "contracts/verification/owners/module.recovery.json",
       "status": "active"

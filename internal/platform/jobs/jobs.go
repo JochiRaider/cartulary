@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const (
@@ -50,7 +49,6 @@ var (
 type Manager struct {
 	pool                  *pgxpool.Pool
 	now                   func() time.Time
-	hub                   *platformws.Hub
 	serviceVersion        string
 	activeGaugeRegistered bool
 	extensionContracts    map[string]ExtensionJobContract
@@ -206,10 +204,6 @@ func (m *Manager) Configure(pool *pgxpool.Pool, now func() time.Time) {
 	m.registerActiveGauge()
 }
 
-func (m *Manager) ConfigureProgressHub(hub *platformws.Hub) {
-	m.hub = hub
-}
-
 func (m *Manager) ConfigureTelemetry(serviceVersion string) {
 	if m == nil {
 		return
@@ -228,7 +222,6 @@ func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, er
 	if err != nil {
 		return Resource{}, err
 	}
-	m.PublishProgress(resource)
 	return resource, nil
 }
 
@@ -434,7 +427,6 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	if err != nil {
 		return Resource{}, err
 	}
-	m.PublishProgress(record)
 	return record, nil
 }
 
@@ -549,7 +541,6 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	if err := tx.Commit(ctx); err != nil {
 		return CancelResult{}, err
 	}
-	m.PublishProgress(resource)
 	return CancelResult{Resource: resource}, nil
 }
 
@@ -620,7 +611,6 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	jobKind := jobKindFromScope(record.Scope)
 	m.finishJobSpan(span, "run", jobKind, record.Status, result, nil)
 	m.recordJobDuration(ctx, record, jobKind, result)
-	m.PublishProgress(record)
 	return record, nil
 }
 
@@ -632,33 +622,6 @@ func (m *Manager) ensureConfigured() error {
 		m.now = func() time.Time { return time.Now().UTC() }
 	}
 	return nil
-}
-
-func (m *Manager) PublishProgress(resource Resource) {
-	if m == nil || m.hub == nil || resource.Scope.Kind != ScopeKindIncident || resource.Scope.IncidentID == nil {
-		return
-	}
-	payload := platformws.NewIncidentJobProgressPayload(resource.JobID, *resource.Scope.IncidentID, resource.Status, platformws.JobProgress{
-		Completed: int64(resource.Progress.Completed),
-		Total:     intPointerToInt64(resource.Progress.Total),
-	}, resource.UpdatedAt)
-	cancelable := resource.Cancelable
-	payload.Cancelable = &cancelable
-	if resource.Message != nil {
-		payload.Message = *resource.Message
-	}
-	payload.ResultSummary = resource.ResultSummary
-	payload.ErrorSummary = resource.ErrorSummary
-	payload.RetainedUntil = resource.RetainedUntil
-	_ = m.hub.PublishJobProgress(*resource.Scope.IncidentID, payload)
-}
-
-func intPointerToInt64(value *int) *int64 {
-	if value == nil {
-		return nil
-	}
-	converted := int64(*value)
-	return &converted
 }
 
 func nullableText(value string) *string {

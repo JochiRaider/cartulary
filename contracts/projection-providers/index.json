@@ -35,15 +35,15 @@
         "timeline"
       ],
       "capabilities": {
-        "query": false,
-        "refresh_row": false,
+        "query": true,
+        "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
       },
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/timeline/workbookprojection"
+        "internal/modules/timeline"
       ],
       "rebuild_after": [],
       "characterization_refs": [

@@ -11,147 +11,123 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowsnapshot"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
-
-const TimelineViewSchemaID = projectionadapters.TimelineViewSchemaID
 
 var ErrSourceRecordNotFound = errors.New("timeline mention effects: source record not found")
 
-type SourceRecord struct {
-	RecordID              uuid.UUID
-	IncidentID            uuid.UUID
-	DateEnteredText       *string
-	AnalystText           *string
-	MitreStageText        *string
-	DeviceObjectText      *string
-	IPAddressText         *string
-	ActivityUTCText       *string
-	ActivityLocalText     *string
-	RawActivityText       *string
-	ActivitySynopsisText  *string
-	DataSourceText        *string
-	ActivityTimePairState string
-	CaptureState          string
-	RowVersion            int64
-	RecordedAt            time.Time
-	EditedAt              time.Time
-	CreatedByUserID       uuid.UUID
-	UpdatedByUserID       uuid.UUID
-	ReviewedByUserID      *uuid.UUID
-	ReviewedAt            *time.Time
-	SupersededByUserID    *uuid.UUID
-	SupersededAt          *time.Time
+type RecordPort interface {
+	sourcerepository.EnvelopeReader
+	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
+	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
 
-type TimelineInvalidation struct {
-	RecordID         uuid.UUID
-	RowVersion       int64
-	ChangedFieldKeys []string
+type CollectionPort interface {
+	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *workbookprojection.DerivedRecord) error
 }
 
-func LoadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (SourceRecord, error) {
-	row := tx.QueryRow(ctx, `
-SELECT
-    e.record_id,
-    e.incident_id,
-    e.date_entered_text,
-    e.analyst_text,
-    e.mitre_stage_text,
-    e.device_object_text,
-    e.ip_address_text,
-    e.activity_utc_text,
-    e.activity_local_text,
-    e.raw_activity_text,
-    e.activity_synopsis_text,
-    e.data_source_text,
-    e.activity_time_pair_state,
-    e.capture_state,
-    r.row_version,
-    e.recorded_at,
-    e.edited_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    e.reviewed_by_user_id,
-    e.reviewed_at,
-    e.superseded_by_user_id,
-    e.superseded_at
-  FROM timeline_events e
-  JOIN records r ON r.record_id = e.record_id
- WHERE e.record_id = $1
- FOR UPDATE OF e, r
-`, recordID)
+type ProjectionPort interface {
+	ApplyTimelineMutationTx(context.Context, pgx.Tx, workbookprojection.ProjectionMutation) error
+}
 
-	var record SourceRecord
-	if err := row.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DateEnteredText,
-		&record.AnalystText,
-		&record.MitreStageText,
-		&record.DeviceObjectText,
-		&record.IPAddressText,
-		&record.ActivityUTCText,
-		&record.ActivityLocalText,
-		&record.RawActivityText,
-		&record.ActivitySynopsisText,
-		&record.DataSourceText,
-		&record.ActivityTimePairState,
-		&record.CaptureState,
-		&record.RowVersion,
-		&record.RecordedAt,
-		&record.EditedAt,
-		&record.CreatedByUserID,
-		&record.UpdatedByUserID,
-		&record.ReviewedByUserID,
-		&record.ReviewedAt,
-		&record.SupersededByUserID,
-		&record.SupersededAt,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return SourceRecord{}, ErrSourceRecordNotFound
-		}
-		return SourceRecord{}, fmt.Errorf("load mention source record: %w", err)
+type Provider struct {
+	records     RecordPort
+	collections CollectionPort
+	projections ProjectionPort
+	source      *sourcerepository.Repository
+}
+
+func NewProvider(records RecordPort, collections CollectionPort, projections ProjectionPort) *Provider {
+	return &Provider{
+		records:     records,
+		collections: collections,
+		projections: projections,
+		source:      sourcerepository.New(records),
 	}
-	record.RecordedAt = record.RecordedAt.UTC()
-	record.EditedAt = record.EditedAt.UTC()
-	record.ReviewedAt = normalizeTimePointer(record.ReviewedAt)
-	record.SupersededAt = normalizeTimePointer(record.SupersededAt)
-	return record, nil
 }
 
-func UpdateSourceRecordTx(ctx context.Context, tx pgx.Tx, record SourceRecord) error {
+type ActionState struct {
+	SourceRecordID  uuid.UUID
+	RowVersion      int64
+	BeforeVersionID string
+	BeforeRow       map[string]any
+}
+
+type ActionCommand struct {
+	IncidentID  uuid.UUID
+	ActorUserID uuid.UUID
+	EffectiveAt time.Time
+}
+
+type ActionResult struct {
+	SourceRecordID  uuid.UUID
+	RowVersion      int64
+	BeforeVersionID string
+	AfterVersionID  string
+	BeforeRow       map[string]any
+	AfterRow        map[string]any
+}
+
+func (p *Provider) PrepareMentionActionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (ActionState, error) {
+	record, row, err := p.loadRecordAndRowTx(ctx, tx, recordID)
+	if err != nil {
+		return ActionState{}, err
+	}
+	return ActionState{
+		SourceRecordID:  record.RecordID,
+		RowVersion:      record.RowVersion,
+		BeforeVersionID: VersionID(record.RecordID, record.RowVersion),
+		BeforeRow:       row,
+	}, nil
+}
+
+func (p *Provider) ApplyMentionActionEffectsTx(ctx context.Context, tx pgx.Tx, state ActionState, command ActionCommand) (ActionResult, error) {
+	if p == nil || p.records == nil || p.collections == nil || p.projections == nil || p.source == nil {
+		return ActionResult{}, errors.New("timeline mention effect dependencies are required")
+	}
+	rowVersion, err := p.records.AdvanceVersionTx(ctx, tx, state.SourceRecordID, command.ActorUserID, command.EffectiveAt)
+	if err != nil {
+		return ActionResult{}, err
+	}
 	if _, err := tx.Exec(ctx, `
 UPDATE timeline_events
    SET row_version = $2,
        edited_at = $3,
        updated_by_user_id = $4
  WHERE record_id = $1
-`, record.RecordID, record.RowVersion, record.EditedAt.UTC(), record.UpdatedByUserID); err != nil {
-		return fmt.Errorf("update mention source record: %w", err)
+`, state.SourceRecordID, rowVersion, command.EffectiveAt.UTC(), command.ActorUserID); err != nil {
+		return ActionResult{}, fmt.Errorf("persist mention source record: %w", err)
 	}
-	return nil
-}
-
-func BuildRecordRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	snapshot, err := rowsnapshot.BuildRecordRowTx(ctx, tx, recordID)
-	if errors.Is(err, rowsnapshot.ErrRecordNotFound) {
-		return nil, ErrSourceRecordNotFound
-	}
+	record, afterRow, err := p.loadRecordAndRowTx(ctx, tx, state.SourceRecordID)
 	if err != nil {
-		return nil, err
+		return ActionResult{}, err
 	}
-	return snapshot.Row, nil
+	derived := workbookprojection.Derive(record, nil)
+	if err := p.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+		return ActionResult{}, err
+	}
+	if err := p.projections.ApplyTimelineMutationTx(ctx, tx, workbookprojection.ProjectionMutation{
+		Kind:     workbookprojection.ProjectionMutationUpsert,
+		RecordID: state.SourceRecordID,
+		Input:    derived.ProjectionInput(),
+	}); err != nil {
+		return ActionResult{}, err
+	}
+	return ActionResult{
+		SourceRecordID:  state.SourceRecordID,
+		RowVersion:      rowVersion,
+		BeforeVersionID: state.BeforeVersionID,
+		AfterVersionID:  VersionID(state.SourceRecordID, rowVersion),
+		BeforeRow:       state.BeforeRow,
+		AfterRow:        afterRow,
+	}, nil
 }
 
-func RebuildTimelineProjectionTx(ctx context.Context, tx pgx.Tx, projector *projectionadapters.RowProjector, incidentID uuid.UUID) error {
-	return projector.RebuildIncidentViewTx(ctx, tx, projectionadapters.TimelineViewSchemaID, incidentID)
-}
-
-func LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]TimelineInvalidation, error) {
+func (p *Provider) LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]TimelineInvalidation, error) {
 	if len(fieldKeysByRecord) == 0 {
-		return nil, nil
+		return []TimelineInvalidation{}, nil
 	}
 	recordIDs := make([]uuid.UUID, 0, len(fieldKeysByRecord))
 	for recordID := range fieldKeysByRecord {
@@ -162,8 +138,8 @@ func LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByReco
 	})
 	result := make([]TimelineInvalidation, 0, len(recordIDs))
 	for _, recordID := range recordIDs {
-		var rowVersion int64
-		if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
+		rowVersion, err := p.records.LoadRowVersionTx(ctx, tx, recordID)
+		if err != nil {
 			return nil, fmt.Errorf("load record invalidation row_version: %w", err)
 		}
 		fieldKeys := append([]string(nil), fieldKeysByRecord[recordID]...)
@@ -178,14 +154,45 @@ func LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByReco
 	return result, nil
 }
 
-func VersionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("timeline_record:%s:%d", recordID.String(), rowVersion)
+func (p *Provider) LoadRelationshipInvalidationsTx(ctx context.Context, tx pgx.Tx, linkTypesByRecord map[uuid.UUID][]string) ([]TimelineInvalidation, error) {
+	fieldKeysByRecord := make(map[uuid.UUID][]string, len(linkTypesByRecord))
+	for recordID, linkTypes := range linkTypesByRecord {
+		for _, linkType := range linkTypes {
+			switch linkType {
+			case "observed_on_host":
+				fieldKeysByRecord[recordID] = append(fieldKeysByRecord[recordID], "timeline.host_refs")
+			case "observed_as_identity":
+				fieldKeysByRecord[recordID] = append(fieldKeysByRecord[recordID], "timeline.identity_refs")
+			}
+		}
+	}
+	return p.LoadTimelineInvalidationsTx(ctx, tx, fieldKeysByRecord)
 }
 
-func normalizeTimePointer(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
+type TimelineInvalidation struct {
+	RecordID         uuid.UUID
+	RowVersion       int64
+	ChangedFieldKeys []string
+}
+
+func (p *Provider) loadRecordAndRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourcerepository.Snapshot, map[string]any, error) {
+	if p == nil || p.source == nil || p.collections == nil {
+		return sourcerepository.Snapshot{}, nil, errors.New("timeline mention effect dependencies are required")
 	}
-	utc := value.UTC()
-	return &utc
+	record, err := p.source.LoadTx(ctx, tx, recordID)
+	if errors.Is(err, sourcerepository.ErrNotFound) {
+		return sourcerepository.Snapshot{}, nil, ErrSourceRecordNotFound
+	}
+	if err != nil {
+		return sourcerepository.Snapshot{}, nil, err
+	}
+	derived := workbookprojection.Derive(record, nil)
+	if err := p.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+		return sourcerepository.Snapshot{}, nil, err
+	}
+	return record, rowpresenter.BuildRow(derived.PresenterRecord()), nil
+}
+
+func VersionID(recordID uuid.UUID, rowVersion int64) string {
+	return fmt.Sprintf("timeline_record:%s:%d", recordID.String(), rowVersion)
 }

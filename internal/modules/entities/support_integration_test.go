@@ -15,7 +15,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -581,7 +582,10 @@ func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte) *h
 func (s *SupportScenario) rebuildBaseProjections(t *testing.T) {
 	t.Helper()
 
-	store := projections.NewStore(s.harness.Server.Runtime.Postgres)
+	store := projectionadapters.NewRowProjector(
+		s.harness.Server.Runtime.Postgres,
+		timelineassembly.NewProjectionSource(s.harness.Server.Runtime.Postgres),
+	)
 	if err := store.RebuildIncidentTimeline(context.Background(), s.IncidentID); err != nil {
 		t.Fatalf("rebuild timeline projections: %v", err)
 	}
@@ -698,7 +702,10 @@ func (s *SupportScenario) queryAffectedRow(t *testing.T, route workbookscenariot
 func (s *SupportScenario) rebuildProjection(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	store := projections.NewStore(s.harness.Server.Runtime.Postgres)
+	store := projectionadapters.NewRowProjector(
+		s.harness.Server.Runtime.Postgres,
+		timelineassembly.NewProjectionSource(s.harness.Server.Runtime.Postgres),
+	)
 	var err error
 	switch route.ProjectionTarget {
 	case workbookscenariotest.RouteProjectionHosts:

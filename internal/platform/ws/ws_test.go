@@ -160,7 +160,7 @@ func TestWSContractExtensionResourceChangedPayloadShape(t *testing.T) {
 	}
 }
 
-func TestHubPublishJobProgress(t *testing.T) {
+func TestHubDeliverJobProgress(t *testing.T) {
 	t.Run("emits typed incident scoped payload", func(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()
@@ -176,9 +176,19 @@ func TestHubPublishJobProgress(t *testing.T) {
 		}, now)
 		payload.Cancelable = &cancelable
 		payload.Message = "Importing rows"
-
-		if err := hub.PublishJobProgress(incidentID, payload); err != nil {
-			t.Fatalf("publish job_progress: %v", err)
+		if err := ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
+			t.Fatalf("validate job_progress: %v", err)
+		}
+		streamSeq := int64(1)
+		if err := hub.DeliverReplayable(Message{
+			Type:       "job_progress",
+			IncidentID: incidentID.String(),
+			EventID:    uuid.NewString(),
+			EmittedAt:  now.Format(time.RFC3339Nano),
+			StreamSeq:  &streamSeq,
+			Payload:    RawPayload(payload),
+		}); err != nil {
+			t.Fatalf("deliver job_progress: %v", err)
 		}
 
 		message := requireIncidentMessage(t, messages)
@@ -213,12 +223,8 @@ func TestHubPublishJobProgress(t *testing.T) {
 	})
 
 	t.Run("rejects deployment scoped payload on incident stream", func(t *testing.T) {
-		hub := NewHub()
 		incidentID := uuid.New()
-		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
-		defer unsubscribe()
-
-		err := hub.PublishJobProgress(incidentID, JobProgressPayload{
+		err := ValidateIncidentJobProgressPayload(incidentID, JobProgressPayload{
 			JobID: "job-deployment",
 			Scope: JobScope{
 				Kind: JobScopeKindDeployment,
@@ -230,21 +236,17 @@ func TestHubPublishJobProgress(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected deployment scoped job_progress to be rejected")
 		}
-		if got := hub.HighWater(incidentID); got != 0 {
-			t.Fatalf("deployment scoped job_progress advanced high water to %d", got)
-		}
-		requireNoIncidentMessage(t, messages)
 	})
 }
 
-func TestHubPublishExtensionResourceChanged(t *testing.T) {
+func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 	t.Run("emits replayable stable network flow invalidation without labels", func(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+		payload := canonicalExtensionResourceChangePayload(ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
@@ -254,8 +256,19 @@ func TestHubPublishExtensionResourceChanged(t *testing.T) {
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
 		})
-		if err != nil {
-			t.Fatalf("publish extension_resource_changed: %v", err)
+		if err := ValidateExtensionResourceChangePayload(payload); err != nil {
+			t.Fatalf("validate extension_resource_changed: %v", err)
+		}
+		streamSeq := int64(1)
+		if err := hub.DeliverReplayable(Message{
+			Type:       "extension_resource_changed",
+			IncidentID: incidentID.String(),
+			EventID:    uuid.NewString(),
+			EmittedAt:  time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC).Format(time.RFC3339Nano),
+			StreamSeq:  &streamSeq,
+			Payload:    RawPayload(payload),
+		}); err != nil {
+			t.Fatalf("deliver extension_resource_changed: %v", err)
 		}
 
 		message := requireIncidentMessage(t, messages)
@@ -285,25 +298,10 @@ func TestHubPublishExtensionResourceChanged(t *testing.T) {
 			t.Fatalf("unexpected workspace_refs: %#v", workspaceRefs)
 		}
 
-		sessionID := uuid.New()
-		now := time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC)
-		token, _, err := hub.IssueResumeToken(sessionID, incidentID, "extension-resource-client", now.Add(time.Hour), now)
-		if err != nil {
-			t.Fatalf("issue resume token: %v", err)
-		}
-		status, missed, highWater := hub.ReplayMessages(sessionID, incidentID, "extension-resource-client", token, 0, now)
-		if status != ResumeStatusReplayed || highWater != 1 || len(missed) != 1 || missed[0].Type != "extension_resource_changed" {
-			t.Fatalf("unexpected extension_resource_changed replay status=%q highWater=%d missed=%#v", status, highWater, missed)
-		}
 	})
 
 	t.Run("validates reason and workspace identity", func(t *testing.T) {
-		hub := NewHub()
-		incidentID := uuid.New()
-		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
-		defer unsubscribe()
-
-		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+		err := ValidateExtensionResourceChangePayload(ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
@@ -316,10 +314,6 @@ func TestHubPublishExtensionResourceChanged(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected invalid renamed/remove pairing to be rejected")
 		}
-		if got := hub.HighWater(incidentID); got != 0 {
-			t.Fatalf("rejected extension_resource_changed advanced high water to %d", got)
-		}
-		requireNoIncidentMessage(t, messages)
 	})
 
 	t.Run("emits authorization loss as remove without resource detail", func(t *testing.T) {
@@ -328,7 +322,7 @@ func TestHubPublishExtensionResourceChanged(t *testing.T) {
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+		payload := canonicalExtensionResourceChangePayload(ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000002",
@@ -338,8 +332,20 @@ func TestHubPublishExtensionResourceChanged(t *testing.T) {
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
 		})
-		if err != nil {
-			t.Fatalf("publish authorization_lost extension_resource_changed: %v", err)
+		if err := ValidateExtensionResourceChangePayload(payload); err != nil {
+			t.Fatalf("validate authorization_lost extension_resource_changed: %v", err)
+		}
+		streamSeq := int64(1)
+		now := time.Now().UTC()
+		if err := hub.DeliverReplayable(Message{
+			Type:       "extension_resource_changed",
+			IncidentID: incidentID.String(),
+			EventID:    uuid.NewString(),
+			EmittedAt:  now.Format(time.RFC3339Nano),
+			StreamSeq:  &streamSeq,
+			Payload:    RawPayload(payload),
+		}); err != nil {
+			t.Fatalf("deliver authorization_lost extension_resource_changed: %v", err)
 		}
 		message := requireIncidentMessage(t, messages)
 		var got map[string]any

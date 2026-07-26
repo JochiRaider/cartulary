@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
 )
 
@@ -50,6 +51,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "database", mutate: func(value *CommandServiceDependencies) { value.Database = nil }},
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.ProjectionRebuilder = nil }},
+		{name: "collaboration", mutate: func(value *CommandServiceDependencies) { value.CollaborationIntents = nil }},
 		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
 	}
 	for _, test := range tests {
@@ -71,6 +73,7 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 		Database:                    commandServiceTestDB{},
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
 		ProjectionRebuilder:         commandServiceTestProjection{},
+		CollaborationIntents:        collaboration.NewStore(commandServiceTestDB{}, nil),
 		ProviderContributions:       validProviderContributions(),
 	}
 }

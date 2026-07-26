@@ -7,8 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -23,14 +21,18 @@ type Service struct {
 	mentionStore   *mentions.Store
 	incidentAccess incidents.Access
 	authStore      *authn.Store
-	publisher      *collaboration.RecordChangePublisher
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOptions struct {
+	MergeStore   *merge.Store
+	MentionStore *mentions.Store
+}
+
+func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, options)
 		if err != nil {
 			return err
 		}
@@ -41,7 +43,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -50,12 +52,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	if options.MentionStore == nil {
+		return nil, errors.New("entities route composition requires a mention store")
+	}
+	if options.MergeStore == nil {
+		return nil, errors.New("entities route composition requires a merge store")
+	}
 	return &Service{
-		mergeStore:     merge.NewStore(deps.PostgresHandle()),
-		mentionStore:   mentions.NewStore(deps.PostgresHandle()),
+		mergeStore:     options.MergeStore,
+		mentionStore:   options.MentionStore,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		keys:           keys,
 		now:            now,
 	}, nil
@@ -127,9 +134,6 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !result.Replayed {
-		s.publishMergeChanges(result, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -205,9 +209,6 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !result.Replayed {
-		s.publishRecordChange(result, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -244,83 +245,4 @@ func invalidAPIErrorField(apiErr *httpapi.APIError, field string, reasonCode str
 
 func incidentClosedError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
-}
-
-func (s *Service) publishRecordChange(result mentions.MentionActionResult, actorUserID uuid.UUID) {
-	if result.SourceRecordID != uuid.Nil && result.ChangeSetID != uuid.Nil {
-		s.publisher.Publish(collaboration.RecordChange{
-			IncidentID:       result.IncidentID,
-			RecordID:         result.SourceRecordID,
-			RowVersion:       result.SourceRecordRowVersion,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: result.ChangedFieldKeys,
-			ViewSchemaID:     "cartulary.view.timeline.v2",
-		})
-	}
-	for _, invalidation := range result.EntityInvalidations {
-		if invalidation.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
-			continue
-		}
-		s.publisher.Publish(collaboration.RecordChange{
-			IncidentID:       result.IncidentID,
-			RecordID:         invalidation.RecordID,
-			RowVersion:       invalidation.RowVersion,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: invalidation.ChangedFieldKeys,
-			ViewSchemaID:     invalidation.ViewSchemaID,
-		})
-	}
-}
-
-func (s *Service) publishMergeChanges(result merge.MergeResult, actorUserID uuid.UUID) {
-	if result.ChangeSetID == uuid.Nil {
-		return
-	}
-
-	viewSchemaID := entitycontract.IdentitiesViewSchemaID
-	survivorKeys := []string{"identity.identity_state", "identity.edited_at", "identity.aliases", "identity.reusable_identifiers", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name"}
-	loserKeys := []string{"identity.identity_state", "identity.edited_at"}
-	if result.RecordType == "host" {
-		viewSchemaID = entitycontract.HostsViewSchemaID
-		survivorKeys = []string{"host.host_state", "host.edited_at", "host.aliases", "host.reusable_identifiers", "host.aad_device_id", "host.fqdn", "host.hostname"}
-		loserKeys = []string{"host.host_state", "host.edited_at"}
-	}
-	slices.Sort(survivorKeys)
-	slices.Sort(loserKeys)
-
-	s.publisher.Publish(collaboration.RecordChange{
-		IncidentID:       result.IncidentID,
-		RecordID:         result.SurvivorRecordID,
-		RowVersion:       result.SurvivorRowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: append([]string(nil), survivorKeys...),
-		ViewSchemaID:     viewSchemaID,
-	})
-	s.publisher.Publish(collaboration.RecordChange{
-		IncidentID:       result.IncidentID,
-		RecordID:         result.LoserRecordID,
-		RowVersion:       result.LoserRowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: append([]string(nil), loserKeys...),
-		ViewSchemaID:     viewSchemaID,
-		ChangeKind:       "remove",
-	})
-
-	for _, invalidation := range result.TimelineInvalidations {
-		s.publisher.Publish(collaboration.RecordChange{
-			IncidentID:       result.IncidentID,
-			RecordID:         invalidation.RecordID,
-			RowVersion:       invalidation.RowVersion,
-			ChangeSetID:      result.ChangeSetID,
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: invalidation.ChangedFieldKeys,
-			ViewSchemaID:     "cartulary.view.timeline.v2",
-		})
-	}
 }

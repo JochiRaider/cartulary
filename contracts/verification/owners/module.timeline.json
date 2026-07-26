@@ -13,7 +13,12 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "module.timeline.requirement.behavior_contract"
+        "module.timeline.requirement.behavior_contract",
+        "module.timeline.requirement.canonical_row_derivation",
+        "module.timeline.requirement.owner_batch_application",
+        "module.timeline.requirement.record_change_intents",
+        "module.timeline.requirement.source_semantics",
+        "module.timeline.requirement.transactional_peer_effects"
       ]
     }
   ]

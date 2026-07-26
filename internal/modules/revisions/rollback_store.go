@@ -186,6 +186,17 @@ func (s *commandStore) RollbackRecord(ctx context.Context, actor authn.UserRecor
 	if err != nil {
 		return RollbackResult{}, err
 	}
+	if err := s.appendRollbackRecordChangeIntentsTx(
+		ctx,
+		tx,
+		record.IncidentID,
+		actor.ID,
+		request.ClientTxnID,
+		applied.Changes,
+		now.UTC(),
+	); err != nil {
+		return RollbackResult{}, err
+	}
 	rowVersion := rollbackPayloadRowVersion(record.RecordID, record.RowVersion, applied.Changes)
 	payload := buildRollbackPayload(record.IncidentID, record.RecordID, rowVersion, request.Target, plan.Target.ChangeSetID, applied.ChangeSetID, plan.Affected)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {

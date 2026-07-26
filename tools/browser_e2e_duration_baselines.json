@@ -237,7 +237,7 @@
     },
     "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38": {
       "file": "apps/web/e2e/timeline-workbook.spec.ts",
-      "title": "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation",
+      "title": "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible patch delivery",
       "weight_ms": 2035
     },
     "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01": {

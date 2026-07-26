@@ -9,24 +9,24 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/linkeffects"
-	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type entityStorePorts struct {
-	assessments entityAssessmentPort
-	mentions    entityMentionPort
-	records     entityRecordPort
-	revisions   entityRevisionPort
-	links       entityLinkPort
-	projections entityProjectionPort
-	timeline    entityTimelinePort
+	assessments   entityAssessmentPort
+	mentions      entityMentionPort
+	records       entityRecordPort
+	revisions     entityRevisionPort
+	links         entityLinkPort
+	projections   entityProjectionPort
+	timeline      entityTimelinePort
+	collaboration collaboration.IntentAppender
 }
 
 type entityRecordPort interface {
@@ -65,10 +65,7 @@ type entityMentionPort interface {
 	RepointMergedMentionsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error)
 }
 
-type entityTimelinePort interface {
-	LoadTimelineInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error)
-	LoadRelationshipInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error)
-}
+type entityTimelinePort = TimelineEffectsPort
 
 type entityChangeSetParams struct {
 	ChangeSetID *uuid.UUID
@@ -144,7 +141,6 @@ func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
 		links:       entityLinkAdapter{store: links.NewStore()},
 		projections: entityProjectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
-		timeline:    entityTimelineAdapter{},
 	}
 }
 
@@ -397,38 +393,4 @@ func (a entityProjectionAdapter) RebuildEntityProjectionTx(ctx context.Context, 
 	default:
 		return nil
 	}
-}
-
-type entityTimelineAdapter struct{}
-
-func (a entityTimelineAdapter) LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
-	invalidations, err := mentioneffects.LoadTimelineInvalidationsTx(ctx, tx, fieldKeysByRecord)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]MergeTimelineInvalidation, 0, len(invalidations))
-	for _, invalidation := range invalidations {
-		result = append(result, MergeTimelineInvalidation{
-			RecordID:         invalidation.RecordID,
-			RowVersion:       invalidation.RowVersion,
-			ChangedFieldKeys: invalidation.ChangedFieldKeys,
-		})
-	}
-	return result, nil
-}
-
-func (a entityTimelineAdapter) LoadRelationshipInvalidationsTx(ctx context.Context, tx pgx.Tx, linkTypesByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
-	invalidations, err := linkeffects.LoadTimelineInvalidationsTx(ctx, tx, linkTypesByRecord)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]MergeTimelineInvalidation, 0, len(invalidations))
-	for _, invalidation := range invalidations {
-		result = append(result, MergeTimelineInvalidation{
-			RecordID:         invalidation.RecordID,
-			RowVersion:       invalidation.RowVersion,
-			ChangedFieldKeys: invalidation.ChangedFieldKeys,
-		})
-	}
-	return result, nil
 }

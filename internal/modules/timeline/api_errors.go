@@ -4,10 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 )
 
 type MutationAPIErrorContext struct {
@@ -29,11 +28,11 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return httpapi.ClientTxnConflictError(context.ClientTxnID), true
-	case errors.Is(err, incidents.ErrIncidentClosed):
+	case errors.Is(err, ErrIncidentClosed):
 		return incidentClosedError(), true
 	case errors.Is(err, ErrRecordNotFound):
 		return incidentNotFoundError(), true
-	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
+	case errors.Is(err, ErrRecordDeleted):
 		return recordDeletedUseRestoreError(), true
 	case errors.As(err, &sameFieldConflict):
 		return sameFieldConflictAPIError(sameFieldConflict), true
@@ -76,5 +75,127 @@ func sameFieldConflictAPIError(err *SameFieldConflictError) *httpapi.APIError {
 		Message:  "same field conflict",
 		Details:  map[string]any{},
 		Conflict: conflict,
+	}
+}
+
+func invalidViewQuery(field string, reasonCode string) *httpapi.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_view_query",
+		Message: "invalid view query",
+		Details: details,
+	}
+}
+
+func invalidViewQueryValidation(err *viewquery.ValidationError) *httpapi.APIError {
+	if err == nil {
+		return invalidViewQuery("", "")
+	}
+	details := map[string]any{}
+	if err.Field != "" {
+		details["field"] = err.Field
+	}
+	if err.FieldKey != "" {
+		details["field_key"] = err.FieldKey
+	}
+	if err.FilterIndex != nil {
+		details["filter_index"] = *err.FilterIndex
+	}
+	if err.ReasonCode != "" {
+		details["reason_code"] = err.ReasonCode
+	}
+	if err.RequestedCount != nil {
+		details["requested_count"] = *err.RequestedCount
+	}
+	if err.MaxCount != nil {
+		details["max_count"] = *err.MaxCount
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_view_query",
+		Message: "invalid view query",
+		Details: details,
+	}
+}
+
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
+	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
+}
+
+func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *httpapi.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	for key, value := range extra {
+		details[key] = value
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_mutation_payload",
+		Message: "invalid mutation payload",
+		Details: details,
+	}
+}
+
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentClosedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
+}
+
+func rowVersionConflictError(details ...map[string]any) *httpapi.APIError {
+	payload := map[string]any{}
+	if len(details) > 0 && details[0] != nil {
+		payload = details[0]
+	}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
+}
+
+func illegalTransitionError(reasonCode string, sourceErr ...error) *httpapi.APIError {
+	details := map[string]any{}
+	var transitionErr *IllegalTransitionError
+	for _, err := range sourceErr {
+		if errors.As(err, &transitionErr) {
+			break
+		}
+	}
+	if transitionErr != nil {
+		if transitionErr.ReasonCode != "" {
+			reasonCode = transitionErr.ReasonCode
+		}
+		details["from_status"] = transitionErr.FromStatus
+		details["to_status"] = transitionErr.ToStatus
+		details["violated_guards"] = append([]string{}, transitionErr.ViolatedGuards...)
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &httpapi.APIError{
+		Status:  http.StatusConflict,
+		Code:    "illegal_transition",
+		Message: "illegal transition",
+		Details: details,
+	}
+}
+
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
+		Status:  http.StatusInternalServerError,
+		Code:    "internal_error",
+		Message: err.Error(),
+		Details: map[string]any{},
 	}
 }

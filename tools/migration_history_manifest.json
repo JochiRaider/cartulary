@@ -242,6 +242,12 @@
       "filename": "00040_remove_legacy_administrative_audit_projections.sql",
       "sha256": "ef22d66cced126a670ecc065e1954b1708f51df147c74c88802152c03b00d91f",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 41,
+      "filename": "00041_collaboration_durable_stream.sql",
+      "sha256": "8fca76cb5cbacd951beef2a4f5df3ab49b754066175dc4669ac81854d8697c95",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -66,7 +66,6 @@ func (f *OwnerFinalizer) FinalizeSuccess(ctx context.Context, request JobFinaliz
 		f.fatalSink(err)
 		return jobs.Resource{}, fmt.Errorf("%w: %v", ErrIndeterminateCommit, err)
 	}
-	f.manager.PublishProgress(resource)
 	return resource, nil
 }
 

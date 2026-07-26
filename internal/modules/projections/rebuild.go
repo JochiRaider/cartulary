@@ -16,8 +16,12 @@ type RestoreRebuilder struct {
 	store *Store
 }
 
-func NewRestoreRebuilder(pool postgres.DB) *RestoreRebuilder {
-	return NewRestoreRebuilderFromStore(NewStore(pool))
+func NewRestoreRebuilder(pool postgres.DB, timelineSources ...TimelineSource) *RestoreRebuilder {
+	options := make([]StoreOption, 0, 1)
+	if len(timelineSources) > 0 && timelineSources[0] != nil {
+		options = append(options, WithTimelineSource(timelineSources[0]))
+	}
+	return NewRestoreRebuilderFromStore(NewStore(pool, options...))
 }
 
 func NewRestoreRebuilderFromStore(store *Store) *RestoreRebuilder {

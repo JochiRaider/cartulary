@@ -278,6 +278,55 @@ type ChangeSetMutation struct {
 	AfterValue      []byte      `json:"after_value"`
 }
 
+type CollaborationEventIntent struct {
+	IntentID          pgtype.UUID        `json:"intent_id"`
+	IntentKey         string             `json:"intent_key"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	EventFamily       string             `json:"event_family"`
+	CanonicalPayload  []byte             `json:"canonical_payload"`
+	SourceChangeSetID pgtype.UUID        `json:"source_change_set_id"`
+	SourceRecordID    pgtype.UUID        `json:"source_record_id"`
+	SourceRowVersion  pgtype.Int8        `json:"source_row_version"`
+	SourceIdentity    string             `json:"source_identity"`
+	MutationOrdinal   int32              `json:"mutation_ordinal"`
+	DispatchState     string             `json:"dispatch_state"`
+	SequencedEventID  pgtype.UUID        `json:"sequenced_event_id"`
+	AttemptCount      int32              `json:"attempt_count"`
+	NextAttemptAt     pgtype.Timestamptz `json:"next_attempt_at"`
+	LeaseOwner        pgtype.UUID        `json:"lease_owner"`
+	LeaseExpiresAt    pgtype.Timestamptz `json:"lease_expires_at"`
+	SequencedAt       pgtype.Timestamptz `json:"sequenced_at"`
+	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+	LastErrorCode     pgtype.Text        `json:"last_error_code"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CollaborationIncidentStreamCursor struct {
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	HighWaterStreamSeq int64              `json:"high_water_stream_seq"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CollaborationReplayEvent struct {
+	EventID          pgtype.UUID        `json:"event_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	StreamSeq        int64              `json:"stream_seq"`
+	IntentKey        string             `json:"intent_key"`
+	EventFamily      string             `json:"event_family"`
+	CanonicalPayload []byte             `json:"canonical_payload"`
+	EmittedAt        pgtype.Timestamptz `json:"emitted_at"`
+}
+
+type CollaborationResumeToken struct {
+	TokenHash        []byte             `json:"token_hash"`
+	SessionID        pgtype.UUID        `json:"session_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	ClientInstanceID string             `json:"client_instance_id"`
+	IssuedAt         pgtype.Timestamptz `json:"issued_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Decision struct {
 	RecordID     pgtype.UUID        `json:"record_id"`
 	IncidentID   pgtype.UUID        `json:"incident_id"`

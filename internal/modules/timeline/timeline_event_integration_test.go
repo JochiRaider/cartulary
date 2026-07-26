@@ -12,13 +12,16 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
@@ -41,7 +44,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(24)
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 24)
 		defer unsubscribe()
 
 		createResp := doJSON(
@@ -443,11 +446,11 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
-		server, db := startServerWithTimelineOptions(t, runtime, "timeline_mutation-i-3-01-rollback", timeline.WithBeforeCommitHookForTesting(
-			func(routeKey string, recordID uuid.UUID) error {
+		server, db := startServerWithFailingTimelineProjection(t, runtime, "timeline_mutation-i-3-01-rollback",
+			func(workbookprojection.ProjectionMutation) error {
 				return errors.New("forced timeline rollback")
 			},
-		))
+		)
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -459,7 +462,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(4)
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		createResp := doJSON(
@@ -1095,7 +1098,10 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 		t.Fatalf("query route must read projection rows, got %#v", emptyRows)
 	}
 
-	projectionStore := projections.NewStore(server.Runtime.Postgres)
+	projectionStore := projectionadapters.NewRowProjector(
+		server.Runtime.Postgres,
+		timelineassembly.NewProjectionSource(server.Runtime.Postgres),
+	)
 	if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
@@ -1197,9 +1203,10 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 		reviewerSession, reviewerCSRF := loginLocalUser(t, server, "reviewer-target@example.test", "ReviewerTargetPass1!")
 		reviewerLogin := loginResult{sessionCookie: reviewerSession, csrfCookie: reviewerCSRF}
+		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(16)
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 16)
 		defer unsubscribe()
 
 		reviewDenied := doJSON(
@@ -1574,14 +1581,15 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 	})
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {
-		server, db := startServerWithTimelineOptions(t, runtime, "timeline_mutation-i-3-03-rollback", timeline.WithBeforeCommitHookForTesting(
-			func(routeKey string, recordID uuid.UUID) error {
-				if routeKey == "timeline.records.supersede" {
+		rollbackEnabled := false
+		server, db := startServerWithFailingTimelineProjection(t, runtime, "timeline_mutation-i-3-03-rollback",
+			func(workbookprojection.ProjectionMutation) error {
+				if rollbackEnabled {
 					return errors.New("forced supersede rollback")
 				}
 				return nil
 			},
-		))
+		)
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1602,12 +1610,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
+		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(8)
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 8)
 		defer unsubscribe()
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		rollbackEnabled = true
 		supersede := doJSON(
 			t,
 			http.MethodPost,
@@ -1921,10 +1931,10 @@ func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix stri
 	return harness.Server, harness.DB
 }
 
-func startServerWithTimelineOptions(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, options ...timeline.TestFacadeOption) (*httptestx.Server, *sql.DB) {
+func startServerWithFailingTimelineProjection(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, fail func(workbookprojection.ProjectionMutation) error) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	harness := runtime.StartServerWithDependencies(t, prefix, timeline.DependencySetForTesting(options...))
+	harness := runtime.StartServerWithTimelineDependencies(t, prefix, fakeports.WithFailingProjection(timelineassembly.Dependencies, fail))
 	return harness.Server, harness.DB
 }
 
@@ -1998,7 +2008,7 @@ func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recor
 	scenariotest.RequireMutationRecorded(t, db, changeSetID, recordID, wantActorUserID, wantSource, wantClientTxnID, wantMutationRows, wantRevisions)
 }
 
-func requireNoTimelineCollaborationEmission(t testing.TB, client *timelineSocketClient, changes <-chan platformws.RecordChange) {
+func requireNoTimelineCollaborationEmission(t testing.TB, client *timelineSocketClient, changes <-chan platformws.Message) {
 	t.Helper()
 
 	scenariotest.RequireNoTimelineCollaborationEmission(t, client, changes)

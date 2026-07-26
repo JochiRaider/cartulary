@@ -41,7 +41,10 @@ type ClipboardPasteRowResult struct {
 	Row              map[string]any
 }
 
-func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, plan tabularingest.BatchPlan, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
+func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, plan tabularingest.TabularRowPlanV1, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
+	if err := plan.Validate(); err != nil {
+		return ClipboardPasteResult{}, fmt.Errorf("validate entity clipboard paste plan: %w", err)
+	}
 	if plan.ViewSchemaID != viewSchemaID {
 		return ClipboardPasteResult{}, fmt.Errorf("entity clipboard paste plan view mismatch: %s != %s", plan.ViewSchemaID, viewSchemaID)
 	}
@@ -219,7 +222,7 @@ func entityClipboardRoute(viewSchemaID string) (string, string, error) {
 	}
 }
 
-func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.RowPlan) (CreateRequest, error) {
+func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.RowPlanV1) (CreateRequest, error) {
 	request := CreateRequest{
 		ClientTxnID: clientTxnID,
 		Values:      make(map[string]string),

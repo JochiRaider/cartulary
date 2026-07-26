@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -61,11 +62,7 @@ type MergeResult struct {
 	TimelineInvalidations []MergeTimelineInvalidation
 }
 
-type MergeTimelineInvalidation struct {
-	RecordID         uuid.UUID
-	RowVersion       int64
-	ChangedFieldKeys []string
-}
+type MergeTimelineInvalidation = mentioneffects.TimelineInvalidation
 
 func DecodeMergeRequest(reader io.Reader) (MergeRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)

@@ -7,13 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
@@ -21,15 +19,17 @@ type Service struct {
 	facade         *Facade
 	incidentAccess incidents.Access
 	authStore      *authn.Store
-	hub            *platformws.Hub
-	publisher      *collaboration.RecordChangePublisher
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOptions struct {
+	Facade *Facade
+}
+
+func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, options.Facade)
 		if err != nil {
 			return err
 		}
@@ -41,27 +41,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func RegisterTestRoutes() httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.TestRoutesEnabled(deps.Env) {
-			return nil
-		}
-		guard, err := httpapi.NewTestRouteGuard(deps.Env)
-		if err != nil {
-			return err
-		}
-		service, err := newService(deps)
-		if err != nil {
-			return err
-		}
-		mux.HandleFunc("/api/v1/test/timeline/record-changes", guard.Protect(service.handleRecordChangeSnapshot))
-		mux.HandleFunc("GET /api/v1/test/timeline/records/{record_id}/substrate", guard.Protect(service.handleRecordSubstrateSnapshot))
-		mux.HandleFunc("/ws/v1/test/record-changes", guard.Protect(service.handleRecordChangeSocket))
-		return nil
-	}
-}
-
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, facade *Facade) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -70,14 +50,14 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	facade := FacadeFromDependencies(deps)
+	if facade == nil {
+		return nil, errors.New("Timeline route composition requires a façade")
+	}
 	facade.SetConflictTokenCodec(conflicttokens.NewConflictTokenCodec(keys))
 	return &Service{
 		facade:         facade,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		hub:            deps.WSHub,
-		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		keys:           keys,
 		now:            now,
 	}, nil
@@ -122,9 +102,6 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !result.Replayed {
-		s.publishRecordChange(result, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -202,126 +179,6 @@ func buildTimeConversionProfilePayload(profile TimeConversionProfile) map[string
 		"profile_version":      profile.ProfileVersion,
 		"updated_at":           formatTimestamp(profile.UpdatedAt),
 		"updated_by_user_id":   formatUUIDPointer(profile.UpdatedByUserID),
-	}
-}
-
-func (s *Service) handleRecordChangeSnapshot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	changes := s.hub.SnapshotRecordChanges()
-	items := make([]map[string]any, 0, len(changes))
-	for _, change := range changes {
-		items = append(items, recordChangePayload(change))
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"record_changes": items})
-}
-
-func (s *Service) handleRecordSubstrateSnapshot(w http.ResponseWriter, r *http.Request) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
-	}
-
-	snapshot, err := s.facade.SnapshotRecordSubstrate(r.Context(), recordID)
-	switch {
-	case errors.Is(err, ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"record_id":             snapshot.RecordID.String(),
-		"row_version":           snapshot.RowVersion,
-		"capture_state":         snapshot.CaptureState,
-		"replacement_record_id": formatUUIDPointer(snapshot.ReplacementRecordID),
-		"record_revision_count": snapshot.RecordRevisionCount,
-	})
-}
-
-func (s *Service) handleRecordChangeSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := platformws.Accept(w, r, "")
-	if err != nil {
-		return
-	}
-	defer conn.CloseNow()
-
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-
-	changes, unsubscribe := s.hub.SubscribeRecordChanges(16)
-	defer unsubscribe()
-
-	if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-		Type:    "connected",
-		Payload: platformws.RawPayload(map[string]any{"boundary": "/ws/v1/test/record-changes"}),
-	}); err != nil {
-		return
-	}
-
-	go func() {
-		defer cancel()
-		for {
-			var message platformws.Message
-			if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
-				return
-			}
-		}
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case change, ok := <-changes:
-			if !ok {
-				return
-			}
-			if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-				Type:    "record_changed",
-				Payload: platformws.RawPayload(recordChangePayload(change)),
-			}); err != nil {
-				return
-			}
-		}
-	}
-}
-
-func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UUID) {
-	if result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
-		return
-	}
-	s.publisher.Publish(collaboration.RecordChange{
-		IncidentID:       result.Row.IncidentID,
-		RecordID:         result.RecordID,
-		RowVersion:       result.RowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ClientTxnID:      result.ClientTxnID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: result.ChangedFieldKeys,
-		ViewSchemaID:     TimelineViewSchemaID,
-		Row:              buildRow(result.Row),
-	})
-}
-
-func recordChangePayload(change platformws.RecordChange) map[string]any {
-	return map[string]any{
-		"record_id":          change.RecordID.String(),
-		"row_version":        change.RowVersion,
-		"change_set_id":      change.ChangeSetID.String(),
-		"client_txn_id":      change.ClientTxnID,
-		"actor_user_id":      change.ActorUserID.String(),
-		"changed_field_keys": append([]string(nil), change.ChangedFieldKeys...),
-		"affected_views": []map[string]any{
-			{
-				"view_schema_id": change.ViewSchemaID,
-				"change_kind":    "invalidate",
-			},
-		},
 	}
 }
 

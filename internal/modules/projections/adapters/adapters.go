@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -61,8 +62,12 @@ type RowProjector struct {
 	store *projections.Store
 }
 
-func NewRowProjector(pool postgres.DB) *RowProjector {
-	return &RowProjector{store: projections.NewStore(pool)}
+func NewRowProjector(pool postgres.DB, timelineSources ...projections.TimelineSource) *RowProjector {
+	options := make([]projections.StoreOption, 0, 1)
+	if len(timelineSources) > 0 && timelineSources[0] != nil {
+		options = append(options, projections.WithTimelineSource(timelineSources[0]))
+	}
+	return &RowProjector{store: projections.NewStore(pool, options...)}
 }
 
 func (p *RowProjector) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
@@ -77,6 +82,26 @@ func (p *RowProjector) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID st
 	return p.store.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }
 
+func (p *RowProjector) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
+	return p.store.QueryRows(ctx, incidentID, viewSchemaID, query)
+}
+
+func (p *RowProjector) RebuildIncidentTimeline(ctx context.Context, incidentID uuid.UUID) error {
+	return p.store.RebuildIncidentTimeline(ctx, incidentID)
+}
+
+func (p *RowProjector) RebuildIncidentHosts(ctx context.Context, incidentID uuid.UUID) error {
+	return p.store.RebuildIncidentHosts(ctx, incidentID)
+}
+
+func (p *RowProjector) RebuildIncidentIdentities(ctx context.Context, incidentID uuid.UUID) error {
+	return p.store.RebuildIncidentIdentities(ctx, incidentID)
+}
+
+func (p *RowProjector) RebuildIncidentIndicators(ctx context.Context, incidentID uuid.UUID) error {
+	return p.store.RebuildIncidentIndicators(ctx, incidentID)
+}
+
 func (p *RowProjector) RebuildIncidentViewTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
 	return p.store.RebuildIncidentViewTx(ctx, tx, viewSchemaID, incidentID)
 }
@@ -89,20 +114,26 @@ func (p *RowProjector) RebuildIncidentTx(ctx context.Context, tx pgx.Tx, inciden
 	return p.store.RebuildIncidentTx(ctx, tx, incidentID)
 }
 
-type TimelineProjector struct {
+type TimelineWriter struct {
 	store *projections.Store
 }
 
-type TimelineProjectionInput projections.TimelineProjectionInput
-
-func NewTimelineProjector(pool postgres.DB) *TimelineProjector {
-	return &TimelineProjector{store: projections.NewStore(pool)}
+func NewTimelineWriter(pool postgres.DB) *TimelineWriter {
+	return &TimelineWriter{store: projections.NewStore(pool)}
 }
 
-func (p *TimelineProjector) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input TimelineProjectionInput) error {
-	return p.store.UpsertTimelineRowTx(ctx, tx, projections.TimelineProjectionInput(input))
+func (w *TimelineWriter) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation timelineprojection.ProjectionMutation) error {
+	return w.store.ApplyTimelineMutationTx(ctx, tx, mutation)
 }
 
-func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
-	return projections.NewRestoreRebuilder(pool)
+func (w *TimelineWriter) RebuildIncidentHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	return w.store.RebuildIncidentViewTx(ctx, tx, HostsViewSchemaID, incidentID)
+}
+
+func (w *TimelineWriter) RebuildIncidentIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	return w.store.RebuildIncidentViewTx(ctx, tx, IdentitiesViewSchemaID, incidentID)
+}
+
+func NewRestoreRebuilder(pool postgres.DB, timelineSources ...projections.TimelineSource) restorecontract.ProjectionRebuilder {
+	return projections.NewRestoreRebuilder(pool, timelineSources...)
 }

@@ -268,6 +268,18 @@
       "production_only": true
     },
     {
+      "id": "timeline-no-tabular-parser-implementations",
+      "imports": [
+        "archive/zip",
+        "encoding/xml",
+        "github.com/tealeg/xlsx",
+        "github.com/xuri/excelize"
+      ],
+      "scan_paths": ["internal/modules/timeline/*.go"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "production-server-no-harness-contributors",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/harnessruntime",
@@ -312,16 +324,46 @@
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/artifacts",
         "github.com/JochiRaider/cartulary/internal/modules/assessments",
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/entities",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
-        "github.com/JochiRaider/cartulary/internal/modules/projections/adapters",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/platform/postgres"
+      ]
+    },
+    {
+      "id": "timeline-delete-restore-provider-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/timeline/deleterestore/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+      ]
+    },
+    {
+      "id": "timeline-reporting-provider-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/timeline/reportingprovider/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+      ]
+    },
+    {
+      "id": "timeline-rollback-provider-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/timeline/rollbackprovider/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
       ]
     },
     {
@@ -363,6 +405,29 @@
         "github.com/JochiRaider/cartulary/internal/modules/savedviews",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline"
+      ]
+    },
+    {
+      "id": "timeline-approved-owner-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
+      "scan_paths": ["internal/modules/timeline/*.go"],
+      "production_only": true,
+      "allowed_prefixes": [
+        "github.com/JochiRaider/cartulary/internal/modules/timeline"
+      ],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents",
+        "github.com/JochiRaider/cartulary/internal/modules/links",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/projections/adapters",
+        "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
+        "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
       ]
     }
   ],
@@ -443,6 +508,66 @@
         "records"
       ],
       "scan_paths": ["internal/modules/revisions/**"]
+    },
+    {
+      "id": "timeline-canonical-source-repository-tables-only",
+      "allowed_tables": [
+        "timeline_events",
+        "timeline_time_conversion_profiles"
+      ],
+      "scan_paths": [
+        "internal/modules/timeline/*.go",
+        "internal/modules/timeline/mentioneffects/**",
+        "internal/modules/timeline/rollbackprovider/**",
+        "internal/modules/timeline/sourcerepository/**",
+        "internal/modules/timeline/workbookprojection/derivation.go",
+        "internal/modules/timeline/workbookprojection/store.go"
+      ]
+    },
+    {
+      "id": "timeline-reporting-source-read-shape",
+      "allowed_tables": [
+        "records",
+        "timeline_events"
+      ],
+      "scan_paths": ["internal/modules/timeline/reportingprovider/**"]
+    },
+    {
+      "id": "timeline-provider-query-read-shape",
+      "allowed_tables": [
+        "active_record_links_v1",
+        "active_record_tags_v1",
+        "entity_aliases",
+        "entity_mentions",
+        "evidence",
+        "lateral",
+        "records",
+        "timeline_grid_projection"
+      ],
+      "scan_paths": ["internal/modules/timeline/workbookprojection/query_surfaces.go"]
+    },
+    {
+      "id": "timeline-assembly-collection-read-shape",
+      "allowed_tables": [
+        "active_record_links_v1",
+        "active_record_tags_v1",
+        "entity_aliases",
+        "entity_mentions",
+        "evidence",
+        "object_blobs"
+      ],
+      "scan_paths": ["internal/app/timelineassembly/collection_read.go"]
+    },
+    {
+      "id": "timeline-harness-read-shape",
+      "allowed_tables": [
+        "active_record_links_v1",
+        "collaboration_replay_events",
+        "record_revisions",
+        "records",
+        "timeline_events"
+      ],
+      "scan_paths": ["internal/app/timelineassembly/test_routes.go"]
     }
   ],
   "forbidden_go_calls": [
@@ -562,6 +687,71 @@
       "id": "retired-browser-runtime-opt-in",
       "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
       "scan_paths": ["internal/**", "cmd/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-timeline-facade-calls",
+      "tokens": [
+        ".ClipboardPaste(",
+        ".CreateImportedTimelineRow(",
+        ".CreateTimelineRow(",
+        ".MarkReviewed(",
+        ".PatchTimelineRow(",
+        ".ResolveTimelineConflict(",
+        ".Supersede("
+      ],
+      "scan_paths": [
+        "internal/modules/imports/routes.go",
+        "internal/modules/timeline/routes.go",
+        "internal/modules/workbook/routes.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-timeline-facade-shims",
+      "tokens": [
+        "ClipboardPaste(ctx context.Context, actor",
+        "CreateImportedTimelineRow(",
+        "CreateTimelineRow(",
+        "MarkReviewed(ctx context.Context, actor",
+        "PatchTimelineRow(",
+        "ResolveTimelineConflict(",
+        "Supersede(ctx context.Context, actor"
+      ],
+      "scan_paths": ["internal/modules/timeline/facade.go"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "timeline-store-surface-private",
+      "tokens": [
+        "*timeline.Store",
+        "timeline.NewStore",
+        "timeline.Store"
+      ],
+      "scan_paths": [
+        "internal/modules/**",
+        "internal/testutil/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/timeline/**"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "workbook-no-timeline-store-error-classification",
+      "tokens": [
+        "timeline.ErrIllegalTransition",
+        "timeline.ErrNoEffectiveChange",
+        "timeline.ErrRecordNotFound",
+        "timeline.ErrRowVersionConflict",
+        "timeline.IllegalTransitionError",
+        "timeline.RowVersionConflictError",
+        "timeline.SameFieldConflictError"
+      ],
+      "scan_paths": ["internal/modules/workbook/routes.go"],
       "allowed_paths": [],
       "production_only": true
     }

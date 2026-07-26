@@ -1,0 +1,44 @@
+{
+  "schema_id": "cartulary.verification_contract.v2",
+  "owner_id": "module.projections",
+  "verifications": [
+    {
+      "verification_id": "module.projections.verification.provider_architecture",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test",
+        "static_check"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.projections.requirement.provider_validation"
+      ]
+    },
+    {
+      "verification_id": "module.projections.verification.query_and_storage",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.projections.requirement.physical_query",
+        "module.projections.requirement.storage_lifecycle"
+      ]
+    },
+    {
+      "verification_id": "module.projections.verification.rebuild",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "status": "active",
+      "requirement_ids": [
+        "module.projections.requirement.rebuild"
+      ]
+    }
+  ]
+}

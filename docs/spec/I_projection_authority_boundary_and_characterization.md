@@ -2,13 +2,18 @@
 
 Appendix I is non-normative. It records current evidence for the projection authority, ownership, descriptor, restore-rebuild, query-characterization, and import-boundary decisions owned by Core 00, Core 01, and Core 04.
 
+Executable ownership and verification live in the machine catalogs under
+`contracts/requirements`, `contracts/verification`, and `tools/test_families`.
+This appendix explains those decisions for people and is not consumed by product,
+conformance, generation, or release checks.
+
 ## I.1 Authority Posture
 
 `docs/graph_projection_nlspec.md` currently declares `status: adopted/current` and is an adopted projections-specific subsystem NLSpec for graph-oriented projection behavior only. It does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, provider descriptors for workbook projections, or restore projection rebuild behavior. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
 
 Core 00 REQ-00-062 is the authority rule for projections. Adoption or substantive revision of a projections-specific NLSpec requires projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests to be re-audited before accepting new projection changes.
 
-Accepted workbook projection boundary: timeline owns authoritative timeline source semantics and the timeline workbook projection row DTO exposed by `internal/modules/timeline/workbookprojection`; projections owns the physical `timeline_grid_projection` storage lifecycle, delete/upsert behavior, incident rebuild orchestration, and restore rebuild orchestration. Core 01 and Core 03 own observable workbook query and startup behavior. Graph Projection NLSpec rules remain out of scope for workbook-grid projection tables, workbook query routes, saved views, restore rebuilds, and `view_row_v1`.
+Accepted workbook projection boundary: Timeline owns authoritative Timeline source semantics, canonical source snapshots, projection-input meaning, and the provider-contract query descriptor. Projections owns physical `timeline_grid_projection` SQL, closed upsert/delete application, query compilation and execution, keyset paging, incident rebuild orchestration, and restore rebuild orchestration. Timeline source enumeration is deterministic and keyset-paged; projection storage never becomes source authority. Core 01 and Core 03 explain observable workbook query and startup behavior. Graph Projection NLSpec rules remain out of scope for workbook-grid projection tables, workbook query routes, saved views, restore rebuilds, and `view_row_v1`.
 
 ## I.2 R01 Through R09 Evidence Crosswalk
 
@@ -35,7 +40,7 @@ Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modul
 | Evidence rows | `internal/modules/projections/query.go` through generic evidence surface. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | `internal/modules/projections/query_test.go`; evidence integration tests. | Preserve route-owned validation and `internal_error` behavior for unexpected provider failures. |
 | Parties rows | `internal/modules/projections/query.go` through generic party surface. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | `internal/modules/projections/query_test.go`; workbook parties integration tests. | Characterize before moving owner-specific logic. |
 | Task and decision rows | `internal/modules/projections/query.go` through generic task/decision surfaces. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | `internal/modules/projections/query_test.go`; task/decision store tests. | Preserve revision/change-set row snapshots. |
-| Timeline, hosts, identities, indicators | Owner-specific projection/query paths outside generic query surfaces; timeline source extraction is behind `internal/modules/timeline/workbookprojection`. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests; affected catalog owner slices. | Each specialized provider implements the same neutral page window and nulls-last keyset semantics without moving source intent into projections. |
+| Timeline, hosts, identities, indicators | Owner-specific source descriptors feed Projections-owned physical query and storage paths; Timeline source extraction remains Timeline-owned. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests; affected catalog owner slices. | Each provider implements the same neutral page window and nulls-last keyset semantics without moving source intent into Projections. |
 
 Keyset continuation preserves the normalized sort tuple, default sort tail, final `record_id` tie-breaker, direction, and nulls-last behavior. Provider queries bind cursor values and the bounded limit as SQL parameters and do not use pagination `OFFSET`. Host and Identity alias/identifier hydration is restricted to the bounded page record identifiers rather than the entire incident.
 

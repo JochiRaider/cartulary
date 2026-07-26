@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
@@ -37,7 +37,7 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 				defer storage.Close()
 				return storage.ReadMarker(operatorops.RestoreVerificationTargetMarkerMaximumBytes)
 			},
-			NewProjectionRebuilder: projectionadapters.NewRestoreRebuilder,
+			NewProjectionRebuilder: timelineassembly.NewRestoreRebuilder,
 			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
 				return recovery.LoadRecoveryEncryptionKey(nil)
 			},

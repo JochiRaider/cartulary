@@ -655,6 +655,9 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		result.LoserRowVersion = loserIdentity.RowVersion
 	}
 	result.Payload = BuildMergePayload(result)
+	if err := s.appendMergeIntentsTx(ctx, tx, actor.ID, request.ClientTxnID, result, now.UTC()); err != nil {
+		return MergeResult{}, err
+	}
 
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, result.Payload); err != nil {
 		if authn.IsUniqueViolation(err) {

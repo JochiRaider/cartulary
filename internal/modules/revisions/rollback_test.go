@@ -827,8 +827,12 @@ VALUES ($1, 1, 'host', $2, 'field_update', $3, $4, $5, $6)
 		t.Fatalf("seed rollback host mutation: %v", err)
 	}
 	if _, err := db.ExecContext(context.Background(), `
+WITH suppression AS (
+    SELECT set_config('cartulary.collaboration.suppress_historical_intents', 'on', true)
+)
 INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
-VALUES ($1, $2, 2, $3, $4, $5)
+SELECT $1, $2, 2, $3, $4, $5
+  FROM suppression
 ON CONFLICT (record_id, row_version) DO NOTHING
 `, changeSetID, recordID, jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue), createdAt); err != nil {
 		t.Fatalf("seed rollback host revision: %v", err)
@@ -877,8 +881,12 @@ UPDATE hosts
 `, recordID, incidentID, afterName, createdAt, actorID)
 	insertMutation(t, db, changeSetID, sequenceNo, "host", recordID.String(), "field_update", beforeValue, afterValue)
 	mustExec(t, db, `
+WITH suppression AS (
+    SELECT set_config('cartulary.collaboration.suppress_historical_intents', 'on', true)
+)
 INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
-VALUES ($1, $2, 2, $3, $4, $5)
+SELECT $1, $2, 2, $3, $4, $5
+  FROM suppression
 ON CONFLICT (record_id, row_version) DO NOTHING
 `, changeSetID, recordID, jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue), createdAt)
 	seedHostProjection(t, db, incidentID, recordID)

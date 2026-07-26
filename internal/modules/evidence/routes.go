@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -29,7 +27,6 @@ type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	objectStore    objectstore.Store
-	hub            *platformws.Hub
 	keys           authn.MasterKeys
 	now            func() time.Time
 	maxBlobBytes   int64
@@ -43,13 +40,29 @@ type Settings struct {
 	TextPreviewMax int64
 }
 
-func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
+type RouteOption func(*routeOptions)
+
+type routeOptions struct {
+	store *Store
+}
+
+func WithStore(store *Store) RouteOption {
+	return func(options *routeOptions) {
+		options.store = store
+	}
+}
+
+func RegisterRoutes(settings Settings, options ...RouteOption) httpapi.RouteRegistrar {
 	resolved := Settings{}
-	if len(settings) > 0 {
-		resolved = settings[0]
+	resolved = settings
+	resolvedOptions := routeOptions{}
+	for _, option := range options {
+		if option != nil {
+			option(&resolvedOptions)
+		}
 	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, resolved)
+		service, err := newService(deps, resolved, resolvedOptions)
 		if err != nil {
 			return err
 		}
@@ -64,7 +77,7 @@ func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
+func newService(deps httpapi.DependencySet, settings Settings, options routeOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -73,12 +86,15 @@ func newService(deps httpapi.DependencySet, settings Settings) (*Service, error)
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	store := options.store
+	if store == nil {
+		store = NewStore(deps.PostgresHandle())
+	}
 	return &Service{
-		store:          NewStore(deps.PostgresHandle()),
+		store:          store,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		objectStore:    deps.ObjectStore,
-		hub:            deps.WSHub,
 		keys:           keys,
 		now:            now,
 		maxBlobBytes:   settings.MaxBlobBytes,
@@ -309,9 +325,6 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if !result.Replayed {
-		s.publishRecordChange(result, principal.User.ID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -595,25 +608,6 @@ func (s *Service) getObject(ctx context.Context, key string, options objectstore
 		return typed.Get(ctx, objectstore.GetObjectRequest{Key: key, RangeStart: options.RangeStart, RangeEnd: options.RangeEnd, Purpose: purpose})
 	}
 	return s.objectStore.ReadObject(ctx, key, options)
-}
-
-func (s *Service) publishRecordChange(result AttachBlobResult, actorUserID uuid.UUID) {
-	if s.hub == nil || result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
-		return
-	}
-	changes := append([]AttachRecordChange{{
-		RecordID: result.RecordID, RowVersion: result.RowVersion,
-		ViewSchemaID: evidenceViewSchemaID, ChangedFieldKeys: result.ChangedFieldKeys,
-	}}, result.AffectedRecordChanges...)
-	for _, change := range changes {
-		changedKeys := append([]string(nil), change.ChangedFieldKeys...)
-		slices.Sort(changedKeys)
-		s.hub.PublishRecordChange(platformws.RecordChange{
-			IncidentID: result.IncidentID, RecordID: change.RecordID, RowVersion: change.RowVersion,
-			ChangeSetID: result.ChangeSetID, ClientTxnID: result.ClientTxnID, ActorUserID: actorUserID,
-			ChangedFieldKeys: changedKeys, ViewSchemaID: change.ViewSchemaID,
-		})
-	}
 }
 
 func parseByteRange(value string, size int64) (int64, int64, bool) {

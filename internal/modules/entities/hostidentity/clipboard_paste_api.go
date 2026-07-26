@@ -115,8 +115,8 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 	return request, nil
 }
 
-func BuildClipboardPastePlan(request ClipboardPasteRequest) (tabularingest.BatchPlan, error) {
-	return tabularingest.BuildBatchPlan(request.mappingRequest())
+func BuildClipboardPastePlan(request ClipboardPasteRequest) (tabularingest.TabularRowPlanV1, error) {
+	return tabularingest.BuildTabularRowPlanV1(request.mappingRequest())
 }
 
 func (request ClipboardPasteRequest) RequestHash() []byte {

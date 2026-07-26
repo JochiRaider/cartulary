@@ -65,7 +65,8 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		if err := lockTx.Rollback(); err != nil {
 			t.Fatalf("release affected Indicator lock: %v", err)
 		}
-		changes, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(8)
+		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
+		changes, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 8)
 		defer unsubscribe()
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{

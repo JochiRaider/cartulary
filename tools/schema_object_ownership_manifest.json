@@ -144,6 +144,18 @@
       "notes": "Incident metadata, memberships, and incident-scoped workbook preference anchors."
     },
     {
+      "id": "collaboration-durable-stream",
+      "owner": "collaboration",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(collaboration_event_intents|collaboration_incident_stream_cursors|collaboration_replay_events|collaboration_resume_tokens)$" },
+        { "kind": "any", "name_pattern": "^(idx_collaboration_|collaboration_event_intents_|collaboration_incident_stream_cursors_|collaboration_replay_events_|collaboration_resume_tokens_).*$" },
+        { "kind": "function", "name_pattern": "^collaboration_(rfc3339|capture_record_revision|capture_job_progress|capture_network_flow_resource)_v1$" }
+      ],
+      "downstream_surfaces": ["incident collaboration stream", "replay", "resume", "dispatcher recovery"],
+      "notes": "Durable sequencing, replay, and hashed resume-token state. Presence and live connection state remain ephemeral."
+    },
+    {
       "id": "timeline-source",
       "owner": "timeline",
       "profiles": ["base"],

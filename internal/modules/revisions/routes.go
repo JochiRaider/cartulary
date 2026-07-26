@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -20,7 +19,6 @@ type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	keys           authn.MasterKeys
-	publisher      *collaboration.RecordChangePublisher
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
 }
@@ -62,7 +60,6 @@ func newService(deps httpapi.DependencySet, commands *CommandService) (*Service,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
-		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:    cursorCodec,
 		now:            now,
 	}, nil
@@ -236,9 +233,6 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.publishRollbackChanges(result, principal.User.ID)
-	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
@@ -336,50 +330,11 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.publishDeleteRestoreChange(result, principal.User.ID)
-	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
-}
-
-func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUserID uuid.UUID) {
-	if result.ViewSchemaID == "" {
-		return
-	}
-	s.publisher.Publish(collaboration.RecordChange{
-		IncidentID:       result.IncidentID,
-		RecordID:         result.RecordID,
-		RowVersion:       result.RowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ClientTxnID:      result.ClientTxnID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: []string{},
-		ViewSchemaID:     result.ViewSchemaID,
-		ChangeKind:       result.ChangeKind,
-	})
-}
-
-func (s *Service) publishRollbackChanges(result RollbackResult, actorUserID uuid.UUID) {
-	for _, change := range result.Changes {
-		if change.ViewSchemaID == "" {
-			continue
-		}
-		s.publisher.Publish(collaboration.RecordChange{
-			IncidentID:       result.IncidentID,
-			RecordID:         change.RecordID,
-			RowVersion:       change.RowVersion,
-			ChangeSetID:      change.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: append([]string(nil), change.ChangedFieldKeys...),
-			ViewSchemaID:     change.ViewSchemaID,
-			ChangeKind:       "invalidate",
-		})
-	}
 }
 
 func roleIn(role string, allowed ...string) bool {

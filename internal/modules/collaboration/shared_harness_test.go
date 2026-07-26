@@ -9,6 +9,8 @@ import (
 )
 
 func TestSocketEventInventoryCoverage(t *testing.T) {
+	t.Run("record change intent builds a sorted compact patch", testRecordChangeIntentBuildsSortedCompactPatch)
+
 	inventory := incidentwstest.SocketEventInventory()
 	incidentwstest.RequireHarnessInventory(t, inventory)
 

@@ -84,7 +84,7 @@
           "scenario_d844d91c9de8"
         ],
         "titles": [
-          "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation"
+          "uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible patch delivery"
         ]
       },
       "evidence_class": "browser",
@@ -946,7 +946,56 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestClipboardPasteParsingMappingRawCaptureAndBinding"
+          "TestClipboardPasteParsingMappingRawCaptureAndBinding",
+          "TestClipboardPasteRejectsCrossIncidentRecordTarget"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_unit.rollback_provider_mapping_dafe7d4b5c",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/rollbackprovider",
+        "tests": [
+          "TestTimelineProviderSourceForRollbackValueMapsTimelineCells"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.support_unit.time_contract_parser_98d70c6b65",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/timecontract",
+        "tests": [
+          "TestTimelineTimeContractParsingAndFormatting"
         ]
       },
       "evidence_class": "unit",
@@ -969,35 +1018,13 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
+          "TestUnit_ActionRequestHashWireStability",
           "TestUnit_CaptureStateHelpers",
           "TestUnit_CreateRequestCoverage",
           "TestUnit_InitialStateVocabulary",
           "TestUnit_PatchRequestHashNormalization",
           "TestUnit_PayloadBuildersExposeStableShapes",
           "TestUnit_SupersedeGuardAndHashHelpers"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.timeline.support_unit.unit_timeline_query_schema_mapping_guard_7a2c2a4857",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/timeline",
-        "tests": [
-          "TestUnit_TimelineQuerySchemaMappingGuard"
         ]
       },
       "evidence_class": "unit",
@@ -1112,7 +1139,10 @@
       "selector": {
         "package": "./internal/modules/timeline",
         "tests": [
-          "TestProjectionContract_Unit"
+          "TestCanonicalRowDerivationEquivalence_Unit",
+          "TestCanonicalRowDerivationNullableEquivalence_Unit",
+          "TestProjectionContract_Unit",
+          "TestProjectionMutationContractRejectsMalformed_Unit"
         ]
       },
       "evidence_class": "unit",

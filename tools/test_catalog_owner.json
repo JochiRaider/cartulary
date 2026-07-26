@@ -102,6 +102,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.projections",
+      "manifest_path": "tools/test_families/module.projections.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "manifest_path": "tools/test_families/module.recovery.json",
       "status": "active"

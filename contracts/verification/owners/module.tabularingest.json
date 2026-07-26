@@ -11,7 +11,8 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "module.tabularingest.requirement.behavior_contract"
+        "module.tabularingest.requirement.behavior_contract",
+        "module.tabularingest.requirement.tabular_row_plan_v1"
       ]
     }
   ]

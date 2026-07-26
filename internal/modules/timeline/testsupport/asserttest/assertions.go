@@ -109,6 +109,30 @@ func RowVersion(value int64) *int64 {
 	return &value
 }
 
+// AwaitIncidentStreamIdle establishes a deterministic subscription boundary
+// for tests that intentionally ignore mutations completed before subscribing.
+// Durable collaboration delivery is asynchronous, so an HTTP response alone
+// does not imply that its event has already crossed the ephemeral Hub.
+func AwaitIncidentStreamIdle(t testing.TB, db Database, incidentID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		pending := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents
+ WHERE incident_id::text = $1
+   AND (dispatch_state = 'pending' OR delivered_at IS NULL)
+`, incidentID)
+		if pending == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("collaboration stream for incident %s did not become idle; pending=%d", incidentID, pending)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func SnapshotCounters(t testing.TB, db Database, incidentID string, recordID string) Counters {
 	t.Helper()
 
@@ -285,38 +309,60 @@ WHERE record_id::text = $1
 	return row
 }
 
-func AwaitRecordChange(t testing.TB, changes <-chan platformws.RecordChange, timeout time.Duration) platformws.RecordChange {
+func AwaitRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) platformws.RecordChange {
 	t.Helper()
 
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
 
-	select {
-	case change, ok := <-changes:
-		if !ok {
-			t.Fatal("record change channel closed before event")
+	deadline := time.After(timeout)
+	for {
+		select {
+		case message, ok := <-messages:
+			if !ok {
+				t.Fatal("incident stream closed before record change")
+			}
+			if message.Type != "record_changed" {
+				continue
+			}
+			change, err := platformws.RecordChangeFromSequencedMessage(message)
+			if err != nil {
+				t.Fatalf("decode record change: %v", err)
+			}
+			return change
+		case <-deadline:
+			t.Fatal("timed out waiting for record change")
+			return platformws.RecordChange{}
 		}
-		return change
-	case <-time.After(timeout):
-		t.Fatal("timed out waiting for record change")
-		return platformws.RecordChange{}
 	}
 }
 
-func RequireNoRecordChange(t testing.TB, changes <-chan platformws.RecordChange, timeout time.Duration) {
+func RequireNoRecordChange(t testing.TB, messages <-chan platformws.Message, timeout time.Duration) {
 	t.Helper()
 
 	if timeout <= 0 {
 		timeout = 300 * time.Millisecond
 	}
 
-	select {
-	case change, ok := <-changes:
-		if ok {
+	deadline := time.After(timeout)
+	for {
+		select {
+		case message, ok := <-messages:
+			if !ok {
+				return
+			}
+			if message.Type != "record_changed" {
+				continue
+			}
+			change, err := platformws.RecordChangeFromSequencedMessage(message)
+			if err != nil {
+				t.Fatalf("decode unexpected record change: %v", err)
+			}
 			t.Fatalf("expected no record change, got %+v", change)
+		case <-deadline:
+			return
 		}
-	case <-time.After(timeout):
 	}
 }
 

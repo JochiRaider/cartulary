@@ -124,4 +124,6 @@ FROM timeline_events e
 JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
   AND r.deleted_at IS NULL
-ORDER BY e.recorded_at ASC, e.record_id ASC;
+  AND (sqlc.narg('after_record_id')::uuid IS NULL OR e.record_id > sqlc.narg('after_record_id')::uuid)
+ORDER BY e.record_id ASC
+LIMIT sqlc.arg('page_limit');

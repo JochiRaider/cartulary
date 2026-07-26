@@ -14,10 +14,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -337,6 +338,27 @@ func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
 	})
 	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("evidence_lifecycle projection rebuild"), "projection.txt", "text/plain", "txn-evidence_lifecycle-projection-blob", "txn-evidence_lifecycle-projection-attach")
+	var (
+		evidenceLifecycleState string
+		evidenceUploadState    string
+		blobUploadState        string
+	)
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT e.lifecycle_state, e.upload_state, b.upload_state
+  FROM evidence e
+  JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
+ WHERE e.record_id = $1
+`, evidenceRecordID).Scan(&evidenceLifecycleState, &evidenceUploadState, &blobUploadState); err != nil {
+		t.Fatalf("load attached evidence availability state: %v", err)
+	}
+	if evidenceLifecycleState != "available" || evidenceUploadState != "available" || blobUploadState != "available" {
+		t.Fatalf(
+			"attached evidence availability state got lifecycle=%q evidence_upload=%q blob_upload=%q",
+			evidenceLifecycleState,
+			evidenceUploadState,
+			blobUploadState,
+		)
+	}
 
 	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
@@ -365,9 +387,12 @@ UPDATE timeline_grid_projection
 		t.Fatalf("corrupt timeline projection: %v", err)
 	}
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 0, false)
-	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
-	if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentTimeline(context.Background(), incidentID); err != nil {
+	if err := projectionadapters.NewRowProjector(
+		harness.Server.Runtime.Postgres,
+		timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
+	).RebuildIncidentTimeline(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 1, true)
@@ -485,7 +510,10 @@ INSERT INTO record_links (
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identity_grid_projection SET evidence_count = 0 WHERE record_id = $1`, identityRecordID); err != nil {
 		t.Fatalf("corrupt identity evidence count: %v", err)
 	}
-	projectionStore := projections.NewStore(harness.Server.Runtime.Postgres)
+	projectionStore := projectionadapters.NewRowProjector(
+		harness.Server.Runtime.Postgres,
+		timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
+	)
 	if err := projectionStore.RebuildIncidentHosts(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild host evidence projection: %v", err)
 	}
@@ -496,7 +524,7 @@ INSERT INTO record_links (
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
 
 	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
-	quarantine, err := evidence.NewStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
+	quarantine, err := timelineassembly.NewEvidenceStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("quarantine entity-linked evidence: %v", err)
 	}
@@ -880,7 +908,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
 
-		store := evidence.NewStore(harness.Server.Runtime.Postgres)
+		store := timelineassembly.NewEvidenceStore(harness.Server.Runtime.Postgres)
 		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-evidence_lifecycle-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
 		}

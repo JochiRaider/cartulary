@@ -10,96 +10,6 @@ import (
 )
 
 func TestPresenceReplayRevocationTransport(t *testing.T) {
-	t.Run("resume replay filters to replayable incident messages", func(t *testing.T) {
-		hub := NewHub()
-		incidentID := uuid.New()
-		sessionID := uuid.New()
-		clientInstanceID := "collaboration-u-6-08-client"
-		now := time.Date(2026, 5, 5, 12, 0, 0, 0, time.UTC)
-
-		token, _, err := hub.IssueResumeToken(sessionID, incidentID, clientInstanceID, now.Add(time.Hour), now)
-		if err != nil {
-			t.Fatalf("issue resume token: %v", err)
-		}
-
-		hub.mu.Lock()
-		hub.highWater[incidentID] = 5
-		hub.replay[incidentID] = []replayEntry{
-			{Message: replayMessage("record_changed", incidentID, 1), StoredAt: now},
-			{Message: replayMessage("presence_delta", incidentID, 2), StoredAt: now},
-			{Message: replayMessage("job_progress", incidentID, 3), StoredAt: now},
-			{Message: replayMessage("extension_resource_changed", incidentID, 4), StoredAt: now},
-			{Message: replayMessage("session_revoked", incidentID, 5), StoredAt: now},
-			{Message: EphemeralMessage(incidentID, "presence_snapshot", nil, now), StoredAt: now},
-		}
-		hub.mu.Unlock()
-
-		status, missed, highWater := hub.ReplayMessages(sessionID, incidentID, clientInstanceID, token, 0, now)
-		if status != ResumeStatusReplayed {
-			t.Fatalf("resume status = %q want %q", status, ResumeStatusReplayed)
-		}
-		if highWater != 5 {
-			t.Fatalf("highWater = %d want 5", highWater)
-		}
-		gotTypes := messageTypes(missed)
-		if want := []string{"record_changed", "job_progress", "extension_resource_changed"}; !reflect.DeepEqual(gotTypes, want) {
-			t.Fatalf("replayed message types = %#v want %#v", gotTypes, want)
-		}
-
-		status, missed, _ = hub.ReplayMessages(sessionID, incidentID, clientInstanceID, token, 6, now)
-		if status != ResumeStatusResetNeeded || len(missed) != 0 {
-			t.Fatalf("future last_seen must reset without replay, got status=%q missed=%#v", status, missed)
-		}
-	})
-
-	t.Run("resume reset covers expired mismatched and too old tokens", func(t *testing.T) {
-		hub := NewHub()
-		incidentID := uuid.New()
-		sessionID := uuid.New()
-		clientInstanceID := "collaboration-u-6-08-reset"
-		now := time.Date(2026, 5, 5, 12, 30, 0, 0, time.UTC)
-
-		expired, _, err := hub.IssueResumeToken(sessionID, incidentID, clientInstanceID, now.Add(time.Hour), now)
-		if err != nil {
-			t.Fatalf("issue expired resume token: %v", err)
-		}
-		valid, _, err := hub.IssueResumeToken(sessionID, incidentID, clientInstanceID, now.Add(time.Hour), now)
-		if err != nil {
-			t.Fatalf("issue valid resume token: %v", err)
-		}
-
-		hub.mu.Lock()
-		record := hub.resumeTokens[expired]
-		record.ExpiresAt = now.Add(-time.Second)
-		hub.resumeTokens[expired] = record
-		hub.highWater[incidentID] = 11
-		hub.replay[incidentID] = []replayEntry{
-			{Message: replayMessage("record_changed", incidentID, 10), StoredAt: now},
-			{Message: replayMessage("job_progress", incidentID, 11), StoredAt: now},
-		}
-		hub.mu.Unlock()
-
-		cases := []struct {
-			name             string
-			token            string
-			incidentID       uuid.UUID
-			clientInstanceID string
-			lastSeen         int64
-		}{
-			{name: "expired", token: expired, incidentID: incidentID, clientInstanceID: clientInstanceID, lastSeen: 9},
-			{name: "unknown", token: "unknown-token", incidentID: incidentID, clientInstanceID: clientInstanceID, lastSeen: 9},
-			{name: "mismatched incident", token: valid, incidentID: uuid.New(), clientInstanceID: clientInstanceID, lastSeen: 9},
-			{name: "mismatched client", token: valid, incidentID: incidentID, clientInstanceID: "other-client", lastSeen: 9},
-			{name: "too old", token: valid, incidentID: incidentID, clientInstanceID: clientInstanceID, lastSeen: 8},
-		}
-		for _, tc := range cases {
-			status, missed, _ := hub.ReplayMessages(sessionID, tc.incidentID, tc.clientInstanceID, tc.token, tc.lastSeen, now)
-			if status != ResumeStatusResetNeeded || len(missed) != 0 {
-				t.Fatalf("%s resume must reset without replay, got status=%q missed=%#v", tc.name, status, missed)
-			}
-		}
-	})
-
 	t.Run("presence snapshots are incident scoped sorted and expire", func(t *testing.T) {
 		hub := NewHub()
 		incidentID := uuid.New()
@@ -166,7 +76,6 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			hub := NewHub()
 			incidentID := uuid.New()
 			messages, unsubscribeIncident := hub.SubscribeIncident(incidentID, 1)
-			changes, unsubscribeChanges := hub.SubscribeRecordChanges(1)
 			start := make(chan struct{})
 			var workers sync.WaitGroup
 			workers.Add(2)
@@ -175,17 +84,14 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 				defer workers.Done()
 				<-start
 				for publish := 0; publish < 8; publish++ {
-					if err := hub.PublishJobProgress(incidentID, NewIncidentJobProgressPayload(
-						"job-subscription-teardown",
-						incidentID,
-						JobStatusRunning,
-						JobProgress{Completed: int64(publish)},
-						time.Now(),
-					)); err != nil {
-						t.Errorf("publish job progress: %v", err)
+					if err := hub.DeliverReplayable(sequencedJobMessage(incidentID, int64(publish*2+1))); err != nil {
+						t.Errorf("deliver job progress: %v", err)
 						return
 					}
-					hub.PublishRecordChange(RecordChange{IncidentID: incidentID})
+					if err := hub.DeliverReplayable(sequencedRecordMessage(incidentID, int64(publish*2+2))); err != nil {
+						t.Errorf("deliver record change: %v", err)
+						return
+					}
 				}
 			}()
 			go func() {
@@ -193,8 +99,6 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 				<-start
 				unsubscribeIncident()
 				unsubscribeIncident()
-				unsubscribeChanges()
-				unsubscribeChanges()
 			}()
 
 			close(start)
@@ -203,25 +107,13 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			for len(messages) > 0 {
 				<-messages
 			}
-			for len(changes) > 0 {
-				<-changes
+			if err := hub.DeliverReplayable(sequencedJobMessage(incidentID, 100)); err != nil {
+				t.Fatalf("deliver after unsubscribe: %v", err)
 			}
-			if err := hub.PublishJobProgress(incidentID, NewIncidentJobProgressPayload(
-				"job-after-unsubscribe",
-				incidentID,
-				JobStatusRunning,
-				JobProgress{},
-				time.Now(),
-			)); err != nil {
-				t.Fatalf("publish after unsubscribe: %v", err)
+			if err := hub.DeliverReplayable(sequencedRecordMessage(incidentID, 101)); err != nil {
+				t.Fatalf("deliver record after unsubscribe: %v", err)
 			}
-			hub.PublishRecordChange(RecordChange{IncidentID: incidentID})
 			requireNoIncidentMessage(t, messages)
-			select {
-			case change := <-changes:
-				t.Fatalf("unsubscribed record-change channel received %#v", change)
-			default:
-			}
 		}
 	})
 
@@ -297,21 +189,42 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 	})
 }
 
-func replayMessage(messageType string, incidentID uuid.UUID, streamSeq int64) Message {
+func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) Message {
+	now := time.Now().UTC()
 	return Message{
-		Type:       messageType,
+		Type:       "job_progress",
 		IncidentID: incidentID.String(),
+		EventID:    uuid.NewString(),
+		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload:    RawPayload(map[string]any{}),
+		Payload: RawPayload(NewIncidentJobProgressPayload(
+			"job-subscription-teardown",
+			incidentID,
+			JobStatusRunning,
+			JobProgress{},
+			now,
+		)),
 	}
 }
 
-func messageTypes(messages []Message) []string {
-	types := make([]string, 0, len(messages))
-	for _, message := range messages {
-		types = append(types, message.Type)
+func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) Message {
+	now := time.Now().UTC()
+	return Message{
+		Type:       "record_changed",
+		IncidentID: incidentID.String(),
+		EventID:    uuid.NewString(),
+		EmittedAt:  now.Format(time.RFC3339Nano),
+		StreamSeq:  &streamSeq,
+		Payload: RawPayload(RecordChangePayload(RecordChange{
+			IncidentID:       incidentID,
+			RecordID:         uuid.New(),
+			RowVersion:       1,
+			ChangeSetID:      uuid.New(),
+			ActorUserID:      uuid.New(),
+			ChangedFieldKeys: []string{},
+			ViewSchemaID:     "cartulary.view.timeline.v2",
+		})),
 	}
-	return types
 }
 
 func stringPointer(value string) *string {

@@ -26,7 +26,7 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 	}
 
 	hostMode := "mention_origin"
-	plan, err := tabularingest.BuildBatchPlan(tabularingest.MappingRequest{
+	plan, err := tabularingest.BuildTabularRowPlanV1(tabularingest.MappingRequest{
 		ViewSchemaID:   timeline.TimelineViewSchemaID,
 		ClientTxnID:    "txn-u-9-02-shared-ingest",
 		SourceKind:     "clipboard_paste",
@@ -48,11 +48,11 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 	if plan.Rows[0].Cells[0].EntityBindingMode == nil || *plan.Rows[0].Cells[0].EntityBindingMode != hostMode {
 		t.Fatalf("shared ingest did not carry entity_binding_mode: %#v", plan.Rows[0].Cells[0])
 	}
-	if len(plan.Rows[0].Unknown) != 1 || plan.Rows[0].Unknown[0].SourceColumnOrdinal != 3 || plan.Rows[0].Unknown[0].RawValue != "unknown" {
-		t.Fatalf("unknown column was not preserved by ordinal: %#v", plan.Rows[0].Unknown)
+	if len(plan.Rows[0].Unmapped) != 1 || plan.Rows[0].Unmapped[0].SourceColumnOrdinal != 3 || plan.Rows[0].Unmapped[0].RawValue != "unknown" {
+		t.Fatalf("unmapped column was not preserved by ordinal: %#v", plan.Rows[0].Unmapped)
 	}
 
-	fillDown, apiErr := timeline.DecodeBulkMutationRequest(strings.NewReader(`{
+	fillDown, apiErr := DecodeTimelineBulkMutationRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.timeline.v2",
 		"client_txn_id":"txn-u-9-02-fill-down",
 		"kind":"fill_down_v1",
@@ -66,21 +66,20 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode fill-down bulk request: %#v", apiErr)
 	}
-	fillPaste := timeline.BulkMutationClipboardRequest(fillDown)
-	if fillPaste.SourceKind != "bulk_edit" || fillPaste.RouteKey != timeline.BulkMutationRouteKey || fillPaste.ClientTxnID != "txn-u-9-02-fill-down" {
-		t.Fatalf("fill-down did not preserve one visible bulk action identity: %#v", fillPaste)
+	if fillDown.Kind != timeline.OwnerBatchOperationFillDownV1 || fillDown.ClientTxnID != "txn-u-9-02-fill-down" {
+		t.Fatalf("fill-down did not preserve its exact operation identity: %#v", fillDown)
 	}
-	if fillPaste.StartFieldKey != "timeline.raw_activity_text" || len(fillPaste.Columns) != 1 || fillPaste.Columns[0] != "timeline.raw_activity_text" {
-		t.Fatalf("fill-down did not target one stable field column: %#v", fillPaste)
+	if fillDown.FieldKey != "timeline.raw_activity_text" || fillDown.Value != "Filled source" {
+		t.Fatalf("fill-down did not preserve its stable field command: %#v", fillDown)
 	}
-	if fillPaste.ClipboardText != "Filled source\nFilled source" || len(fillPaste.Targets) != 2 {
-		t.Fatalf("fill-down did not expand one value over stable targets: %#v", fillPaste)
+	if len(fillDown.Targets) != 2 {
+		t.Fatalf("fill-down did not preserve stable targets: %#v", fillDown)
 	}
-	if fillPaste.Targets[0].RecordID.String() != "11111111-1111-4111-8111-111111111111" || fillPaste.Targets[0].BaseRowVersion != 3 {
-		t.Fatalf("fill-down first target changed: %#v", fillPaste.Targets[0])
+	if fillDown.Targets[0].RecordID.String() != "11111111-1111-4111-8111-111111111111" || fillDown.Targets[0].BaseRowVersion != 3 {
+		t.Fatalf("fill-down first target changed: %#v", fillDown.Targets[0])
 	}
 
-	tagAssignment, apiErr := timeline.DecodeBulkMutationRequest(strings.NewReader(`{
+	tagAssignment, apiErr := DecodeTimelineBulkMutationRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.timeline.v2",
 		"client_txn_id":"txn-u-9-02-tag-assignment",
 		"kind":"multi_row_tag_assignment_v1",
@@ -93,17 +92,38 @@ func TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode multi-row tag assignment request: %#v", apiErr)
 	}
-	tagPaste := timeline.BulkMutationClipboardRequest(tagAssignment)
-	if tagPaste.SourceKind != "bulk_edit" || tagPaste.RouteKey != timeline.BulkMutationRouteKey || tagPaste.ClientTxnID != "txn-u-9-02-tag-assignment" {
-		t.Fatalf("tag assignment did not preserve one visible bulk action identity: %#v", tagPaste)
+	if tagAssignment.Kind != timeline.OwnerBatchOperationMultiRowTagAssignmentV1 || tagAssignment.ClientTxnID != "txn-u-9-02-tag-assignment" {
+		t.Fatalf("tag assignment did not preserve its exact operation identity: %#v", tagAssignment)
 	}
-	if tagPaste.StartFieldKey != "timeline.tags" || len(tagPaste.Columns) != 1 || tagPaste.Columns[0] != "timeline.tags" {
-		t.Fatalf("tag assignment did not target the tags collection field: %#v", tagPaste)
+	if tagAssignment.TagName != "Bulk Tag" || tagAssignment.NormalizedTag != "bulk tag" {
+		t.Fatalf("tag assignment did not preserve its normalized command: %#v", tagAssignment)
 	}
-	if tagPaste.ClipboardText != "Bulk Tag\nBulk Tag" || len(tagPaste.Targets) != 2 {
-		t.Fatalf("tag assignment did not expand one tag over stable targets: %#v", tagPaste)
+	if len(tagAssignment.Targets) != 2 {
+		t.Fatalf("tag assignment did not preserve stable targets: %#v", tagAssignment)
 	}
-	if tagPaste.Targets[1].RecordID.String() != "44444444-4444-4444-8444-444444444444" || tagPaste.Targets[1].BaseRowVersion != 6 {
-		t.Fatalf("tag assignment second target changed: %#v", tagPaste.Targets[1])
+	if tagAssignment.Targets[1].RecordID.String() != "44444444-4444-4444-8444-444444444444" || tagAssignment.Targets[1].BaseRowVersion != 6 {
+		t.Fatalf("tag assignment second target changed: %#v", tagAssignment.Targets[1])
+	}
+	if string(TimelineBulkMutationRequestHash(fillDown)) == string(TimelineBulkMutationRequestHash(tagAssignment)) {
+		t.Fatal("distinct bulk operation discriminators must produce distinct request hashes")
+	}
+
+	exactPlan, err := BuildTimelineClipboardPlan(TimelineClipboardPasteRequest{
+		ViewSchemaID:  timeline.TimelineViewSchemaID,
+		ClientTxnID:   "txn-exact-header",
+		ClipboardText: strings.Join(timelineV2ExactHeaderLabels, "\t") + "\n2026-07-25",
+		Format:        "tsv",
+		StartFieldKey: "timeline.activity_synopsis_text",
+		Columns:       []string{"timeline.activity_synopsis_text"},
+		Targets:       []TimelineBatchTarget{{Kind: "create"}},
+	})
+	if err != nil {
+		t.Fatalf("build exact-header Timeline plan: %v", err)
+	}
+	if len(exactPlan.Rows) != 1 || len(exactPlan.Rows[0].Cells) != len(timelineV2ExactHeaderFieldKeys) {
+		t.Fatalf("exact Timeline header did not retain its complete stable mapping: %#v", exactPlan.Rows)
+	}
+	if exactPlan.Rows[0].Cells[0].RawValue != "2026-07-25" || exactPlan.Rows[0].Cells[1].RawValue != "" {
+		t.Fatalf("exact Timeline header did not preserve empty trailing cells: %#v", exactPlan.Rows[0].Cells)
 	}
 }

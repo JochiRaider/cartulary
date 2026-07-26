@@ -3,6 +3,7 @@ package timeline
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -147,6 +148,21 @@ func TestUnit_PatchRequestHashNormalization(t *testing.T) {
 		},
 	})) {
 		t.Fatal("expected divergent normalized patch request hash to differ")
+	}
+}
+
+func TestUnit_ActionRequestHashWireStability(t *testing.T) {
+	reason := "superseding duplicate"
+	replacementRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000001")
+	got := fmt.Sprintf("%x", TimelineActionRequestHash(
+		4,
+		"client-transaction-id-is-not-hashed",
+		&reason,
+		&replacementRecordID,
+	))
+	const want = "8029aa9e47b0d78cfbcf269b60a67a0818f479aa889d6a818f684850a23e5ca5"
+	if got != want {
+		t.Fatalf("normalized action request hash changed: got %s want %s", got, want)
 	}
 }
 

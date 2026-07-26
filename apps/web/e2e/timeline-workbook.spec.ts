@@ -262,7 +262,7 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   await reviewerPage.context().close();
 });
 
-test("uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation", async ({
+test("uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible patch delivery", async ({
   browser,
   page,
   sessionTracker,
@@ -301,6 +301,12 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
   await expect(
     observer.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("1");
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page: observer,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
   const baselineObserverQueries = observerQueryCount;
   const baselineRecordChangeCount = await fetchTimelineRecordChangeCount(
     page,
@@ -345,12 +351,15 @@ test("uses a disclosed hybrid replay harness to prove replay avoids duplicate hi
   await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
     "2",
   );
-  await expect
-    .poll(() => observerQueryCount, { timeout: 5_000 })
-    .toBeGreaterThan(baselineObserverQueries);
   await expect(
     observer.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("2");
+  await expect(
+    observer.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
+  ).toHaveText("Replay row patched");
+  expect(observerQueryCount).toBe(baselineObserverQueries);
   const substrateAfterFirstPatch = await fetchTimelineRecordSubstrate(
     page,
     recordId,

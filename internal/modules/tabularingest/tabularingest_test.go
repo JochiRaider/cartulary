@@ -23,7 +23,7 @@ func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
 	}
 
 	hostMode := "mention_origin"
-	plan, err := tabularingest.BuildBatchPlan(tabularingest.MappingRequest{
+	plan, err := tabularingest.BuildTabularRowPlanV1(tabularingest.MappingRequest{
 		ViewSchemaID:   "cartulary.view.timeline.v2",
 		ClientTxnID:    "txn-u-9-02-shared-ingest",
 		SourceKind:     "clipboard_paste",
@@ -36,8 +36,16 @@ func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build shared ingest plan: %v", err)
 	}
-	if plan.SourceKind != "clipboard_paste" || plan.ClientTxnID != "txn-u-9-02-shared-ingest" || len(plan.Rows) != 2 {
+	if plan.Kind != tabularingest.TabularRowPlanV1Kind ||
+		plan.SourceKind != "clipboard_paste" ||
+		plan.SourceFormat != tabularingest.SourceFormatTSV ||
+		plan.ClientTxnID != "txn-u-9-02-shared-ingest" ||
+		plan.MappingFingerprint == "" ||
+		len(plan.Rows) != 2 {
 		t.Fatalf("unexpected batch identity/grouping: %#v", plan)
+	}
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("validate tabular row plan: %v", err)
 	}
 	if len(plan.Rows[0].Cells) != 2 || plan.Rows[0].Cells[0].FieldKey != "timeline.host_refs" || plan.Rows[0].Cells[1].FieldKey != "timeline.activity_synopsis_text" {
 		t.Fatalf("unexpected mapped cells: %#v", plan.Rows[0].Cells)
@@ -45,7 +53,16 @@ func TestSharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
 	if plan.Rows[0].Cells[0].EntityBindingMode == nil || *plan.Rows[0].Cells[0].EntityBindingMode != hostMode {
 		t.Fatalf("shared ingest did not carry entity_binding_mode: %#v", plan.Rows[0].Cells[0])
 	}
-	if len(plan.Rows[0].Unknown) != 1 || plan.Rows[0].Unknown[0].SourceColumnOrdinal != 3 || plan.Rows[0].Unknown[0].RawValue != "unknown" {
-		t.Fatalf("unknown column was not preserved by ordinal: %#v", plan.Rows[0].Unknown)
+	if len(plan.Rows[0].Unmapped) != 1 || plan.Rows[0].Unmapped[0].SourceColumnOrdinal != 3 || plan.Rows[0].Unmapped[0].RawValue != "unknown" {
+		t.Fatalf("unmapped column was not preserved by ordinal: %#v", plan.Rows[0].Unmapped)
+	}
+	if len(plan.Warnings) != 2 || plan.Warnings[0].Code != tabularingest.WarningUnmappedValueV1 {
+		t.Fatalf("unmapped values did not produce closed warnings: %#v", plan.Warnings)
+	}
+
+	tampered := plan
+	tampered.MappingFingerprint = "tampered"
+	if err := tampered.Validate(); err == nil {
+		t.Fatal("tampered mapping fingerprint must fail validation")
 	}
 }

@@ -55,6 +55,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 		first.Close(websocket.StatusNormalClosure, "test_complete")
 		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-a", platformws.JobStatusQueued)
 		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-b", platformws.JobStatusRunning)
+		waitForReplayEventCount(t, harness, incidentID, 2)
 
 		resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
@@ -297,6 +298,7 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 	})
 
 	publishJobProgress(t, harness, incidentID, "collaboration-i-6-02-job", platformws.JobStatusRunning)
+	waitForReplayEventCount(t, harness, incidentID, 2)
 
 	resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
@@ -355,14 +357,48 @@ func setupSocketIncidentWithAdminID(t testing.TB, runtime *collabscenariotest.Ru
 func publishJobProgress(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, jobID string, status string) {
 	t.Helper()
 
-	parsedIncidentID := uuid.MustParse(incidentID)
-	total := int64(2)
-	payload := platformws.NewIncidentJobProgressPayload(jobID, parsedIncidentID, status, platformws.JobProgress{
-		Completed: 1,
-		Total:     &total,
-	}, time.Now().UTC())
-	if err := harness.Server.Runtime.WSHub.PublishJobProgress(parsedIncidentID, payload); err != nil {
-		t.Fatalf("publish job progress: %v", err)
+	var actorUserID string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT user_id::text
+  FROM incident_memberships
+ WHERE incident_id = $1::uuid
+ ORDER BY joined_at, user_id
+ LIMIT 1
+`, incidentID).Scan(&actorUserID); err != nil {
+		t.Fatalf("load job progress actor: %v", err)
+	}
+	now := harness.Server.Clock.Now().UTC()
+	stableJobID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(jobID))
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO jobs (
+    job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
+    submitted_at, updated_at, progress_completed, progress_total, auth_policy
+) VALUES ($1, 'incident', $2::uuid, $3, TRUE, $4::uuid, $5, $5, 1, 2, 'incident_membership')
+`, stableJobID, incidentID, status, actorUserID, now); err != nil {
+		t.Fatalf("append durable job progress: %v", err)
+	}
+}
+
+func waitForReplayEventCount(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, want int) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var count int
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM collaboration_replay_events
+ WHERE incident_id = $1::uuid
+`, incidentID).Scan(&count); err != nil {
+			t.Fatalf("count durable replay events: %v", err)
+		}
+		if count >= want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("durable replay event count = %d want at least %d", count, want)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 

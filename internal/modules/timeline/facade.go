@@ -9,80 +9,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/querypage"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type Facade struct {
 	store *store
 }
 
-type CreateRowCommand struct {
-	Actor       authn.UserRecord
-	IncidentID  uuid.UUID
-	Request     CreateRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type PatchRowCommand struct {
-	Actor       authn.UserRecord
-	RecordID    uuid.UUID
-	Request     PatchRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type ConflictResolveCommand struct {
-	Actor       authn.UserRecord
-	RecordID    uuid.UUID
-	Claims      TimelineConflictTokenClaims
-	Request     ConflictResolveRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type ClipboardPasteCommand struct {
-	Actor       authn.UserRecord
-	IncidentID  uuid.UUID
-	Request     ClipboardPasteRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type BulkMutationCommand struct {
-	Actor       authn.UserRecord
-	IncidentID  uuid.UUID
-	Request     BulkMutationRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type MarkReviewedCommand struct {
-	Actor       authn.UserRecord
-	RecordID    uuid.UUID
-	Request     ActionRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-type SupersedeCommand struct {
-	Actor       authn.UserRecord
-	RecordID    uuid.UUID
-	Request     SupersedeRequest
-	RequestHash []byte
-	RequestID   string
-	Now         time.Time
-}
-
-func NewFacade(pool postgres.DB) *Facade {
-	return newFacadeWithStore(newStore(pool))
+func NewFacade(pool postgres.DB, dependencies Dependencies) *Facade {
+	return newFacadeWithStore(newStore(pool, dependencies))
 }
 
 func newFacadeWithStore(store *store) *Facade {
@@ -107,14 +41,6 @@ func (f *Facade) GetTimeConversionProfile(ctx context.Context, incidentID uuid.U
 
 func (f *Facade) PutTimeConversionProfile(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request TimeConversionProfilePutRequest, now time.Time) (TimeConversionProfile, error) {
 	return f.store.PutTimeConversionProfile(ctx, actor, incidentID, request, now)
-}
-
-func (f *Facade) QueryTimelineRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
-	return f.store.QueryRows(ctx, incidentID, query)
-}
-
-func (f *Facade) QueryTimelineRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
-	return f.store.QueryRowsPage(ctx, incidentID, query, window)
 }
 
 func (f *Facade) CreateRow(ctx context.Context, command CreateRowCommand) (MutationResult, error) {
@@ -150,23 +76,48 @@ func (f *Facade) ResolveConflict(ctx context.Context, command ConflictResolveCom
 }
 
 func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPasteCommand) (ClipboardPasteResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = TimelineClipboardPasteRequestHash(command.Request)
+	rows, err := buildClipboardOwnerRows(command.Plan)
+	if err != nil {
+		return ClipboardPasteResult{}, err
 	}
-	return f.store.ClipboardPaste(ctx, command.Actor, command.IncidentID, command.Request, requestHash, command.RequestID, command.Now)
+	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
+		ClientTxnID: command.ClientTxnID,
+		Operation:   OwnerBatchOperationClipboardPasteV1,
+		Targets:     command.Targets,
+		Rows:        rows,
+		RequestHash: command.RequestHash,
+		RequestID:   command.RequestID,
+		Now:         command.Now,
+	})
 }
 
-func (f *Facade) ApplyBulkMutation(ctx context.Context, command BulkMutationCommand) (ClipboardPasteResult, error) {
-	requestHash := command.RequestHash
-	if requestHash == nil {
-		requestHash = BulkMutationRequestHash(command.Request)
+func (f *Facade) ApplyFillDown(ctx context.Context, command FillDownCommand) (ClipboardPasteResult, error) {
+	rows, err := buildFillDownOwnerRows(command.FieldKey, command.Value, len(command.Targets))
+	if err != nil {
+		return ClipboardPasteResult{}, err
 	}
-	return f.ApplyClipboardPaste(ctx, ClipboardPasteCommand{
-		Actor:       command.Actor,
-		IncidentID:  command.IncidentID,
-		Request:     BulkMutationClipboardRequest(command.Request),
-		RequestHash: requestHash,
+	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
+		ClientTxnID: command.ClientTxnID,
+		Operation:   OwnerBatchOperationFillDownV1,
+		Targets:     command.Targets,
+		Rows:        rows,
+		RequestHash: command.RequestHash,
+		RequestID:   command.RequestID,
+		Now:         command.Now,
+	})
+}
+
+func (f *Facade) ApplyMultiRowTagAssignment(ctx context.Context, command MultiRowTagAssignmentCommand) (ClipboardPasteResult, error) {
+	rows, err := buildTagAssignmentOwnerRows(command.TagName, command.NormalizedTag, len(command.Targets))
+	if err != nil {
+		return ClipboardPasteResult{}, err
+	}
+	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
+		ClientTxnID: command.ClientTxnID,
+		Operation:   OwnerBatchOperationMultiRowTagAssignmentV1,
+		Targets:     command.Targets,
+		Rows:        rows,
+		RequestHash: command.RequestHash,
 		RequestID:   command.RequestID,
 		Now:         command.Now,
 	})
@@ -186,8 +137,4 @@ func (f *Facade) SupersedeRow(ctx context.Context, command SupersedeCommand) (Mu
 		requestHash = TimelineActionRequestHash(command.Request.BaseRowVersion, command.Request.ClientTxnID, &command.Request.Reason, command.Request.ReplacementRecordID)
 	}
 	return f.store.Supersede(ctx, command.Actor, command.RecordID, command.Request, requestHash, command.RequestID, command.Now)
-}
-
-func (f *Facade) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {
-	return f.store.SnapshotRecordSubstrate(ctx, recordID)
 }

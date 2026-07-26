@@ -214,7 +214,7 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 		},
 		"query capability mismatch": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
-				providers[0].descriptor.Capabilities.Query = true
+				providers[0].descriptor.Capabilities.Query = !providers[0].descriptor.Capabilities.Query
 				return providers
 			},
 			want: "query capability does not match",

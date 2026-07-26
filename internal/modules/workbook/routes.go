@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -43,7 +42,6 @@ type Service struct {
 	incidentAccess    incidents.Access
 	startupStore      *workbookstartup.Store
 	authStore         *authn.Store
-	publisher         workbookPublicationPort
 	cursorCodec       *pagination.Codec
 	keys              authn.MasterKeys
 	now               func() time.Time
@@ -57,6 +55,13 @@ type RouteOption func(*routeOptions)
 
 type routeOptions struct {
 	createRowHandlerFactories map[string]CreateRowHandlerFactory
+	timelineOwner             *timeline.Facade
+}
+
+func WithTimelineOwner(owner *timeline.Facade) RouteOption {
+	return func(options *routeOptions) {
+		options.timelineOwner = owner
+	}
 }
 
 func WithCreateRowHandler(viewSchemaID string, factory CreateRowHandlerFactory) RouteOption {
@@ -76,7 +81,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps)
+		service, err := newService(deps, settings.timelineOwner)
 		if err != nil {
 			return err
 		}
@@ -127,18 +132,44 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := timeline.DecodeBulkMutationRequest(r.Body, viewSchemaID)
+	request, apiErr := DecodeTimelineBulkMutationRequest(r.Body, viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.timelineOwner.ApplyBulkMutation(r.Context(), timeline.BulkMutationCommand{
-		Actor:      principal.User,
-		IncidentID: incidentID,
-		Request:    request,
-		RequestID:  httpapi.RequestIDFromContext(r.Context()),
-		Now:        s.now(),
-	})
+	targets := timelineOwnerBatchTargets(request.Targets)
+	requestHash := TimelineBulkMutationRequestHash(request)
+	var result timeline.ClipboardPasteResult
+	var err error
+	switch request.Kind {
+	case timeline.OwnerBatchOperationFillDownV1:
+		result, err = s.timelineOwner.ApplyFillDown(r.Context(), timeline.FillDownCommand{
+			Actor:       principal.User,
+			IncidentID:  incidentID,
+			ClientTxnID: request.ClientTxnID,
+			FieldKey:    request.FieldKey,
+			Value:       request.Value,
+			Targets:     targets,
+			RequestHash: requestHash,
+			RequestID:   httpapi.RequestIDFromContext(r.Context()),
+			Now:         s.now(),
+		})
+	case timeline.OwnerBatchOperationMultiRowTagAssignmentV1:
+		result, err = s.timelineOwner.ApplyMultiRowTagAssignment(r.Context(), timeline.MultiRowTagAssignmentCommand{
+			Actor:         principal.User,
+			IncidentID:    incidentID,
+			ClientTxnID:   request.ClientTxnID,
+			TagName:       request.TagName,
+			NormalizedTag: request.NormalizedTag,
+			Targets:       targets,
+			RequestHash:   requestHash,
+			RequestID:     httpapi.RequestIDFromContext(r.Context()),
+			Now:           s.now(),
+		})
+	default:
+		writeAPIError(w, r, invalidMutationPayload("kind", "invalid_value"))
+		return
+	}
 	var (
 		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
@@ -158,20 +189,6 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if result.ChangeSetID != uuid.Nil && !result.Replayed {
-		for _, row := range result.Rows {
-			s.publishRecordChange(MutationResult{
-				Payload:          map[string]any{"row": row.Row},
-				IncidentID:       incidentID,
-				RecordID:         row.RecordID,
-				ChangeSetID:      result.ChangeSetID,
-				ClientTxnID:      result.ClientTxnID,
-				RowVersion:       row.RowVersion,
-				ViewSchemaID:     timeline.TimelineViewSchemaID,
-				ChangedFieldKeys: row.ChangedFieldKeys,
-			}, principal.User.ID)
-		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -204,21 +221,25 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		s.handleEntityClipboardPaste(w, r, principal, incidentID, viewSchemaID, body)
 		return
 	}
-	request, apiErr := timeline.DecodeTimelineClipboardPasteRequest(bytes.NewReader(body))
+	request, apiErr := DecodeTimelineClipboardPasteRequest(bytes.NewReader(body))
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, err := timeline.BuildClipboardPastePlan(request); err != nil {
+	plan, err := BuildTimelineClipboardPlan(request)
+	if err != nil {
 		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	}
 	result, err := s.timelineOwner.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
-		Actor:      principal.User,
-		IncidentID: incidentID,
-		Request:    request,
-		RequestID:  httpapi.RequestIDFromContext(r.Context()),
-		Now:        s.now(),
+		Actor:       principal.User,
+		IncidentID:  incidentID,
+		ClientTxnID: request.ClientTxnID,
+		Plan:        plan,
+		Targets:     timelineOwnerBatchTargets(request.Targets),
+		RequestHash: TimelineClipboardPasteRequestHash(request),
+		RequestID:   httpapi.RequestIDFromContext(r.Context()),
+		Now:         s.now(),
 	})
 	var (
 		entityConflict       *hostidentity.ExactMatchConflictError
@@ -239,20 +260,6 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if result.ChangeSetID != uuid.Nil && !result.Replayed {
-		for _, row := range result.Rows {
-			s.publishRecordChange(MutationResult{
-				Payload:          map[string]any{"row": row.Row},
-				IncidentID:       incidentID,
-				RecordID:         row.RecordID,
-				ChangeSetID:      result.ChangeSetID,
-				ClientTxnID:      result.ClientTxnID,
-				RowVersion:       row.RowVersion,
-				ViewSchemaID:     timeline.TimelineViewSchemaID,
-				ChangedFieldKeys: row.ChangedFieldKeys,
-			}, principal.User.ID)
-		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -304,20 +311,6 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if result.ChangeSetID != uuid.Nil && !result.Replayed {
-		for _, row := range result.Rows {
-			s.publishRecordChange(MutationResult{
-				Payload:          map[string]any{"row": row.Row},
-				IncidentID:       incidentID,
-				RecordID:         row.RecordID,
-				ChangeSetID:      result.ChangeSetID,
-				ClientTxnID:      result.ClientTxnID,
-				RowVersion:       row.RowVersion,
-				ViewSchemaID:     viewSchemaID,
-				ChangedFieldKeys: row.ChangedFieldKeys,
-			}, principal.User.ID)
-		}
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -325,7 +318,19 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func timelineOwnerBatchTargets(targets []TimelineBatchTarget) []timeline.OwnerBatchTargetV1 {
+	converted := make([]timeline.OwnerBatchTargetV1, 0, len(targets))
+	for _, target := range targets {
+		converted = append(converted, timeline.OwnerBatchTargetV1{
+			Kind:           target.Kind,
+			RecordID:       target.RecordID,
+			BaseRowVersion: target.BaseRowVersion,
+		})
+	}
+	return converted
+}
+
+func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -339,12 +344,14 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	timelineStore := timeline.FacadeFromDependencies(deps)
+	if timelineStore == nil {
+		return nil, errors.New("Workbook route composition requires a Timeline owner")
+	}
 	conflictTokens := conflicttokens.NewConflictTokenCodec(keys)
 	timelineStore.SetConflictTokenCodec(conflictTokens)
 	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore)
 	store.SetConflictTokenCodec(conflictTokens)
-	queryStore := NewQueryStore(deps.PostgresHandle(), timelineStore)
+	queryStore := NewQueryStore(deps.PostgresHandle())
 	entityStore := hostidentity.NewStore(deps.PostgresHandle())
 	indicatorStore := indicators.NewStore(deps.PostgresHandle())
 	return &Service{
@@ -358,7 +365,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistryFromPublication(httpapi.ExtensionWorkspacesFromDependencies(deps))),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:    cursorCodec,
 		keys:           keys,
 		now:            now,
@@ -750,19 +756,6 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 		return
 	}
 
-	row, _ := result.Payload["row"].(map[string]any)
-	if !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			Payload:          result.Payload,
-			IncidentID:       incidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      request.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     viewSchemaID,
-			ChangedFieldKeys: changedFieldKeys(nil, row),
-		}, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -799,19 +792,6 @@ func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	row, _ := result.Payload["row"].(map[string]any)
-	if !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			Payload:          result.Payload,
-			IncidentID:       incidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      request.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     indicators.ViewSchemaID,
-			ChangedFieldKeys: changedFieldKeys(nil, row),
-		}, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -997,17 +977,6 @@ func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			IncidentID:       result.IncidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     timeline.TimelineViewSchemaID,
-			ChangedFieldKeys: result.ChangedFieldKeys,
-		}, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -1055,11 +1024,6 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if !result.Replayed {
-		for _, change := range result.AdditionalRecordChanges {
-			s.publishRecordChange(change, principal.User.ID)
-		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -1157,17 +1121,6 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if result.ChangeSetID != uuid.Nil && !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			IncidentID:       incidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     timeline.TimelineViewSchemaID,
-			ChangedFieldKeys: result.ChangedFieldKeys,
-		}, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -1207,18 +1160,6 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			IncidentID:       incidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     timeline.TimelineViewSchemaID,
-			ChangedFieldKeys: result.ChangedFieldKeys,
-		}, principal.User.ID)
-	}
-	timing.mark("websocket_publish")
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -1279,18 +1220,6 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	result.IncidentID = incidentID
-	if !result.Replayed {
-		s.publishRecordChange(MutationResult{
-			IncidentID:       incidentID,
-			RecordID:         result.RecordID,
-			ChangeSetID:      result.ChangeSetID,
-			ClientTxnID:      result.ClientTxnID,
-			RowVersion:       result.RowVersion,
-			ViewSchemaID:     timeline.TimelineViewSchemaID,
-			ChangedFieldKeys: result.ChangedFieldKeys,
-		}, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -1342,9 +1271,6 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if !result.Replayed {
-		s.publishRecordChange(result, principal.User.ID)
-	}
 	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -1369,24 +1295,6 @@ func patchViewSchemaID(body []byte) string {
 	var viewSchemaID string
 	_ = json.Unmarshal(raw["view_schema_id"], &viewSchemaID)
 	return viewSchemaID
-}
-
-func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UUID) {
-	if result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
-		return
-	}
-	row, _ := result.Payload["row"].(map[string]any)
-	s.publisher.Publish(collaboration.RecordChange{
-		IncidentID:       result.IncidentID,
-		RecordID:         result.RecordID,
-		RowVersion:       result.RowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ClientTxnID:      result.ClientTxnID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: result.ChangedFieldKeys,
-		ViewSchemaID:     result.ViewSchemaID,
-		Row:              row,
-	})
 }
 
 type timelineCreateTiming struct {

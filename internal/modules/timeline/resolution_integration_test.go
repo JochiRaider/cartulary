@@ -11,12 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -478,14 +481,14 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		harness := workbookscenariotest.StartServerWithDependencies(t, "entity_linking-u-4-08-rollback", timeline.DependencySetForTesting(
-			timeline.WithBeforeCommitHookForTesting(func(routeKey string, hookedRecordID uuid.UUID) error {
-				if rollbackEnabled && routeKey == "timeline.records.patch" && hookedRecordID == rollbackRecordID {
+		harness := workbookscenariotest.StartServerWithTimelineDependencies(t, "entity_linking-u-4-08-rollback",
+			fakeports.WithFailingProjection(timelineassembly.Dependencies, func(mutation workbookprojection.ProjectionMutation) error {
+				if rollbackEnabled && mutation.RecordID == rollbackRecordID {
 					return errors.New("forced auto-match rollback")
 				}
 				return nil
 			}),
-		))
+		)
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
@@ -504,9 +507,10 @@ SELECT COUNT(*)
 		rollbackEnabled = true
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
+		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		resp := doJSON(
@@ -594,7 +598,10 @@ SELECT COUNT(*)
 		workbookscenariotest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		projectionStore := projections.NewStore(harness.Server.Runtime.Postgres)
+		projectionStore := projectionadapters.NewRowProjector(
+			harness.Server.Runtime.Postgres,
+			timelineassembly.NewProjectionSource(harness.Server.Runtime.Postgres),
+		)
 		if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 			t.Fatalf("rebuild incident timeline: %v", err)
 		}
@@ -1093,9 +1100,10 @@ UPDATE incident_memberships
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
 		beforeMention := lookupMention(t, harness.DB, mentionID)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
+		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		resp := doJSON(

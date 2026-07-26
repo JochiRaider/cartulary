@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -28,6 +29,7 @@ type commandStore struct {
 	incidentAccess              incidents.Access
 	importedAttributionResolver ImportedAttributionResolver
 	projectionRebuilder         ProjectionRebuilder
+	collaboration               collaboration.IntentAppender
 	deleteRestoreProviders      *DeleteRestoreProviderCatalog
 	rowRollbackProviders        *RowProviderCatalog
 	nonRowRollbackProviders     *NonRowProviderCatalog

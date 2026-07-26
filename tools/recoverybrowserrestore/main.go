@@ -29,7 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -225,7 +225,7 @@ func run() error {
 		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: projections.NewRestoreRebuilder(targetPool),
+		Projections: timelineassembly.NewRestoreRebuilder(targetPool),
 	}, now.Add(time.Second))
 	if err != nil {
 		targetPool.Close()

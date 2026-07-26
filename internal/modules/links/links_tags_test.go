@@ -13,6 +13,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -250,7 +252,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
-	timelineFacade := timeline.NewFacade(harness.DB)
+	timelineFacade := timelineassembly.NewFacade(harness.DB)
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {
 		baseTokens := []string{

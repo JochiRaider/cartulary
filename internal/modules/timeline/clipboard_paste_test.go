@@ -5,18 +5,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/google/uuid"
 )
 
 func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
-	tsv, err := ParseClipboardTable("alpha\tbravo\ncharlie\tdelta\n", "tsv")
+	tsv, err := tabularingest.ParseTable("alpha\tbravo\ncharlie\tdelta\n", "tsv")
 	if err != nil {
 		t.Fatalf("parse tsv clipboard: %v", err)
 	}
 	if len(tsv) != 2 || tsv[0][0] != "alpha" || tsv[1][1] != "delta" {
 		t.Fatalf("unexpected tsv parse: %#v", tsv)
 	}
-	csvRows, err := ParseClipboardTable("\"alpha, one\",bravo\ncharlie,delta", "csv")
+	csvRows, err := tabularingest.ParseTable("\"alpha, one\",bravo\ncharlie,delta", "csv")
 	if err != nil {
 		t.Fatalf("parse csv clipboard: %v", err)
 	}
@@ -24,10 +25,12 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 		t.Fatalf("unexpected csv parse: %#v", csvRows)
 	}
 
-	request := ClipboardPasteRequest{
+	clientTxnID := "txn-u-9-02-clipboard"
+	plan, err := tabularingest.BuildTabularRowPlanV1(tabularingest.MappingRequest{
 		ViewSchemaID:  TimelineViewSchemaID,
-		ClientTxnID:   "txn-u-9-02-clipboard",
-		ClipboardText: "Gateway host\tanalyst@example.test\tWorkbook inspector summary\tunmapped value",
+		ClientTxnID:   clientTxnID,
+		SourceKind:    "clipboard_paste",
+		Text:          "Gateway host\tanalyst@example.test\tWorkbook inspector summary\tunmapped value",
 		Format:        "tsv",
 		StartFieldKey: "timeline.host_refs",
 		Columns: []string{
@@ -35,16 +38,19 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 			"timeline.identity_refs",
 			"timeline.activity_synopsis_text",
 		},
-		Targets: []ClipboardPasteTarget{{Kind: "create"}},
-	}
-	plan, err := BuildClipboardPastePlan(request)
+		RequireTargets: 1,
+	})
 	if err != nil {
 		t.Fatalf("build clipboard paste plan: %v", err)
 	}
-	if len(plan.Rows) != 1 {
-		t.Fatalf("expected one planned row, got %#v", plan.Rows)
+	rows, err := buildClipboardOwnerRows(plan)
+	if err != nil {
+		t.Fatalf("build Timeline owner rows: %v", err)
 	}
-	row := plan.Rows[0]
+	if len(rows) != 1 {
+		t.Fatalf("expected one planned row, got %#v", rows)
+	}
+	row := rows[0]
 	if len(row.Cells) != 3 {
 		t.Fatalf("expected three known field cells, got %#v", row.Cells)
 	}
@@ -61,19 +67,20 @@ func TestClipboardPasteParsingMappingRawCaptureAndBinding(t *testing.T) {
 	if row.Cells[2].FieldKey != "timeline.activity_synopsis_text" || row.Cells[2].Change.TextValue == nil || *row.Cells[2].Change.TextValue != "Workbook inspector summary" {
 		t.Fatalf("summary did not normalize as stable field-key value: %#v", row.Cells[2])
 	}
-	if len(row.Unknown) != 1 {
-		t.Fatalf("expected one raw-capture unknown column, got %#v", row.Unknown)
+	if len(row.Unmapped) != 1 {
+		t.Fatalf("expected one raw-capture unmapped column, got %#v", row.Unmapped)
 	}
-	unknown := row.Unknown[0]
+	unknown := row.Unmapped[0]
 	if unknown.SourceKind != "clipboard_paste" ||
-		unknown.PasteClientTxnID != request.ClientTxnID ||
+		unknown.PasteClientTxnID != clientTxnID ||
+		unknown.MappingFingerprint != plan.MappingFingerprint ||
 		unknown.SourceRowOrdinal != 1 ||
 		unknown.SourceColumnOrdinal != 4 ||
 		unknown.RawValue != "unmapped value" {
 		t.Fatalf("unexpected raw import column: %#v", unknown)
 	}
 
-	rawCapture := rawCaptureWithImportColumns(map[string]any{"kept": "value"}, row.Unknown)
+	rawCapture := rawCaptureWithImportColumns(map[string]any{"kept": "value"}, row.Unmapped)
 	importColumns, ok := rawCapture["import_columns"].([]any)
 	if !ok || len(importColumns) != 1 {
 		t.Fatalf("expected structured import_columns raw capture, got %#v", rawCapture)

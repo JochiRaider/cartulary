@@ -75,7 +75,7 @@ func FindRow(t testing.TB, rows []any, recordID string) map[string]any {
 	return nil
 }
 
-func RequireNoTimelineCollaborationEmission(t testing.TB, client *TimelineSocketClient, changes <-chan platformws.RecordChange) {
+func RequireNoTimelineCollaborationEmission(t testing.TB, client *TimelineSocketClient, changes <-chan platformws.Message) {
 	t.Helper()
 
 	ExpectNoTimelineSocketMessage(t, client)

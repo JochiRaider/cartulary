@@ -33,9 +33,15 @@ func (revisionsCompositionTestAttribution) ResolveImportedSourceActorsTx(context
 	return map[string]string{}, nil
 }
 
+type revisionsCompositionTestProjection struct{}
+
+func (revisionsCompositionTestProjection) RebuildIncidentTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+
 func TestRevisionsCompositionRegistersEveryRequiredProvider(t *testing.T) {
 	t.Parallel()
-	service, err := NewCommandService(revisionsCompositionTestDB{}, revisionsCompositionTestAttribution{})
+	service, err := NewCommandService(revisionsCompositionTestDB{}, revisionsCompositionTestAttribution{}, revisionsCompositionTestProjection{})
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
 	}

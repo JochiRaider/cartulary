@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -324,7 +325,7 @@ func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, inci
 
 func softDeletePartyFor(t testing.TB, harness *recordstoretest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
-	store, err := revisionassembly.NewCommandService(harness.DB, partyTestAttributionResolver{})
+	store, err := revisionassembly.NewCommandService(harness.DB, partyTestAttributionResolver{}, timelineassembly.NewRowProjector(harness.DB))
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
 	}

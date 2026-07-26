@@ -3,7 +3,6 @@ package mentions
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -30,21 +30,42 @@ type Store struct {
 	ports          storePorts
 }
 
-func NewStore(pool postgres.DB) *Store {
+type StoreOption func(*storePorts)
+
+func WithTimelineEffects(effects TimelineEffectsPort) StoreOption {
+	return func(ports *storePorts) {
+		ports.timeline = effects
+	}
+}
+
+func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption {
+	return func(ports *storePorts) {
+		ports.collaboration = appender
+	}
+}
+
+func NewStore(pool postgres.DB, options ...StoreOption) *Store {
+	ports := newStorePorts(pool)
+	for _, option := range options {
+		if option != nil {
+			option(&ports)
+		}
+	}
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
-		ports:          newStorePorts(pool),
+		ports:          ports,
 	}
 }
 
 type storePorts struct {
-	records     recordPort
-	revisions   revisionPort
-	links       linkPort
-	projections projectionPort
-	timeline    timelineEffectsPort
+	records       recordPort
+	revisions     revisionPort
+	links         linkPort
+	projections   projectionPort
+	timeline      timelineEffectsPort
+	collaboration collaboration.IntentAppender
 }
 
 type recordPort interface {
@@ -67,9 +88,9 @@ type projectionPort interface {
 	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
-type timelineEffectsPort interface {
-	PrepareMentionActionTx(context.Context, pgx.Tx, uuid.UUID) (timelineMentionActionState, error)
-	ApplyMentionActionEffectsTx(context.Context, pgx.Tx, timelineMentionActionState, timelineMentionActionCommand) (timelineMentionActionResult, error)
+type TimelineEffectsPort interface {
+	PrepareMentionActionTx(context.Context, pgx.Tx, uuid.UUID) (mentioneffects.ActionState, error)
+	ApplyMentionActionEffectsTx(context.Context, pgx.Tx, mentioneffects.ActionState, mentioneffects.ActionCommand) (mentioneffects.ActionResult, error)
 }
 
 type changeSetParams struct {
@@ -117,27 +138,10 @@ type recordLink struct {
 	DeletedAt    *time.Time
 }
 
-type timelineMentionActionState struct {
-	SourceRecordID  uuid.UUID
-	RowVersion      int64
-	BeforeVersionID string
-	BeforeRow       map[string]any
-}
-
-type timelineMentionActionCommand struct {
-	IncidentID  uuid.UUID
-	ActorUserID uuid.UUID
-	EffectiveAt time.Time
-}
-
-type timelineMentionActionResult struct {
-	SourceRecordID  uuid.UUID
-	RowVersion      int64
-	BeforeVersionID string
-	AfterVersionID  string
-	BeforeRow       map[string]any
-	AfterRow        map[string]any
-}
+type timelineEffectsPort = TimelineEffectsPort
+type timelineMentionActionState = mentioneffects.ActionState
+type timelineMentionActionCommand = mentioneffects.ActionCommand
+type timelineMentionActionResult = mentioneffects.ActionResult
 
 var errRecordLinkNotFound = links.ErrRecordLinkNotFound
 
@@ -147,7 +151,6 @@ func newStorePorts(pool postgres.DB) storePorts {
 		revisions:   revisionAdapter{appender: revisions.NewAppender()},
 		links:       linkAdapter{store: links.NewStore()},
 		projections: projectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
-		timeline:    timelineAdapter{recordStore: records.NewStore(), projector: projectionadapters.NewRowProjector(pool)},
 	}
 }
 
@@ -232,67 +235,6 @@ func (a projectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, re
 	default:
 		return nil
 	}
-}
-
-type timelineAdapter struct {
-	recordStore *records.Store
-	projector   *projectionadapters.RowProjector
-}
-
-func (a timelineAdapter) PrepareMentionActionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (timelineMentionActionState, error) {
-	record, err := mentioneffects.LoadSourceRecordTx(ctx, tx, recordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return timelineMentionActionState{}, ErrSourceRecordNotFound
-	}
-	if err != nil {
-		return timelineMentionActionState{}, err
-	}
-	row, err := mentioneffects.BuildRecordRowTx(ctx, tx, record.RecordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return timelineMentionActionState{}, ErrSourceRecordNotFound
-	}
-	if err != nil {
-		return timelineMentionActionState{}, err
-	}
-	return timelineMentionActionState{
-		SourceRecordID:  record.RecordID,
-		RowVersion:      record.RowVersion,
-		BeforeVersionID: mentioneffects.VersionID(record.RecordID, record.RowVersion),
-		BeforeRow:       row,
-	}, nil
-}
-
-func (a timelineAdapter) ApplyMentionActionEffectsTx(ctx context.Context, tx pgx.Tx, state timelineMentionActionState, command timelineMentionActionCommand) (timelineMentionActionResult, error) {
-	rowVersion, err := a.recordStore.AdvanceVersionTx(ctx, tx, state.SourceRecordID, command.ActorUserID, command.EffectiveAt)
-	if err != nil {
-		return timelineMentionActionResult{}, err
-	}
-	if err := mentioneffects.UpdateSourceRecordTx(ctx, tx, mentioneffects.SourceRecord{
-		RecordID:        state.SourceRecordID,
-		RowVersion:      rowVersion,
-		EditedAt:        command.EffectiveAt.UTC(),
-		UpdatedByUserID: command.ActorUserID,
-	}); err != nil {
-		return timelineMentionActionResult{}, err
-	}
-	afterRow, err := mentioneffects.BuildRecordRowTx(ctx, tx, state.SourceRecordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return timelineMentionActionResult{}, ErrSourceRecordNotFound
-	}
-	if err != nil {
-		return timelineMentionActionResult{}, err
-	}
-	if err := mentioneffects.RebuildTimelineProjectionTx(ctx, tx, a.projector, command.IncidentID); err != nil {
-		return timelineMentionActionResult{}, err
-	}
-	return timelineMentionActionResult{
-		SourceRecordID:  state.SourceRecordID,
-		RowVersion:      rowVersion,
-		BeforeVersionID: state.BeforeVersionID,
-		AfterVersionID:  mentioneffects.VersionID(state.SourceRecordID, rowVersion),
-		BeforeRow:       state.BeforeRow,
-		AfterRow:        afterRow,
-	}, nil
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {

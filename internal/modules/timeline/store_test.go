@@ -10,13 +10,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -82,12 +86,8 @@ func TestInitialCreateState_Unit(t *testing.T) {
 	if got := row["cells"].(map[string]any)["timeline.capture_state"].(map[string]any)["value"]; got != "rough" {
 		t.Fatalf("expected create payload capture_state rough, got %#v", row)
 	}
-	substrate, err := store.SnapshotRecordSubstrate(context.Background(), result.RecordID)
-	if err != nil {
-		t.Fatalf("snapshot substrate: %v", err)
-	}
-	if substrate.CaptureState != "rough" || substrate.RowVersion != 1 || substrate.ReplacementRecordID != nil {
-		t.Fatalf("unexpected substrate after create: %#v", substrate)
+	if result.RowVersion != 1 || result.Row.CaptureState != "rough" || result.Row.ReplacementRecordID != nil {
+		t.Fatalf("unexpected source state after create: %#v", result)
 	}
 }
 
@@ -686,16 +686,18 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-U310R@example.test", "TimelineMutation U310R", "TimelineMutationPass1!", false, false, true)
 		incident := createIncidentInStore(t, harness, actor, "txn-timeline_mutation-u-3-10-rollback-incident", "IR-U310R", "Timeline U310R")
 
-		store := newEventTimelineCommandsWithOptions(harness.DB, timeline.WithBeforeCommitHookForTesting(
-			func(routeKey string, recordID uuid.UUID) error {
-				if routeKey == "timeline.records.supersede" {
+		rollbackEnabled := false
+		store := newEventTimelineCommandsWithProjectionFailure(harness.DB,
+			func(workbookprojection.ProjectionMutation) error {
+				if rollbackEnabled {
 					return errors.New("forced rollback")
 				}
 				return nil
 			},
-		))
+		)
 		row := createReviewedTimelineRow(t, store, actor, incident.ID, "txn-timeline_mutation-u-3-10-rollback-row", "row", BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incident.ID, "txn-timeline_mutation-u-3-10-rollback-replacement", "replacement", BaseTime().Add(time.Minute))
+		rollbackEnabled = true
 
 		request := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -712,12 +714,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("rollback must keep counters stable, before=%+v after=%+v", beforeRollback, afterRollback)
 		}
 
-		substrate, err := store.SnapshotRecordSubstrate(context.Background(), row.RecordID)
-		if err != nil {
-			t.Fatalf("snapshot substrate after rollback: %v", err)
-		}
-		if substrate.CaptureState != "reviewed" || substrate.ReplacementRecordID != nil {
-			t.Fatalf("rollback must preserve reviewed substrate without replacement link, got %#v", substrate)
+		projection := asserttest.LookupProjectionRow(t, asserttest.PostgresDatabase(harness.DB), row.RecordID.String())
+		if projection.CaptureState != "reviewed" || projection.ReplacementRecordID != nil {
+			t.Fatalf("rollback must preserve reviewed source projection without replacement link, got %#v", projection)
 		}
 		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 0 {
 			t.Fatalf("rollback must not leave an active supersedes link, got %d", got)
@@ -780,7 +779,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 		ClientTxnID:          "txn-timeline_mutation-u-3-14-create-fresh",
 		ActivitySynopsisText: &freshSummary,
 	}
-	if _, err := store.CreateRow(context.Background(), actor, incidentID, fresh, timeline.TimelineCreateRequestHash(fresh), "req-timeline_mutation-u-3-14-create-fresh", BaseTime().Add(4*time.Minute)); !errors.Is(err, incidents.ErrIncidentClosed) {
+	if _, err := store.CreateRow(context.Background(), actor, incidentID, fresh, timeline.TimelineCreateRequestHash(fresh), "req-timeline_mutation-u-3-14-create-fresh", BaseTime().Add(4*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
 		t.Fatalf("expected fresh create to reject closed incident, got %v", err)
 	}
 	patch := timeline.PatchRequest{
@@ -791,7 +790,7 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("blocked after close")},
 		},
 	}
-	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-14-patch", BaseTime().Add(5*time.Minute)); !errors.Is(err, incidents.ErrIncidentClosed) {
+	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-timeline_mutation-u-3-14-patch", BaseTime().Add(5*time.Minute)); !errors.Is(err, timeline.ErrIncidentClosed) {
 		t.Fatalf("expected fresh patch to reject closed incident, got %v", err)
 	}
 	after := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), first.RecordID.String())
@@ -903,15 +902,24 @@ func requireTimelineRecordOrder(t testing.TB, rows []map[string]any, wantRecordI
 }
 
 type eventTimelineCommands struct {
-	facade *timeline.Facade
+	facade      *timeline.Facade
+	projections *projectionadapters.WorkbookRows
 }
 
 func newEventTimelineCommands(pool postgres.DB) *eventTimelineCommands {
-	return &eventTimelineCommands{facade: timeline.NewFacade(pool)}
+	return &eventTimelineCommands{
+		facade:      timelineassembly.NewFacade(pool),
+		projections: projectionadapters.NewWorkbookRows(pool),
+	}
 }
 
-func newEventTimelineCommandsWithOptions(pool postgres.DB, options ...timeline.TestFacadeOption) *eventTimelineCommands {
-	return &eventTimelineCommands{facade: timeline.NewFacadeForTesting(pool, options...)}
+func newEventTimelineCommandsWithProjectionFailure(pool postgres.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
+	dependencies := timelineassembly.Dependencies(pool)
+	dependencies.Projections = fakeports.Projection{Delegate: dependencies.Projections, FailApply: fail}
+	return &eventTimelineCommands{
+		facade:      timeline.NewFacade(pool, dependencies),
+		projections: projectionadapters.NewWorkbookRows(pool),
+	}
 }
 
 func (c *eventTimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request timeline.CreateRequest, requestHash []byte, requestID string, now time.Time) (timeline.MutationResult, error) {
@@ -959,11 +967,7 @@ func (c *eventTimelineCommands) Supersede(ctx context.Context, actor authn.UserR
 }
 
 func (c *eventTimelineCommands) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
-	return c.facade.QueryTimelineRows(ctx, incidentID, query)
-}
-
-func (c *eventTimelineCommands) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (timeline.RecordSubstrateSnapshot, error) {
-	return c.facade.SnapshotRecordSubstrate(ctx, recordID)
+	return c.projections.QueryRows(ctx, incidentID, timeline.TimelineViewSchemaID, query)
 }
 
 func requireTimelineMutationRecorded(t testing.TB, db postgres.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {

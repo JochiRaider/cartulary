@@ -90,7 +90,7 @@ func TestEntitiesDoNotBuildClipboardPastePlans(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", fileName, err)
 		}
-		if strings.Contains(string(body), "BuildBatchPlan(") {
+		if strings.Contains(string(body), "BuildBatchPlan(") || strings.Contains(string(body), "BuildTabularRowPlanV1(") {
 			t.Fatalf("%s builds clipboard paste plans inside entities", fileName)
 		}
 	}

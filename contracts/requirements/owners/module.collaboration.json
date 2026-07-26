@@ -6,6 +6,11 @@
       "requirement_id": "module.collaboration.requirement.behavior_contract",
       "statement": "live collaboration, presence, conflict, and recovery postconditions remain exact across every retained executable selector and declared fixture/runtime boundary.",
       "status": "active"
+    },
+    {
+      "requirement_id": "module.collaboration.requirement.durable_replayable_stream",
+      "statement": "Collaboration durably sequences every admitted replayable event family per incident from transaction-coupled intents, preserves monotonic replay across restart, stores resume tokens only by hash, and rechecks current authorization before replay or live delivery.",
+      "status": "active"
     }
   ]
 }

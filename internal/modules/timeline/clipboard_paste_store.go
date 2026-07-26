@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,9 +16,30 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
+const (
+	clipboardPasteRouteKey = "timeline.clipboard_paste"
+	bulkMutationRouteKey   = "workbook.bulk_mutations"
+)
+
+type ownerBatchApplyV1 struct {
+	ClientTxnID string
+	Operation   string
+	Targets     []OwnerBatchTargetV1
+	Rows        []ownerBatchRowPlanV1
+	RequestHash []byte
+	RequestID   string
+	Now         time.Time
+}
+
+func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ownerBatchApplyV1) (ClipboardPasteResult, error) {
+	if err := validateOwnerBatchShape(request); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
-	routeKey := request.routeKey()
+	routeKey, originKind, err := ownerBatchOperationMetadata(request.Operation)
+	if err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
@@ -25,7 +47,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		ClientTxnID: request.ClientTxnID,
 	}
 	if existing, err := s.idempotencyStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		if !hashesEqual(existing.RequestHash, requestHash) {
+		if !hashesEqual(existing.RequestHash, request.RequestHash) {
 			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredResponse(existing.ResponseJSON)
@@ -43,11 +65,6 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		return ClipboardPasteResult{}, fmt.Errorf("query timeline clipboard paste idempotency: %w", err)
 	}
 
-	plan, err := BuildClipboardPastePlan(request)
-	if err != nil {
-		return ClipboardPasteResult{}, err
-	}
-
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return ClipboardPasteResult{}, fmt.Errorf("begin timeline clipboard paste transaction: %w", err)
@@ -58,20 +75,23 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
+	if err := s.validateOwnerBatchTargetsTx(ctx, tx, incidentID, request.Operation, request.Targets); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 
-	applied := make([]clipboardAppliedRow, 0, len(plan.Rows))
+	applied := make([]clipboardAppliedRow, 0, len(request.Rows))
 	conflicts := make([]map[string]any, 0)
-	for index, rowPlan := range plan.Rows {
+	for index, rowPlan := range request.Rows {
 		target := request.Targets[index]
 		switch target.Kind {
 		case "create":
-			row, err := s.applyClipboardPasteCreateTx(ctx, tx, actor, incidentID, rowPlan, request.sourceKind(), now.UTC())
+			row, err := s.applyOwnerBatchCreateTx(ctx, tx, actor, incidentID, rowPlan, originKind, request.Now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
 			applied = append(applied, row)
 		case "record":
-			row, rowConflicts, err := s.applyClipboardPastePatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, requestHash, rowPlan, request.sourceKind(), now.UTC())
+			row, rowConflicts, err := s.applyOwnerBatchPatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, request.RequestHash, rowPlan, originKind, request.Now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
@@ -89,7 +109,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			"conflicts":      conflicts,
 			"rows":           []any{},
 		}
-		if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+		if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, request.RequestHash, http.StatusOK, payload); err != nil {
 			if authn.IsUniqueViolation(err) {
 				return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 			}
@@ -111,8 +131,8 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		ActorUserID: actor.ID,
 		Source:      routeKey,
 		ClientTxnID: &request.ClientTxnID,
-		RequestID:   &requestID,
-		CreatedAt:   now.UTC(),
+		RequestID:   &request.RequestID,
+		CreatedAt:   request.Now.UTC(),
 	})
 	if err != nil {
 		return ClipboardPasteResult{}, err
@@ -162,7 +182,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revision); err != nil {
 			return ClipboardPasteResult{}, err
 		}
-		if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(row.After)); err != nil {
+		if err := s.upsertProjectionTx(ctx, tx, row.After); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		result := ClipboardPasteRowResult{
@@ -170,6 +190,22 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			RowVersion:       row.After.RowVersion,
 			ChangedFieldKeys: row.ChangedFieldKeys,
 			Row:              row.AfterRow,
+		}
+		if err := s.appendRecordChangeIntentTx(
+			ctx,
+			tx,
+			incidentID,
+			row.After.RecordID,
+			row.After.RowVersion,
+			changeSetID,
+			request.ClientTxnID,
+			actor.ID,
+			row.ChangedFieldKeys,
+			row.AfterRow,
+			len(resultRows)+1,
+			request.Now,
+		); err != nil {
+			return ClipboardPasteResult{}, err
 		}
 		resultRows = append(resultRows, result)
 		payloadRows = append(payloadRows, row.AfterRow)
@@ -181,16 +217,11 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		"rows":           payloadRows,
 		"conflicts":      conflicts,
 	}
-	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, request.RequestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 		}
 		return ClipboardPasteResult{}, err
-	}
-	for _, row := range applied {
-		if err := s.beforeCommit(routeKey, row.After.RecordID); err != nil {
-			return ClipboardPasteResult{}, err
-		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ClipboardPasteResult{}, fmt.Errorf("commit timeline clipboard paste transaction: %w", err)
@@ -205,6 +236,64 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 	}, nil
 }
 
+func validateOwnerBatchShape(request ownerBatchApplyV1) error {
+	if strings.TrimSpace(request.ClientTxnID) == "" {
+		return fmt.Errorf("owner_batch_apply_v1 client transaction ID is required")
+	}
+	if len(request.Targets) == 0 || len(request.Targets) != len(request.Rows) {
+		return fmt.Errorf("owner_batch_apply_v1 targets and rows must be nonempty and aligned")
+	}
+	if request.RequestHash == nil {
+		return fmt.Errorf("owner_batch_apply_v1 request hash is required")
+	}
+	_, _, err := ownerBatchOperationMetadata(request.Operation)
+	return err
+}
+
+func ownerBatchOperationMetadata(operation string) (routeKey string, originKind string, err error) {
+	switch operation {
+	case OwnerBatchOperationClipboardPasteV1:
+		return clipboardPasteRouteKey, "clipboard_paste", nil
+	case OwnerBatchOperationFillDownV1, OwnerBatchOperationMultiRowTagAssignmentV1:
+		return bulkMutationRouteKey, "bulk_edit", nil
+	default:
+		return "", "", fmt.Errorf("unsupported owner_batch_apply_v1 operation %q", operation)
+	}
+}
+
+func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, operation string, targets []OwnerBatchTargetV1) error {
+	recordIDs := make([]uuid.UUID, 0, len(targets))
+	for _, target := range targets {
+		switch target.Kind {
+		case "create":
+			if operation != OwnerBatchOperationClipboardPasteV1 || target.RecordID != uuid.Nil || target.BaseRowVersion != 0 {
+				return ErrRecordNotFound
+			}
+		case "record":
+			if target.RecordID == uuid.Nil || target.BaseRowVersion < 1 {
+				return ErrRecordNotFound
+			}
+			recordIDs = append(recordIDs, target.RecordID)
+		default:
+			return ErrRecordNotFound
+		}
+	}
+	envelopes, err := s.recordStore.LoadEnvelopesTx(ctx, tx, recordIDs, true)
+	if err != nil {
+		return err
+	}
+	for _, recordID := range recordIDs {
+		envelope, ok := envelopes[recordID]
+		if !ok || envelope.IncidentID != incidentID || envelope.RecordType != "timeline_event" || envelope.DeletedAt != nil {
+			return ErrRecordNotFound
+		}
+		if _, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type clipboardAppliedRow struct {
 	Operation                 string
 	Before                    *projectedRecord
@@ -217,13 +306,13 @@ type clipboardAppliedRow struct {
 	RecordID                  uuid.UUID
 }
 
-func (s *store) applyClipboardPasteCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, error) {
+func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, error) {
 	recordID := uuid.New()
 	current := sourceRecord{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		ActivityTimePairState: "disabled",
-		RawCapture:            rawCaptureWithImportColumns(nil, rowPlan.Unknown),
+		RawCapture:            rawCaptureWithImportColumns(nil, rowPlan.Unmapped),
 		CaptureState:          InitialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
@@ -243,20 +332,19 @@ func (s *store) applyClipboardPasteCreateTx(ctx context.Context, tx pgx.Tx, acto
 	if err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("encode raw capture: %w", err)
 	}
+	if _, err := s.recordStore.InsertTx(ctx, tx, RecordCreateParams{
+		RecordID:        &current.RecordID,
+		IncidentID:      incidentID,
+		RecordType:      "timeline_event",
+		CreatedByUserID: actor.ID,
+		CreatedAt:       now.UTC(),
+		UpdatedByUserID: actor.ID,
+		UpdatedAt:       now.UTC(),
+		RowVersion:      1,
+	}); err != nil {
+		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste record envelope: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `
-WITH inserted_record AS (
-    INSERT INTO records (
-        record_id,
-        incident_id,
-        record_type,
-        created_by_user_id,
-        created_at,
-        updated_by_user_id,
-        updated_at,
-        row_version
-    )
-    VALUES ($1, $2, 'timeline_event', $3, $4, $3, $4, 1)
-)
 INSERT INTO timeline_events (
     record_id,
     incident_id,
@@ -301,7 +389,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 		return clipboardAppliedRow{}, err
 	}
 	projected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &projected); err != nil {
 		return clipboardAppliedRow{}, err
 	}
 	afterRow := buildRow(projected)
@@ -323,8 +411,8 @@ func ensureClipboardPasteRecordIncident(current sourceRecord, incidentID uuid.UU
 	return nil
 }
 
-func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
-	current, err := loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
+func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
+	current, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
@@ -334,15 +422,15 @@ func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	if current.RowVersion < baseRowVersion {
 		return clipboardAppliedRow{}, nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
-	acceptedCells := append([]clipboardPasteCell{}, rowPlan.Cells...)
+	acceptedCells := append([]ownerBatchCellV1{}, rowPlan.Cells...)
 	conflicts := make([]map[string]any, 0)
 	if current.RowVersion > baseRowVersion && len(rowPlan.Cells) > 0 {
-		window, err := loadPatchConflictWindowTx(ctx, tx, recordID, baseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, baseRowVersion, current.RowVersion)
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
 		currentProjected := projectRecord(current, nil)
-		if err := hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
+		if err := s.hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
 		kept := acceptedCells[:0]
@@ -366,14 +454,14 @@ func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	for _, cell := range acceptedCells {
 		applyPatchChangeToSource(&next, cell.Change)
 	}
-	next.RawCapture = rawCaptureWithImportColumns(current.RawCapture, rowPlan.Unknown)
+	next.RawCapture = rawCaptureWithImportColumns(current.RawCapture, rowPlan.Unmapped)
 	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
 	applyTimelineTimeConversion(&next, profile)
 	beforeProjected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
 	mentionChanged := pasteCellsIncludeField(acceptedCells, "timeline.host_refs") || pasteCellsIncludeField(acceptedCells, "timeline.identity_refs")
@@ -464,7 +552,7 @@ RETURNING recorded_at
 		return clipboardAppliedRow{}, nil, fmt.Errorf("update timeline clipboard paste record: %w", err)
 	}
 	afterProjected := projectRecord(next, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
 	beforeRow := buildRow(beforeProjected)
@@ -509,13 +597,13 @@ func applyPatchChangeToSource(record *sourceRecord, change PatchChange) {
 	}
 }
 
-func pasteCellsIncludeField(cells []clipboardPasteCell, fieldKey string) bool {
-	return slices.ContainsFunc(cells, func(cell clipboardPasteCell) bool {
+func pasteCellsIncludeField(cells []ownerBatchCellV1, fieldKey string) bool {
+	return slices.ContainsFunc(cells, func(cell ownerBatchCellV1) bool {
 		return cell.FieldKey == fieldKey && cell.Change.ActionPayload != nil && len(cell.Change.ActionPayload.Actions) > 0
 	})
 }
 
-func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
+func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
@@ -525,7 +613,7 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		if cell.FieldKey == "timeline.identity_refs" {
 			entityType = "identity"
 		}
-		linked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
+		linked, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
 			originKind:                     originKind,
 		}, now)
@@ -539,7 +627,7 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 	return refresh, nil
 }
 
-func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]recordTagMutation, error) {
+func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]recordTagMutation, error) {
 	mutations := make([]recordTagMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.tags" || cell.Change.ActionPayload == nil {
@@ -554,7 +642,7 @@ func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUser
 	return mutations, nil
 }
 
-func (s *store) applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]attachedEvidenceMutation, error) {
+func (s *store) applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, now time.Time) ([]attachedEvidenceMutation, error) {
 	mutations := make([]attachedEvidenceMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.attached_evidence_ids" || cell.Change.ActionPayload == nil {

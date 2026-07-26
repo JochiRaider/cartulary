@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
@@ -302,7 +303,7 @@ type resolutionTimelineCommands struct {
 }
 
 func newResolutionTimelineCommands(pool postgres.DB) *resolutionTimelineCommands {
-	return &resolutionTimelineCommands{facade: NewFacade(pool)}
+	return &resolutionTimelineCommands{facade: timelineassembly.NewFacade(pool)}
 }
 
 func (c *resolutionTimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

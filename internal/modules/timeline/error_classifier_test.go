@@ -9,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -39,7 +37,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "incident closed",
-			err:     incidents.ErrIncidentClosed,
+			err:     ErrIncidentClosed,
 			status:  http.StatusConflict,
 			code:    "incident_closed",
 			message: "incident closed",
@@ -54,7 +52,7 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 		},
 		{
 			name:    "deleted record use restore",
-			err:     revisions.ErrRecordDeletedUseRestore,
+			err:     ErrRecordDeleted,
 			status:  http.StatusConflict,
 			code:    "record_deleted_use_restore",
 			message: "record deleted use restore",

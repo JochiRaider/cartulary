@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -32,6 +33,46 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 	}
 	if result.ProviderResults == nil || result.Warnings == nil || result.Errors == nil {
 		t.Fatalf("restore result collections must be non-nil: %#v", result)
+	}
+}
+
+func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
+	ctx := context.Background()
+	harness := recordstoretest.StartStore(t, "projection-timeline-source-paging")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-page@example.test", "Projection Page", "ProjectionPage1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-page-incident", "IR-PROJECTION-PAGE", "Projection paging")
+	recordIDs := []uuid.UUID{
+		uuid.MustParse("10000000-0000-4000-8000-000000000003"),
+		uuid.MustParse("10000000-0000-4000-8000-000000000001"),
+		uuid.MustParse("10000000-0000-4000-8000-000000000002"),
+	}
+	for _, recordID := range recordIDs {
+		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+	}
+
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin projection source paging: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	source := timelineassembly.NewProjectionSource(harness.DB)
+	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
+	if err != nil {
+		t.Fatalf("list first projection source page: %v", err)
+	}
+	if len(first.Inputs) != 2 || first.NextRecordID == nil ||
+		first.Inputs[0].RecordID.String() != "10000000-0000-4000-8000-000000000001" ||
+		first.Inputs[1].RecordID.String() != "10000000-0000-4000-8000-000000000002" {
+		t.Fatalf("unexpected first projection source page: %#v", first)
+	}
+	second, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, first.NextRecordID, 2)
+	if err != nil {
+		t.Fatalf("list second projection source page: %v", err)
+	}
+	if len(second.Inputs) != 1 || second.NextRecordID != nil ||
+		second.Inputs[0].RecordID.String() != "10000000-0000-4000-8000-000000000003" {
+		t.Fatalf("unexpected second projection source page: %#v", second)
 	}
 }
 
@@ -57,7 +98,7 @@ func (commitFailTx) Commit(context.Context) error {
 
 func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "projection-restore-commit-failure")
-	rebuilder := projections.NewRestoreRebuilder(commitFailDB{DB: harness.DB})
+	rebuilder := projections.NewRestoreRebuilder(commitFailDB{DB: harness.DB}, timelineassembly.NewProjectionSource(harness.DB))
 	result, err := rebuilder.RebuildRestoreProjections(context.Background(), validProjectionRebuildRequest())
 	if err == nil || !strings.Contains(err.Error(), "injected commit failure") {
 		t.Fatalf("commit failure error = %v", err)
@@ -82,7 +123,7 @@ func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "projection-restore-rebuild-result")
-	rebuilder := projections.NewRestoreRebuilder(harness.DB)
+	rebuilder := projections.NewRestoreRebuilder(harness.DB, timelineassembly.NewProjectionSource(harness.DB))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()
@@ -193,7 +234,7 @@ INSERT INTO timeline_grid_projection (
     activity_time_pair_state,
     activity_synopsis_text
 )
-VALUES ($1, $2, 1, $3, $3, 'reviewed', '2026-07-01T14:30:00Z', $3, $3::date, 'disabled', 'stale projection row')
+VALUES ($1, $2, 1, $3::timestamptz, $3::timestamptz, 'reviewed', '2026-07-01T14:30:00Z', $3::timestamptz, $3::date, 'disabled', 'stale projection row')
 `, recordID, incidentID, staleAt); err != nil {
 		t.Fatalf("insert stale timeline projection row: %v", err)
 	}

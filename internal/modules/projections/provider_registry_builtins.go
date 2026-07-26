@@ -11,6 +11,7 @@ import (
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
 func builtInProjectionProviders() []projectionProvider {
@@ -27,12 +28,18 @@ func builtInProjectionProviders() []projectionProvider {
 				ProjectionTableFamilies:   []string{"timeline_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
+				QuerySurfaces:        timelineprojection.QuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
-				FacadePackages:       []string{"internal/modules/timeline/workbookprojection"},
+				FacadePackages:       []string{"internal/modules/timeline"},
 				CharacterizationRefs: []string{"internal/modules/timeline/projection_contract_test.go"},
+			},
+			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+				return store.refreshTimelineTxCore(ctx, tx, recordID)
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentTimelineTxCore(ctx, tx, incidentID)

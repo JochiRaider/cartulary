@@ -94,7 +94,7 @@ func (s *store) applyAction(
 		_ = tx.Rollback(ctx)
 	}()
 
-	current, err := loadSourceRecordTx(ctx, tx, recordID)
+	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -129,7 +129,7 @@ func (s *store) applyAction(
 	}
 
 	beforeProjected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.QueryRow(ctx, `
@@ -167,7 +167,7 @@ RETURNING recorded_at
 	}
 
 	afterProjected := projectRecord(next, validatedReplacementID)
-	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
@@ -226,18 +226,31 @@ RETURNING recorded_at
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(afterProjected)); err != nil {
+	if err := s.upsertProjectionTx(ctx, tx, afterProjected); err != nil {
 		return MutationResult{}, err
 	}
 
 	payload := BuildActionPayload(afterProjected, changeSetID, effectiveReason)
+	if err := s.appendRecordChangeIntentTx(
+		ctx,
+		tx,
+		current.IncidentID,
+		current.RecordID,
+		afterProjected.RowVersion,
+		changeSetID,
+		clientTxnID,
+		actor.ID,
+		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		afterRow,
+		1,
+		now,
+	); err != nil {
+		return MutationResult{}, err
+	}
 	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
-		return MutationResult{}, err
-	}
-	if err := s.beforeCommit(routeKey, recordID); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -275,7 +288,7 @@ func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, c
 	}
 
 	if *replacementRecordID != current.RecordID {
-		replacement, err := loadSourceRecordTx(ctx, tx, *replacementRecordID)
+		replacement, err := s.loadSourceRecordTx(ctx, tx, *replacementRecordID)
 		if errors.Is(err, ErrRecordNotFound) {
 			guards = append(guards, supersedeGuardReplacementVisibleActiveSameIncident)
 		} else if err != nil {

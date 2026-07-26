@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { NetworkFlowTable } from "./networkFlowClient";
 import { NetworkFlowRequestError } from "./networkFlowErrors";
 import {
   type NetworkFlowExtensionResourceChange,
@@ -13,6 +14,7 @@ export function useNetworkFlowCollaborationController({
   loadTables,
   onMessage,
   onProtectedStateLoss,
+  tables,
 }: {
   readonly apiBase: string | undefined;
   readonly clearResources: () => void;
@@ -30,10 +32,10 @@ export function useNetworkFlowCollaborationController({
   readonly loadTables: () => Promise<void>;
   readonly onMessage: (message: string) => void;
   readonly onProtectedStateLoss: (error: NetworkFlowRequestError) => void;
+  readonly tables: readonly NetworkFlowTable[];
 }) {
   const handleResourceChange = useCallback(
     async (change: NetworkFlowExtensionResourceChange) => {
-      onMessage("Network Analysis data changed.");
       if (
         change.reasonCode === "authorization_lost" ||
         (change.changeKind === "remove" && change.resourceId === "*")
@@ -60,13 +62,20 @@ export function useNetworkFlowCollaborationController({
         return;
       }
       if (change.changeKind === "remove") {
+        const removedTable = tables.find(
+          (table) => table.network_flow_table_id === change.resourceId,
+        );
         dispatchTableAction({
           type: "remove_table",
           tableId: change.resourceId,
         });
         clearResources();
+        if (removedTable !== undefined) {
+          onMessage(`${removedTable.display_name} was deleted.`);
+        }
         return;
       }
+      onMessage("Network Analysis data changed.");
       await loadTables();
     },
     [
@@ -75,6 +84,7 @@ export function useNetworkFlowCollaborationController({
       loadTables,
       onMessage,
       onProtectedStateLoss,
+      tables,
     ],
   );
   useNetworkFlowExtensionEvents({

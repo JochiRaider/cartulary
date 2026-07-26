@@ -786,6 +786,15 @@ Verified by: AC-008, AC-132, AC-231
 
 #### 4.3.1 Collaboration message application
 
+Implementation note: replayable `record_changed`, incident `job_progress`, and
+admitted `extension_resource_changed` messages share one Collaboration-owned,
+per-incident durable sequencer. Source owners append deterministic semantic
+intents in their authoritative transactions; the dispatcher assigns public event
+IDs and stream sequences after commit. The live hub owns delivery and presence,
+not sequence or replay history. Resume and live delivery recheck current session,
+incident, and membership authorization. These internal boundaries do not change
+the WebSocket v1 message shapes below.
+
 **REQ-03-092**
 The client MUST include its initial workbook presence in `hello` or `resume` and MUST send `presence_update` whenever any of the following changes:
 
@@ -2115,6 +2124,15 @@ The following are non-goals in the base profile:
 - parent and child tree rows.
 
 ## 15. Timeline read and write contract
+
+Implementation note: executable ownership for Timeline source semantics, Workbook
+admission, Tabular Ingest planning, Projections storage, and Collaboration
+sequencing lives in the machine owner catalogs. Internally, Workbook admits the
+public operation, Tabular Ingest produces immutable `tabular_row_plan_v1` input
+for clipboard paste, and Timeline applies an exact `owner_batch_apply_v1`
+operation in the initiating transaction. Fill-down and multi-row tag assignment
+remain distinct operations and do not masquerade as clipboard paste. These names
+describe implementation-support boundaries and do not add domain vocabulary.
 
 **REQ-03-236**
 The Timeline sheet MUST read from `timeline_grid_projection` or an equivalent projection.

@@ -49,6 +49,7 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 		partiesViewSchemaID:              true,
 		statusReviewViewSchemaID:         true,
 		taskRequestsViewSchemaID:         true,
+		timelineViewSchemaID:             true,
 	}
 	surfaces := querySurfacesForTest()
 	if !reflect.DeepEqual(surfaceKeySet(surfaces), expected) {
@@ -191,7 +192,7 @@ func TestGenericProjectionNullAndCollectionCellShape(t *testing.T) {
 				if field.kind == fieldKindCollection {
 					want := map[string]any{
 						"kind":    "collection_value_v1",
-						"ordered": false,
+						"ordered": field.ordered,
 						"items":   []map[string]any{},
 					}
 					if !reflect.DeepEqual(got, want) {
@@ -323,6 +324,35 @@ func TestGenericProjectionGroupedRowIsFullViewRow(t *testing.T) {
 		if strings.Contains(encoded, forbidden) {
 			t.Fatalf("grouped workbook row serialized presentation-only marker %s: %s", forbidden, encoded)
 		}
+	}
+}
+
+func TestGenericProjectionCollectionAcceptsDecodedJSONB(t *testing.T) {
+	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000808")
+	items := []any{map[string]any{
+		"item_ref":     "entity_mention:00000000-0000-0000-0000-000000000809",
+		"item_kind":    "unresolved_mention",
+		"display_text": "WS-023",
+	}}
+	row, err := buildGenericRow(genericSurface{
+		viewSchemaID: "cartulary.view.timeline.v2",
+		recordExpr:   "t.record_id",
+		fields: []genericField{{
+			key:     "timeline.host_refs",
+			kind:    fieldKindCollection,
+			ordered: true,
+		}},
+	}, []any{recordID, int64(4), items})
+	if err != nil {
+		t.Fatalf("build row with decoded JSONB collection: %v", err)
+	}
+
+	cells := row["cells"].(map[string]any)
+	cell := cells["timeline.host_refs"].(map[string]any)
+	value := cell["value"].(map[string]any)
+	got := value["items"].([]map[string]any)
+	if !reflect.DeepEqual(got, []map[string]any{items[0].(map[string]any)}) {
+		t.Fatalf("decoded JSONB collection changed: got %#v", got)
 	}
 }
 

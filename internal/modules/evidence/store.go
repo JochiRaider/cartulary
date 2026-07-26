@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -63,6 +64,27 @@ type Store struct {
 	authStore      *authn.Store
 	incidentAccess incidents.Access
 	revisionStore  revisionAppendPort
+	projections    ProjectionPort
+	collaboration  collaboration.IntentAppender
+}
+
+type ProjectionPort interface {
+	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
+	RebuildIncidentViewsTx(context.Context, pgx.Tx, uuid.UUID, []string) error
+}
+
+type StoreOption func(*Store)
+
+func WithProjectionPort(port ProjectionPort) StoreOption {
+	return func(store *Store) {
+		store.projections = port
+	}
+}
+
+func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption {
+	return func(store *Store) {
+		store.collaboration = appender
+	}
 }
 
 type BlobSlotParams struct {
@@ -182,8 +204,21 @@ type HandleRecord struct {
 	ConsumedAt             *time.Time
 }
 
-func NewStore(pool postgres.DB) *Store {
-	return &Store{pool: pool, authStore: authn.NewStore(pool), incidentAccess: incidents.NewAccess(pool), revisionStore: newRevisionAppendAdapter()}
+func NewStore(pool postgres.DB, options ...StoreOption) *Store {
+	store := &Store{
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		incidentAccess: incidents.NewAccess(pool),
+		revisionStore:  newRevisionAppendAdapter(),
+		projections:    projectionadapters.NewRowProjector(pool),
+		collaboration:  collaboration.NewStore(pool, nil),
+	}
+	for _, option := range options {
+		if option != nil {
+			option(store)
+		}
+	}
+	return store
 }
 
 func (s *Store) CreateBlobSlot(ctx context.Context, params BlobSlotParams) (BlobSlotResult, error) {
@@ -412,7 +447,7 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := projectionadapters.NewRowProjector(nil).RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
+	if err := s.projections.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
 		return AttachBlobResult{}, err
 	}
 	afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -440,8 +475,29 @@ UPDATE evidence
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
-	affectedChanges, err := refreshEvidenceSupportProjectionsTx(ctx, tx, meta.IncidentID, recordID)
+	affectedChanges, err := s.refreshEvidenceSupportProjectionsTx(ctx, tx, meta.IncidentID, recordID)
 	if err != nil {
+		return AttachBlobResult{}, err
+	}
+	changedFieldKeys := sortedChangedKeys(beforeRow, afterRow)
+	if err := appendEvidenceRecordChangeIntentsTx(
+		ctx,
+		tx,
+		s.collaboration,
+		meta.IncidentID,
+		actor.ID,
+		request.ClientTxnID,
+		changeSetID,
+		AttachRecordChange{
+			RecordID:         recordID,
+			RowVersion:       rowVersion,
+			ViewSchemaID:     evidenceViewSchemaID,
+			ChangedFieldKeys: changedFieldKeys,
+		},
+		afterRow,
+		affectedChanges,
+		now,
+	); err != nil {
 		return AttachBlobResult{}, err
 	}
 	payload := map[string]any{
@@ -462,7 +518,7 @@ UPDATE evidence
 	return AttachBlobResult{
 		Payload: payload, StatusCode: http.StatusOK, IncidentID: meta.IncidentID, RecordID: recordID,
 		ChangeSetID: changeSetID, ClientTxnID: request.ClientTxnID, RowVersion: rowVersion,
-		ChangedFieldKeys: sortedChangedKeys(beforeRow, afterRow), AffectedRecordChanges: affectedChanges,
+		ChangedFieldKeys: changedFieldKeys, AffectedRecordChanges: affectedChanges,
 	}, nil
 }
 
@@ -576,7 +632,7 @@ UPDATE evidence
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		if err := projectionadapters.NewRowProjector(nil).RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
+		if err := s.projections.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
 			return QuarantineBlobResult{}, err
 		}
 		afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -598,14 +654,30 @@ UPDATE evidence
 		}); err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		projectionChanges, err := refreshEvidenceSupportProjectionsTx(ctx, tx, blob.IncidentID, recordID)
+		projectionChanges, err := s.refreshEvidenceSupportProjectionsTx(ctx, tx, blob.IncidentID, recordID)
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		changedRows = append(changedRows, AttachRecordChange{
+		primaryChange := AttachRecordChange{
 			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: evidenceViewSchemaID,
 			ChangedFieldKeys: sortedChangedKeys(beforeRows[recordID], afterRow),
-		})
+		}
+		if err := appendEvidenceRecordChangeIntentsTx(
+			ctx,
+			tx,
+			s.collaboration,
+			blob.IncidentID,
+			actorUserID,
+			"",
+			changeSetID,
+			primaryChange,
+			afterRow,
+			projectionChanges,
+			now,
+		); err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		changedRows = append(changedRows, primaryChange)
 		changedRows = append(changedRows, projectionChanges...)
 	}
 
@@ -1187,7 +1259,7 @@ RETURNING row_version
 	return rowVersion, err
 }
 
-func refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
+func (s *Store) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
 	changes, err := loadEvidenceSupportRecordChangesTx(ctx, tx, incidentID, evidenceRecordID)
 	if err != nil {
 		return nil, err
@@ -1195,8 +1267,7 @@ func refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, inciden
 	if len(changes) == 0 {
 		return nil, nil
 	}
-	projector := projectionadapters.NewRowProjector(nil)
-	if err := projector.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
+	if err := s.projections.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
 		projectionadapters.TimelineViewSchemaID,
 		projectionadapters.HostsViewSchemaID,
 		projectionadapters.IdentitiesViewSchemaID,

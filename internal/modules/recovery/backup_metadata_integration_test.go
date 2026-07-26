@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -182,7 +182,7 @@ INSERT INTO object_blobs (
 		Stopped:     true,
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: projections.NewRestoreRebuilder(targetPool),
+		Projections: timelineassembly.NewRestoreRebuilder(targetPool),
 	}, asOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)

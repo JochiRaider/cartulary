@@ -18,20 +18,22 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var (
-	ErrRecordNotFound     = errors.New("timeline: record not found")
-	ErrRowVersionConflict = errors.New("timeline: row version conflict")
-	ErrIllegalTransition  = errors.New("timeline: illegal transition")
-	ErrNoEffectiveChange  = errors.New("timeline: no effective change")
+	ErrRecordNotFound         = errors.New("timeline: record not found")
+	ErrRowVersionConflict     = errors.New("timeline: row version conflict")
+	ErrIllegalTransition      = errors.New("timeline: illegal transition")
+	ErrNoEffectiveChange      = errors.New("timeline: no effective change")
+	ErrIncidentClosed         = errors.New("timeline: incident closed")
+	ErrRecordDeleted          = errors.New("timeline: record deleted use restore")
+	ErrResolvedRecordNotFound = errors.New("timeline: resolved record not found")
 )
 
 type RowVersionConflictError struct {
@@ -83,87 +85,23 @@ type patchChangedField struct {
 type store struct {
 	pool             postgres.DB
 	idempotencyStore timelineIdempotencyPort
-	incidentAccess   incidents.Access
+	incidentAccess   timelineIncidentPort
 	recordStore      timelineRecordPort
 	revisionsStore   timelineRevisionPort
 	projectionStore  timelineProjectionPort
 	linkStore        timelineLinkPort
 	mentionStore     timelineMentionPort
-	hooks            storeHooks
+	entityStore      timelineEntityPort
+	evidenceStore    timelineEvidencePort
+	collectionReader timelineCollectionReadPort
+	collaboration    timelineCollaborationPort
+	sourceRepository *sourcerepository.Repository
 	conflictTokens   conflicttokens.ConflictTokenCodec
 }
 
-type projectedRecord struct {
-	RecordID              uuid.UUID
-	IncidentID            uuid.UUID
-	RowVersion            int64
-	DateEnteredText       *string
-	AnalystText           *string
-	MitreStageText        *string
-	DeviceObjectText      *string
-	IPAddressText         *string
-	ActivityUTCText       *string
-	ActivityLocalText     *string
-	RawActivityText       *string
-	ActivitySynopsisText  *string
-	DataSourceText        *string
-	RecordedAt            time.Time
-	EditedAt              time.Time
-	ActivitySortTS        *time.Time
-	DateEnteredSortDay    *time.Time
-	ActivityTimePairState string
-	CaptureState          string
-	ReplacementRecordID   *uuid.UUID
-	EvidenceCount         int
-	HasEvidence           bool
-	HasUnresolvedMentions bool
-	HostRefs              []map[string]any
-	IdentityRefs          []map[string]any
-	AttachedEvidence      []map[string]any
-	Tags                  []map[string]any
-}
+type projectedRecord = workbookprojection.DerivedRecord
 
-type sourceRecord struct {
-	RecordID               uuid.UUID
-	IncidentID             uuid.UUID
-	DateEnteredText        *string
-	AnalystText            *string
-	MitreStageText         *string
-	DeviceObjectText       *string
-	IPAddressText          *string
-	ActivityUTCText        *string
-	ActivityLocalText      *string
-	RawActivityText        *string
-	ActivitySynopsisText   *string
-	DataSourceText         *string
-	ActivityUTCGenerated   bool
-	ActivityLocalGenerated bool
-	ActivityTimePairState  string
-	RawCapture             map[string]any
-	CaptureState           string
-	RowVersion             int64
-	RecordedAt             time.Time
-	EditedAt               time.Time
-	CreatedByUserID        uuid.UUID
-	UpdatedByUserID        uuid.UUID
-	ReviewedByUserID       *uuid.UUID
-	ReviewedAt             *time.Time
-	SupersededByUserID     *uuid.UUID
-	SupersededAt           *time.Time
-}
-
-type MutationResult struct {
-	Payload          map[string]any
-	StatusCode       int
-	Replayed         bool
-	IncidentID       uuid.UUID
-	RecordID         uuid.UUID
-	ChangeSetID      uuid.UUID
-	ClientTxnID      string
-	RowVersion       int64
-	ChangedFieldKeys []string
-	Row              projectedRecord
-}
+type sourceRecord = sourcerepository.Snapshot
 
 type attachedEvidenceMutation struct {
 	RecordLinkID uuid.UUID
@@ -180,14 +118,6 @@ type recordTagMutation struct {
 	AfterValue  map[string]any
 }
 
-type RecordSubstrateSnapshot struct {
-	RecordID            uuid.UUID
-	RowVersion          int64
-	CaptureState        string
-	ReplacementRecordID *uuid.UUID
-	RecordRevisionCount int
-}
-
 type TimeConversionProfile struct {
 	IncidentID         uuid.UUID
 	Enabled            bool
@@ -202,25 +132,37 @@ type createRowOptions struct {
 	allowInteractiveAutoResolution bool
 }
 
-func newStore(pool postgres.DB) *store {
-	return newStoreWithHooks(pool, storeHooks{})
+func newStore(pool postgres.DB, dependencies Dependencies) *store {
+	return newStoreWithPorts(pool, timelineStorePorts{
+		idempotency:   dependencies.Idempotency,
+		incidents:     dependencies.Incidents,
+		records:       dependencies.Records,
+		revisions:     dependencies.Revisions,
+		projections:   dependencies.Projections,
+		links:         dependencies.Links,
+		mentions:      dependencies.Mentions,
+		entities:      dependencies.Entities,
+		evidence:      dependencies.Evidence,
+		collections:   dependencies.Collections,
+		collaboration: dependencies.Collaboration,
+	})
 }
 
-func newStoreWithHooks(pool postgres.DB, hooks storeHooks) *store {
-	return newStoreWithPorts(pool, newTimelineStorePorts(pool), hooks)
-}
-
-func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks storeHooks) *store {
+func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts) *store {
 	return &store{
 		pool:             pool,
 		idempotencyStore: ports.idempotency,
-		incidentAccess:   incidents.NewAccess(pool),
+		incidentAccess:   ports.incidents,
 		recordStore:      ports.records,
 		revisionsStore:   ports.revisions,
 		projectionStore:  ports.projections,
 		linkStore:        ports.links,
 		mentionStore:     ports.mentions,
-		hooks:            hooks,
+		entityStore:      ports.entities,
+		evidenceStore:    ports.evidence,
+		collectionReader: ports.collections,
+		collaboration:    ports.collaboration,
+		sourceRepository: sourcerepository.New(ports.records),
 		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("timeline"),
 	}
 }
@@ -230,41 +172,11 @@ func (s *store) setConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
 }
 
 func (s *store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
-	var incidentID uuid.UUID
-	if err := s.pool.QueryRow(ctx, `SELECT incident_id FROM records WHERE record_id = $1`, recordID).Scan(&incidentID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.UUID{}, ErrRecordNotFound
-		}
-		return uuid.UUID{}, fmt.Errorf("get record incident: %w", err)
+	incidentID, err := s.recordStore.ResolveIncident(ctx, recordID)
+	if err != nil {
+		return uuid.UUID{}, ErrRecordNotFound
 	}
 	return incidentID, nil
-}
-
-func (s *store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {
-	row, err := sqlc.New(s.pool).GetTimelineProjectionRow(ctx, pgUUID(recordID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return RecordSubstrateSnapshot{}, ErrRecordNotFound
-		}
-		return RecordSubstrateSnapshot{}, fmt.Errorf("get timeline projection row: %w", err)
-	}
-	projected, err := projectedRecordFromSQL(row)
-	if err != nil {
-		return RecordSubstrateSnapshot{}, err
-	}
-
-	var revisionCount int
-	if err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID).Scan(&revisionCount); err != nil {
-		return RecordSubstrateSnapshot{}, fmt.Errorf("count record revisions: %w", err)
-	}
-
-	return RecordSubstrateSnapshot{
-		RecordID:            projected.RecordID,
-		RowVersion:          projected.RowVersion,
-		CaptureState:        projected.CaptureState,
-		ReplacementRecordID: projected.ReplacementRecordID,
-		RecordRevisionCount: revisionCount,
-	}, nil
 }
 
 func (s *store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -354,89 +266,35 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	if err != nil {
 		return MutationResult{}, fmt.Errorf("encode raw capture: %w", err)
 	}
-	var recordEnvelopeInsertMs float64
-	var timelineEventInsertMs float64
-	if err := tx.QueryRow(ctx, `
-WITH timing_start AS (
-    SELECT clock_timestamp() AS started_at
-),
-inserted_record AS (
-    INSERT INTO records (
-        record_id,
-        incident_id,
-        record_type,
-        created_by_user_id,
-        created_at,
-        updated_by_user_id,
-        updated_at,
-        row_version
-    )
-    VALUES ($1, $2, 'timeline_event', $3, $4, $3, $4, 1)
-    RETURNING
-        record_id,
-        (SELECT started_at FROM timing_start) AS started_at,
-        clock_timestamp() AS inserted_at
-),
-inserted_timeline_event AS (
-    INSERT INTO timeline_events (
-        record_id,
-        incident_id,
-        date_entered_text,
-        analyst_text,
-        mitre_stage_text,
-        device_object_text,
-        ip_address_text,
-        activity_utc_text,
-        activity_local_text,
-        raw_activity_text,
-        activity_synopsis_text,
-        data_source_text,
-        activity_utc_generated,
-        activity_local_generated,
-        activity_time_pair_state,
-        raw_capture,
-        capture_state,
-        row_version,
-        recorded_at,
-        edited_at,
-        created_by_user_id,
-        updated_by_user_id
-    )
-    SELECT
-        inserted_record.record_id,
-        $2,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12,
-        $13,
-        $14,
-        $15,
-        $16,
-        $17,
-        $18,
-        'rough',
-        1,
-        $4,
-        $4,
-        $3,
-        $3
-    FROM inserted_record
-    RETURNING clock_timestamp() AS inserted_at
-)
-SELECT
-    EXTRACT(EPOCH FROM (inserted_record.inserted_at - inserted_record.started_at)) * 1000,
-    EXTRACT(EPOCH FROM (inserted_timeline_event.inserted_at - inserted_record.inserted_at)) * 1000
-FROM inserted_record, inserted_timeline_event
-`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
-		return MutationResult{}, fmt.Errorf("insert timeline base rows: %w", err)
+	recordInsertStarted := time.Now()
+	if _, err := s.recordStore.InsertTx(ctx, tx, RecordCreateParams{
+		RecordID:        &current.RecordID,
+		IncidentID:      incidentID,
+		RecordType:      "timeline_event",
+		CreatedByUserID: actor.ID,
+		CreatedAt:       now.UTC(),
+		UpdatedByUserID: actor.ID,
+		UpdatedAt:       now.UTC(),
+		RowVersion:      1,
+	}); err != nil {
+		return MutationResult{}, fmt.Errorf("insert timeline record envelope: %w", err)
 	}
-	markCreateTimingDuration(ctx, "store_record_envelope_insert", durationFromMilliseconds(recordEnvelopeInsertMs))
-	markCreateTimingDuration(ctx, "store_timeline_event_insert", durationFromMilliseconds(timelineEventInsertMs))
+	markCreateTimingDuration(ctx, "store_record_envelope_insert", time.Since(recordInsertStarted))
+	timelineInsertStarted := time.Now()
+	if _, err := tx.Exec(ctx, `
+INSERT INTO timeline_events (
+    record_id, incident_id, date_entered_text, analyst_text, mitre_stage_text,
+    device_object_text, ip_address_text, activity_utc_text, activity_local_text,
+    raw_activity_text, activity_synopsis_text, data_source_text,
+    activity_utc_generated, activity_local_generated, activity_time_pair_state,
+    raw_capture, capture_state, row_version, recorded_at, edited_at,
+    created_by_user_id, updated_by_user_id
+)
+VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'rough', 1, $4, $4, $3, $3)
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON); err != nil {
+		return MutationResult{}, fmt.Errorf("insert timeline source row: %w", err)
+	}
+	markCreateTimingDuration(ctx, "store_timeline_event_insert", time.Since(timelineInsertStarted))
 
 	mentionProjectionRefresh, err := s.applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, options, now.UTC())
 	if err != nil {
@@ -457,7 +315,7 @@ FROM inserted_record, inserted_timeline_event
 
 	projected := projectRecord(current, nil)
 	if createRequestHasCollectionActions(request) {
-		if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
+		if err := s.hydrateProjectedCollections(ctx, tx, &projected); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -501,12 +359,28 @@ FROM inserted_record, inserted_timeline_event
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(projected)); err != nil {
+	if err := s.upsertProjectionTx(ctx, tx, projected); err != nil {
 		return MutationResult{}, err
 	}
 	markCreateTiming(ctx, "store_revision_projection")
 
 	payload := BuildMutationPayload(projected, changeSetID)
+	if err := s.appendRecordChangeIntentTx(
+		ctx,
+		tx,
+		incidentID,
+		current.RecordID,
+		projected.RowVersion,
+		changeSetID,
+		request.ClientTxnID,
+		actor.ID,
+		ComputeChangedFieldKeys(nil, projected),
+		afterRow,
+		1,
+		now,
+	); err != nil {
+		return MutationResult{}, err
+	}
 	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
@@ -514,10 +388,6 @@ FROM inserted_record, inserted_timeline_event
 		return MutationResult{}, err
 	}
 	markCreateTiming(ctx, "store_route_idempotency")
-	if err := s.beforeCommit(createRouteKey, current.RecordID); err != nil {
-		return MutationResult{}, err
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit timeline create transaction: %w", err)
 	}
@@ -605,12 +475,12 @@ func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recor
 		_ = tx.Rollback(ctx)
 	}()
 
-	current, err := loadSourceRecordTx(ctx, tx, recordID)
+	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
 	projected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &projected); err != nil {
 		return MutationResult{}, err
 	}
 	payload := map[string]any{
@@ -670,7 +540,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		_ = tx.Rollback(ctx)
 	}()
 
-	current, err := loadSourceRecordTx(ctx, tx, recordID)
+	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -685,13 +555,13 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		}
 	}
 	if current.RowVersion > request.BaseRowVersion {
-		window, err := loadPatchConflictWindowTx(ctx, tx, recordID, request.BaseRowVersion, current.RowVersion)
+		window, err := s.loadPatchConflictWindowTx(ctx, tx, recordID, request.BaseRowVersion, current.RowVersion)
 		if err != nil {
 			return MutationResult{}, err
 		}
 		if change, changed, ok := overlappingPatchChange(request.CanonicalChange, window.ChangedFields); ok {
 			currentProjected := projectRecord(current, nil)
-			if err := hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
+			if err := s.hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
 				return MutationResult{}, err
 			}
 			conflict, err := s.buildSameFieldConflict(recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
@@ -754,7 +624,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	applyTimelineTimeConversion(&next, profile)
 
 	beforeProjected := projectRecord(current, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
 		return MutationResult{}, err
 	}
 	materialChanged := hasMaterialChange(current, next)
@@ -836,7 +706,7 @@ RETURNING recorded_at
 	}
 
 	afterProjected := projectRecord(next, nil)
-	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
+	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
@@ -883,18 +753,31 @@ RETURNING recorded_at
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(afterProjected)); err != nil {
+	if err := s.upsertProjectionTx(ctx, tx, afterProjected); err != nil {
 		return MutationResult{}, err
 	}
 
 	payload := BuildMutationPayload(afterProjected, changeSetID)
+	if err := s.appendRecordChangeIntentTx(
+		ctx,
+		tx,
+		current.IncidentID,
+		current.RecordID,
+		afterProjected.RowVersion,
+		changeSetID,
+		request.ClientTxnID,
+		actor.ID,
+		ComputeChangedFieldKeys(&beforeProjected, afterProjected),
+		afterRow,
+		1,
+		now,
+	); err != nil {
+		return MutationResult{}, err
+	}
 	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
-		return MutationResult{}, err
-	}
-	if err := s.beforeCommit(routeKey, recordID); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -913,39 +796,18 @@ RETURNING recorded_at
 	}, nil
 }
 
-func loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
-	rows, err := tx.Query(ctx, `
-SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
-  FROM record_revisions rr
-  JOIN change_sets cs
-    ON cs.change_set_id = rr.change_set_id
- WHERE rr.record_id = $1
-   AND rr.row_version >= $2
-   AND rr.row_version <= $3
- ORDER BY rr.row_version ASC
-`, recordID, baseRowVersion, currentRowVersion)
+func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
+	rows, err := s.revisionsStore.ListRecordRevisionWindowTx(ctx, tx, recordID, baseRowVersion, currentRowVersion)
 	if err != nil {
 		return patchConflictWindow{}, fmt.Errorf("query timeline patch conflict window: %w", err)
 	}
-	defer rows.Close()
 
 	window := patchConflictWindow{
 		ChangedFields: make(map[string]patchChangedField),
 	}
-	for rows.Next() {
-		var (
-			rowVersion int64
-			beforeJSON []byte
-			afterJSON  []byte
-			actorID    uuid.UUID
-			createdAt  time.Time
-		)
-		if err := rows.Scan(&rowVersion, &beforeJSON, &afterJSON, &actorID, &createdAt); err != nil {
-			return patchConflictWindow{}, fmt.Errorf("scan timeline patch conflict window: %w", err)
-		}
-
-		if rowVersion == baseRowVersion {
-			baseRow, ok := decodeRevisionRow(afterJSON)
+	for _, entry := range rows {
+		if entry.RowVersion == baseRowVersion {
+			baseRow, ok := decodeRevisionRow(entry.AfterJSON)
 			if !ok {
 				return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
 			}
@@ -953,21 +815,18 @@ SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.creat
 			continue
 		}
 
-		beforeRow, beforeOK := decodeRevisionRow(beforeJSON)
-		afterRow, afterOK := decodeRevisionRow(afterJSON)
+		beforeRow, beforeOK := decodeRevisionRow(entry.BeforeJSON)
+		afterRow, afterOK := decodeRevisionRow(entry.AfterJSON)
 		if !beforeOK || !afterOK {
 			return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
 		}
 		for _, fieldKey := range changedRevisionWritableFieldKeys(beforeRow, afterRow) {
 			window.ChangedFields[fieldKey] = patchChangedField{
 				FieldKey:        fieldKey,
-				ServerUpdatedBy: actorID,
-				ServerUpdatedAt: createdAt.UTC(),
+				ServerUpdatedBy: entry.ActorUserID,
+				ServerUpdatedAt: entry.CreatedAt.UTC(),
 			}
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return patchConflictWindow{}, fmt.Errorf("iterate timeline patch conflict window: %w", err)
 	}
 	if window.BaseRow == nil {
 		return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
@@ -1313,183 +1172,6 @@ func collectionSortKey(item map[string]any) string {
 	return ""
 }
 
-func loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourceRecord, error) {
-	row := tx.QueryRow(ctx, `
-SELECT
-    e.record_id,
-    e.incident_id,
-    e.date_entered_text,
-    e.analyst_text,
-    e.mitre_stage_text,
-    e.device_object_text,
-    e.ip_address_text,
-    e.activity_utc_text,
-    e.activity_local_text,
-    e.raw_activity_text,
-    e.activity_synopsis_text,
-    e.data_source_text,
-    e.activity_utc_generated,
-    e.activity_local_generated,
-    e.activity_time_pair_state,
-    e.raw_capture,
-    e.capture_state,
-    r.row_version,
-    e.recorded_at,
-    e.edited_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    e.reviewed_by_user_id,
-    e.reviewed_at,
-    e.superseded_by_user_id,
-    e.superseded_at
-FROM timeline_events e
-JOIN records r
-  ON r.record_id = e.record_id
- AND r.record_type = 'timeline_event'
- AND r.deleted_at IS NULL
-WHERE e.record_id = $1
-FOR UPDATE OF e, r
-`, recordID)
-
-	var record sourceRecord
-	var rawCapture []byte
-	if err := row.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DateEnteredText,
-		&record.AnalystText,
-		&record.MitreStageText,
-		&record.DeviceObjectText,
-		&record.IPAddressText,
-		&record.ActivityUTCText,
-		&record.ActivityLocalText,
-		&record.RawActivityText,
-		&record.ActivitySynopsisText,
-		&record.DataSourceText,
-		&record.ActivityUTCGenerated,
-		&record.ActivityLocalGenerated,
-		&record.ActivityTimePairState,
-		&rawCapture,
-		&record.CaptureState,
-		&record.RowVersion,
-		&record.RecordedAt,
-		&record.EditedAt,
-		&record.CreatedByUserID,
-		&record.UpdatedByUserID,
-		&record.ReviewedByUserID,
-		&record.ReviewedAt,
-		&record.SupersededByUserID,
-		&record.SupersededAt,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return sourceRecord{}, ErrRecordNotFound
-		}
-		return sourceRecord{}, fmt.Errorf("load timeline record: %w", err)
-	}
-	if len(rawCapture) == 0 {
-		record.RawCapture = map[string]any{}
-	} else if err := json.Unmarshal(rawCapture, &record.RawCapture); err != nil {
-		return sourceRecord{}, fmt.Errorf("decode timeline raw capture: %w", err)
-	}
-	if record.RawCapture == nil {
-		record.RawCapture = map[string]any{}
-	}
-	return record, nil
-}
-
-func loadSourceRecordForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (sourceRecord, error) {
-	row := tx.QueryRow(ctx, `
-SELECT
-    e.record_id,
-    e.incident_id,
-    e.date_entered_text,
-    e.analyst_text,
-    e.mitre_stage_text,
-    e.device_object_text,
-    e.ip_address_text,
-    e.activity_utc_text,
-    e.activity_local_text,
-    e.raw_activity_text,
-    e.activity_synopsis_text,
-    e.data_source_text,
-    e.activity_utc_generated,
-    e.activity_local_generated,
-    e.activity_time_pair_state,
-    e.raw_capture,
-    e.capture_state,
-    r.row_version,
-    e.recorded_at,
-    e.edited_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    e.reviewed_by_user_id,
-    e.reviewed_at,
-    e.superseded_by_user_id,
-    e.superseded_at
-FROM timeline_events e
-JOIN records r
-  ON r.record_id = e.record_id
- AND r.incident_id = e.incident_id
- AND r.record_type = 'timeline_event'
- AND r.deleted_at IS NULL
-WHERE e.record_id = $1
-  AND e.incident_id = $2
-FOR UPDATE OF e, r
-`, recordID, incidentID)
-
-	var record sourceRecord
-	var rawCapture []byte
-	if err := row.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DateEnteredText,
-		&record.AnalystText,
-		&record.MitreStageText,
-		&record.DeviceObjectText,
-		&record.IPAddressText,
-		&record.ActivityUTCText,
-		&record.ActivityLocalText,
-		&record.RawActivityText,
-		&record.ActivitySynopsisText,
-		&record.DataSourceText,
-		&record.ActivityUTCGenerated,
-		&record.ActivityLocalGenerated,
-		&record.ActivityTimePairState,
-		&rawCapture,
-		&record.CaptureState,
-		&record.RowVersion,
-		&record.RecordedAt,
-		&record.EditedAt,
-		&record.CreatedByUserID,
-		&record.UpdatedByUserID,
-		&record.ReviewedByUserID,
-		&record.ReviewedAt,
-		&record.SupersededByUserID,
-		&record.SupersededAt,
-	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return sourceRecord{}, ErrRecordNotFound
-		}
-		return sourceRecord{}, fmt.Errorf("load timeline record for incident: %w", err)
-	}
-	if len(rawCapture) == 0 {
-		record.RawCapture = map[string]any{}
-	} else if err := json.Unmarshal(rawCapture, &record.RawCapture); err != nil {
-		return sourceRecord{}, fmt.Errorf("decode timeline raw capture: %w", err)
-	}
-	if record.RawCapture == nil {
-		record.RawCapture = map[string]any{}
-	}
-	return record, nil
-}
-
-func (s *store) beforeCommit(routeKey string, recordID uuid.UUID) error {
-	if s == nil || s.hooks.beforeCommit == nil {
-		return nil
-	}
-	return s.hooks.beforeCommit(routeKey, recordID)
-}
-
 func versionID(recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("timeline:%s:%d", recordID.String(), rowVersion)
 }
@@ -1539,14 +1221,6 @@ func extractUUIDFromPayload(payload map[string]any, path ...string) (uuid.UUID, 
 	return parsed, nil
 }
 
-func cloneStringPointer(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
-
 func stringPointersEqual(left *string, right *string) bool {
 	switch {
 	case left == nil && right == nil:
@@ -1558,81 +1232,12 @@ func stringPointersEqual(left *string, right *string) bool {
 	}
 }
 
-func deriveActivitySortTS(utcText *string, localText *string) *time.Time {
-	if parsed := parseTimelineUTCText(utcText); parsed != nil {
-		return parsed
-	}
-	if parsed := parseTimelineLocalText(localText); parsed != nil {
-		return parsed
-	}
-	return nil
-}
-
-func deriveDateEnteredSortDay(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
-	}
-	if parsed, err := time.Parse("2006-01-02", *text); err == nil {
-		day := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	if parsed := parseTimelineUTCText(text); parsed != nil {
-		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	if parsed := parseTimelineLocalText(text); parsed != nil {
-		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	return nil
-}
-
-func parseTimelineUTCText(text *string) *time.Time {
-	if parsed, ok := timecontract.ParseUTC(text); ok {
-		return &parsed
-	}
-	return nil
-}
-
-func parseTimelineLocalText(text *string) *time.Time {
-	if parsed, _, ok := timecontract.ParseLocalOffset(text); ok {
-		return &parsed
-	}
-	return nil
-}
-
-func pgUUID(value uuid.UUID) pgtype.UUID {
-	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
-}
-
-func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
-	if !value.Valid {
-		return uuid.UUID{}, errors.New("missing uuid")
-	}
-	return uuid.FromBytes(value.Bytes[:])
-}
-
 func optionalUUIDFromPG(value pgtype.UUID) *uuid.UUID {
 	if !value.Valid {
 		return nil
 	}
 	parsed := uuid.Must(uuid.FromBytes(value.Bytes[:]))
 	return &parsed
-}
-
-func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
-	if !value.Valid {
-		return time.Time{}, errors.New("missing timestamp")
-	}
-	return value.Time.UTC(), nil
-}
-
-func optionalTimeFromPG(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
-		return nil
-	}
-	utc := value.Time.UTC()
-	return &utc
 }
 
 func optionalTextFromPG(value pgtype.Text) *string {
@@ -1649,12 +1254,4 @@ func optionalIntFromPG(value pgtype.Int4) *int {
 	}
 	parsed := int(value.Int32)
 	return &parsed
-}
-
-func optionalDateFromPG(value pgtype.Date) *time.Time {
-	if !value.Valid {
-		return nil
-	}
-	utc := value.Time.UTC()
-	return &utc
 }

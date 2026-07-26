@@ -167,6 +167,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.projections",
+      "catalog_path": "contracts/requirements/owners/module.projections.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "catalog_path": "contracts/requirements/owners/module.recovery.json",
       "status": "active"

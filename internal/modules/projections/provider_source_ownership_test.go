@@ -171,7 +171,10 @@ func providerSQLReferences(body string) []providerSQLReference {
 	for _, match := range providerSQLReferencePattern.FindAllStringSubmatch(body, -1) {
 		operation := strings.ToUpper(strings.Join(strings.Fields(match[1]), " "))
 		table := strings.ToLower(match[2])
-		if table == "lateral" {
+		// ON CONFLICT DO UPDATE SET is not a table mutation. The deliberately
+		// small scanner sees "UPDATE SET"; discard that clause rather than
+		// pretending SET is an owner-controlled table.
+		if table == "lateral" || (operation == "UPDATE" && table == "set") {
 			continue
 		}
 		ref := providerSQLReference{operation: operation, table: table}

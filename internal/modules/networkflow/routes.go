@@ -19,7 +19,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const routeRoot = "/api/v1/incidents/{incident_id}/network-flow"
@@ -35,7 +34,6 @@ type Service struct {
 	authStore       *authn.Store
 	keys            authn.MasterKeys
 	cursorProtector CursorProtector
-	hub             *platformws.Hub
 	safeDigester    SafeDigester
 	now             func() time.Time
 	graphProjection graphProjectionPort
@@ -60,7 +58,6 @@ func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, erro
 		authStore:       authn.NewStore(deps.PostgresHandle()),
 		keys:            keys,
 		cursorProtector: module.cursorProtector,
-		hub:             deps.WSHub,
 		safeDigester:    module.safeDigester,
 		now:             now,
 		graphProjection: newGraphProjectionAdapter(now),

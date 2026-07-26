@@ -54,9 +54,6 @@ func NewStore(pool postgres.DB) *Store {
 }
 
 func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade) *Store {
-	if timelineStore == nil {
-		timelineStore = timeline.NewFacade(pool)
-	}
 	return &Store{
 		pool:              pool,
 		authStore:         authn.NewStore(pool),

@@ -489,6 +489,34 @@
       "status": "active"
     },
     {
+      "row_id": "module.collaboration.integration.durable_incident_stream_commits_intents_atomically_s_80128fe153",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.incidentbundles",
+        "module.timeline",
+        "platform.ws"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestDurableIncidentStream_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.integration",

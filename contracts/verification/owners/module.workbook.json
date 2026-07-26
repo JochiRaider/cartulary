@@ -13,7 +13,8 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "module.workbook.requirement.behavior_contract"
+        "module.workbook.requirement.behavior_contract",
+        "module.workbook.requirement.mutation_admission"
       ]
     }
   ]

@@ -33,6 +33,7 @@ type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	hub            *platformws.Hub
+	stream         *Store
 	keys           authn.MasterKeys
 	publicOrigin   string
 	serviceVersion string
@@ -72,6 +73,7 @@ func newService(deps httpapi.DependencySet, settings Settings) (*Service, error)
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		hub:            deps.WSHub,
+		stream:         NewStore(deps.PostgresHandle(), now),
 		keys:           keys,
 		publicOrigin:   settings.PublicOrigin,
 		serviceVersion: settings.ServiceVersion,
@@ -131,6 +133,8 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	connectionID := uuid.New()
+	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
+	defer unsubscribe()
 	first, err := readFirstMessage(ctx, conn)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -143,7 +147,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handshake, err := s.establishSession(ctx, conn, incidentID, principal, connectionID, first)
+	handshake, err := s.establishSession(ctx, conn, incidentID, principal, connectionID, messages, first)
 	if err != nil {
 		var terminalIncident terminalIncidentError
 		if errors.As(err, &terminalIncident) {
@@ -165,8 +169,6 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	untrackConnection := s.hub.TrackActiveConnection()
 	defer untrackConnection()
 
-	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
-	defer unsubscribe()
 	defer s.removePresence(incidentID, connectionID)
 
 	incoming := make(chan platformws.Message, defaultSocketBuffer)
@@ -202,6 +204,23 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case message := <-messages:
+			if message.StreamSeq != nil && *message.StreamSeq <= handshake.LiveAfterStreamSeq {
+				continue
+			}
+			if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
+				lifecycleResult = "canceled"
+				if s.writeSessionRevoked(ctx, conn, incidentID, "incident_access_revoked") {
+					closed = true
+				}
+				return
+			}
+			if terminal, terminalErr := s.incidentClosed(ctx, incidentID, principal.User.ID); terminalErr != nil || terminal {
+				lifecycleResult = "canceled"
+				if s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed) {
+					closed = true
+				}
+				return
+			}
 			if writeMessage(ctx, conn, message) != nil {
 				lifecycleResult = "failed"
 				return
@@ -209,7 +228,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			lastSent = s.now()
 		case message := <-incoming:
 			lastInbound = s.now()
-			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, principal, handshake.ClientInstanceID, message) {
+			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, messages, principal, handshake.ClientInstanceID, message) {
 				lifecycleResult = "rejected"
 				return
 			}
@@ -244,10 +263,11 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 type establishedSession struct {
-	ClientInstanceID string
+	ClientInstanceID   string
+	LiveAfterStreamSeq int64
 }
 
-func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, message platformws.Message) (establishedSession, error) {
+func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan platformws.Message, message platformws.Message) (establishedSession, error) {
 	switch message.Type {
 	case "hello":
 		var payload struct {
@@ -270,7 +290,11 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
-		resumeToken, _, err := s.hub.IssueResumeToken(principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
+		resumeToken, _, err := s.stream.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
+		if err != nil {
+			return establishedSession{}, err
+		}
+		highWater, err := s.stream.CurrentHighWater(ctx, incidentID)
 		if err != nil {
 			return establishedSession{}, err
 		}
@@ -288,8 +312,8 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		if err := writeMessage(ctx, conn, platformws.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
-		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now)
-		return establishedSession{ClientInstanceID: payload.ClientInstanceID}, nil
+		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
+		return establishedSession{ClientInstanceID: payload.ClientInstanceID, LiveAfterStreamSeq: highWater}, nil
 
 	case "resume":
 		var payload struct {
@@ -317,22 +341,25 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
-		status, missed, highWater := s.hub.ReplayMessages(principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
-		resumeToken, _, err := s.hub.IssueResumeToken(principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
+		replay, err := s.stream.ReplayMessages(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
+		if err != nil {
+			return establishedSession{}, err
+		}
+		resumeToken, _, err := s.stream.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
 			return establishedSession{}, err
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
 		if err := writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "resume_ack", map[string]any{
 			"connection_id":                connectionID.String(),
-			"status":                       status,
+			"status":                       replay.Status,
 			"resume_token":                 resumeToken,
-			"server_high_water_stream_seq": highWater,
+			"server_high_water_stream_seq": replay.HighWater,
 		}, now)); err != nil {
 			return establishedSession{}, err
 		}
-		if status == platformws.ResumeStatusReplayed {
-			for _, replayed := range missed {
+		if replay.Status == platformws.ResumeStatusReplayed {
+			for _, replayed := range replay.Messages {
 				if err := writeMessage(ctx, conn, replayed); err != nil {
 					return establishedSession{}, err
 				}
@@ -341,8 +368,8 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		if err := writeMessage(ctx, conn, platformws.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
-		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now)
-		return establishedSession{ClientInstanceID: payload.ClientInstanceID}, nil
+		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
+		return establishedSession{ClientInstanceID: payload.ClientInstanceID, LiveAfterStreamSeq: replay.HighWater}, nil
 	default:
 		return establishedSession{}, errors.New("first message must be hello or resume")
 	}
@@ -354,7 +381,7 @@ func (terminalIncidentError) Error() string {
 	return "terminal incident websocket"
 }
 
-func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, principal httpauth.Principal, clientInstanceID string, message platformws.Message) bool {
+func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan platformws.Message, principal httpauth.Principal, clientInstanceID string, message platformws.Message) bool {
 	switch message.Type {
 	case "pong":
 		return true
@@ -370,7 +397,7 @@ func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn,
 		}
 		now := s.now()
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now)
+		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
 		return true
 	case "resume", "hello":
 		_ = clientInstanceID

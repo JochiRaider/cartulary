@@ -13,7 +13,8 @@
       ],
       "status": "active",
       "requirement_ids": [
-        "module.collaboration.requirement.behavior_contract"
+        "module.collaboration.requirement.behavior_contract",
+        "module.collaboration.requirement.durable_replayable_stream"
       ]
     }
   ]

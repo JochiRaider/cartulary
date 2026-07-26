@@ -51,6 +51,13 @@ type routeOptions struct {
 	jobSuccessFinalizer      JobSuccessFinalizer
 	limits                   Limits
 	archiveLimits            ArchiveLimits
+	timelineOwner            *timeline.Facade
+}
+
+func WithTimelineOwner(owner *timeline.Facade) RouteOption {
+	return func(options *routeOptions) {
+		options.timelineOwner = owner
+	}
 }
 
 func WithLimits(limits Limits, archiveLimits ArchiveLimits) RouteOption {
@@ -113,7 +120,10 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	timelineStore := timeline.FacadeFromDependencies(deps)
+	if options.timelineOwner == nil {
+		return nil, fmt.Errorf("Import route composition requires a Timeline owner")
+	}
+	timelineStore := options.timelineOwner
 	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
 	if err != nil {
 		return nil, err

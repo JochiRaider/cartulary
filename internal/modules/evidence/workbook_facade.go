@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -37,6 +38,7 @@ type WorkbookFacade struct {
 	revisionAppender revisions.Appender
 	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
+	collaboration    collaboration.IntentAppender
 }
 
 type WorkbookCreateRequest struct {
@@ -121,6 +123,7 @@ func NewWorkbookFacade(pool postgres.DB) *WorkbookFacade {
 		revisionAppender: revisions.NewAppender(),
 		store:            NewStore(pool),
 		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("evidence-workbook"),
+		collaboration:    collaboration.NewStore(pool, nil),
 	}
 }
 
@@ -222,6 +225,27 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	createChangedFieldKeys := changedFieldKeys(nil, row)
+	if err := appendEvidenceRecordChangeIntentsTx(
+		ctx,
+		tx,
+		f.collaboration,
+		command.IncidentID,
+		command.Actor.ID,
+		request.ClientTxnID,
+		changeSetID,
+		AttachRecordChange{
+			RecordID:         recordID,
+			RowVersion:       1,
+			ViewSchemaID:     request.ViewSchemaID,
+			ChangedFieldKeys: createChangedFieldKeys,
+		},
+		row,
+		nil,
+		now,
+	); err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, row)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
@@ -241,7 +265,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       1,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(nil, row),
+		ChangedFieldKeys: createChangedFieldKeys,
 	}, nil
 }
 
@@ -391,6 +415,27 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	patchChangedFieldKeys := changedFieldKeys(beforeRow, afterRow)
+	if err := appendEvidenceRecordChangeIntentsTx(
+		ctx,
+		tx,
+		f.collaboration,
+		meta.IncidentID,
+		command.Actor.ID,
+		request.ClientTxnID,
+		changeSetID,
+		AttachRecordChange{
+			RecordID:         command.RecordID,
+			RowVersion:       rowVersion,
+			ViewSchemaID:     request.ViewSchemaID,
+			ChangedFieldKeys: patchChangedFieldKeys,
+		},
+		afterRow,
+		nil,
+		command.Now.UTC(),
+	); err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
@@ -410,7 +455,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       rowVersion,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: changedFieldKeys(beforeRow, afterRow),
+		ChangedFieldKeys: patchChangedFieldKeys,
 	}, nil
 }
 

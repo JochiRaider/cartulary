@@ -205,6 +205,7 @@ function NetworkAnalysisWorkspaceContent({
     loadTables: tableController.loadTables,
     onMessage: setMessage,
     onProtectedStateLoss: handleWorkspaceError,
+    tables: tableController.tables,
   });
   const indicatorLinkController = useNetworkFlowIndicatorLinkController({
     activeCandidateKey: linkCandidate?.key ?? null,

@@ -2,9 +2,8 @@ package ws
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -103,12 +102,7 @@ type Hub struct {
 	sessions              map[uuid.UUID]map[chan string]struct{}
 	incidentSessions      map[incidentSessionKey]map[chan string]struct{}
 	incidentTerminals     map[uuid.UUID]map[chan string]struct{}
-	recordChanges         []RecordChange
-	recordSubscribers     map[chan RecordChange]struct{}
 	incidentStreams       map[uuid.UUID]map[chan Message]struct{}
-	replay                map[uuid.UUID][]replayEntry
-	highWater             map[uuid.UUID]int64
-	resumeTokens          map[string]ResumeToken
 	presences             map[uuid.UUID]map[string]PresenceRecord
 	serviceVersion        string
 	activeConnections     atomic.Int64
@@ -190,14 +184,6 @@ type JobProgressPayload struct {
 	RetainedUntil *time.Time  `json:"retained_until,omitempty"`
 }
 
-type ResumeToken struct {
-	Token            string
-	SessionID        uuid.UUID
-	IncidentID       uuid.UUID
-	ClientInstanceID string
-	ExpiresAt        time.Time
-}
-
 type PresenceInput struct {
 	SheetRef map[string]string `json:"sheet_ref"`
 	RecordID *string           `json:"record_id,omitempty"`
@@ -217,11 +203,6 @@ type PresenceRecord struct {
 	ExpiresAt    string            `json:"expires_at"`
 }
 
-type replayEntry struct {
-	Message  Message
-	StoredAt time.Time
-}
-
 type incidentSessionKey struct {
 	IncidentID uuid.UUID
 	SessionID  uuid.UUID
@@ -232,75 +213,38 @@ func NewHub() *Hub {
 		sessions:          make(map[uuid.UUID]map[chan string]struct{}),
 		incidentSessions:  make(map[incidentSessionKey]map[chan string]struct{}),
 		incidentTerminals: make(map[uuid.UUID]map[chan string]struct{}),
-		recordSubscribers: make(map[chan RecordChange]struct{}),
 		incidentStreams:   make(map[uuid.UUID]map[chan Message]struct{}),
-		replay:            make(map[uuid.UUID][]replayEntry),
-		highWater:         make(map[uuid.UUID]int64),
-		resumeTokens:      make(map[string]ResumeToken),
 		presences:         make(map[uuid.UUID]map[string]PresenceRecord),
 	}
 }
 
-func (h *Hub) PublishRecordChange(change RecordChange) {
+// DeliverReplayable delivers an already sequenced durable event. Collaboration
+// owns event identity, sequence, replay, and retry; the Hub owns only ephemeral
+// fan-out.
+func (h *Hub) DeliverReplayable(message Message) error {
 	if h == nil {
-		return
+		return errors.New("websocket hub is unavailable")
 	}
-	finishTelemetry := h.startEventSend("record_changed")
+	incidentID, err := uuid.Parse(message.IncidentID)
+	if err != nil || incidentID == uuid.Nil || message.EventID == "" || message.StreamSeq == nil || *message.StreamSeq < 1 {
+		return errors.New("invalid sequenced websocket message")
+	}
+	if !IsReplayableMessageType(message.Type) || !json.Valid(message.Payload) {
+		return errors.New("invalid replayable websocket message")
+	}
+	finishTelemetry := h.startEventSend(message.Type)
 	defer finishTelemetry("success", "")
 
-	now := time.Now().UTC()
 	h.mu.Lock()
-	h.highWater[change.IncidentID]++
-	change.StreamSeq = h.highWater[change.IncidentID]
-	change.EventID = uuid.New()
-	change.EmittedAt = now
-	h.recordChanges = append(h.recordChanges, change)
-	message := recordChangedMessage(change)
-	h.replay[change.IncidentID] = append(h.replay[change.IncidentID], replayEntry{Message: message, StoredAt: now})
-	h.pruneReplayLocked(change.IncidentID, now)
-	recordSubscribers := make([]chan RecordChange, 0, len(h.recordSubscribers))
-	for subscriber := range h.recordSubscribers {
-		recordSubscribers = append(recordSubscribers, subscriber)
-	}
-	streamSubscribers := make([]chan Message, 0, len(h.incidentStreams[change.IncidentID]))
-	for subscriber := range h.incidentStreams[change.IncidentID] {
-		streamSubscribers = append(streamSubscribers, subscriber)
-	}
-	h.mu.Unlock()
-
-	for _, subscriber := range recordSubscribers {
-		select {
-		case subscriber <- change:
-		default:
-		}
-	}
-	for _, subscriber := range streamSubscribers {
-		select {
-		case subscriber <- message:
-		default:
-		}
-	}
-}
-
-func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload JobProgressPayload) error {
-	if h == nil {
-		return nil
-	}
-	if err := ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
-		h.recordEventSend("job_progress", "rejected", "")
-		return err
-	}
-	finishTelemetry := h.startEventSend("job_progress")
-	defer finishTelemetry("success", "")
-
-	now := time.Now().UTC()
-	h.mu.Lock()
-	message := h.nextReplayableMessageLocked(incidentID, "job_progress", payload, now)
-	h.replay[incidentID] = append(h.replay[incidentID], replayEntry{Message: message, StoredAt: now})
-	h.pruneReplayLocked(incidentID, now)
 	streamSubscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
 	for subscriber := range h.incidentStreams[incidentID] {
 		streamSubscribers = append(streamSubscribers, subscriber)
+	}
+	if message.Type == "record_changed" {
+		if _, err := RecordChangeFromSequencedMessage(message); err != nil {
+			h.mu.Unlock()
+			return err
+		}
 	}
 	h.mu.Unlock()
 
@@ -311,75 +255,6 @@ func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload JobProgressPayloa
 		}
 	}
 	return nil
-}
-
-func (h *Hub) PublishExtensionResourceChange(incidentID uuid.UUID, payload ExtensionResourceChangePayload) error {
-	if h == nil {
-		return nil
-	}
-	payload = canonicalExtensionResourceChangePayload(payload)
-	if err := ValidateExtensionResourceChangePayload(payload); err != nil {
-		h.recordEventSend("extension_resource_changed", "rejected", "")
-		return err
-	}
-	finishTelemetry := h.startEventSend("extension_resource_changed")
-	defer finishTelemetry("success", "")
-
-	now := time.Now().UTC()
-	h.mu.Lock()
-	message := h.nextReplayableMessageLocked(incidentID, "extension_resource_changed", payload, now)
-	h.replay[incidentID] = append(h.replay[incidentID], replayEntry{Message: message, StoredAt: now})
-	h.pruneReplayLocked(incidentID, now)
-	streamSubscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
-	for subscriber := range h.incidentStreams[incidentID] {
-		streamSubscribers = append(streamSubscribers, subscriber)
-	}
-	h.mu.Unlock()
-
-	for _, subscriber := range streamSubscribers {
-		select {
-		case subscriber <- message:
-		default:
-		}
-	}
-	return nil
-}
-
-func (h *Hub) SnapshotRecordChanges() []RecordChange {
-	if h == nil {
-		return nil
-	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	snapshot := make([]RecordChange, len(h.recordChanges))
-	copy(snapshot, h.recordChanges)
-	return snapshot
-}
-
-func (h *Hub) SubscribeRecordChanges(buffer int) (<-chan RecordChange, func()) {
-	if h == nil {
-		ch := make(chan RecordChange)
-		close(ch)
-		return ch, func() {}
-	}
-	if buffer < 1 {
-		buffer = 1
-	}
-
-	ch := make(chan RecordChange, buffer)
-	h.mu.Lock()
-	h.recordSubscribers[ch] = struct{}{}
-	h.mu.Unlock()
-
-	return ch, func() {
-		// Detach without closing: a publisher may already own a snapshot of ch.
-		// The caller's surrounding context owns consumer termination.
-		h.mu.Lock()
-		delete(h.recordSubscribers, ch)
-		h.mu.Unlock()
-	}
 }
 
 func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Message, func()) {
@@ -415,67 +290,6 @@ func (h *Hub) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan Messag
 	}
 }
 
-func (h *Hub) IssueResumeToken(sessionID uuid.UUID, incidentID uuid.UUID, clientInstanceID string, sessionExpiresAt time.Time, now time.Time) (string, time.Time, error) {
-	token, err := opaqueToken()
-	if err != nil {
-		return "", time.Time{}, err
-	}
-	expiresAt := now.Add(ResumeWindow)
-	if sessionExpiresAt.Before(expiresAt) {
-		expiresAt = sessionExpiresAt
-	}
-	record := ResumeToken{
-		Token:            token,
-		SessionID:        sessionID,
-		IncidentID:       incidentID,
-		ClientInstanceID: clientInstanceID,
-		ExpiresAt:        expiresAt,
-	}
-	h.mu.Lock()
-	h.resumeTokens[token] = record
-	h.mu.Unlock()
-	return token, expiresAt, nil
-}
-
-func (h *Hub) ReplayMessages(sessionID uuid.UUID, incidentID uuid.UUID, clientInstanceID string, token string, lastSeenStreamSeq int64, now time.Time) (string, []Message, int64) {
-	if h == nil {
-		return ResumeStatusResetNeeded, nil, 0
-	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.pruneReplayLocked(incidentID, now)
-	highWater := h.highWater[incidentID]
-	record, ok := h.resumeTokens[token]
-	if !ok || record.SessionID != sessionID || record.IncidentID != incidentID || record.ClientInstanceID != clientInstanceID || !record.ExpiresAt.After(now) {
-		return ResumeStatusResetNeeded, nil, highWater
-	}
-	if lastSeenStreamSeq > highWater {
-		return ResumeStatusResetNeeded, nil, highWater
-	}
-	entries := h.replay[incidentID]
-	firstSeq := int64(0)
-	for _, entry := range entries {
-		if !IsReplayableMessageType(entry.Message.Type) || entry.Message.StreamSeq == nil {
-			continue
-		}
-		firstSeq = *entry.Message.StreamSeq
-		break
-	}
-	if firstSeq > 0 && lastSeenStreamSeq < firstSeq-1 {
-		return ResumeStatusResetNeeded, nil, highWater
-	}
-	missed := make([]Message, 0)
-	for _, entry := range entries {
-		if !IsReplayableMessageType(entry.Message.Type) || entry.Message.StreamSeq == nil {
-			continue
-		}
-		if *entry.Message.StreamSeq > lastSeenStreamSeq {
-			missed = append(missed, entry.Message)
-		}
-	}
-	return ResumeStatusReplayed, missed, highWater
-}
-
 func IsReplayableMessageType(messageType string) bool {
 	switch messageType {
 	case "record_changed", "extension_resource_changed", "job_progress":
@@ -483,15 +297,6 @@ func IsReplayableMessageType(messageType string) bool {
 	default:
 		return false
 	}
-}
-
-func (h *Hub) HighWater(incidentID uuid.UUID) int64 {
-	if h == nil {
-		return 0
-	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return h.highWater[incidentID]
 }
 
 func (h *Hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userID uuid.UUID, displayName string, input PresenceInput, now time.Time) PresenceRecord {
@@ -557,7 +362,7 @@ func (h *Hub) PresenceSnapshot(incidentID uuid.UUID, now time.Time) []PresenceRe
 	return presences
 }
 
-func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence PresenceRecord, now time.Time) {
+func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence PresenceRecord, now time.Time, excluded ...<-chan Message) {
 	if h == nil {
 		return
 	}
@@ -567,7 +372,11 @@ func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence
 		"delta_kind": kind,
 		"presence":   presence,
 	}, now)
-	h.broadcastIncident(incidentID, message)
+	var excludedSubscriber <-chan Message
+	if len(excluded) > 0 {
+		excludedSubscriber = excluded[0]
+	}
+	h.broadcastIncidentExcept(incidentID, message, excludedSubscriber)
 }
 
 func (h *Hub) RegisterIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID) (<-chan string, func()) {
@@ -737,9 +546,16 @@ func (h *Hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 }
 
 func (h *Hub) broadcastIncident(incidentID uuid.UUID, message Message) {
+	h.broadcastIncidentExcept(incidentID, message, nil)
+}
+
+func (h *Hub) broadcastIncidentExcept(incidentID uuid.UUID, message Message, excluded <-chan Message) {
 	h.mu.Lock()
 	subscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
 	for subscriber := range h.incidentStreams[incidentID] {
+		if excluded != nil && (<-chan Message)(subscriber) == excluded {
+			continue
+		}
 		subscribers = append(subscribers, subscriber)
 	}
 	h.mu.Unlock()
@@ -748,34 +564,6 @@ func (h *Hub) broadcastIncident(incidentID uuid.UUID, message Message) {
 		case subscriber <- message:
 		default:
 		}
-	}
-}
-
-func (h *Hub) nextReplayableMessageLocked(incidentID uuid.UUID, messageType string, payload any, now time.Time) Message {
-	h.highWater[incidentID]++
-	streamSeq := h.highWater[incidentID]
-	return Message{
-		Type:       messageType,
-		IncidentID: incidentID.String(),
-		EventID:    uuid.New().String(),
-		EmittedAt:  now.UTC().Format(time.RFC3339Nano),
-		StreamSeq:  &streamSeq,
-		Payload:    RawPayload(nonNilPayload(payload)),
-	}
-}
-
-func (h *Hub) pruneReplayLocked(incidentID uuid.UUID, now time.Time) {
-	entries := h.replay[incidentID]
-	if len(entries) <= MinimumReplayRetention {
-		return
-	}
-	cutoff := now.Add(-ResumeWindow)
-	keepFrom := 0
-	for keepFrom < len(entries)-MinimumReplayRetention && entries[keepFrom].StoredAt.Before(cutoff) {
-		keepFrom++
-	}
-	if keepFrom > 0 {
-		h.replay[incidentID] = append([]replayEntry(nil), entries[keepFrom:]...)
 	}
 }
 
@@ -805,16 +593,50 @@ func EphemeralMessage(incidentID uuid.UUID, messageType string, payload any, now
 	}
 }
 
-func recordChangedMessage(change RecordChange) Message {
-	streamSeq := change.StreamSeq
-	return Message{
-		Type:       "record_changed",
-		IncidentID: change.IncidentID.String(),
-		EventID:    change.EventID.String(),
-		EmittedAt:  change.EmittedAt.UTC().Format(time.RFC3339Nano),
-		StreamSeq:  &streamSeq,
-		Payload:    RawPayload(RecordChangePayload(change)),
+func RecordChangeFromSequencedMessage(message Message) (RecordChange, error) {
+	var payload struct {
+		RecordID         string           `json:"record_id"`
+		RowVersion       int64            `json:"row_version"`
+		ChangeSetID      string           `json:"change_set_id"`
+		ClientTxnID      string           `json:"client_txn_id"`
+		ActorUserID      string           `json:"actor_user_id"`
+		ChangedFieldKeys []string         `json:"changed_field_keys"`
+		AffectedViews    []map[string]any `json:"affected_views"`
 	}
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		return RecordChange{}, fmt.Errorf("decode sequenced record_changed payload: %w", err)
+	}
+	incidentID, incidentErr := uuid.Parse(message.IncidentID)
+	recordID, recordErr := uuid.Parse(payload.RecordID)
+	changeSetID, changeSetErr := uuid.Parse(payload.ChangeSetID)
+	actorUserID, actorErr := uuid.Parse(payload.ActorUserID)
+	eventID, eventErr := uuid.Parse(message.EventID)
+	emittedAt, emittedErr := time.Parse(time.RFC3339Nano, message.EmittedAt)
+	if incidentErr != nil || recordErr != nil || changeSetErr != nil || actorErr != nil ||
+		eventErr != nil || emittedErr != nil || payload.RowVersion < 1 || len(payload.AffectedViews) != 1 {
+		return RecordChange{}, errors.New("invalid sequenced record_changed identity")
+	}
+	viewSchemaID, _ := payload.AffectedViews[0]["view_schema_id"].(string)
+	changeKind, _ := payload.AffectedViews[0]["change_kind"].(string)
+	var patchCells map[string]any
+	if value, ok := payload.AffectedViews[0]["patch_cells"].(map[string]any); ok {
+		patchCells = value
+	}
+	return RecordChange{
+		IncidentID:       incidentID,
+		RecordID:         recordID,
+		RowVersion:       payload.RowVersion,
+		ChangeSetID:      changeSetID,
+		ClientTxnID:      payload.ClientTxnID,
+		ActorUserID:      actorUserID,
+		ChangedFieldKeys: payload.ChangedFieldKeys,
+		ViewSchemaID:     viewSchemaID,
+		ChangeKind:       changeKind,
+		PatchCells:       patchCells,
+		StreamSeq:        *message.StreamSeq,
+		EventID:          eventID,
+		EmittedAt:        emittedAt,
+	}, nil
 }
 
 func RecordChangePayload(change RecordChange) map[string]any {
@@ -1096,12 +918,4 @@ func nonNilPayload(payload any) any {
 		return map[string]any{}
 	}
 	return payload
-}
-
-func opaqueToken() (string, error) {
-	var data [32]byte
-	if _, err := rand.Read(data[:]); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(data[:]), nil
 }

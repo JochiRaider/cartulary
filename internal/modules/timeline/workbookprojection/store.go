@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 )
 
 type ProjectionInput struct {
@@ -40,141 +38,140 @@ type ProjectionInput struct {
 	HasUnresolvedMentions bool
 }
 
-func ListProjectionInputsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ProjectionInput, error) {
-	rows, err := sqlc.New(tx).ListTimelineProjectionSourceRows(ctx, pgUUID(incidentID))
+type ProjectionMutationKind string
+
+const (
+	ProjectionMutationUpsert ProjectionMutationKind = "upsert"
+	ProjectionMutationDelete ProjectionMutationKind = "delete"
+)
+
+type ProjectionMutation struct {
+	Kind     ProjectionMutationKind
+	RecordID uuid.UUID
+	Input    ProjectionInput
+}
+
+func (mutation ProjectionMutation) Validate() error {
+	if mutation.RecordID == uuid.Nil {
+		return errors.New("timeline projection mutation record_id is required")
+	}
+	switch mutation.Kind {
+	case ProjectionMutationUpsert:
+		if mutation.Input.RecordID != mutation.RecordID {
+			return errors.New("timeline projection upsert record_id does not match input")
+		}
+		return validateProjectionInput(mutation.Input)
+	case ProjectionMutationDelete:
+		if mutation.Input != (ProjectionInput{}) {
+			return errors.New("timeline projection delete must not carry an input")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported timeline projection mutation kind %q", mutation.Kind)
+	}
+}
+
+type CollectionHydrator interface {
+	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *DerivedRecord) error
+}
+
+type Source struct {
+	repository  *sourcerepository.Repository
+	collections CollectionHydrator
+}
+
+func NewSource(envelopes sourcerepository.EnvelopeReader, collections CollectionHydrator) *Source {
+	return &Source{
+		repository:  sourcerepository.New(envelopes),
+		collections: collections,
+	}
+}
+
+func (s *Source) BuildProjectionMutationTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (ProjectionMutation, error) {
+	if recordID == uuid.Nil {
+		return ProjectionMutation{}, errors.New("timeline projection mutation record_id is required")
+	}
+	if s == nil || s.repository == nil || s.collections == nil {
+		return ProjectionMutation{}, errors.New("timeline projection source dependencies are required")
+	}
+	snapshot, err := s.repository.LoadUnlockedTx(ctx, tx, recordID)
+	if errors.Is(err, sourcerepository.ErrNotFound) {
+		return ProjectionMutation{Kind: ProjectionMutationDelete, RecordID: recordID}, nil
+	}
 	if err != nil {
-		return nil, fmt.Errorf("list timeline projection source rows: %w", err)
+		return ProjectionMutation{}, err
+	}
+	derived := Derive(snapshot, nil)
+	if err := s.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+		return ProjectionMutation{}, err
+	}
+	input := derived.ProjectionInput()
+	if err := validateProjectionInput(input); err != nil {
+		return ProjectionMutation{}, err
+	}
+	return ProjectionMutation{Kind: ProjectionMutationUpsert, RecordID: recordID, Input: input}, nil
+}
+
+type ProjectionInputPage struct {
+	Inputs       []ProjectionInput
+	NextRecordID *uuid.UUID
+}
+
+func (s *Source) ListProjectionInputsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, afterRecordID *uuid.UUID, limit int) (ProjectionInputPage, error) {
+	if incidentID == uuid.Nil {
+		return ProjectionInputPage{}, errors.New("timeline projection enumeration incident_id is required")
+	}
+	if limit <= 0 || limit > 1000 {
+		return ProjectionInputPage{}, fmt.Errorf("timeline projection enumeration limit %d is outside 1..1000", limit)
+	}
+	if s == nil || s.repository == nil || s.collections == nil {
+		return ProjectionInputPage{}, errors.New("timeline projection source dependencies are required")
+	}
+	sourcePage, err := s.repository.ListIncidentPageTx(ctx, tx, incidentID, afterRecordID, limit)
+	if err != nil {
+		return ProjectionInputPage{}, err
 	}
 
-	inputs := make([]ProjectionInput, 0, len(rows))
-	for _, row := range rows {
-		input, err := projectionInputFromSQL(row)
-		if err != nil {
-			return nil, err
+	inputs := make([]ProjectionInput, 0, len(sourcePage.Snapshots))
+	for _, snapshot := range sourcePage.Snapshots {
+		derived := Derive(snapshot, nil)
+		if err := s.collections.HydrateTimelineCollectionsTx(ctx, tx, &derived); err != nil {
+			return ProjectionInputPage{}, err
+		}
+		input := derived.ProjectionInput()
+		if err := validateProjectionInput(input); err != nil {
+			return ProjectionInputPage{}, err
 		}
 		inputs = append(inputs, input)
 	}
-	return inputs, nil
-}
-
-func projectionInputFromSQL(row sqlc.ListTimelineProjectionSourceRowsRow) (ProjectionInput, error) {
-	recordID, err := uuidFromPG(row.RecordID)
-	if err != nil {
-		return ProjectionInput{}, err
-	}
-	incidentID, err := uuidFromPG(row.IncidentID)
-	if err != nil {
-		return ProjectionInput{}, err
-	}
-	recordedAt, err := timeFromPG(row.RecordedAt)
-	if err != nil {
-		return ProjectionInput{}, err
-	}
-	editedAt, err := timeFromPG(row.EditedAt)
-	if err != nil {
-		return ProjectionInput{}, err
-	}
-
-	return ProjectionInput{
-		RecordID:              recordID,
-		IncidentID:            incidentID,
-		RowVersion:            row.RowVersion,
-		DateEnteredText:       optionalTextFromPG(row.DateEnteredText),
-		AnalystText:           optionalTextFromPG(row.AnalystText),
-		MitreStageText:        optionalTextFromPG(row.MitreStageText),
-		DeviceObjectText:      optionalTextFromPG(row.DeviceObjectText),
-		IPAddressText:         optionalTextFromPG(row.IpAddressText),
-		ActivityUTCText:       optionalTextFromPG(row.ActivityUtcText),
-		ActivityLocalText:     optionalTextFromPG(row.ActivityLocalText),
-		RawActivityText:       optionalTextFromPG(row.RawActivityText),
-		ActivitySynopsisText:  optionalTextFromPG(row.ActivitySynopsisText),
-		DataSourceText:        optionalTextFromPG(row.DataSourceText),
-		RecordedAt:            recordedAt,
-		EditedAt:              editedAt,
-		ActivitySortTS:        deriveActivitySortTS(optionalTextFromPG(row.ActivityUtcText), optionalTextFromPG(row.ActivityLocalText)),
-		DateEnteredSortDay:    deriveDateEnteredSortDay(optionalTextFromPG(row.DateEnteredText)),
-		ActivityTimePairState: row.ActivityTimePairState,
-		CaptureState:          row.CaptureState,
-		ReplacementRecordID:   optionalUUIDFromPG(row.ReplacementRecordID),
-		EvidenceCount:         int(row.EvidenceCount),
-		HasEvidence:           row.HasEvidence,
-		HasUnresolvedMentions: row.HasUnresolvedMentions,
+	return ProjectionInputPage{
+		Inputs:       inputs,
+		NextRecordID: sourcePage.NextRecordID,
 	}, nil
 }
 
-func pgUUID(value uuid.UUID) pgtype.UUID {
-	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
-}
-
-func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
-	if !value.Valid {
-		return uuid.UUID{}, errors.New("missing uuid")
+func validateProjectionInput(input ProjectionInput) error {
+	switch {
+	case input.RecordID == uuid.Nil:
+		return errors.New("timeline projection input record_id is required")
+	case input.IncidentID == uuid.Nil:
+		return errors.New("timeline projection input incident_id is required")
+	case input.RowVersion <= 0:
+		return errors.New("timeline projection input row_version must be positive")
+	case input.RecordedAt.IsZero():
+		return errors.New("timeline projection input recorded_at is required")
+	case input.EditedAt.IsZero():
+		return errors.New("timeline projection input edited_at is required")
 	}
-	return uuid.FromBytes(value.Bytes[:])
-}
-
-func optionalUUIDFromPG(value pgtype.UUID) *uuid.UUID {
-	if !value.Valid {
-		return nil
+	switch input.CaptureState {
+	case "rough", "enriched", "reviewed", "superseded":
+	default:
+		return fmt.Errorf("timeline projection input capture_state %q is invalid", input.CaptureState)
 	}
-	parsed := uuid.Must(uuid.FromBytes(value.Bytes[:]))
-	return &parsed
-}
-
-func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
-	if !value.Valid {
-		return time.Time{}, errors.New("missing timestamp")
-	}
-	return value.Time.UTC(), nil
-}
-
-func optionalTextFromPG(value pgtype.Text) *string {
-	if !value.Valid {
-		return nil
-	}
-	text := value.String
-	return &text
-}
-
-func deriveActivitySortTS(utcText *string, localText *string) *time.Time {
-	if parsed := parseTimelineUTCText(utcText); parsed != nil {
-		return parsed
-	}
-	if parsed := parseTimelineLocalText(localText); parsed != nil {
-		return parsed
-	}
-	return nil
-}
-
-func deriveDateEnteredSortDay(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
-	}
-	if parsed, err := time.Parse("2006-01-02", *text); err == nil {
-		day := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	if parsed := parseTimelineUTCText(text); parsed != nil {
-		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	if parsed := parseTimelineLocalText(text); parsed != nil {
-		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		return &day
-	}
-	return nil
-}
-
-func parseTimelineUTCText(text *string) *time.Time {
-	if parsed, ok := timecontract.ParseUTC(text); ok {
-		return &parsed
-	}
-	return nil
-}
-
-func parseTimelineLocalText(text *string) *time.Time {
-	if parsed, _, ok := timecontract.ParseLocalOffset(text); ok {
-		return &parsed
+	switch input.ActivityTimePairState {
+	case "disabled", "empty", "paired_generated", "paired_user_preserved", "paired_mismatch", "conversion_unavailable":
+	default:
+		return fmt.Errorf("timeline projection input activity_time_pair_state %q is invalid", input.ActivityTimePairState)
 	}
 	return nil
 }

@@ -3,14 +3,12 @@ package networkflow
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UUID, tableID string, actorUserID uuid.UUID, request tableRenameRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
@@ -48,9 +46,6 @@ func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UU
 		}
 		return nil, 0, tableMutationAPIError(err, request.ClientTxnID)
 	}
-	if table.TableVersion != request.BaseTableVersion {
-		s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
-	}
 	return payload, http.StatusOK, nil
 }
 
@@ -87,24 +82,5 @@ func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uui
 		}
 		return nil, 0, tableMutationAPIError(err, request.ClientTxnID)
 	}
-	s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindRemove, platformws.ExtensionResourceReasonSoftDeleted)
 	return payload, http.StatusOK, nil
-}
-
-func (s *Service) publishTableResourceChange(incidentID uuid.UUID, tableID string, changeKind string, reasonCode string) {
-	if s == nil || s.hub == nil || incidentID == uuid.Nil || strings.TrimSpace(tableID) == "" {
-		return
-	}
-	_ = s.hub.PublishExtensionResourceChange(incidentID, platformws.ExtensionResourceChangePayload{
-		ExtensionProfileID: ProfileID,
-		ResourceKind:       "network_flow_table",
-		ResourceID:         tableID,
-		ChangeKind:         changeKind,
-		ReasonCode:         reasonCode,
-		WorkspaceRefs: []platformws.ExtensionWorkspaceRef{{
-			Kind:               "extension_workspace",
-			ExtensionProfileID: ProfileID,
-			WorkspaceKey:       WorkspaceKeyNetworkAnalysis,
-		}},
-	})
 }

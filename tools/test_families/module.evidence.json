@@ -538,6 +538,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.evidence.store.attached_evidence_create_and_patch_aa33ea0168",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.store",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestAttachedEvidenceCreateAndPatch"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.store.blob_create_idempotency_is_keyed_by_actor_user_i_f161d12732",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.store",

@@ -19,7 +19,7 @@ import (
 
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
-	_, err := revisionassembly.NewCommandService(nil, nil)
+	_, err := revisionassembly.NewCommandService(nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}

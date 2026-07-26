@@ -1,4 +1,4 @@
-package timeline
+package projections
 
 import (
 	"slices"
@@ -11,16 +11,20 @@ import (
 )
 
 func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
-	schema, ok := viewschema.Lookup(TimelineViewSchemaID)
+	schema, ok := viewschema.Lookup(timelineViewSchemaID)
 	if !ok {
-		t.Fatalf("timeline schema %s not registered", TimelineViewSchemaID)
+		t.Fatalf("timeline schema %s not registered", timelineViewSchemaID)
+	}
+	surface, ok := defaultProviderRegistry().querySurfaceForView(timelineViewSchemaID)
+	if !ok {
+		t.Fatal("timeline query surface is not registered")
 	}
 
-	wantSortFields := uniqueStrings(schema.SortFields())
+	wantSortFields := uniqueTimelineStrings(schema.SortFields())
 	for _, entry := range schema.DefaultSort() {
-		wantSortFields = appendUnique(wantSortFields, entry.FieldKey)
+		wantSortFields = appendUniqueTimelineString(wantSortFields, entry.FieldKey)
 	}
-	schemaSortFields := uniqueStrings(schema.SortFields())
+	schemaSortFields := uniqueTimelineStrings(schema.SortFields())
 	for _, field := range schema.Fields() {
 		if !field.Sortable {
 			continue
@@ -33,13 +37,11 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 			t.Fatalf("timeline sortable field %s is not backed by sort_fields key %s", field.FieldKey, sortFieldKey)
 		}
 	}
-	gotSortFields := mapKeys(timelineSortExpressions)
-	if !sameStrings(gotSortFields, wantSortFields) {
-		t.Fatalf("timeline sort SQL mapping drifted from schema/default sort: got %v want %v", gotSortFields, wantSortFields)
-	}
-
 	for _, fieldKey := range wantSortFields {
-		_, _, err := buildTimelineQueryPageSQL(uuid.Nil, viewschema.QueryMeta{
+		if _, ok := surface.field(fieldKey); !ok {
+			t.Fatalf("timeline sort field %s is not mapped", fieldKey)
+		}
+		_, _, err := buildGenericQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
 			Sort: []viewschema.SortEntry{{FieldKey: fieldKey, Direction: "asc"}},
 		}, querypage.Window{Limit: 100})
 		if err != nil {
@@ -48,7 +50,7 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 	}
 
 	for _, fieldKey := range schema.FilterFields() {
-		_, _, err := buildTimelineQueryPageSQL(uuid.Nil, viewschema.QueryMeta{
+		_, _, err := buildGenericQueryPageSQL(uuid.Nil, surface, viewschema.QueryMeta{
 			Filters: []viewschema.Filter{sampleTimelineFilter(fieldKey)},
 			Sort:    schema.DefaultSort(),
 		}, querypage.Window{Limit: 100})
@@ -56,15 +58,8 @@ func TestUnit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 			t.Fatalf("timeline filter field %s from schema is not mapped: %v", fieldKey, err)
 		}
 	}
-
-	row := buildRow(projectedRecord{})
-	groupValues, ok := row["group_values"].(map[string]any)
-	if !ok {
-		t.Fatalf("timeline row group_values missing or wrong type: %#v", row["group_values"])
-	}
-	gotGroupFields := mapKeys(groupValues)
-	if !sameStrings(gotGroupFields, schema.GroupingFields()) {
-		t.Fatalf("timeline group_values drifted from schema grouping_fields: got %v want %v", gotGroupFields, schema.GroupingFields())
+	if !sameTimelineStrings(surface.groupingFields, schema.GroupingFields()) {
+		t.Fatalf("timeline grouping mapping drifted from schema: got %v want %v", surface.groupingFields, schema.GroupingFields())
 	}
 }
 
@@ -75,7 +70,7 @@ func sampleTimelineFilter(fieldKey string) viewschema.Filter {
 	case "timeline.activity_time_pair_state":
 		return viewschema.Filter{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": "paired_user_preserved"}}
 	case "timeline.capture_state":
-		return viewschema.Filter{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": captureStateRough}}
+		return viewschema.Filter{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": "rough"}}
 	case "timeline.has_evidence", "timeline.has_unresolved_mentions":
 		return viewschema.Filter{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": true}}
 	case "timeline.tags":
@@ -85,16 +80,16 @@ func sampleTimelineFilter(fieldKey string) viewschema.Filter {
 	}
 }
 
-func uniqueStrings(values []string) []string {
+func uniqueTimelineStrings(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		out = appendUnique(out, value)
+		out = appendUniqueTimelineString(out, value)
 	}
 	slices.Sort(out)
 	return out
 }
 
-func appendUnique(values []string, value string) []string {
+func appendUniqueTimelineString(values []string, value string) []string {
 	if slices.Contains(values, value) {
 		return values
 	}
@@ -103,17 +98,8 @@ func appendUnique(values []string, value string) []string {
 	return values
 }
 
-func mapKeys[V any](values map[string]V) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
-}
-
-func sameStrings(left []string, right []string) bool {
-	left = uniqueStrings(left)
-	right = uniqueStrings(right)
+func sameTimelineStrings(left []string, right []string) bool {
+	left = uniqueTimelineStrings(left)
+	right = uniqueTimelineStrings(right)
 	return slices.Equal(left, right)
 }

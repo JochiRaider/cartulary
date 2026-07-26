@@ -266,8 +266,16 @@ FROM timeline_events e
 JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
   AND r.deleted_at IS NULL
-ORDER BY e.recorded_at ASC, e.record_id ASC
+  AND ($2::uuid IS NULL OR e.record_id > $2::uuid)
+ORDER BY e.record_id ASC
+LIMIT $3
 `
+
+type ListTimelineProjectionSourceRowsParams struct {
+	IncidentID    pgtype.UUID `json:"incident_id"`
+	AfterRecordID pgtype.UUID `json:"after_record_id"`
+	PageLimit     int32       `json:"page_limit"`
+}
 
 type ListTimelineProjectionSourceRowsRow struct {
 	RecordID              pgtype.UUID        `json:"record_id"`
@@ -295,8 +303,8 @@ type ListTimelineProjectionSourceRowsRow struct {
 	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
 }
 
-func (q *Queries) ListTimelineProjectionSourceRows(ctx context.Context, incidentID pgtype.UUID) ([]ListTimelineProjectionSourceRowsRow, error) {
-	rows, err := q.db.Query(ctx, listTimelineProjectionSourceRows, incidentID)
+func (q *Queries) ListTimelineProjectionSourceRows(ctx context.Context, arg ListTimelineProjectionSourceRowsParams) ([]ListTimelineProjectionSourceRowsRow, error) {
+	rows, err := q.db.Query(ctx, listTimelineProjectionSourceRows, arg.IncidentID, arg.AfterRecordID, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

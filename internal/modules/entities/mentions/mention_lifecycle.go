@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -179,6 +180,9 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	timelineState, err := s.ports.timeline.PrepareMentionActionTx(ctx, tx, mention.SourceRecordID)
+	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
+		return MentionActionResult{}, ErrSourceRecordNotFound
+	}
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -201,6 +205,9 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		ActorUserID: actor.ID,
 		EffectiveAt: now.UTC(),
 	})
+	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
+		return MentionActionResult{}, ErrSourceRecordNotFound
+	}
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -290,6 +297,20 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 
 	entityInvalidations, err := s.mentionEntityInvalidationsTx(ctx, tx, outcome)
 	if err != nil {
+		return MentionActionResult{}, err
+	}
+	if err := s.appendMentionActionIntentsTx(
+		ctx,
+		tx,
+		mention.IncidentID,
+		actor.ID,
+		request.ClientTxnID,
+		changeSetID,
+		timelineResult,
+		mentionChangedFieldKeys(mention.SourceFieldKey),
+		entityInvalidations,
+		now.UTC(),
+	); err != nil {
 		return MentionActionResult{}, err
 	}
 

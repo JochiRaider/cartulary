@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,38 +14,34 @@ import (
 )
 
 type Store struct {
-	pool     postgres.DB
-	registry *providerRegistry
+	pool           postgres.DB
+	registry       *providerRegistry
+	timelineSource TimelineSource
 }
 
-type TimelineProjectionInput struct {
-	RecordID              uuid.UUID
-	IncidentID            uuid.UUID
-	RowVersion            int64
-	DateEnteredText       *string
-	AnalystText           *string
-	MitreStageText        *string
-	DeviceObjectText      *string
-	IPAddressText         *string
-	ActivityUTCText       *string
-	ActivityLocalText     *string
-	RawActivityText       *string
-	ActivitySynopsisText  *string
-	DataSourceText        *string
-	RecordedAt            time.Time
-	EditedAt              time.Time
-	ActivitySortTS        *time.Time
-	DateEnteredSortDay    *time.Time
-	ActivityTimePairState string
-	CaptureState          string
-	ReplacementRecordID   *uuid.UUID
-	EvidenceCount         int
-	HasEvidence           bool
-	HasUnresolvedMentions bool
+type TimelineProjectionInput = timelineprojection.ProjectionInput
+
+type TimelineSource interface {
+	BuildProjectionMutationTx(context.Context, pgx.Tx, uuid.UUID) (timelineprojection.ProjectionMutation, error)
+	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (timelineprojection.ProjectionInputPage, error)
 }
 
-func NewStore(pool postgres.DB) *Store {
-	return &Store{pool: pool, registry: defaultProviderRegistry()}
+type StoreOption func(*Store)
+
+func WithTimelineSource(source TimelineSource) StoreOption {
+	return func(store *Store) {
+		store.timelineSource = source
+	}
+}
+
+func NewStore(pool postgres.DB, options ...StoreOption) *Store {
+	store := &Store{pool: pool, registry: defaultProviderRegistry()}
+	for _, option := range options {
+		if option != nil {
+			option(store)
+		}
+	}
+	return store
 }
 
 func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input TimelineProjectionInput) error {
@@ -130,6 +125,34 @@ SET incident_id = EXCLUDED.incident_id,
 	return nil
 }
 
+func (s *Store) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation timelineprojection.ProjectionMutation) error {
+	if err := mutation.Validate(); err != nil {
+		return err
+	}
+	switch mutation.Kind {
+	case timelineprojection.ProjectionMutationUpsert:
+		return s.UpsertTimelineRowTx(ctx, tx, mutation.Input)
+	case timelineprojection.ProjectionMutationDelete:
+		if _, err := tx.Exec(ctx, `DELETE FROM timeline_grid_projection WHERE record_id = $1`, mutation.RecordID); err != nil {
+			return fmt.Errorf("delete timeline projection row: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported timeline projection mutation kind %q", mutation.Kind)
+	}
+}
+
+func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	if s == nil || s.timelineSource == nil {
+		return errors.New("timeline projection source is required")
+	}
+	mutation, err := s.timelineSource.BuildProjectionMutationTx(ctx, tx, recordID)
+	if err != nil {
+		return err
+	}
+	return s.ApplyTimelineMutationTx(ctx, tx, mutation)
+}
+
 func (s *Store) RebuildIncidentTimeline(ctx context.Context, incidentID uuid.UUID) (err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, timelineViewSchemaID)
 	defer func() { finishTelemetry(err) }()
@@ -156,17 +179,31 @@ func (s *Store) RebuildIncidentTimelineTx(ctx context.Context, tx pgx.Tx, incide
 }
 
 func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	if s == nil || s.timelineSource == nil {
+		return errors.New("timeline projection source is required")
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM timeline_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 		return fmt.Errorf("clear timeline projection rows: %w", err)
 	}
-	inputs, err := timelineprojection.ListProjectionInputsTx(ctx, tx, incidentID)
-	if err != nil {
-		return err
-	}
-	for _, input := range inputs {
-		if err := s.UpsertTimelineRowTx(ctx, tx, TimelineProjectionInput(input)); err != nil {
+	var afterRecordID *uuid.UUID
+	for {
+		page, err := s.timelineSource.ListProjectionInputsTx(ctx, tx, incidentID, afterRecordID, 500)
+		if err != nil {
 			return err
 		}
+		for _, input := range page.Inputs {
+			if err := s.ApplyTimelineMutationTx(ctx, tx, timelineprojection.ProjectionMutation{
+				Kind:     timelineprojection.ProjectionMutationUpsert,
+				RecordID: input.RecordID,
+				Input:    input,
+			}); err != nil {
+				return err
+			}
+		}
+		if page.NextRecordID == nil {
+			break
+		}
+		afterRecordID = page.NextRecordID
 	}
 	return nil
 }

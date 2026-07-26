@@ -248,6 +248,21 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
+	if err := s.appendDeleteRestoreRecordChangeIntentTx(
+		ctx,
+		tx,
+		record.IncidentID,
+		actor.ID,
+		request.ClientTxnID,
+		changeSetID,
+		record.RecordID,
+		nextRowVersion,
+		viewSchemaID,
+		changeKind,
+		now,
+	); err != nil {
+		return DeleteRestoreResult{}, err
+	}
 	payload := buildDeleteRestorePayload(current, changeSetID, deleted)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {

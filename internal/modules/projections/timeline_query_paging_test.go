@@ -1,4 +1,4 @@
-package timeline
+package projections
 
 import (
 	"strings"
@@ -11,9 +11,14 @@ import (
 )
 
 func TestTimelinePageSQLIsKeysetBounded(t *testing.T) {
+	surface, ok := defaultProviderRegistry().querySurfaceForView(timelineViewSchemaID)
+	if !ok {
+		t.Fatal("timeline projection query surface is not registered")
+	}
 	positionID := "00000000-0000-0000-0000-000000000931"
-	sqlText, args, err := buildTimelineQueryPageSQL(
+	sqlText, args, err := buildGenericQueryPageSQL(
 		uuid.MustParse("00000000-0000-0000-0000-000000000930"),
+		surface,
 		viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
 		querypage.Window{Limit: 25, Position: map[string]string{"record_id": `"` + positionID + `"`}},
 	)

@@ -2,91 +2,74 @@ package timeline
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type timelineStorePorts struct {
-	idempotency timelineIdempotencyPort
-	records     timelineRecordPort
-	revisions   timelineRevisionPort
-	projections timelineProjectionPort
-	links       timelineLinkPort
-	mentions    timelineMentionPort
+// Dependencies are source-owner ports supplied by application assembly. Every
+// mutation method receives Timeline's initiating transaction and must not
+// commit, roll back, publish, or start a nested transaction.
+type Dependencies struct {
+	Idempotency   IdempotencyPort
+	Incidents     IncidentPort
+	Records       RecordPort
+	Revisions     RevisionPort
+	Projections   ProjectionPort
+	Links         LinkPort
+	Mentions      MentionPort
+	Entities      EntityPort
+	Evidence      EvidencePort
+	Collections   CollectionReadPort
+	Collaboration CollaborationPort
 }
 
-type timelineIdempotencyPort interface {
+type IdempotencyPort interface {
 	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	InsertRouteIdempotencyPayload(context.Context, pgx.Tx, authn.RouteIdempotencyKey, *uuid.UUID, []byte, int, any) error
 }
 
-type timelineRecordPort interface {
+type IncidentPort interface {
+	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
+type RecordEnvelope = sourcerepository.Envelope
+
+type RecordCreateParams struct {
+	RecordID        *uuid.UUID
+	IncidentID      uuid.UUID
+	RecordType      string
+	CreatedByUserID uuid.UUID
+	CreatedAt       time.Time
+	UpdatedByUserID uuid.UUID
+	UpdatedAt       time.Time
+	RowVersion      int64
+}
+
+type RecordPort interface {
+	InsertTx(context.Context, pgx.Tx, RecordCreateParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
+	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (RecordEnvelope, error)
+	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]RecordEnvelope, error)
+	ResolveIncident(context.Context, uuid.UUID) (uuid.UUID, error)
 }
 
-type timelineRevisionPort interface {
-	AppendChangeSetTx(context.Context, pgx.Tx, timelineChangeSetParams) (uuid.UUID, error)
-	AppendMutationTx(context.Context, pgx.Tx, timelineMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, timelineRecordRevisionParams) error
+type RevisionPort interface {
+	AppendChangeSetTx(context.Context, pgx.Tx, ChangeSetParams) (uuid.UUID, error)
+	AppendMutationTx(context.Context, pgx.Tx, MutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, RecordRevisionParams) error
+	ListRecordRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]RecordRevisionWindowEntry, error)
 }
 
-type timelineProjectionPort interface {
-	UpsertTimelineRowTx(context.Context, pgx.Tx, timelineProjectionInput) error
-	RebuildIncidentHostsTx(context.Context, pgx.Tx, uuid.UUID) error
-	RebuildIncidentIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
-type timelineLinkPort interface {
-	InsertSupersedesCommandTx(context.Context, pgx.Tx, insertSupersedesCommand) (supersedesLink, error)
-	UpsertLinkCommandTx(context.Context, pgx.Tx, upsertLinkCommand) error
-	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
-	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, recordRefCollectionCommand) (linkCollectionMutationResult, error)
-	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, tagCollectionCommand) (linkCollectionMutationResult, error)
-}
-
-type insertSupersedesCommand = links.InsertSupersedesCommand
-type upsertLinkCommand = links.UpsertLinkCommand
-type linkType = links.LinkType
-type linkProvenance = links.LinkProvenance
-type recordRefCollectionCommand = links.RecordRefCollectionCommand
-type tagCollectionCommand = links.TagCollectionCommand
-type tagCollectionAdd = links.TagCollectionAdd
-type recordTagRef = links.RecordTagRef
-type linkCollectionMutationResult = links.CollectionMutationResult
-
-func linkRecordRefItemRef(recordID uuid.UUID) string {
-	return links.RecordRefItemRef(recordID)
-}
-
-func linkRecordTagItemRef(recordID uuid.UUID, recordTagID uuid.UUID) string {
-	return links.RecordTagItemRef(recordID, recordTagID)
-}
-
-func parseRecordRefItemRef(itemRef string) (uuid.UUID, error) {
-	return links.ParseRecordRefItemRef(itemRef)
-}
-
-func parseRecordTagItemRef(itemRef string) (uuid.UUID, uuid.UUID, error) {
-	return links.ParseRecordTagItemRef(itemRef)
-}
-
-type timelineMentionPort interface {
-	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) error
-	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) error
-}
-
-type timelineChangeSetParams struct {
+type ChangeSetParams struct {
 	ChangeSetID *uuid.UUID
 	IncidentID  uuid.UUID
 	ActorUserID uuid.UUID
@@ -97,7 +80,7 @@ type timelineChangeSetParams struct {
 	CreatedAt   time.Time
 }
 
-type timelineMutationParams struct {
+type MutationParams struct {
 	ChangeSetID     uuid.UUID
 	SequenceNo      int
 	TargetKind      string
@@ -109,7 +92,7 @@ type timelineMutationParams struct {
 	AfterValue      any
 }
 
-type timelineRecordRevisionParams struct {
+type RecordRevisionParams struct {
 	ChangeSetID uuid.UUID
 	RecordID    uuid.UUID
 	RowVersion  int64
@@ -117,153 +100,242 @@ type timelineRecordRevisionParams struct {
 	AfterValue  any
 }
 
-type timelineProjectionInput struct {
-	RecordID              uuid.UUID
-	IncidentID            uuid.UUID
-	RowVersion            int64
-	DateEnteredText       *string
-	AnalystText           *string
-	MitreStageText        *string
-	DeviceObjectText      *string
-	IPAddressText         *string
-	ActivityUTCText       *string
-	ActivityLocalText     *string
-	RawActivityText       *string
-	ActivitySynopsisText  *string
-	DataSourceText        *string
-	RecordedAt            time.Time
-	EditedAt              time.Time
-	ActivitySortTS        *time.Time
-	DateEnteredSortDay    *time.Time
-	ActivityTimePairState string
-	CaptureState          string
-	ReplacementRecordID   *uuid.UUID
-	EvidenceCount         int
-	HasEvidence           bool
-	HasUnresolvedMentions bool
+type RecordRevisionWindowEntry struct {
+	RowVersion  int64
+	BeforeJSON  []byte
+	AfterJSON   []byte
+	ActorUserID uuid.UUID
+	CreatedAt   time.Time
 }
 
-type supersedesLink struct {
+type ProjectionPort interface {
+	ApplyTimelineMutationTx(context.Context, pgx.Tx, workbookprojection.ProjectionMutation) error
+	RebuildIncidentHostsTx(context.Context, pgx.Tx, uuid.UUID) error
+	RebuildIncidentIdentitiesTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
+type LinkPort interface {
+	InsertSupersedesCommandTx(context.Context, pgx.Tx, InsertSupersedesCommand) (SupersedesLink, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, UpsertLinkCommand) error
+	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
+	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
+	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, RecordRefCollectionCommand) (CollectionMutationResult, error)
+	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, TagCollectionCommand) (CollectionMutationResult, error)
+}
+
+type InsertSupersedesCommand struct {
+	IncidentID          uuid.UUID
+	ReplacementRecordID uuid.UUID
+	SupersededRecordID  uuid.UUID
+	OwnerUserID         uuid.UUID
+	Now                 time.Time
+}
+
+type UpsertLinkCommand struct {
+	IncidentID  uuid.UUID
+	SrcRecordID uuid.UUID
+	DstRecordID uuid.UUID
+	LinkType    string
+	Provenance  string
+	Confidence  *int
+	OwnerUserID uuid.UUID
+	Now         time.Time
+}
+
+type SupersedesLink struct {
 	RecordLinkID uuid.UUID
 	IncidentID   uuid.UUID
 	SrcRecordID  uuid.UUID
 	DstRecordID  uuid.UUID
 }
 
-func newTimelineStorePorts(pool postgres.DB) timelineStorePorts {
-	return timelineStorePorts{
-		idempotency: timelineIdempotencyAdapter{store: authn.NewStore(pool)},
-		records:     timelineRecordAdapter{store: records.NewStore()},
-		revisions:   timelineRevisionAdapter{appender: revisions.NewAppender()},
-		projections: timelineProjectionAdapter{
-			timeline: projectionadapters.NewTimelineProjector(pool),
-			rows:     projectionadapters.NewRowProjector(pool),
-		},
-		links:    timelineLinkAdapter{store: links.NewStore()},
-		mentions: timelineMentionAdapter{store: mentions.NewStore(nil)},
+type RecordRefCollectionCommand struct {
+	IncidentID         uuid.UUID
+	SourceRecordID     uuid.UUID
+	ActorUserID        uuid.UUID
+	FieldKey           string
+	LinkType           string
+	ExpectedTargetType string
+	AddRecordIDs       []uuid.UUID
+	RemoveRecordIDs    []uuid.UUID
+	Now                time.Time
+}
+
+type TagCollectionCommand struct {
+	IncidentID  uuid.UUID
+	RecordID    uuid.UUID
+	ActorUserID uuid.UUID
+	FieldKey    string
+	AddTags     []TagCollectionAdd
+	RemoveTags  []RecordTagRef
+	Now         time.Time
+}
+
+type TagCollectionAdd struct {
+	RawText        string
+	NormalizedText string
+}
+
+type RecordTagRef struct {
+	RecordID    uuid.UUID
+	RecordTagID uuid.UUID
+}
+
+type CollectionMutationResult struct {
+	RecordLinks []RecordLinkMutation
+	RecordTags  []RecordTagMutation
+}
+
+type RecordLinkMutation struct {
+	RecordLinkID uuid.UUID
+	Operation    string
+	BeforeValue  map[string]any
+	AfterValue   map[string]any
+}
+
+type RecordTagMutation struct {
+	RecordTagID uuid.UUID
+	RecordID    uuid.UUID
+	Operation   string
+	BeforeValue map[string]any
+	AfterValue  map[string]any
+}
+
+type MentionPort interface {
+	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) error
+	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) error
+	NextOrdinalTx(context.Context, pgx.Tx, uuid.UUID, string) (int, error)
+	InsertTx(context.Context, pgx.Tx, MentionCreateParams) error
+}
+
+type MentionCreateParams struct {
+	SourceRecordID   uuid.UUID
+	EntityType       string
+	SourceFieldKey   string
+	OriginKind       string
+	OriginLocator    string
+	RawText          string
+	NormalizedText   string
+	ResolutionStatus string
+	Ordinal          int
+	CreatedByUserID  uuid.UUID
+	CreatedAt        time.Time
+	ResolvedRecordID *uuid.UUID
+	ResolvedByUserID *uuid.UUID
+	ResolvedAt       *time.Time
+	ResolutionMethod *string
+}
+
+type EntityAlias struct {
+	RecordID uuid.UUID
+	RawText  string
+}
+
+type EntityPort interface {
+	ListEligibleAliasesTx(context.Context, pgx.Tx, uuid.UUID, string) ([]EntityAlias, error)
+	ValidateResolvedTargetTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) error
+}
+
+type EvidencePort interface {
+	ValidateTimelineAttachmentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) error
+}
+
+type CollectionReadPort interface {
+	HydrateTimelineCollectionsTx(context.Context, pgx.Tx, *workbookprojection.DerivedRecord) error
+}
+
+type RecordChangeIntentParams struct {
+	IncidentID       uuid.UUID
+	RecordID         uuid.UUID
+	RowVersion       int64
+	ChangeSetID      uuid.UUID
+	ClientTxnID      string
+	ActorUserID      uuid.UUID
+	ChangedFieldKeys []string
+	ViewSchemaID     string
+	ChangeKind       string
+	Row              map[string]any
+	PatchCells       map[string]any
+	MutationOrdinal  int
+	CreatedAt        time.Time
+}
+
+type CollaborationPort interface {
+	AppendRecordChangeIntentTx(context.Context, pgx.Tx, RecordChangeIntentParams) error
+}
+
+type timelineStorePorts struct {
+	idempotency   IdempotencyPort
+	incidents     IncidentPort
+	records       RecordPort
+	revisions     RevisionPort
+	projections   ProjectionPort
+	links         LinkPort
+	mentions      MentionPort
+	entities      EntityPort
+	evidence      EvidencePort
+	collections   CollectionReadPort
+	collaboration CollaborationPort
+}
+
+type timelineIdempotencyPort = IdempotencyPort
+type timelineIncidentPort = IncidentPort
+type timelineRecordPort = RecordPort
+type timelineRevisionPort = RevisionPort
+type timelineProjectionPort = ProjectionPort
+type timelineLinkPort = LinkPort
+type timelineMentionPort = MentionPort
+type timelineEntityPort = EntityPort
+type timelineEvidencePort = EvidencePort
+type timelineCollectionReadPort = CollectionReadPort
+type timelineCollaborationPort = CollaborationPort
+type timelineChangeSetParams = ChangeSetParams
+type timelineMutationParams = MutationParams
+type timelineRecordRevisionParams = RecordRevisionParams
+type insertSupersedesCommand = InsertSupersedesCommand
+type upsertLinkCommand = UpsertLinkCommand
+type linkType = string
+type linkProvenance = string
+type supersedesLink = SupersedesLink
+type recordRefCollectionCommand = RecordRefCollectionCommand
+type tagCollectionCommand = TagCollectionCommand
+type tagCollectionAdd = TagCollectionAdd
+type recordTagRef = RecordTagRef
+type linkCollectionMutationResult = CollectionMutationResult
+
+func linkRecordRefItemRef(recordID uuid.UUID) string {
+	return "record_ref:" + recordID.String()
+}
+
+func linkRecordTagItemRef(recordID uuid.UUID, recordTagID uuid.UUID) string {
+	return "record_tag:" + recordID.String() + ":" + recordTagID.String()
+}
+
+func parseRecordRefItemRef(itemRef string) (uuid.UUID, error) {
+	const prefix = "record_ref:"
+	if !strings.HasPrefix(itemRef, prefix) {
+		return uuid.UUID{}, fmt.Errorf("invalid item ref")
 	}
-}
-
-type timelineIdempotencyAdapter struct {
-	store *authn.Store
-}
-
-func (a timelineIdempotencyAdapter) GetRouteIdempotency(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
-	return a.store.GetRouteIdempotency(ctx, key)
-}
-
-func (a timelineIdempotencyAdapter) InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, targetUserID *uuid.UUID, requestHash []byte, statusCode int, payload any) error {
-	return authn.InsertRouteIdempotencyPayload(ctx, tx, key, targetUserID, requestHash, statusCode, payload)
-}
-
-type timelineRecordAdapter struct {
-	store *records.Store
-}
-
-func (a timelineRecordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
-	return a.store.AdvanceVersionTx(ctx, tx, recordID, actorUserID, now)
-}
-
-type timelineRevisionAdapter struct {
-	appender revisions.Appender
-}
-
-func (a timelineRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params timelineChangeSetParams) (uuid.UUID, error) {
-	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
-}
-
-func (a timelineRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params timelineMutationParams) error {
-	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
-}
-
-func (a timelineRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params timelineRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
-}
-
-type timelineProjectionAdapter struct {
-	timeline *projectionadapters.TimelineProjector
-	rows     *projectionadapters.RowProjector
-}
-
-func (a timelineProjectionAdapter) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineProjectionInput) error {
-	return a.timeline.UpsertTimelineRowTx(ctx, tx, projectionadapters.TimelineProjectionInput(input))
-}
-
-func (a timelineProjectionAdapter) RebuildIncidentHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return a.rows.RebuildIncidentViewTx(ctx, tx, projectionadapters.HostsViewSchemaID, incidentID)
-}
-
-func (a timelineProjectionAdapter) RebuildIncidentIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return a.rows.RebuildIncidentViewTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, incidentID)
-}
-
-type timelineLinkAdapter struct {
-	store *links.Store
-}
-
-func (a timelineLinkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command insertSupersedesCommand) (supersedesLink, error) {
-	link, err := a.store.InsertSupersedesCommandTx(ctx, tx, command)
-	if err != nil {
-		return supersedesLink{}, err
+	value := strings.TrimPrefix(itemRef, prefix)
+	parsed, err := uuid.Parse(value)
+	if err != nil || parsed.String() != value {
+		return uuid.UUID{}, fmt.Errorf("invalid item ref")
 	}
-	return supersedesLink{
-		RecordLinkID: link.RecordLinkID,
-		IncidentID:   link.IncidentID,
-		SrcRecordID:  link.SrcRecordID,
-		DstRecordID:  link.DstRecordID,
-	}, nil
+	return parsed, nil
 }
 
-func (a timelineLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command upsertLinkCommand) error {
-	_, _, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
-	return err
-}
-
-func (a timelineLinkAdapter) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
-	return a.store.HasActiveIncomingSupersedesLinkForUpdateTx(ctx, tx, incidentID, recordID)
-}
-
-func (a timelineLinkAdapter) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	return a.store.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
-}
-
-func (a timelineLinkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command recordRefCollectionCommand) (linkCollectionMutationResult, error) {
-	return a.store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
-}
-
-func (a timelineLinkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command tagCollectionCommand) (linkCollectionMutationResult, error) {
-	return a.store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
-}
-
-type timelineMentionAdapter struct {
-	store *mentions.Store
-}
-
-func (a timelineMentionAdapter) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) error {
-	_, err := a.store.ResolveExistingFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
-	return err
-}
-
-func (a timelineMentionAdapter) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) error {
-	return a.store.ApplyMentionLifecycleTx(ctx, tx, actor, sourceRecordID, sourceFieldKey, mentionID, action, resolvedRecordID, now)
+func parseRecordTagItemRef(itemRef string) (uuid.UUID, uuid.UUID, error) {
+	parts := strings.Split(itemRef, ":")
+	if len(parts) != 3 || parts[0] != "record_tag" {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
+	}
+	recordID, err := uuid.Parse(parts[1])
+	if err != nil || recordID.String() != parts[1] {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
+	}
+	tagID, err := uuid.Parse(parts[2])
+	if err != nil || tagID.String() != parts[2] {
+		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
+	}
+	return recordID, tagID, nil
 }

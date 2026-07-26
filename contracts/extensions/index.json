@@ -305,5 +305,5 @@
   ],
   "requirement_registry_ref": "contracts/requirements/registry.json",
   "requirement_registry_schema_id": "cartulary.requirement_registry.v1",
-  "requirement_registry_sha256": "6420a148072ebf9ef9d76c42086771ad285632a4598328a3c9ed064d38d56681"
+  "requirement_registry_sha256": "fefc2aa41790863320c52c9d7bebac28c51aff2d7edc625bd59fdd273ad98c58"
 }

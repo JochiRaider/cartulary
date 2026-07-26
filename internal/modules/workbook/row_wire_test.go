@@ -117,7 +117,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
 	patchEvidenceRecordID := workbookscenariotest.MustUUID(t, patchEvidenceRow["record_id"].(string))
-	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
+	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 4)
 	defer unsubscribe()
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
@@ -173,7 +173,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
-	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(16)
+	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 16)
 	defer unsubscribe()
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
@@ -300,7 +300,7 @@ func int64Value(value any) int64 {
 	}
 }
 
-func requireSparsePatchForChange(t testing.TB, changes <-chan platformws.RecordChange, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
+func requireSparsePatchForChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
 	t.Helper()
 	change := requireHubRecordChange(t, changes, recordID, int64Value(row["row_version"]))
 	payload := platformws.RecordChangePayload(change)
@@ -374,13 +374,20 @@ func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[st
 	return nil
 }
 
-func requireHubRecordChange(t testing.TB, changes <-chan platformws.RecordChange, recordID uuid.UUID, rowVersion int64) platformws.RecordChange {
+func requireHubRecordChange(t testing.TB, changes <-chan platformws.Message, recordID uuid.UUID, rowVersion int64) platformws.RecordChange {
 	t.Helper()
 	deadline := time.After(5 * time.Second)
 	var last platformws.RecordChange
 	for {
 		select {
-		case change := <-changes:
+		case message := <-changes:
+			if message.Type != "record_changed" {
+				continue
+			}
+			change, err := platformws.RecordChangeFromSequencedMessage(message)
+			if err != nil {
+				t.Fatalf("decode record change: %v", err)
+			}
 			last = change
 			if change.RecordID == recordID && change.RowVersion == rowVersion {
 				return change

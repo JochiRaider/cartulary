@@ -6,6 +6,11 @@
       "requirement_id": "module.workbook.requirement.behavior_contract",
       "statement": "module.workbook frontend postconditions remain exact across retained selectors and declared execution profiles.",
       "status": "active"
+    },
+    {
+      "requirement_id": "module.workbook.requirement.mutation_admission",
+      "statement": "Workbook owns public mutation decoding, authentication, authorization, stable-target admission, public errors, and response envelopes before dispatching typed commands to source owners.",
+      "status": "active"
     }
   ]
 }
