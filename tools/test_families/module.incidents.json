@@ -354,7 +354,8 @@
       "family_id": "module.incidents.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.incidents.verification.behavior_contract"
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {
@@ -594,7 +595,9 @@
       "family_id": "module.incidents.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.incidents.verification.behavior_contract"
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.incident_portability",
+        "module.incidents.verification.incident_portability_actors"
       ],
       "runner": "go",
       "selector": {

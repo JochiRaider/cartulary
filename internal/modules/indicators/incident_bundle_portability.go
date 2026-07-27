@@ -30,14 +30,13 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	for _, spec := range []struct {
-		target incidentportability.ImportTargetDescriptor
-	}{
-		{incidentportability.TargetIndicators},
-		{incidentportability.TargetIndicatorObservations},
-		{incidentportability.TargetIndicatorStateIntervals},
-	} {
-		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
+	specs := []incidentportability.FixedImportSpec{
+		{"data/indicators.ndjson", "indicators", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO indicators SELECT * FROM jsonb_populate_record(NULL::indicators, $1::jsonb)`},
+		{"data/indicator_observations.ndjson", "indicator_observations", []string{"indicator_observation_id"}, []string{"indicator_observation_id"}, `INSERT INTO indicator_observations SELECT * FROM jsonb_populate_record(NULL::indicator_observations, $1::jsonb)`},
+		{"data/indicator_state_intervals.ndjson", "indicator_state_intervals", []string{"indicator_state_interval_id"}, []string{"indicator_state_interval_id"}, `INSERT INTO indicator_state_intervals SELECT * FROM jsonb_populate_record(NULL::indicator_state_intervals, $1::jsonb)`},
+	}
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

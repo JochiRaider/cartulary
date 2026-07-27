@@ -30,8 +30,14 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetRecordLinks, files, actorUserID, attributions); err != nil {
-		return err
+	specs := []incidentportability.FixedImportSpec{
+		{"data/record_links.ndjson", "record_links", []string{"record_link_id"}, []string{"record_link_id", "incident_id"}, `INSERT INTO record_links SELECT * FROM jsonb_populate_record(NULL::record_links, $1::jsonb)`},
+		{"data/record_tags.ndjson", "record_tags", []string{"record_tag_id"}, []string{"record_tag_id", "record_id", "incident_id"}, `INSERT INTO record_tags SELECT * FROM jsonb_populate_record(NULL::record_tags, $1::jsonb)`},
 	}
-	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetRecordTags, files, actorUserID, attributions)
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
+			return err
+		}
+	}
+	return nil
 }

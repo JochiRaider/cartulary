@@ -1,0 +1,56 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "module.records",
+  "rows": [
+    {
+      "row_id": "module.records.integration.portability_apply_rollback_2eb3284f84",
+      "owner_id": "module.records",
+      "family_id": "module.records.integration",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.records.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.unit.portability_duplicate_identity_ad2a48986e",
+      "owner_id": "module.records",
+      "family_id": "module.records.unit",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.records.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

@@ -29,8 +29,26 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetTaskRequests, files, actorUserID, attributions); err != nil {
-		return err
+	specs := []incidentportability.FixedImportSpec{
+		{
+			LogicalBundlePath: "data/task_requests.ndjson",
+			AttributionTable:  "task_requests",
+			StableIdentity:    []string{"record_id"},
+			RequiredColumns:   []string{"record_id", "incident_id"},
+			InsertSQL:         `INSERT INTO task_requests SELECT * FROM jsonb_populate_record(NULL::task_requests, $1::jsonb)`,
+		},
+		{
+			LogicalBundlePath: "data/decisions.ndjson",
+			AttributionTable:  "decisions",
+			StableIdentity:    []string{"record_id"},
+			RequiredColumns:   []string{"record_id", "incident_id"},
+			InsertSQL:         `INSERT INTO decisions SELECT * FROM jsonb_populate_record(NULL::decisions, $1::jsonb)`,
+		},
 	}
-	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetDecisions, files, actorUserID, attributions)
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
+			return err
+		}
+	}
+	return nil
 }

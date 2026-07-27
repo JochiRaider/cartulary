@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -64,6 +65,7 @@ func TestMetricRegistryClosed(t *testing.T) {
 		"cartulary.postgres.operation.duration",
 		"cartulary.objectstore.operation.duration",
 		"cartulary.objectstore.transfer.bytes",
+		IncidentBundleV1ImportMetricName,
 		TelemetryExportFailureMetricName,
 		TelemetryItemDroppedMetricName,
 		TelemetryQueueDepthMetricName,
@@ -102,4 +104,22 @@ func TestMetricRegistryClosed(t *testing.T) {
 	if row := seen["cartulary.jobs.active"]; row.InstrumentKind != "ObservableGauge" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
 		t.Fatalf("jobs active metric row mismatch: %#v", row)
 	}
+}
+
+func TestIncidentBundleV1ImportMetricIsAttributeFree_Unit(t *testing.T) {
+	var found *MetricRegistryRow
+	for _, row := range MetricRegistry() {
+		if row.Name == IncidentBundleV1ImportMetricName {
+			current := row
+			found = &current
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("v1 import compatibility metric is not registered")
+	}
+	if len(found.AllowedAttributes) != 0 || len(found.OptionalAttributes) != 0 {
+		t.Fatalf("v1 import metric admits public identifiers: %#v", *found)
+	}
+	RecordIncidentBundleV1Import(context.Background(), "test")
 }

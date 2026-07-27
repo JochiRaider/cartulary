@@ -32,16 +32,15 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	for _, spec := range []struct {
-		target incidentportability.ImportTargetDescriptor
-	}{
-		{incidentportability.TargetHosts},
-		{incidentportability.TargetIdentities},
-		{incidentportability.TargetEntityPreservedIdentifiers},
-		{incidentportability.TargetEntityAliases},
-		{incidentportability.TargetEntityMentions},
-	} {
-		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
+	specs := []incidentportability.FixedImportSpec{
+		{"data/hosts.ndjson", "hosts", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO hosts SELECT * FROM jsonb_populate_record(NULL::hosts, $1::jsonb)`},
+		{"data/identities.ndjson", "identities", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO identities SELECT * FROM jsonb_populate_record(NULL::identities, $1::jsonb)`},
+		{"data/entity_preserved_identifiers.ndjson", "entity_preserved_identifiers", []string{"entity_preserved_identifier_id"}, []string{"entity_preserved_identifier_id", "record_id"}, `INSERT INTO entity_preserved_identifiers SELECT * FROM jsonb_populate_record(NULL::entity_preserved_identifiers, $1::jsonb)`},
+		{"data/entity_aliases.ndjson", "entity_aliases", []string{"entity_alias_id"}, []string{"entity_alias_id", "record_id"}, `INSERT INTO entity_aliases SELECT * FROM jsonb_populate_record(NULL::entity_aliases, $1::jsonb)`},
+		{"data/entity_mentions.ndjson", "entity_mentions", []string{"entity_mention_id"}, []string{"entity_mention_id", "source_record_id"}, `INSERT INTO entity_mentions SELECT * FROM jsonb_populate_record(NULL::entity_mentions, $1::jsonb)`},
+	}
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

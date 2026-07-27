@@ -3,6 +3,13 @@
   "owner_id": "module.incidentbundles",
   "verifications": [
     {
+      "verification_id": "module.incidentbundles.verification.atomic_coordination",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.incidentbundles.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",
@@ -11,12 +18,47 @@
       ]
     },
     {
+      "verification_id": "module.incidentbundles.verification.compatibility",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["artifact_audit", "go_test"],
+      "public_target": "test-fast"
+    },
+    {
       "verification_id": "module.incidentbundles.verification.extensions_portability",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.incidentbundles.verification.named_recovery",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.incidentbundles.verification.safe_failures",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["artifact_audit", "go_test"],
+      "public_target": "test-fast"
+    },
+    {
+      "verification_id": "module.incidentbundles.verification.source_catalog",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["artifact_audit", "go_test", "static_check"],
+      "public_target": "test-fast"
+    },
+    {
+      "verification_id": "module.incidentbundles.verification.traceability",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": ["artifact_audit", "static_check"],
+      "public_target": "json-shape-check"
     }
   ]
 }

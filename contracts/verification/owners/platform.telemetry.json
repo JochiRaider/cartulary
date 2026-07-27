@@ -11,6 +11,13 @@
         "static_check"
       ],
       "public_target": "otel-conformance"
+    },
+    {
+      "verification_id": "platform.telemetry.verification.incident_bundle_v1_import",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": ["go_test", "static_check"],
+      "public_target": "test-fast"
     }
   ]
 }

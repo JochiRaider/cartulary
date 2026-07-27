@@ -789,7 +789,9 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:incident_portability`
-- additional acceptance criteria: `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`, `AC-440`, `AC-442`
+- additional acceptance criteria: `AC-164..AC-169`, `AC-236`,
+  `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`,
+  `AC-440`, `AC-442`, `AC-487..AC-507`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1858,10 +1860,158 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-467..REQ-01-469, REQ-01-483..REQ-01-484
 - **AC-275**: `POST /api/v1/incident-bundles/import` accepts only `multipart/form-data` with a required `boundary`, exactly two leaf parts named `metadata` and `file`, and no alternate upload framing; part order is non-semantic; the `metadata` part uses `Content-Type: application/json` or `application/json; charset=utf-8`, is UTF-8 and BOM-free, parses as one JSON object, and contains required `client_txn_id`; the `file` part media type is exactly one of `application/zip`, `application/x-tar`, `application/gzip`, `application/x-gzip`, or `application/octet-stream`; duplicate or unexpected parts, malformed metadata JSON, duplicate metadata keys, a metadata JSON value that is not an object, invalid part content type, or any envelope failure create no idempotency commit and no import job; replaying the same normalized metadata and file bytes by the same actor with the same `client_txn_id` returns the original accepted `202` result even when boundary text, part order, or advisory filename differ; the route returns `202` with the common job resource, uses `result_summary.code='incident_bundle_imported'` plus exactly one `resource_refs[]` item `{ kind='incident', id=<incident_id>, route='/api/v1/incidents/{incident_id}' }` on terminal success, and rejects clone, merge, identifier-remap, or remote-fetch modes.
   - Verifies: REQ-01-467..REQ-01-470, REQ-01-483, REQ-01-485, REQ-01-549..REQ-01-553
-- **AC-276**: Incident-bundle routes use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`; `invalid_incident_bundle_request` uses only `unsupported_upload_envelope`, `missing_required_part`, `duplicate_part`, `unexpected_part`, `invalid_part_content_type`, `invalid_metadata_encoding`, `malformed_metadata_json`, `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, `blob_mode_not_supported`, and `invalid_value`; multipart part-related failures populate `error.details.part_name`, and `invalid_part_content_type` also includes `error.details.received_content_type` plus `error.details.allowed_content_types[]`; export rejections surface only `missing_required_file` or `missing_required_blob`; and import rejections surface only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `missing_required_file`, `missing_required_blob`, `malformed_manifest`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, `archive_member_count_exceeded`, or `initial_admin_unavailable`.
+- **AC-276**: Incident-bundle routes use only
+  `invalid_incident_bundle_request`, `incident_bundle_not_found`,
+  `incident_bundle_export_rejected`, and
+  `incident_bundle_import_rejected`; `invalid_incident_bundle_request` uses
+  only `unsupported_upload_envelope`, `missing_required_part`,
+  `duplicate_part`, `unexpected_part`, `invalid_part_content_type`,
+  `invalid_metadata_encoding`, `malformed_metadata_json`,
+  `request_not_object`, `missing_required_field`, `field_not_nullable`,
+  `unknown_field`, `invalid_reference_pack_mode`,
+  `invalid_optional_sections`, `invalid_required_capabilities`,
+  `history_mode_not_supported`, `blob_mode_not_supported`, and
+  `invalid_value`; multipart part-related failures populate
+  `error.details.part_name`, and `invalid_part_content_type` also includes
+  `error.details.received_content_type` plus
+  `error.details.allowed_content_types[]`; export rejections surface only
+  `missing_required_file` or `missing_required_blob`; and import rejections
+  surface only `invalid_member_path`, `unsupported_member_type`,
+  `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`,
+  `duplicate_incident_id`, `unsupported_required_capability`,
+  `remote_fetch_required`, `missing_required_file`, `missing_required_blob`,
+  `malformed_manifest`, `unsupported_bundle_version`,
+  `source_family_invalid`, `archive_extracted_bytes_exceeded`,
+  `archive_compression_ratio_exceeded`, `archive_member_count_exceeded`, or
+  `initial_admin_unavailable`.
   - Verifies: REQ-01-471, REQ-01-486, REQ-01-553
 - **AC-442**: Successful incident-bundle import persists the submitting internal `user_id` at job admission, creates exactly one target-local membership for the imported incident with that user as `role='admin'`, creates the incident-wide `default_sheet_ref=null` and importer `home_sheet_ref=null` workbook-preference objects, emits one attributed `membership_created` administrative audit event, and makes the incident visible only after those objects, imported source state, and projections commit atomically. Historical actors, actor match hints, provider-subject hints, email hints, saved-view owners, and source-system role information create no additional memberships. Exact replay of a successful import creates no duplicate membership, preference object, audit event, or visible incident. If the submitter is missing, inactive, or no longer a deployment administrator at final publication, the job fails terminally with `incident_bundle_import_rejected` and `reason_code='initial_admin_unavailable'`, leaves no visible incident, leaves no membership or workbook preference object, and emits no successful membership audit event.
   - Verifies: REQ-00-058, REQ-01-448..REQ-01-450, REQ-01-485..REQ-01-486, REQ-01-609, REQ-03-290
+
+- **AC-487**: Two exports from identical authoritative incident state and
+  identical normalized export inputs produce byte-identical version `2`
+  structured members, canonical manifest bytes, checksum inventory, and
+  archive bytes; no export path emits version `1`.
+  - Verifies: REQ-01-428..REQ-01-442, REQ-01-635..REQ-01-636
+- **AC-488**: Importing a valid version `2` export into an empty deployment and
+  re-exporting it preserves authoritative incident and record identifiers,
+  source rows, history, attribution, Timeline state and provenance, blob
+  digests, and source-owner invariant results; the imported incident becomes
+  visible only through the final proven commit.
+  - Verifies: REQ-01-425..REQ-01-426, REQ-01-448..REQ-01-450,
+    REQ-01-609, REQ-01-636, REQ-01-640..REQ-01-641
+- **AC-489**: A valid retained version `1` archive imports successfully and its
+  subsequent version `2` export is semantically equivalent: the translator
+  preserves incident and record identity, row version, timestamps,
+  attribution, capture/review/supersession state, Timeline values, and every
+  source-identity, row-ordinal, column-ordinal, header, raw-value, and cell-kind
+  provenance fact; malformed or non-representable legacy capture fails with no
+  visible state.
+  - Verifies: REQ-01-635..REQ-01-636, REQ-01-640
+- **AC-490**: Before source preparation, import rejects omitted, JSON `null`,
+  and non-integer `bundle_version` with `malformed_manifest`; rejects an
+  integer outside `{1,2}` with `unsupported_bundle_version`; and rejects a
+  selected-version Timeline path mismatch, both Timeline path sets, an unknown
+  or duplicate core path, a missing required path, checksum failure, traversal,
+  unsupported member, extracted-byte excess, compression-ratio excess, or
+  member-count excess with the exact closed import reason and no codec
+  fallback.
+  - Verifies: REQ-01-428..REQ-01-430, REQ-01-433..REQ-01-438,
+    REQ-01-449, REQ-01-486, REQ-01-635, REQ-01-642
+- **AC-491**: Every imported Timeline row binds to one same-incident
+  `timeline_event` record envelope; version `2` files accept only their closed
+  row shapes; provenance composite identities are unique and non-orphaned; and
+  import loses or duplicates no provenance row.
+  - Verifies: REQ-01-636, REQ-01-640
+- **AC-492**: When Incident Portability is claimed, application composition
+  with a nil Jobs manager, nil runner, unconfigured runner, absent dequeue gate,
+  runner closed before publication, duplicate or failed handler registration,
+  or unavailable recovery exits before Incident Bundle routes, listeners,
+  readiness, or work are published.
+  - Verifies: REQ-01-637
+- **AC-493**: When Incident Portability is unclaimed, no Incident Bundle route
+  is exposed, no Incident Bundle handler is registered or invoked, and absence
+  of an Incident Portability-specific runner does not fail composition.
+  - Verifies: REQ-01-637
+- **AC-494**: The stable Incident Bundle handler is registered before
+  recovery; new and recoverable jobs execute only through named job-ID dispatch
+  and do not execute before dequeue-gate activation; no nil-receiver,
+  anonymous-work, inline, or unmanaged-goroutine path executes.
+  - Verifies: REQ-01-638
+- **AC-495**: Named dispatch failure, recovery failure, or post-publication
+  runner loss leaves the durable job queued or recoverable and closes
+  readiness/admission as applicable; restart produces exactly one terminal
+  result without duplicate incident, descriptor, publication, membership,
+  audit, or terminal-result effects.
+  - Verifies: REQ-01-450, REQ-01-638, REQ-01-641
+- **AC-496**: Catalog construction rejects each closed invalid class in
+  REQ-01-639, two valid builds produce the same FK-safe order, and every
+  required version `1` and version `2` core path has exactly one declared
+  consumer or validator.
+  - Verifies: REQ-01-635, REQ-01-639..REQ-01-640
+- **AC-497**: For each current source-owner family, at least one fixture that is
+  valid JSON and database-convertible but violates a named REQ-01-640 semantic
+  invariant fails with `incident_bundle_import_rejected`,
+  `reason_code='source_family_invalid'`, and the exact safe
+  `source_family_id` and `invariant_id`, and commits no visible state.
+  - Verifies: REQ-01-449, REQ-01-486, REQ-01-640, REQ-01-642
+- **AC-498**: Duplicate stable identities, cross-incident references,
+  cross-family orphans, affected-row mismatches, and a `tags.ndjson` catalog
+  unequal to the distinct imported record-tag names fail closed rather than
+  being ignored or merged.
+  - Verifies: REQ-01-639..REQ-01-640
+- **AC-499**: Every source actor referenced by imported state has exactly one
+  valid descriptor; a missing, malformed, or duplicate descriptor fails; and a
+  successful import creates no login-capable user, credential, provider
+  binding, deployment role, incident membership, or session from actor or
+  bundle contents.
+  - Verifies: REQ-01-443..REQ-01-444, REQ-01-640, REQ-01-642
+- **AC-500**: Failure or cancellation before, during, or after any preparation,
+  staging, owner apply, aggregate validation, revision repair, attribution,
+  projection rebuild, initial-administration, audit, or publication phase
+  leaves no visible incident, membership, preference, successful audit,
+  projection, terminal-success result, or final object reference; staged bytes
+  are absent or remain non-visible and retry-safe.
+  - Verifies: REQ-01-448..REQ-01-450, REQ-01-609, REQ-01-641
+- **AC-501**: Production incident import contains no descriptor-driven relation
+  interpolation and no generic `ON CONFLICT DO NOTHING`; each port uses fixed
+  owner-controlled persistence and affected-row equality, while shared
+  Incident Portability utilities are limited to admitted bounded codec,
+  canonicalization, safe-value, and actor-remap behavior.
+  - Verifies: REQ-01-639
+- **AC-502**: Unsupported-version and source-family failures expose only their
+  exact safe reasons and allowed details, and representative failures prove
+  that HTTP responses, job results, logs, telemetry, readiness,
+  administrative summaries, and operator output contain none of the forbidden
+  imported values or internal topology in REQ-01-642.
+  - Verifies: REQ-01-486, REQ-01-609, REQ-01-642
+- **AC-503**: Permuting archive-member order or source-row order without
+  changing semantic content produces the same selected codec, catalog order,
+  invariant outcome, public reason, visibility result, and deterministic
+  export.
+  - Verifies: REQ-01-441..REQ-01-442, REQ-01-639, REQ-01-641..REQ-01-642
+- **AC-504**: The typed traceability projection contains every
+  REQ-01-635..REQ-01-643-to-AC mapping and every AC-487..AC-507-to-verification
+  mapping with no orphan requirement, ungrounded criterion, missing owner, or
+  duplicate active verification row.
+  - Verifies: REQ-01-643
+- **AC-505**: Make-owned generation and drift checks prove that every affected
+  generated artifact equals its authored input, carries required generator
+  provenance, and satisfies generated-artifact policy with no manually edited
+  generated root or dependency lockfile.
+  - Verifies: REQ-01-643
+- **AC-506**: Version `1` import removal remains blocked until two stable
+  releases have exported version `2`, 180 days have elapsed since the first
+  adopting stable release, successful v1-import telemetry is zero for 30
+  consecutive days, operator inventory is clear, and a later Core revision
+  removes v1; an earlier projection date or unreleased build satisfies none of
+  those release-clock conditions.
+  - Verifies: REQ-01-635..REQ-01-636
+- **AC-507**: `incident.json`, `actors.ndjson`,
+  `reference_pack_refs.json`, and each admitted `ext/**` payload reject their
+  closed malformed, duplicate, mismatched, unknown, or unclaimed cases, invoke
+  exactly their admitted consumer, and publish no unauthorized state.
+  - Verifies: REQ-01-635, REQ-01-640, REQ-01-642
 
 - **AC-409**: Whole-incident portability preserves the boundary between incident data and deployment-local auth state: the exported bundle contains no login-capable local users, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, deployment-local administrative audit state including deployment and incident-membership administrative audit events, or idempotency state; importing that bundle into another deployment does not synthesize any of those states without explicit deployment-local administrative action; and historical actors import only as inert imported actors or historical descriptors, never as login-capable principals.
   - Verifies: REQ-02-204, REQ-02-249, REQ-04-038

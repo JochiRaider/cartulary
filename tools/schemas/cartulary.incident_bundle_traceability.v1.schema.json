@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle_traceability.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "mappings"],
+  "properties": {
+    "schema_id": { "const": "cartulary.incident_bundle_traceability.v1" },
+    "mappings": {
+      "type": "array",
+      "minItems": 21,
+      "maxItems": 21,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["acceptance_id", "requirement_ids", "verification_ids"],
+        "properties": {
+          "acceptance_id": { "pattern": "^AC-(48[7-9]|49[0-9]|50[0-7])$" },
+          "requirement_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "pattern": "^REQ-01-63[5-9]$|^REQ-01-64[0-3]$" } },
+          "verification_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  }
+}

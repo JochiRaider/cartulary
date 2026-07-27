@@ -10,7 +10,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/faulttest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -21,6 +20,7 @@ import (
 	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -119,7 +119,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 	})
 
 	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
-		harness := runtime.StartServerWithTestDependencies(t, "incident_membership-i-2-01-rollback", faulttest.IncidentCreateRollbackFaultDependencies())
+		harness := runtime.StartServerWithTestDependencies(t, "incident_membership-i-2-01-rollback", appsupport.IncidentCreateCommitFaultDependencies())
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(

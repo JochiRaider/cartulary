@@ -14,9 +14,10 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -108,19 +108,7 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 }
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
-	started := make(chan struct{})
-	release := make(chan struct{})
-	var startedOnce sync.Once
-	var releaseOnce sync.Once
-	deps := incidentbundles.DependencySetForTesting(incidentbundles.WithWorkerStartHookForTesting(func(jobKind string) {
-		if jobKind != "export" {
-			return
-		}
-		startedOnce.Do(func() { close(started) })
-		<-release
-	}))
-	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-	harness := scenariotest.StartRuntime(t).StartServerWithTestDependencies(t, "extension_profile-incident-bundle-export-auth", deps)
+	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-export-auth")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
@@ -164,16 +152,13 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		"role":          "admin",
 	})
 
+	dequeueGate := &incidentBundleTestDequeueGate{}
+	harness.Server.Runtime.JobRunner.ConfigureDequeueGate(dequeueGate)
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
 		"client_txn_id": "txn-export-auth-blocked",
 	}), http.StatusAccepted)["data"].(map[string]any)
 	jobID := exportJob["job_id"].(string)
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("incident bundle export worker did not reach test hook")
-	}
 
 	submitterRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireSuccessEnvelope(t, submitterRead, http.StatusOK)
@@ -201,7 +186,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, memberAdminCancel, http.StatusOK)
 
-	releaseOnce.Do(func() { close(release) })
+	recoverIncidentBundleJobsThroughGate(t, harness.Server, dequeueGate)
 	terminal := waitJobWithStatus(t, harness.Server, memberAdminLogin, jobID, "canceled")
 	if terminal["status"] != "canceled" {
 		t.Fatalf("export job must stop at canceled after authorized cancel: %#v", terminal)
@@ -506,6 +491,105 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	}
 }
 
+func TestIncidentBundleV1TranslationIsLossless_Integration(t *testing.T) {
+	runtime := scenariotest.StartRuntime(t)
+	sourceHarness := runtime.StartServer(t, "incident-bundle-v1-translation-source")
+	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-v1-translation-target")
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+		"client_txn_id": "txn-incident-bundle-v1-translation-source",
+		"incident_key":  "BUNDLE-V1-TRANSLATION",
+		"title":         "Incident bundle v1 translation",
+	})
+	incidentID := incident["incident_id"].(string)
+	row := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+		"client_txn_id":                   "txn-incident-bundle-v1-translation-row",
+		"timeline.activity_synopsis_text": "Lossless legacy translation",
+	})
+	recordID := row["row"].(map[string]any)["record_id"].(string)
+	sourceMetadata := map[string]any{
+		"source_kind":         "clipboard",
+		"paste_client_txn_id": "txn-legacy-source",
+		"mapping_fingerprint": strings.Repeat("a", 64),
+	}
+	sourceMetadataJSON, err := json.Marshal(sourceMetadata)
+	if err != nil {
+		t.Fatalf("encode legacy provenance metadata: %v", err)
+	}
+	sourceIdentity := sha256.Sum256(sourceMetadataJSON)
+	if _, err := sourceHarness.DB.Exec(`
+INSERT INTO timeline_source_provenance (
+    record_id, source_identity_hash, source_row_ordinal,
+    source_column_ordinal, source_kind, source_metadata,
+    source_header_json, raw_value, cell_kind, created_at
+) VALUES ($1, $2, 7, 3, 'clipboard', $3::jsonb, '["Legacy Header"]'::jsonb, 'legacy raw value', 'text', now())
+`, recordID, sourceIdentity[:], sourceMetadataJSON); err != nil {
+		t.Fatalf("seed legacy provenance: %v", err)
+	}
+
+	v2Bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-v1-translation")
+	v1Bundle := convertV2TimelineBundleToV1(t, v2Bundle)
+	verified, err := incidentbundles.VerifyBundle(incidentbundles.VerificationInput{Bundle: v1Bundle})
+	if err != nil {
+		t.Fatalf("verify converted v1 bundle: %v", err)
+	}
+	if verified.Manifest.BundleVersion != incidentbundles.LegacyBundleVersion {
+		t.Fatalf("converted bundle version = %d; want %d", verified.Manifest.BundleVersion, incidentbundles.LegacyBundleVersion)
+	}
+	terminal := importBundleAndWait(t, targetHarness.Server, targetAdmin, v1Bundle, "txn-import-v1-translation")
+	if terminal["status"] != "succeeded" {
+		t.Fatalf("v1 import terminal state = %#v", terminal)
+	}
+	var synopsis string
+	if err := targetHarness.DB.QueryRow(`
+SELECT activity_synopsis_text
+  FROM timeline_events
+ WHERE record_id = $1
+`, recordID).Scan(&synopsis); err != nil {
+		t.Fatalf("query translated timeline row: %v", err)
+	}
+	if synopsis != "Lossless legacy translation" {
+		t.Fatalf("translated timeline synopsis = %q", synopsis)
+	}
+	var identityHex string
+	var rowOrdinal int
+	var columnOrdinal int
+	var sourceKind string
+	var metadataJSON string
+	var headerJSON string
+	var rawValue string
+	var cellKind string
+	if err := targetHarness.DB.QueryRow(`
+SELECT encode(source_identity_hash, 'hex'), source_row_ordinal,
+       source_column_ordinal, source_kind, source_metadata::text,
+       source_header_json::text, raw_value, cell_kind
+  FROM timeline_source_provenance
+ WHERE record_id = $1
+`, recordID).Scan(
+		&identityHex, &rowOrdinal, &columnOrdinal, &sourceKind,
+		&metadataJSON, &headerJSON, &rawValue, &cellKind,
+	); err != nil {
+		t.Fatalf("query translated Timeline provenance: %v", err)
+	}
+	if identityHex != hex.EncodeToString(sourceIdentity[:]) ||
+		rowOrdinal != 7 || columnOrdinal != 3 || sourceKind != "clipboard" ||
+		rawValue != "legacy raw value" || cellKind != "text" {
+		t.Fatalf("translated Timeline provenance changed: %s/%d/%d/%s/%s/%s", identityHex, rowOrdinal, columnOrdinal, sourceKind, rawValue, cellKind)
+	}
+	var gotMetadata any
+	var wantMetadata any
+	if err := json.Unmarshal([]byte(metadataJSON), &gotMetadata); err != nil {
+		t.Fatalf("decode imported provenance metadata: %v", err)
+	}
+	if err := json.Unmarshal(sourceMetadataJSON, &wantMetadata); err != nil {
+		t.Fatalf("decode source provenance metadata: %v", err)
+	}
+	if !reflect.DeepEqual(gotMetadata, wantMetadata) || headerJSON != `["Legacy Header"]` {
+		t.Fatalf("translated Timeline provenance metadata changed: metadata=%s header=%s", metadataJSON, headerJSON)
+	}
+}
+
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-finalize-source")
@@ -547,35 +631,20 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			started := make(chan struct{})
-			release := make(chan struct{})
-			var startedOnce sync.Once
-			var releaseOnce sync.Once
-			deps := incidentbundles.DependencySetForTesting(incidentbundles.WithWorkerStartHookForTesting(func(jobKind string) {
-				if jobKind != "import" {
-					return
-				}
-				startedOnce.Do(func() { close(started) })
-				<-release
-			}))
-			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "extension_profile-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
+			targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"))
 			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 			observerPassword := "ExtensionProfileImportObserverPass!"
 			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "extension_profile-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
 			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
+			dequeueGate := &incidentBundleTestDequeueGate{}
+			targetHarness.Server.Runtime.JobRunner.ConfigureDequeueGate(dequeueGate)
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
-			select {
-			case <-started:
-			case <-time.After(5 * time.Second):
-				t.Fatal("incident bundle import worker did not reach test hook")
-			}
 
 			tc.mutate(t, targetHarness.DB, targetAdminID)
-			releaseOnce.Do(func() { close(release) })
+			recoverIncidentBundleJobsThroughGate(t, targetHarness.Server, dequeueGate)
 
 			terminal := waitFailedJob(t, targetHarness.Server, observerLogin, job["job_id"].(string))
 			requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", "initial_admin_unavailable")
@@ -587,6 +656,25 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			}
 			assertNoIncidentBundleStaging(t, targetHarness.Server)
 		})
+	}
+}
+
+type incidentBundleTestDequeueGate struct {
+	open atomic.Bool
+}
+
+func (gate *incidentBundleTestDequeueGate) AdmissionOpen() bool {
+	return gate != nil && gate.open.Load()
+}
+
+func recoverIncidentBundleJobsThroughGate(t testing.TB, server *httptestx.Server, gate *incidentBundleTestDequeueGate) {
+	t.Helper()
+	if err := server.Runtime.JobRunner.RecoverHandler(context.Background(), incidentbundles.BundleWorkerKind); err != nil {
+		t.Fatalf("queue Incident Bundle recovery behind dequeue gate: %v", err)
+	}
+	gate.open.Store(true)
+	if err := server.Runtime.JobRunner.Activate(context.Background()); err != nil {
+		t.Fatalf("activate Incident Bundle recovery through dequeue gate: %v", err)
 	}
 }
 
@@ -717,7 +805,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 				if err := json.Unmarshal(original, &manifest); err != nil {
 					t.Fatalf("decode manifest: %v", err)
 				}
-				manifest["bundle_version"] = float64(3)
+				manifest["bundle_version"] = nil
 				payload, err := json.Marshal(manifest)
 				if err != nil {
 					t.Fatalf("encode manifest: %v", err)
@@ -725,6 +813,23 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 				return append(payload, '\n')
 			}),
 			wantReason: "malformed_manifest",
+		},
+		{
+			name: "unsupported bundle version",
+			txn:  "txn-import-unsupported-bundle-version",
+			bundle: replaceZipMember(t, bundleBytes, "manifest.json", func(original []byte) []byte {
+				var manifest map[string]any
+				if err := json.Unmarshal(original, &manifest); err != nil {
+					t.Fatalf("decode manifest: %v", err)
+				}
+				manifest["bundle_version"] = float64(3)
+				payload, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatalf("encode manifest: %v", err)
+				}
+				return append(payload, '\n')
+			}),
+			wantReason: "unsupported_bundle_version",
 		},
 		{
 			name: "unsupported required capability",
@@ -1758,6 +1863,182 @@ func replaceZipMemberAndChecksum(t testing.TB, bundle []byte, memberPath string,
 	})
 }
 
+func convertV2TimelineBundleToV1(t testing.TB, bundle []byte) []byte {
+	t.Helper()
+	files := zipMemberMap(t, bundle)
+	var manifest incidentbundles.BundleManifest
+	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
+		t.Fatalf("decode v2 manifest for v1 conversion: %v", err)
+	}
+	recordEnvelopes := ndjsonRowsByIdentity(t, files["data/records.ndjson"], "record_id")
+	provenanceRows := decodeNDJSONRows(t, files["data/timeline_source_provenance.ndjson"])
+	provenanceByRecord := map[string][]map[string]any{}
+	for _, provenance := range provenanceRows {
+		recordID, _ := provenance["record_id"].(string)
+		provenanceByRecord[recordID] = append(provenanceByRecord[recordID], provenance)
+	}
+	legacyRows := decodeNDJSONRows(t, files["data/timeline_records.ndjson"])
+	var legacyPayload bytes.Buffer
+	for _, legacyRow := range legacyRows {
+		recordID, _ := legacyRow["record_id"].(string)
+		envelope := recordEnvelopes[recordID]
+		for target, source := range map[string]string{
+			"row_version":        "row_version",
+			"recorded_at":        "created_at",
+			"edited_at":          "updated_at",
+			"created_by_user_id": "created_by_user_id",
+			"updated_by_user_id": "updated_by_user_id",
+		} {
+			legacyRow[target] = envelope[source]
+		}
+		importColumns := make([]map[string]any, 0, len(provenanceByRecord[recordID]))
+		for _, provenance := range provenanceByRecord[recordID] {
+			column := map[string]any{
+				"source_kind":           provenance["source_kind"],
+				"source_row_ordinal":    provenance["source_row_ordinal"],
+				"source_column_ordinal": provenance["source_column_ordinal"],
+				"source_header_text":    provenance["source_header"],
+				"raw_value":             provenance["raw_value"],
+			}
+			if cellKind, ok := provenance["cell_kind"]; ok && cellKind != nil && cellKind != "" {
+				column["cell_kind"] = cellKind
+			}
+			if metadata, ok := provenance["source_metadata"].(map[string]any); ok {
+				for key, value := range metadata {
+					if key != "source_kind" {
+						column[key] = value
+					}
+				}
+			}
+			importColumns = append(importColumns, column)
+		}
+		legacyRow["raw_capture"] = map[string]any{"import_columns": importColumns}
+		encoded, err := json.Marshal(legacyRow)
+		if err != nil {
+			t.Fatalf("encode v1 Timeline row: %v", err)
+		}
+		legacyPayload.Write(encoded)
+		legacyPayload.WriteByte('\n')
+	}
+	files["data/timeline_time_conversion_profiles.ndjson"] = files["data/timeline_time_profiles.ndjson"]
+	files["data/timeline_events.ndjson"] = legacyPayload.Bytes()
+	delete(files, "data/timeline_time_profiles.ndjson")
+	delete(files, "data/timeline_records.ndjson")
+	delete(files, "data/timeline_source_provenance.ndjson")
+	delete(files, "manifest.json")
+	delete(files, "integrity/checksums.sha256")
+
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		if !strings.HasPrefix(path, "integrity/") {
+			paths = append(paths, path)
+		}
+	}
+	slices.Sort(paths)
+	manifest.Files = make([]incidentbundles.ManifestFile, 0, len(paths))
+	for _, path := range paths {
+		manifest.Files = append(manifest.Files, incidentbundles.ManifestFile{
+			Path:      path,
+			SHA256:    "sha256:" + hashHexBytes(files[path]),
+			SizeBytes: int64(len(files[path])),
+			Required:  !strings.HasPrefix(path, "ext/"),
+		})
+	}
+	sourceBoundaryBytes, err := json.Marshal(manifest.Files)
+	if err != nil {
+		t.Fatalf("encode v1 source boundary: %v", err)
+	}
+	manifest.BundleVersion = incidentbundles.LegacyBundleVersion
+	manifest.SourceChangeSetHighWatermark = "cartulary.source_boundary.v1:" + hashHexBytes(sourceBoundaryBytes)
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("encode v1 manifest: %v", err)
+	}
+	files["manifest.json"] = append(manifestBytes, '\n')
+	checksumLines := make([]string, 0, len(paths))
+	for _, path := range paths {
+		checksumLines = append(checksumLines, hashHexBytes(files[path])+"  "+path)
+	}
+	files["integrity/checksums.sha256"] = []byte(strings.Join(checksumLines, "\n") + "\n")
+	return writeZipMemberMap(t, files)
+}
+
+func zipMemberMap(t testing.TB, bundle []byte) map[string][]byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
+	if err != nil {
+		t.Fatalf("open zip member map: %v", err)
+	}
+	files := make(map[string][]byte, len(reader.File))
+	for _, member := range reader.File {
+		rc, err := member.Open()
+		if err != nil {
+			t.Fatalf("open zip member %s: %v", member.Name, err)
+		}
+		payload, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read zip member %s: %v", member.Name, err)
+		}
+		files[member.Name] = payload
+	}
+	return files
+}
+
+func writeZipMemberMap(t testing.TB, files map[string][]byte) []byte {
+	t.Helper()
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	for _, path := range paths {
+		member, err := writer.Create(path)
+		if err != nil {
+			t.Fatalf("create zip member %s: %v", path, err)
+		}
+		if _, err := member.Write(files[path]); err != nil {
+			t.Fatalf("write zip member %s: %v", path, err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close v1 zip: %v", err)
+	}
+	return output.Bytes()
+}
+
+func decodeNDJSONRows(t testing.TB, payload []byte) []map[string]any {
+	t.Helper()
+	lines := bytes.Split(bytes.TrimSpace(payload), []byte("\n"))
+	rows := make([]map[string]any, 0, len(lines))
+	for _, line := range lines {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var row map[string]any
+		if err := json.Unmarshal(line, &row); err != nil {
+			t.Fatalf("decode NDJSON row: %v", err)
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func ndjsonRowsByIdentity(t testing.TB, payload []byte, identity string) map[string]map[string]any {
+	t.Helper()
+	result := map[string]map[string]any{}
+	for _, row := range decodeNDJSONRows(t, payload) {
+		key, _ := row[identity].(string)
+		if key == "" {
+			t.Fatalf("NDJSON row has no %s identity: %#v", identity, row)
+		}
+		result[key] = row
+	}
+	return result
+}
+
 func rewriteZipMembers(t testing.TB, bundle []byte, transform func(path string, data []byte) ([]byte, bool)) []byte {
 	t.Helper()
 	reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
@@ -1909,17 +2190,7 @@ func startIsolatedIncidentBundleServer(t testing.TB, runtime *scenariotest.Runti
 	return startIsolatedIncidentBundleServerWithEnv(t, runtime, prefix, nil)
 }
 
-func startIsolatedIncidentBundleServerWithDependencies(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, deps httpapi.DependencySet) *scenariotest.ServerHarness {
-	t.Helper()
-	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, nil, deps, httptestx.TestRouteModeHarnessOwned)
-}
-
 func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, extraEnv map[string]string) *scenariotest.ServerHarness {
-	t.Helper()
-	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, extraEnv, httpapi.DependencySet{}, httptestx.TestRouteModeDisabled)
-}
-
-func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, extraEnv map[string]string, deps httpapi.DependencySet, routeMode httptestx.TestRouteMode) *scenariotest.ServerHarness {
 	t.Helper()
 	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
 	bucket, err := runtime.S3.BootstrapBucket(context.Background(), prefix)
@@ -1934,7 +2205,7 @@ func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runti
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps, TestRouteMode: routeMode})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, TestRouteMode: httptestx.TestRouteModeDisabled})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open isolated target db: %v", err)

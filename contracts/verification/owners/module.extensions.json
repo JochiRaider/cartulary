@@ -21,6 +21,13 @@
         "go_test",
         "static_check"
       ]
+    },
+    {
+      "verification_id": "module.extensions.verification.incident_portability_jobs",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
     }
   ]
 }

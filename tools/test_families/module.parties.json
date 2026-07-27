@@ -39,7 +39,8 @@
       "family_id": "module.parties.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.parties.verification.behavior_contract"
+        "module.parties.verification.behavior_contract",
+        "module.parties.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

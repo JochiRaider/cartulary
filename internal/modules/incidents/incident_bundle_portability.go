@@ -26,11 +26,20 @@ func ImportIncidentBundleIncidentTx(ctx context.Context, tx pgx.Tx, payload []by
 	if err := json.Unmarshal(payload, &row); err != nil {
 		return &incidentportability.MalformedPayloadError{Err: err}
 	}
-	incidentportability.RemapTopLevelUserFields(row, "incidents", actorUserID, attributions)
+	if err := incidentportability.ValidateRequiredColumns(row, []string{"id", "incident_key"}, []string{"id"}); err != nil {
+		return err
+	}
+	incidentportability.RemapTopLevelUserFields(row, "incidents", []string{"id"}, actorUserID, attributions)
 	raw, err := json.Marshal(row)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO incidents SELECT * FROM jsonb_populate_record(NULL::incidents, $1::jsonb)`, raw)
-	return err
+	tag, err := tx.Exec(ctx, `INSERT INTO incidents SELECT * FROM jsonb_populate_record(NULL::incidents, $1::jsonb)`, raw)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+	}
+	return nil
 }

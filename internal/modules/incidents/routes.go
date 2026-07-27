@@ -64,10 +64,6 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	hooks, err := storeHooksFromDependencies(deps)
-	if err != nil {
-		return nil, err
-	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -78,7 +74,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:                newStoreWithHooksAndOptions(deps.PostgresHandle(), hooks, StoreOptions{}),
+		store:                NewStore(deps.PostgresHandle()),
 		authStore:            authn.NewStore(deps.PostgresHandle()),
 		collaborationSession: options.CollaborationSession,
 		keys:                 keys,

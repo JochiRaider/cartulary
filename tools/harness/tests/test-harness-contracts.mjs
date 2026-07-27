@@ -270,10 +270,10 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.evidence_epoch, "cartulary.test_evidence.nlspec.v1");
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
-  assert.equal(catalog.summary.owner_count, 59);
-  assert.equal(catalog.summary.family_count, 198);
-  assert.equal(catalog.summary.row_count, 879);
-  assert.equal(catalog.summary.selector_count, 1615);
+  assert.equal(catalog.summary.owner_count, 60);
+  assert.equal(catalog.summary.family_count, 200);
+  assert.equal(catalog.summary.row_count, 885);
+  assert.equal(catalog.summary.selector_count, 1638);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,

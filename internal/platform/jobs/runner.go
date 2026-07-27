@@ -68,6 +68,21 @@ func (r *Runner) Configure(manager *Manager) {
 	r.manager = manager
 }
 
+func (r *Runner) ValidateNamedConfiguration(manager *Manager) error {
+	if r == nil || manager == nil {
+		return ErrNotConfigured
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return ErrRunnerClosed
+	}
+	if r.manager == nil || r.manager != manager || r.gate == nil {
+		return ErrNotConfigured
+	}
+	return nil
+}
+
 func (r *Runner) RegisterHandler(name string, handler HandlerFunc) error {
 	if r == nil || name == "" || handler == nil {
 		return ErrInvalidJobDefinition

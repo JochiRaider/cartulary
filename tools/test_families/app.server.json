@@ -698,7 +698,8 @@
         "module.extensions"
       ],
       "verification_ids": [
-        "app.server.verification.behavior_contract"
+        "app.server.verification.behavior_contract",
+        "app.server.verification.incident_portability_composition"
       ],
       "runner": "go",
       "selector": {

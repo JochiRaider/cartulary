@@ -1147,7 +1147,19 @@
         },
         {
           "code": "malformed_manifest",
-          "summary": "The incident-bundle manifest is malformed or outside the supported format version."
+          "summary": "The incident-bundle manifest is malformed, has a non-integer version, or has a version/path mismatch."
+        },
+        {
+          "code": "unsupported_bundle_version",
+          "summary": "The incident-bundle manifest carries an integer bundle version that this deployment does not support."
+        },
+        {
+          "code": "source_family_invalid",
+          "summary": "A closed source family failed one named semantic invariant; safe details contain only source_family_id and invariant_id."
+        },
+        {
+          "code": "initial_admin_unavailable",
+          "summary": "The submitting deployment user cannot receive the imported incident's required initial administration state."
         },
         {
           "code": "archive_extracted_bytes_exceeded",

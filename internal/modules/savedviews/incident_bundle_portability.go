@@ -23,7 +23,8 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	payload, ok := files[incidentportability.TargetSavedViews.LogicalBundlePath]
+	spec := savedViewImportSpec()
+	payload, ok := files[spec.LogicalBundlePath]
 	if !ok {
 		return &incidentportability.VerificationFailure{ReasonCode: "missing_required_file"}
 	}
@@ -32,15 +33,25 @@ func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[strin
 		return err
 	}
 	for _, row := range rows {
-		if err := validateAndNormalizeImportedSavedView(row); err != nil {
+		if err := validateAndNormalizeImportedSavedView(row, spec); err != nil {
 			return err
 		}
 	}
-	return incidentportability.ImportRows(ctx, tx, incidentportability.TargetSavedViews, rows, actorUserID, attributions)
+	return incidentportability.ImportFixedRows(ctx, tx, spec, rows, actorUserID, attributions)
 }
 
-func validateAndNormalizeImportedSavedView(row map[string]any) error {
-	if err := incidentportability.ValidateRequiredColumns(incidentportability.TargetSavedViews, row); err != nil {
+func savedViewImportSpec() incidentportability.FixedImportSpec {
+	return incidentportability.FixedImportSpec{
+		LogicalBundlePath: "data/saved_views.ndjson",
+		AttributionTable:  "saved_views",
+		StableIdentity:    []string{"saved_view_id"},
+		RequiredColumns:   []string{"saved_view_id", "incident_id", "view_schema_id", "scope", "display_name", "query_json", "layout_json", "owner_user_id", "created_at", "updated_at", "saved_view_version"},
+		InsertSQL:         `INSERT INTO saved_views SELECT * FROM jsonb_populate_record(NULL::saved_views, $1::jsonb)`,
+	}
+}
+
+func validateAndNormalizeImportedSavedView(row map[string]any, spec incidentportability.FixedImportSpec) error {
+	if err := incidentportability.ValidateRequiredColumns(row, spec.RequiredColumns, spec.StableIdentity); err != nil {
 		return err
 	}
 	if _, err := uuid.Parse(requiredString(row, "saved_view_id")); err != nil {

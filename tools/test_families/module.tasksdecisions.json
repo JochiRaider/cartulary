@@ -39,7 +39,8 @@
       "family_id": "module.tasksdecisions.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.tasksdecisions.verification.behavior_contract"
+        "module.tasksdecisions.verification.behavior_contract",
+        "module.tasksdecisions.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

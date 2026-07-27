@@ -634,7 +634,8 @@
         "platform.rootedfs"
       ],
       "verification_ids": [
-        "module.networkflow.verification.behavior_contract"
+        "module.networkflow.verification.behavior_contract",
+        "module.networkflow.verification.incident_portability_extension"
       ],
       "runner": "go",
       "selector": {

@@ -127,6 +127,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.records",
+      "manifest_path": "tools/test_families/module.records.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.recovery",
       "manifest_path": "tools/test_families/module.recovery.json",
       "status": "active"

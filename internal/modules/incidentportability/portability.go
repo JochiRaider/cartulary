@@ -23,7 +23,15 @@ type File struct {
 }
 
 type AttributionRecorder interface {
-	RecordImportedAttribution(table string, row map[string]any, column string, sourceActorID string)
+	RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string)
+}
+
+type FixedImportSpec struct {
+	LogicalBundlePath string
+	AttributionTable  string
+	StableIdentity    []string
+	RequiredColumns   []string
+	InsertSQL         string
 }
 
 type MalformedPayloadError struct {
@@ -82,41 +90,41 @@ func EncodeRows(rows pgx.Rows) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func ImportBundleFileNDJSON(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, files map[string][]byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	payload, ok := files[target.LogicalBundlePath]
+func ImportFixedBundleFileNDJSON(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, files map[string][]byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	payload, ok := files[spec.LogicalBundlePath]
 	if !ok {
 		return &VerificationFailure{ReasonCode: "missing_required_file"}
-	}
-	return ImportNDJSON(ctx, tx, target, payload, actorUserID, attributions)
-}
-
-func ImportNDJSON(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, payload []byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	if err := validateRegisteredImportTarget(target); err != nil {
-		return err
 	}
 	rows, err := DecodeNDJSON(payload)
 	if err != nil {
 		return err
 	}
-	return ImportRows(ctx, tx, target, rows, actorUserID, attributions)
+	return ImportFixedRows(ctx, tx, spec, rows, actorUserID, attributions)
 }
 
-func ImportRows(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, rows []map[string]any, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	if err := validateRegisteredImportTarget(target); err != nil {
-		return err
+func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows []map[string]any, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	if strings.TrimSpace(spec.LogicalBundlePath) == "" ||
+		strings.TrimSpace(spec.AttributionTable) == "" ||
+		len(spec.StableIdentity) == 0 ||
+		len(spec.RequiredColumns) == 0 ||
+		strings.TrimSpace(spec.InsertSQL) == "" {
+		return &VerificationFailure{ReasonCode: "malformed_manifest"}
 	}
 	for _, row := range rows {
-		if err := ValidateRequiredColumns(target, row); err != nil {
+		if err := ValidateRequiredColumns(row, spec.RequiredColumns, spec.StableIdentity); err != nil {
 			return err
 		}
-		RemapTopLevelUserFields(row, target.TargetRelation, actorUserID, attributions)
+		RemapTopLevelUserFields(row, spec.AttributionTable, spec.StableIdentity, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
 		}
-		query := fmt.Sprintf("INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb) ON CONFLICT DO NOTHING", target.TargetRelation, target.TargetRelation)
-		if _, err := tx.Exec(ctx, query, raw); err != nil {
+		tag, err := tx.Exec(ctx, spec.InsertSQL, raw)
+		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return &VerificationFailure{ReasonCode: "duplicate_source_row"}
 		}
 	}
 	return nil
@@ -145,7 +153,32 @@ func DecodeNDJSON(payload []byte) ([]map[string]any, error) {
 	return rows, nil
 }
 
-func RemapTopLevelUserFields(row map[string]any, table string, actorUserID uuid.UUID, attributions AttributionRecorder) {
+func ValidateRequiredColumns(row map[string]any, required []string, identity []string) error {
+	for _, column := range required {
+		if _, ok := row[column]; !ok {
+			return &VerificationFailure{ReasonCode: "malformed_manifest"}
+		}
+	}
+	if SourceRowID(row, identity) == "" {
+		return &VerificationFailure{ReasonCode: "malformed_manifest"}
+	}
+	return nil
+}
+
+func SourceRowID(row map[string]any, identity []string) string {
+	parts := make([]string, 0, len(identity))
+	for _, column := range identity {
+		value := StringFromAny(row[column])
+		if strings.TrimSpace(value) == "" {
+			return ""
+		}
+		parts = append(parts, value)
+	}
+	return strings.Join(parts, ":")
+}
+
+func RemapTopLevelUserFields(row map[string]any, table string, identity []string, actorUserID uuid.UUID, attributions AttributionRecorder) {
+	sourceRowID := SourceRowID(row, identity)
 	for key, value := range row {
 		if !strings.HasSuffix(key, "_user_id") || value == nil {
 			continue
@@ -154,8 +187,8 @@ func RemapTopLevelUserFields(row map[string]any, table string, actorUserID uuid.
 		if strings.TrimSpace(sourceActorID) == "" {
 			continue
 		}
-		if attributions != nil {
-			attributions.RecordImportedAttribution(table, row, key, sourceActorID)
+		if attributions != nil && sourceRowID != "" {
+			attributions.RecordImportedAttribution(table, sourceRowID, key, sourceActorID)
 		}
 		row[key] = actorUserID.String()
 	}

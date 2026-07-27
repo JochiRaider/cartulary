@@ -110,6 +110,10 @@
       "contract_path": "contracts/verification/owners/module.projections.json"
     },
     {
+      "owner_id": "module.records",
+      "contract_path": "contracts/verification/owners/module.records.json"
+    },
+    {
       "owner_id": "module.recovery",
       "contract_path": "contracts/verification/owners/module.recovery.json"
     },

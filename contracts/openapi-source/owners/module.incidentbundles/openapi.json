@@ -30,6 +30,9 @@
           },
           "400": {
             "description": "Invalid incident-bundle export request",
+            "x-cartulary-error-codes": [
+              "invalid_incident_bundle_request"
+            ],
             "content": {
               "application/json": {
                 "schema": {
@@ -40,6 +43,10 @@
           },
           "409": {
             "description": "Export rejected or idempotency conflict",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "incident_bundle_export_rejected"
+            ],
             "content": {
               "application/json": {
                 "schema": {
@@ -93,6 +100,9 @@
           },
           "400": {
             "description": "Invalid singleton read query",
+            "x-cartulary-error-codes": [
+              "invalid_list_query"
+            ],
             "content": {
               "application/json": {
                 "schema": {
@@ -103,6 +113,9 @@
           },
           "404": {
             "description": "Incident bundle descriptor not found",
+            "x-cartulary-error-codes": [
+              "incident_bundle_not_found"
+            ],
             "content": {
               "application/json": {
                 "schema": {
@@ -153,6 +166,9 @@
           },
           "400": {
             "description": "Invalid incident-bundle import request",
+            "x-cartulary-error-codes": [
+              "invalid_incident_bundle_request"
+            ],
             "content": {
               "application/json": {
                 "schema": {
@@ -163,6 +179,10 @@
           },
           "409": {
             "description": "Import rejected or idempotency conflict",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "incident_bundle_import_rejected"
+            ],
             "content": {
               "application/json": {
                 "schema": {

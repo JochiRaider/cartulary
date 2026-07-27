@@ -1,8 +1,11 @@
 package networkflow
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
@@ -61,6 +64,20 @@ func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), reason) {
 				t.Fatalf("failure %q error = %v; want %q", failure, err, reason)
 			}
+		}
+	})
+
+	t.Run("incident portability binding is closed and inert before query", func(t *testing.T) {
+		if _, err := NewPortabilityStateBinding(nil); err == nil {
+			t.Fatal("nil PostgreSQL dependency was admitted")
+		}
+		binding := &PortabilityStateBinding{}
+		if _, err := binding.RetainedAuthoritativeStatePresent(
+			context.Background(),
+			uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+			[]string{ExtensionFamilyTables},
+		); err == nil {
+			t.Fatal("unconfigured portability binding was admitted")
 		}
 	})
 }

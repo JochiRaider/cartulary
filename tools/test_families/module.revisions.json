@@ -340,7 +340,8 @@
       "family_id": "module.revisions.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.revisions.verification.behavior_contract"
+        "module.revisions.verification.behavior_contract",
+        "module.revisions.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

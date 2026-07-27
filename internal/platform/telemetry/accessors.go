@@ -24,6 +24,7 @@ const (
 	ScopeWorkbook      Scope = "cartulary.workbook"
 	ScopeCollaboration Scope = "cartulary.collaboration"
 	ScopeJobs          Scope = "cartulary.jobs"
+	ScopePortability   Scope = "cartulary.incident_portability"
 	ScopePostgres      Scope = "cartulary.postgres"
 	ScopeObjectStore   Scope = "cartulary.objectstore"
 	ScopeTelemetry     Scope = "cartulary.telemetry"
@@ -34,6 +35,7 @@ var registeredScopes = map[Scope]struct{}{
 	ScopeWorkbook:      {},
 	ScopeCollaboration: {},
 	ScopeJobs:          {},
+	ScopePortability:   {},
 	ScopePostgres:      {},
 	ScopeObjectStore:   {},
 	ScopeTelemetry:     {},

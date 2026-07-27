@@ -138,7 +138,9 @@ type VerifiedBundle struct {
 }
 
 type VerificationError struct {
-	ReasonCode string
+	ReasonCode     string
+	SourceFamilyID string
+	InvariantID    string
 }
 
 func (e *VerificationError) Error() string {
@@ -213,12 +215,16 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if !ok {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 	}
+	bundleVersion, err := parseBundleVersion(manifestBytes)
+	if err != nil {
+		return VerifiedBundle{}, err
+	}
 	var manifest BundleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
+	manifest.BundleVersion = bundleVersion
 	if manifest.BundleFormat != BundleFormat ||
-		(manifest.BundleVersion != BundleVersion && manifest.BundleVersion != LegacyBundleVersion) ||
 		manifest.HistoryMode != HistoryModeFull ||
 		manifest.BlobMode != BlobModeFull {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "malformed_manifest"}
@@ -238,7 +244,14 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	if len(manifest.RequiredCapabilities) > 0 {
 		return VerifiedBundle{}, &VerificationError{ReasonCode: "unsupported_required_capability"}
 	}
-	for _, pathName := range requiredStructuredFilesForVersion(manifest.BundleVersion) {
+	requiredPaths, err := requiredStructuredFilesForVersion(manifest.BundleVersion)
+	if err != nil {
+		return VerifiedBundle{}, err
+	}
+	if err := validateClosedBundlePaths(files, manifest.BundleVersion, requiredPaths); err != nil {
+		return VerifiedBundle{}, err
+	}
+	for _, pathName := range requiredPaths {
 		if _, ok := files[pathName]; !ok {
 			return VerifiedBundle{}, &VerificationError{ReasonCode: "missing_required_file"}
 		}
@@ -293,11 +306,80 @@ func VerifyBundle(input VerificationInput) (VerifiedBundle, error) {
 	}, nil
 }
 
-func requiredStructuredFilesForVersion(version int) []string {
-	if version == LegacyBundleVersion {
-		return requiredStructuredFilesV1
+func parseBundleVersion(manifestBytes []byte) (int, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(manifestBytes, &raw); err != nil {
+		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
 	}
-	return requiredStructuredFilesV2
+	value, ok := raw["bundle_version"]
+	if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	var version int
+	decoder := json.NewDecoder(bytes.NewReader(value))
+	if err := decoder.Decode(&version); err != nil {
+		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return 0, &VerificationError{ReasonCode: "malformed_manifest"}
+	}
+	switch version {
+	case LegacyBundleVersion, BundleVersion:
+		return version, nil
+	default:
+		return 0, &VerificationError{ReasonCode: "unsupported_bundle_version"}
+	}
+}
+
+func requiredStructuredFilesForVersion(version int) ([]string, error) {
+	switch version {
+	case LegacyBundleVersion:
+		return requiredStructuredFilesV1, nil
+	case BundleVersion:
+		return requiredStructuredFilesV2, nil
+	default:
+		return nil, &VerificationError{ReasonCode: "unsupported_bundle_version"}
+	}
+}
+
+func validateClosedBundlePaths(files map[string][]byte, version int, requiredPaths []string) error {
+	required := make(map[string]struct{}, len(requiredPaths))
+	for _, filePath := range requiredPaths {
+		required[filePath] = struct{}{}
+	}
+	selectedTimeline := map[string]struct{}{}
+	otherTimeline := map[string]struct{}{}
+	if version == LegacyBundleVersion {
+		selectedTimeline["data/timeline_time_conversion_profiles.ndjson"] = struct{}{}
+		selectedTimeline["data/timeline_events.ndjson"] = struct{}{}
+		otherTimeline["data/timeline_time_profiles.ndjson"] = struct{}{}
+		otherTimeline["data/timeline_records.ndjson"] = struct{}{}
+		otherTimeline["data/timeline_source_provenance.ndjson"] = struct{}{}
+	} else {
+		selectedTimeline["data/timeline_time_profiles.ndjson"] = struct{}{}
+		selectedTimeline["data/timeline_records.ndjson"] = struct{}{}
+		selectedTimeline["data/timeline_source_provenance.ndjson"] = struct{}{}
+		otherTimeline["data/timeline_time_conversion_profiles.ndjson"] = struct{}{}
+		otherTimeline["data/timeline_events.ndjson"] = struct{}{}
+	}
+	for filePath := range files {
+		if _, mismatch := otherTimeline[filePath]; mismatch {
+			return &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+		if !strings.HasPrefix(filePath, "data/") {
+			continue
+		}
+		if _, ok := required[filePath]; !ok {
+			return &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+	}
+	for filePath := range selectedTimeline {
+		if _, ok := files[filePath]; !ok {
+			return &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+	}
+	return nil
 }
 
 func removeRequiredStructuredFile(files []string, target string) []string {
@@ -438,6 +520,9 @@ func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
 			}
 			continue
 		}
+		if _, duplicate := files[member.Name]; duplicate {
+			return nil, &VerificationError{ReasonCode: "malformed_manifest"}
+		}
 		extracted += int64(member.UncompressedSize64)
 		if err := checkExtractedSize(extracted, limits); err != nil {
 			return nil, err
@@ -485,6 +570,9 @@ func readTarArchive(reader io.Reader, compressedSize int64, limits Limits) (map[
 				return nil, &VerificationError{ReasonCode: "unsupported_member_type"}
 			}
 			continue
+		}
+		if _, duplicate := files[header.Name]; duplicate {
+			return nil, &VerificationError{ReasonCode: "malformed_manifest"}
 		}
 		extracted += header.Size
 		if err := checkExtractedSize(extracted, limits); err != nil {

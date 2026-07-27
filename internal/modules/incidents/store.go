@@ -36,7 +36,6 @@ var (
 type Store struct {
 	pool                postgres.DB
 	authStore           *authn.Store
-	hooks               storeHooks
 	preferenceBootstrap PreferenceBootstrapPort
 }
 
@@ -139,10 +138,6 @@ func NewStore(pool postgres.DB) *Store {
 }
 
 func NewStoreWithOptions(pool postgres.DB, options StoreOptions) *Store {
-	return newStoreWithHooksAndOptions(pool, storeHooks{}, options)
-}
-
-func newStoreWithHooksAndOptions(pool postgres.DB, hooks storeHooks, options StoreOptions) *Store {
 	preferenceBootstrap := options.PreferenceBootstrap
 	if preferenceBootstrap == nil {
 		preferenceBootstrap = workbookpreferences.NewBootstrap()
@@ -150,7 +145,6 @@ func newStoreWithHooksAndOptions(pool postgres.DB, hooks storeHooks, options Sto
 	return &Store{
 		pool:                pool,
 		authStore:           authn.NewStore(pool),
-		hooks:               hooks,
 		preferenceBootstrap: preferenceBootstrap,
 	}
 }
@@ -408,9 +402,6 @@ func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, requ
 		return CreateIncidentResult{}, fmt.Errorf("insert incident idempotency: %w", err)
 	}
 
-	if err := s.beforeCommit("incidents.create", incident.ID); err != nil {
-		return CreateIncidentResult{}, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("commit incident create transaction: %w", err)
 	}
@@ -493,9 +484,6 @@ func (s *Store) UpdateIncident(ctx context.Context, actor authn.UserRecord, inci
 		return IncidentRecord{}, false, err
 	}
 
-	if err := s.beforeCommit("incidents.patch", incidentID); err != nil {
-		return IncidentRecord{}, false, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("commit incident patch transaction: %w", err)
 	}
@@ -611,9 +599,6 @@ func (s *Store) TransitionIncidentLifecycle(ctx context.Context, actor authn.Use
 		return IncidentLifecycleResult{}, fmt.Errorf("insert incident lifecycle idempotency: %w", err)
 	}
 
-	if err := s.beforeCommit(routeKey, incidentID); err != nil {
-		return IncidentLifecycleResult{}, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return IncidentLifecycleResult{}, fmt.Errorf("commit incident lifecycle transaction: %w", err)
 	}
@@ -727,9 +712,6 @@ func (s *Store) CreateMembership(ctx context.Context, actor authn.UserRecord, in
 		return MembershipCreateResult{}, err
 	}
 
-	if err := s.beforeCommit("incident.memberships.create", incidentID); err != nil {
-		return MembershipCreateResult{}, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return MembershipCreateResult{}, fmt.Errorf("commit membership create transaction: %w", err)
 	}
@@ -821,9 +803,6 @@ func (s *Store) UpdateMembership(ctx context.Context, actor authn.UserRecord, in
 		return MembershipRecord{}, false, err
 	}
 
-	if err := s.beforeCommit("incident.memberships.patch", incidentID); err != nil {
-		return MembershipRecord{}, false, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("commit membership patch transaction: %w", err)
 	}
@@ -887,9 +866,6 @@ func (s *Store) DeleteMembership(ctx context.Context, actor authn.UserRecord, in
 		return err
 	}
 
-	if err := s.beforeCommit("incident.memberships.delete", incidentID); err != nil {
-		return err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit membership delete transaction: %w", err)
 	}
@@ -1010,13 +986,6 @@ func countIncidentAdminsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID)
 
 func incidentLocation(incidentID uuid.UUID) string {
 	return "/api/v1/incidents/" + incidentID.String()
-}
-
-func (s *Store) beforeCommit(routeKey string, incidentID uuid.UUID) error {
-	if s == nil || s.hooks.beforeCommit == nil {
-		return nil
-	}
-	return s.hooks.beforeCommit(routeKey, incidentID)
 }
 
 func extractUUID(value any) (uuid.UUID, error) {

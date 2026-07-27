@@ -18,5 +18,11 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetParties, files, actorUserID, attributions)
+	return incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, incidentportability.FixedImportSpec{
+		LogicalBundlePath: "data/parties.ndjson",
+		AttributionTable:  "parties",
+		StableIdentity:    []string{"record_id"},
+		RequiredColumns:   []string{"record_id", "incident_id"},
+		InsertSQL:         `INSERT INTO parties SELECT * FROM jsonb_populate_record(NULL::parties, $1::jsonb)`,
+	}, files, actorUserID, attributions)
 }

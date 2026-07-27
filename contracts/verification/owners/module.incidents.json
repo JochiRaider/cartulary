@@ -13,6 +13,20 @@
       ]
     },
     {
+      "verification_id": "module.incidents.verification.incident_portability",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.incidents.verification.incident_portability_actors",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.incidents.verification.lifecycle_openapi_alignment",
       "behavior_class": "product",
       "profile": "base",

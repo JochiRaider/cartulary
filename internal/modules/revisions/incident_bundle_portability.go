@@ -30,14 +30,37 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	for _, spec := range []struct {
-		target incidentportability.ImportTargetDescriptor
-	}{
-		{incidentportability.TargetChangeSets},
-		{incidentportability.TargetChangeSetMutations},
-		{incidentportability.TargetRecordRevisions},
-	} {
-		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
+	specs := []incidentportability.FixedImportSpec{
+		{
+			"data/change_sets.ndjson", "change_sets", []string{"change_set_id"}, []string{"change_set_id", "incident_id", "actor_user_id"},
+			`INSERT INTO change_sets (change_set_id, incident_id, actor_user_id, source, reason, client_txn_id, request_id, created_at)
+SELECT (payload->>'change_set_id')::uuid, (payload->>'incident_id')::uuid,
+       (payload->>'actor_user_id')::uuid, payload->>'source', payload->>'reason',
+       payload->>'client_txn_id', payload->>'request_id',
+       (payload->>'created_at')::timestamp with time zone
+FROM (SELECT $1::jsonb AS payload) AS input`,
+		},
+		{
+			"data/change_set_mutations.ndjson", "change_set_mutations", []string{"change_set_id", "sequence_no"}, []string{"change_set_id", "sequence_no"},
+			`INSERT INTO change_set_mutations (change_set_id, sequence_no, target_kind, target_id, operation_kind, before_version_id, after_version_id, before_value, after_value)
+SELECT (payload->>'change_set_id')::uuid, (payload->>'sequence_no')::integer,
+       payload->>'target_kind', payload->>'target_id', payload->>'operation_kind',
+       payload->>'before_version_id', payload->>'after_version_id',
+       payload->'before_value', payload->'after_value'
+FROM (SELECT $1::jsonb AS payload) AS input`,
+		},
+		{
+			"data/record_revisions.ndjson", "record_revisions", []string{"revision_id"}, []string{"revision_id", "change_set_id", "record_id"},
+			`INSERT INTO record_revisions (revision_id, change_set_id, record_id, row_version, before_json, after_json, created_at)
+SELECT (payload->>'revision_id')::bigint, (payload->>'change_set_id')::uuid,
+       (payload->>'record_id')::uuid, (payload->>'row_version')::bigint,
+       payload->'before_json', payload->'after_json',
+       (payload->>'created_at')::timestamp with time zone
+FROM (SELECT $1::jsonb AS payload) AS input`,
+		},
+	}
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

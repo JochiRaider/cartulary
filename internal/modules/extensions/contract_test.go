@@ -22,6 +22,7 @@ import (
 
 const (
 	extensionsBehaviorVerification = "module.extensions.verification.behavior_contract"
+	extensionsPortabilityJobs      = "module.extensions.verification.incident_portability_jobs"
 	extensionsRoutingVerification  = "module.extensions.verification.behavior_routing"
 )
 
@@ -668,6 +669,16 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, rowID+" verification_ids")
 		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
 	}
+	namedPortabilityJobs, exists := rows["module.extensions.integration.named_portability_job_recovery_f7c496c10b"]
+	if !exists {
+		t.Fatal("named Incident Portability Jobs row is missing")
+	}
+	requireExactStrings(t, namedPortabilityJobs.VerificationIDs, []string{extensionsPortabilityJobs}, "named portability Jobs verification_ids")
+	requireExactStrings(t, namedPortabilityJobs.Selector.Tests, []string{
+		"TestRunnerDispatchesDurableHandlerAndCompletesJob",
+		"TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration",
+		"TestRunnerRecoversQueuedDurableHandlerJob",
+	}, "named portability Jobs selector.tests")
 	browserAvailability, exists := rows["module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"]
 	if !exists {
 		t.Fatal("Extensions browser availability continuity row is missing")
@@ -682,7 +693,7 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	}
 	requireExactStrings(t, inactiveConfiguration.VerificationIDs, []string{extensionsBehaviorVerification}, "inactive configuration verification_ids")
 	requireExactStrings(t, inactiveConfiguration.Selector.Tests, []string{"TestInactiveConfigurationCatalog_Unit"}, "inactive configuration selector.tests")
-	if got, want := len(rows), len(extensionBoundaryExpectations)+3+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
+	if got, want := len(rows), len(extensionBoundaryExpectations)+4+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
 		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
 	}
 	requireResolvedClaimSetIdentity(t)

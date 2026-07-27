@@ -10,7 +10,8 @@
         "module.workbook"
       ],
       "verification_ids": [
-        "module.artifacts.verification.behavior_contract"
+        "module.artifacts.verification.behavior_contract",
+        "module.artifacts.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

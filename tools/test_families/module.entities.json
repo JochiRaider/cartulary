@@ -252,7 +252,8 @@
       "family_id": "module.entities.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.entities.verification.behavior_contract"
+        "module.entities.verification.behavior_contract",
+        "module.entities.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

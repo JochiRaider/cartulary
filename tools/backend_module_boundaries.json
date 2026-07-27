@@ -25,12 +25,28 @@
       "id": "incidentbundles-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
       "allowed_importers": [
+        "internal/app/incidentportabilityassembly/**",
         "internal/app/extensionassembly/**",
         "internal/app/server/incident_bundle_storage.go",
+        "internal/app/server/extensions_publication_characterization_test.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
         "internal/app/server/runtime.go",
-        "internal/modules/incidentbundles/**"
+        "internal/modules/incidentbundles/**",
+        "internal/modules/artifacts/incident_bundle_source_port.go",
+        "internal/modules/assessments/incident_bundle_source_port.go",
+        "internal/modules/entities/incident_bundle_source_port.go",
+        "internal/modules/evidence/incident_bundle_source_port.go",
+        "internal/modules/incidents/incident_bundle_source_port.go",
+        "internal/modules/indicators/incident_bundle_source_port.go",
+        "internal/modules/links/incident_bundle_source_port.go",
+        "internal/modules/parties/incident_bundle_source_port.go",
+        "internal/modules/records/incident_bundle_source_port.go",
+        "internal/modules/records/incident_bundle_source_port_test.go",
+        "internal/modules/revisions/incident_bundle_source_port.go",
+        "internal/modules/savedviews/incident_bundle_source_port.go",
+        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
+        "internal/modules/timeline/incident_bundle_source_port.go"
       ]
     },
     {
@@ -42,6 +58,7 @@
         "internal/app/server/module_settings_test.go",
         "internal/app/server/reference_pack_storage.go",
         "internal/app/server/runtime.go",
+        "internal/modules/incidentbundles/source.go",
         "internal/modules/reference_data/**"
       ]
     },
@@ -136,15 +153,7 @@
       "allowed_importers": ["internal/modules/timeline/**"]
     }
   ],
-  "raw_ndjson_targets": [
-    {
-      "id": "incidentportability-raw-target",
-      "function": "incidentportability.ImportNDJSON",
-      "allowed_paths": [
-        "internal/modules/incidentportability/**"
-      ]
-    }
-  ],
+  "raw_ndjson_targets": [],
   "forbidden_route_dependencies": [
     {
       "id": "backend-route-package-import",

@@ -1,0 +1,26 @@
+{
+  "schema_id": "cartulary.incident_bundle_traceability.v1",
+  "mappings": [
+    {"acceptance_id": "AC-487", "requirement_ids": ["REQ-01-635", "REQ-01-636"], "verification_ids": ["module.incidentbundles.verification.compatibility"]},
+    {"acceptance_id": "AC-488", "requirement_ids": ["REQ-01-636", "REQ-01-641"], "verification_ids": ["module.incidentbundles.verification.compatibility", "module.incidentbundles.verification.atomic_coordination"]},
+    {"acceptance_id": "AC-489", "requirement_ids": ["REQ-01-635", "REQ-01-636"], "verification_ids": ["module.incidentbundles.verification.compatibility"]},
+    {"acceptance_id": "AC-490", "requirement_ids": ["REQ-01-635", "REQ-01-642"], "verification_ids": ["module.incidentbundles.verification.compatibility"]},
+    {"acceptance_id": "AC-491", "requirement_ids": ["REQ-01-636", "REQ-01-640"], "verification_ids": ["module.timeline.verification.incident_portability"]},
+    {"acceptance_id": "AC-492", "requirement_ids": ["REQ-01-637"], "verification_ids": ["app.server.verification.incident_portability_composition"]},
+    {"acceptance_id": "AC-493", "requirement_ids": ["REQ-01-637"], "verification_ids": ["app.server.verification.incident_portability_composition"]},
+    {"acceptance_id": "AC-494", "requirement_ids": ["REQ-01-638"], "verification_ids": ["module.incidentbundles.verification.named_recovery"]},
+    {"acceptance_id": "AC-495", "requirement_ids": ["REQ-01-638"], "verification_ids": ["module.incidentbundles.verification.named_recovery", "module.extensions.verification.incident_portability_jobs"]},
+    {"acceptance_id": "AC-496", "requirement_ids": ["REQ-01-639"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]},
+    {"acceptance_id": "AC-497", "requirement_ids": ["REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]},
+    {"acceptance_id": "AC-498", "requirement_ids": ["REQ-01-639", "REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]},
+    {"acceptance_id": "AC-499", "requirement_ids": ["REQ-01-640", "REQ-01-642"], "verification_ids": ["module.incidents.verification.incident_portability_actors"]},
+    {"acceptance_id": "AC-500", "requirement_ids": ["REQ-01-641"], "verification_ids": ["module.incidentbundles.verification.atomic_coordination"]},
+    {"acceptance_id": "AC-501", "requirement_ids": ["REQ-01-639", "REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]},
+    {"acceptance_id": "AC-502", "requirement_ids": ["REQ-01-642"], "verification_ids": ["module.incidentbundles.verification.safe_failures"]},
+    {"acceptance_id": "AC-503", "requirement_ids": ["REQ-01-639", "REQ-01-641", "REQ-01-642"], "verification_ids": ["module.incidentbundles.verification.atomic_coordination"]},
+    {"acceptance_id": "AC-504", "requirement_ids": ["REQ-01-643"], "verification_ids": ["module.incidentbundles.verification.traceability"]},
+    {"acceptance_id": "AC-505", "requirement_ids": ["REQ-01-643"], "verification_ids": ["harness.generated_artifacts.verification.policy"]},
+    {"acceptance_id": "AC-506", "requirement_ids": ["REQ-01-635", "REQ-01-636"], "verification_ids": ["module.incidentbundles.verification.compatibility"]},
+    {"acceptance_id": "AC-507", "requirement_ids": ["REQ-01-639", "REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]}
+  ]
+}

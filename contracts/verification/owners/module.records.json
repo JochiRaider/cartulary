@@ -1,0 +1,13 @@
+{
+  "schema_id": "cartulary.verification_contract.v3",
+  "owner_id": "module.records",
+  "verifications": [
+    {
+      "verification_id": "module.records.verification.incident_portability",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    }
+  ]
+}

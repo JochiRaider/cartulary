@@ -39,7 +39,8 @@
       "family_id": "module.links.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.links.verification.behavior_contract"
+        "module.links.verification.behavior_contract",
+        "module.links.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

@@ -18,9 +18,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
 
@@ -352,6 +355,68 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 }
 
+func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
+	files := minimalRequiredBundleFiles()
+	bundle, err := BuildBundleArchive(ManifestInput{
+		BundleID:          "22222222-2222-4222-8222-222222222222",
+		IncidentID:        "11111111-1111-4111-8111-111111111111",
+		IncidentKey:       "INC-VERSION-MALFORMED",
+		ExportedAt:        "2026-07-27T00:00:00Z",
+		ReferencePackMode: ReferencePackModeRefsOnly,
+	}, files)
+	if err != nil {
+		t.Fatalf("BuildBundleArchive: %v", err)
+	}
+	cases := map[string]func(map[string]any){
+		"omitted":     func(manifest map[string]any) { delete(manifest, "bundle_version") },
+		"null":        func(manifest map[string]any) { manifest["bundle_version"] = nil },
+		"string":      func(manifest map[string]any) { manifest["bundle_version"] = "2" },
+		"non_integer": func(manifest map[string]any) { manifest["bundle_version"] = 2.5 },
+	}
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, verifyErr := VerifyBundle(VerificationInput{
+				Bundle: replaceManifestFields(t, bundle.Bytes, mutate),
+				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+			})
+			if !isVerificationReason(verifyErr, "malformed_manifest") {
+				t.Fatalf("version form must fail as malformed_manifest, got %v", verifyErr)
+			}
+		})
+	}
+}
+
+func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.T) {
+	bundle, err := BuildBundleArchive(ManifestInput{
+		BundleID:          "22222222-2222-4222-8222-222222222223",
+		IncidentID:        "11111111-1111-4111-8111-111111111111",
+		IncidentKey:       "INC-VERSION-CLOSED",
+		ExportedAt:        "2026-07-27T00:00:00Z",
+		ReferencePackMode: ReferencePackModeRefsOnly,
+	}, minimalRequiredBundleFiles())
+	if err != nil {
+		t.Fatalf("BuildBundleArchive: %v", err)
+	}
+	unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
+		manifest["bundle_version"] = 3
+	})
+	if _, verifyErr := VerifyBundle(VerificationInput{
+		Bundle: unsupported,
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	}); !isVerificationReason(verifyErr, "unsupported_bundle_version") {
+		t.Fatalf("unsupported integer version reason mismatch: %v", verifyErr)
+	}
+
+	mixedFiles := zipFilesMap(t, bundle.Bytes)
+	mixedFiles["data/timeline_events.ndjson"] = []byte{}
+	if _, verifyErr := VerifyBundle(VerificationInput{
+		Bundle: zipFromFiles(t, mixedFiles),
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+	}); !isVerificationReason(verifyErr, "malformed_manifest") {
+		t.Fatalf("mixed Timeline paths reason mismatch: %v", verifyErr)
+	}
+}
+
 func minimalRequiredBundleFiles() map[string][]byte {
 	files := make(map[string][]byte, len(requiredStructuredFiles))
 	for _, path := range requiredStructuredFiles {
@@ -491,12 +556,15 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 			"blob_hash_mismatch",
 			"checksum_mismatch",
 			"duplicate_incident_id",
+			"initial_admin_unavailable",
 			"invalid_member_path",
 			"malformed_manifest",
 			"missing_required_blob",
 			"missing_required_file",
 			"remote_fetch_required",
 			"signature_mismatch",
+			"source_family_invalid",
+			"unsupported_bundle_version",
 			"unsupported_member_type",
 			"unsupported_required_capability",
 		},
@@ -518,6 +586,34 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 	}
 }
 
+func TestIncidentBundlePortabilityFailuresUseClosedRedactedDetails_Unit(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           error
+		wantInvariant string
+	}{
+		{name: "participant admission", err: newPortabilityFailure(ErrPortabilityUnavailable, "secret-profile"), wantInvariant: "extension_payload.participant_admitted"},
+		{name: "blocked participant", err: newPortabilityFailure(ErrPortabilityBlocked, "secret-profile"), wantInvariant: "extension_payload.participant_admitted"},
+		{name: "resource bound", err: newPortabilityFailure(ErrPortabilityLimit, "secret-profile"), wantInvariant: "extension_payload.resource_bounded"},
+		{name: "schema digest", err: newPortabilityFailure(ErrPortabilityPayload, "secret-profile"), wantInvariant: "extension_payload.schema_digest_valid"},
+		{name: "contract", err: newPortabilityFailure(ErrPortabilityResult, "secret-profile"), wantInvariant: "extension_payload.contract_compatible"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reason, details := incidentBundleFailureDetails("incident_bundle_import_rejected", test.err)
+			if reason != "source_family_invalid" ||
+				details["reason_code"] != "source_family_invalid" ||
+				details["source_family_id"] != "extension_payload" ||
+				details["invariant_id"] != test.wantInvariant {
+				t.Fatalf("failure details = %#v, reason=%q", details, reason)
+			}
+			if len(details) != 3 {
+				t.Fatalf("failure details exposed an unregistered field: %#v", details)
+			}
+		})
+	}
+}
+
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
 	projections := httpapiextensions.New([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
 	deps := projections.Dependencies(httpapi.DependencySet{})
@@ -534,6 +630,21 @@ func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
 	}
 }
 
+func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *testing.T) {
+	_, err := newService(httpapi.DependencySet{}, routeOptions{
+		importFinalizer:   importFinalizerStub{},
+		jobFinalizer:      jobFinalizerStub{},
+		portability:       &PortabilityOrchestrator{},
+		transactions:      &crossownertransaction.Coordinator{},
+		storage:           bundleStorageStub{},
+		projectionRebuild: projectionRebuilderStub{},
+		sourceCatalog:     &sourceport.Catalog{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "jobs composition is required") {
+		t.Fatalf("claimed Incident Portability without Jobs composition error = %v", err)
+	}
+}
+
 type importFinalizerStub struct{}
 
 func (importFinalizerStub) FinalizeIncidentBundleImportTx(
@@ -541,6 +652,44 @@ func (importFinalizerStub) FinalizeIncidentBundleImportTx(
 	pgx.Tx,
 	incidents.IncidentBundleImportFinalizationParams,
 ) error {
+	return nil
+}
+
+type jobFinalizerStub struct{}
+
+func (jobFinalizerStub) FinalizeIncidentBundleJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+func (jobFinalizerStub) FinalizeIncidentBundleJobSuccessTx(context.Context, crossownertransaction.FinalizationCapability, JobSuccessFinalization) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
+type bundleStorageStub struct{}
+
+func (bundleStorageStub) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
+	return BundleStagingRef{}, nil
+}
+
+func (bundleStorageStub) Publish(context.Context, string, []byte) (BundleStorageRef, error) {
+	return BundleStorageRef{}, nil
+}
+
+func (bundleStorageStub) ReadStaged(BundleStagingRef, int64) ([]byte, error) {
+	return nil, nil
+}
+
+func (bundleStorageStub) RemoveStaged(BundleStagingRef) error {
+	return nil
+}
+
+func (bundleStorageStub) RemovePublished(BundleStorageRef) error {
+	return nil
+}
+
+type projectionRebuilderStub struct{}
+
+func (projectionRebuilderStub) RebuildImportedIncidentTx(context.Context, pgx.Tx, uuid.UUID) error {
 	return nil
 }
 
@@ -611,11 +760,16 @@ func TestIncidentBundleStorageReferencesAreStrictAndRootFree_Unit(t *testing.T) 
 	}
 }
 
-func TestWorkerStartHookOverrideRequiresTestRuntime_Unit(t *testing.T) {
-	deps := DependencySetForTesting(WithWorkerStartHookForTesting(func(string) {}))
-	_, err := workerStartHookFromDependencies(httpapi.DependencySet{ModuleOverrides: deps.ModuleOverrides})
-	if err == nil || !strings.Contains(err.Error(), "requires test runtime") {
-		t.Fatalf("worker hook override without test runtime must fail closed, got %v", err)
+func TestIncidentBundleWorkerRequiresNamedRunner_Unit(t *testing.T) {
+	worker := &incidentBundleWorker{}
+	if err := worker.registerJobHandler(); !errors.Is(err, jobs.ErrNotConfigured) {
+		t.Fatalf("register without named runner error = %v; want ErrNotConfigured", err)
+	}
+	if err := worker.recoverJobs(context.Background()); !errors.Is(err, jobs.ErrNotConfigured) {
+		t.Fatalf("recover without named runner error = %v; want ErrNotConfigured", err)
+	}
+	if err := worker.dispatch(uuid.NewString()); !errors.Is(err, jobs.ErrNotConfigured) {
+		t.Fatalf("dispatch without named runner error = %v; want ErrNotConfigured", err)
 	}
 }
 

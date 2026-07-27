@@ -10,6 +10,13 @@
         "go_test",
         "playwright"
       ]
+    },
+    {
+      "verification_id": "app.server.verification.incident_portability_composition",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
     }
   ]
 }

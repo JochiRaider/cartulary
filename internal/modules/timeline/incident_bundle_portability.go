@@ -131,10 +131,12 @@ func ImportIncidentBundleFilesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	files map[string][]byte,
+	bundleVersion int,
 	actorUserID uuid.UUID,
 	attributions incidentportability.AttributionRecorder,
 ) error {
-	if _, v2 := files[timelineBundleRecordsPath]; v2 {
+	switch bundleVersion {
+	case 2:
 		if err := importTimelineProfilesTx(ctx, tx, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
 			return err
 		}
@@ -142,11 +144,14 @@ func ImportIncidentBundleFilesTx(
 			return err
 		}
 		return importTimelineProvenanceV2Tx(ctx, tx, files[timelineBundleProvenancePath])
+	case 1:
+		if err := importTimelineProfilesTx(ctx, tx, files[timelineBundleV1ProfilesPath], actorUserID, attributions); err != nil {
+			return err
+		}
+		return importTimelineRecordsV1Tx(ctx, tx, files[timelineBundleV1RecordsPath], actorUserID, attributions)
+	default:
+		return malformedTimelineBundle()
 	}
-	if err := importTimelineProfilesTx(ctx, tx, files[timelineBundleV1ProfilesPath], actorUserID, attributions); err != nil {
-		return err
-	}
-	return importTimelineRecordsV1Tx(ctx, tx, files[timelineBundleV1RecordsPath], actorUserID, attributions)
 }
 
 func importTimelineProfilesTx(
@@ -164,12 +169,12 @@ func importTimelineProfilesTx(
 		if err := requireExactFields(row, timelineBundleProfileFields, "incident_id", "enabled", "profile_version", "updated_at"); err != nil {
 			return err
 		}
-		incidentportability.RemapTopLevelUserFields(row, "timeline_time_conversion_profiles", actorUserID, attributions)
+		incidentportability.RemapTopLevelUserFields(row, "timeline_time_conversion_profiles", []string{"incident_id"}, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `
+		tag, err := tx.Exec(ctx, `
 INSERT INTO timeline_time_conversion_profiles (
     incident_id, enabled, local_offset_minutes, local_label,
     profile_version, updated_at, updated_by_user_id
@@ -183,9 +188,12 @@ SELECT
     (payload ->> 'updated_at')::timestamp with time zone,
     NULLIF(payload ->> 'updated_by_user_id', '')::uuid
   FROM (SELECT $1::jsonb AS payload) AS input
-ON CONFLICT (incident_id) DO NOTHING
-`, raw); err != nil {
+`, raw)
+		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
 		}
 	}
 	return nil
@@ -206,13 +214,17 @@ func importTimelineRecordsV2Tx(
 		if err := requireExactFields(row, timelineBundleRecordFields, "record_id", "incident_id", "capture_state", "activity_utc_generated", "activity_local_generated", "activity_time_pair_state"); err != nil {
 			return err
 		}
-		incidentportability.RemapTopLevelUserFields(row, "timeline_events", actorUserID, attributions)
+		incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, timelineLogicalRecordInsertSQL, raw); err != nil {
+		tag, err := tx.Exec(ctx, timelineLogicalRecordInsertSQL, raw)
+		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
 		}
 	}
 	return nil
@@ -238,13 +250,17 @@ func importTimelineRecordsV1Tx(
 			return err
 		}
 		delete(row, "raw_capture")
-		incidentportability.RemapTopLevelUserFields(row, "timeline_events", actorUserID, attributions)
+		incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, timelineLegacyRecordInsertSQL, raw); err != nil {
+		tag, err := tx.Exec(ctx, timelineLegacyRecordInsertSQL, raw)
+		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
 		}
 		recordID, err := uuid.Parse(incidentportability.StringFromAny(row["record_id"]))
 		if err != nil {
@@ -296,7 +312,6 @@ SELECT
     NULLIF(payload ->> 'cell_kind', ''),
     (payload ->> 'created_at')::timestamp with time zone
   FROM (SELECT $1::jsonb AS payload) AS input
-ON CONFLICT DO NOTHING
 `, raw, identity)
 		if err != nil {
 			return err
@@ -407,7 +422,6 @@ SELECT
     ON record.record_id = (payload ->> 'record_id')::uuid
    AND record.incident_id = (payload ->> 'incident_id')::uuid
    AND record.record_type = 'timeline_event'
-ON CONFLICT (record_id) DO NOTHING
 `
 
 const timelineLegacyRecordInsertSQL = `
@@ -447,5 +461,4 @@ SELECT
     (payload ->> 'activity_local_generated')::boolean,
     payload ->> 'activity_time_pair_state'
   FROM (SELECT $1::jsonb AS payload) AS input
-ON CONFLICT (record_id) DO NOTHING
 `

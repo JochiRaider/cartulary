@@ -289,10 +289,31 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.incident_bundle_compatibility.v1",
-      "path": "tools/schemas/cartulary.incident_bundle_compatibility.v1.schema.json",
+      "schema_id": "cartulary.incident_bundle_compatibility.v2",
+      "path": "tools/schemas/cartulary.incident_bundle_compatibility.v2.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles compatibility owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.incident_bundle_fixture_manifest.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_fixture_manifest.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Incident Bundles fixture owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.incident_bundle_source_catalog.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_source_catalog.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Incident Bundles source-port catalog owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.incident_bundle_traceability.v1",
+      "path": "tools/schemas/cartulary.incident_bundle_traceability.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Incident Bundles traceability owner",
       "validation": "json-shape-check"
     },
     {

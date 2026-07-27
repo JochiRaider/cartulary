@@ -11,6 +11,13 @@
         "playwright",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "module.networkflow.verification.incident_portability_extension",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
     }
   ]
 }

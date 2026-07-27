@@ -30,14 +30,13 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	for _, spec := range []struct {
-		target incidentportability.ImportTargetDescriptor
-	}{
-		{incidentportability.TargetObjectBlobs},
-		{incidentportability.TargetEvidenceRecords},
-		{incidentportability.TargetEvidenceCustodyEvents},
-	} {
-		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
+	specs := []incidentportability.FixedImportSpec{
+		{"data/object_blobs.ndjson", "object_blobs", []string{"object_blob_id"}, []string{"object_blob_id", "incident_id"}, `INSERT INTO object_blobs SELECT * FROM jsonb_populate_record(NULL::object_blobs, $1::jsonb)`},
+		{"data/evidence_records.ndjson", "evidence", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO evidence SELECT * FROM jsonb_populate_record(NULL::evidence, $1::jsonb)`},
+		{"data/evidence_custody_events.ndjson", "evidence_custody_events", []string{"custody_event_id"}, []string{"custody_event_id", "evidence_record_id"}, `INSERT INTO evidence_custody_events SELECT * FROM jsonb_populate_record(NULL::evidence_custody_events, $1::jsonb)`},
+	}
+	for _, spec := range specs {
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

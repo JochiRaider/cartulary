@@ -371,7 +371,8 @@
       "family_id": "module.timeline.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {
@@ -909,7 +910,8 @@
       "family_id": "module.timeline.support_unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.timeline.verification.behavior_contract"
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

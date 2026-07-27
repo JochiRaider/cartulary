@@ -368,12 +368,14 @@
       "family_id": "module.reference_data.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.incident_portability_refs"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
+          "TestIncidentBundleReferenceCatalogValidation_Unit",
           "TestRequestValidationNormalizationAndClosedRegistries_Unit"
         ]
       },

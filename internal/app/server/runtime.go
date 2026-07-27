@@ -14,6 +14,7 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -592,6 +593,15 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		normalizedCfg.Telemetry.Resource.ServiceVersion,
 		runtime.Postgres,
 	)
+	postgresHandle, err = decoratePostgresForTestRuntime(
+		options.Env,
+		options.HTTP.Dependencies.ModuleOverrides,
+		postgresHandle,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 
 	if err := runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), runtime.Postgres); err != nil {
 		runtime.Close()
@@ -780,6 +790,11 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability: %w", err)
 	}
+	incidentSourceCatalog, err := incidentportabilityassembly.NewCatalog()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
+	}
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
 		incidentbundles.WithStorage(incidentBundleStorage),
 		incidentbundles.WithLimits(incidentBundleLimits(normalizedCfg)),
@@ -789,6 +804,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 		incidentbundles.WithProjectionRebuild(timelineBundle.ProjectionCatalog.Rebuild),
+		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
 	)
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importRoutes := imports.RegisterRoutes(
@@ -835,6 +851,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	})
 	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
+	delete(moduleOverrides, postgresDBDecoratorOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
 	authRouteOptions = append(authRouteOptions, auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin))
 	if enterpriseAuthenticationAdmitted {

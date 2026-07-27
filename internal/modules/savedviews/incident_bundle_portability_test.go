@@ -10,7 +10,7 @@ import (
 
 func TestIncidentBundleSavedViewImportValidationNormalizesPortableRows(t *testing.T) {
 	row := validPortableSavedViewRow()
-	if err := validateAndNormalizeImportedSavedView(row); err != nil {
+	if err := validateAndNormalizeImportedSavedView(row, savedViewImportSpec()); err != nil {
 		t.Fatalf("validate saved view import row: %v", err)
 	}
 	if row["display_name"] != "Portable saved view" {
@@ -51,7 +51,7 @@ func TestIncidentBundleSavedViewImportValidationRejectsMalformedRows(t *testing.
 		t.Run(name, func(t *testing.T) {
 			row := validPortableSavedViewRow()
 			mutate(row)
-			err := validateAndNormalizeImportedSavedView(row)
+			err := validateAndNormalizeImportedSavedView(row, savedViewImportSpec())
 			var verification *incidentportability.VerificationFailure
 			if !errors.As(err, &verification) || verification.ReasonCode != "malformed_manifest" {
 				t.Fatalf("saved view import validation error got %T %v", err, err)

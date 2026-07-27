@@ -13,28 +13,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
-	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 type BundleBuilder struct {
-	pool        *pgxpool.Pool
-	objectStore objectstore.Store
-	portability *PortabilityOrchestrator
+	pool          *pgxpool.Pool
+	objectStore   objectstore.Store
+	portability   *PortabilityOrchestrator
+	sourceCatalog *sourceport.Catalog
 }
 
 type Importer struct {
@@ -42,6 +35,7 @@ type Importer struct {
 	objectStore       objectstore.Store
 	finalizer         incidents.IncidentBundleImportFinalizer
 	projectionRebuild importProjectionRebuilder
+	sourceCatalog     *sourceport.Catalog
 }
 
 type BuiltIncidentBundle struct {
@@ -55,14 +49,22 @@ type ImportParams struct {
 	ActorUserID uuid.UUID
 	PublishedAt time.Time
 	RequestID   *string
+	OperationID string
 }
 
 type PreparedImport struct {
-	IncidentID       uuid.UUID
-	files            map[string][]byte
-	attributions     importedAttributionBuffer
-	stagedObjectKeys []string
-	blobPort         evidencemodule.IncidentBundleBlobPortability
+	IncidentID         uuid.UUID
+	files              map[string][]byte
+	attributions       importedAttributionBuffer
+	stagedObjectKeys   []string
+	blobPort           evidencemodule.IncidentBundleBlobPortability
+	sourcePreparations []preparedSource
+	importContext      sourceport.ImportContext
+}
+
+type preparedSource struct {
+	port     sourceport.Port
+	prepared sourceport.Prepared
 }
 
 func (p *PreparedImport) Cleanup(ctx context.Context) {
@@ -93,8 +95,11 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 		return BuiltIncidentBundle{}, err
 	}
 	files["data/incident.json"] = incidentJSON
-	for _, export := range incidentBundleExportPorts {
-		exportedFiles, err := export(ctx, tx, incidentID)
+	if b.sourceCatalog == nil {
+		return BuiltIncidentBundle{}, errors.New("incident bundle source catalog is required")
+	}
+	for _, port := range b.sourceCatalog.Ports() {
+		exportedFiles, err := port.Export(ctx, tx, incidentID)
 		if err != nil {
 			return BuiltIncidentBundle{}, err
 		}
@@ -146,23 +151,6 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 		BundleSHA256:   hashHex(archive.Bytes),
 		BundleByteSize: int64(len(archive.Bytes)),
 	}, nil
-}
-
-type incidentBundleExportPort func(context.Context, incidentportability.Queryer, uuid.UUID) ([]incidentportability.File, error)
-
-var incidentBundleExportPorts = []incidentBundleExportPort{
-	records.ExportIncidentBundleFiles,
-	timeline.ExportIncidentBundleFiles,
-	parties.ExportIncidentBundleFiles,
-	entities.ExportIncidentBundleFiles,
-	indicators.ExportIncidentBundleFiles,
-	artifacts.ExportIncidentBundleFiles,
-	tasksdecisions.ExportIncidentBundleFiles,
-	evidencemodule.ExportIncidentBundleFiles,
-	assessments.ExportIncidentBundleFiles,
-	links.ExportIncidentBundleFiles,
-	revisions.ExportIncidentBundleFiles,
-	savedviews.ExportIncidentBundleFiles,
 }
 
 func (b BundleBuilder) exportActors(ctx context.Context, q incidentportability.Queryer, files map[string][]byte) ([]byte, error) {
@@ -225,6 +213,9 @@ func collectActorIDs(row map[string]any, actorIDs map[string]struct{}) {
 }
 
 func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, params ImportParams) (*PreparedImport, error) {
+	if params.OperationID == "" {
+		return nil, errors.New("incident bundle import operation ID is required")
+	}
 	incidentID, err := uuid.Parse(verified.Manifest.IncidentID)
 	if err != nil {
 		return nil, &VerificationError{ReasonCode: "malformed_manifest"}
@@ -236,7 +227,38 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 	if existing {
 		return nil, &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
+	if i.sourceCatalog == nil {
+		return nil, errors.New("incident bundle source catalog is required")
+	}
 	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: params.ActorUserID}
+	importContext := sourceport.ImportContext{
+		IncidentID: incidentID, ActorUserID: params.ActorUserID,
+		BundleVersion: verified.Manifest.BundleVersion, OperationID: params.OperationID,
+		Attributions: &attributions,
+	}
+	if err := validateImportedActors(verified.Files, incidentID); err != nil {
+		return nil, err
+	}
+	if err := reference_data.ValidateIncidentBundleReferences(verified.Files["data/reference_pack_refs.json"]); err != nil {
+		invariantID, ok := reference_data.IncidentBundleReferenceInvariant(err)
+		if !ok {
+			return nil, err
+		}
+		return nil, &VerificationError{
+			ReasonCode:     "source_family_invalid",
+			SourceFamilyID: "reference_pack_refs",
+			InvariantID:    invariantID,
+		}
+	}
+	sourcePreparations := make([]preparedSource, 0, len(i.sourceCatalog.Ports()))
+	bundle := sourceport.MapBundle(verified.Files)
+	for _, port := range i.sourceCatalog.Ports() {
+		prepared, err := port.PrepareImport(ctx, bundle, importContext)
+		if err != nil {
+			return nil, verificationErrorFromPort(err)
+		}
+		sourcePreparations = append(sourcePreparations, preparedSource{port: port, prepared: prepared})
+	}
 	blobPort := evidencemodule.IncidentBundleBlobPortability{ObjectStore: i.objectStore}
 	rewrittenObjectBlobs, writtenObjectKeys, err := blobPort.RewriteAndStageObjectBlobs(ctx, verified.Files, incidentID, params.ActorUserID, &attributions)
 	if err != nil {
@@ -251,6 +273,7 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 	return &PreparedImport{
 		IncidentID: incidentID, files: importFiles, attributions: attributions,
 		stagedObjectKeys: writtenObjectKeys, blobPort: blobPort,
+		sourcePreparations: sourcePreparations, importContext: importContext,
 	}, nil
 }
 
@@ -270,14 +293,28 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 		return uuid.UUID{}, &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
 	attributions := prepared.attributions
-	if err := incidents.ImportIncidentBundleIncidentTx(ctx, tx, prepared.files["data/incident.json"], params.ActorUserID, &attributions); err != nil {
+	importContext := prepared.importContext
+	importContext.Attributions = &attributions
+	importContext.RewrittenObjectBlobs = prepared.files["data/object_blobs.ndjson"]
+	if len(prepared.sourcePreparations) == 0 ||
+		prepared.sourcePreparations[0].port.Descriptor().FamilyID != "incident" {
+		return uuid.UUID{}, errors.New("incident source port must be first")
+	}
+	if err := prepared.sourcePreparations[0].port.ApplyImportTx(
+		ctx, tx, prepared.sourcePreparations[0].prepared, importContext,
+	); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
 	if err := i.importActors(ctx, tx, prepared.files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
-	for _, importPort := range incidentBundleImportPorts {
-		if err := importPort(ctx, tx, prepared.files, params.ActorUserID, &attributions); err != nil {
+	for _, source := range prepared.sourcePreparations[1:] {
+		if err := source.port.ApplyImportTx(ctx, tx, source.prepared, importContext); err != nil {
+			return uuid.UUID{}, verificationErrorFromPort(err)
+		}
+	}
+	for _, source := range prepared.sourcePreparations {
+		if err := source.port.ValidateImportTx(ctx, tx, importContext); err != nil {
 			return uuid.UUID{}, verificationErrorFromPort(err)
 		}
 	}
@@ -312,23 +349,6 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	return incidentID, nil
 }
 
-type incidentBundleImportPort func(context.Context, pgx.Tx, map[string][]byte, uuid.UUID, incidentportability.AttributionRecorder) error
-
-var incidentBundleImportPorts = []incidentBundleImportPort{
-	records.ImportIncidentBundleFilesTx,
-	timeline.ImportIncidentBundleFilesTx,
-	parties.ImportIncidentBundleFilesTx,
-	entities.ImportIncidentBundleFilesTx,
-	indicators.ImportIncidentBundleFilesTx,
-	artifacts.ImportIncidentBundleFilesTx,
-	tasksdecisions.ImportIncidentBundleFilesTx,
-	evidencemodule.ImportIncidentBundleFilesTx,
-	assessments.ImportIncidentBundleFilesTx,
-	links.ImportIncidentBundleFilesTx,
-	revisions.ImportIncidentBundleFilesTx,
-	savedviews.ImportIncidentBundleFilesTx,
-}
-
 func verificationErrorFromPort(err error) error {
 	var malformed *incidentportability.MalformedPayloadError
 	if errors.As(err, &malformed) {
@@ -338,7 +358,97 @@ func verificationErrorFromPort(err error) error {
 	if errors.As(err, &verification) {
 		return &VerificationError{ReasonCode: verification.ReasonCode}
 	}
+	var sourceFailure *sourceport.Failure
+	if errors.As(err, &sourceFailure) {
+		return &VerificationError{
+			ReasonCode:     "source_family_invalid",
+			SourceFamilyID: sourceFailure.FamilyID,
+			InvariantID:    sourceFailure.InvariantID,
+		}
+	}
 	return err
+}
+
+func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) error {
+	rows, err := incidentportability.DecodeNDJSON(files["data/actors.ndjson"])
+	if err != nil {
+		return &VerificationError{
+			ReasonCode:     "source_family_invalid",
+			SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
+		}
+	}
+	descriptors := map[string]struct{}{}
+	for _, row := range rows {
+		for key := range row {
+			switch key {
+			case "actor_id", "source_actor_id", "display_name", "email_hint", "provider_subject_hint":
+			default:
+				return &VerificationError{
+					ReasonCode:     "source_family_invalid",
+					SourceFamilyID: "actors", InvariantID: "actors.inert",
+				}
+			}
+		}
+		sourceActorID := strings.TrimSpace(incidentportability.StringFromAny(row["actor_id"]))
+		if sourceActorID == "" {
+			sourceActorID = strings.TrimSpace(incidentportability.StringFromAny(row["source_actor_id"]))
+		}
+		if _, parseErr := uuid.Parse(sourceActorID); parseErr != nil {
+			return &VerificationError{
+				ReasonCode:     "source_family_invalid",
+				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
+			}
+		}
+		if _, duplicate := descriptors[sourceActorID]; duplicate {
+			return &VerificationError{
+				ReasonCode:     "source_family_invalid",
+				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
+			}
+		}
+		descriptors[sourceActorID] = struct{}{}
+	}
+	referenced := map[string]struct{}{}
+	for filePath, payload := range files {
+		if filePath == "data/actors.ndjson" || filePath == "data/reference_pack_refs.json" ||
+			!strings.HasPrefix(filePath, "data/") {
+			continue
+		}
+		var sourceRows []map[string]any
+		if filePath == "data/incident.json" {
+			var row map[string]any
+			if err := json.Unmarshal(bytes.TrimSpace(payload), &row); err != nil {
+				return &VerificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "incident", InvariantID: "incident.exact_shape"}
+			}
+			sourceRows = []map[string]any{row}
+		} else {
+			decoded, err := incidentportability.DecodeNDJSON(payload)
+			if err != nil {
+				continue
+			}
+			sourceRows = decoded
+		}
+		for _, row := range sourceRows {
+			for key, value := range row {
+				if !strings.HasSuffix(key, "_user_id") || value == nil {
+					continue
+				}
+				actorID := strings.TrimSpace(incidentportability.StringFromAny(value))
+				if actorID != "" {
+					referenced[actorID] = struct{}{}
+				}
+			}
+		}
+	}
+	for actorID := range referenced {
+		if _, ok := descriptors[actorID]; !ok {
+			return &VerificationError{
+				ReasonCode:     "source_family_invalid",
+				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
+			}
+		}
+	}
+	_ = incidentID
+	return nil
 }
 
 func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, incidentID uuid.UUID) error {
@@ -352,17 +462,19 @@ func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, i
 			sourceActorID, _ = row["source_actor_id"].(string)
 		}
 		if strings.TrimSpace(sourceActorID) == "" {
-			continue
+			return &sourceport.Failure{FamilyID: "actors", InvariantID: "actors.reference_complete"}
 		}
 		displayName, _ := row["display_name"].(string)
 		emailHint, _ := row["email_hint"].(string)
-		_, err := tx.Exec(ctx, `
+		tag, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, local_user_id)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (incident_id, source_actor_id) DO NOTHING
 `, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), nil)
 		if err != nil {
 			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return &sourceport.Failure{FamilyID: "actors", InvariantID: "actors.reference_complete"}
 		}
 	}
 	return nil
@@ -381,18 +493,15 @@ type importedAttributionBuffer struct {
 	rows        []importedAttribution
 }
 
-func (b *importedAttributionBuffer) RecordImportedAttribution(table string, row map[string]any, column string, sourceActorID string) {
+func (b *importedAttributionBuffer) RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) {
 	sourceActorID = strings.TrimSpace(sourceActorID)
-	if b == nil || sourceActorID == "" {
-		return
-	}
-	rowID := sourceRowID(table, row)
-	if rowID == "" {
+	sourceRowID = strings.TrimSpace(sourceRowID)
+	if b == nil || sourceActorID == "" || sourceRowID == "" {
 		return
 	}
 	b.rows = append(b.rows, importedAttribution{
 		SourceTable:   table,
-		SourceRowID:   rowID,
+		SourceRowID:   sourceRowID,
 		SourceColumn:  column,
 		SourceActorID: sourceActorID,
 	})
@@ -402,8 +511,14 @@ func (b *importedAttributionBuffer) flush(ctx context.Context, tx pgx.Tx) error 
 	if b == nil {
 		return nil
 	}
+	seen := map[string]struct{}{}
 	for _, row := range b.rows {
-		_, err := tx.Exec(ctx, `
+		key := row.SourceTable + "\x00" + row.SourceRowID + "\x00" + row.SourceColumn
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		tag, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_imported_attributions (
     incident_id,
     source_table,
@@ -413,20 +528,15 @@ INSERT INTO incident_bundle_imported_attributions (
     local_user_id
 )
 VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (incident_id, source_table, source_row_id, source_column) DO NOTHING
 `, b.IncidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, b.LocalUserID)
 		if err != nil {
 			return err
 		}
+		if tag.RowsAffected() != 1 {
+			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
+		}
 	}
 	return nil
-}
-
-func sourceRowID(table string, row map[string]any) string {
-	if table == "incidents" {
-		return incidentportability.StringFromAny(row["id"])
-	}
-	return incidentportability.SourceRowIDForRelation(table, row)
 }
 
 func nullableString(value string) any {

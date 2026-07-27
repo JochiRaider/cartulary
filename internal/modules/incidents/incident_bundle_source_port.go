@@ -1,0 +1,65 @@
+package incidents
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+)
+
+func NewIncidentBundleSourcePort() sourceport.Port {
+	descriptor := sourceport.Descriptor{
+		FamilyID: "incident", ContractMajor: sourceport.ContractMajor,
+		OwnerID: "module.incidents", OwnerRelationIDs: []string{"incident-core"},
+		Paths: []sourceport.Path{{
+			LogicalPath: "data/incident.json", ContentRole: "singleton_json",
+			Versions: []int{1, 2}, StableIdentity: []string{"id"},
+		}},
+		InvariantIDs: []string{
+			"incident.exact_shape", "incident.identity_key_lifecycle",
+			"incident.attribution_version",
+		},
+	}
+	return sourceport.NewAdapter(sourceport.AdapterOptions{
+		Descriptor: descriptor,
+		Export: func(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
+			payload, _, err := ExportIncidentBundleIncident(ctx, q, incidentID)
+			if err != nil {
+				return nil, err
+			}
+			return []incidentportability.File{{Path: "data/incident.json", Payload: payload}}, nil
+		},
+		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			files, err := sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+			if err != nil {
+				return nil, err
+			}
+			var row map[string]any
+			if err := json.Unmarshal(files["data/incident.json"], &row); err != nil {
+				return nil, &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.exact_shape"}
+			}
+			if incidentportability.StringFromAny(row["id"]) != importContext.IncidentID.String() {
+				return nil, &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.identity_key_lifecycle"}
+			}
+			return files, nil
+		},
+		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			files := value.(sourceport.PreparedFiles)
+			return ImportIncidentBundleIncidentTx(ctx, tx, files["data/incident.json"], importContext.ActorUserID, importContext.Attributions)
+		},
+		Validate: func(ctx context.Context, tx pgx.Tx, importContext sourceport.ImportContext) error {
+			var count int
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM incidents WHERE id = $1`, importContext.IncidentID).Scan(&count); err != nil {
+				return err
+			}
+			if count != 1 {
+				return &sourceport.Failure{FamilyID: "incident", InvariantID: "incident.identity_key_lifecycle"}
+			}
+			return nil
+		},
+	})
+}

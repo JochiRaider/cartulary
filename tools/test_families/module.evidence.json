@@ -335,7 +335,8 @@
       "family_id": "module.evidence.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.evidence.verification.behavior_contract"
+        "module.evidence.verification.behavior_contract",
+        "module.evidence.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

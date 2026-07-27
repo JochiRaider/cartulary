@@ -11,17 +11,25 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
 const incidentBundleJobHandlerName = BundleWorkerKind
 
+type incidentBundleJobRunner interface {
+	RegisterHandler(string, jobs.HandlerFunc) error
+	RecoverHandler(context.Context, string) error
+	DispatchJobID(string, uuid.UUID) error
+}
+
 type incidentBundleWorker struct {
 	store             *Store
 	jobManager        *jobs.Manager
-	jobRunner         *jobs.Runner
+	jobRunner         incidentBundleJobRunner
 	results           incidentBundleJobResultSink
 	storage           BundleStorage
 	importFinalizer   incidents.IncidentBundleImportFinalizer
@@ -29,13 +37,13 @@ type incidentBundleWorker struct {
 	portability       *PortabilityOrchestrator
 	transactions      *crossownertransaction.Coordinator
 	projectionRebuild importProjectionRebuilder
+	sourceCatalog     *sourceport.Catalog
 	limits            Limits
 	deps              httpapi.DependencySet
 	now               func() time.Time
-	startHook         func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, limits Limits, now func() time.Time, startHook func(string)) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		jobManager:        deps.Jobs,
@@ -47,60 +55,36 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage B
 		portability:       portability,
 		transactions:      transactions,
 		projectionRebuild: projectionRebuild,
+		sourceCatalog:     sourceCatalog,
 		limits:            limits,
 		deps:              deps,
 		now:               now,
-		startHook:         startHook,
 	}
 }
 
 func (w *incidentBundleWorker) registerJobHandler() error {
 	if w == nil || w.jobRunner == nil {
-		return nil
+		return jobs.ErrNotConfigured
 	}
-	err := w.jobRunner.RegisterHandler(incidentBundleJobHandlerName, w.executeJobID)
-	if errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
-		return nil
-	}
-	return err
+	return w.jobRunner.RegisterHandler(incidentBundleJobHandlerName, w.executeJobID)
 }
 
 func (w *incidentBundleWorker) recoverJobs(ctx context.Context) error {
-	if w.jobRunner != nil {
-		return w.jobRunner.RecoverHandler(ctx, incidentBundleJobHandlerName)
+	if w == nil || w.jobRunner == nil {
+		return jobs.ErrNotConfigured
 	}
-	payloads, err := w.store.ListRecoverableJobPayloads(ctx)
+	return w.jobRunner.RecoverHandler(ctx, incidentBundleJobHandlerName)
+}
+
+func (w *incidentBundleWorker) dispatch(jobIDText string) error {
+	if w == nil || w.jobRunner == nil {
+		return jobs.ErrNotConfigured
+	}
+	jobID, err := uuid.Parse(jobIDText)
 	if err != nil {
 		return err
 	}
-	for _, payload := range payloads {
-		payload := payload
-		if err := w.jobRunner.Dispatch(func(ctx context.Context) {
-			w.executePayload(ctx, payload)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w *incidentBundleWorker) dispatch(jobIDText string) {
-	jobID, err := uuid.Parse(jobIDText)
-	if err != nil {
-		return
-	}
-	if w.jobRunner != nil {
-		if err := w.jobRunner.DispatchJobID(incidentBundleJobHandlerName, jobID); err == nil {
-			return
-		}
-		_ = w.jobRunner.Dispatch(func(ctx context.Context) {
-			_ = w.executeJobID(ctx, jobID)
-		})
-		return
-	}
-	go func() {
-		_ = w.executeJobID(context.Background(), jobID)
-	}()
+	return w.jobRunner.DispatchJobID(incidentBundleJobHandlerName, jobID)
 }
 
 func (w *incidentBundleWorker) executeJobID(ctx context.Context, jobID uuid.UUID) error {
@@ -114,9 +98,6 @@ func (w *incidentBundleWorker) executeJobID(ctx context.Context, jobID uuid.UUID
 }
 
 func (w *incidentBundleWorker) executePayload(ctx context.Context, payload JobPayload) {
-	if w.startHook != nil {
-		w.startHook(payload.JobKind)
-	}
 	switch payload.JobKind {
 	case "export":
 		w.executeExportJob(ctx, payload)
@@ -154,7 +135,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore, portability: w.portability}
+	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore, portability: w.portability, sourceCatalog: w.sourceCatalog}
 	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
@@ -225,11 +206,13 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		objectStore:       w.deps.ObjectStore,
 		finalizer:         w.importFinalizer,
 		projectionRebuild: w.projectionRebuild,
+		sourceCatalog:     w.sourceCatalog,
 	}
 	importParams := ImportParams{
 		ActorUserID: payload.ActorUserID,
 		PublishedAt: w.now().UTC(),
 		RequestID:   &requestID,
+		OperationID: payload.JobID.String(),
 	}
 	prepared, err := importer.PrepareImport(ctx, verified, importParams)
 	if err != nil {
@@ -293,6 +276,9 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	committed = true
 	prepared.stagedObjectKeys = nil
 	portability.Committed()
+	if verified.Manifest.BundleVersion == 1 {
+		telemetry.RecordIncidentBundleV1Import(context.WithoutCancel(ctx), "")
+	}
 }
 
 func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {
@@ -342,22 +328,42 @@ func (s incidentBundleJobResultSink) completeFailed(ctx context.Context, params 
 }
 
 func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context, jobID uuid.UUID, code string, err error) {
+	reason, details := incidentBundleFailureDetails(code, err)
+	s.store.MarkJobFailure(ctx, jobID, reason, s.now())
+	_, _ = s.manager.CompleteFailed(ctx, failedTransition(jobID, code, details))
+}
+
+func incidentBundleFailureDetails(code string, err error) (string, map[string]any) {
 	reason := "missing_required_file"
+	details := map[string]any{}
 	var verificationErr *VerificationError
 	if errors.As(err, &verificationErr) {
 		reason = verificationErr.ReasonCode
-	} else if code == "incident_bundle_import_rejected" &&
-		(errors.Is(err, ErrPortabilityUnavailable) ||
-			errors.Is(err, ErrPortabilityLimit) ||
-			errors.Is(err, ErrPortabilityPayload) ||
-			errors.Is(err, ErrPortabilityResult)) {
-		// Core 01's public contract major 1 exposes no extension-specific
-		// portability reason tokens. Preserve the closed public registry while
-		// the semantic owner retains the exact internal classification.
-		reason = "malformed_manifest"
+		if reason == "source_family_invalid" &&
+			verificationErr.SourceFamilyID != "" && verificationErr.InvariantID != "" {
+			details["source_family_id"] = verificationErr.SourceFamilyID
+			details["invariant_id"] = verificationErr.InvariantID
+		}
+	} else if code == "incident_bundle_import_rejected" {
+		invariantID := ""
+		switch {
+		case errors.Is(err, ErrPortabilityUnavailable), errors.Is(err, ErrPortabilityBlocked):
+			invariantID = "extension_payload.participant_admitted"
+		case errors.Is(err, ErrPortabilityLimit):
+			invariantID = "extension_payload.resource_bounded"
+		case errors.Is(err, ErrPortabilityPayload):
+			invariantID = "extension_payload.schema_digest_valid"
+		case errors.Is(err, ErrPortabilityResult):
+			invariantID = "extension_payload.contract_compatible"
+		}
+		if invariantID != "" {
+			reason = "source_family_invalid"
+			details["source_family_id"] = "extension_payload"
+			details["invariant_id"] = invariantID
+		}
 	}
-	s.store.MarkJobFailure(ctx, jobID, reason, s.now())
-	_, _ = s.manager.CompleteFailed(ctx, failedTransition(jobID, code, map[string]any{"reason_code": reason}))
+	details["reason_code"] = reason
+	return reason, details
 }
 
 func exportSuccessTransition(jobID uuid.UUID, bundleID uuid.UUID) jobs.TransitionParams {

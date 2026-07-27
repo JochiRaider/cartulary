@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -36,6 +37,7 @@ type routeOptions struct {
 	storage           BundleStorage
 	limits            Limits
 	projectionRebuild importProjectionRebuilder
+	sourceCatalog     *sourceport.Catalog
 }
 
 func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
@@ -72,6 +74,12 @@ func WithLimits(limits Limits) RouteOption {
 func WithProjectionRebuild(rebuilder importProjectionRebuilder) RouteOption {
 	return func(options *routeOptions) {
 		options.projectionRebuild = rebuilder
+	}
+}
+
+func WithSourceCatalog(catalog *sourceport.Catalog) RouteOption {
+	return func(options *routeOptions) {
+		options.sourceCatalog = catalog
 	}
 }
 
@@ -114,6 +122,15 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.projectionRebuild == nil {
 		return nil, fmt.Errorf("incident bundle projection rebuild is required")
 	}
+	if options.sourceCatalog == nil {
+		return nil, fmt.Errorf("incident bundle source catalog is required")
+	}
+	if deps.Jobs == nil || deps.JobRunner == nil {
+		return nil, fmt.Errorf("incident bundle jobs composition is required")
+	}
+	if err := deps.JobRunner.ValidateNamedConfiguration(deps.Jobs); err != nil {
+		return nil, fmt.Errorf("incident bundle jobs composition is invalid: %w", err)
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -123,11 +140,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres)
-	workerStartHook, err := workerStartHookFromDependencies(deps)
-	if err != nil {
-		return nil, err
-	}
-	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.limits, now, workerStartHook)
+	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.limits, now)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}
@@ -226,7 +239,7 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !result.Replayed {
-		s.worker.dispatch(result.Job.JobID)
+		_ = s.worker.dispatch(result.Job.JobID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -279,7 +292,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !result.Replayed {
-		s.worker.dispatch(result.Job.JobID)
+		_ = s.worker.dispatch(result.Job.JobID)
 	} else {
 		_ = s.storage.RemoveStaged(stagingReference)
 	}

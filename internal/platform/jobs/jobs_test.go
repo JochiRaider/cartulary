@@ -252,6 +252,37 @@ func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
 	}
 }
 
+func TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration(t *testing.T) {
+	runner := jobs.NewRunner()
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runner.Close(closeCtx); err != nil {
+			t.Fatalf("close runner: %v", err)
+		}
+	})
+	manager := &jobs.Manager{}
+	if err := runner.ValidateNamedConfiguration(manager); !errors.Is(err, jobs.ErrNotConfigured) {
+		t.Fatalf("unconfigured named composition error = %v; want ErrNotConfigured", err)
+	}
+	runner.Configure(manager)
+	if err := runner.ValidateNamedConfiguration(manager); !errors.Is(err, jobs.ErrNotConfigured) {
+		t.Fatalf("missing dequeue gate error = %v; want ErrNotConfigured", err)
+	}
+	gate := &dequeueGate{}
+	runner.ConfigureDequeueGate(gate)
+	if err := runner.ValidateNamedConfiguration(manager); err != nil {
+		t.Fatalf("configured named composition rejected: %v", err)
+	}
+	handler := func(context.Context, uuid.UUID) error { return nil }
+	if err := runner.RegisterHandler("test.named", handler); err != nil {
+		t.Fatalf("register named handler: %v", err)
+	}
+	if err := runner.RegisterHandler("test.named", handler); !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		t.Fatalf("duplicate named handler error = %v; want ErrHandlerAlreadyRegistered", err)
+	}
+}
+
 type dequeueGate struct {
 	open atomic.Bool
 }

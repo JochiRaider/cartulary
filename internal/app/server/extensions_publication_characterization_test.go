@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
@@ -289,8 +290,17 @@ func TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering(t *testin
 			t.Fatalf("unclaimed worker published: %#v", worker)
 		}
 	}
-	if len(plan.Routes()) == 0 {
+	routes := plan.Routes()
+	if len(routes) == 0 {
 		t.Fatal("reserved route projection is empty")
+	}
+	for _, route := range routes {
+		if route.DispatchState == "claimed" && !claimed[route.ProfileID] {
+			t.Fatalf("unclaimed route published: %#v", route)
+		}
+		if route.ProfileID == incidentbundles.ProfileID && route.DispatchState == "claimed" {
+			t.Fatalf("unclaimed Incident Portability route published: %#v", route)
+		}
 	}
 }
 

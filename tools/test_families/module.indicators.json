@@ -8,7 +8,8 @@
       "family_id": "module.indicators.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract"
+        "module.indicators.verification.behavior_contract",
+        "module.indicators.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

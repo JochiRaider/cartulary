@@ -1,15 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.incident_bundle_compatibility.v1",
+  "$id": "cartulary.incident_bundle_compatibility.v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "current_export_version", "retained_imports"],
+  "required": [
+    "schema_id",
+    "current_export_version",
+    "adopting_stable_release",
+    "retained_imports"
+  ],
   "properties": {
-    "schema_id": { "const": "cartulary.incident_bundle_compatibility.v1" },
+    "schema_id": { "const": "cartulary.incident_bundle_compatibility.v2" },
     "current_export_version": { "const": 2 },
+    "adopting_stable_release": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
     "retained_imports": {
       "type": "array",
       "minItems": 1,
+      "maxItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -33,15 +43,52 @@
           "owner_id": { "const": "module.incidentbundles" },
           "status": { "const": "deprecated" },
           "export_allowed": { "const": false },
-          "deprecation_started_on": { "type": "string", "format": "date" },
+          "deprecation_started_on": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
           "minimum_stable_releases": { "type": "integer", "minimum": 2 },
           "minimum_retention_days": { "type": "integer", "minimum": 180 },
           "zero_successful_import_days": { "type": "integer", "minimum": 30 },
           "operator_inventory_clear_required": { "const": true },
-          "telemetry_event": { "type": "string", "minLength": 1 },
+          "telemetry_event": { "const": "cartulary.incident_bundle.v1_import" },
           "removal_trigger": { "type": "string", "minLength": 1 }
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "adopting_stable_release": { "type": "null" }
+        }
+      },
+      "then": {
+        "properties": {
+          "retained_imports": {
+            "items": {
+              "properties": {
+                "deprecation_started_on": { "type": "null" }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "retained_imports": {
+            "items": {
+              "properties": {
+                "deprecation_started_on": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -195,7 +195,8 @@
       "family_id": "module.savedviews.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.savedviews.verification.behavior_contract"
+        "module.savedviews.verification.behavior_contract",
+        "module.savedviews.verification.incident_portability"
       ],
       "runner": "go",
       "selector": {

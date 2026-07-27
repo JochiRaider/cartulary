@@ -150,9 +150,27 @@
       "row_id": "module.incidentbundles.integration.incident_bundle_import_reuses_the_shared_upload_698c072755",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.incidents",
+        "module.indicators",
+        "module.links",
+        "module.parties",
+        "module.records",
+        "module.reference_data",
+        "module.revisions",
+        "module.savedviews",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
       "verification_ids": [
-        "module.incidentbundles.verification.behavior_contract"
+        "module.incidentbundles.verification.atomic_coordination",
+        "module.incidentbundles.verification.behavior_contract",
+        "module.incidentbundles.verification.compatibility",
+        "module.incidentbundles.verification.source_catalog"
       ],
       "runner": "go",
       "selector": {
@@ -242,6 +260,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.incidentbundles.integration.incident_bundle_v1_translation_lossless_29db97f48c",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.timeline",
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.compatibility"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestIncidentBundleV1TranslationIsLossless_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -272,16 +316,21 @@
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [
+        "app.server",
         "module.crossownertransaction"
       ],
       "verification_ids": [
-        "module.incidentbundles.verification.extensions_portability"
+        "module.incidentbundles.verification.extensions_portability",
+        "module.incidentbundles.verification.source_catalog"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestIncidentBundleImportDescriptorIsClosed_Unit"
+          "TestIncidentBundleImportDescriptorIsClosed_Unit",
+          "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
+          "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
+          "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -298,13 +347,16 @@
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.incidentbundles.verification.behavior_contract"
+        "module.incidentbundles.verification.behavior_contract",
+        "module.incidentbundles.verification.compatibility"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestBundleManifestChecksumDeterministic_Unit"
+          "TestBundleManifestChecksumDeterministic_Unit",
+          "TestVerifyBundleRejectsMalformedManifestVersion_Unit",
+          "TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -321,13 +373,15 @@
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.incidentbundles.verification.behavior_contract"
+        "module.incidentbundles.verification.behavior_contract",
+        "module.incidentbundles.verification.safe_failures"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit"
+          "TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit",
+          "TestIncidentBundlePortabilityFailuresUseClosedRedactedDetails_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -390,13 +444,15 @@
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.incidentbundles.verification.behavior_contract"
+        "module.incidentbundles.verification.behavior_contract",
+        "module.incidentbundles.verification.named_recovery"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestAdmittedRouteSetupRequiresImportFinalizer_Unit"
+          "TestAdmittedRouteSetupRequiresImportFinalizer_Unit",
+          "TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -458,29 +514,6 @@
       "status": "active"
     },
     {
-      "row_id": "module.incidentbundles.unit.incident_bundle_worker_start_hooks_are_available_09c1f60805",
-      "owner_id": "module.incidentbundles",
-      "family_id": "module.incidentbundles.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidentbundles.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidentbundles",
-        "tests": [
-          "TestWorkerStartHookOverrideRequiresTestRuntime_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.incidentbundles.unit.incident_bundle_worker_terminal_success_transiti_66f6ace21e",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.unit",
@@ -493,6 +526,29 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestWorkerResultTransitionsPreservePublicSummaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.named_job_runner_is_required_for_worker_dispatch_09c1f60805",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestIncidentBundleWorkerRequiresNamedRunner_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -1820,7 +1820,10 @@
                 }
               }
             },
-            "description": "Invalid incident-bundle export request"
+            "description": "Invalid incident-bundle export request",
+            "x-cartulary-error-codes": [
+              "invalid_incident_bundle_request"
+            ]
           },
           "409": {
             "content": {
@@ -1830,7 +1833,11 @@
                 }
               }
             },
-            "description": "Export rejected or idempotency conflict"
+            "description": "Export rejected or idempotency conflict",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "incident_bundle_export_rejected"
+            ]
           }
         },
         "security": [
@@ -1882,7 +1889,10 @@
                 }
               }
             },
-            "description": "Invalid incident-bundle import request"
+            "description": "Invalid incident-bundle import request",
+            "x-cartulary-error-codes": [
+              "invalid_incident_bundle_request"
+            ]
           },
           "409": {
             "content": {
@@ -1892,7 +1902,11 @@
                 }
               }
             },
-            "description": "Import rejected or idempotency conflict"
+            "description": "Import rejected or idempotency conflict",
+            "x-cartulary-error-codes": [
+              "client_txn_conflict",
+              "incident_bundle_import_rejected"
+            ]
           }
         },
         "security": [
@@ -1945,7 +1959,10 @@
                 }
               }
             },
-            "description": "Invalid singleton read query"
+            "description": "Invalid singleton read query",
+            "x-cartulary-error-codes": [
+              "invalid_list_query"
+            ]
           },
           "404": {
             "content": {
@@ -1955,7 +1972,10 @@
                 }
               }
             },
-            "description": "Incident bundle descriptor not found"
+            "description": "Incident bundle descriptor not found",
+            "x-cartulary-error-codes": [
+              "incident_bundle_not_found"
+            ]
           }
         },
         "security": [
