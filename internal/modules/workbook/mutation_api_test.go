@@ -2,53 +2,59 @@ package workbook
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func TestWorkbookMutationDecoderValidation(t *testing.T) {
-	tests := []struct {
-		name         string
-		viewSchemaID string
-		body         string
-	}{
-		{
-			name:         "party requires display name",
-			viewSchemaID: PartiesViewSchemaID,
-			body:         `{"client_txn_id":"txn-party","party.party_kind":"organization"}`,
-		},
-		{
-			name:         "comm log requires summary",
-			viewSchemaID: CommLogViewSchemaID,
-			body:         `{"client_txn_id":"txn-comm","comm_log.comm_type":"briefing","comm_log.audience":"leadership","comm_log.channel_or_meeting":"Bridge"}`,
-		},
-		{
-			name:         "handoff requires incoming owner",
-			viewSchemaID: HandoffViewSchemaID,
-			body:         `{"client_txn_id":"txn-handoff","handoff.current_state_summary":"state"}`,
-		},
-		{
-			name:         "status review requires summary",
-			viewSchemaID: StatusReviewViewSchemaID,
-			body:         `{"client_txn_id":"txn-status","status_review.active_risks_summary":"risk"}`,
-		},
-		{
-			name:         "lesson requires summary",
-			viewSchemaID: LessonViewSchemaID,
-			body:         `{"client_txn_id":"txn-lesson","lesson.closure_state":"open"}`,
-		},
+func TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit(t *testing.T) {
+	allowedClasses := []string{"atomic_replace", "collection_review", "text_compare_merge"}
+	recordTypes := map[string]int{}
+	for _, resource := range viewschema.ListPublicResources() {
+		schema, ok := viewschema.Lookup(resource.ViewSchemaID)
+		if !ok {
+			t.Fatalf("public resource %s has no internal schema", resource.ViewSchemaID)
+		}
+		writableFields := 0
+		for fieldKey, field := range schema.Fields() {
+			if !field.Writable {
+				continue
+			}
+			writableFields++
+			if !slices.Contains(allowedClasses, field.ConflictResolutionClass) {
+				t.Fatalf("%s field %s has unsupported conflict class %q", resource.ViewSchemaID, fieldKey, field.ConflictResolutionClass)
+			}
+			switch field.WriteKind {
+			case "direct_value":
+				if field.WriteTarget == nil || strings.TrimSpace(*field.WriteTarget) == "" {
+					t.Fatalf("%s field %s is directly writable without an authoritative write target", resource.ViewSchemaID, fieldKey)
+				}
+			case "action_payload":
+				if field.WriteAction == nil || strings.TrimSpace(*field.WriteAction) == "" {
+					t.Fatalf("%s field %s is action-writable without an authoritative write action", resource.ViewSchemaID, fieldKey)
+				}
+			default:
+				t.Fatalf("%s field %s has unsupported write kind %q", resource.ViewSchemaID, fieldKey, field.WriteKind)
+			}
+		}
+		if writableFields == 0 {
+			continue
+		}
+		if len(resource.SourceRecordTypes) != 1 {
+			t.Fatalf("conflict-capable surface %s has source record types %v, want exactly one", resource.ViewSchemaID, resource.SourceRecordTypes)
+		}
+		recordTypes[resource.SourceRecordTypes[0]] += writableFields
+		if !slices.Contains(expectedPatchSurfaces()[resource.SourceRecordTypes[0]], resource.ViewSchemaID) {
+			t.Fatalf(
+				"writable surface %s is absent from the registry-derived patch requirements",
+				resource.ViewSchemaID,
+			)
+		}
 	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			request, apiErr := DecodeCreateRequest(tc.viewSchemaID, strings.NewReader(tc.body))
-			if apiErr != nil {
-				t.Fatalf("decode create request: %#v", apiErr)
-			}
-			if err := validateCreateRequest(request); err == nil {
-				t.Fatalf("expected required-field validation failure")
-			}
-		})
+	if len(recordTypes) == 0 {
+		t.Fatal("machine registry produced no conflict-capable record types")
 	}
 }
 
@@ -69,7 +75,7 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
-func TestWorkbookMutationDecoderRejectsRegistryDisallowedCollectionOps(t *testing.T) {
+func TestWorkbookMutationDecoderAdmitsStructurallyValidOwnerSpecificCollectionOps(t *testing.T) {
 	stableID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {
 		name         string
@@ -100,10 +106,8 @@ func TestWorkbookMutationDecoderRejectsRegistryDisallowedCollectionOps(t *testin
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
-			if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
-				t.Fatalf("expected registry-disallowed op to fail for %s", tc.fieldKey)
-			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
-				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
+			if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr != nil {
+				t.Fatalf("structurally valid action should reach the source owner for %s: %#v", tc.fieldKey, apiErr)
 			}
 		})
 	}

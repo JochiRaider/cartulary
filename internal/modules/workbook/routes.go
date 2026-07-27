@@ -13,14 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -33,79 +30,50 @@ import (
 )
 
 type Service struct {
-	queryRows         workbookQueryPort
-	mutations         workbookMutationPort
-	recordTargets     workbookRecordTargetPort
-	timelineOwner     workbookTimelineMutationPort
-	entityOwner       workbookEntityMutationPort
-	indicatorOwner    workbookIndicatorMutationPort
-	conflictTokens    workbookConflictTokenPort
-	incidentAccess    incidents.Access
-	startupStore      *workbookstartup.Store
-	authStore         *authn.Store
-	cursorCodec       *pagination.Codec
-	keys              authn.MasterKeys
-	now               func() time.Time
-	serviceVersion    string
-	createRowHandlers map[string]http.HandlerFunc
+	contributions  *WorkbookContributionCatalog
+	mutations      workbookMutationPort
+	recordTargets  workbookRecordTargetPort
+	timelineOwner  workbookTimelineMutationPort
+	entityOwner    workbookEntityMutationPort
+	conflictTokens workbookConflictTokenPort
+	incidentAccess incidents.Access
+	startupStore   *workbookstartup.Store
+	authStore      *authn.Store
+	cursorCodec    *pagination.Codec
+	keys           authn.MasterKeys
+	now            func() time.Time
+	serviceVersion string
 }
 
-type CreateRowHandlerFactory func(httpapi.DependencySet) (http.HandlerFunc, error)
+type StartupStoreFactory func(httpapi.DependencySet) (*workbookstartup.Store, error)
 
-type RouteOption func(*routeOptions)
-
-type routeOptions struct {
-	createRowHandlerFactories map[string]CreateRowHandlerFactory
-	timelineOwner             *timeline.Facade
-	projectionQuery           *projections.QueryService
+type RouteDependencies struct {
+	TimelineOwner       *timeline.Facade
+	MutationStore       *Store
+	EntityOwner         *hostidentity.Store
+	ConflictTokens      conflicttokens.ConflictTokenCodec
+	StartupStoreFactory StartupStoreFactory
 }
 
-func WithTimelineOwner(owner *timeline.Facade) RouteOption {
-	return func(options *routeOptions) {
-		options.timelineOwner = owner
-	}
-}
-
-func WithProjectionQuery(query *projections.QueryService) RouteOption {
-	return func(options *routeOptions) {
-		options.projectionQuery = query
-	}
-}
-
-func WithCreateRowHandler(viewSchemaID string, factory CreateRowHandlerFactory) RouteOption {
-	return func(options *routeOptions) {
-		if options.createRowHandlerFactories == nil {
-			options.createRowHandlerFactories = make(map[string]CreateRowHandlerFactory)
-		}
-		options.createRowHandlerFactories[viewSchemaID] = factory
-	}
-}
-
-func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
+func RegisterRoutes(routeDependencies RouteDependencies) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		settings := routeOptions{}
-		for _, option := range options {
-			if option != nil {
-				option(&settings)
-			}
+		if routeDependencies.StartupStoreFactory == nil {
+			return errors.New("workbook route composition requires a startup store factory")
 		}
-		service, err := newService(deps, settings.timelineOwner, settings.projectionQuery)
+		startupStore, err := routeDependencies.StartupStoreFactory(deps)
+		if err != nil {
+			return fmt.Errorf("compose workbook startup store: %w", err)
+		}
+		if startupStore == nil {
+			return errors.New("workbook startup store factory returned nil")
+		}
+		service, err := newService(
+			deps,
+			routeDependencies,
+			startupStore,
+		)
 		if err != nil {
 			return err
-		}
-		service.createRowHandlers = make(map[string]http.HandlerFunc, len(settings.createRowHandlerFactories))
-		for viewSchemaID, factory := range settings.createRowHandlerFactories {
-			if viewSchemaID == "" || factory == nil {
-				return errors.New("workbook create-row provider requires a view schema ID and factory")
-			}
-			handler, factoryErr := factory(deps)
-			if factoryErr != nil {
-				return fmt.Errorf("create workbook row provider %q: %w", viewSchemaID, factoryErr)
-			}
-			if handler == nil {
-				return fmt.Errorf("workbook create-row provider %q returned a nil handler", viewSchemaID)
-			}
-			service.createRowHandlers[viewSchemaID] = handler
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.workbook", map[string]http.HandlerFunc{
 			"applyWorkbookBulkMutation":             service.handleBulkMutations,
@@ -338,7 +306,11 @@ func timelineOwnerBatchTargets(targets []TimelineBatchTarget) []timeline.OwnerBa
 	return converted
 }
 
-func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade, projectionQuery *projections.QueryService) (*Service, error) {
+func newService(
+	deps httpapi.DependencySet,
+	routeDependencies RouteDependencies,
+	startupStore *workbookstartup.Store,
+) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -352,27 +324,33 @@ func newService(deps httpapi.DependencySet, timelineStore *timeline.Facade, proj
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	if timelineStore == nil {
+	if routeDependencies.TimelineOwner == nil {
 		return nil, errors.New("workbook route composition requires a Timeline owner")
 	}
-	if projectionQuery == nil {
-		return nil, errors.New("workbook route composition requires projection queries")
+	if routeDependencies.MutationStore == nil {
+		return nil, errors.New("workbook route composition requires a mutation store")
 	}
-	conflictTokens := conflicttokens.NewConflictTokenCodec(keys)
-	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore, conflictTokens, projectionQuery)
-	queryStore := NewQueryStore(deps.PostgresHandle(), projectionQuery)
-	entityStore := hostidentity.NewStore(deps.PostgresHandle())
-	indicatorStore := indicators.NewStore(deps.PostgresHandle())
+	if routeDependencies.MutationStore.contributions == nil {
+		return nil, errors.New("workbook route composition requires a contribution catalog")
+	}
+	if routeDependencies.MutationStore.recordTargets == nil {
+		return nil, errors.New("workbook route composition requires a record target owner")
+	}
+	if routeDependencies.EntityOwner == nil {
+		return nil, errors.New("workbook route composition requires an Entity owner")
+	}
+	if startupStore == nil {
+		return nil, errors.New("workbook route composition requires a startup store")
+	}
 	return &Service{
-		queryRows:      queryStore,
-		mutations:      store,
-		recordTargets:  records.NewRouteTargetResolver(deps.PostgresHandle()),
-		timelineOwner:  timelineStore,
-		entityOwner:    entityStore,
-		indicatorOwner: indicatorStore,
-		conflictTokens: conflictTokens,
+		contributions:  routeDependencies.MutationStore.contributions,
+		mutations:      routeDependencies.MutationStore,
+		recordTargets:  routeDependencies.MutationStore.recordTargets,
+		timelineOwner:  routeDependencies.TimelineOwner,
+		entityOwner:    routeDependencies.EntityOwner,
+		conflictTokens: routeDependencies.ConflictTokens,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistryFromPublication(httpapi.ExtensionWorkspacesFromDependencies(deps))),
+		startupStore:   startupStore,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		cursorCodec:    cursorCodec,
 		keys:           keys,
@@ -618,7 +596,19 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 	if cursor != nil {
 		window.Position = cursor.Position
 	}
-	page, err := s.queryRows.QueryRowsPage(r.Context(), incidentID, viewSchemaID, query.Meta, window)
+	queryProvider, ok := s.contributions.QueryFor(viewSchemaID)
+	if !ok {
+		apiErr := internalAPIError(fmt.Errorf("workbook query surface %q is not registered", viewSchemaID))
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	page, err := queryProvider.QueryRowsPage(r.Context(), QueryCommand{
+		IncidentID:   incidentID,
+		ViewSchemaID: viewSchemaID,
+		Query:        query.Meta,
+		Window:       window,
+	})
 	if err != nil {
 		if errors.Is(err, querypage.ErrInvalidPosition) {
 			apiErr := invalidViewQuery("", pagination.ReasonInvalidCursorToken)
@@ -680,10 +670,6 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	viewSchemaID := r.PathValue("view_schema_id")
-	if handler, ok := s.createRowHandlers[viewSchemaID]; ok {
-		handler(w, r)
-		return
-	}
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {
 		return
@@ -697,112 +683,28 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if viewSchemaID == timeline.TimelineViewSchemaID {
-		s.handleTimelineCreate(w, r, principal, incidentID)
-		return
-	}
-	if viewSchemaID == hostidentity.HostsViewSchemaID || viewSchemaID == hostidentity.IdentitiesViewSchemaID {
-		s.handleEntityCreate(w, r, principal, incidentID, viewSchemaID)
-		return
-	}
-	if viewSchemaID == indicators.ViewSchemaID {
-		s.handleIndicatorCreate(w, r, principal, incidentID)
-		return
-	}
-	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "create")
-	result, err := s.mutations.CreateWorkbookRow(ctx, principal.User, incidentID, request, CreateRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
-	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
-	finishTelemetry(telemetryResult, telemetryErrorCode)
-	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
-}
-
-func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, viewSchemaID string) {
-	request, apiErr := hostidentity.DecodeCreateRequest(viewSchemaID, r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	var (
-		result hostidentity.MutationResult
-		err    error
-	)
-	requestHash := hostidentity.CreateRequestHash(viewSchemaID, request)
-	switch viewSchemaID {
-	case hostidentity.HostsViewSchemaID:
-		result, err = s.entityOwner.CreateHostRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-	case hostidentity.IdentitiesViewSchemaID:
-		result, err = s.entityOwner.CreateIdentityRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-	default:
+	provider, registered := s.contributions.CreateFor(viewSchemaID)
+	if !registered {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-
-	var entityConflict *hostidentity.ExactMatchConflictError
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, hostidentity.ErrInvalidCreateRequest):
-		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
-		return
-	case errors.As(err, &entityConflict):
-		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-}
-
-func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID) {
-	request, apiErr := indicators.DecodeCreateRequest(r.Body)
+	admission, apiErr := provider.DecodeCreate(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-
-	requestHash := indicators.CreateRequestHash(request)
-	result, err := s.indicatorOwner.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-
-	var createValidationErr *indicators.IndicatorCreateValidationError
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, indicators.ErrInvalidCreateRequest):
-		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
-		return
-	case errors.As(err, &createValidationErr):
-		writeAPIError(w, r, invalidMutationPayload(createValidationErr.Field, createValidationErr.ReasonCode))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), viewSchemaID, "create")
+	result, err := provider.Create(ctx, CreateCommand{
+		Actor:        principal.User,
+		IncidentID:   incidentID,
+		ViewSchemaID: viewSchemaID,
+		Admission:    admission,
+		RequestID:    httpapi.RequestIDFromContext(ctx),
+		Now:          s.now(),
+	})
+	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, admission.ClientTxnID)
+	finishTelemetry(telemetryResult, telemetryErrorCode)
+	writeMutationResult(w, r, s, &principal, result, err, admission.ClientTxnID)
 }
 
 func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
@@ -815,26 +717,7 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeAPIError(w, r, invalidMutationPayload("", "invalid_value"))
-		return
-	}
-	viewSchemaID := patchViewSchemaID(body)
-	if viewSchemaID == timeline.TimelineViewSchemaID {
-		s.handleTimelinePatch(w, r, principal, recordID, body)
-		return
-	}
-	if viewSchemaID == hostidentity.HostsViewSchemaID || viewSchemaID == hostidentity.IdentitiesViewSchemaID {
-		s.handleEntityPatch(w, r, principal, recordID, body)
-		return
-	}
-	request, apiErr := DecodePatchRequest(bytes.NewReader(body))
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, request.ViewSchemaID)
+	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -843,42 +726,32 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "patch")
-	result, err := s.mutations.PatchWorkbookRow(ctx, principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
-	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
-	finishTelemetry(telemetryResult, telemetryErrorCode)
-	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
-}
-
-func (s *Service) handleEntityPatch(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, recordID uuid.UUID, body []byte) {
-	request, apiErr := hostidentity.DecodePatchRequest(bytes.NewReader(body))
+	provider, registered := s.contributions.PatchFor(target.RecordType)
+	if !registered {
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	}
+	admission, apiErr := provider.DecodePatch(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, request.ViewSchemaID)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "patch")
-	result, err := s.entityOwner.PatchEntityRow(ctx, principal.User, recordID, request, hostidentity.PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now(), workbookPatchRouteKey)
-	err = adaptEntityPatchOwnerError(err)
-	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), admission.ViewSchemaID, "patch")
+	result, err := provider.Patch(ctx, PatchCommand{
+		Actor:                   principal.User,
+		RecordID:                recordID,
+		AuthoritativeRecordType: target.RecordType,
+		Admission:               admission,
+		RequestID:               httpapi.RequestIDFromContext(ctx),
+		Now:                     s.now(),
+	})
+	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, admission.ClientTxnID)
 	finishTelemetry(telemetryResult, telemetryErrorCode)
-	writeMutationResult(w, r, s, &principal, mutationResultFromEntityPatch(result, request.ViewSchemaID), err, request.ClientTxnID)
+	writeMutationResult(w, r, s, &principal, result, err, admission.ClientTxnID)
 }
 
 func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request) {
@@ -1073,179 +946,40 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
-	switch claims.RouteKey {
-	case timeline.ConflictResolveRouteKey:
-		if claims.ViewSchemaID != timeline.TimelineViewSchemaID {
-			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
-			return
-		}
-		s.handleTimelineConflictResolve(w, r, &principal, target.IncidentID, recordID, token, claims)
-		return
-	case workbookConflictResolveRouteKey:
-		if claims.ViewSchemaID == timeline.TimelineViewSchemaID {
-			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
-			return
-		}
-	default:
+	provider, registered := s.contributions.ConflictFor(target.RecordType)
+	if !registered {
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
-	request, apiErr := DecodeConflictResolveRequest(r.Body, token, claims)
+	admission, apiErr := provider.DecodeConflict(r.Body, token, claims)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.mutations.ResolveWorkbookConflict(r.Context(), principal.User, recordID, claims, request, ConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
-	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
-}
-
-func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, incidentID uuid.UUID, recordID uuid.UUID, token string, claims conflicttokens.ConflictTokenClaims) {
-	request, apiErr := timelineadmission.DecodeTimelineConflictResolveRequest(r.Body, token, claims)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, err := s.timelineOwner.ResolveConflict(r.Context(), timeline.ConflictResolveCommand{
-		Actor:    principal.User,
-		RecordID: recordID,
-		Claims:   claims,
-		Request:  request,
-		RequestHash: timelineadmission.ConflictResolveRequestHash(
-			claims,
-			request,
-		),
-		RequestID: httpapi.RequestIDFromContext(r.Context()),
-		Now:       s.now(),
+	result, err := provider.ResolveConflict(r.Context(), ConflictCommand{
+		Actor:                   principal.User,
+		RecordID:                recordID,
+		AuthoritativeRecordType: target.RecordType,
+		Claims:                  claims,
+		Admission:               admission,
+		RequestID:               httpapi.RequestIDFromContext(r.Context()),
+		Now:                     s.now(),
 	})
-	var (
-		entityConflict       *hostidentity.ExactMatchConflictError
-		mentionTransitionErr *mentions.MentionTransitionError
-	)
-	switch {
-	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
-		return
-	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
-		return
-	case errors.As(err, &entityConflict):
-		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
-		return
-	case isTimelineMentionMutationError(err):
-		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-}
-
-func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID) {
-	request, apiErr := timelineadmission.DecodeTimelineCreateRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, err := s.timelineOwner.CreateRow(r.Context(), timeline.CreateRowCommand{
-		Actor:       principal.User,
-		IncidentID:  incidentID,
-		Request:     request,
-		RequestHash: timelineadmission.CreateRequestHash(request),
-		RequestID:   httpapi.RequestIDFromContext(r.Context()),
-		Now:         s.now(),
-	})
-	var mutationErr *MutationValidationError
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.As(err, &mutationErr):
-		writeAPIError(w, r, invalidMutationPayload(mutationErr.Field, mutationErr.ReasonCode))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-}
-
-func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, recordID uuid.UUID, body []byte) {
-	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := timelineadmission.DecodeTimelinePatchRequest(bytes.NewReader(body))
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, err := s.timelineOwner.PatchRow(r.Context(), timeline.PatchRowCommand{
-		Actor:       principal.User,
-		RecordID:    recordID,
-		Request:     request,
-		RequestHash: timelineadmission.PatchRequestHash(request),
-		RequestID:   httpapi.RequestIDFromContext(r.Context()),
-		Now:         s.now(),
-	})
-	var (
-		entityConflict       *hostidentity.ExactMatchConflictError
-		mentionTransitionErr *mentions.MentionTransitionError
-	)
-	switch {
-	case classifyTimelineMutationError(w, r, err, timelineadmission.MutationAPIErrorContext{
-		ClientTxnID:                 request.ClientTxnID,
-		IllegalTransitionReasonCode: "superseded_terminal",
-		NoEffectiveChangeField:      "changes",
-	}):
-		return
-	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
-		return
-	case errors.As(err, &entityConflict):
-		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
-		return
-	case isTimelineMentionMutationError(err):
-		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
+	writeMutationResult(w, r, s, &principal, result, err, admission.ClientTxnID)
 }
 
 func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, principal *httpauth.Principal, result MutationResult, err error, clientTxnID string) {
 	var (
+		publicErr     *publicMutationError
 		validationErr *MutationValidationError
 		lifecycleErr  *LifecycleValidationError
 		rowConflict   *RowVersionConflictError
 		sameConflict  *SameFieldConflictError
 	)
 	switch {
+	case errors.As(err, &publicErr):
+		writeAPIError(w, r, publicErr.apiError)
+		return
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(clientTxnID))
 		return
@@ -1296,16 +1030,6 @@ func classifyTimelineMutationError(w http.ResponseWriter, r *http.Request, err e
 	}
 	writeAPIError(w, r, apiErr)
 	return true
-}
-
-func patchViewSchemaID(body []byte) string {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return ""
-	}
-	var viewSchemaID string
-	_ = json.Unmarshal(raw["view_schema_id"], &viewSchemaID)
-	return viewSchemaID
 }
 
 func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *httpapi.APIError) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
+	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
 

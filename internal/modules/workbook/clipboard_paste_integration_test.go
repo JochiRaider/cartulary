@@ -3,6 +3,7 @@ package workbook_test
 import (
 	"context"
 	"database/sql"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 
@@ -10,27 +11,26 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901",
 		"title":         "Workbook inspector clipboard paste",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	existing := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   "txn-workbook_interaction-i-9-01-existing",
 		"timeline.activity_synopsis_text": "Existing base",
 	})
 	existingRow := existing["row"].(map[string]any)
-	existingID := workbookscenariotest.MustUUID(t, existingRow["record_id"].(string))
+	existingID := appsupport.MustUUID(t, existingRow["record_id"].(string))
 
 	pasteData := requireClipboardPaste(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"view_schema_id":  timeline.TimelineViewSchemaID,
@@ -55,7 +55,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 	}
 	patchedRow := rows[0].(map[string]any)
 	createdRow := rows[1].(map[string]any)
-	createdID := workbookscenariotest.MustUUID(t, createdRow["record_id"].(string))
+	createdID := appsupport.MustUUID(t, createdRow["record_id"].(string))
 	requireCellValue(t, patchedRow, "timeline.activity_synopsis_text", "Updated existing")
 	requireCellValue(t, createdRow, "timeline.activity_synopsis_text", "Created from paste")
 
@@ -73,13 +73,13 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 		"timeline.activity_synopsis_text": "Conflict base first",
 	})
 	firstConflictRow := firstConflictBase["row"].(map[string]any)
-	firstConflictID := workbookscenariotest.MustUUID(t, firstConflictRow["record_id"].(string))
+	firstConflictID := appsupport.MustUUID(t, firstConflictRow["record_id"].(string))
 	secondConflictBase := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   "txn-workbook_interaction-i-9-01-conflict-base-second",
 		"timeline.activity_synopsis_text": "Conflict base second",
 	})
 	secondConflictRow := secondConflictBase["row"].(map[string]any)
-	secondConflictID := workbookscenariotest.MustUUID(t, secondConflictRow["record_id"].(string))
+	secondConflictID := appsupport.MustUUID(t, secondConflictRow["record_id"].(string))
 	requireWorkbookPatch(t, harness, adminLogin, firstConflictID, map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": 1,
@@ -119,7 +119,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 		t.Fatalf("partial paste must commit only non-conflicting writes and batch conflicts: %#v", partial)
 	}
 	partialRows := partial["rows"].([]any)
-	partialCreatedID := workbookscenariotest.MustUUID(t, partialRows[0].(map[string]any)["record_id"].(string))
+	partialCreatedID := appsupport.MustUUID(t, partialRows[0].(map[string]any)["record_id"].(string))
 	requireMutationTargets(t, harness, partial["change_set_id"].(string), []string{partialCreatedID.String()})
 	conflicts := partial["conflicts"].([]any)
 	firstConflict := conflicts[0].(map[string]any)
@@ -155,14 +155,14 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 }
 
 func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-entity-origin-paste")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-entity-origin-paste")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-entity-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-ENTITY",
 		"title":         "Workbook inspector entity-origin paste",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	existingHost := requireWorkbookCreate(t, harness, adminLogin, incidentID, hostidentity.HostsViewSchemaID, map[string]any{
 		"client_txn_id":     "txn-workbook_interaction-i-9-01-existing-host",
@@ -207,14 +207,14 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 }
 
 func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-bulk-mutations")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-bulk-mutations")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-bulk-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-BULK",
 		"title":         "Workbook inspector bulk mutations",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	first := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   "txn-workbook_interaction-i-9-01-bulk-first",
 		"timeline.activity_synopsis_text": "Bulk first",
@@ -256,31 +256,31 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 }
 
 func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-01-cross-incident-batch-targets")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incidentA := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-cross-incident-batch-targets")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incidentA := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-a",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-XA",
 		"title":         "Workbook inspector cross incident A",
 	})
-	incidentAID := workbookscenariotest.MustUUID(t, incidentA["incident_id"].(string))
-	incidentB := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incidentAID := appsupport.MustUUID(t, incidentA["incident_id"].(string))
+	incidentB := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-b",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-XB",
 		"title":         "Workbook inspector cross incident B",
 	})
-	incidentBID := workbookscenariotest.MustUUID(t, incidentB["incident_id"].(string))
+	incidentBID := appsupport.MustUUID(t, incidentB["incident_id"].(string))
 
 	local := requireWorkbookCreate(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   "txn-workbook_interaction-i-9-01-cross-local",
 		"timeline.activity_synopsis_text": "Local batch target",
 	})
-	localID := workbookscenariotest.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
+	localID := appsupport.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
 	foreign := requireWorkbookCreate(t, harness, adminLogin, incidentBID, timeline.TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   "txn-workbook_interaction-i-9-01-cross-foreign",
 		"timeline.activity_synopsis_text": "Foreign batch target",
 	})
-	foreignID := workbookscenariotest.MustUUID(t, foreign["row"].(map[string]any)["record_id"].(string))
+	foreignID := appsupport.MustUUID(t, foreign["row"].(map[string]any)["record_id"].(string))
 
 	for _, baseRowVersion := range []int{1, 99} {
 		txnID := "txn-workbook_interaction-i-9-01-cross-paste"
@@ -339,15 +339,15 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 	requireNoChangeSetForClientTxn(t, harness, "txn-workbook_interaction-i-9-01-cross-tag")
 }
 
-func requireClipboardPaste(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
+func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/clipboard-paste",
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -358,20 +358,20 @@ func requireClipboardPaste(t testing.TB, harness *workbookscenariotest.ServerHar
 	return httptestx.ReadJSONBody(t, resp)
 }
 
-func requireBulkMutation(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requireBulkMutation(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	return requireBulkMutationStatus(t, harness, login, incidentID, viewSchemaID, body, http.StatusOK)
 }
 
-func requireBulkMutationStatus(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
+func requireBulkMutationStatus(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/bulk-mutations",
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -382,7 +382,7 @@ func requireBulkMutationStatus(t testing.TB, harness *workbookscenariotest.Serve
 	return httptestx.ReadJSONBody(t, resp)
 }
 
-func requireChangeSetSource(t testing.TB, harness *workbookscenariotest.ServerHarness, changeSetID string, wantSource string, wantTxnID string) {
+func requireChangeSetSource(t testing.TB, harness *appsupport.ServerHarness, changeSetID string, wantSource string, wantTxnID string) {
 	t.Helper()
 	var source, clientTxnID string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -397,7 +397,7 @@ SELECT source, client_txn_id
 	}
 }
 
-func requireMutationTargets(t testing.TB, harness *workbookscenariotest.ServerHarness, changeSetID string, want []string) {
+func requireMutationTargets(t testing.TB, harness *appsupport.ServerHarness, changeSetID string, want []string) {
 	t.Helper()
 	rows, err := harness.DB.QueryContext(context.Background(), `
 SELECT target_id
@@ -445,7 +445,7 @@ func requirePasteConflict(t testing.TB, conflict map[string]any, recordID uuid.U
 	}
 }
 
-func requireRevisionCount(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, want int) {
+func requireRevisionCount(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, want int) {
 	t.Helper()
 	var got int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID).Scan(&got); err != nil {
@@ -456,7 +456,7 @@ func requireRevisionCount(t testing.TB, harness *workbookscenariotest.ServerHarn
 	}
 }
 
-func requireProvenanceValue(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, want string) {
+func requireProvenanceValue(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, want string) {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -473,7 +473,7 @@ SELECT count(*)
 	}
 }
 
-func requireMentionOriginKind(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, fieldKey string, want string) {
+func requireMentionOriginKind(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, fieldKey string, want string) {
 	t.Helper()
 	var got string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -491,7 +491,7 @@ SELECT origin_kind
 	}
 }
 
-func requireEntityOriginAndNoMentions(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID string, tableName string, wantOrigin string) {
+func requireEntityOriginAndNoMentions(t testing.TB, harness *appsupport.ServerHarness, recordID string, tableName string, wantOrigin string) {
 	t.Helper()
 	query := ""
 	switch tableName {
@@ -509,14 +509,14 @@ func requireEntityOriginAndNoMentions(t testing.TB, harness *workbookscenariotes
 	if got != wantOrigin {
 		t.Fatalf("entity-origin paste used wrong origin for %s: got %q want %q", recordID, got, wantOrigin)
 	}
-	if count := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id::text = $1`, recordID); count != 0 {
+	if count := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id::text = $1`, recordID); count != 0 {
 		t.Fatalf("entity-origin paste must not create mentions for %s, got %d", recordID, count)
 	}
 }
 
-func requireRecordTag(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID string, tagName string) {
+func requireRecordTag(t testing.TB, harness *appsupport.ServerHarness, recordID string, tagName string) {
 	t.Helper()
-	if count := workbookscenariotest.QueryCount(t, harness.DB, `
+	if count := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE record_id::text = $1
@@ -527,9 +527,9 @@ SELECT COUNT(*)
 	}
 }
 
-func requireNoRecordTag(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID string, tagName string) {
+func requireNoRecordTag(t testing.TB, harness *appsupport.ServerHarness, recordID string, tagName string) {
 	t.Helper()
-	if count := workbookscenariotest.QueryCount(t, harness.DB, `
+	if count := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE record_id::text = $1
@@ -557,7 +557,7 @@ func requireNoVersionOracle(t testing.TB, body map[string]any) {
 	}
 }
 
-func requireTimelineSummaryAndVersion(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, wantSummary string, wantVersion int64) {
+func requireTimelineSummaryAndVersion(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, wantSummary string, wantVersion int64) {
 	t.Helper()
 	var summary string
 	var rowVersion int64
@@ -575,9 +575,9 @@ SELECT e.activity_synopsis_text, r.row_version
 	}
 }
 
-func requireNoTimelineSummary(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, summary string) {
+func requireNoTimelineSummary(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, summary string) {
 	t.Helper()
-	if count := workbookscenariotest.QueryCount(t, harness.DB, `
+	if count := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM timeline_events
  WHERE incident_id = $1
@@ -587,7 +587,7 @@ SELECT COUNT(*)
 	}
 }
 
-func requireNoTimelineSourceText(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID) {
+func requireNoTimelineSourceText(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID) {
 	t.Helper()
 	var sourceText sql.NullString
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT raw_activity_text FROM timeline_events WHERE record_id = $1`, recordID).Scan(&sourceText); err != nil {
@@ -598,22 +598,22 @@ func requireNoTimelineSourceText(t testing.TB, harness *workbookscenariotest.Ser
 	}
 }
 
-func requireNoChangeSetForClientTxn(t testing.TB, harness *workbookscenariotest.ServerHarness, clientTxnID string) {
+func requireNoChangeSetForClientTxn(t testing.TB, harness *appsupport.ServerHarness, clientTxnID string) {
 	t.Helper()
-	if count := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE client_txn_id = $1`, clientTxnID); count != 0 {
+	if count := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE client_txn_id = $1`, clientTxnID); count != 0 {
 		t.Fatalf("expected no change_set for %s, got %d", clientTxnID, count)
 	}
 }
 
-func resolveTimelineConflict(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, token string, body map[string]any) map[string]any {
+func resolveTimelineConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, token string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+token+"/resolve",
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

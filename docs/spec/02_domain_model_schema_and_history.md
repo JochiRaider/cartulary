@@ -1588,6 +1588,8 @@ Verified by: AC-150, AC-153, AC-231
 
 **REQ-02-161**
 Both `home_sheet_ref` and `default_sheet_ref` MUST use the `sheet_ref` union defined by Core 01 §3.3.10.1 and MUST be nullable so the implementation can clear an invalid or unwanted pointer without deleting the preference object.
+
+An automatic startup repair MUST condition its write on the persisted pointer still equaling the exact value proven invalid. An effective clear MUST advance `updated_at` exactly once and, for `incident_workbook_preferences`, set `updated_by_user_id` to the authenticated caller whose request triggered the repair. A comparison miss, an already-null pointer, or any other no-op MUST preserve timestamps and attribution.
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 

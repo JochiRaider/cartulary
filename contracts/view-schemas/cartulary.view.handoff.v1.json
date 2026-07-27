@@ -72,6 +72,7 @@
     "handoff.incoming_owner_user_id",
     "handoff.ack_state"
   ],
+  "create_capable": true,
   "inline_create": {
     "minimum_create_field_sets": [],
     "permits_zero_field_create": false

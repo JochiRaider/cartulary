@@ -18,14 +18,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
-	runtimeHarness := workbookscenariotest.StartRuntime(t)
-	harness := runtimeHarness.StartServer(t, "backup_restore-i-10-01-metadata")
+	runtimeHarness := appsupport.StartRuntime(t)
+	harness := runtimeHarness.StartDefaultServer(
+		t,
+		"backup_restore-i-10-01-metadata",
+	)
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
 	backupStorage, err := recoveryassembly.NewBackupStorage(
@@ -40,8 +42,8 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	}
 	capture := recovery.NewCaptureService(store, backupStorage, testExtensionBackupCatalog(t))
 
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-backup_restore-i-10-01-incident",
 		"incident_key":  "backup_restore-i-10-01",
 		"title":         "Recovery and coordination recovery-metadata Backup Metadata",
@@ -287,7 +289,7 @@ SELECT count(*)
 	}
 }
 
-func S3StoreForBucket(t testing.TB, harness *workbookscenariotest.ServerHarness, runtimeHarness *workbookscenariotest.RuntimeHarness, bucket string) objectstore.Store {
+func S3StoreForBucket(t testing.TB, harness *appsupport.ServerHarness, runtimeHarness *appsupport.Runtime, bucket string) objectstore.Store {
 	t.Helper()
 	const serviceRef = "object_primary"
 	cfg := harness.Server.Config

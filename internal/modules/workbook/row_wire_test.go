@@ -1,6 +1,7 @@
 package workbook_test
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"slices"
@@ -11,20 +12,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRowWireFamilies_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-u-8-10-row-wire")
-	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-u-8-10-row-wire")
+	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-10-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-ROW-WIRE",
 		"title":         "Workbook query row wire",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	recordID := seedNoteArtifact(t, harness, incidentID, actorID, "Visible title", nil)
 
 	notesQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
@@ -84,7 +84,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		"timeline.activity_utc_text":      "2026-05-16T12:00:00Z",
 	})
 	timelineRow := timelineCreated["row"].(map[string]any)
-	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRecordID := appsupport.MustUUID(t, timelineRow["record_id"].(string))
 	timelineQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.timeline.v2/query"
 	timelineRows := responseRows(queryWorkbook(t, harness, adminLogin, timelineQueryURL, map[string]any{}))
 	var queriedTimelineRow map[string]any
@@ -116,7 +116,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 		"evidence.collector_party_id": nil,
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
-	patchEvidenceRecordID := workbookscenariotest.MustUUID(t, patchEvidenceRow["record_id"].(string))
+	patchEvidenceRecordID := appsupport.MustUUID(t, patchEvidenceRow["record_id"].(string))
 	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 4)
 	defer unsubscribe()
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
@@ -157,21 +157,21 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 }
 
 func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-ac368-sparse-patches")
-	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-ac368-sparse-patches")
+	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac368-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-AC368",
 		"title":         "Workbook query sparse patch coverage",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-saved_view_query-ac368-party",
 		"party.display_name": "Sparse Patch Party",
 		"party.party_kind":   "team",
 	})
-	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
 	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 16)
 	defer unsubscribe()
@@ -186,7 +186,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		"evidence.source_party_id":      partyID.String(),
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
-	evidenceID := workbookscenariotest.MustUUID(t, evidenceRow["record_id"].(string))
+	evidenceID := appsupport.MustUUID(t, evidenceRow["record_id"].(string))
 	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": evidenceRow["row_version"],
@@ -207,7 +207,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		"task.requester_party_id":   partyID.String(),
 	})
 	taskRow := taskData["row"].(map[string]any)
-	taskID := workbookscenariotest.MustUUID(t, taskRow["record_id"].(string))
+	taskID := appsupport.MustUUID(t, taskRow["record_id"].(string))
 	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
@@ -226,7 +226,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		"note.body":     "Collection patch body remains unchanged",
 	})
 	noteRow := noteData["row"].(map[string]any)
-	noteID := workbookscenariotest.MustUUID(t, noteRow["record_id"].(string))
+	noteID := appsupport.MustUUID(t, noteRow["record_id"].(string))
 	patchedNote := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": noteRow["row_version"],
@@ -252,7 +252,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		"comm_log.channel_or_meeting": "Bridge",
 		"comm_log.summary":            "Grouped sparse patch source",
 	})
-	commID := workbookscenariotest.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
+	commID := appsupport.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
 	commQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.comm_log.v1/query"
 	groupedRows := responseRows(queryWorkbook(t, harness, adminLogin, commQueryURL, map[string]any{
 		"group_by": "comm_log.comm_type",
@@ -399,14 +399,14 @@ func requireHubRecordChange(t testing.TB, changes <-chan platformws.Message, rec
 }
 
 func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION",
 		"title":         "Workbook query cursor",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	hostA := uuid.New()
 	hostC := uuid.New()
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
@@ -427,42 +427,42 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 		t.Fatalf("cursor continuation must evaluate fetch-time rows, got %#v", rows)
 	}
 
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperCursor(t, cursor),
 		"sort":         sortByName,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
 	}
 
-	changedQuery := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	changedQuery := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         []map[string]any{{"field_key": "host.hostname", "direction": "asc"}},
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, changedQuery, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected cursor_query_mismatch, got %#v", details)
 	}
 
-	otherView := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
+	otherView := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
 		"cursor_token": cursor,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherView, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected view_schema cursor_query_mismatch, got %#v", details)
 	}
 
-	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-other-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-OTHER",
 		"title":         "Workbook query cursor other",
 	})
-	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
-	otherRoute := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
+	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
+	otherRoute := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherRoute, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected incident cursor_query_mismatch, got %#v", details)
@@ -470,14 +470,14 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 }
 
 func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor-auth")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-auth")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-auth-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-AUTH",
 		"title":         "Workbook query cursor auth",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
@@ -494,22 +494,22 @@ UPDATE user_sessions
  WHERE user_id = $1
    AND revoked_at IS NULL
 `, adminUserID)
-	sessionResp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	sessionResp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, sessionResp, http.StatusUnauthorized, "session_required")
 }
 
 func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-04-cursor-membership")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-membership")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-membership-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-MEMBER",
 		"title":         "Workbook query cursor membership",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
@@ -519,22 +519,22 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
 	execSeed(t, harness, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID)
-	membershipResp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	membershipResp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, membershipResp, http.StatusNotFound, "incident_not_found")
 }
 
 func TestNotesFullTextExactSearch(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-ac185-notes")
-	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-ac185-notes")
+	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac185-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-AC185",
 		"title":         "Workbook query AC185",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	alpha := seedNoteArtifact(t, harness, incidentID, actorID, "Alpha Delta", ptrString("Responder contained shell"))
 	bravo := seedNoteArtifact(t, harness, incidentID, actorID, "Bravo Alpha", ptrString("Shell token appears earlier alphabetically"))
@@ -584,9 +584,9 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 		t.Fatalf("diacritics must remain significant; expected only cafe row, got %#v", responseRows(accent))
 	}
 
-	invalid := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	invalid := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": " -- "}}},
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, invalid, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "empty_full_text_after_tokenization" {
 		t.Fatalf("expected zero-token rejection, got %#v", details)
@@ -594,14 +594,14 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 }
 
 func TestPrefixAndNullLastOrdering(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-e-8-04-prefix-null-last")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-e-8-04-prefix-null-last")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-e-8-04-prefix-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-BROWSER-PREFIX",
 		"title":         "Workbook query prefix",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	alpha := uuid.New()
 	infix := uuid.New()
@@ -649,7 +649,7 @@ func tamperCursor(t testing.TB, cursor string) string {
 	return replacement + cursor[1:]
 }
 
-func seedNoteArtifact(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, body *string) uuid.UUID {
+func seedNoteArtifact(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, body *string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "artifact")

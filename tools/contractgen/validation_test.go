@@ -689,6 +689,7 @@ func validViewSchema(id string) map[string]any {
 		"filter_fields":               []any{"name"},
 		"synthetic_filter_predicates": []any{},
 		"grouping_fields":             []any{},
+		"create_capable":              true,
 		"inline_create":               map[string]any{"permits_zero_field_create": false},
 		"inspector_config":            validInspectorConfig(id),
 		"fields":                      []any{validViewField("name")},

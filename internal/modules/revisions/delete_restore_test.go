@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"testing"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -27,8 +27,8 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 }
 
 func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-03-delete")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-u-7-03-delete")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -44,7 +44,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 
 	setMembershipRole(t, harness.DB, incidentID, actorID, "editor")
 	staleRecord := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleRecord, "Stale Host", "stale-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleRecord, "Stale Host", "stale-host", "", "")
 	stale := deleteRecord(t, harness, login, staleRecord, map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-03-stale"})
 	staleErr := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
 	staleDetails := staleErr["error"].(map[string]any)["details"].(map[string]any)
@@ -70,7 +70,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 	}
 
 	reasonedRecord := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Delete Host", "reasoned-delete-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Delete Host", "reasoned-delete-host", "", "")
 	reasonedDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, reasonedRecord, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-u-7-03-delete-reasoned",
@@ -103,18 +103,18 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 		t.Fatalf("delete note status = %d body=%s", noteDelete.StatusCode, body)
 	}
 	httptestx.RequireSuccessEnvelope(t, noteDelete, http.StatusOK)
-	patch := workbookscenariotest.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+noteID.String(), map[string]any{
+	patch := appsupport.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+noteID.String(), map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": 2,
 		"client_txn_id":    "txn-u-7-03-patch-deleted",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "should not apply"}},
-	}, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, patch, http.StatusConflict, "record_deleted_use_restore")
 }
 
 func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-04-restore")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-u-7-04-restore")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U704")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -171,7 +171,7 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	}
 
 	reasonedRecord := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Restore Host", "reasoned-restore-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Restore Host", "reasoned-restore-host", "", "")
 	reasonedDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, reasonedRecord, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-u-7-04-delete-reasoned",
@@ -190,14 +190,14 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, notDeleted, http.StatusConflict, "record_not_deleted")
 }
 
-func deleteRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func deleteRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return workbookscenariotest.DoJSON(t, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return appsupport.DoJSON(t, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 }
 
-func restoreRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func restoreRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/restore", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/restore", body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 }
 
 func setMembershipRole(t testing.TB, db *sql.DB, incidentID uuid.UUID, userID uuid.UUID, role string) {
@@ -228,7 +228,7 @@ SET row_version = EXCLUDED.row_version,
 
 func seedNoteRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "artifact")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "artifact")
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
 VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
@@ -240,7 +240,7 @@ VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
 func seedIndicatorRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "indicator")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "indicator")
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (
     record_id,

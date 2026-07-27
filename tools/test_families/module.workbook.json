@@ -1548,7 +1548,10 @@
         "tests": [
           "TestCursorContinuationRechecksAuthorization_Integration",
           "TestCursorContinuationRechecksMembership_Integration",
-          "TestLiveAuthorizedCursorPagination_Integration"
+          "TestLiveAuthorizedCursorPagination_Integration",
+          "TestWorkbook_QueryCursorContinuationUsesLiveRows",
+          "TestWorkbook_QueryCursorRejectsTampering",
+          "TestWorkbook_QueryPaginationContract"
         ]
       },
       "evidence_class": "integration",
@@ -1642,6 +1645,32 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestPartyLinkHelperFieldsPreserveTextIndependently_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident",
+          "TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1865,7 +1894,10 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestConflictResolveDurability_Unit"
+          "TestConflictResolutionRevalidatesStaleToken_Unit",
+          "TestConflictResolveDurability_Unit",
+          "TestSourceOwnerConflictContributions_Integration",
+          "TestWorkbookRouteGuardsFailBeforeMutation"
         ]
       },
       "evidence_class": "integration",
@@ -1877,7 +1909,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.workbook.store.notes_create_as_shared_artifact_records_with_art_9a09b2f951",
+      "row_id": "module.workbook.store.linked_notes_create_contextual_artifact_links_9a09b2f951",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.store",
       "collaborator_ids": [],
@@ -1888,7 +1920,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestNotesAreArtifactBackedRows_Unit"
+          "TestLinkedNotesCreateContextualArtifactLinks_Unit"
         ]
       },
       "evidence_class": "integration",
@@ -2017,6 +2049,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/startup",
+        "tests": [
+          "TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback",
+          "TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integration",
+          "TestWorkbookStartupPreferencesBootstrapAndUpsert"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.support_unit.workbook_preferences_put_decoders_canonicalize_s_d015eb1407",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_unit",
@@ -2030,29 +2089,6 @@
         "tests": [
           "TestWorkbookPreferencesPutDecodersCanonicalizeSheetRefs",
           "TestWorkbookPreferencesPutDecodersRejectInvalidPayloads"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.workbook.support_unit.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook/startup",
-        "tests": [
-          "TestWorkbookStartupPreferencesBootstrapAndUpsert"
         ]
       },
       "evidence_class": "unit",
@@ -2089,6 +2125,34 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.projections",
+        "platform.viewschema"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit",
+          "TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit",
+          "TestWorkbookWritableConflictCapabilityDerivedFromRegistry_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.unit.shared_paste_and_bulk_planning_parses_quoted_csv_5659d1fb01",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",
@@ -2101,58 +2165,6 @@
         "package": "./internal/modules/workbook",
         "tests": [
           "TestSharedPasteAndBulkPlanningGroupsOneVisibleAction_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.workbook.unit.timeline_admission_decoding_and_hashing_46ac663c5c",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.unit",
-      "collaborator_ids": [
-        "module.timeline"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook/timelineadmission",
-        "tests": [
-          "TestPatchPayloadValidation_Unit",
-          "TestTimelineAdmissionCreateAndHashContracts",
-          "TestUnit_TimelineVisibleTextContract"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.workbook.unit.timeline_admission_maps_public_errors_c11874aa1a",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.unit",
-      "collaborator_ids": [
-        "module.timeline"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook/timelineadmission",
-        "tests": [
-          "TestTimelineMutationAPIErrorClassifier_Unit"
         ]
       },
       "evidence_class": "unit",

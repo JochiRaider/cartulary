@@ -37,6 +37,11 @@
       "status": "active"
     },
     {
+      "owner_id": "module.artifacts",
+      "manifest_path": "tools/test_families/module.artifacts.json",
+      "status": "active"
+    },
+    {
       "owner_id": "module.assessments",
       "manifest_path": "tools/test_families/module.assessments.json",
       "status": "active"

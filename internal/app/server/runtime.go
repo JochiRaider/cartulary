@@ -16,11 +16,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
@@ -36,10 +37,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -691,12 +691,9 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
 	}
 	incidentRoutes := incidents.RegisterRoutes(incidents.RouteOptions{
-		WorkbookBootstrap:    workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
 	})
-	incidentBundleImportFinalizer := incidents.NewStoreWithOptions(postgresHandle, incidents.StoreOptions{
-		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
-	})
+	incidentBundleImportFinalizer := incidents.NewStore(postgresHandle)
 	timelineBundle := timelineassembly.NewBundle(
 		postgresHandle,
 		conflicttokens.NewConflictTokenCodec(keys),
@@ -843,6 +840,18 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
 	}
+	workbookConflictTokens := conflicttokens.NewConflictTokenCodec(keys)
+	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
+		postgresHandle,
+		timelineBundle.ProjectionCatalog.Catalog,
+		timelineBundle.ProjectionCatalog.Query,
+		timelineFacade,
+		workbookConflictTokens,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Workbook contribution catalog: %w", err)
+	}
 	builtInRoutes, err := applicationRouteRegistrars([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},
 		{id: "incidents", registrar: incidentRoutes},
@@ -861,11 +870,16 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		)},
 		{
 			id: "workbook",
-			registrar: workbook.RegisterRoutes(
-				workbook.WithCreateRowHandler(workbook.AssessmentsViewSchemaID, assessments.CreateRowHandler),
-				workbook.WithTimelineOwner(timelineFacade),
-				workbook.WithProjectionQuery(timelineBundle.ProjectionCatalog.Query),
-			),
+			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
+				TimelineOwner: timelineFacade,
+				MutationStore: workbookassembly.NewMutationStore(
+					postgresHandle,
+					workbookContributionCatalog,
+				),
+				EntityOwner:         hostidentity.NewStore(postgresHandle),
+				ConflictTokens:      workbookConflictTokens,
+				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,
+			}),
 		},
 		{id: "timeline", registrar: timelineadmission.RegisterRoutes(timelineadmission.RouteOptions{
 			Facade: timelineFacade,

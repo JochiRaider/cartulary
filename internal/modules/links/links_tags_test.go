@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
 	"strings"
@@ -20,8 +22,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -445,9 +447,9 @@ SELECT COUNT(*)
 }
 
 func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "saved_view_query-i-8-03-link-tag-atomic")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "saved_view_query-i-8-03-link-tag-atomic")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-03-incident",
 		"incident_key":  "IR-P8-I803",
 		"title":         "Workbook query link tag atomicity",
@@ -460,7 +462,7 @@ func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
 	})
 	recordID := mustUUID(t, row["record_id"].(string))
 	evidenceID := uuid.New()
-	workbookscenariotest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
+	appsupport.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
 	if _, err := harness.DB.Exec(`
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state)
 VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')
@@ -468,7 +470,7 @@ VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')
 		t.Fatalf("seed evidence: %v", err)
 	}
 
-	socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), TimelineView, login.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), TimelineView, login.SessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
 	patched := patchTimelineRow(t, harness, login, recordID, map[string]any{
@@ -525,7 +527,7 @@ SELECT COUNT(*)
 	if got := singleCollectionItem(t, queryRow, "timeline.attached_evidence_ids")["linked_record_id"]; got != evidenceID.String() {
 		t.Fatalf("workbook query returned stale evidence ref: got %#v want %s", got, evidenceID)
 	}
-	change := workbookscenariotest.RequireRecordChanged(t, socket, recordID.String(), 2)
+	change := incidentwstest.RequireRecordChanged(t, socket, recordID.String(), 2)
 	if change.ChangeSetID != patched["change_set_id"].(string) {
 		t.Fatalf("record_changed change_set_id got %s want %s", change.ChangeSetID, patched["change_set_id"])
 	}
@@ -575,27 +577,27 @@ SELECT COUNT(*)
 	}
 }
 
-func createTimelineRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, body map[string]any) map[string]any {
+func createTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+TimelineView+"/rows", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+TimelineView+"/rows", body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func patchTimelineRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func patchTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := appsupport.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func rollbackRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	if resp.StatusCode != http.StatusOK {
 		var envelope map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&envelope); err == nil {
@@ -605,9 +607,9 @@ func rollbackRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, l
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func getHistory(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID) map[string]any {
+func getHistory(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, appsupport.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

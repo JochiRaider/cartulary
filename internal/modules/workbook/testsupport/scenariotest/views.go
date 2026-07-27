@@ -7,23 +7,24 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func QueryViewEnvelope(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login LoginResult) map[string]any {
+func QueryViewEnvelope(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login appsupport.LoginResult) map[string]any {
 	t.Helper()
 
-	resp := DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		WithCookies(login.SessionCookie),
+		appsupport.WithCookies(login.SessionCookie),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
-func QueryViewRows(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login LoginResult) []map[string]any {
+func QueryViewRows(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login appsupport.LoginResult) []map[string]any {
 	t.Helper()
 
 	data := QueryViewEnvelope(t, serverURL, incidentID, viewSchemaID, login)["data"].(map[string]any)
@@ -99,5 +100,5 @@ func MentionIDFromItemRef(t testing.TB, itemRef string) uuid.UUID {
 	if !strings.HasPrefix(itemRef, prefix) {
 		t.Fatalf("unexpected mention item_ref: %s", itemRef)
 	}
-	return MustUUID(t, strings.TrimPrefix(itemRef, prefix))
+	return appsupport.MustUUID(t, strings.TrimPrefix(itemRef, prefix))
 }

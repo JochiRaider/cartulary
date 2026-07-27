@@ -688,6 +688,7 @@ type Document struct {
 	FilterFields []string ` + "`json:\"filter_fields\"`" + `
 	SyntheticFilterPredicates []SyntheticFilterPredicate ` + "`json:\"synthetic_filter_predicates\"`" + `
 	GroupingFields []string ` + "`json:\"grouping_fields\"`" + `
+	CreateCapable bool ` + "`json:\"create_capable\"`" + `
 	InlineCreate InlineCreate ` + "`json:\"inline_create\"`" + `
 	InspectorConfig InspectorConfig ` + "`json:\"inspector_config\"`" + `
 	Fields []Field ` + "`json:\"fields\"`" + `
@@ -826,6 +827,7 @@ export type ViewSchemaSourceDocument = {
   readonly filter_fields: readonly string[];
   readonly synthetic_filter_predicates: readonly ViewSchemaSourceSyntheticFilterPredicate[];
   readonly grouping_fields: readonly string[];
+  readonly create_capable: boolean;
   readonly inline_create: {
     readonly minimum_create_field_sets: readonly (readonly string[])[];
     readonly permits_zero_field_create: boolean;

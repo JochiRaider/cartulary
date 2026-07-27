@@ -600,7 +600,10 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit"
+          "TestIncidentBundleImportFinalizationCommitsBootstrapState",
+          "TestIncidentBundleImportFinalizationRejectsMissingSubmitter",
+          "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit",
+          "TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack"
         ]
       },
       "evidence_class": "integration",

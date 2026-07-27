@@ -103,6 +103,7 @@ export type ViewSchemaSourceDocument = {
   readonly filter_fields: readonly string[];
   readonly synthetic_filter_predicates: readonly ViewSchemaSourceSyntheticFilterPredicate[];
   readonly grouping_fields: readonly string[];
+  readonly create_capable: boolean;
   readonly inline_create: {
     readonly minimum_create_field_sets: readonly (readonly string[])[];
     readonly permits_zero_field_create: boolean;

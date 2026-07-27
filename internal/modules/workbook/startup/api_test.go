@@ -192,7 +192,7 @@ func TestExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *tes
 		},
 	}
 	registry := workbookstartup.NewWorkspaceRegistryFromPublication(workspaces)
-	store := workbookstartup.NewStore(nil, registry)
+	store := workbookstartup.NewStore(nil, nil, registry)
 	viewerRows := registry.AvailableWorkspaces("viewer")
 	if len(viewerRows) != 1 || viewerRows[0].ExtensionProfileID != "network_flow_activity" || viewerRows[0].WorkspaceKey != "network_analysis" {
 		t.Fatalf("viewer availability must contain only the claimed authorized workspace: %#v", viewerRows)

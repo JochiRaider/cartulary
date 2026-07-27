@@ -13,10 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
@@ -176,28 +173,19 @@ func safeWorkbookViewSchemaID(viewSchemaID string) string {
 	if _, ok := viewschema.Lookup(viewSchemaID); ok {
 		return viewSchemaID
 	}
-	switch viewSchemaID {
-	case timeline.TimelineViewSchemaID, hostidentity.HostsViewSchemaID, hostidentity.IdentitiesViewSchemaID, indicators.ViewSchemaID:
-		return viewSchemaID
-	default:
-		return "unknown"
-	}
+	return "unknown"
 }
 
 func safeWorkbookRecordType(viewSchemaID string) string {
-	switch viewSchemaID {
-	case timeline.TimelineViewSchemaID:
-		return "timeline_event"
-	case hostidentity.HostsViewSchemaID:
-		return "host"
-	case hostidentity.IdentitiesViewSchemaID:
-		return "identity"
-	default:
-		if recordType := recordTypeForView(viewSchemaID); safeWorkbookToken(recordType) {
-			return recordType
-		}
+	resource, ok := viewschema.LookupPublicResource(viewSchemaID)
+	if !ok || len(resource.SourceRecordTypes) != 1 {
 		return "unknown"
 	}
+	recordType := resource.SourceRecordTypes[0]
+	if !safeWorkbookToken(recordType) {
+		return "unknown"
+	}
+	return recordType
 }
 
 func safeWorkbookOperation(operation string) string {

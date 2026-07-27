@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/workbookpreferences"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
@@ -33,10 +34,10 @@ var (
 )
 
 type Store struct {
-	pool              postgres.DB
-	authStore         *authn.Store
-	hooks             storeHooks
-	workbookBootstrap WorkbookBootstrapPort
+	pool                postgres.DB
+	authStore           *authn.Store
+	hooks               storeHooks
+	preferenceBootstrap PreferenceBootstrapPort
 }
 
 func (s *Store) ListAdministrativeAuditEvents(
@@ -142,11 +143,15 @@ func NewStoreWithOptions(pool postgres.DB, options StoreOptions) *Store {
 }
 
 func newStoreWithHooksAndOptions(pool postgres.DB, hooks storeHooks, options StoreOptions) *Store {
+	preferenceBootstrap := options.PreferenceBootstrap
+	if preferenceBootstrap == nil {
+		preferenceBootstrap = workbookpreferences.NewBootstrap()
+	}
 	return &Store{
-		pool:              pool,
-		authStore:         authn.NewStore(pool),
-		hooks:             hooks,
-		workbookBootstrap: options.WorkbookBootstrap,
+		pool:                pool,
+		authStore:           authn.NewStore(pool),
+		hooks:               hooks,
+		preferenceBootstrap: preferenceBootstrap,
 	}
 }
 
@@ -361,10 +366,7 @@ func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, requ
 		return CreateIncidentResult{}, err
 	}
 
-	if s.workbookBootstrap == nil {
-		return CreateIncidentResult{}, errors.New("incidents: workbook bootstrap port is required for incident create")
-	}
-	if err := s.workbookBootstrap.BootstrapIncidentCreatePreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
+	if err := s.preferenceBootstrap.BootstrapIncidentPreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
 		return CreateIncidentResult{}, err
 	}
 

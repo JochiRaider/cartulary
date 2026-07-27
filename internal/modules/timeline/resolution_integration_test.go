@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,10 +16,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/timelineadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
@@ -28,7 +29,7 @@ import (
 // timeline-resolution / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-host-auto-match")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-host-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-host-incident",
@@ -139,7 +140,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-identity-auto-match")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-identity-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-identity-incident",
@@ -194,7 +195,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-create-auto-match")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-create-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-create-incident",
@@ -278,7 +279,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-unresolved")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-unresolved")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-unresolved-incident",
@@ -359,7 +360,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-competing")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-competing")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-competing-incident",
@@ -412,7 +413,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-mixed")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-mixed")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-mixed-incident",
@@ -479,7 +480,7 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-08-rollback")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-08-rollback")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
@@ -580,7 +581,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-08-rebuild")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-08-rebuild")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-incident",
@@ -603,8 +604,8 @@ SELECT COUNT(*)
 			t.Fatalf("expected unresolved token before later alias creation, got %#v", itemBefore)
 		}
 
-		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
-		workbookscenariotest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
+		appsupport.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
+		appsupport.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
@@ -656,7 +657,7 @@ SELECT COUNT(*)
 // timeline-resolution / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-09-create-incident",
@@ -664,7 +665,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			"title":         "Record relationships timeline-resolution create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
+		appsupport.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
 
 		createPayload := map[string]any{
 			"client_txn_id":                   "txn-entity_linking-i-4-09-create-row",
@@ -793,7 +794,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-add-resolved-ref")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-09-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-add-incident",
@@ -919,7 +920,7 @@ UPDATE incident_memberships
 			"client_txn_conflict",
 		)
 
-		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
+		appsupport.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
    SET role = 'viewer',
@@ -954,7 +955,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-resolve-item")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-item")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-incident",
@@ -1026,7 +1027,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-resolve-create")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-create")
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-create-incident",
@@ -1085,7 +1086,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-u-4-09-reject")
+		harness := appsupport.StartServer(t, "entity_linking-u-4-09-reject")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-reject-incident",
@@ -1340,7 +1341,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_sta
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
@@ -1352,7 +1353,7 @@ VALUES ($1, $2, $3, $4, 'canonical', $5, $5)
 
 func seedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)

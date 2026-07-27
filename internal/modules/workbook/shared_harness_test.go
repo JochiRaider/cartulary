@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
 	"testing"
@@ -49,7 +50,7 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	})
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	createRow := createData["row"].(map[string]any)
-	recordID := workbookscenariotest.MustUUID(t, createRow["record_id"].(string))
+	recordID := appsupport.MustUUID(t, createRow["record_id"].(string))
 	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, createRow, "note.title"), "Shared harness note")
 	contractassert.RequireFieldKeyConformance(t, []string{"note.body", "note.title"}, allowedNoteFields)
 
@@ -124,14 +125,14 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	RequireConflictResolveSharedHarness(t, harness, login, incidentID, allowedNoteFields)
 }
 
-func RequireWorkbookAuthorizationRederived(t testing.TB, harness *workbookscenariotest.ServerHarness, adminLogin workbookscenariotest.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
+func RequireWorkbookAuthorizationRederived(t testing.TB, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
-	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
-	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	editor := appsupport.SeedLocalUserFlags(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
+	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
 	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "CollaborationSharedEditor1!")
 	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
-	authRecordID := workbookscenariotest.MustUUID(t, authRow["record_id"].(string))
+	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))
 
 	beforeResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", authRecordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
@@ -157,7 +158,7 @@ UPDATE incident_memberships
 	}
 
 	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
-	afterRecordID := workbookscenariotest.MustUUID(t, afterRow["record_id"].(string))
+	afterRecordID := appsupport.MustUUID(t, afterRow["record_id"].(string))
 	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
@@ -174,11 +175,11 @@ UPDATE incident_memberships
 	})
 }
 
-func RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
+func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
 	t.Helper()
 
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-support-resolve-create", "Resolve base", "Resolve body")
-	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
+	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
@@ -244,15 +245,15 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenario
 	contractassert.RequireDivergentReplayRejected(t, resolveDivergentResp.StatusCode, resolveDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 }
 
-func ResolveConflictRaw(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
+func ResolveConflictRaw(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
 	t.Helper()
-	return workbookscenariotest.DoJSON(
+	return appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+conflictToken+"/resolve",
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 

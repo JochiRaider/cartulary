@@ -55,10 +55,7 @@ SELECT display_name, is_active, is_deployment_admin
 		return err
 	}
 
-	if s.workbookBootstrap == nil {
-		return errors.New("incidents: workbook bootstrap port is required for incident bundle import finalization")
-	}
-	if err := s.workbookBootstrap.BootstrapIncidentCreatePreferencesTx(ctx, tx, params.IncidentID, params.SubmittedByUserID, publishedAt); err != nil {
+	if err := s.preferenceBootstrap.BootstrapIncidentPreferencesTx(ctx, tx, params.IncidentID, params.SubmittedByUserID, publishedAt); err != nil {
 		return err
 	}
 

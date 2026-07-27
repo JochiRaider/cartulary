@@ -7,6 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
@@ -15,7 +16,7 @@ type RouteConformanceCase struct {
 	Route                  RouteInventoryEntry
 	Context                RouteInventoryContext
 	ClientTxnID            string
-	Login                  LoginResult
+	Login                  appsupport.LoginResult
 	ActorUserID            string
 	ExpectedMutationSource string
 }
@@ -33,7 +34,7 @@ func RequireRouteReplayHistoryConformance(t testing.TB, db *sql.DB, serverURL st
 	}
 
 	firstResp := DoRoute(t, serverURL, c.Route, c.Context, c.ClientTxnID, c.Login, c.Route.BuildBody(c.Context, c.ClientTxnID))
-	firstData := RequireSuccessData(t, firstResp, c.Route.SuccessStatus)
+	firstData := appsupport.RequireSuccessData(t, firstResp, c.Route.SuccessStatus)
 	if c.ExpectedMutationSource != "" {
 		changeSetID, ok := firstData["change_set_id"].(string)
 		if !ok || changeSetID == "" {
@@ -48,7 +49,7 @@ func RequireRouteReplayHistoryConformance(t testing.TB, db *sql.DB, serverURL st
 	}
 	stableBefore := SnapshotReplayCounts(t, db, c.Context.IncidentID, affectedRecordID)
 	replayResp := DoRoute(t, serverURL, c.Route, c.Context, c.ClientTxnID, c.Login, c.Route.BuildBody(c.Context, c.ClientTxnID))
-	replayData := RequireSuccessData(t, replayResp, c.Route.ReplayStatus)
+	replayData := appsupport.RequireSuccessData(t, replayResp, c.Route.ReplayStatus)
 	if firstChangeSet, ok := firstData["change_set_id"].(string); ok && firstChangeSet != "" {
 		if replayData["change_set_id"] != firstChangeSet {
 			t.Fatalf("route %s replay returned different change_set_id: first=%#v replay=%#v", c.Route.Key, firstData, replayData)
@@ -65,7 +66,12 @@ func RequireRouteReplayHistoryConformance(t testing.TB, db *sql.DB, serverURL st
 	})
 
 	divergentResp := DoRoute(t, serverURL, c.Route, c.Context, c.ClientTxnID, c.Login, c.Route.BuildDivergentBody(c.Context, c.ClientTxnID))
-	divergentBody := RequireErrorBody(t, divergentResp, c.Route.DivergentStatus, c.Route.DivergentCode)
+	divergentBody := appsupport.RequireErrorBody(
+		t,
+		divergentResp,
+		c.Route.DivergentStatus,
+		c.Route.DivergentCode,
+	)
 	contractassert.RequireDivergentReplayRejected(
 		t,
 		divergentResp.StatusCode,
@@ -76,21 +82,32 @@ func RequireRouteReplayHistoryConformance(t testing.TB, db *sql.DB, serverURL st
 	return firstData
 }
 
-func DoRoute(t testing.TB, serverURL string, route RouteInventoryEntry, ctx RouteInventoryContext, clientTxnID string, login LoginResult, body any) *http.Response {
+func DoRoute(t testing.TB, serverURL string, route RouteInventoryEntry, ctx RouteInventoryContext, clientTxnID string, login appsupport.LoginResult, body any) *http.Response {
 	t.Helper()
-	options := []func(*http.Request){WithCookies(login.SessionCookie, login.CSRFCookie)}
-	if route.RequiresCSRF {
-		options = append(options, WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	options := []func(*http.Request){
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
 	}
-	return DoJSON(t, route.Method, serverURL+route.BuildPath(ctx), body, options...)
+	if route.RequiresCSRF {
+		options = append(
+			options,
+			appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		)
+	}
+	return appsupport.DoJSON(
+		t,
+		route.Method,
+		serverURL+route.BuildPath(ctx),
+		body,
+		options...,
+	)
 }
 
 func SnapshotReplayCounts(t testing.TB, db *sql.DB, incidentID string, recordID string) contractassert.ReplayCounts {
 	t.Helper()
 
 	counts := contractassert.ReplayCounts{
-		ChangeSets: QueryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID),
-		MutationRows: QueryCount(t, db, `
+		ChangeSets: appsupport.QueryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID),
+		MutationRows: appsupport.QueryCount(t, db, `
 SELECT COUNT(*)
   FROM change_set_mutations m
   JOIN change_sets c ON c.change_set_id = m.change_set_id
@@ -98,7 +115,7 @@ SELECT COUNT(*)
 `, incidentID),
 	}
 	if recordID != "" {
-		counts.Revisions = QueryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID)
+		counts.Revisions = appsupport.QueryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID)
 	}
 	return counts
 }

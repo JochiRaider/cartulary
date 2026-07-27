@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,20 +14,19 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-handle-issue")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence_lifecycle-handle-issue")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-handle-issue-incident",
 		"incident_key":  "evidence_lifecycle-handle-issue",
 		"title":         "Evidence handle issue",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 	payload := []byte("evidence_lifecycle handle issue")
@@ -169,14 +169,14 @@ func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 }
 
 func TestDownloadDispositionFallback_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-disposition")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence_lifecycle-disposition")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-incident",
 		"incident_key":  "evidence_lifecycle-disposition",
 		"title":         "Evidence disposition",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	sanitizedRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, sanitizedRecordID)
@@ -185,7 +185,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := download["filename"]; got != "direvilbadname.txt" {
 		t.Fatalf("sanitized filename got %#v want direvilbadname.txt", got)
 	}
-	resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
 	httptestx.RequireStatus(t, resp, http.StatusOK)
 	_ = resp.Body.Close()
 	disposition := resp.Header.Get("Content-Disposition")
@@ -201,7 +201,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := preview["filename"]; got != wantFilename {
 		t.Fatalf("fallback filename got %#v want %q", got, wantFilename)
 	}
-	resp = workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp = appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
 	httptestx.RequireStatus(t, resp, http.StatusOK)
 	_ = resp.Body.Close()
 	disposition = resp.Header.Get("Content-Disposition")
@@ -211,14 +211,14 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 }
 
 func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-disposition-nul")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence_lifecycle-disposition-nul")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-nul-incident",
 		"incident_key":  "evidence_lifecycle-disposition-nul",
 		"title":         "Evidence disposition NUL",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
@@ -227,7 +227,7 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	if got := download["filename"]; got != "evilname.txt" {
 		t.Fatalf("NUL-sanitized filename got %#v want evilname.txt", got)
 	}
-	resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
 	httptestx.RequireStatus(t, resp, http.StatusOK)
 	_ = resp.Body.Close()
 	disposition := resp.Header.Get("Content-Disposition")
@@ -236,9 +236,9 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	}
 }
 
-func issueEvidenceHandle(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, endpoint string) map[string]any {
+func issueEvidenceHandle(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, endpoint string) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -305,9 +305,9 @@ func requireEvidenceHandleContract(t testing.TB, data map[string]any, want evide
 	}
 }
 
-func attachUploadedBlobWithMetadata(t *testing.T, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
-	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     createTxn,
 		"byte_size":         len(payload),
@@ -317,7 +317,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *workbookscenariotest.
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType)
-	attachResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
+	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,
@@ -325,7 +325,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *workbookscenariotest.
 	return httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 }
 
-func updateBlobObservedMetadata(t testing.TB, harness *workbookscenariotest.ServerHarness, objectBlobID uuid.UUID, size int64, contentType string, sha string) {
+func updateBlobObservedMetadata(t testing.TB, harness *appsupport.ServerHarness, objectBlobID uuid.UUID, size int64, contentType string, sha string) {
 	t.Helper()
 	shaValue := any(nil)
 	if sha != "" {

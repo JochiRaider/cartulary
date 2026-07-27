@@ -20,6 +20,7 @@
     "filter_fields",
     "synthetic_filter_predicates",
     "grouping_fields",
+    "create_capable",
     "inline_create",
     "inspector_config",
     "fields"
@@ -57,6 +58,7 @@
       "items": { "$ref": "#/$defs/syntheticFilterPredicate" }
     },
     "grouping_fields": { "$ref": "#/$defs/stringArray" },
+    "create_capable": { "type": "boolean" },
     "inline_create": { "$ref": "#/$defs/inlineCreate" },
     "inspector_config": { "$ref": "#/$defs/inspectorConfig" },
     "fields": {

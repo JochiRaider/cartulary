@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type WorkbookBootstrapPort interface {
-	BootstrapIncidentCreatePreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
+type PreferenceBootstrapPort interface {
+	BootstrapIncidentPreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
 }
 
 type IncidentBundleImportFinalizationParams struct {
@@ -30,10 +30,9 @@ type CollaborationSessionPort interface {
 }
 
 type StoreOptions struct {
-	WorkbookBootstrap WorkbookBootstrapPort
+	PreferenceBootstrap PreferenceBootstrapPort
 }
 
 type RouteOptions struct {
-	WorkbookBootstrap    WorkbookBootstrapPort
 	CollaborationSession CollaborationSessionPort
 }

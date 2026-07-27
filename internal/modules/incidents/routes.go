@@ -57,9 +57,6 @@ func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
 }
 
 func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
-	if options.WorkbookBootstrap == nil {
-		return nil, errors.New("incidents: workbook bootstrap port is required for route registration")
-	}
 	if options.CollaborationSession == nil {
 		return nil, errors.New("incidents: collaboration session port is required for route registration")
 	}
@@ -81,9 +78,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store: newStoreWithHooksAndOptions(deps.PostgresHandle(), hooks, StoreOptions{
-			WorkbookBootstrap: options.WorkbookBootstrap,
-		}),
+		store:                newStoreWithHooksAndOptions(deps.PostgresHandle(), hooks, StoreOptions{}),
 		authStore:            authn.NewStore(deps.PostgresHandle()),
 		collaborationSession: options.CollaborationSession,
 		keys:                 keys,

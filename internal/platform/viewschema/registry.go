@@ -29,6 +29,7 @@ type registryIndex = gensource.RegistryIndex
 
 type Schema struct {
 	ViewSchemaID           string
+	CreateCapable          bool
 	MinimumCreateFieldSets [][]string
 	PermitsZeroFieldCreate bool
 	BaseProjection         string
@@ -206,6 +207,7 @@ func loadRegistry() {
 
 			schemas[document.ViewSchemaID] = Schema{
 				ViewSchemaID:           document.ViewSchemaID,
+				CreateCapable:          document.CreateCapable,
 				MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				BaseProjection:         document.BaseProjection,

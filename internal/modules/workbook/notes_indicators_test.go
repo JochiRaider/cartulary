@@ -8,51 +8,24 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func TestNotesAreArtifactBackedRows_Unit(t *testing.T) {
+func TestLinkedNotesCreateContextualArtifactLinks_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-03-notes")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	store := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	store := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-03-incident", "IR-U903", "Workbook inspector workbook-storage")
 	sourceRecordID := uuid.New()
 	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceRecordID)
-
-	created, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
-		ViewSchemaID: workbook.NotesViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-03-note",
-		Values: map[string]workbook.ValueChange{
-			"note.title": textChange("Workbook inspector artifact note"),
-			"note.body":  textChange("Artifact-backed note body"),
-		},
-		Collections: map[string]workbook.CollectionActionPayload{
-			"note.tags": {
-				Actions: []workbook.CollectionAction{{Op: "add_tag", RawText: "notes-indicators-workflow", NormalizedText: "notes-indicators-workflow"}},
-			},
-		},
-	}, []byte("txn-workbook_interaction-u-9-03-note"), "req-workbook_interaction-u-9-03-note", time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create note through workbook store: %v", err)
-	}
-
-	requireScalarCount(t, harness, `
-SELECT count(*)
-  FROM records r
-  JOIN artifacts a ON a.incident_id = r.incident_id AND a.record_id = r.record_id
- WHERE r.record_id = $1
-   AND r.record_type = 'artifact'
-   AND a.artifact_type = 'note'
-`, created.RecordID, 1)
-	requireScalarCount(t, harness, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notes'`, 0)
-	requireScalarCount(t, harness, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'notes-indicators-workflow' AND deleted_at IS NULL`, incident.ID, created.RecordID, 1)
-	requireScalarCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1 AND row_version = 1`, created.RecordID, 1)
 
 	linked, err := store.CreateLinkedNote(context.Background(), actor, sourceRecordID, workbook.LinkedNoteCreateRequest{
 		ClientTxnID: "txn-workbook_interaction-u-9-03-linked-note",
@@ -70,6 +43,14 @@ SELECT count(*)
 	if err != nil {
 		t.Fatalf("create linked note: %v", err)
 	}
+	requireScalarCount(t, harness, `
+SELECT count(*)
+  FROM records r
+  JOIN artifacts a ON a.incident_id = r.incident_id AND a.record_id = r.record_id
+ WHERE r.record_id = $1
+   AND r.record_type = 'artifact'
+   AND a.artifact_type = 'note'
+`, linked.RecordID, 1)
 	requireScalarCount(t, harness, `
 SELECT count(*)
   FROM record_links
@@ -127,7 +108,7 @@ SELECT count(*)
 func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-notes-indicators")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	workbookStore := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	indicatorStore := indicators.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-incident", "IR-I902", "Workbook inspector workbook-interaction")
@@ -170,7 +151,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-assessments")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	workbookStore := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	assessmentStore := assessments.NewStore(harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector workbook-interaction assessments")
@@ -224,7 +205,7 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-tasks-decisions")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	workbookStore := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-task-decision-incident", "IR-I902-TD", "Workbook inspector workbook-interaction tasks decisions")
 
@@ -300,7 +281,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-hot-projections")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	workbookStore := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	projectionStore := projections.NewStore(harness.DB, timelineBundle.ProjectionCatalog.Catalog)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector workbook-interaction hot projections")
@@ -397,7 +378,7 @@ SELECT count(*)
 func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-i-9-02-coordination")
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens())
-	workbookStore := workbook.NewStore(harness.DB, workbookTestConflictTokens(), timelineBundle.ProjectionCatalog.Query)
+	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-coordination-incident", "IR-I902-COORD", "Workbook inspector workbook-interaction coordination")
 
@@ -517,6 +498,29 @@ func requireQueriedRow(t testing.TB, rows []map[string]any, recordID uuid.UUID) 
 	}
 	t.Fatalf("missing queried row %s in %#v", recordID, rows)
 	return nil
+}
+
+func newCatalogBackedWorkbookStore(
+	t testing.TB,
+	pool postgres.DB,
+	timelineBundle *timelineassembly.Bundle,
+) *workbook.Store {
+	t.Helper()
+	conflictTokens := workbookTestConflictTokens()
+	catalog, err := workbookassembly.NewContributionCatalog(
+		pool,
+		timelineBundle.ProjectionCatalog.Catalog,
+		timelineBundle.ProjectionCatalog.Query,
+		timelineBundle.Facade,
+		conflictTokens,
+	)
+	if err != nil {
+		t.Fatalf("compose workbook contribution catalog: %v", err)
+	}
+	return workbookassembly.NewMutationStore(
+		pool,
+		catalog,
+	)
 }
 
 func hasQueriedRow(rows []map[string]any, recordID uuid.UUID) bool {

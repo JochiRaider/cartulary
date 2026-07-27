@@ -3,6 +3,7 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
 	"testing"
@@ -21,8 +22,8 @@ import (
 )
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-01-delete-restore")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-i-7-01-delete-restore")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I701")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -70,7 +71,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	}
 
 	rollbackRecordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
 	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000701")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 13, 2, 0, 0, time.UTC), "rollback before", "rollback after")
 	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
@@ -155,7 +156,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	}
 
 	rowRestoreID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
 	rowRestoreTargetChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreID, actorID, rowRestoreTargetChangeSetID, time.Date(2026, 5, 10, 13, 5, 30, 0, time.UTC), "integration row before", "integration row snapshot")
@@ -284,8 +285,8 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 }
 
 func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-02-pagination")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-i-7-02-pagination")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordA := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702A")
 	incidentB, recordB := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702B")
 	base := time.Date(2026, 5, 10, 15, 0, 0, 0, time.UTC)
@@ -331,18 +332,18 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 		t.Fatalf("second page did not preserve order: %#v", secondItems)
 	}
 
-	crossRecord := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	crossRecord := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, appsupport.WithCookies(login.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, crossRecord, http.StatusBadRequest, "invalid_pagination_request")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("unexpected cross-record cursor reason: %#v", errBody)
 	}
 
 	for _, query := range []string{"?page=1", "?offset=1", "?page_size=1", "?block_size=1", "?limit=0"} {
-		resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, workbookscenariotest.WithCookies(login.SessionCookie))
+		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	for _, query := range []string{"?limit=-1", "?limit=abc", "?limit=501"} {
-		resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, workbookscenariotest.WithCookies(login.SessionCookie))
+		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_limit" {
 			t.Fatalf("unexpected invalid limit reason for %s: %#v", query, body)
@@ -351,14 +352,14 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 }
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-05-merge-rollback")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "history_revision-i-7-05-merge-rollback")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-history_revision-i-7-05-incident",
 		"incident_key":  "IR-P7-I705",
 		"title":         "History Merge Rollback",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	survivor := uuid.New()
 	loser := uuid.New()
@@ -370,17 +371,17 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	survivorTag := uuid.New()
 	loserTag := uuid.New()
 	assessment := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
-	workbookscenariotest.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
-	workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
-	workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
-	workbookscenariotest.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
-	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
-	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
-	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
-	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
-	workbookscenariotest.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
+	appsupport.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
+	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
+	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
+	appsupport.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
+	appsupport.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
+	appsupport.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
+	appsupport.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
+	appsupport.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
+	appsupport.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
 	seedHostProjection(t, harness.DB, incidentID, survivor)
 	seedHostProjection(t, harness.DB, incidentID, loser)
 
@@ -480,8 +481,8 @@ SELECT COUNT(*)
 
 	staleSurvivor := uuid.New()
 	staleLoser := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleSurvivor, "Stale Survivor", "stale-survivor", "", "")
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleLoser, "Stale Loser", "stale-loser", "stale.example.test", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleSurvivor, "Stale Survivor", "stale-survivor", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleLoser, "Stale Loser", "stale-loser", "stale.example.test", "")
 	seedHostProjection(t, harness.DB, incidentID, staleSurvivor)
 	seedHostProjection(t, harness.DB, incidentID, staleLoser)
 	staleMerge := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, staleSurvivor, map[string]any{
@@ -499,8 +500,8 @@ SELECT COUNT(*)
 }
 
 func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-i-7-03-stale-restore")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-i-7-03-stale-restore")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -521,7 +522,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	rollbackRecordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Stale Rollback Host", "stale-rollback-host", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Stale Rollback Host", "stale-rollback-host", "", "")
 	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000703")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 0, 0, time.UTC), "stale rollback before", "stale rollback after")
 	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
@@ -539,7 +540,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	rowRestoreRecordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Stale Row Restore Host", "stale-row-restore", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Stale Row Restore Host", "stale-row-restore", "", "")
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
 	rowRestoreTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000708")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 30, 0, time.UTC), "stale row before", "stale row snapshot")
@@ -582,7 +583,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	unsupportedRecordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
+	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
 	seedHostProjection(t, harness.DB, incidentID, unsupportedRecordID)
 	unsupportedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
 	seedRollbackHostAndTagChangeSet(t, harness.DB, incidentID, actorID, unsupportedChangeSetID, unsupportedRecordID)
@@ -732,7 +733,7 @@ func requireHistoryActionContains(t testing.TB, item map[string]any, want string
 
 func TestRetainedHistoryAcrossRestartAndClosure_Integration(t *testing.T) {
 	server, db, env := startReusableServer(t, "history_revision-i-7-04-restart")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, server)
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, server)
 	incidentID, recordID := seedRecord(t, db, server, login, actorID, "IR-P7-I704")
 	base := time.Date(2026, 5, 10, 16, 0, 0, 0, time.UTC)
 	originalChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000401")

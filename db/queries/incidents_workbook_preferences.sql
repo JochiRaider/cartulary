@@ -85,20 +85,23 @@ FROM incident_workbook_preferences
 WHERE incident_id = $1
 FOR UPDATE;
 
--- name: ClearUserWorkbookPreferenceRef :exec
+-- name: ClearUserWorkbookPreferenceRef :execrows
 UPDATE user_workbook_preferences
 SET
     home_sheet_ref = NULL,
-    updated_at = $3
+    updated_at = $4
 WHERE incident_id = $1
-  AND user_id = $2;
+  AND user_id = $2
+  AND home_sheet_ref IS NOT DISTINCT FROM $3::jsonb;
 
--- name: ClearDefaultWorkbookPreferenceRef :exec
+-- name: ClearDefaultWorkbookPreferenceRef :execrows
 UPDATE incident_workbook_preferences
 SET
     default_sheet_ref = NULL,
-    updated_at = $2
-WHERE incident_id = $1;
+    updated_at = $4,
+    updated_by_user_id = $3
+WHERE incident_id = $1
+  AND default_sheet_ref IS NOT DISTINCT FROM $2::jsonb;
 
 -- name: InsertIncidentWorkbookPreferencesBootstrap :exec
 INSERT INTO incident_workbook_preferences (

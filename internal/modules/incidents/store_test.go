@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
@@ -53,7 +54,10 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 		t.Fatalf("unexpected bootstrap membership: %#v", membership)
 	}
 
-	startupStore := workbookstartup.NewStore(harness.DB)
+	startupStore := workbookassembly.NewStartupStore(
+		harness.DB,
+		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
+	)
 	defaultPrefs, err := startupStore.GetDefaultPreferences(context.Background(), result.Incident.ID)
 	if err != nil {
 		t.Fatalf("lookup incident workbook preferences: %v", err)
@@ -71,7 +75,7 @@ func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *
 	}
 }
 
-func TestStoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) {
+func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-bootstrap-port-rollback")
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
@@ -85,7 +89,7 @@ func TestStoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) 
 	)
 	bootstrapErr := errors.New("bootstrap port failed")
 	store := incidents.NewStoreWithOptions(harness.DB, incidents.StoreOptions{
-		WorkbookBootstrap: failingWorkbookBootstrapPort{err: bootstrapErr},
+		PreferenceBootstrap: failingPreferenceBootstrap{err: bootstrapErr},
 	})
 	request := incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-incident_membership-support-bootstrap-port-rollback",
@@ -263,11 +267,11 @@ func TestStoreCreateIncidentReturnsStableLocationValue_Unit(t *testing.T) {
 	}
 }
 
-type failingWorkbookBootstrapPort struct {
+type failingPreferenceBootstrap struct {
 	err error
 }
 
-func (p failingWorkbookBootstrapPort) BootstrapIncidentCreatePreferencesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) error {
+func (p failingPreferenceBootstrap) BootstrapIncidentPreferencesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) error {
 	return p.err
 }
 

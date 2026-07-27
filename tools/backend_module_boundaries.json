@@ -258,13 +258,15 @@
       "production_only": true
     },
     {
-      "id": "source-owners-no-workbook-mutation-conflict-imports",
+      "id": "workbook-no-storage-construction",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy",
-        "github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
+        "database/sql",
+        "github.com/JochiRaider/cartulary/internal/gen/sql",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres",
+        "github.com/jackc/pgx/v5/pgxpool"
       ],
-      "scan_paths": ["internal/modules/**"],
-      "allowed_paths": ["internal/modules/workbook/**"],
+      "scan_paths": ["internal/modules/workbook/**"],
+      "allowed_paths": [],
       "production_only": true
     },
     {
@@ -388,6 +390,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/artifacts",
         "github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes",
         "github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs",
+        "github.com/JochiRaider/cartulary/internal/modules/assessments",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity",
         "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
@@ -401,10 +404,12 @@
         "github.com/JochiRaider/cartulary/internal/modules/projections",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
         "github.com/JochiRaider/cartulary/internal/modules/savedviews",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
-        "github.com/JochiRaider/cartulary/internal/modules/timeline"
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
       ]
     },
     {
@@ -427,6 +432,19 @@
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+      ]
+    },
+    {
+      "id": "timeline-admission-approved-owner-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
+      "scan_paths": ["internal/modules/timeline/admission/**"],
+      "production_only": true,
+      "allowed_prefixes": [
+        "github.com/JochiRaider/cartulary/internal/modules/timeline"
+      ],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/incidents",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
       ]
     }
   ],
@@ -673,7 +691,7 @@
       ],
       "scan_paths": [
         "internal/modules/imports/routes.go",
-        "internal/modules/workbook/timelineadmission/routes.go",
+        "internal/modules/timeline/admission/routes.go",
         "internal/modules/workbook/routes.go"
       ],
       "allowed_paths": [],
@@ -692,6 +710,31 @@
       ],
       "scan_paths": ["internal/modules/timeline/facade.go"],
       "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-workbook-dispatch-and-composition-authority",
+      "tokens": [
+        "WithCreateRowHandler",
+        "WithProjectionQuery",
+        "clearWorkbookConflict",
+        "func NewQueryStore(",
+        "internal/modules/workbook/timelineadmission",
+        "workbook.NewStore("
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [
+        "internal/app/workbookassembly/store.go"
+      ],
+      "production_only": true
+    },
+    {
+      "id": "source-owners-no-workbook-implementation-imports",
+      "tokens": [
+        "github.com/JochiRaider/cartulary/internal/modules/workbook"
+      ],
+      "scan_paths": ["internal/modules/**"],
+      "allowed_paths": ["internal/modules/workbook/**"],
       "production_only": true
     },
     {

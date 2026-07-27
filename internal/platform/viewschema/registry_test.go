@@ -652,7 +652,7 @@ func requireNoInternalMembers(t testing.TB, resource ViewSchemaResource) {
 	if err != nil {
 		t.Fatalf("marshal resource: %v", err)
 	}
-	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_writable", "writable"} {
+	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_capable", "create_writable", "writable"} {
 		if strings.Contains(string(payload), `"`+forbidden+`"`) {
 			t.Fatalf("%s public resource leaked %s: %s", resource.ViewSchemaID, forbidden, payload)
 		}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -22,7 +23,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -657,8 +657,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		"title":         "Workbook query saved-view lifecycle",
 	})
 	incidentID := incident["incident_id"].(string)
-	incidentUUID := workbookscenariotest.MustUUID(t, incidentID)
-	adminUUID := workbookscenariotest.MustUUID(t, adminID)
+	incidentUUID := appsupport.MustUUID(t, incidentID)
+	adminUUID := appsupport.MustUUID(t, adminID)
 
 	ownerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-owner@example.test", "SavedViewQuery I801 Owner", "SavedViewQueryI801Owner1!", false, false, true)
 	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-peer@example.test", "SavedViewQuery I801 Peer", "SavedViewQueryI801Peer1!", false, false, true)
@@ -669,10 +669,10 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 
 	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
 	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
-	recordOneID := workbookscenariotest.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
-	recordTwoID := workbookscenariotest.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
-	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
-	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
+	recordOneID := appsupport.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
+	recordTwoID := appsupport.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
+	appsupport.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
+	appsupport.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
 	evidenceResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,

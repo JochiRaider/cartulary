@@ -1,19 +1,13 @@
 package workbook
 
 import (
+	"context"
+
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const (
@@ -33,44 +27,51 @@ const (
 )
 
 type Store struct {
-	pool              postgres.DB
-	authStore         *authn.Store
-	recordTargets     *records.RouteTargetResolver
-	timelineStore     *timeline.Facade
-	artifactMutations *artifacts.WorkbookFacade
-	linkedNoteStore   *linkednotes.Facade
-	evidenceMutations *evidence.WorkbookFacade
-	entityStore       *hostidentity.Store
-	indicatorStore    *indicators.Store
-	partyMutations    *parties.WorkbookFacade
-	taskMutations     *tasksdecisions.WorkbookFacade
-	supersedeStore    *tasksdecisions.SupersedeFacade
-	projectionRows    workbookProjectionQueryPort
-	conflictTokens    conflicttokens.ConflictTokenCodec
+	recordTargets   workbookRecordTargetPort
+	linkedNoteStore workbookLinkedNotePort
+	supersedeStore  workbookSupersedePort
+	contributions   *WorkbookContributionCatalog
 }
 
-func NewStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec, projectionQuery *projections.QueryService) *Store {
-	return newStoreWithTimelineFacade(pool, nil, conflictTokens, projectionQuery)
+type StoreDependencies struct {
+	RecordTargets       workbookRecordTargetPort
+	LinkedNoteOwner     workbookLinkedNotePort
+	SupersedeOwner      workbookSupersedePort
+	ContributionCatalog *WorkbookContributionCatalog
 }
 
-func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade, conflictTokens conflicttokens.ConflictTokenCodec, projectionQuery *projections.QueryService) *Store {
-	if projectionQuery == nil {
-		panic("workbook projection query is required")
+func NewStore(dependencies StoreDependencies) *Store {
+	if dependencies.RecordTargets == nil {
+		panic("workbook record target owner is required")
+	}
+	if dependencies.LinkedNoteOwner == nil {
+		panic("workbook linked-note owner is required")
+	}
+	if dependencies.SupersedeOwner == nil {
+		panic("workbook supersede owner is required")
+	}
+	if dependencies.ContributionCatalog == nil {
+		panic("workbook contribution catalog is required")
 	}
 	return &Store{
-		pool:              pool,
-		authStore:         authn.NewStore(pool),
-		recordTargets:     records.NewRouteTargetResolver(pool),
-		timelineStore:     timelineStore,
-		artifactMutations: artifacts.NewWorkbookFacade(pool, conflictTokens),
-		linkedNoteStore:   linkednotes.NewFacade(pool),
-		evidenceMutations: evidence.NewWorkbookFacade(pool, conflictTokens),
-		entityStore:       hostidentity.NewStore(pool),
-		indicatorStore:    indicators.NewStore(pool),
-		partyMutations:    parties.NewWorkbookFacade(pool, conflictTokens),
-		taskMutations:     tasksdecisions.NewWorkbookFacade(pool, conflictTokens),
-		supersedeStore:    tasksdecisions.NewSupersedeFacade(pool),
-		projectionRows:    projectionQuery,
-		conflictTokens:    conflictTokens,
+		recordTargets:   dependencies.RecordTargets,
+		linkedNoteStore: dependencies.LinkedNoteOwner,
+		supersedeStore:  dependencies.SupersedeOwner,
+		contributions:   dependencies.ContributionCatalog,
 	}
+}
+
+type workbookLinkedNotePort interface {
+	Create(
+		ctx context.Context,
+		command linkednotes.CreateCommand,
+	) (linkednotes.MutationResult, error)
+	SourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error)
+}
+
+type workbookSupersedePort interface {
+	SupersedeDecision(
+		ctx context.Context,
+		command tasksdecisions.SupersedeCommand,
+	) (tasksdecisions.SupersedeMutationResult, error)
 }

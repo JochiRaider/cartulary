@@ -2,50 +2,50 @@ package workbook_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-i-9-03-party-links")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-i-9-03-party-links")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incidentData := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-incident",
 		"incident_key":  "IR-I903",
 		"title":         "Workbook inspector workbook-interaction party links",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incidentData["incident_id"].(string))
-	otherIncidentData := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incidentID := appsupport.MustUUID(t, incidentData["incident_id"].(string))
+	otherIncidentData := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-other-incident",
 		"incident_key":  "IR-I903B",
 		"title":         "Workbook inspector workbook-interaction other incident",
 	})
-	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncidentData["incident_id"].(string))
+	otherIncidentID := appsupport.MustUUID(t, otherIncidentData["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook_interaction-i-9-03-party",
 		"party.display_name": "IR Vendor",
 		"party.party_kind":   "organization",
 	})
-	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 	otherPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook_interaction-i-9-03-other-party",
 		"party.display_name": "Foreign Vendor",
 		"party.party_kind":   "organization",
 	})
-	otherPartyID := workbookscenariotest.MustUUID(t, otherPartyData["row"].(map[string]any)["record_id"].(string))
+	otherPartyID := appsupport.MustUUID(t, otherPartyData["row"].(map[string]any)["record_id"].(string))
 	deletedPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook_interaction-i-9-03-deleted-party",
 		"party.display_name": "Deleted Vendor",
 		"party.party_kind":   "organization",
 	})
-	deletedPartyID := workbookscenariotest.MustUUID(t, deletedPartyData["row"].(map[string]any)["record_id"].(string))
+	deletedPartyID := appsupport.MustUUID(t, deletedPartyData["row"].(map[string]any)["record_id"].(string))
 	deleteDeletedTarget := deleteRecordViaWorkbookRoute(t, harness, adminLogin, deletedPartyID, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-workbook_interaction-i-9-03-delete-target-party",
@@ -59,7 +59,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		"evidence.source_party_text":    "Raw source label",
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
-	evidenceID := workbookscenariotest.MustUUID(t, evidenceRow["record_id"].(string))
+	evidenceID := appsupport.MustUUID(t, evidenceRow["record_id"].(string))
 	requireCellValue(t, evidenceRow, "evidence.collector_party_id", nil)
 	requireCellValue(t, evidenceRow, "evidence.source_party_id", nil)
 
@@ -139,7 +139,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		"task.requester_party_text": "Requester raw text",
 	})
 	taskRow := taskData["row"].(map[string]any)
-	taskID := workbookscenariotest.MustUUID(t, taskRow["record_id"].(string))
+	taskID := appsupport.MustUUID(t, taskRow["record_id"].(string))
 	linkedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
@@ -226,7 +226,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		"task.requester_party_text": "Requester raw text for ref-only clear",
 	})
 	refOnlyTaskRow := refOnlyTaskData["row"].(map[string]any)
-	refOnlyTaskID := workbookscenariotest.MustUUID(t, refOnlyTaskRow["record_id"].(string))
+	refOnlyTaskID := appsupport.MustUUID(t, refOnlyTaskRow["record_id"].(string))
 	linkedRefOnlyRequester := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": refOnlyTaskRow["row_version"],
@@ -305,7 +305,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		"party.display_name": "Collection Party",
 		"party.party_kind":   "team",
 	})
-	collectionPartyID := workbookscenariotest.MustUUID(t, collectionPartyData["row"].(map[string]any)["record_id"].(string))
+	collectionPartyID := appsupport.MustUUID(t, collectionPartyData["row"].(map[string]any)["record_id"].(string))
 
 	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
 		"client_txn_id":               "txn-workbook_interaction-i-9-03-comm-preservation",
@@ -315,7 +315,7 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 		"comm_log.summary":            "Collection party ref preservation",
 	})
 	commRow := commData["row"].(map[string]any)
-	commID := workbookscenariotest.MustUUID(t, commRow["record_id"].(string))
+	commID := appsupport.MustUUID(t, commRow["record_id"].(string))
 	for _, fieldKey := range []string{"comm_log.audience_party_ids", "comm_log.attendee_party_ids"} {
 		linkedComm := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
 			"view_schema_id":   "cartulary.view.comm_log.v1",
@@ -406,15 +406,15 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 }
 
-func queryWorkbookRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func queryWorkbookRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, rawRow := range data["rows"].([]any) {
@@ -442,7 +442,7 @@ func rowVersionNumber(t testing.TB, row map[string]any) int {
 	}
 }
 
-func PartiesQueryCount(t testing.TB, harness *workbookscenariotest.ServerHarness, query string, args ...any) int {
+func PartiesQueryCount(t testing.TB, harness *appsupport.ServerHarness, query string, args ...any) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
@@ -451,19 +451,19 @@ func PartiesQueryCount(t testing.TB, harness *workbookscenariotest.ServerHarness
 	return count
 }
 
-func deleteRecordViaWorkbookRoute(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func deleteRecordViaWorkbookRoute(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return workbookscenariotest.DoJSON(
+	return appsupport.DoJSON(
 		t,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
-func partyRecordCount(t testing.TB, harness *workbookscenariotest.ServerHarness, partyID uuid.UUID, predicate string, args ...any) int {
+func partyRecordCount(t testing.TB, harness *appsupport.ServerHarness, partyID uuid.UUID, predicate string, args ...any) int {
 	t.Helper()
 	queryArgs := append([]any{partyID}, args...)
 	var count int
@@ -473,7 +473,7 @@ func partyRecordCount(t testing.TB, harness *workbookscenariotest.ServerHarness,
 	return count
 }
 
-func partyRecordRevisionCount(t testing.TB, harness *workbookscenariotest.ServerHarness, partyID uuid.UUID) int {
+func partyRecordRevisionCount(t testing.TB, harness *appsupport.ServerHarness, partyID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM record_revisions WHERE record_id = $1`, partyID).Scan(&count); err != nil {

@@ -3,6 +3,7 @@ package revisions_test
 import (
 	"context"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"os"
 	"slices"
@@ -12,14 +13,13 @@ import (
 
 	"github.com/google/uuid"
 
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRecordHistoryEnvelope_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-01-history-envelope")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-u-7-01-history-envelope")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U701")
 	base := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
 	newerChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000020")
@@ -71,7 +71,7 @@ UPDATE records
 	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{})
 	assertHistoryItem(t, items[2], olderChangeSet, "field_update", 1, []string{})
 
-	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
+	unauthenticated := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 }
 
@@ -114,8 +114,8 @@ func TestRecordHistoryOpenAPIContract_Unit(t *testing.T) {
 }
 
 func TestHistoryEntryRefStability_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-02-history-ref")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-u-7-02-history-ref")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U702")
 	base := time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC)
 	addressableChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000101")
@@ -165,8 +165,8 @@ func TestHistoryEntryRefStability_Unit(t *testing.T) {
 }
 
 func TestRetainedHistoryInvariants_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "history_revision-u-7-07-retained-history")
-	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartServer(t, "history_revision-u-7-07-retained-history")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U707")
 	base := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
 	originalChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000201")
@@ -227,10 +227,10 @@ UPDATE records
 	requireNoRetainedHistoryNarrowingSurface(t, harness, login, incidentID, recordID)
 }
 
-func getHistory(t testing.TB, baseURL string, login workbookscenariotest.LoginResult, recordID uuid.UUID, query string) map[string]any {
+func getHistory(t testing.TB, baseURL string, login appsupport.LoginResult, recordID uuid.UUID, query string) map[string]any {
 	t.Helper()
 	url := baseURL + "/api/v1/records/" + recordID.String() + "/history" + query
-	resp := workbookscenariotest.DoJSON(t, http.MethodGet, url, nil, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp := appsupport.DoJSON(t, http.MethodGet, url, nil, appsupport.WithCookies(login.SessionCookie))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("history request failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
@@ -241,7 +241,7 @@ func historyItems(body map[string]any) []any {
 	return body["data"].(map[string]any)["items"].([]any)
 }
 
-func collectHistoryPages(t testing.TB, baseURL string, login workbookscenariotest.LoginResult, recordID uuid.UUID, limit int) []any {
+func collectHistoryPages(t testing.TB, baseURL string, login appsupport.LoginResult, recordID uuid.UUID, limit int) []any {
 	t.Helper()
 	query := fmt.Sprintf("?limit=%d", limit)
 	collected := make([]any, 0)
@@ -297,7 +297,7 @@ func assertActions(t testing.TB, raw any, want []string) {
 	}
 }
 
-func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
+func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
 	document := contracttest.OpenAPIDocument(t)
 	for path := range historyOpenAPIObjectAt(t, document, "paths") {
@@ -306,7 +306,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *workbooksce
 		}
 	}
 
-	extensionsBody := httptestx.RequireSuccessEnvelope(t, workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, workbookscenariotest.WithCookies(login.SessionCookie)), http.StatusOK)
+	extensionsBody := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, appsupport.WithCookies(login.SessionCookie)), http.StatusOK)
 	extensions := extensionsBody["data"].(map[string]any)["extensions"].([]any)
 	for _, raw := range extensions {
 		extension := raw.(map[string]any)
@@ -325,7 +325,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *workbooksce
 		"/api/v1/incidents/" + incidentID.String() + "/history/retention",
 		"/api/v1/incidents/" + incidentID.String() + "/records/history/purge",
 	} {
-		resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, workbookscenariotest.WithCookies(login.SessionCookie))
+		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, appsupport.WithCookies(login.SessionCookie))
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("unexpected retained-history narrowing route at %s: status=%d body=%#v", path, resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 		}

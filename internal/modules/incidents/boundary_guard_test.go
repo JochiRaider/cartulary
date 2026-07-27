@@ -13,8 +13,8 @@ const incidentsRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestIncidentsProductionImportBoundaries(t *testing.T) {
 	forbiddenImports := map[string]string{
-		incidentsRepoImportPrefix + "internal/modules/workbook/startup/bootstrap": "incident create must use the workbook bootstrap port",
-		incidentsRepoImportPrefix + "internal/platform/ws":                        "incident routes must use the collaboration/session port",
+		incidentsRepoImportPrefix + "internal/modules/workbook/startup": "Incidents must own preference persistence and bootstrap",
+		incidentsRepoImportPrefix + "internal/platform/ws":              "incident routes must use the collaboration/session port",
 	}
 
 	entries, err := os.ReadDir(".")

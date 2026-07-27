@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "module.artifacts",
+  "rows": [
+    {
+      "row_id": "module.artifacts.store.workbook_facade_persists_artifact_backed_notes_780a6ca4f2",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.store",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -33,25 +31,10 @@ func TestIncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsuf
 }
 
 func TestRegisterRoutesRequiresIncidentPorts(t *testing.T) {
-	err := RegisterRoutes(RouteOptions{
-		CollaborationSession: noopCollaborationSessionPort{},
-	})(http.NewServeMux(), httpapi.DependencySet{})
-	if err == nil || !strings.Contains(err.Error(), "workbook bootstrap port is required") {
-		t.Fatalf("missing workbook bootstrap port must fail route registration, got %v", err)
-	}
-
-	err = RegisterRoutes(RouteOptions{
-		WorkbookBootstrap: noopWorkbookBootstrapPort{},
-	})(http.NewServeMux(), httpapi.DependencySet{})
+	err := RegisterRoutes(RouteOptions{})(http.NewServeMux(), httpapi.DependencySet{})
 	if err == nil || !strings.Contains(err.Error(), "collaboration session port is required") {
 		t.Fatalf("missing collaboration session port must fail route registration, got %v", err)
 	}
-}
-
-type noopWorkbookBootstrapPort struct{}
-
-func (noopWorkbookBootstrapPort) BootstrapIncidentCreatePreferencesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) error {
-	return nil
 }
 
 type noopCollaborationSessionPort struct{}

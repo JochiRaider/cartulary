@@ -20,17 +20,17 @@ const (
 func TestSQLCImportsStayBehindPersistenceAdapters(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	allowed := map[string]bool{
-		"internal/modules/incidents/import_finalization.go":        true,
-		"internal/modules/incidents/open_guard.go":                 true,
-		"internal/modules/incidents/store.go":                      true,
-		"internal/modules/recovery/store.go":                       true,
-		"internal/modules/reporting/store.go":                      true,
-		"internal/modules/savedviews/store.go":                     true,
-		"internal/modules/timeline/query_projection_store.go":      true,
-		"internal/modules/timeline/store.go":                       true,
-		"internal/modules/timeline/workbookprojection/store.go":    true,
-		"internal/modules/workbook/startup/bootstrap/bootstrap.go": true,
-		"internal/modules/workbook/startup/store.go":               true,
+		"internal/modules/incidents/import_finalization.go":            true,
+		"internal/modules/incidents/open_guard.go":                     true,
+		"internal/modules/incidents/store.go":                          true,
+		"internal/modules/incidents/workbookpreferences/bootstrap.go":  true,
+		"internal/modules/incidents/workbookpreferences/repository.go": true,
+		"internal/modules/recovery/store.go":                           true,
+		"internal/modules/reporting/store.go":                          true,
+		"internal/modules/savedviews/store.go":                         true,
+		"internal/modules/timeline/query_projection_store.go":          true,
+		"internal/modules/timeline/store.go":                           true,
+		"internal/modules/timeline/workbookprojection/store.go":        true,
 	}
 
 	var offenders []string

@@ -15,6 +15,13 @@ func TestViewSchemaDiscovery_Unit(t *testing.T) {
 		t.Fatal("expected public view-schema resources")
 	}
 	for _, resource := range resources {
+		internal, ok := Lookup(resource.ViewSchemaID)
+		if !ok {
+			t.Fatalf("%s missing internal schema", resource.ViewSchemaID)
+		}
+		if !internal.CreateCapable {
+			t.Fatalf("%s must be create-capable in the current profile", resource.ViewSchemaID)
+		}
 		if !reflect.DeepEqual(resource.TechnicalFields, []string{"record_id", "row_version"}) {
 			t.Fatalf("%s has unexpected technical_fields: %#v", resource.ViewSchemaID, resource.TechnicalFields)
 		}
@@ -125,6 +132,9 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 		var public map[string]any
 		if err := json.Unmarshal(content, &public); err != nil {
 			t.Fatalf("decode %s: %v", resource.ViewSchemaID, err)
+		}
+		if _, leaked := public["create_capable"]; leaked {
+			t.Fatalf("%s leaked internal create_capable in public resource", resource.ViewSchemaID)
 		}
 		fields, ok := public["fields"].([]any)
 		if !ok {

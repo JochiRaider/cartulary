@@ -3,6 +3,7 @@ package evidence_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -26,7 +26,7 @@ type ObjectStoreDependencyAdmin struct {
 
 func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 	t *testing.T,
-	startServer func(testing.TB, string, objectstore.Store) *workbookscenariotest.ServerHarness,
+	startServer func(testing.TB, string, objectstore.Store) *appsupport.ServerHarness,
 	admin ObjectStoreDependencyAdmin,
 ) {
 	t.Run("object upload maps endpoint outage without exposing storage target", func(t *testing.T) {
@@ -47,14 +47,14 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 
 		harness := startServer(t, "object-store-upload-outage", failingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-store-upload-incident",
 			"incident_key":  "object-store-upload",
 			"title":         "Object-store upload outage",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
 			"client_txn_id":     "txn-object-store-upload-blob",
 			"byte_size":         4,
@@ -110,17 +110,17 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 
 		harness := startServer(t, "object-store-preview-capability", failingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-store-preview-incident",
 			"incident_key":  "object-store-preview",
 			"title":         "Object-store preview outage",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, admin.userID, recordID, "available", "available")
 
-		resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_access_rejected")
 		httptestx.RequireErrorDetail(t, body, "reason_code", "capability_missing")
 		errorValue := body["error"].(map[string]any)
@@ -144,21 +144,21 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		recordingStore := &overrideObjectStore{Store: baseStore}
 		harness := startServer(t, "object-key-issue-invalid", recordingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-key-issue-incident",
 			"incident_key":  "object-key-issue",
 			"title":         "Object key issue",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key issue"), "txn-object-key-issue-blob", "txn-object-key-issue-attach")
-		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
+		objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 		malformedKey := "objects/not-canonical"
 		updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
 		recordingStore.resetCounts()
 
-		resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_malformed")
 		requireNoPublicEvidenceLeak(t, "malformed persisted key error", body, []string{malformedKey})
 		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
@@ -174,16 +174,16 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		recordingStore := &overrideObjectStore{Store: baseStore}
 		harness := startServer(t, "object-key-redeem-invalid", recordingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-key-redeem-incident",
 			"incident_key":  "object-key-redeem",
 			"title":         "Object key redeem",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-object-key-redeem-blob", "txn-object-key-redeem-attach")
-		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
+		objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 		handle := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		mismatchedKey, err := blobref.ObjectBlobStorageKey(incidentID, uuid.New())
 		if err != nil {
@@ -192,7 +192,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		updateBlobStorageKey(t, harness, objectBlobID, mismatchedKey)
 		recordingStore.resetCounts()
 
-		resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(login.SessionCookie))
+		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
 		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_identity_mismatch")
 		requireNoPublicEvidenceLeak(t, "identity-mismatched persisted key error", body, []string{mismatchedKey})
 		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
@@ -202,14 +202,14 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 }
 
 func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence-redaction")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence-redaction")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-redaction-incident",
 		"incident_key":  "evidence-redaction",
 		"title":         "Evidence redaction",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 
@@ -226,7 +226,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"txn-evidence-redaction-blob",
 		"txn-evidence-redaction-attach",
 	)
-	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
+	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String()
 	forbidden := []string{
 		storageKey,
@@ -243,7 +243,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"X-Amz-Signature",
 	}
 
-	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     "txn-evidence-redaction-extra-blob",
 		"byte_size":         1,

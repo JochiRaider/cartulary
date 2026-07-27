@@ -1,4 +1,4 @@
-package timelineadmission
+package admission
 
 import (
 	"encoding/json"

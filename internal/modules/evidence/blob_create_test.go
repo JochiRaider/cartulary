@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,20 +16,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestObjectBlobCreate_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-blob-create-route")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence_lifecycle-blob-create-route")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-blob-create-incident",
 		"incident_key":  "evidence_lifecycle-blob-create",
 		"title":         "Evidence blob create",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
 	httptestx.SetClockFixed(t, harness.Server, issuedAt)
 	validSHA := fmt.Sprintf("%x", sha256.Sum256([]byte("evidence_lifecycle")))
@@ -128,7 +128,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		})
 	}
 
-	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	unauthenticated := appsupport.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-unauthenticated",
 		"byte_size":     1,
@@ -138,10 +138,10 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		t.Fatalf("unauthenticated request wrote object_blobs: got %d want %d", got, beforeInvalid)
 	}
 
-	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
-	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
+	viewer := appsupport.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
+	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
 	viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycleBlobViewer1!")
-	denied := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	denied := appsupport.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-viewer-denied",
 		"byte_size":     1,
@@ -154,7 +154,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		t.Fatalf("viewer-denied request wrote idempotency state: got %d want 0", got)
 	}
 
-	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	createResp := appsupport.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     " txn-normalized ",
 		"byte_size":         42,
@@ -184,7 +184,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		"sha256_hex":        validSHA,
 	})
 
-	nullableResp := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	nullableResp := appsupport.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-nullable",
 		"byte_size":     0,
@@ -253,16 +253,16 @@ func TestBlobCreateIdempotency_Unit(t *testing.T) {
 }
 
 func TestBlobCreateSizeCeiling_Unit(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "evidence_lifecycle-blob-size-ceiling")
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "evidence_lifecycle-blob-size-ceiling")
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-size-incident",
 		"incident_key":  "evidence_lifecycle-size",
 		"title":         "Evidence size ceiling",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	maxCreate := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	maxCreate := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-evidence_lifecycle-size-max",
 		"byte_size":     int64(536870912),
@@ -273,7 +273,7 @@ func TestBlobCreateSizeCeiling_Unit(t *testing.T) {
 	}
 
 	beforeRejected := countObjectBlobs(t, harness, incidentID)
-	rejected := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	rejected := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-evidence_lifecycle-size-too-large",
 		"byte_size":     int64(536870913),
@@ -302,17 +302,17 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 		maxPreviewBytes = int64(64)
 		maxTextBytes    = int64(32)
 	)
-	harness := workbookscenariotest.StartServerWithConfig(t, "evidence_lifecycle-preview-size", func(cfg *configassembly.Deployment) {
+	harness := appsupport.StartServerWithConfig(t, "evidence_lifecycle-preview-size", func(cfg *configassembly.Deployment) {
 		cfg.Limits.Previews.MaxPreviewablePayloadBytes = maxPreviewBytes
 		cfg.Limits.Previews.MaxTextInlineBytes = maxTextBytes
 	})
-	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-preview-size-incident",
 		"incident_key":  "evidence_lifecycle-preview-size",
 		"title":         "Evidence preview size",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	atLimitRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, atLimitRecordID)
@@ -326,7 +326,7 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 	seedEvidenceRecord(t, harness, incidentID, adminID, oversizeRecordID)
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte(strings.Repeat("i", int(maxPreviewBytes+1))), "oversize.png", "image/png", "txn-evidence_lifecycle-preview-oversize-blob", "txn-evidence_lifecycle-preview-oversize-attach")
 	requireEvidenceAccessUnavailableReason(t,
-		workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 		"preview_payload_too_large",
 	)
 	download := issueEvidenceHandle(t, harness, login, oversizeRecordID, "download-handle")
@@ -346,7 +346,7 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 	seedEvidenceRecord(t, harness, incidentID, adminID, textOversizeRecordID)
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, textOversizeRecordID, []byte(strings.Repeat("t", int(maxTextBytes+1))), "oversize.txt", "text/plain", "txn-evidence_lifecycle-preview-text-oversize-blob", "txn-evidence_lifecycle-preview-text-oversize-attach")
 	requireEvidenceAccessUnavailableReason(t,
-		workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+textOversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+textOversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 		"preview_payload_too_large",
 	)
 	textDownload := issueEvidenceHandle(t, harness, login, textOversizeRecordID, "download-handle")
@@ -449,7 +449,7 @@ func requireStableBlobPayload(t testing.TB, got map[string]any, want map[string]
 	}
 }
 
-func countBlobCreateIdempotency(t testing.TB, harness *workbookscenariotest.ServerHarness, actorID uuid.UUID, incidentID uuid.UUID, clientTxnID string) int {
+func countBlobCreateIdempotency(t testing.TB, harness *appsupport.ServerHarness, actorID uuid.UUID, incidentID uuid.UUID, clientTxnID string) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `

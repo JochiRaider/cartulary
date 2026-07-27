@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"slices"
@@ -21,7 +23,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestSurfaceEnvelope(t *testing.T) {
@@ -49,7 +50,7 @@ func TestCSRFProtection(t *testing.T) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
 			resp := scenario.doRoute(t, route, supportTxn("csrf", route.Key), nil, false)
-			workbookscenariotest.RequireErrorBody(t, resp, http.StatusForbidden, "csrf_verification_failed")
+			appsupport.RequireErrorBody(t, resp, http.StatusForbidden, "csrf_verification_failed")
 		})
 	}
 }
@@ -71,7 +72,7 @@ func TestReplayAndDivergentConflict(t *testing.T) {
 			requireStableReplayPayload(t, route, firstData, replayData)
 
 			divergentResp := scenario.doRoute(t, route, clientTxnID, route.BuildDivergentBody(scenario.routeCtx, clientTxnID), true)
-			divergentBody := workbookscenariotest.RequireErrorBody(t, divergentResp, route.DivergentStatus, route.DivergentCode)
+			divergentBody := appsupport.RequireErrorBody(t, divergentResp, route.DivergentStatus, route.DivergentCode)
 			contractassert.RequireDivergentReplayRejected(
 				t,
 				divergentResp.StatusCode,
@@ -94,7 +95,7 @@ func TestAuthorizationReDerivation(t *testing.T) {
 			scenario.applyAuthorizationChange(t, route)
 
 			resp := scenario.doRoute(t, route, supportTxn("authorization", route.Key), nil, true)
-			body := workbookscenariotest.RequireErrorBody(t, resp, route.AuthorizationStatus, route.AuthorizationCode)
+			body := appsupport.RequireErrorBody(t, resp, route.AuthorizationStatus, route.AuthorizationCode)
 			contractassert.RequireAuthorizationReDerived(
 				t,
 				contractassert.AuthorizationOutcome{Status: route.SuccessStatus},
@@ -136,9 +137,9 @@ func TestProjectionAndWebsocketConsequences(t *testing.T) {
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
-			var wsClient *wstest.Client
+			var wsClient *incidentwstest.Client
 			if route.WebSocketExpectation == workbookscenariotest.RouteWebSocketRecordChanged {
-				wsClient = workbookscenariotest.ConnectViewSocket(
+				wsClient = incidentwstest.ConnectViewSocket(
 					t,
 					scenario.harness.Server,
 					scenario.IncidentID.String(),
@@ -151,7 +152,7 @@ func TestProjectionAndWebsocketConsequences(t *testing.T) {
 			data := scenario.requireRouteSuccess(t, route, supportTxn("effects", route.Key), nil)
 
 			if wsClient != nil {
-				socketChange := workbookscenariotest.RequireRecordChanged(
+				socketChange := incidentwstest.RequireRecordChanged(
 					t,
 					wsClient,
 					route.BuildWebSocketRecordID(scenario.routeCtx),
@@ -159,7 +160,7 @@ func TestProjectionAndWebsocketConsequences(t *testing.T) {
 				)
 				requireRouteSocketChange(t, route.Key, data, socketChange, route.WebSocketViewSchemaID, nil)
 				for _, expectation := range route.AdditionalWebSocketChanges {
-					additionalChange := workbookscenariotest.RequireRecordChanged(
+					additionalChange := incidentwstest.RequireRecordChanged(
 						t,
 						wsClient,
 						expectation.BuildRecordID(scenario.routeCtx),
@@ -167,7 +168,7 @@ func TestProjectionAndWebsocketConsequences(t *testing.T) {
 					)
 					requireRouteSocketChange(t, route.Key, data, additionalChange, expectation.ViewSchemaID, expectation.ChangedKeys)
 				}
-				workbookscenariotest.ExpectNoSocketMessage(t, wsClient)
+				incidentwstest.ExpectNoSocketMessage(t, wsClient)
 			}
 
 			recordID := requireAffectedRecordID(t, route, scenario, data)
@@ -179,7 +180,7 @@ func TestProjectionAndWebsocketConsequences(t *testing.T) {
 	}
 }
 
-func requireRouteSocketChange(t testing.TB, routeKey workbookscenariotest.RouteKey, responseData map[string]any, socketChange workbookscenariotest.RecordChangeSocketPayload, viewSchemaID string, changedKeys []string) {
+func requireRouteSocketChange(t testing.TB, routeKey workbookscenariotest.RouteKey, responseData map[string]any, socketChange incidentwstest.RecordChangeSocketPayload, viewSchemaID string, changedKeys []string) {
 	t.Helper()
 	if changeSetID, ok := responseData["change_set_id"].(string); ok && changeSetID != "" && socketChange.ChangeSetID != changeSetID {
 		t.Fatalf("expected websocket change_set_id to match route response for %s: payload=%#v response=%#v", routeKey, socketChange, responseData)
@@ -194,7 +195,7 @@ func requireRouteSocketChange(t testing.TB, routeKey workbookscenariotest.RouteK
 	}
 }
 
-func socketChangeIncludesView(socketChange workbookscenariotest.RecordChangeSocketPayload, viewSchemaID string) bool {
+func socketChangeIncludesView(socketChange incidentwstest.RecordChangeSocketPayload, viewSchemaID string) bool {
 	for _, view := range socketChange.AffectedViews {
 		if view.ViewSchemaID == viewSchemaID {
 			return true
@@ -219,9 +220,9 @@ func TestRecordEnvelopeHeadSchema(t *testing.T) {
 }
 
 type SupportScenario struct {
-	harness               *workbookscenariotest.ServerHarness
+	harness               *appsupport.ServerHarness
 	bootstrapUserID       uuid.UUID
-	actorLogin            workbookscenariotest.LoginResult
+	actorLogin            appsupport.LoginResult
 	actorUserID           uuid.UUID
 	IncidentID            uuid.UUID
 	routeCtx              workbookscenariotest.RouteInventoryContext
@@ -253,16 +254,19 @@ type SupportScenario struct {
 
 type SupportSuite struct {
 	label           string
-	harness         *workbookscenariotest.ServerHarness
-	bootstrapLogin  workbookscenariotest.LoginResult
+	harness         *appsupport.ServerHarness
+	bootstrapLogin  appsupport.LoginResult
 	bootstrapUserID uuid.UUID
 }
 
 func newSupportSuite(t *testing.T, label string) *SupportSuite {
 	t.Helper()
 
-	harness := workbookscenariotest.StartRuntime(t).StartServer(t, "entity_linking-support-"+label)
-	bootstrapLogin, bootstrapUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := appsupport.StartRuntime(t).StartDefaultServer(
+		t,
+		"entity_linking-support-"+label,
+	)
+	bootstrapLogin, bootstrapUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	return &SupportSuite{
 		label:           label,
 		harness:         harness,
@@ -274,15 +278,15 @@ func newSupportSuite(t *testing.T, label string) *SupportSuite {
 func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.RouteInventoryEntry) *SupportScenario {
 	t.Helper()
 
-	incident := workbookscenariotest.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
+	incident := appsupport.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
 		"client_txn_id": supportTxn(s.label+"-incident", route.Key),
 		"incident_key":  "IR-P4-" + strings.ToUpper(strings.ReplaceAll(string(route.Key), "_", "-")),
 		"title":         "Record relationships support matrix " + s.label + " " + string(route.Key),
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	const actorPassword = "SupportAdminPass1!"
-	actorRecord := workbookscenariotest.SeedLocalUserFlags(
+	actorRecord := appsupport.SeedLocalUserFlags(
 		t,
 		s.harness.DB,
 		"entity_linking-support-"+s.label+"-"+string(route.Key)+"@example.test",
@@ -292,7 +296,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 		false,
 		true,
 	)
-	workbookscenariotest.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
+	appsupport.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
 	actorLogin := loginLocalSupportUser(t, s.harness, actorRecord.Email, actorPassword)
 
 	timelineID := supportUUID(s.label, route.Key, "timeline")
@@ -363,16 +367,16 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	workbookscenariotest.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
-	workbookscenariotest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
-	workbookscenariotest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
-	workbookscenariotest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-	workbookscenariotest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
+	appsupport.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
+	appsupport.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
+	appsupport.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
+	appsupport.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+	appsupport.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
 	s.seedWorkbookRouteFamilyData(t, route)
 
 	switch route.Key {
 	case workbookscenariotest.RouteMentionResolve:
-		workbookscenariotest.SeedMention(
+		appsupport.SeedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
@@ -386,7 +390,7 @@ func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.
 			nil,
 		)
 	case workbookscenariotest.RouteExplicitMerge:
-		workbookscenariotest.SeedResolvedMention(
+		appsupport.SeedResolvedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
@@ -397,7 +401,7 @@ func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.
 			"host",
 			"WS-024",
 		)
-		workbookscenariotest.SeedRecordLink(
+		appsupport.SeedRecordLink(
 			t,
 			s.harness.DB,
 			s.IncidentID,
@@ -409,9 +413,9 @@ func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.
 			"manual",
 			nil,
 		)
-		workbookscenariotest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
-		workbookscenariotest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
-		workbookscenariotest.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
+		appsupport.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
+		appsupport.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
+		appsupport.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
 	}
 
 	s.rebuildBaseProjections(t)
@@ -497,13 +501,13 @@ func (s *SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route workbo
 func (s *SupportScenario) seedWorkbookCreate(t *testing.T, viewSchemaID string, body map[string]any) string {
 	t.Helper()
 
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/incidents/"+s.IncidentID.String()+"/views/"+viewSchemaID+"/rows",
 		body,
-		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("seed workbook create %s failed: status=%d body=%#v request=%#v", viewSchemaID, resp.StatusCode, httptestx.ReadJSONBody(t, resp), body)
@@ -517,7 +521,7 @@ func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) str
 
 	payload := []byte("entity_linking support object " + label)
 	sum := sha256.Sum256(payload)
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/object-blobs",
@@ -529,8 +533,8 @@ func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) str
 			"content_type_hint": "text/plain",
 			"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 		},
-		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	putResp, err := http.DefaultClient.Do(mustPutRequest(t, s.harness.Server.HTTP.URL, data["upload_target"].(map[string]any)["href"].(string), payload))
@@ -548,7 +552,7 @@ func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) str
 func (s *SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {
 	t.Helper()
 
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/evidence-records/"+s.routeCtx.EvidenceRecordID+"/attach-blob",
@@ -557,8 +561,8 @@ func (s *SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {
 			"base_row_version": 1,
 			"client_txn_id":    supportTxn(s.label+"-seed-attach", s.routeKey),
 		},
-		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
@@ -605,7 +609,7 @@ func (s *SupportScenario) requireRouteSuccessStatus(t *testing.T, route workbook
 	if resp.StatusCode != wantStatus {
 		t.Fatalf("route %s unexpected status: got %d want %d body=%#v", route.Key, resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
 	}
-	data := workbookscenariotest.RequireSuccessData(t, resp, wantStatus)
+	data := appsupport.RequireSuccessData(t, resp, wantStatus)
 	assertRouteSuccessShape(t, route, s, data)
 	return data
 }
@@ -626,15 +630,15 @@ func (s *SupportScenario) doRoute(
 
 	options := []func(*http.Request){}
 	if route.RequiresCSRF {
-		options = append(options, workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie))
+		options = append(options, appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie))
 		if includeCSRFFHeader {
-			options = append(options, workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value))
+			options = append(options, appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value))
 		}
 	} else {
-		options = append(options, workbookscenariotest.WithCookies(s.actorLogin.SessionCookie))
+		options = append(options, appsupport.WithCookies(s.actorLogin.SessionCookie))
 	}
 
-	return workbookscenariotest.DoJSON(
+	return appsupport.DoJSON(
 		t,
 		route.Method,
 		s.harness.Server.HTTP.URL+route.BuildPath(s.routeCtx),
@@ -906,10 +910,10 @@ func requireNonEmptyString(t testing.TB, payload map[string]any, key string) str
 	return value
 }
 
-func loginLocalSupportUser(t testing.TB, harness *workbookscenariotest.ServerHarness, username string, password string) workbookscenariotest.LoginResult {
+func loginLocalSupportUser(t testing.TB, harness *appsupport.ServerHarness, username string, password string) appsupport.LoginResult {
 	t.Helper()
 
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/auth/login",
@@ -936,7 +940,7 @@ func loginLocalSupportUser(t testing.TB, harness *workbookscenariotest.ServerHar
 	if sessionCookie == nil || csrfCookie == nil {
 		t.Fatalf("expected support login to set session and csrf cookies, got %#v", resp.Cookies())
 	}
-	return workbookscenariotest.LoginResult{
+	return appsupport.LoginResult{
 		SessionCookie: sessionCookie,
 		CSRFCookie:    csrfCookie,
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
@@ -15,7 +16,10 @@ import (
 
 func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 	harness := storetest.StartStore(t, "workbook-startup-prefs")
-	store := workbookstartup.NewStore(harness.DB)
+	store := workbookassembly.NewStartupStore(
+		harness.DB,
+		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
+	)
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -162,7 +166,10 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 			MinimumRole:  "viewer",
 		},
 	}
-	claimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistryFromPublication(claimedWorkspaces))
+	claimedStore := workbookassembly.NewStartupStore(
+		harness.DB,
+		workbookstartup.NewWorkspaceRegistryFromPublication(claimedWorkspaces),
+	)
 	extensionRef := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
 	now := time.Date(2026, 7, 10, 18, 0, 0, 0, time.UTC)
 	if _, err := claimedStore.PutUserPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, now); err != nil {
@@ -183,7 +190,10 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		t.Fatalf("claimed startup availability mismatch: %#v", startup.ExtensionWorkspaceAvailability)
 	}
 
-	unclaimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistryFromPublication(nil))
+	unclaimedStore := workbookassembly.NewStartupStore(
+		harness.DB,
+		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
+	)
 	fallback, err := unclaimedStore.Resolve(context.Background(), result.Incident.ID, actor.ID, "admin", nil, now.Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("resolve startup after extension claim loss: %v", err)
@@ -207,6 +217,39 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	}
 	if len(persisted.HomeSheetRef) != 0 {
 		t.Fatalf("claim-loss clear did not persist: %s", persisted.HomeSheetRef)
+	}
+
+	caller := authstoretest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"workbook-startup-extension-caller@example.test",
+		"Workbook Startup Extension Caller",
+		"WorkbookStartupExtensionCaller1!",
+		false,
+		false,
+		true,
+	)
+	defaultSetAt := now.Add(3 * time.Minute)
+	if _, err := claimedStore.PutDefaultPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, defaultSetAt); err != nil {
+		t.Fatalf("persist extension workspace default pointer: %v", err)
+	}
+	repairAt := now.Add(4 * time.Minute)
+	defaultFallback, err := unclaimedStore.Resolve(context.Background(), result.Incident.ID, caller.ID, "admin", nil, repairAt)
+	if err != nil {
+		t.Fatalf("resolve default after extension claim loss: %v", err)
+	}
+	if len(defaultFallback.ClearedPointers) != 1 || defaultFallback.ClearedPointers[0].Source != workbookstartup.SourceDefault {
+		t.Fatalf("default claim-loss repair did not report one default clear: %#v", defaultFallback)
+	}
+	clearedDefault, err := unclaimedStore.GetDefaultPreferences(context.Background(), result.Incident.ID)
+	if err != nil {
+		t.Fatalf("read repaired default preferences: %v", err)
+	}
+	if len(clearedDefault.DefaultSheetRef) != 0 || !clearedDefault.UpdatedAt.Equal(repairAt) {
+		t.Fatalf("default repair must clear once at the repair timestamp: %#v", clearedDefault)
+	}
+	if clearedDefault.UpdatedByUserID == nil || *clearedDefault.UpdatedByUserID != caller.ID {
+		t.Fatalf("automatic default repair must attribute the effective clear to the triggering caller: %#v", clearedDefault)
 	}
 }
 

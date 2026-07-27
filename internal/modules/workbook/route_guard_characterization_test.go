@@ -2,30 +2,28 @@ package workbook_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook_interaction-workbook-route-guards")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-workbook-route-guards")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-ROUTE-GUARDS",
 		"title":         "Workbook inspector workbook route guards",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	createURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/rows"
-	socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.notes.v1", adminLogin.SessionCookie.Value)
-	defer socket.Close(1000, "test_complete")
 
 	beforeAuth := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 	body := map[string]any{
@@ -33,25 +31,25 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 		"note.title":    "guarded note",
 	}
 
-	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, body)
+	unauthenticated := appsupport.DoJSON(t, http.MethodPost, createURL, body)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	missingCSRF := workbookscenariotest.DoJSON(
+	missingCSRF := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		createURL,
 		body,
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	invalidCSRF := workbookscenariotest.DoJSON(
+	invalidCSRF := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		createURL,
 		body,
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
+		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
@@ -59,16 +57,13 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 	if afterAuth != beforeAuth {
 		t.Fatalf("auth/csrf failures mutated workbook state: before=%+v after=%+v", beforeAuth, afterAuth)
 	}
-	workbookscenariotest.ExpectNoSocketMessage(t, socket)
 
 	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
 		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-note",
 		"note.title":    "closed incident guard note",
 	})
-	recordID := workbookscenariotest.MustUUID(t, noteData["row"].(map[string]any)["record_id"].(string))
+	recordID := appsupport.MustUUID(t, noteData["row"].(map[string]any)["record_id"].(string))
 	requireConflictResolveSecurityPrecedence(t, harness, adminLogin, adminUserID, incidentID)
-	closedSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.notes.v1", adminLogin.SessionCookie.Value)
-	defer closedSocket.Close(1000, "test_complete")
 
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incidents
@@ -101,14 +96,13 @@ UPDATE incidents
 	if afterClosed != beforeClosed {
 		t.Fatalf("closed incident failures mutated workbook state: before=%+v after=%+v", beforeClosed, afterClosed)
 	}
-	workbookscenariotest.ExpectNoSocketMessage(t, closedSocket)
 }
 
-func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbookscenariotest.ServerHarness, adminLogin workbookscenariotest.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
+func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
 	note := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-create", "Conflict guard", "Conflict guard body")
-	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
+	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, adminLogin, recordID, map[string]any{
 		"view_schema_id":   NotesViewSchemaID,
 		"base_row_version": 1,
@@ -137,69 +131,66 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *workbooksce
 	resolveURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	invalidTokenURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/not-a-token/resolve"
 
-	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
-	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
+	viewer := appsupport.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
+	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
 	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "WorkbookInteractionConflictViewer1!")
-	nonMember := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
+	nonMember := appsupport.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
 	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "WorkbookInteractionConflictNonmember1!")
 
 	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-other-record", "Other record", "Other body")
-	otherRecordID := workbookscenariotest.MustUUID(t, otherNote["record_id"].(string))
+	otherRecordID := appsupport.MustUUID(t, otherNote["record_id"].(string))
 	wrongRecordURL := harness.Server.HTTP.URL + "/api/v1/records/" + otherRecordID.String() + "/conflicts/" + conflictToken + "/resolve"
-	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-conflict-guard-other-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-CONFLICT-OTHER",
 		"title":         "Workbook inspector conflict other incident",
 	})
-	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
+	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
 	otherIncidentNote := CreateNote(t, harness, adminLogin, otherIncidentID, "txn-workbook_interaction-conflict-guard-cross-incident-record", "Cross incident record", "Cross incident body")
-	otherIncidentRecordID := workbookscenariotest.MustUUID(t, otherIncidentNote["record_id"].(string))
+	otherIncidentRecordID := appsupport.MustUUID(t, otherIncidentNote["record_id"].(string))
 	crossIncidentURL := harness.Server.HTTP.URL + "/api/v1/records/" + otherIncidentRecordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	missingRecordURL := harness.Server.HTTP.URL + "/api/v1/records/00000000-0000-4000-8000-000000009999/conflicts/not-a-token/resolve"
 
-	socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), NotesViewSchemaID, adminLogin.SessionCookie.Value)
-	defer socket.Close(1000, "test_complete")
 	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 
-	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/not-a-uuid/conflicts/not-a-token/resolve", map[string]any{})
+	unauthenticated := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/not-a-uuid/conflicts/not-a-token/resolve", map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	missingCSRF := workbookscenariotest.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
+	missingCSRF := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	missingRecord := workbookscenariotest.DoJSON(t, http.MethodPost, missingRecordURL, map[string]any{}, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	missingRecord := appsupport.DoJSON(t, http.MethodPost, missingRecordURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, missingRecord, http.StatusNotFound, "incident_not_found")
 
-	nonMemberResponse := workbookscenariotest.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, workbookscenariotest.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
+	nonMemberResponse := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, nonMemberResponse, http.StatusNotFound, "incident_not_found")
 
-	viewerResponse := workbookscenariotest.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, workbookscenariotest.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
+	viewerResponse := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, viewerResponse, http.StatusForbidden, "authorization_denied")
 
-	invalidToken := workbookscenariotest.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	invalidToken := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	invalidTokenBody := httptestx.RequireErrorEnvelope(t, invalidToken, http.StatusBadRequest, "invalid_mutation_payload")
 	if httptestx.RequireErrorDetails(t, invalidTokenBody)["field"] != "conflict_token" {
 		t.Fatalf("authorized invalid token must identify conflict_token: %#v", invalidTokenBody)
 	}
 
-	wrongRecord := workbookscenariotest.DoJSON(t, http.MethodPost, wrongRecordURL, validBody, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	wrongRecord := appsupport.DoJSON(t, http.MethodPost, wrongRecordURL, validBody, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, wrongRecord, http.StatusBadRequest, "invalid_mutation_payload")
 
-	crossIncident := workbookscenariotest.DoJSON(t, http.MethodPost, crossIncidentURL, validBody, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	crossIncident := appsupport.DoJSON(t, http.MethodPost, crossIncidentURL, validBody, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, crossIncident, http.StatusBadRequest, "invalid_mutation_payload")
 
-	invalidBody := workbookscenariotest.DoJSON(t, http.MethodPost, resolveURL, map[string]any{
+	invalidBody := appsupport.DoJSON(t, http.MethodPost, resolveURL, map[string]any{
 		"conflict_token":  "different-token",
 		"resolution_kind": "keep_saved",
 		"client_txn_id":   "txn-workbook_interaction-conflict-guard-invalid-body",
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
 
 	after := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 	if after != before {
 		t.Fatalf("rejected conflict precedence matrix mutated workbook state: before=%+v after=%+v", before, after)
 	}
-	workbookscenariotest.ExpectNoSocketMessage(t, socket)
 }
 
 type workbookRouteGuardState struct {
@@ -208,37 +199,43 @@ type workbookRouteGuardState struct {
 	ChangeSets      int
 	Mutations       int
 	RecordRevisions int
+	Collaboration   int
 }
 
-func snapshotWorkbookRouteGuardState(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID) workbookRouteGuardState {
+func snapshotWorkbookRouteGuardState(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID) workbookRouteGuardState {
 	t.Helper()
 	return workbookRouteGuardState{
-		Records: workbookscenariotest.QueryCount(t, harness.DB, `
+		Records: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM records
  WHERE incident_id = $1
 `, incidentID),
-		Artifacts: workbookscenariotest.QueryCount(t, harness.DB, `
+		Artifacts: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM artifacts
  WHERE incident_id = $1
 `, incidentID),
-		ChangeSets: workbookscenariotest.QueryCount(t, harness.DB, `
+		ChangeSets: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_sets
  WHERE incident_id = $1
 `, incidentID),
-		Mutations: workbookscenariotest.QueryCount(t, harness.DB, `
+		Mutations: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations m
   JOIN change_sets c ON c.change_set_id = m.change_set_id
  WHERE c.incident_id = $1
 `, incidentID),
-		RecordRevisions: workbookscenariotest.QueryCount(t, harness.DB, `
+		RecordRevisions: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_revisions rr
   JOIN records r ON r.record_id = rr.record_id
  WHERE r.incident_id = $1
+`, incidentID),
+		Collaboration: appsupport.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents
+ WHERE incident_id = $1
 `, incidentID),
 	}
 }

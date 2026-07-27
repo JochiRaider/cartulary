@@ -12,12 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -152,11 +150,8 @@ func (e *LifecycleValidationError) Error() string {
 }
 
 func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *httpapi.APIError) {
-	if !isWorkbookMutationSurface(viewSchemaID) {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
-	}
 	schema, ok := viewschema.Lookup(viewSchemaID)
-	if !ok {
+	if !ok || !schema.CreateCapable {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
 	}
 	raw, apiErr := decodeObject(reader)
@@ -238,7 +233,9 @@ func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
 	var request PatchRequest
 	if value, ok := raw["view_schema_id"]; !ok {
 		return PatchRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil || !isWorkbookMutationSurface(request.ViewSchemaID) {
+	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil {
+		return PatchRequest{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
+	} else if _, ok := viewschema.Lookup(request.ViewSchemaID); !ok {
 		return PatchRequest{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
 	}
 	if value, ok := raw["base_row_version"]; !ok {
@@ -334,7 +331,7 @@ func DecodeConflictResolveRequest(reader io.Reader, token string, claims workboo
 		return ConflictResolveRequest{}, invalidMutationPayload("resolved_value", "missing_required_field")
 	}
 	field, ok := viewschema.LookupField(claims.ViewSchemaID, claims.FieldKey)
-	if !ok || !field.Writable || isReadOnlySystemField(claims.FieldKey) {
+	if !ok || !field.Writable {
 		return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 	change := PatchChange{FieldKey: claims.FieldKey}
@@ -379,9 +376,6 @@ func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *
 	}
 	field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
 	if !ok || !field.Writable {
-		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
-	}
-	if isReadOnlySystemField(fieldKey) {
 		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 	value, hasValue := object["value"]
@@ -563,15 +557,24 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	if err := json.Unmarshal(object["op"], &op); err != nil {
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 	}
-	if !collectionAllowsOp(fieldKey, op) {
-		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
-	}
 	action := CollectionAction{Op: op}
 	switch op {
 	case "add_token":
-		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		if !objectHasOnlyFields(object, "op", "raw_text") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		rawText, ok := decodeStringActionField(object, "raw_text")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.RawText = rawText
+		action.NormalizedText = normalized
 	case "add_alias":
-		if !isEntityAliasCollection(fieldKey) || !objectHasOnlyFields(object, "op", "alias_text") {
+		if !objectHasOnlyFields(object, "op", "alias_text") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		rawText, ok := decodeStringActionField(object, "alias_text")
@@ -585,7 +588,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		action.RawText = rawText
 		action.NormalizedText = normalized
 	case "remove_alias":
-		if !isEntityAliasCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -597,7 +600,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.ItemRef = itemRef
 	case "add_tag":
-		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "tag_name") {
+		if !objectHasOnlyFields(object, "op", "tag_name") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		rawText, ok := decodeStringActionField(object, "tag_name")
@@ -611,7 +614,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		action.RawText = label
 		action.NormalizedText = normalized
 	case "remove_tag":
-		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -623,7 +626,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.ItemRef = itemRef
 	case "add_record_ref":
-		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "linked_record_id") {
+		if !objectHasOnlyFields(object, "op", "linked_record_id") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		parsed, ok := decodeUUIDActionField(object, "linked_record_id")
@@ -632,7 +635,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.LinkedRecordID = &parsed
 	case "remove_record_ref":
-		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -644,7 +647,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.ItemRef = itemRef
 	case "add_party_ref":
-		if !isPartyRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "party_id") {
+		if !objectHasOnlyFields(object, "op", "party_id") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		parsed, ok := decodeUUIDActionField(object, "party_id")
@@ -653,7 +656,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.PartyID = &parsed
 	case "remove_party_ref":
-		if !isPartyRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -665,7 +668,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.ItemRef = itemRef
 	case "add_risk_ref":
-		if !isRiskRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "risk_ref_text") {
+		if !objectHasOnlyFields(object, "op", "risk_ref_text") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		rawText, ok := decodeStringActionField(object, "risk_ref_text")
@@ -679,7 +682,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		action.RiskRefText = normalized
 		action.NormalizedText = normalized
 	case "remove_risk_ref":
-		if !isRiskRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -936,74 +939,6 @@ func hashRequestPayload(payload any) []byte {
 	return hash
 }
 
-func isEntityAliasCollection(fieldKey string) bool {
-	return hostidentity.IsAliasCollectionField(fieldKey)
-}
-
-func isWorkbookMutationSurface(viewSchemaID string) bool {
-	switch viewSchemaID {
-	case EvidenceViewSchemaID, PartiesViewSchemaID, NotesViewSchemaID, TaskRequestsViewSchemaID, DecisionsViewSchemaID,
-		CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID,
-		FindingsViewSchemaID, InvestigativeQueriesViewSchemaID, ForensicKeywordsViewSchemaID,
-		hostidentity.HostsViewSchemaID, hostidentity.IdentitiesViewSchemaID:
-		return true
-	default:
-		return false
-	}
-}
-
-func isReadOnlySystemField(fieldKey string) bool {
-	switch fieldKey {
-	case "comm_log.comm_id", "handoff.handoff_id", "status_review.status_review_id", "lesson.lesson_id",
-		"comm_log.timestamp_day", "comm_log.next_report_day", "comm_log.updated_at",
-		"handoff.timestamp_day", "handoff.ack_state", "handoff.updated_at",
-		"status_review.timestamp_day", "status_review.next_report_day", "status_review.updated_at",
-		"lesson.timestamp_day", "lesson.updated_at", "party.updated_at",
-		"evidence.blob_hash", "evidence.upload_state", "evidence.linked_record_count", "evidence.edited_at",
-		"note.linked_record_count", "note.updated_at", "note.created_by_user_id",
-		"task.linked_record_count", "task.updated_at", "task.no_owner",
-		"decision.affected_record_count", "decision.supersedes_record_id", "decision.updated_at", "decision.is_superseded",
-		"finding.closed_at", "finding.confidence_band", "finding.updated_at",
-		"investigative_query.query_id", "investigative_query.created_by_user_id", "investigative_query.created_at", "investigative_query.created_day",
-		"forensic_keyword.keyword_id", "forensic_keyword.created_at", "forensic_keyword.created_day":
-		return true
-	default:
-		return false
-	}
-}
-
 func isUUIDField(fieldKey string, field viewschema.Field) bool {
 	return strings.HasSuffix(fieldKey, "_user_id") || field.DirectReferenceContractID != nil
-}
-
-func isRecordRefCollection(fieldKey string) bool {
-	if policy, ok := artifacts.LookupCollectionPolicy(fieldKey); ok && policy.AllowsRecordRefs() {
-		return true
-	}
-	return tasksdecisions.IsWorkbookRecordRefCollectionField(fieldKey)
-}
-
-func isTagCollection(fieldKey string) bool {
-	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
-	return ok && policy.AllowsTags()
-}
-
-func isPartyRefCollection(fieldKey string) bool {
-	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
-	return ok && policy.AllowsPartyRefs()
-}
-
-func isRiskRefCollection(fieldKey string) bool {
-	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
-	return ok && policy.AllowsRiskRefs()
-}
-
-func collectionAllowsOp(fieldKey string, op string) bool {
-	if isEntityAliasCollection(fieldKey) {
-		return op == "add_alias" || op == "remove_alias"
-	}
-	if policy, ok := artifacts.LookupCollectionPolicy(fieldKey); ok {
-		return policy.AllowsOp(op)
-	}
-	return tasksdecisions.AllowsWorkbookCollectionOp(fieldKey, op)
 }

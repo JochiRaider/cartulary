@@ -31,6 +31,7 @@ var (
 		"filter_fields",
 		"synthetic_filter_predicates",
 		"grouping_fields",
+		"create_capable",
 		"inline_create",
 		"inspector_config",
 		"fields",
@@ -393,6 +394,9 @@ func validateViewSchemaShape(value any, relativePath string) error {
 		}
 	}
 	if _, err := requireEnumString(object, "sort_null_order", relativePath, "last"); err != nil {
+		return err
+	}
+	if _, err := requiredBool(object, "create_capable", relativePath); err != nil {
 		return err
 	}
 	if _, ok := object["base_projection"]; ok {

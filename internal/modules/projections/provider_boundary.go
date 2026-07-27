@@ -18,6 +18,7 @@ func approvedProductionProjectionRootImporterPaths() []string {
 	return []string{
 		"internal/app/projectionassembly/catalog.go",
 		"internal/app/timelineassembly/assembly.go",
+		"internal/app/workbookassembly/catalog.go",
 		"internal/modules/artifacts/import_projection.go",
 		"internal/modules/artifacts/linkednotes/facade.go",
 		"internal/modules/artifacts/workbook_facade.go",
@@ -33,7 +34,7 @@ func approvedProductionProjectionRootImporterPaths() []string {
 		"internal/modules/tasksdecisions/import_projection.go",
 		"internal/modules/tasksdecisions/supersede_facade.go",
 		"internal/modules/tasksdecisions/workbook_facade.go",
-		"internal/modules/workbook/query_store.go",
+		"internal/modules/workbook/contribution_catalog.go",
 		"internal/modules/workbook/routes.go",
 		"internal/modules/workbook/store.go",
 	}

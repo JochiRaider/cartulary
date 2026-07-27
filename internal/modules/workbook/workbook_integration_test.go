@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"reflect"
@@ -11,33 +12,33 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-all-surfaces-empty")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-all-surfaces-empty")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-all-surfaces-empty-incident",
 		"incident_key":  "IR-WORKBOOK-EMPTY",
 		"title":         "Workbook empty surface query",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/view-schemas",
 		nil,
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+		appsupport.WithCookies(adminLogin.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
-	if len(rawSchemas) != 17 {
-		t.Fatalf("expected seventeen discovered view schemas, got %d", len(rawSchemas))
+	registrySchemas := viewschema.ListPublicResources()
+	if len(rawSchemas) != len(registrySchemas) {
+		t.Fatalf("discovery returned %d view schemas, machine registry has %d", len(rawSchemas), len(registrySchemas))
 	}
 
 	gotIDs := make([]string, 0, len(rawSchemas))
@@ -45,12 +46,12 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		viewSchemaID := rawSchema.(map[string]any)["view_schema_id"].(string)
 		gotIDs = append(gotIDs, viewSchemaID)
 
-		queryResp := workbookscenariotest.DoJSON(
+		queryResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 			map[string]any{},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+			appsupport.WithCookies(adminLogin.SessionCookie),
 		)
 		queryBody := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)
 		data := queryBody["data"].(map[string]any)
@@ -69,34 +70,57 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		}
 	}
 
-	wantIDs := []string{
-		"cartulary.view.assessments.v1",
-		"cartulary.view.comm_log.v1",
-		"cartulary.view.decisions.v1",
-		"cartulary.view.evidence.v1",
-		"cartulary.view.findings.v1",
-		"cartulary.view.forensic_keywords.v1",
-		"cartulary.view.handoff.v1",
-		"cartulary.view.hosts.v1",
-		"cartulary.view.identities.v1",
-		"cartulary.view.indicators.v1",
-		"cartulary.view.investigative_queries.v1",
-		"cartulary.view.lesson.v1",
-		"cartulary.view.notes.v1",
-		"cartulary.view.parties.v1",
-		"cartulary.view.status_review.v1",
-		"cartulary.view.task_requests.v1",
-		"cartulary.view.timeline.v2",
+	wantIDs := make([]string, 0, len(registrySchemas))
+	for _, resource := range registrySchemas {
+		wantIDs = append(wantIDs, resource.ViewSchemaID)
 	}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("unexpected discovered ids:\ngot  %v\nwant %v", gotIDs, wantIDs)
 	}
 }
 
+func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "workbook-all-surfaces-create-admission")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-all-surfaces-create-admission-incident",
+		"incident_key":  "IR-WORKBOOK-CREATE-ADMISSION",
+		"title":         "Workbook create admission coverage",
+	})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+
+	resources := viewschema.ListPublicResources()
+	if len(resources) == 0 {
+		t.Fatal("machine view-schema registry is empty")
+	}
+	for index, resource := range resources {
+		t.Run(resource.ViewSchemaID, func(t *testing.T) {
+			response := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, resource.ViewSchemaID, uuid.Nil, map[string]any{
+				"client_txn_id": "txn-workbook-create-admission-" + resource.ViewSchemaID + "-" + string(rune('a'+index)),
+			})
+			switch response.StatusCode {
+			case http.StatusCreated:
+				data := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
+				if data["view_schema_id"] != resource.ViewSchemaID {
+					t.Fatalf("create admission for %s returned wrong surface: %#v", resource.ViewSchemaID, data)
+				}
+			case http.StatusBadRequest:
+				body := httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_mutation_payload")
+				details := httptestx.RequireErrorDetails(t, body)
+				if details["reason_code"] == "unknown_view_schema" || details["reason_code"] == "unsupported_view_schema" {
+					t.Fatalf("registered create surface %s reached an unmapped dispatcher: %#v", resource.ViewSchemaID, body)
+				}
+			default:
+				t.Fatalf("registered create surface %s returned status %d body=%#v", resource.ViewSchemaID, response.StatusCode, httptestx.ReadJSONBody(t, response))
+			}
+		})
+	}
+}
+
 func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-projection-query-boundary")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-projection-query-boundary")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-projection-query-boundary-incident",
 		"incident_key":  "IR-WORKBOOK-PROJECTION-QUERY",
 		"title":         "Workbook projection query boundary",
@@ -104,24 +128,24 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 	incidentID := incident["incident_id"].(string)
 	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + workbook.NotesViewSchemaID + "/query"
 
-	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{})
+	unauthenticated := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	invalidSort := workbookscenariotest.DoJSON(
+	invalidSort := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		queryURL,
 		map[string]any{"sort": []map[string]any{{"field_key": "timeline.date_entered", "direction": "asc"}}},
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+		appsupport.WithCookies(adminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidSort, http.StatusBadRequest, "invalid_view_query")
 
-	valid := workbookscenariotest.DoJSON(
+	valid := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		queryURL,
 		map[string]any{"limit": 1},
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+		appsupport.WithCookies(adminLogin.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, valid, http.StatusOK)
 	data := body["data"].(map[string]any)
@@ -135,14 +159,14 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 }
 
 func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-coordination-default-query")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-coordination-default-query")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-default-query-incident",
 		"incident_key":  "IR-WORKBOOK-COORD-QUERY",
 		"title":         "Workbook coordination default query",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	tests := []struct {
 		name          string
@@ -240,7 +264,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			created := requireWorkbookCreate(t, harness, adminLogin, incidentID, tc.viewSchemaID, tc.body)
 			createdRow := created["row"].(map[string]any)
-			recordID := workbookscenariotest.MustUUID(t, createdRow["record_id"].(string))
+			recordID := appsupport.MustUUID(t, createdRow["record_id"].(string))
 			requireCellValue(t, createdRow, tc.wantField, tc.wantValue)
 
 			queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + tc.viewSchemaID + "/query"
@@ -258,14 +282,14 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 }
 
 func TestWorkbook_QueryPaginationContract(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-query-pagination")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-query-pagination")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-pagination-incident",
 		"incident_key":  "IR-WORKBOOK-PAGING",
 		"title":         "Workbook query pagination",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	hostA := uuid.New()
 	hostB := uuid.New()
@@ -320,7 +344,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 		"changed group_by": {"cursor_token": cursor, "sort": sortByName, "group_by": "host.host_state"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			resp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, body, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+			resp := appsupport.DoJSON(t, http.MethodPost, queryURL, body, appsupport.WithCookies(adminLogin.SessionCookie))
 			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 			if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 				t.Fatalf("expected cursor_query_mismatch, got %#v", details)
@@ -373,14 +397,14 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 }
 
 func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-query-live-cursor")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-query-live-cursor")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-live-cursor-incident",
 		"incident_key":  "IR-WORKBOOK-LIVE-CURSOR",
 		"title":         "Workbook query live cursor",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	hostA := uuid.New()
 	hostC := uuid.New()
@@ -450,14 +474,14 @@ func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
 }
 
 func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-query-cursor-tamper")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-query-cursor-tamper")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-cursor-tamper-incident",
 		"incident_key":  "IR-WORKBOOK-CURSOR-TAMPER",
 		"title":         "Workbook query cursor tamper",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	hostA := uuid.New()
 	hostB := uuid.New()
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
@@ -472,10 +496,10 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
 	tamperedCursor := tamperCursor(t, cursor)
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperedCursor,
 		"sort":         sortByName,
-	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	}, appsupport.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
@@ -488,14 +512,14 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 }
 
 func TestCoordinationProjectionQueries_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-seeded-surfaces")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-seeded-surfaces")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-seeded-surfaces-incident",
 		"incident_key":  "IR-WORKBOOK-SEEDED",
 		"title":         "Workbook seeded surface query",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	seeds := []struct {
 		viewSchemaID string
@@ -619,7 +643,7 @@ SELECT
 			recordType:   "assessment",
 			insertChild: func(recordID uuid.UUID) {
 				subjectID := uuid.New()
-				workbookscenariotest.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
+				appsupport.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
 				execSeed(t, harness, `
 INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'Assessment subject', 'canonical', $3, $3)
@@ -769,16 +793,16 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 				seedRecordEnvelope(t, harness, incidentID, adminUserID, recordID, seed.recordType)
 				seed.insertChild(recordID)
 			} else {
-				resp := workbookscenariotest.DoJSON(
+				resp := appsupport.DoJSON(
 					t,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/rows",
 					seed.createBody(),
-					workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-					workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 				)
 				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
-				recordID = workbookscenariotest.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
+				recordID = appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
 			}
 
 			queryBody := map[string]any{"filters": []map[string]any{seed.filter}}
@@ -788,12 +812,12 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 			if seed.groupBy != "" {
 				queryBody["group_by"] = seed.groupBy
 			}
-			resp := workbookscenariotest.DoJSON(
+			resp := appsupport.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/query",
 				queryBody,
-				workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+				appsupport.WithCookies(adminLogin.SessionCookie),
 			)
 			if resp.StatusCode != http.StatusOK {
 				payload, _ := io.ReadAll(resp.Body)
@@ -822,7 +846,7 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 	}
 }
 
-func seedRecordEnvelope(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, recordType string) {
+func seedRecordEnvelope(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, recordType string) {
 	t.Helper()
 	execSeed(t, harness, `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
@@ -830,14 +854,14 @@ VALUES ($1, $2, $3, $4, $4)
 `, recordID, incidentID, recordType, actorID)
 }
 
-func execSeed(t testing.TB, harness *workbookscenariotest.ServerHarness, sql string, args ...any) {
+func execSeed(t testing.TB, harness *appsupport.ServerHarness, sql string, args ...any) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), sql, args...); err != nil {
 		t.Fatalf("seed query failed: %v", err)
 	}
 }
 
-func seedTaskRequestProjection(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID) {
+func seedTaskRequestProjection(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID) {
 	t.Helper()
 	execSeed(t, harness, `
 INSERT INTO task_request_grid_projection (
@@ -911,7 +935,7 @@ SET row_version = EXCLUDED.row_version,
 `, recordID)
 }
 
-func seedDecisionProjection(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID) {
+func seedDecisionProjection(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID) {
 	t.Helper()
 	execSeed(t, harness, `
 INSERT INTO decision_grid_projection (
@@ -1001,7 +1025,7 @@ func prefixFilter(fieldKey string, value string) map[string]any {
 	return map[string]any{"field_key": fieldKey, "op": "prefix", "arg": map[string]any{"value": value}}
 }
 
-func seedHostForPaging(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string) {
+func seedHostForPaging(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string) {
 	t.Helper()
 	execSeed(t, harness, `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
@@ -1017,7 +1041,7 @@ VALUES ($1, $2, 1, $3, lower($3), 'canonical', now())
 `, recordID, incidentID, displayName)
 }
 
-func updateHostDisplayNameForPaging(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, displayName string, rowVersion int64) {
+func updateHostDisplayNameForPaging(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, displayName string, rowVersion int64) {
 	t.Helper()
 	execSeed(t, harness, `
 UPDATE records
@@ -1041,9 +1065,9 @@ UPDATE host_grid_projection
 `, recordID, displayName, rowVersion)
 }
 
-func queryWorkbook(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, queryURL string, body map[string]any) map[string]any {
+func queryWorkbook(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, queryURL string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, body, workbookscenariotest.WithCookies(login.SessionCookie))
+	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, body, appsupport.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

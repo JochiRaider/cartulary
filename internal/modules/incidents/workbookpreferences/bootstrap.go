@@ -1,4 +1,4 @@
-package bootstrap
+package workbookpreferences
 
 import (
 	"context"
@@ -7,22 +7,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 )
 
-type IncidentCreatePreferencesPort struct{}
+type Bootstrap struct{}
 
-func NewIncidentCreatePreferencesPort() IncidentCreatePreferencesPort {
-	return IncidentCreatePreferencesPort{}
+func NewBootstrap() Bootstrap {
+	return Bootstrap{}
 }
 
-func (IncidentCreatePreferencesPort) BootstrapIncidentCreatePreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
-	return PreferencesTx(ctx, tx, incidentID, actorUserID, now)
-}
-
-func PreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
+func (Bootstrap) BootstrapIncidentPreferencesTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	now time.Time,
+) error {
 	q := sqlc.New(tx)
 	timestamp := pgTimestamptz(now)
 	if err := q.InsertIncidentWorkbookPreferencesBootstrap(ctx, sqlc.InsertIncidentWorkbookPreferencesBootstrapParams{
@@ -40,12 +41,4 @@ func PreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUs
 		return fmt.Errorf("insert user workbook preferences: %w", err)
 	}
 	return nil
-}
-
-func pgUUID(value uuid.UUID) pgtype.UUID {
-	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
-}
-
-func pgTimestamptz(value time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
 }

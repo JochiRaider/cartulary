@@ -114,6 +114,7 @@ type Document struct {
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
+	CreateCapable             bool                       `json:"create_capable"`
 	InlineCreate              InlineCreate               `json:"inline_create"`
 	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []Field                    `json:"fields"`

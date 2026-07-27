@@ -3,6 +3,8 @@ package entities_test
 import (
 	"context"
 	"database/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"strings"
@@ -27,17 +29,17 @@ import (
 // entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestResolveRoute_Integration(t *testing.T) {
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-resolve-conformance")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve-conformance")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-conf-incident",
 			"incident_key":  "IR-I401-RC",
 			"title":         "Record relationships entity-resolution resolve conformance",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
 		ctx := workbookscenariotest.RouteInventoryContext{
 			IncidentID:       incidentID.String(),
@@ -56,7 +58,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 			ExpectedMutationSource: "entities.entity_mentions.resolve",
 		})
 
-		mention := workbookscenariotest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
 		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
 			t.Fatalf("expected route conformance resolve to leave mention resolved to target, got %#v", mention)
@@ -64,33 +66,33 @@ func TestResolveRoute_Integration(t *testing.T) {
 	})
 
 	t.Run("resolve_item persists durable state, replays idempotently, and emits websocket invalidation", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-resolve")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-incident",
 			"incident_key":  "IR-I401-R",
 			"title":         "Record relationships entity-resolution resolve route",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
-		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
 		payload := fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", golden.RecordMentionActionResolve, uuidPointer(golden.RecordCanonicalHostRecordID), nil)
-		resp := workbookscenariotest.DoJSON(
+		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			payload,
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := workbookscenariotest.RequireSuccessData(t, resp, http.StatusOK)
+		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
 		if data["incident_id"] != incidentID.String() {
 			t.Fatalf("unexpected incident_id in mention action payload: %#v", data)
 		}
@@ -98,7 +100,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 			t.Fatalf("expected source record row_version=2 after resolve_item, got %#v", data)
 		}
 
-		mention := workbookscenariotest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
 		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
 			t.Fatalf("expected resolve_item to point mention at the target record, got %#v", mention)
@@ -106,21 +108,21 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != "explicit_resolve_route" {
 			t.Fatalf("expected resolve route provenance marker, got %#v", mention)
 		}
-		link := workbookscenariotest.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host")
+		link := appsupport.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socketPayload := workbookscenariotest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		socketPayload := incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
 		if socketPayload.ChangeSetID != data["change_set_id"] {
 			t.Fatalf("expected websocket to carry the mention action change_set_id, got payload=%#v response=%#v", socketPayload, data)
 		}
-		hostSocketPayload := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		hostSocketPayload := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
 		if hostSocketPayload.ChangeSetID != data["change_set_id"] {
 			t.Fatalf("expected host websocket invalidation to carry the mention action change_set_id, got payload=%#v response=%#v", hostSocketPayload, data)
 		}
 		if !stringSliceContains(hostSocketPayload.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected host linked-event count invalidation, got %#v", hostSocketPayload)
 		}
-		viewLogin := workbookscenariotest.LoginResult{
+		viewLogin := appsupport.LoginResult{
 			SessionCookie: adminLogin.SessionCookie,
 			CSRFCookie:    adminLogin.CSRFCookie,
 		}
@@ -144,19 +146,19 @@ func TestResolveRoute_Integration(t *testing.T) {
 			t.Fatalf("expected rebuild to restore one linked event, got %#v row=%#v", got, rebuiltHostRow)
 		}
 
-		replayResp := workbookscenariotest.DoJSON(
+		replayResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			payload,
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		replayData := workbookscenariotest.RequireSuccessData(t, replayResp, http.StatusOK)
+		replayData := appsupport.RequireSuccessData(t, replayResp, http.StatusOK)
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected replay to reuse the original payload, got %#v %#v", data, replayData)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
@@ -167,52 +169,52 @@ SELECT COUNT(*)
 			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
 		}
 
-		divergentResp := workbookscenariotest.DoJSON(
+		divergentResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", "dismiss_item", nil, nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		appsupport.RequireErrorBody(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 	})
 
 	t.Run("dismiss_item removes active links and fails closed on stale or illegal transitions", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-dismiss")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-01-dismiss")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-dismiss-incident",
 			"incident_key":  "IR-I401-D",
 			"title":         "Record relationships entity-resolution dismiss route",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		workbookscenariotest.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
-		workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
+		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
-		resp := workbookscenariotest.DoJSON(
+		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-dismiss", "dismiss_item", nil, nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := workbookscenariotest.RequireSuccessData(t, resp, http.StatusOK)
+		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
 		if got := int64(data["entity_mention"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("expected mention row_version=2 after dismiss_item, got %#v", data)
 		}
 
-		dismissed := workbookscenariotest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		dismissed := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 		assertx.RequireMentionStatus(t, dismissed, golden.RecordMentionStatusDismissed)
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE incident_id = $1
@@ -223,39 +225,39 @@ SELECT COUNT(*)
 `, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID); got != 0 {
 			t.Fatalf("expected dismiss_item to remove the active link, got %d active rows", got)
 		}
-		workbookscenariotest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
-		hostChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected dismiss to invalidate host linked-event count, got %#v", hostChange)
 		}
-		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
 		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
 		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("expected dismiss to project zero linked events, got %#v row=%#v", got, hostRow)
 		}
 
-		staleResp := workbookscenariotest.DoJSON(
+		staleResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-stale", "revert_to_unresolved", nil, nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		staleBody := workbookscenariotest.RequireErrorBody(t, staleResp, http.StatusConflict, "row_version_conflict")
+		staleBody := appsupport.RequireErrorBody(t, staleResp, http.StatusConflict, "row_version_conflict")
 		if staleBody["error"].(map[string]any)["details"].(map[string]any)["current_mention_row_version"] != float64(2) {
 			t.Fatalf("expected current_mention_row_version=2 on stale update, got %#v", staleBody)
 		}
 
-		illegalResp := workbookscenariotest.DoJSON(
+		illegalResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(2, "txn-entity_linking-i-4-01-illegal", "dismiss_item", nil, nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		illegalBody := workbookscenariotest.RequireErrorBody(t, illegalResp, http.StatusConflict, "illegal_transition")
+		illegalBody := appsupport.RequireErrorBody(t, illegalResp, http.StatusConflict, "illegal_transition")
 		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
 			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
 		}
@@ -266,48 +268,48 @@ SELECT COUNT(*)
 	})
 
 	t.Run("revert_to_unresolved restores unresolved mention state and emits websocket invalidation", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-revert")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-01-revert")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-revert-incident",
 			"incident_key":  "IR-I401-U",
 			"title":         "Record relationships entity-resolution revert route",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		workbookscenariotest.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
-		workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
+		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
-		resp := workbookscenariotest.DoJSON(
+		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-revert", "revert_to_unresolved", nil, nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := workbookscenariotest.RequireSuccessData(t, resp, http.StatusOK)
+		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
 		if got := int64(data["source_record"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("expected source record row_version=2 after revert_to_unresolved, got %#v", data)
 		}
 
-		mention := workbookscenariotest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
 		if mention.RawText != "WS-023" || mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
 			t.Fatalf("expected revert_to_unresolved to preserve raw_text and clear resolution metadata, got %#v", mention)
 		}
-		workbookscenariotest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
-		hostChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected revert to invalidate host linked-event count, got %#v", hostChange)
 		}
-		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
 		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
 		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("expected revert to project zero linked events, got %#v row=%#v", got, hostRow)
@@ -315,18 +317,18 @@ SELECT COUNT(*)
 	})
 
 	t.Run("authorization and target validation are re-derived from live state", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-01-access")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-01-access")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-access-incident",
 			"incident_key":  "IR-I401-A",
 			"title":         "Record relationships entity-resolution access checks",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -338,15 +340,15 @@ UPDATE incident_memberships
 `, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote incident membership: %v", err)
 		}
-		deniedResp := workbookscenariotest.DoJSON(
+		deniedResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-denied", "resolve_item", uuidPointer(golden.RecordCanonicalHostRecordID), nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -359,52 +361,52 @@ UPDATE incident_memberships
 			t.Fatalf("restore incident membership: %v", err)
 		}
 
-		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
-		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
+		otherActor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
+		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
+		appsupport.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
-		hiddenResp := workbookscenariotest.DoJSON(
+		hiddenResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-hidden", "resolve_item", uuidPointer(golden.RecordDuplicateHostRecordID), nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
+		appsupport.RequireErrorBody(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
 
-		otherVisibleIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		otherVisibleIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-visible-incident",
 			"incident_key":  "IR-I401-V",
 			"title":         "Record relationships entity-resolution visible other incident",
 		})
-		otherVisibleIncidentID := workbookscenariotest.MustUUID(t, otherVisibleIncident["incident_id"].(string))
-		workbookscenariotest.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.RecordStubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
+		otherVisibleIncidentID := appsupport.MustUUID(t, otherVisibleIncident["incident_id"].(string))
+		appsupport.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.RecordStubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
 
-		crossIncidentResp := workbookscenariotest.DoJSON(
+		crossIncidentResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-cross", "resolve_item", uuidPointer(golden.RecordStubHostRecordID), nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, crossIncidentResp, http.StatusBadRequest, "invalid_mutation_payload")
+		appsupport.RequireErrorBody(t, crossIncidentResp, http.StatusBadRequest, "invalid_mutation_payload")
 
-		wrongTypeResp := workbookscenariotest.DoJSON(
+		wrongTypeResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
 			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-wrong-type", "resolve_item", uuidPointer(golden.RecordCanonicalIdentityID), nil),
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
+		appsupport.RequireErrorBody(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
 
-		mention := workbookscenariotest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
 		assertx.RequireRowVersionStable(t, 1, mention.RowVersion)
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE incident_id = $1
@@ -419,16 +421,16 @@ SELECT COUNT(*)
 // entity-resolution / REQ-02-035..REQ-02-036, REQ-02-054..REQ-02-055, REQ-02-059..REQ-02-063 / AC-022, AC-186.
 func TestEntityOriginUpsert_Integration(t *testing.T) {
 	t.Run("host create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-host")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-02-host")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-host-incident",
 			"incident_key":  "IR-I402-H",
 			"title":         "Record relationships entity-resolution host create",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		hostCreate := workbookscenariotest.DoJSON(
+		hostCreate := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -444,12 +446,12 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 					},
 				},
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostCreateData := workbookscenariotest.RequireSuccessData(t, hostCreate, http.StatusCreated)
+		hostCreateData := appsupport.RequireSuccessData(t, hostCreate, http.StatusCreated)
 		hostRow := hostCreateData["row"].(map[string]any)
-		hostRecordID := workbookscenariotest.MustUUID(t, hostRow["record_id"].(string))
+		hostRecordID := appsupport.MustUUID(t, hostRow["record_id"].(string))
 
 		var (
 			hostState        string
@@ -491,14 +493,14 @@ SELECT
 		if displayName != "Gateway record" || hostname != "GATEWAY-01" || !fqdn.Valid || fqdn.String != "gateway-01.corp.example" || suggestionAliasN != 1 {
 			t.Fatalf("unexpected created host state: display=%q hostname=%q fqdn=%v aliases=%d", displayName, hostname, fqdn, suggestionAliasN)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
 			t.Fatalf("entity-origin host create must not synthesize mentions, got %d rows", got)
 		}
 
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE hosts SET fqdn = NULL WHERE record_id = $1`, hostRecordID); err != nil {
 			t.Fatalf("clear host fqdn to force preserved-identifier reuse: %v", err)
 		}
-		hostReuse := workbookscenariotest.DoJSON(
+		hostReuse := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -507,18 +509,18 @@ SELECT
 				"host.display_name": "Gateway reused",
 				"host.fqdn":         "gateway-01.corp.example",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostReuseData := workbookscenariotest.RequireSuccessData(t, hostReuse, http.StatusOK)
-		if got := workbookscenariotest.MustUUID(t, hostReuseData["row"].(map[string]any)["record_id"].(string)); got != hostRecordID {
+		hostReuseData := appsupport.RequireSuccessData(t, hostReuse, http.StatusOK)
+		if got := appsupport.MustUUID(t, hostReuseData["row"].(map[string]any)["record_id"].(string)); got != hostRecordID {
 			t.Fatalf("expected preserved exact-match reuse to return the original host record, got %#v", hostReuseData)
 		}
-		if state, mergedInto, rowVersion, restoredFQDN := workbookscenariotest.LookupHostState(t, harness.DB, hostRecordID); state != "stub" || mergedInto != nil || rowVersion != 2 || restoredFQDN != "gateway-01.corp.example" {
+		if state, mergedInto, rowVersion, restoredFQDN := appsupport.LookupHostState(t, harness.DB, hostRecordID); state != "stub" || mergedInto != nil || rowVersion != 2 || restoredFQDN != "gateway-01.corp.example" {
 			t.Fatalf("unexpected reused host state: state=%s merged_into=%v row_version=%d fqdn=%q", state, mergedInto, rowVersion, restoredFQDN)
 		}
 
-		aliasOnly := workbookscenariotest.DoJSON(
+		aliasOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -526,15 +528,15 @@ SELECT
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-alias-only",
 				"host.display_name": "VPN Gateway",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		aliasOnlyData := workbookscenariotest.RequireSuccessData(t, aliasOnly, http.StatusCreated)
-		if got := workbookscenariotest.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == hostRecordID {
+		aliasOnlyData := appsupport.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		if got := appsupport.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == hostRecordID {
 			t.Fatalf("expected alias-only create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
-		aliasPayloadOnly := workbookscenariotest.DoJSON(
+		aliasPayloadOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -547,14 +549,14 @@ SELECT
 					},
 				},
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
-		conflictResp := workbookscenariotest.DoJSON(
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
+		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -563,10 +565,10 @@ SELECT
 				"host.display_name": "Conflict Host",
 				"host.hostname":     "COLLISION-01",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		conflictBody := workbookscenariotest.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		conflictBody := appsupport.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
 		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 		if details["reason_code"] != "merge_required" || details["entity_type"] != "host" || details["identifier_class"] != "hostname" {
 			t.Fatalf("unexpected host conflict details: %#v", details)
@@ -575,22 +577,22 @@ SELECT
 		if len(candidateIDs) != 2 {
 			t.Fatalf("expected two conflict candidates, got %#v", details)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
 			t.Fatalf("conflicted host create must not synthesize mentions, got %d rows", got)
 		}
 	})
 
 	t.Run("identity create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-identity")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-02-identity")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-identity-incident",
 			"incident_key":  "IR-I402-I",
 			"title":         "Record relationships entity-resolution identity create",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		identityCreate := workbookscenariotest.DoJSON(
+		identityCreate := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -606,11 +608,11 @@ SELECT
 					},
 				},
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityCreateData := workbookscenariotest.RequireSuccessData(t, identityCreate, http.StatusCreated)
-		identityRecordID := workbookscenariotest.MustUUID(t, identityCreateData["row"].(map[string]any)["record_id"].(string))
+		identityCreateData := appsupport.RequireSuccessData(t, identityCreate, http.StatusCreated)
+		identityRecordID := appsupport.MustUUID(t, identityCreateData["row"].(map[string]any)["record_id"].(string))
 
 		var (
 			identityState   string
@@ -652,14 +654,14 @@ SELECT
 		if displayName != "Alex Analyst" || !email.Valid || email.String != "alex.analyst@example.test" || !samAccountName.Valid || samAccountName.String != "ALEXA" || suggestionCount != 1 {
 			t.Fatalf("unexpected created identity state: display=%q email=%v sam=%v aliases=%d", displayName, email, samAccountName, suggestionCount)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
 			t.Fatalf("entity-origin identity create must not synthesize mentions, got %d rows", got)
 		}
 
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identities SET email = NULL WHERE record_id = $1`, identityRecordID); err != nil {
 			t.Fatalf("clear identity email to force preserved-identifier reuse: %v", err)
 		}
-		identityReuse := workbookscenariotest.DoJSON(
+		identityReuse := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -668,14 +670,14 @@ SELECT
 				"identity.display_name": "Alex Analyst Reused",
 				"identity.email":        "alex.analyst@example.test",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityReuseData := workbookscenariotest.RequireSuccessData(t, identityReuse, http.StatusOK)
-		if got := workbookscenariotest.MustUUID(t, identityReuseData["row"].(map[string]any)["record_id"].(string)); got != identityRecordID {
+		identityReuseData := appsupport.RequireSuccessData(t, identityReuse, http.StatusOK)
+		if got := appsupport.MustUUID(t, identityReuseData["row"].(map[string]any)["record_id"].(string)); got != identityRecordID {
 			t.Fatalf("expected preserved exact-match reuse to return the original identity record, got %#v", identityReuseData)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM identities
  WHERE incident_id = $1
@@ -686,7 +688,7 @@ SELECT COUNT(*)
 			t.Fatalf("expected preserved-identifier reuse to restore the canonical email and increment row_version, got %d rows", got)
 		}
 
-		aliasOnly := workbookscenariotest.DoJSON(
+		aliasOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -694,15 +696,15 @@ SELECT COUNT(*)
 				"client_txn_id":         "txn-entity_linking-i-4-02-identity-alias-only",
 				"identity.display_name": "Case Owner",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		aliasOnlyData := workbookscenariotest.RequireSuccessData(t, aliasOnly, http.StatusCreated)
-		if got := workbookscenariotest.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == identityRecordID {
+		aliasOnlyData := appsupport.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		if got := appsupport.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == identityRecordID {
 			t.Fatalf("expected alias-only identity create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
-		aliasPayloadOnly := workbookscenariotest.DoJSON(
+		aliasPayloadOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -715,14 +717,14 @@ SELECT COUNT(*)
 					},
 				},
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		workbookscenariotest.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
-		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
-		conflictResp := workbookscenariotest.DoJSON(
+		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
+		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
+		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -731,10 +733,10 @@ SELECT COUNT(*)
 				"identity.display_name": "Conflict Identity",
 				"identity.email":        "collision@example.test",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		conflictBody := workbookscenariotest.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		conflictBody := appsupport.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
 		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 		if details["reason_code"] != "merge_required" || details["entity_type"] != "identity" || details["identifier_class"] != "email" {
 			t.Fatalf("unexpected identity conflict details: %#v", details)
@@ -742,21 +744,21 @@ SELECT COUNT(*)
 		if got := len(details["candidate_record_ids"].([]any)); got != 2 {
 			t.Fatalf("expected two identity conflict candidates, got %#v", details)
 		}
-		if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
 			t.Fatalf("conflicted identity create must not synthesize mentions, got %d rows", got)
 		}
 	})
 
 	t.Run("create routes emit history, round-trip current-state query reads, and re-derive live authorization", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-02-query-auth")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-i-4-02-query-auth")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-query-auth-incident",
 			"incident_key":  "IR-I402-Q",
 			"title":         "Record relationships entity-resolution query and auth",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
 
 		hostPayload := map[string]any{
 			"client_txn_id":     "txn-entity_linking-i-4-02-query-host",
@@ -769,16 +771,16 @@ SELECT COUNT(*)
 				},
 			},
 		}
-		hostResp := workbookscenariotest.DoJSON(
+		hostResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			hostPayload,
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostData := workbookscenariotest.RequireSuccessData(t, hostResp, http.StatusCreated)
-		hostRecordID := workbookscenariotest.MustUUID(t, hostData["row"].(map[string]any)["record_id"].(string))
+		hostData := appsupport.RequireSuccessData(t, hostResp, http.StatusCreated)
+		hostRecordID := appsupport.MustUUID(t, hostData["row"].(map[string]any)["record_id"].(string))
 		hostChangeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), hostData["change_set_id"].(string))
 		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: hostChangeSet.ActorUserID,
@@ -803,16 +805,16 @@ SELECT COUNT(*)
 				},
 			},
 		}
-		identityResp := workbookscenariotest.DoJSON(
+		identityResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
 			identityPayload,
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityData := workbookscenariotest.RequireSuccessData(t, identityResp, http.StatusCreated)
-		identityRecordID := workbookscenariotest.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
+		identityData := appsupport.RequireSuccessData(t, identityResp, http.StatusCreated)
+		identityRecordID := appsupport.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
 		identityChangeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), identityData["change_set_id"].(string))
 		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: identityChangeSet.ActorUserID,
@@ -878,23 +880,23 @@ SELECT COUNT(*)
 		}
 
 		replayStableBefore := contractassert.ReplayCounts{
-			ChangeSets: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-			MutationRows: workbookscenariotest.QueryCount(t, harness.DB, `
+			ChangeSets: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+			MutationRows: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations m
   JOIN change_sets c ON c.change_set_id = m.change_set_id
  WHERE c.incident_id = $1
 `, incidentID),
 		}
-		hostReplay := workbookscenariotest.DoJSON(
+		hostReplay := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
 			hostPayload,
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostReplayData := workbookscenariotest.RequireSuccessData(t, hostReplay, http.StatusOK)
+		hostReplayData := appsupport.RequireSuccessData(t, hostReplay, http.StatusOK)
 		if hostReplayData["change_set_id"] != hostData["change_set_id"] {
 			t.Fatalf("expected host replay to reuse the original payload, got %#v %#v", hostData, hostReplayData)
 		}
@@ -905,8 +907,8 @@ SELECT COUNT(*)
 			DivergentCode:   "client_txn_conflict",
 			StableBefore:    replayStableBefore,
 			StableAfter: contractassert.ReplayCounts{
-				ChangeSets: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-				MutationRows: workbookscenariotest.QueryCount(t, harness.DB, `
+				ChangeSets: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+				MutationRows: appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations m
   JOIN change_sets c ON c.change_set_id = m.change_set_id
@@ -915,7 +917,7 @@ SELECT COUNT(*)
 			},
 		})
 
-		hostDivergent := workbookscenariotest.DoJSON(
+		hostDivergent := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -924,10 +926,10 @@ SELECT COUNT(*)
 				"host.display_name": "Gateway query host divergent",
 				"host.hostname":     "GATEWAY-Q-01",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostDivergentBody := workbookscenariotest.RequireErrorBody(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
+		hostDivergentBody := appsupport.RequireErrorBody(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
 		contractassert.RequireDivergentReplayRejected(t, hostDivergent.StatusCode, hostDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
@@ -940,7 +942,7 @@ UPDATE incident_memberships
 `, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote entity create actor membership: %v", err)
 		}
-		deniedResp := workbookscenariotest.DoJSON(
+		deniedResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
@@ -949,10 +951,10 @@ UPDATE incident_memberships
 				"host.display_name": "Denied host",
 				"host.hostname":     "DENIED-HOST",
 			},
-			workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		deniedBody := workbookscenariotest.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		deniedBody := appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		contractassert.RequireAuthorizationReDerived(
 			t,
 			contractassert.AuthorizationOutcome{Status: http.StatusCreated},
@@ -1002,15 +1004,15 @@ func requireEntityOriginRejected(t *testing.T, db *sql.DB, tableName string, rec
 }
 
 func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "entity_linking-entity-create-auth-csrf-order")
-	adminLogin, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "entity_linking-entity-create-auth-csrf-order")
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-create-auth-order-incident",
 		"incident_key":  "IR-AUTH-CSRF-ORDER",
 		"title":         "Entity create auth csrf ordering",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-	socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 	defer socket.Close(1000, "test_complete")
 
 	type entityCreateFailureCounts struct {
@@ -1021,17 +1023,17 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 	}
 	counts := func() entityCreateFailureCounts {
 		return entityCreateFailureCounts{
-			Records:        workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1`, incidentID),
-			ChangeSets:     workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-			MutationRows:   workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
-			HostProjection: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
+			Records:        appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1`, incidentID),
+			ChangeSets:     appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+			MutationRows:   appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
+			HostProjection: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
 		}
 	}
 	before := counts()
 	url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + golden.RecordHostsViewSchemaID + "/rows"
 
 	unauthenticated := doEntitiesRawJSON(t, http.MethodPost, url, "{")
-	workbookscenariotest.RequireErrorBody(t, unauthenticated, http.StatusUnauthorized, "session_required")
+	appsupport.RequireErrorBody(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
 	missingCSRF := doEntitiesRawJSON(
 		t,
@@ -1040,7 +1042,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		"{",
 		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 	)
-	workbookscenariotest.RequireErrorBody(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+	appsupport.RequireErrorBody(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
 	invalidCSRF := doEntitiesRawJSON(
 		t,
@@ -1050,29 +1052,29 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		withHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
 	)
-	workbookscenariotest.RequireErrorBody(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
+	appsupport.RequireErrorBody(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
 	if after := counts(); after != before {
 		t.Fatalf("auth/csrf failures must not mutate entity state: before=%#v after=%#v", before, after)
 	}
-	workbookscenariotest.ExpectNoSocketMessage(t, socket)
+	incidentwstest.ExpectNoSocketMessage(t, socket)
 }
 
 // entity-resolution / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestExplicitMergeRoute_Integration(t *testing.T) {
 	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-entity-route-failure-precedence")
-		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		harness := appsupport.StartServer(t, "entity_linking-entity-route-failure-precedence")
+		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-route-precedence-incident",
 			"incident_key":  "IR-ROUTE-PRECEDENCE",
 			"title":         "Entity route failure precedence",
 		})
-		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor", "SURVIVOR", "", "")
-		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser", "LOSER", "", "")
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "SURVIVOR", "unresolved", nil, nil)
+		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor", "SURVIVOR", "", "")
+		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser", "LOSER", "", "")
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "SURVIVOR", "unresolved", nil, nil)
 
 		type failureCounts struct {
 			changeSets      int
@@ -1082,29 +1084,29 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		}
 		counts := func() failureCounts {
 			return failureCounts{
-				changeSets:      workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-				mutations:       workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
-				idempotencyRows: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key IN ($1, $2, $3)`, golden.RecordCanonicalHostRecordID.String(), golden.RecordDuplicateHostRecordID.String(), golden.RecordHostMentionID.String()),
-				hostProjection:  workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
+				changeSets:      appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+				mutations:       appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
+				idempotencyRows: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key IN ($1, $2, $3)`, golden.RecordCanonicalHostRecordID.String(), golden.RecordDuplicateHostRecordID.String(), golden.RecordHostMentionID.String()),
+				hostProjection:  appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
 			}
 		}
 		before := counts()
-		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		mergeMalformedPath := harness.Server.HTTP.URL + "/api/v1/records/not-a-uuid/merge"
 		mentionMalformedPath := harness.Server.HTTP.URL + "/api/v1/entity-mentions/not-a-uuid/resolve"
 		for _, url := range []string{mergeMalformedPath, mentionMalformedPath} {
-			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{"), http.StatusUnauthorized, "session_required")
-			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{"), http.StatusUnauthorized, "session_required")
+			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
 		}
-		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mergeMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
-		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mentionMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mergeMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mentionMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
 
 		hiddenRecordID := uuid.New()
 		hiddenMentionID := uuid.New()
-		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+hiddenRecordID.String()+"/merge", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
-		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+hiddenMentionID.String()+"/resolve", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+hiddenRecordID.String()+"/merge", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+hiddenMentionID.String()+"/resolve", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote entity route actor: %v", err)
@@ -1112,19 +1114,19 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		mergeURL := harness.Server.HTTP.URL + "/api/v1/records/" + golden.RecordCanonicalHostRecordID.String() + "/merge"
 		mentionURL := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + golden.RecordHostMentionID.String() + "/resolve"
 		for _, url := range []string{mergeURL, mentionURL} {
-			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
+			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
 		}
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'admin', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("restore entity route actor: %v", err)
 		}
 		for _, url := range []string{mergeURL, mentionURL} {
-			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
+			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
 		}
 
-		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
-		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
+		otherActor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
+		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
 		hiddenLoserID := uuid.New()
-		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
+		appsupport.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
 
 		for _, loserID := range []string{"not-a-uuid", uuid.New().String(), hiddenLoserID.String()} {
 			resp := doEntitiesJSON(t, http.MethodPost, mergeURL, map[string]any{
@@ -1133,18 +1135,18 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-route-precedence-" + loserID,
 			}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-			workbookscenariotest.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+			appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
 		}
 
 		if after := counts(); after != before {
 			t.Fatalf("entity route failures mutated durable state: before=%#v after=%#v", before, after)
 		}
-		workbookscenariotest.ExpectNoSocketMessage(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 	})
 
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03")
-		workbookscenariotest.RequireSchemaTables(t, harness.DB, "entity-resolution", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-03")
+		appsupport.RequireSchemaTables(t, harness.DB, "entity-resolution", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
 
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
@@ -1153,9 +1155,9 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			"title":         "Entity merge",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		timelineSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		timelineSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer timelineSocket.Close(1000, "test_complete")
-		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.sessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.sessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
@@ -1292,19 +1294,19 @@ SELECT COUNT(*)
 			t.Fatalf("expected loser assessment to repoint to survivor, got %s", got)
 		}
 
-		timelineChange := workbookscenariotest.RequireRecordChanged(t, timelineSocket, golden.RecordTimelineRecordID.String(), 1)
+		timelineChange := incidentwstest.RequireRecordChanged(t, timelineSocket, golden.RecordTimelineRecordID.String(), 1)
 		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
 			t.Fatalf("expected websocket invalidation to carry the merge change_set_id, got timeline=%#v merge=%#v", timelineChange, mergeData)
 		}
-		survivorChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 2)
+		survivorChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 2)
 		if len(survivorChange.AffectedViews) != 1 || survivorChange.AffectedViews[0].ChangeKind != "invalidate" {
 			t.Fatalf("expected survivor invalidation, got %#v", survivorChange)
 		}
-		loserChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordDuplicateHostRecordID.String(), 2)
+		loserChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordDuplicateHostRecordID.String(), 2)
 		if len(loserChange.AffectedViews) != 1 || loserChange.AffectedViews[0].ChangeKind != "remove" {
 			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
 		}
-		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
+		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
 		survivorRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
 		if got := survivorRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected merge to project the repointed linked event on the survivor, got %#v row=%#v", got, survivorRow)
@@ -1365,7 +1367,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("merge conflict exposes both supplied and current versions", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-version-conflict")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-03-version-conflict")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-version-conflict-incident",
@@ -1408,7 +1410,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("host merge collision uses owner precondition detail shape", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-collision-detail")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-03-collision-detail")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-collision-detail-incident",
@@ -1452,7 +1454,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("merge authorization re-derives current incident role", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-authz")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-03-authz")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-authz-incident",
@@ -1491,7 +1493,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("identity merge preserves loser lineage, raw mention text, and current-state readback", func(t *testing.T) {
-		harness := workbookscenariotest.StartServer(t, "entity_linking-i-4-03-identity")
+		harness := appsupport.StartServer(t, "entity_linking-i-4-03-identity")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-identity-incident",
@@ -1499,15 +1501,15 @@ UPDATE incident_memberships
 			"title":         "Entity identity merge",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
+		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
 
-		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
-		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-		workbookscenariotest.SeedEntityAlias(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "identity", "Case Owner")
-		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordIdentityMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, golden.RecordFieldTimelineIdentityRefs, "identity", "Case Owner")
-		workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, "observed_as_identity", "manual", nil)
-		workbookscenariotest.SeedAssessment(t, harness.DB, incidentID, adminUserID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
+		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		appsupport.SeedEntityAlias(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "identity", "Case Owner")
+		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordIdentityMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, golden.RecordFieldTimelineIdentityRefs, "identity", "Case Owner")
+		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, "observed_as_identity", "manual", nil)
+		appsupport.SeedAssessment(t, harness.DB, incidentID, adminUserID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
 		beforeMention := lookupMention(t, harness.DB, golden.RecordIdentityMentionID)
 
 		mergeResp := doEntitiesJSON(
@@ -1560,9 +1562,9 @@ UPDATE incident_memberships
 		}
 		assertx.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
 
-		link := workbookscenariotest.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity")
+		link := appsupport.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity")
 		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity", "manual", nil)
-		if got := workbookscenariotest.LookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentIdentID); got != golden.RecordCanonicalIdentityID {
+		if got := appsupport.LookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentIdentID); got != golden.RecordCanonicalIdentityID {
 			t.Fatalf("expected identity assessment to repoint to survivor, got %s", got)
 		}
 
@@ -1579,7 +1581,7 @@ UPDATE incident_memberships
 			}
 		}
 
-		createAfterMerge := workbookscenariotest.DoJSON(
+		createAfterMerge := appsupport.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
@@ -1588,10 +1590,10 @@ UPDATE incident_memberships
 				"identity.email":        "alex.analyst@example.test",
 				"identity.display_name": "Alex After Merge",
 			},
-			workbookscenariotest.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			appsupport.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		createAfterMergeData := workbookscenariotest.RequireSuccessData(t, createAfterMerge, http.StatusOK)
+		createAfterMergeData := appsupport.RequireSuccessData(t, createAfterMerge, http.StatusOK)
 		if createAfterMergeData["row"].(map[string]any)["record_id"] != golden.RecordCanonicalIdentityID.String() {
 			t.Fatalf("expected carried-forward identity exact match to reuse survivor, got %#v", createAfterMergeData)
 		}
@@ -1599,16 +1601,16 @@ UPDATE incident_memberships
 }
 
 func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "entity_linking-entity-create-actor-scope")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "entity_linking-entity-create-actor-scope")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	editor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-scope-incident",
 		"incident_key":  "IR-E-ACTOR-SCOPE",
 		"title":         "Entity actor-scoped idempotency",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
 	editorLogin := loginLocalUser(t, harness.Server, editor.Email, "EntityScopeEditor1!")
 
 	cases := []struct {
@@ -1685,7 +1687,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 
 			clientTxnID := adminPayload["client_txn_id"].(string)
 			scopeKey := incidentID.String() + ":" + tc.viewSchema
-			if got := workbookscenariotest.QueryCount(t, harness.DB, `
+			if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
@@ -1695,7 +1697,7 @@ SELECT COUNT(*)
 `, tc.routeKey, adminUserID.String(), editor.ID.String(), scopeKey, clientTxnID); got != 2 {
 				t.Fatalf("expected two actor-scoped %s idempotency rows, got %d", tc.name, got)
 			}
-			if got := workbookscenariotest.QueryCount(t, harness.DB, `
+			if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(DISTINCT actor_user_id)
   FROM route_idempotency
  WHERE route_key = $1
@@ -1748,24 +1750,24 @@ func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, b
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func createEntityRow(t testing.TB, serverURL string, incidentID string, viewSchemaID string, actor workbookscenariotest.LoginResult, body map[string]any, wantStatus int) map[string]any {
+func createEntityRow(t testing.TB, serverURL string, incidentID string, viewSchemaID string, actor appsupport.LoginResult, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/rows",
 		body,
-		workbookscenariotest.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		appsupport.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
 	)
-	return workbookscenariotest.RequireSuccessData(t, resp, wantStatus)
+	return appsupport.RequireSuccessData(t, resp, wantStatus)
 }
 
-func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) workbookscenariotest.LoginResult {
+func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) appsupport.LoginResult {
 	t.Helper()
 
-	resp := workbookscenariotest.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := appsupport.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -1787,7 +1789,7 @@ func loginLocalUser(t testing.TB, server *httptestx.Server, username string, pas
 	if sessionCookie == nil || csrfCookie == nil {
 		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
 	}
-	return workbookscenariotest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
+	return appsupport.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
 }
 
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
@@ -1911,7 +1913,7 @@ func withHeader(key string, value string) func(*http.Request) {
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	var (
 		fqdnValue      any
@@ -1944,7 +1946,7 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 
 func seedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
@@ -2018,7 +2020,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 
 func seedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
 	t.Helper()
-	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
+	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)

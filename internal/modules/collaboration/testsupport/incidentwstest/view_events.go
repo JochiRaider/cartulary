@@ -1,16 +1,14 @@
-package scenariotest
+package incidentwstest
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 type RecordChangeSocketPayload struct {
@@ -26,53 +24,44 @@ type RecordChangeSocketPayload struct {
 	} `json:"affected_views"`
 }
 
-func ConnectViewSocket(t testing.TB, server *httptestx.Server, incidentID string, viewSchemaID string, sessionToken string) *wstest.Client {
+func ConnectViewSocket(
+	t testing.TB,
+	server *httptestx.Server,
+	incidentID string,
+	viewSchemaID string,
+	sessionToken string,
+) *Client {
 	t.Helper()
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+sessionToken)
-	client := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID, headers)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Send(ctx, platformws.Message{
-		Type: "hello",
-		Payload: platformws.RawPayload(map[string]any{
-			"client_instance_id": "workbook-test-" + incidentID,
-			"presence": map[string]any{
-				"sheet_ref": map[string]any{
+	return ConnectAndHello(
+		t,
+		server.HTTP.URL,
+		incidentID,
+		ConnectOptions{
+			SessionToken:     sessionToken,
+			ClientInstanceID: "view-event-test-" + incidentID,
+			Presence: platformws.PresenceInput{
+				SheetRef: map[string]string{
 					"kind": "view_schema",
 					"id":   viewSchemaID,
 				},
-				"mode": "viewing",
+				Mode: "viewing",
 			},
-		}),
-	}); err != nil {
-		t.Fatalf("send websocket hello: %v", err)
-	}
-	message, err := client.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket hello_ack message: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "hello_ack")
-	message, err = client.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket presence_snapshot message: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "presence_snapshot")
-	return client
+		},
+	)
 }
 
-func RequireRecordChanged(t testing.TB, client *wstest.Client, wantRecordID string, wantRowVersion int64) RecordChangeSocketPayload {
+func RequireRecordChanged(
+	t testing.TB,
+	client *Client,
+	wantRecordID string,
+	wantRowVersion int64,
+) RecordChangeSocketPayload {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	var lastPayload *RecordChangeSocketPayload
 	for {
-		message, err := client.Receive(ctx)
+		message, err := client.AwaitNextMessage(5 * time.Second)
 		if err != nil {
 			if lastPayload != nil {
 				t.Fatalf("timed out waiting for websocket record_changed record=%s version=%d after seeing %#v: %v", wantRecordID, wantRowVersion, *lastPayload, err)
@@ -94,13 +83,10 @@ func RequireRecordChanged(t testing.TB, client *wstest.Client, wantRecordID stri
 	}
 }
 
-func ExpectNoSocketMessage(t testing.TB, client *wstest.Client) {
+func ExpectNoSocketMessage(t testing.TB, client *Client) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-	defer cancel()
-
-	_, err := client.Receive(ctx)
+	_, err := client.AwaitNextMessage(300 * time.Millisecond)
 	if err == nil {
 		t.Fatal("expected no websocket message")
 	}

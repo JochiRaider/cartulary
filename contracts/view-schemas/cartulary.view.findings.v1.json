@@ -69,6 +69,7 @@
     "finding.owner_user_id",
     "finding.confidence_band"
   ],
+  "create_capable": true,
   "inline_create": {
     "minimum_create_field_sets": [],
     "permits_zero_field_create": false

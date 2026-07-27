@@ -16,7 +16,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
-	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -108,9 +107,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, admin LoginResult, b
 func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewStoreWithOptions(pool, incidents.StoreOptions{
-		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
-	})
+	store := incidents.NewStore(pool)
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,

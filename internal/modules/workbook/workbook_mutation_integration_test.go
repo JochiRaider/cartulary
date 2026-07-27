@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 	"time"
@@ -14,21 +15,21 @@ import (
 )
 
 func TestPartiesSurface_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "entity_linking-parties-surface")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "entity_linking-parties-surface")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-parties-surface-incident",
 		"incident_key":  "IR-ENTITY-LINKING-PARTIES",
 		"title":         "Record relationships parties surface",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	listResp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	listResp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, appsupport.WithCookies(adminLogin.SessionCookie))
 	listData := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	if !viewSchemaListContains(listData["view_schemas"].([]any), "cartulary.view.parties.v1") {
 		t.Fatalf("Parties schema missing from base-profile discovery: %#v", listData["view_schemas"])
 	}
-	singleResp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
+	singleResp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, appsupport.WithCookies(adminLogin.SessionCookie))
 	singleData := httptestx.RequireSuccessEnvelope(t, singleResp, http.StatusOK)["data"].(map[string]any)
 	if singleData["view_schema_id"] != "cartulary.view.parties.v1" || singleData["surface_kind"] != "system_view" {
 		t.Fatalf("unexpected Parties singleton schema: %#v", singleData)
@@ -72,16 +73,16 @@ func TestPartiesSurface_Integration(t *testing.T) {
 		"party.primary_email": " legal@example.test ",
 	})
 	partyRow := partyData["row"].(map[string]any)
-	partyID := workbookscenariotest.MustUUID(t, partyRow["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyRow["record_id"].(string))
 	requireCellValue(t, partyRow, "party.display_name", "Acme Legal")
 	requireCellValue(t, partyRow, "party.party_kind", "organization")
 
-	queryResp := workbookscenariotest.DoJSON(
+	queryResp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.parties.v1/query",
 		map[string]any{"filters": []map[string]any{prefixFilter("party.display_name", "acme")}},
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie),
+		appsupport.WithCookies(adminLogin.SessionCookie),
 	)
 	queryData := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
 	rows := queryData["rows"].([]any)
@@ -91,21 +92,21 @@ func TestPartiesSurface_Integration(t *testing.T) {
 }
 
 func TestWorkbook_EvidenceMutations(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-evidence-mutations")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-evidence-mutations")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-evidence-incident",
 		"incident_key":  "IR-WORKBOOK-EVIDENCE",
 		"title":         "Workbook evidence mutations",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook-evidence-party-create",
 		"party.display_name": "Forensics Vendor",
 		"party.party_kind":   "organization",
 	})
-	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
 	beforeMinimumFailures := countIncidentRecords(t, harness, incidentID)
 	blankEvidence := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, map[string]any{
@@ -121,18 +122,18 @@ func TestWorkbook_EvidenceMutations(t *testing.T) {
 		t.Fatalf("rejected evidence minimum creates wrote records: got %d want %d", got, beforeMinimumFailures)
 	}
 
-	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-evidence-other-incident",
 		"incident_key":  "IR-WORKBOOK-EVIDENCE-OTHER",
 		"title":         "Workbook evidence other incident",
 	})
-	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
+	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
 	foreignPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook-evidence-foreign-party-create",
 		"party.display_name": "Foreign Collector",
 		"party.party_kind":   "person",
 	})
-	foreignPartyID := workbookscenariotest.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
+	foreignPartyID := appsupport.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
 	deletedPartyID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, adminUserID, deletedPartyID, "party")
 	execSeed(t, harness, `
@@ -178,7 +179,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 		"evidence.collector_party_id":   partyID.String(),
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
-	evidenceID := workbookscenariotest.MustUUID(t, evidenceRow["record_id"].(string))
+	evidenceID := appsupport.MustUUID(t, evidenceRow["record_id"].(string))
 	requireCellValue(t, evidenceRow, "evidence.title", "Endpoint package")
 	requireCellValue(t, evidenceRow, "evidence.storage_ref", "s3://case/pkg")
 	requireCellValue(t, evidenceRow, "evidence.lifecycle_state", "requested")
@@ -222,14 +223,14 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 }
 
 func TestCoordinationDefaults_Integration(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "entity_linking-coordination-defaults")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "entity_linking-coordination-defaults")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-coordination-defaults-incident",
 		"incident_key":  "IR-ENTITY-LINKING-COORD-DEFAULTS",
 		"title":         "Record relationships coordination defaults",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	routeCtx := workbookscenariotest.RouteInventoryContext{
 		IncidentID:  incidentID.String(),
@@ -273,7 +274,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 		"comm_log.summary":            "Initial coordination update",
 	})
 	commRow := commData["row"].(map[string]any)
-	commID := workbookscenariotest.MustUUID(t, commRow["record_id"].(string))
+	commID := appsupport.MustUUID(t, commRow["record_id"].(string))
 	requireNonEmptyCellValue(t, commRow, "comm_log.timestamp_utc")
 	requireCollectionItemCount(t, commRow, "comm_log.decision_ids", 0)
 	requireCollectionItemCount(t, commRow, "comm_log.action_task_ids", 0)
@@ -361,14 +362,14 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 }
 
 func testCoordinationCollections(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-coordination-mutations")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-coordination-mutations")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-incident",
 		"incident_key":  "IR-WORKBOOK-MUTATE",
 		"title":         "Workbook coordination mutations",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	beforePartyFailureRecords := countIncidentRecords(t, harness, incidentID)
 	invalidParty := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{
@@ -387,7 +388,7 @@ func testCoordinationCollections(t *testing.T) {
 		"party.primary_email": " legal@example.test ",
 	})
 	partyRow := partyData["row"].(map[string]any)
-	partyID := workbookscenariotest.MustUUID(t, partyRow["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyRow["record_id"].(string))
 	requireCellValue(t, partyRow, "party.display_name", "Acme Legal")
 	requireCellValue(t, partyRow, "party.party_kind", "organization")
 
@@ -396,13 +397,13 @@ func testCoordinationCollections(t *testing.T) {
 		"party.display_name": "Security Lead",
 		"party.party_kind":   "person",
 	})
-	secondPartyID := workbookscenariotest.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
+	secondPartyID := appsupport.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
 	thirdPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook-party-third-create",
 		"party.display_name": "Legal Observer",
 		"party.party_kind":   "person",
 	})
-	thirdPartyID := workbookscenariotest.MustUUID(t, thirdPartyData["row"].(map[string]any)["record_id"].(string))
+	thirdPartyID := appsupport.MustUUID(t, thirdPartyData["row"].(map[string]any)["record_id"].(string))
 
 	decisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve containment")
 	autoRebaseDecisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve status page")
@@ -427,7 +428,7 @@ func testCoordinationCollections(t *testing.T) {
 		"comm_log.attendee_party_ids": collectionActions(addPartyRef(partyID)),
 	})
 	commRow := commData["row"].(map[string]any)
-	commID := workbookscenariotest.MustUUID(t, commRow["record_id"].(string))
+	commID := appsupport.MustUUID(t, commRow["record_id"].(string))
 	requireCellValue(t, commRow, "comm_log.comm_type", "briefing")
 	requireCollectionItemCount(t, commRow, "comm_log.decision_ids", 1)
 	requireCollectionItemCount(t, commRow, "comm_log.action_task_ids", 1)
@@ -508,18 +509,18 @@ func testCoordinationCollections(t *testing.T) {
 	})
 	httptestx.RequireErrorEnvelope(t, wrongTarget, http.StatusBadRequest, "invalid_mutation_payload")
 
-	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-other-incident",
 		"incident_key":  "IR-WORKBOOK-MUTATE-OTHER",
 		"title":         "Workbook coordination other incident",
 	})
-	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
+	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
 	foreignPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-workbook-foreign-party-create",
 		"party.display_name": "Foreign Party",
 		"party.party_kind":   "person",
 	})
-	foreignPartyID := workbookscenariotest.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
+	foreignPartyID := appsupport.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
 	foreignPartyRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -574,7 +575,7 @@ func testCoordinationCollections(t *testing.T) {
 		"lesson.evidence_refs":      collectionActions(addRecordRef(evidenceID)),
 	})
 	lessonRow := lessonData["row"].(map[string]any)
-	lessonID := workbookscenariotest.MustUUID(t, lessonRow["record_id"].(string))
+	lessonID := appsupport.MustUUID(t, lessonRow["record_id"].(string))
 	requireCellValue(t, lessonRow, "lesson.summary", "Preserve VPN logs earlier")
 	requireCellValue(t, lessonRow, "lesson.owner_user_id", adminUserID.String())
 	requireCellValue(t, lessonRow, "lesson.closure_state", "open")
@@ -586,13 +587,13 @@ func testCoordinationCollections(t *testing.T) {
 	commVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.audience_party_ids", commVersion, collectionActions(addPartyRef(secondPartyID)), collectionActions(addPartyRef(thirdPartyID)), adminUserID, "party_ref", "comm-audience")
 	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.attendee_party_ids", commVersion, collectionActions(addPartyRef(secondPartyID)), collectionActions(addPartyRef(thirdPartyID)), adminUserID, "party_ref", "comm-attendee")
 
-	handoffID := workbookscenariotest.MustUUID(t, handoffRow["record_id"].(string))
+	handoffID := appsupport.MustUUID(t, handoffRow["record_id"].(string))
 	handoffVersion := int64(1)
 	handoffVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_task_ids", handoffVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "handoff-task")
 	handoffVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_decision_ids", handoffVersion, collectionActions(addRecordRef(secondDecisionID)), collectionActions(addRecordRef(thirdDecisionID)), adminUserID, "record_ref", "handoff-decision")
 	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_risk_refs", handoffVersion, collectionActions(addRiskRef("VPN logs may expire soon")), collectionActions(addRiskRef("Rotate VPN logs sooner")), adminUserID, "risk_ref", "handoff-risk")
 
-	statusID := workbookscenariotest.MustUUID(t, statusRow["record_id"].(string))
+	statusID := appsupport.MustUUID(t, statusRow["record_id"].(string))
 	statusVersion := int64(1)
 	statusVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, statusID, "cartulary.view.status_review.v1", "status_review.blocked_task_ids", statusVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "status-task")
 	statusVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, statusID, "cartulary.view.status_review.v1", "status_review.pending_evidence_ids", statusVersion, collectionActions(addRecordRef(secondEvidenceID)), collectionActions(addRecordRef(thirdEvidenceID)), adminUserID, "record_ref", "status-evidence")
@@ -614,14 +615,14 @@ func testCoordinationCollections(t *testing.T) {
 }
 
 func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "workbook-notes-tasks-decisions-mutations")
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := appsupport.StartServer(t, "workbook-notes-tasks-decisions-mutations")
+	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-required-surfaces-incident",
 		"incident_key":  "IR-WORKBOOK-REQUIRED-MUTATE",
 		"title":         "Workbook required surface mutations",
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	beforeNoteFailures := countIncidentRecords(t, harness, incidentID)
 	blankNote := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
@@ -644,7 +645,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 		"note.tags":     collectionActions(addToken(" Investigation "), addToken("Investigation")),
 	})
 	noteRow := noteData["row"].(map[string]any)
-	noteID := workbookscenariotest.MustUUID(t, noteRow["record_id"].(string))
+	noteID := appsupport.MustUUID(t, noteRow["record_id"].(string))
 	requireCellValue(t, noteRow, "note.title", "Analyst note")
 	requireCollectionItemCount(t, noteRow, "note.tags", 1)
 	noteReplay := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
@@ -674,7 +675,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 		"party.party_kind":   "person",
 	})
 	partyRow := partyData["row"].(map[string]any)
-	partyID := workbookscenariotest.MustUUID(t, partyRow["record_id"].(string))
+	partyID := appsupport.MustUUID(t, partyRow["record_id"].(string))
 
 	confidenceSupportRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
 		"client_txn_id":          "txn-workbook-decision-confidence-rejected",
@@ -724,7 +725,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 		"decision.affected_record_ids": collectionActions(addRecordRef(supportID), addRecordRef(supportID)),
 	})
 	decisionRow := decisionData["row"].(map[string]any)
-	decisionID := workbookscenariotest.MustUUID(t, decisionRow["record_id"].(string))
+	decisionID := appsupport.MustUUID(t, decisionRow["record_id"].(string))
 	requireCellValue(t, decisionRow, "decision.status", "proposed")
 	requireCellValue(t, decisionRow, "decision.owner_user_id", adminUserID.String())
 	requireCollectionItemCount(t, decisionRow, "decision.support_refs", 1)
@@ -763,7 +764,7 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 		"task.requester_party_text": "Incident Commander",
 	})
 	taskRow := taskData["row"].(map[string]any)
-	taskID := workbookscenariotest.MustUUID(t, taskRow["record_id"].(string))
+	taskID := appsupport.MustUUID(t, taskRow["record_id"].(string))
 	requireCellValue(t, taskRow, "task.status", "open")
 	requireCellValue(t, taskRow, "task.owner_user_id", adminUserID.String())
 	requireCellValue(t, taskRow, "task.priority", "normal")
@@ -869,31 +870,31 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, decisionApprovedToRejected, http.StatusConflict, "illegal_transition")
 }
 
-func requireWorkbookCreate(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requireWorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, viewSchemaID, uuid.Nil, body)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func requireWorkbookPatch(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func requireWorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, body)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func doWorkbookJSON(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, method string, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, body map[string]any) *http.Response {
+func doWorkbookJSON(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, method string, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
 	url := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String()
 	if method == http.MethodPost {
 		url = harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewSchemaID + "/rows"
 	}
-	return workbookscenariotest.DoJSON(
+	return appsupport.DoJSON(
 		t,
 		method,
 		url,
 		body,
-		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
@@ -938,7 +939,7 @@ type workbookConflictSideEffects struct {
 	ActiveRiskRefs    int
 }
 
-func requireCollectionSameFieldConflict(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, baseVersion int64, serverAction map[string]any, clientAction map[string]any, actorID uuid.UUID, expectedItemKind string, txnPrefix string) int64 {
+func requireCollectionSameFieldConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, baseVersion int64, serverAction map[string]any, clientAction map[string]any, actorID uuid.UUID, expectedItemKind string, txnPrefix string) int64 {
 	t.Helper()
 	serverData := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   viewSchemaID,
@@ -1028,7 +1029,7 @@ func requireCollectionValueHasRecordRef(t testing.TB, value map[string]any, reco
 	t.Fatalf("expected collection to contain record_ref %s, got %#v", recordID, value)
 }
 
-func snapshotWorkbookConflictSideEffects(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, recordID uuid.UUID) workbookConflictSideEffects {
+func snapshotWorkbookConflictSideEffects(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, recordID uuid.UUID) workbookConflictSideEffects {
 	t.Helper()
 	var snapshot workbookConflictSideEffects
 	row := harness.DB.QueryRowContext(context.Background(), `
@@ -1046,7 +1047,7 @@ SELECT
 	return snapshot
 }
 
-func countIncidentRecords(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID) int {
+func countIncidentRecords(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {
@@ -1055,7 +1056,7 @@ func countIncidentRecords(t testing.TB, harness *workbookscenariotest.ServerHarn
 	return count
 }
 
-func countActiveRecordLinks(t testing.TB, harness *workbookscenariotest.ServerHarness, sourceID uuid.UUID, fieldKey string) int {
+func countActiveRecordLinks(t testing.TB, harness *appsupport.ServerHarness, sourceID uuid.UUID, fieldKey string) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -1070,14 +1071,14 @@ SELECT count(*)
 	return count
 }
 
-func countViewRows(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
+func countViewRows(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
 	t.Helper()
-	resp := workbookscenariotest.DoJSON(
+	resp := appsupport.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		workbookscenariotest.WithCookies(login.SessionCookie),
+		appsupport.WithCookies(login.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return len(body["data"].(map[string]any)["rows"].([]any))
@@ -1092,7 +1093,7 @@ func viewSchemaListContains(items []any, viewSchemaID string) bool {
 	return false
 }
 
-func seedDecisionRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, summary string) uuid.UUID {
+func seedDecisionRecord(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, summary string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "decision")
@@ -1104,7 +1105,7 @@ VALUES ($1, $2, $3, 'approved', 'containment', '2026-04-24T12:00:00Z')
 	return recordID
 }
 
-func seedTaskRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string) uuid.UUID {
+func seedTaskRecord(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "task_request")
@@ -1116,7 +1117,7 @@ VALUES ($1, $2, $3, 'open', 'high', '2026-04-24T11:00:00Z')
 	return recordID
 }
 
-func seedEvidenceRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string) uuid.UUID {
+func seedEvidenceRecord(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "evidence")

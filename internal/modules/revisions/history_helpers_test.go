@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -27,16 +27,16 @@ type historySeed struct {
 	RowVersion  int64
 }
 
-func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login workbookscenariotest.LoginResult, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
+func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login appsupport.LoginResult, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	incident := workbookscenariotest.CreateIncident(t, server, login, map[string]any{
+	incident := appsupport.CreateIncident(t, server, login, map[string]any{
 		"client_txn_id": "txn-" + strings.ToLower(strings.ReplaceAll(incidentKey, "-", "")),
 		"incident_key":  incidentKey,
 		"title":         "History " + incidentKey,
 	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
-	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "history_revision-host", "", "")
+	appsupport.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "history_revision-host", "", "")
 	return incidentID, recordID
 }
 

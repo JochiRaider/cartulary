@@ -13,6 +13,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
@@ -228,7 +229,10 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-saved-views@example.test", "Collaboration Saved Views", "CollaborationSavedViews1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-saved-views-incident", "IR-COLLABORATION-SAVED-VIEWS", "Workbook inspector collaboration workflow coordination saved views")
 	savedViewStore := savedviews.NewStore(harness.DB)
-	startupStore := workbookstartup.NewStore(harness.DB)
+	startupStore := workbookassembly.NewStartupStore(
+		harness.DB,
+		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
+	)
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
 
 	for _, viewSchemaID := range []string{

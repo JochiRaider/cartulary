@@ -1,92 +1,43 @@
 package workbook
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	if artifacts.IsArtifactBackedView(request.ViewSchemaID) {
-		result, err := s.artifactMutations.Create(ctx, artifacts.WorkbookCreateCommand{
-			Actor:       actor,
-			IncidentID:  incidentID,
-			Request:     artifactCreateRequestFromWorkbook(request),
-			RequestHash: requestHash,
-			RequestID:   requestID,
-			RouteKey:    workbookCreateRouteKey,
-			Now:         now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptArtifactWorkbookOwnerError(err)
-		}
-		return mutationResultFromArtifactWorkbook(result), nil
+	if s == nil || s.contributions == nil {
+		return MutationResult{}, fmt.Errorf("workbook contribution catalog is required")
 	}
-	if request.ViewSchemaID == EvidenceViewSchemaID {
-		result, err := s.evidenceMutations.Create(ctx, evidence.WorkbookCreateCommand{
-			Actor:       actor,
-			IncidentID:  incidentID,
-			Request:     evidenceCreateRequestFromWorkbook(request),
-			RequestHash: requestHash,
-			RequestID:   requestID,
-			RouteKey:    workbookCreateRouteKey,
-			Now:         now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptEvidenceWorkbookOwnerError(err)
-		}
-		return mutationResultFromEvidenceWorkbook(result), nil
+	provider, ok := s.contributions.CreateFor(request.ViewSchemaID)
+	if !ok {
+		return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
 	}
-	if request.ViewSchemaID == PartiesViewSchemaID {
-		result, err := s.partyMutations.Create(ctx, parties.WorkbookCreateCommand{
-			Actor:       actor,
-			IncidentID:  incidentID,
-			Request:     partyCreateRequestFromWorkbook(request),
-			RequestHash: requestHash,
-			RequestID:   requestID,
-			RouteKey:    workbookCreateRouteKey,
-			Now:         now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptPartyWorkbookOwnerError(err)
-		}
-		return mutationResultFromPartyWorkbook(result), nil
-	}
-	if request.ViewSchemaID == TaskRequestsViewSchemaID || request.ViewSchemaID == DecisionsViewSchemaID {
-		result, err := s.taskMutations.Create(ctx, tasksdecisions.WorkbookCreateCommand{
-			Actor:       actor,
-			IncidentID:  incidentID,
-			Request:     taskDecisionCreateRequestFromWorkbook(request),
-			RequestHash: requestHash,
-			RequestID:   requestID,
-			RouteKey:    workbookCreateRouteKey,
-			Now:         now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptTaskDecisionWorkbookOwnerError(err)
-		}
-		return mutationResultFromTaskDecisionWorkbook(result), nil
-	}
-	return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
+	return provider.Create(ctx, CreateCommand{
+		Actor:        actor,
+		IncidentID:   incidentID,
+		ViewSchemaID: request.ViewSchemaID,
+		Admission: CreateAdmission{
+			ClientTxnID: request.ClientTxnID,
+			normalized:  request,
+		},
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
 }
 
 func adaptOwnerMutationError(err error) error {
@@ -632,293 +583,31 @@ func adaptLinkedNoteOwnerError(err error) error {
 }
 
 func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	if len(request.Changes) == 0 {
-		return MutationResult{}, mutationValidationError("changes", "empty_changes")
+	if s == nil || s.contributions == nil {
+		return MutationResult{}, fmt.Errorf("workbook contribution catalog is required")
 	}
-	if artifacts.IsArtifactBackedView(request.ViewSchemaID) {
-		result, err := s.artifactMutations.Patch(ctx, artifacts.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          artifactPatchRequestFromWorkbook(request),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookPatchRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptArtifactWorkbookOwnerError(err)
-		}
-		return mutationResultFromArtifactWorkbook(result), nil
-	}
-	if request.ViewSchemaID == EvidenceViewSchemaID {
-		result, err := s.evidenceMutations.Patch(ctx, evidence.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          evidencePatchRequestFromWorkbook(request),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookPatchRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptEvidenceWorkbookOwnerError(err)
-		}
-		return mutationResultFromEvidenceWorkbook(result), nil
-	}
-	if request.ViewSchemaID == PartiesViewSchemaID {
-		result, err := s.partyMutations.Patch(ctx, parties.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          partyPatchRequestFromWorkbook(request),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookPatchRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptPartyWorkbookOwnerError(err)
-		}
-		return mutationResultFromPartyWorkbook(result), nil
-	}
-	if request.ViewSchemaID == TaskRequestsViewSchemaID || request.ViewSchemaID == DecisionsViewSchemaID {
-		result, err := s.taskMutations.Patch(ctx, tasksdecisions.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          taskDecisionPatchRequestFromWorkbook(request),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookPatchRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptTaskDecisionWorkbookOwnerError(err)
-		}
-		return mutationResultFromTaskDecisionWorkbook(result), nil
-	}
-	if request.ViewSchemaID == hostidentity.HostsViewSchemaID || request.ViewSchemaID == hostidentity.IdentitiesViewSchemaID {
-		entityRequest, err := entityPatchRequestFromWorkbook(request)
-		if err != nil {
-			return MutationResult{}, err
-		}
-		result, err := s.entityStore.PatchEntityRow(ctx, actor, recordID, entityRequest, requestHash, requestID, now, workbookPatchRouteKey)
-		if err := adaptEntityPatchOwnerError(err); err != nil {
-			return MutationResult{}, err
-		}
-		return mutationResultFromEntityPatch(result, request.ViewSchemaID), nil
-	}
-	return s.applyWorkbookPatch(ctx, actor, recordID, request, requestHash, requestID, now, workbookPatchRouteKey)
-}
-
-func entityPatchRequestFromWorkbook(request PatchRequest) (hostidentity.PatchRequest, error) {
-	changes := make([]hostidentity.PatchChange, 0, len(request.Changes))
-	for _, change := range request.Changes {
-		if !isEntityDirectPatchField(request.ViewSchemaID, change.FieldKey) {
-			return hostidentity.PatchRequest{}, mutationValidationError("field_key", "unsupported_field_key")
-		}
-		if change.Collection != nil || change.Value == nil {
-			return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
-		}
-		var value *string
-		switch change.Value.Kind {
-		case "text":
-			if change.Value.Text == nil {
-				return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
-			}
-			value = change.Value.Text
-		case "null":
-			value = nil
-		default:
-			return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
-		}
-		changes = append(changes, hostidentity.PatchChange{
-			FieldKey: change.FieldKey,
-			Value:    value,
-		})
-	}
-	return hostidentity.PatchRequest{
-		ViewSchemaID:   request.ViewSchemaID,
-		BaseRowVersion: request.BaseRowVersion,
-		ClientTxnID:    request.ClientTxnID,
-		Changes:        changes,
-	}, nil
-}
-
-func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
-	switch viewSchemaID {
-	case hostidentity.HostsViewSchemaID:
-		switch fieldKey {
-		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn",
-			"host.location", "host.os_platform", "host.business_owner", "host.criticality", "host.containment_status":
-			return true
-		default:
-			return false
-		}
-	case hostidentity.IdentitiesViewSchemaID:
-		switch fieldKey {
-		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name",
-			"identity.privilege_level", "identity.mfa_state", "identity.reset_status":
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
-}
-
-func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
-	return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
-}
-
-func (s *Store) ResolveWorkbookConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims workbookConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	if request.ResolutionKind == "keep_saved" {
-		return s.clearWorkbookConflict(ctx, actor, recordID, claims, request, requestHash)
-	}
-	if request.ResolvedChange == nil {
-		return MutationResult{}, mutationValidationError("resolved_value", "missing_required_field")
-	}
-	patch := PatchRequest{
-		ViewSchemaID:   claims.ViewSchemaID,
-		BaseRowVersion: claims.CurrentRowVersion,
-		ClientTxnID:    request.ClientTxnID,
-		Changes:        []PatchChange{*request.ResolvedChange},
-	}
-	if artifacts.IsArtifactBackedView(claims.ViewSchemaID) {
-		result, err := s.artifactMutations.Patch(ctx, artifacts.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          artifactPatchRequestFromWorkbook(patch),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookConflictResolveRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptArtifactWorkbookOwnerError(err)
-		}
-		return mutationResultFromArtifactWorkbook(result), nil
-	}
-	if claims.ViewSchemaID == EvidenceViewSchemaID {
-		result, err := s.evidenceMutations.Patch(ctx, evidence.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          evidencePatchRequestFromWorkbook(patch),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookConflictResolveRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptEvidenceWorkbookOwnerError(err)
-		}
-		return mutationResultFromEvidenceWorkbook(result), nil
-	}
-	if claims.ViewSchemaID == PartiesViewSchemaID {
-		result, err := s.partyMutations.Patch(ctx, parties.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          partyPatchRequestFromWorkbook(patch),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookConflictResolveRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptPartyWorkbookOwnerError(err)
-		}
-		return mutationResultFromPartyWorkbook(result), nil
-	}
-	if claims.ViewSchemaID == TaskRequestsViewSchemaID || claims.ViewSchemaID == DecisionsViewSchemaID {
-		result, err := s.taskMutations.Patch(ctx, tasksdecisions.WorkbookPatchCommand{
-			Actor:            actor,
-			RecordID:         recordID,
-			Request:          taskDecisionPatchRequestFromWorkbook(patch),
-			RequestHash:      requestHash,
-			RequestID:        requestID,
-			RouteKey:         workbookConflictResolveRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              now,
-		})
-		if err != nil {
-			return MutationResult{}, adaptTaskDecisionWorkbookOwnerError(err)
-		}
-		return mutationResultFromTaskDecisionWorkbook(result), nil
-	}
-	return s.applyWorkbookPatch(ctx, actor, recordID, patch, requestHash, requestID, now, workbookConflictResolveRouteKey)
-}
-
-func (s *Store) clearWorkbookConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims workbookConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
-	idempotencyKey := authn.RouteIdempotencyKey{
-		RouteKey:    workbookConflictResolveRouteKey,
-		ActorUserID: actor.ID,
-		ScopeKey:    recordID.String(),
-		ClientTxnID: request.ClientTxnID,
-	}
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return MutationResult{}, authn.ErrClientTxnConflict
-		}
-		payload, err := decodeStoredResponse(existing.ResponseJSON)
-		if err != nil {
-			return MutationResult{}, fmt.Errorf("decode replayed workbook conflict clear payload: %w", err)
-		}
-		return MutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ViewSchemaID: claims.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
-		return MutationResult{}, fmt.Errorf("query workbook conflict clear idempotency: %w", err)
-	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return MutationResult{}, fmt.Errorf("begin workbook conflict clear transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	target, err := s.recordTargets.ResolveTx(ctx, tx, recordID)
+	target, err := s.recordTargets.RecordRouteTarget(ctx, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if target.Deleted {
-		return MutationResult{}, revisions.ErrRecordDeletedUseRestore
+	provider, ok := s.contributions.PatchFor(target.RecordType)
+	if !ok {
+		return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
 	}
-	if !recordTypeMatchesView(target.RecordType, claims.ViewSchemaID) {
-		return MutationResult{}, pgx.ErrNoRows
-	}
-	if !s.projectionRows.Supports(claims.ViewSchemaID) {
-		return MutationResult{}, fmt.Errorf("workbook mutation surface %q not mapped", claims.ViewSchemaID)
-	}
-	row, err := s.projectionRows.LoadRowTx(ctx, tx, claims.ViewSchemaID, recordID)
-	if err != nil {
-		return MutationResult{}, err
-	}
-	payload := map[string]any{
-		"view_schema_id": claims.ViewSchemaID,
-		"row":            row,
-	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return MutationResult{}, authn.ErrClientTxnConflict
-		}
-		return MutationResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return MutationResult{}, fmt.Errorf("commit workbook conflict clear transaction: %w", err)
-	}
-	return MutationResult{
-		Payload:      payload,
-		StatusCode:   http.StatusOK,
-		IncidentID:   target.IncidentID,
-		RecordID:     recordID,
-		ClientTxnID:  request.ClientTxnID,
-		RowVersion:   target.RowVersion,
-		ViewSchemaID: claims.ViewSchemaID,
-	}, nil
+	return provider.Patch(ctx, PatchCommand{
+		Actor:                   actor,
+		RecordID:                recordID,
+		AuthoritativeRecordType: target.RecordType,
+		Admission: PatchAdmission{
+			ViewSchemaID:   request.ViewSchemaID,
+			BaseRowVersion: request.BaseRowVersion,
+			ClientTxnID:    request.ClientTxnID,
+			normalized:     request,
+		},
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
 }
 
 func (s *Store) SupersedeDecision(ctx context.Context, actor authn.UserRecord, targetRecordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -975,88 +664,4 @@ func adaptDecisionSupersedeOwnerError(err error) error {
 		}
 	}
 	return adaptOwnerMutationError(err)
-}
-
-func validateCreateRequest(request CreateRequest) error {
-	switch request.ViewSchemaID {
-	case EvidenceViewSchemaID:
-		return adaptOwnerCreateValidationError(evidence.ValidateWorkbookCreateParams(evidence.WorkbookCreateParams{Values: evidenceValuesFromWorkbook(request.Values)}))
-	case PartiesViewSchemaID:
-		return adaptOwnerCreateValidationError(parties.ValidateCreateParams(parties.CreateParams{Values: partyValuesFromWorkbook(request.Values)}))
-	case TaskRequestsViewSchemaID:
-		return adaptOwnerCreateValidationError(tasksdecisions.ValidateTaskCreateParams(tasksdecisions.TaskCreateParams{Values: taskDecisionValuesFromWorkbook(request.Values)}))
-	case DecisionsViewSchemaID:
-		return adaptOwnerCreateValidationError(tasksdecisions.ValidateDecisionCreateParams(tasksdecisions.DecisionCreateParams{Values: taskDecisionValuesFromWorkbook(request.Values)}))
-	default:
-		if artifacts.IsArtifactBackedView(request.ViewSchemaID) {
-			return adaptOwnerCreateValidationError(artifacts.ValidateCreateParams(artifacts.CreateParams{ViewSchemaID: request.ViewSchemaID, Values: artifactValuesFromWorkbook(request.Values)}))
-		}
-		schema, ok := viewschema.Lookup(request.ViewSchemaID)
-		if ok && !schema.PermitsZeroFieldCreate && len(request.Values) == 0 && len(request.Collections) == 0 {
-			return mutationValidationError("payload", "missing_minimum_create_signal")
-		}
-	}
-	return nil
-}
-
-func adaptOwnerCreateValidationError(err error) error {
-	if err == nil {
-		return nil
-	}
-	var evidenceValidation *evidence.ValidationError
-	if errors.As(err, &evidenceValidation) {
-		return mutationValidationError(evidenceValidation.Field, evidenceValidation.ReasonCode)
-	}
-	var partyValidation *parties.ValidationError
-	if errors.As(err, &partyValidation) {
-		return mutationValidationError(partyValidation.Field, partyValidation.ReasonCode)
-	}
-	var artifactValidation *artifacts.ValidationError
-	if errors.As(err, &artifactValidation) {
-		return mutationValidationError(artifactValidation.Field, artifactValidation.ReasonCode)
-	}
-	var taskValidation *tasksdecisions.ValidationError
-	if errors.As(err, &taskValidation) {
-		return mutationValidationError(taskValidation.Field, taskValidation.ReasonCode)
-	}
-	var taskLifecycle *tasksdecisions.LifecycleValidationError
-	if errors.As(err, &taskLifecycle) {
-		return &LifecycleValidationError{
-			FromStatus:     taskLifecycle.FromStatus,
-			ToStatus:       taskLifecycle.ToStatus,
-			ReasonCode:     taskLifecycle.ReasonCode,
-			ViolatedGuards: append([]string(nil), taskLifecycle.ViolatedGuards...),
-		}
-	}
-	return err
-}
-
-func decodeStoredResponse(data []byte) (map[string]any, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
-func recordTypeMatchesView(recordType string, viewSchemaID string) bool {
-	return recordType == recordTypeForView(viewSchemaID)
-}
-
-func recordTypeForView(viewSchemaID string) string {
-	switch viewSchemaID {
-	case EvidenceViewSchemaID:
-		return "evidence"
-	case PartiesViewSchemaID:
-		return "party"
-	case TaskRequestsViewSchemaID:
-		return "task_request"
-	case DecisionsViewSchemaID:
-		return "decision"
-	case NotesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID,
-		FindingsViewSchemaID, InvestigativeQueriesViewSchemaID, ForensicKeywordsViewSchemaID:
-		return "artifact"
-	default:
-		return ""
-	}
 }

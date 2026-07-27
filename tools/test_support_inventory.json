@@ -79,8 +79,8 @@
       "posture": "owner_local",
       "runtime_scan": "excluded",
       "support_scan": "included",
-      "service_starting": true,
-      "rationale": "Workbook scenario, route, view, and conformance helpers for workbook-owned tests."
+      "service_starting": false,
+      "rationale": "Workbook route inventory, view, startup, and public-envelope conformance helpers; owner-neutral application runtime and Collaboration WebSocket support live in their shared or owning packages."
     },
     {
       "path": "internal/platform/contracttest",

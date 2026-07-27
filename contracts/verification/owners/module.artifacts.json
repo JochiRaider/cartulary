@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.verification_contract.v3",
+  "owner_id": "module.artifacts",
+  "verifications": [
+    {
+      "verification_id": "module.artifacts.verification.behavior_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    }
+  ]
+}

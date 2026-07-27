@@ -38,6 +38,10 @@
       "contract_path": "contracts/verification/owners/harness.visual.json"
     },
     {
+      "owner_id": "module.artifacts",
+      "contract_path": "contracts/verification/owners/module.artifacts.json"
+    },
+    {
       "owner_id": "module.assessments",
       "contract_path": "contracts/verification/owners/module.assessments.json"
     },
