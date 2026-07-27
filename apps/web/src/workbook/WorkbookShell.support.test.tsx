@@ -855,6 +855,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(onRefreshEntities).toHaveBeenCalledTimes(1);
     });
+    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
+      requireVisibleWithinGrid: true,
+    });
     refreshGate.resolve();
     await waitFor(() => {
       expect(
@@ -1025,6 +1028,33 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         rows: [
           timelineRow({
             recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              resolvedItem({
+                itemRef: mentionItemRef,
+                entityType: "host",
+                rawText: " vpn   gateway ",
+                displayText: "Gateway node",
+                resolvedRecordId: "host-1",
+                resolutionMethod: "auto_match",
+                autoResolved: true,
+                provenance: "auto_match",
+                confidence: 100,
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1069,7 +1099,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fireEvent.click(undoButton);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
     });
     await expectTimelineFocusAndScroll("record-1", preservedScroll);
     expect(
@@ -1539,6 +1569,88 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
           .querySelector('[aria-label="Unresolved WS-023"]'),
       ).toBeTruthy();
     });
+  });
+
+  it("retains a dismissed mention when a parallel collaboration query supersedes its mutation query", async () => {
+    const mentionId = "11111111-1111-4111-8111-000000000404";
+    const mentionItemRef = `entity_mention:${mentionId}`;
+    const mutationQuery = deferred<Response>();
+    const dismissedRow = timelineRow({
+      recordId: "record-1",
+      rowVersion: 2,
+      summary: "Alpha",
+      captureState: "reviewed",
+      hostRefs: [],
+    });
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        timelineRow({
+          recordId: "record-1",
+          rowVersion: 1,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            resolvedItem({
+              itemRef: mentionItemRef,
+              entityType: "host",
+              rawText: "WS-023",
+              displayText: "WS-023",
+              resolvedRecordId: "host-1",
+              resolutionMethod: "explicit_resolve_route",
+              autoResolved: false,
+              provenance: "manual",
+              confidence: null,
+            }),
+          ],
+        }),
+      ]),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mentionActionEnvelope({
+        actionStatus: "dismissed",
+        mentionId,
+        rawText: "WS-023",
+        resolvedRecordId: null,
+        sourceRowVersion: 2,
+        mentionRowVersion: 2,
+        resolutionMethod: "explicit_resolve_route",
+      }),
+    );
+    fetchMock.mockImplementationOnce(() => mutationQuery.promise);
+    fetchMock.mockResolvedValueOnce(timelineRowsEnvelope([dismissedRow]));
+
+    render(
+      <TimelineWorkbookRuntimeFixture
+        incidentId="incident-1"
+        currentIncidentRole="admin"
+      />,
+    );
+
+    await openTimelineInspectorFromContext("record-1");
+    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    emitRecordChanged(
+      webSocketInstance,
+      buildRecordChangedPayload({
+        recordId: "record-1",
+        rowVersion: 2,
+        clientTxnId: "parallel-collaborator",
+      }),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+    mutationQuery.resolve(timelineRowsEnvelope([dismissedRow]));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+      ).toBeTruthy();
+    });
+    expect(screen.getAllByText("Dismissed").length).toBeGreaterThanOrEqual(2);
   });
 
   it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {

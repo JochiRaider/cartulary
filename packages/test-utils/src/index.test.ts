@@ -236,6 +236,32 @@ describe("@cartulary/test-utils selector choreography", () => {
 });
 
 describe("@cartulary/test-utils grid continuity", () => {
+  it("observes focus and viewport continuity without focusing or scrolling", async () => {
+    const { focusTestId, page } = installGridContinuityFixture({
+      currentScroll: { left: 10, top: 180 },
+      focusRect: { height: 40, left: 85, top: 170, width: 80 },
+      gridRect: { height: 300, left: 40, top: 100, width: 400 },
+    });
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    const scrollIntoViewSpy = vi
+      .spyOn(HTMLElement.prototype, "scrollIntoView")
+      .mockImplementation(() => undefined);
+
+    await expect(
+      assertGridFocusContinuity({
+        focusTestId,
+        intervalMs: 0,
+        page,
+        preservedScroll: { left: 10, top: 180 },
+        surface: testTimelineViewSchemaId,
+        timeoutMs: 10,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(focusSpy).not.toHaveBeenCalled();
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
   it("allows visibility-preserving continuity when scroll changes by default", async () => {
     const { focusTestId, page } = installGridContinuityFixture({
       currentScroll: { left: 10, top: 180 },

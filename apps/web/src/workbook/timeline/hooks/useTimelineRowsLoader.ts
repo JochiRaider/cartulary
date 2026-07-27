@@ -24,6 +24,11 @@ import type {
   TimelinePendingRefreshBlockScope,
   TimelinePendingSavesRefs,
 } from "../models/timelinePendingReplayModel";
+import type {
+  TimelineSourceRecordEvidence,
+  TimelineSourceRecordRequirement,
+} from "../models/timelineViewportContinuityModel";
+import { timelineSourceRecordRequirementSatisfied } from "../models/timelineViewportContinuityModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
 import {
   createDraftRow,
@@ -38,8 +43,10 @@ import {
 } from "../models/workbookTimelineModel";
 
 export type LoadRowsOptions = {
+  afterProjectionCommit?: () => void;
   showLoading: boolean;
   freshnessRetryDepth?: number;
+  sourceRecordRequirement?: TimelineSourceRecordRequirement;
   viewportContinuityToken?: number;
 };
 
@@ -59,10 +66,10 @@ export function useTimelineRowsLoader({
   apiBase,
   beginRefreshInFlight,
   beginTimelineRowsLoad,
-  clearViewportContinuity,
   committedRowsChangedSince,
   currentCommittedTimelineRow,
   finishRefreshInFlight,
+  failViewportContinuity,
   hasLoadedRows,
   incidentId,
   isCurrentLoadSequence,
@@ -87,7 +94,10 @@ export function useTimelineRowsLoader({
   timelineContract,
 }: {
   readonly acceptCommittedTimelineRows: (rows: readonly WorkbookRow[]) => void;
-  readonly advanceViewportContinuity: (token?: number) => void;
+  readonly advanceViewportContinuity: (
+    token?: number,
+    options?: { sourceRecord?: TimelineSourceRecordEvidence },
+  ) => void;
   readonly apiBase?: string | undefined;
   readonly beginRefreshInFlight: (
     scope: TimelinePendingRefreshBlockScope,
@@ -96,7 +106,6 @@ export function useTimelineRowsLoader({
     readonly queryStartEpoch: number;
     readonly requestSequence: number;
   };
-  readonly clearViewportContinuity: (token: number) => void;
   readonly committedRowsChangedSince: (epoch: number) => boolean;
   readonly currentCommittedTimelineRow: (
     recordId: string,
@@ -104,6 +113,7 @@ export function useTimelineRowsLoader({
   readonly finishRefreshInFlight: (
     scope: TimelinePendingRefreshBlockScope,
   ) => void;
+  readonly failViewportContinuity: (token: number) => void;
   readonly hasLoadedRows: () => boolean;
   readonly incidentId: string;
   readonly isCurrentLoadSequence: (requestSequence: number) => boolean;
@@ -160,7 +170,7 @@ export function useTimelineRowsLoader({
       const nextDepth = (options.freshnessRetryDepth ?? 0) + 1;
       if (nextDepth > maxTimelineFreshnessRetryDepth) {
         if (options.viewportContinuityToken !== undefined) {
-          clearViewportContinuity(options.viewportContinuityToken);
+          failViewportContinuity(options.viewportContinuityToken);
         }
         return false;
       }
@@ -172,6 +182,13 @@ export function useTimelineRowsLoader({
           showLoading: false,
           freshnessRetryDepth: nextDepth,
         };
+        if (options.afterProjectionCommit !== undefined) {
+          retryOptions.afterProjectionCommit = options.afterProjectionCommit;
+        }
+        if (options.sourceRecordRequirement !== undefined) {
+          retryOptions.sourceRecordRequirement =
+            options.sourceRecordRequirement;
+        }
         if (options.viewportContinuityToken !== undefined) {
           retryOptions.viewportContinuityToken =
             options.viewportContinuityToken;
@@ -184,14 +201,17 @@ export function useTimelineRowsLoader({
     },
     [
       beginRefreshInFlight,
-      clearViewportContinuity,
+      failViewportContinuity,
       finishRefreshInFlight,
       loadRowsRef,
     ],
   );
 
   const freshTimelineRowsForQueryResult = useCallback(
-    (incomingRows: readonly WorkbookRow[]) => {
+    (
+      incomingRows: readonly WorkbookRow[],
+      sourceRecordRequirement?: TimelineSourceRecordRequirement,
+    ) => {
       let hasStaleRows = false;
       const rows: WorkbookRow[] = [];
       for (const row of incomingRows) {
@@ -211,9 +231,63 @@ export function useTimelineRowsLoader({
         }
         rows.push(row);
       }
+      if (
+        sourceRecordRequirement !== undefined &&
+        !rows.some(
+          (row) =>
+            row.recordId !== null &&
+            row.rowVersion !== null &&
+            timelineSourceRecordRequirementSatisfied(sourceRecordRequirement, {
+              recordId: row.recordId,
+              rowVersion: row.rowVersion,
+            }),
+        )
+      ) {
+        hasStaleRows = true;
+      }
       return { hasStaleRows, rows };
     },
     [currentCommittedTimelineRow, knownTimelineRowVersion],
+  );
+
+  const settleProjectionObligationsFromCurrentRows = useCallback(
+    (options: LoadRowsOptions) => {
+      const requirement = options.sourceRecordRequirement;
+      if (requirement === undefined) {
+        return false;
+      }
+      const sourceRow = rowsRef.current.find(
+        (row) =>
+          row.recordId === requirement.recordId && row.rowVersion !== null,
+      );
+      if (
+        sourceRow?.recordId === null ||
+        sourceRow?.recordId === undefined ||
+        sourceRow.rowVersion === null ||
+        !timelineSourceRecordRequirementSatisfied(requirement, {
+          recordId: sourceRow.recordId,
+          rowVersion: sourceRow.rowVersion,
+        })
+      ) {
+        return false;
+      }
+
+      // A newer concurrent query may already have committed the exact source
+      // version this mutation requires. Join that projection instead of
+      // dropping the mutation's semantic follow-up under last-query-wins
+      // scheduling.
+      flushSync(() => {
+        options.afterProjectionCommit?.();
+      });
+      advanceViewportContinuity(options.viewportContinuityToken, {
+        sourceRecord: {
+          recordId: sourceRow.recordId,
+          rowVersion: sourceRow.rowVersion,
+        },
+      });
+      return true;
+    },
+    [advanceViewportContinuity, rowsRef],
   );
 
   const loadRows = useCallback(
@@ -236,11 +310,20 @@ export function useTimelineRowsLoader({
       });
 
       if (!isCurrentLoadSequence(requestSequence)) {
+        if (settleProjectionObligationsFromCurrentRows(options)) {
+          return;
+        }
+        if (options.sourceRecordRequirement !== undefined) {
+          await refreshTimelineRowsAfterStaleResult(options);
+        }
         return;
       }
 
       if (committedRowsChangedSince(queryStartEpoch)) {
         setIsRefreshing(false);
+        if (settleProjectionObligationsFromCurrentRows(options)) {
+          return;
+        }
         const refreshed = await refreshTimelineRowsAfterStaleResult(options);
         if (!refreshed && !hasLoadedRows()) {
           setIsInitialLoading(false);
@@ -251,7 +334,7 @@ export function useTimelineRowsLoader({
       if (!result.ok) {
         setIsRefreshing(false);
         if (options.viewportContinuityToken !== undefined) {
-          clearViewportContinuity(options.viewportContinuityToken);
+          failViewportContinuity(options.viewportContinuityToken);
         }
         const message = parseErrorMessage(result.payload);
         if (workbookLoadFailureIsAccessLoss(message)) {
@@ -286,7 +369,7 @@ export function useTimelineRowsLoader({
       } catch {
         setIsRefreshing(false);
         if (options.viewportContinuityToken !== undefined) {
-          clearViewportContinuity(options.viewportContinuityToken);
+          failViewportContinuity(options.viewportContinuityToken);
         }
         const message = "Timeline projection load failed.";
         if (hasLoadedRows()) {
@@ -297,12 +380,22 @@ export function useTimelineRowsLoader({
         }
         return;
       }
-      const incomingFreshness = freshTimelineRowsForQueryResult(incomingRows);
+      const incomingFreshness = freshTimelineRowsForQueryResult(
+        incomingRows,
+        options.sourceRecordRequirement,
+      );
       if (incomingFreshness.hasStaleRows) {
         const refreshed = await refreshTimelineRowsAfterStaleResult(options);
         if (refreshed) {
           return;
         }
+        setIsRefreshing(false);
+        setRefreshError(
+          options.sourceRecordRequirement === undefined
+            ? "Timeline projection did not converge."
+            : `Timeline row ${options.sourceRecordRequirement.recordId} did not reach version ${options.sourceRecordRequirement.minimumRowVersion}.`,
+        );
+        return;
       }
       const { committedRows, rows: hydratedRows } =
         reconcileCommittedRowsWithLocalDrafts({
@@ -314,43 +407,66 @@ export function useTimelineRowsLoader({
         });
       acceptCommittedTimelineRows(committedRows);
       rowsRef.current = hydratedRows;
-      if (options.viewportContinuityToken === undefined) {
+      const commitProjectionAndFollowUps = () => {
         setRows(hydratedRows);
+        options.afterProjectionCommit?.();
+        setDismissedMentionsByRow((current) => {
+          let next = current;
+          for (const row of committedRows) {
+            if (row.recordId === null) {
+              continue;
+            }
+            next = pruneDismissedMentionsForRow(next, row);
+          }
+          return next;
+        });
+        pruneAutoResolutionNoticesForRows(committedRows);
+        publishSaveStatePresentation(
+          pendingSavesRefsRef.current.pendingQueueRef.current,
+        );
+        markRowsLoaded();
+        setIsRefreshing(false);
+        setLoadError(null);
+        setRefreshError(null);
+        setIsInitialLoading(false);
+      };
+      if (options.viewportContinuityToken === undefined) {
+        commitProjectionAndFollowUps();
       } else {
         // Continuity-bearing callers restore focus as soon as loadRows
-        // resolves. Commit the authoritative row tree first so a deferred
-        // concurrent render cannot replace the newly focused grid cell.
+        // resolves. Commit the authoritative row tree and every same-surface
+        // follow-up before advancing the continuity generation.
         flushSync(() => {
-          setRows(hydratedRows);
+          commitProjectionAndFollowUps();
         });
       }
-      advanceViewportContinuity(options.viewportContinuityToken);
-      setDismissedMentionsByRow((current) => {
-        const next = { ...current };
-        for (const row of committedRows) {
-          if (row.recordId === null) {
-            continue;
-          }
-          Object.assign(next, pruneDismissedMentionsForRow(next, row));
-        }
-        return next;
-      });
-      pruneAutoResolutionNoticesForRows(committedRows);
-      publishSaveStatePresentation(
-        pendingSavesRefsRef.current.pendingQueueRef.current,
+      const committedSourceRecord =
+        options.sourceRecordRequirement === undefined
+          ? undefined
+          : committedRows.find(
+              (row) =>
+                row.recordId === options.sourceRecordRequirement?.recordId,
+            );
+      const sourceRecord =
+        committedSourceRecord?.recordId === null ||
+        committedSourceRecord?.recordId === undefined ||
+        committedSourceRecord.rowVersion === null
+          ? undefined
+          : ({
+              recordId: committedSourceRecord.recordId,
+              rowVersion: committedSourceRecord.rowVersion,
+            } satisfies TimelineSourceRecordEvidence);
+      advanceViewportContinuity(
+        options.viewportContinuityToken,
+        sourceRecord === undefined ? {} : { sourceRecord },
       );
-      markRowsLoaded();
-      setIsRefreshing(false);
-      setLoadError(null);
-      setRefreshError(null);
-      setIsInitialLoading(false);
     },
     [
       acceptCommittedTimelineRows,
       advanceViewportContinuity,
       beginTimelineRowsLoad,
-      clearViewportContinuity,
       committedRowsChangedSince,
+      failViewportContinuity,
       freshTimelineRowsForQueryResult,
       hasLoadedRows,
       isCurrentLoadSequence,
@@ -366,6 +482,7 @@ export function useTimelineRowsLoader({
       refreshTimelineRowsAfterStaleResult,
       rowsRef,
       scalarDraftValuesRef,
+      settleProjectionObligationsFromCurrentRows,
       setDismissedMentionsByRow,
       setIsInitialLoading,
       setIsRefreshing,

@@ -10,8 +10,6 @@ import {
   rowCellTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
@@ -22,8 +20,11 @@ import {
   collectionItems,
   findRow,
   hostRefsFieldKey,
+  readMentionAction,
+  readMentionActionRequest,
   requireItemByRawText,
   type ViewRow,
+  waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -40,7 +41,7 @@ import {
   queryViewRows,
 } from "./support/workbook/query";
 import {
-  expectTimelineContinuity,
+  expectTimelineMutationContinuity,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
 
@@ -159,7 +160,10 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   );
   await page.getByTestId(mentionDismissButtonTestId()).click();
   const dismissResponse = await dismissResponsePromise;
-  const dismissEnvelope = await readMentionAction(dismissResponse);
+  const dismissEnvelope = await readMentionAction(
+    dismissResponse,
+    row.record_id,
+  );
   const dismissBody = readMentionActionRequest(dismissResponse);
 
   await expect(
@@ -170,9 +174,15 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
       .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
       .getByLabel("Dismissed WS-023?"),
   ).toBeVisible();
-  await expectTimelineContinuity(page, row.record_id, dismissScroll, {
-    requireExactVerticalScroll: false,
-  });
+  await expectTimelineMutationContinuity(
+    page,
+    row.record_id,
+    dismissEnvelope.data.source_record.row_version,
+    dismissScroll,
+    {
+      requireExactVerticalScroll: false,
+    },
+  );
   expect(dismissBody).toMatchObject({
     base_mention_row_version: mentionBeforeDismiss.mention_row_version,
     action: "dismiss_item",
@@ -197,7 +207,10 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   );
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
-  const restoreEnvelope = await readMentionAction(restoreResponse);
+  const restoreEnvelope = await readMentionAction(
+    restoreResponse,
+    row.record_id,
+  );
   const restoreBody = readMentionActionRequest(restoreResponse);
 
   await expect(
@@ -210,9 +223,15 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
       .getByLabel(/^Resolved WS-023$/),
   ).toHaveCount(0);
-  await expectTimelineContinuity(page, row.record_id, restoreScroll, {
-    requireExactVerticalScroll: false,
-  });
+  await expectTimelineMutationContinuity(
+    page,
+    row.record_id,
+    restoreEnvelope.data.source_record.row_version,
+    restoreScroll,
+    {
+      requireExactVerticalScroll: false,
+    },
+  );
   expect(restoreBody).toMatchObject({
     base_mention_row_version: dismissEnvelope.data.entity_mention.row_version,
     action: "revert_to_unresolved",
@@ -236,39 +255,3 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   expect(String(restoredRowItem.item_kind)).toBe("unresolved_mention");
   expect(restoredRowItem.resolved_record_id).toBeUndefined();
 });
-
-type MentionActionEnvelope = {
-  data: {
-    entity_mention: {
-      resolution_status: string;
-      row_version: number;
-    };
-  };
-};
-
-function waitForMentionAction(page: Page, itemRef: unknown) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
-  );
-}
-
-async function readMentionAction(response: Response) {
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as MentionActionEnvelope;
-}
-
-function readMentionActionRequest(response: Response) {
-  return JSON.parse(response.request().postData() ?? "{}") as Record<
-    string,
-    unknown
-  >;
-}
-
-function entityMentionIdFromItemRef(itemRef: unknown) {
-  const value = String(itemRef);
-  expect(value.startsWith("entity_mention:")).toBe(true);
-  return value.slice("entity_mention:".length);
-}

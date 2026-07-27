@@ -234,7 +234,8 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.mentionChips.test.ts",
         "titles": [
-          "preserves closed mention chip states by stable identifiers and field keys"
+          "preserves closed mention chip states by stable identifiers and field keys",
+          "retains dismissed evidence through stale projections and prunes it only after a newer restore version"
         ]
       },
       "evidence_class": "unit",

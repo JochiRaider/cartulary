@@ -115,6 +115,7 @@ import {
 } from "../owner-slice/index.mjs";
 import {
   buildPlaywrightInvocations,
+  commandWithManagedServices,
   ownerChildRunID,
 } from "../owner-slice/execution.mjs";
 import { buildSourceSnapshot } from "../owner-slice/source-snapshot.mjs";
@@ -271,8 +272,8 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 59);
   assert.equal(catalog.summary.family_count, 198);
-  assert.equal(catalog.summary.row_count, 880);
-  assert.equal(catalog.summary.selector_count, 1614);
+  assert.equal(catalog.summary.row_count, 879);
+  assert.equal(catalog.summary.selector_count, 1615);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -904,6 +905,47 @@ test("stateful owner browser rows execute as isolated single-worker partitions",
   } finally {
     rmSync(artifactRoot, { recursive: true, force: true });
   }
+});
+
+test("owner browser slices establish an owned test-services suite before the attach-only browser adapter", () => {
+  const command = commandWithManagedServices(
+    repoRoot,
+    {
+      runner: "playwright",
+      managed_service_ids: ["object_store", "postgres"],
+    },
+    {
+      command: "/repo/pnpm",
+      args: ["exec", "playwright", "test"],
+      playwrightArgs: ["--project", "chromium"],
+    },
+  );
+
+  assert.equal(
+    command.command,
+    path.join(repoRoot, "tmp", "toolbin", "cartulary-test-services"),
+  );
+  assert.deepEqual(command.args, [
+    "run",
+    "--",
+    path.join(
+      repoRoot,
+      "tools",
+      "harness",
+      "browser",
+      "start-web-e2e.sh",
+    ),
+    "--",
+    path.join(
+      repoRoot,
+      "tools",
+      "harness",
+      "browser",
+      "run-browser-e2e-owned-stack.sh",
+    ),
+    "--project",
+    "chromium",
+  ]);
 });
 
 test("owner accounting closes exact rows and preserves subset completion scope", async () => {

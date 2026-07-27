@@ -83,6 +83,47 @@ type MentionCollectionRowLike = {
   };
 };
 
+export function reconcileDismissedMentionsForRow(
+  dismissedMentionsByRow: Record<string, DismissedMention[]>,
+  row: MentionCollectionRowLike,
+) {
+  if (row.recordId === null) {
+    return dismissedMentionsByRow;
+  }
+
+  const activeItems = new Map(
+    [
+      ...row.collectionValues.hostRefs,
+      ...row.collectionValues.identityRefs,
+    ].map((item) => [item.itemRef, item]),
+  );
+  const current = dismissedMentionsByRow[row.recordId] ?? [];
+  const remaining = current.filter((dismissed) => {
+    const active = activeItems.get(dismissed.itemRef);
+    if (active === undefined) {
+      return true;
+    }
+    if (dismissed.mentionRowVersion === null) {
+      return false;
+    }
+    return (
+      active.mentionRowVersion === null ||
+      active.mentionRowVersion <= dismissed.mentionRowVersion
+    );
+  });
+  if (remaining.length === current.length) {
+    return dismissedMentionsByRow;
+  }
+
+  const next = { ...dismissedMentionsByRow };
+  if (remaining.length < 1) {
+    delete next[row.recordId];
+  } else {
+    next[row.recordId] = remaining;
+  }
+  return next;
+}
+
 function safeEntityType(value: unknown): "host" | "identity" {
   return value === "identity" ? "identity" : "host";
 }

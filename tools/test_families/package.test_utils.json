@@ -17,6 +17,7 @@
           "@cartulary/test-utils grid continuity allows visibility-preserving continuity when scroll changes by default",
           "@cartulary/test-utils grid continuity fails when exact horizontal scroll is required and scrollLeft changed",
           "@cartulary/test-utils grid continuity fails when exact vertical scroll is required and scrollTop changed under fake timers",
+          "@cartulary/test-utils grid continuity observes focus and viewport continuity without focusing or scrolling",
           "@cartulary/test-utils grid continuity retries until the preserved vertical scroll converges",
           "@cartulary/test-utils marker anchoring fails when marker is visible in a different field cell",
           "@cartulary/test-utils marker anchoring fails when marker is visible in a different row",

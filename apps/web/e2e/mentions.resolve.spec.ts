@@ -9,8 +9,6 @@ import {
   timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
@@ -24,8 +22,11 @@ import {
   findRow,
   hostRefsFieldKey,
   identityRefsFieldKey,
+  readMentionAction,
+  readMentionActionRequest,
   requireItemByRawText,
   type ViewRow,
+  waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -37,7 +38,7 @@ import { createViewRow, queryViewRows } from "./support/workbook/query";
 import {
   ensureTimelineGridTargetVisible,
   expectNoPendingQueueAuthPause,
-  expectTimelineContinuity,
+  expectTimelineMutationContinuity,
   openTimelineInspector,
   waitForViewRow,
 } from "./support/workbook/rowMutations";
@@ -149,7 +150,10 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
     .selectOption(existingHost.record_id);
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const resolveResponse = await resolveResponsePromise;
-  const resolveEnvelope = await readMentionAction(resolveResponse);
+  const resolveEnvelope = await readMentionAction(
+    resolveResponse,
+    mainRow.record_id,
+  );
   const resolveBody = readMentionActionRequest(resolveResponse);
 
   await expect(
@@ -157,7 +161,12 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
       .getByTestId(relationshipItemsTestId(mainRow.record_id, hostRefsFieldKey))
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
-  await expectTimelineContinuity(page, mainRow.record_id, resolveScroll);
+  await expectTimelineMutationContinuity(
+    page,
+    mainRow.record_id,
+    resolveEnvelope.data.source_record.row_version,
+    resolveScroll,
+  );
 
   await page
     .getByTestId(mentionItemTestId(String(identityMention.item_ref)))
@@ -174,7 +183,10 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   );
   await page.getByTestId(mentionCreateEntityButtonTestId("identity")).click();
   const createResponse = await createResponsePromise;
-  const createEnvelope = await readMentionAction(createResponse);
+  const createEnvelope = await readMentionAction(
+    createResponse,
+    mainRow.record_id,
+  );
   const createdIdentityRecordId = String(
     createEnvelope.data.entity_mention.resolved_record_id,
   );
@@ -189,7 +201,12 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
       )
       .getByLabel("Resolved vpn.user@example.test"),
   ).toBeVisible();
-  await expectTimelineContinuity(page, mainRow.record_id, createScroll);
+  await expectTimelineMutationContinuity(
+    page,
+    mainRow.record_id,
+    createEnvelope.data.source_record.row_version,
+    createScroll,
+  );
 
   const timelineRows = (await queryViewRows(
     page,
@@ -244,38 +261,3 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   expect(siblingHostAfter.resolved_record_id).toBeUndefined();
   expect(createdIdentityRow.record_id).toBe(createdIdentityRecordId);
 });
-
-type MentionActionEnvelope = {
-  data: {
-    entity_mention: {
-      resolved_record_id: string | null;
-    };
-  };
-};
-
-function waitForMentionAction(page: Page, itemRef: unknown) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
-  );
-}
-
-async function readMentionAction(response: Response) {
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as MentionActionEnvelope;
-}
-
-function readMentionActionRequest(response: Response) {
-  return JSON.parse(response.request().postData() ?? "{}") as Record<
-    string,
-    unknown
-  >;
-}
-
-function entityMentionIdFromItemRef(itemRef: unknown) {
-  const value = String(itemRef);
-  expect(value.startsWith("entity_mention:")).toBe(true);
-  return value.slice("entity_mention:".length);
-}

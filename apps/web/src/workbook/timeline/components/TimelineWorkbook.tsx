@@ -125,12 +125,11 @@ import {
   refreshBlocksTimelinePendingRecord,
 } from "../models/timelinePendingReplayModel";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
-import type { TimelineEntityCatalogInput } from "../models/timelineViewportContinuityModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
-  type DismissedMention,
+  reconcileDismissedMentionsForRow,
 } from "../models/workbookMentionChips";
 import {
   applyViewRowPatch,
@@ -315,31 +314,6 @@ function rowWithMaterializedScalarDrafts(
   return nextValues === null ? row : { ...row, values: nextValues };
 }
 
-function pruneDismissedMentions(
-  dismissedMentionsByRow: Record<string, DismissedMention[]>,
-  row: WorkbookRow,
-) {
-  if (row.recordId === null) {
-    return dismissedMentionsByRow;
-  }
-
-  const activeRefs = new Set(
-    [
-      ...row.collectionValues.hostRefs,
-      ...row.collectionValues.identityRefs,
-    ].map((item) => item.itemRef),
-  );
-  const next = { ...dismissedMentionsByRow };
-  const current = next[row.recordId] ?? [];
-  const remaining = current.filter((item) => !activeRefs.has(item.itemRef));
-  if (remaining.length < 1) {
-    delete next[row.recordId];
-    return next;
-  }
-  next[row.recordId] = remaining;
-  return next;
-}
-
 function TimelineWorkbookContent({
   incident,
   query,
@@ -381,14 +355,6 @@ function TimelineWorkbookContent({
     resetColumns: handleResetColumns,
   } = layout;
   const { clientInstanceId, connectionId } = useIncidentCollaborationSession();
-  const entityCatalogInput = useMemo(
-    () =>
-      ({
-        hostEntities,
-        identityEntities,
-      }) satisfies TimelineEntityCatalogInput,
-    [hostEntities, identityEntities],
-  );
   const timelineRuntime = useTimelineWorkbookRuntime({
     filterDraft: shellFilterDraft,
     queryState: shellQueryState,
@@ -798,7 +764,6 @@ function TimelineWorkbookContent({
   );
 
   const timelineViewportContinuity = useTimelineViewportContinuityController({
-    entityCatalogInput,
     gridHandleRef: timelineGridHandleRef,
     gridShellRef,
     rowInputRefs,
@@ -811,8 +776,10 @@ function TimelineWorkbookContent({
     advanceViewportContinuity,
     beginViewportContinuity,
     clearViewportContinuity,
+    failViewportContinuity,
+    requireViewportContinuitySourceRecord,
     resolveInputElement,
-    settleViewportContinuityBarrier,
+    settleViewportContinuityFollowUp,
   } = timelineViewportContinuity.commands;
   const { advanceViewportContinuityRef, beginViewportContinuityRef } =
     timelineViewportContinuity.refs;
@@ -956,7 +923,7 @@ function TimelineWorkbookContent({
 
       if (committed.recordId !== null) {
         setDismissedMentionsByRow((current) =>
-          pruneDismissedMentions(current, committed),
+          reconcileDismissedMentionsForRow(current, committed),
         );
         pruneAutoResolutionNoticesForRows([committed]);
       }
@@ -1095,10 +1062,10 @@ function TimelineWorkbookContent({
     apiBase,
     beginRefreshInFlight,
     beginTimelineRowsLoad,
-    clearViewportContinuity,
     committedRowsChangedSince,
     currentCommittedTimelineRow,
     finishRefreshInFlight,
+    failViewportContinuity,
     hasLoadedRows,
     incidentId,
     isCurrentLoadSequence,
@@ -1109,7 +1076,7 @@ function TimelineWorkbookContent({
     onIncidentAccessLost,
     pendingSavesRefsRef,
     pruneAutoResolutionNoticesForRows,
-    pruneDismissedMentionsForRow: pruneDismissedMentions,
+    pruneDismissedMentionsForRow: reconcileDismissedMentionsForRow,
     publishSaveStatePresentation,
     queryState,
     rowsRef,
@@ -1808,17 +1775,17 @@ function TimelineWorkbookContent({
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork: enqueueTimelineSaveWork,
-      entityCatalogInput,
       finishSave,
       incidentId,
       loadRows: loadRowsRef.current,
       nextClientTxnId,
       onRefreshEntities,
+      requireViewportContinuitySourceRecord,
       resolvePendingSocketTxn,
       rowsRef,
       setDismissedMentionsByRow,
       setInspectorMessage,
-      settleViewportContinuityBarrier,
+      settleViewportContinuityFollowUp,
       trackPendingSocketTxn,
       waitForCommittedRecordIdle,
     });

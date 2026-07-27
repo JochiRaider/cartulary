@@ -15,11 +15,17 @@ import {
   type ViewportSnapshot,
 } from "../../utils/workbookContinuity";
 import {
-  settleTimelineViewportContinuityBarrier,
-  type TimelineEntityCatalogInput,
-  type TimelineEntityRefreshSettleState,
-  type TimelineViewportContinuityBarrier,
-  timelineViewportContinuityBarrierSatisfied,
+  advanceTimelineContinuityRender,
+  beginTimelineContinuityLifecycle,
+  requireTimelineSourceRecord,
+  settleTimelineContinuityRequirement,
+  type TimelineContinuityLifecycle,
+  type TimelineContinuityRequirementName,
+  type TimelineContinuitySemanticTarget,
+  type TimelineSourceRecordEvidence,
+  type TimelineSourceRecordRequirement,
+  timelineContinuityRequirementsSettled,
+  transitionTimelineContinuity,
 } from "../models/timelineViewportContinuityModel";
 import { timelineScalarBindings } from "../models/workbookTimelineModel";
 
@@ -27,22 +33,15 @@ type TimelineMutableRef<T> = {
   current: T;
 };
 
-export type TimelineViewportContinuityTarget =
-  | { kind: "row-inspect"; recordId: string }
-  | { kind: "input"; focusKey: string }
-  | { kind: "scroll-only" };
+export type TimelineViewportContinuityTarget = TimelineContinuitySemanticTarget;
 
 export type TimelineViewportContinuityRequest = {
   token: number;
-  attemptVersion: number;
-  target: TimelineViewportContinuityTarget;
+  lifecycle: TimelineContinuityLifecycle;
   preservedViewport: ViewportSnapshot | null;
-  userInteractionVersion: number;
-  barrier: TimelineViewportContinuityBarrier;
 };
 
 export function useTimelineViewportContinuityController({
-  entityCatalogInput,
   gridHandleRef,
   gridShellRef,
   rowInputRefs,
@@ -51,7 +50,6 @@ export function useTimelineViewportContinuityController({
   viewportContinuityRequest,
   viewportContinuityTokenRef,
 }: {
-  readonly entityCatalogInput: TimelineEntityCatalogInput;
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
   readonly rowInputRefs: TimelineMutableRef<
@@ -282,13 +280,15 @@ export function useTimelineViewportContinuityController({
   const beginViewportContinuity = useCallback(
     (
       target: TimelineViewportContinuityTarget,
-      options: { barrier?: TimelineViewportContinuityBarrier } = {},
+      options: {
+        requirements?: readonly TimelineContinuityRequirementName[];
+      } = {},
     ) => {
       const activeRequest = activeViewportContinuityRequestRef.current;
       if (
         target.kind === "scroll-only" &&
         activeRequest !== null &&
-        activeRequest.userInteractionVersion ===
+        activeRequest.lifecycle.userInterruptionGeneration ===
           userInteractionVersionRef.current
       ) {
         return activeRequest.token;
@@ -297,13 +297,16 @@ export function useTimelineViewportContinuityController({
       viewportContinuityTokenRef.current += 1;
       const request: TimelineViewportContinuityRequest = {
         token,
-        attemptVersion: 0,
-        target,
+        lifecycle: beginTimelineContinuityLifecycle({
+          semanticFocusTarget: target,
+          userInterruptionGeneration: userInteractionVersionRef.current,
+          ...(options.requirements === undefined
+            ? {}
+            : { requirements: options.requirements }),
+        }),
         preservedViewport: currentGridViewportSnapshot(
           resolveViewportContinuityElement(target),
         ),
-        userInteractionVersion: userInteractionVersionRef.current,
-        barrier: options.barrier ?? null,
       };
       activeViewportContinuityRequestRef.current = request;
       setViewportContinuityRequest(request);
@@ -319,17 +322,21 @@ export function useTimelineViewportContinuityController({
   const beginViewportContinuityRef = useRef(beginViewportContinuity);
   beginViewportContinuityRef.current = beginViewportContinuity;
 
-  const settleViewportContinuityBarrier = useCallback(
-    (token: number, refreshState: TimelineEntityRefreshSettleState) => {
+  const settleViewportContinuityFollowUp = useCallback(
+    (
+      token: number,
+      requirement: TimelineContinuityRequirementName,
+      state: "settled" | "terminal",
+    ) => {
       const activeRequest = activeViewportContinuityRequestRef.current;
       if (activeRequest?.token === token) {
         activeViewportContinuityRequestRef.current = {
           ...activeRequest,
-          barrier: settleTimelineViewportContinuityBarrier(
-            activeRequest.barrier,
-            refreshState,
+          lifecycle: settleTimelineContinuityRequirement(
+            activeRequest.lifecycle,
+            requirement,
+            state,
           ),
-          attemptVersion: activeRequest.attemptVersion + 1,
         };
       }
       setViewportContinuityRequest((current) => {
@@ -338,11 +345,11 @@ export function useTimelineViewportContinuityController({
         }
         return {
           ...current,
-          barrier: settleTimelineViewportContinuityBarrier(
-            current.barrier,
-            refreshState,
+          lifecycle: settleTimelineContinuityRequirement(
+            current.lifecycle,
+            requirement,
+            state,
           ),
-          attemptVersion: current.attemptVersion + 1,
         };
       });
     },
@@ -351,7 +358,15 @@ export function useTimelineViewportContinuityController({
 
   const clearViewportContinuity = useCallback(
     (token: number) => {
-      if (activeViewportContinuityRequestRef.current?.token === token) {
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (activeRequest?.token === token) {
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          lifecycle: transitionTimelineContinuity(
+            activeRequest.lifecycle,
+            "cancelled",
+          ),
+        };
         activeViewportContinuityRequestRef.current = null;
       }
       setViewportContinuityRequest((current) =>
@@ -361,11 +376,64 @@ export function useTimelineViewportContinuityController({
     [setViewportContinuityRequest],
   );
 
+  const failViewportContinuity = useCallback(
+    (token: number) => {
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (activeRequest?.token === token) {
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          lifecycle: transitionTimelineContinuity(
+            activeRequest.lifecycle,
+            "failed",
+          ),
+        };
+      }
+      setViewportContinuityRequest((current) => {
+        if (current === null || current.token !== token) {
+          return current;
+        }
+        return {
+          ...current,
+          lifecycle: transitionTimelineContinuity(current.lifecycle, "failed"),
+        };
+      });
+    },
+    [setViewportContinuityRequest],
+  );
+
+  const requireViewportContinuitySourceRecord = useCallback(
+    (token: number, requirement: TimelineSourceRecordRequirement) => {
+      const activeRequest = activeViewportContinuityRequestRef.current;
+      if (activeRequest?.token === token) {
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          lifecycle: requireTimelineSourceRecord(
+            activeRequest.lifecycle,
+            requirement,
+          ),
+        };
+      }
+      setViewportContinuityRequest((current) => {
+        if (current === null || current.token !== token) {
+          return current;
+        }
+        return {
+          ...current,
+          lifecycle: requireTimelineSourceRecord(
+            current.lifecycle,
+            requirement,
+          ),
+        };
+      });
+    },
+    [setViewportContinuityRequest],
+  );
+
   const advanceViewportContinuity = useCallback(
     (
       token: number | undefined,
       options: {
-        barrier?: TimelineViewportContinuityBarrier;
+        sourceRecord?: TimelineSourceRecordEvidence;
         target?: TimelineViewportContinuityTarget | null;
       } = {},
     ) => {
@@ -376,12 +444,14 @@ export function useTimelineViewportContinuityController({
       if (activeRequest?.token === token) {
         activeViewportContinuityRequestRef.current = {
           ...activeRequest,
-          attemptVersion: activeRequest.attemptVersion + 1,
-          barrier:
-            options.barrier === undefined
-              ? activeRequest.barrier
-              : options.barrier,
-          target: options.target ?? activeRequest.target,
+          lifecycle: advanceTimelineContinuityRender(
+            {
+              ...activeRequest.lifecycle,
+              semanticFocusTarget:
+                options.target ?? activeRequest.lifecycle.semanticFocusTarget,
+            },
+            { sourceRecord: options.sourceRecord },
+          ),
         };
       }
       setViewportContinuityRequest((current) => {
@@ -390,10 +460,14 @@ export function useTimelineViewportContinuityController({
         }
         return {
           ...current,
-          attemptVersion: current.attemptVersion + 1,
-          barrier:
-            options.barrier === undefined ? current.barrier : options.barrier,
-          target: options.target ?? current.target,
+          lifecycle: advanceTimelineContinuityRender(
+            {
+              ...current.lifecycle,
+              semanticFocusTarget:
+                options.target ?? current.lifecycle.semanticFocusTarget,
+            },
+            { sourceRecord: options.sourceRecord },
+          ),
         };
       });
     },
@@ -443,15 +517,16 @@ export function useTimelineViewportContinuityController({
 
   const tryRestoreViewportContinuity = useCallback(
     (continuity: TimelineViewportContinuityRequest) => {
-      if (continuity.target.kind === "scroll-only") {
+      const target = continuity.lifecycle.semanticFocusTarget;
+      if (target.kind === "scroll-only") {
         restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
         return true;
       }
-      if (resolveViewportContinuityElement(continuity.target) === null) {
-        scrollToViewportContinuityTarget(continuity.target);
+      if (resolveViewportContinuityElement(target) === null) {
+        scrollToViewportContinuityTarget(target);
       }
       return restoreGridViewportForElement(
-        () => resolveViewportContinuityElement(continuity.target),
+        () => resolveViewportContinuityElement(target),
         continuity.preservedViewport,
       );
     },
@@ -465,18 +540,16 @@ export function useTimelineViewportContinuityController({
 
   const shouldHoldViewportContinuity = useCallback(
     (continuity: TimelineViewportContinuityRequest) => {
-      return !timelineViewportContinuityBarrierSatisfied(
-        continuity.barrier,
-        entityCatalogInput,
-      );
+      return !timelineContinuityRequirementsSettled(continuity.lifecycle);
     },
-    [entityCatalogInput],
+    [],
   );
 
   const userInterruptedViewportContinuity = useCallback(
     (continuity: TimelineViewportContinuityRequest) => {
       return (
-        userInteractionVersionRef.current !== continuity.userInteractionVersion
+        userInteractionVersionRef.current !==
+        continuity.lifecycle.userInterruptionGeneration
       );
     },
     [],
@@ -485,7 +558,7 @@ export function useTimelineViewportContinuityController({
   useLayoutEffect(() => {
     if (
       viewportContinuityRequest === null ||
-      viewportContinuityRequest.attemptVersion < 1
+      viewportContinuityRequest.lifecycle.renderGeneration < 1
     ) {
       return;
     }
@@ -503,14 +576,33 @@ export function useTimelineViewportContinuityController({
           window.setTimeout(() => {
             restoreTarget(attempt + 1);
           }, 50);
+        } else {
+          clearViewportContinuity(viewportContinuityRequest.token);
         }
         return;
       }
+      // A slow named follow-up must not leave focus on <body> after the
+      // authoritative row has committed. Restore the deterministic fallback
+      // provisionally, but keep the lifecycle open until every follow-up has
+      // settled so a later render is revalidated before completion.
       if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
         return;
       }
+      const stableRenderGeneration =
+        viewportContinuityRequest.lifecycle.renderGeneration;
       window.requestAnimationFrame(() => {
         if (cancelled) {
+          return;
+        }
+        const activeRequest = activeViewportContinuityRequestRef.current;
+        if (
+          activeRequest?.token !== viewportContinuityRequest.token ||
+          activeRequest.lifecycle.renderGeneration !== stableRenderGeneration
+        ) {
+          return;
+        }
+        if (userInterruptedViewportContinuity(activeRequest)) {
+          clearViewportContinuity(activeRequest.token);
           return;
         }
         if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
@@ -521,9 +613,18 @@ export function useTimelineViewportContinuityController({
             window.setTimeout(() => {
               restoreTarget(attempt + 1);
             }, 50);
+          } else {
+            clearViewportContinuity(viewportContinuityRequest.token);
           }
           return;
         }
+        activeViewportContinuityRequestRef.current = {
+          ...activeRequest,
+          lifecycle: transitionTimelineContinuity(
+            activeRequest.lifecycle,
+            activeRequest.lifecycle.state === "failed" ? "failed" : "completed",
+          ),
+        };
         clearViewportContinuity(viewportContinuityRequest.token);
       });
     };
@@ -546,12 +647,14 @@ export function useTimelineViewportContinuityController({
       clearViewportContinuity,
       currentGridScrollSnapshot,
       currentGridViewportSnapshot,
+      failViewportContinuity,
+      requireViewportContinuitySourceRecord,
       resolveInputElement,
       resolveViewportContinuityElement,
       restoreGridScroll,
       restoreGridViewportForElement,
       scrollToViewportContinuityTarget,
-      settleViewportContinuityBarrier,
+      settleViewportContinuityFollowUp,
     },
     refs: {
       advanceViewportContinuityRef,

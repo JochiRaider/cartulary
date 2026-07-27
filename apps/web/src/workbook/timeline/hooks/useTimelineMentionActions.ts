@@ -9,11 +9,9 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import {
-  beginTimelineEntityRefreshBarrier,
-  type TimelineEntityCatalogInput,
-  type TimelineEntityRefreshSettleState,
-  type TimelineViewportContinuityBarrier,
+import type {
+  TimelineContinuityRequirementName,
+  TimelineSourceRecordRequirement,
 } from "../models/timelineViewportContinuityModel";
 import type {
   DismissedMention,
@@ -61,8 +59,10 @@ type TimelineMentionViewportContinuityTarget =
   | { kind: "scroll-only" };
 
 type TimelineMentionLoadRowsOptions = {
+  afterProjectionCommit?: () => void;
   showLoading: boolean;
   freshnessRetryDepth?: number;
+  sourceRecordRequirement?: TimelineSourceRecordRequirement;
   viewportContinuityToken?: number;
 };
 
@@ -72,17 +72,17 @@ export function useTimelineMentionActions({
   beginViewportContinuity,
   clearViewportContinuity,
   enqueueSaveWork,
-  entityCatalogInput,
   finishSave,
   incidentId,
   loadRows,
   nextClientTxnId,
   onRefreshEntities,
+  requireViewportContinuitySourceRecord,
   resolvePendingSocketTxn,
   rowsRef,
   setDismissedMentionsByRow,
   setInspectorMessage,
-  settleViewportContinuityBarrier,
+  settleViewportContinuityFollowUp,
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
@@ -90,25 +90,31 @@ export function useTimelineMentionActions({
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     target: TimelineMentionViewportContinuityTarget,
-    options?: { barrier?: TimelineViewportContinuityBarrier },
+    options?: {
+      requirements?: readonly TimelineContinuityRequirementName[];
+    },
   ) => number;
   readonly clearViewportContinuity: (token: number) => void;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly entityCatalogInput: TimelineEntityCatalogInput;
   readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
   readonly incidentId: string;
   readonly loadRows: (options: TimelineMentionLoadRowsOptions) => Promise<void>;
   readonly nextClientTxnId: () => string;
   readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
+  readonly requireViewportContinuitySourceRecord: (
+    token: number,
+    requirement: TimelineSourceRecordRequirement,
+  ) => void;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
   readonly setDismissedMentionsByRow: Dispatch<
     SetStateAction<Record<string, DismissedMention[]>>
   >;
   readonly setInspectorMessage: (message: string | null) => void;
-  readonly settleViewportContinuityBarrier: (
+  readonly settleViewportContinuityFollowUp: (
     token: number,
-    refreshState: TimelineEntityRefreshSettleState,
+    requirement: TimelineContinuityRequirementName,
+    state: "settled" | "terminal",
   ) => void;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
@@ -127,15 +133,13 @@ export function useTimelineMentionActions({
       const recordId = snapshot.recordId;
       const createClientTxnId = nextClientTxnId();
       const resolveClientTxnId = nextClientTxnId();
-      const entityRefreshBarrier =
-        beginTimelineEntityRefreshBarrier(entityCatalogInput);
       const viewportContinuityToken = beginViewportContinuity(
         {
           kind: "row-inspect",
           recordId,
         },
         {
-          barrier: entityRefreshBarrier,
+          requirements: ["entity-refresh"],
         },
       );
       beginSave();
@@ -216,13 +220,39 @@ export function useTimelineMentionActions({
           return;
         }
 
+        let sourceRecordRequirement: TimelineSourceRecordRequirement;
+        try {
+          const envelope = readEnvelope<MentionActionEnvelope>(result.payload);
+          sourceRecordRequirement = requireMentionActionSourceRecord(
+            envelope,
+            recordId,
+          );
+        } catch {
+          resolvePendingSocketTxn(resolveClientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Mention action source record was invalid.");
+          finishSave("Conflict");
+          return;
+        }
+        requireViewportContinuitySourceRecord(
+          viewportContinuityToken,
+          sourceRecordRequirement,
+        );
+        let projectionCommitted = false;
         await loadRows({
+          afterProjectionCommit: () => {
+            projectionCommitted = true;
+            finishSave("Saved");
+          },
           showLoading: false,
+          sourceRecordRequirement,
           viewportContinuityToken,
         });
-        finishSave("Saved");
+        if (!projectionCommitted) {
+          finishSave("Conflict");
+        }
 
-        let refreshState: TimelineEntityRefreshSettleState = "complete";
+        let refreshState: "settled" | "terminal" = "settled";
         try {
           if (onRefreshEntities === undefined) {
             refreshState = "terminal";
@@ -233,8 +263,9 @@ export function useTimelineMentionActions({
           refreshState = "terminal";
           throw error;
         } finally {
-          settleViewportContinuityBarrier(
+          settleViewportContinuityFollowUp(
             viewportContinuityToken,
+            "entity-refresh",
             refreshState,
           );
         }
@@ -246,16 +277,16 @@ export function useTimelineMentionActions({
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork,
-      entityCatalogInput,
       finishSave,
       incidentId,
       loadRows,
       nextClientTxnId,
       onRefreshEntities,
+      requireViewportContinuitySourceRecord,
       resolvePendingSocketTxn,
       rowsRef,
       setInspectorMessage,
-      settleViewportContinuityBarrier,
+      settleViewportContinuityFollowUp,
       trackPendingSocketTxn,
       waitForCommittedRecordIdle,
     ],
@@ -330,70 +361,103 @@ export function useTimelineMentionActions({
           return;
         }
 
-        const envelope = readEnvelope<MentionActionEnvelope>(result.payload);
+        let envelope: MentionActionEnvelope;
+        let sourceRecordRequirement: TimelineSourceRecordRequirement;
+        try {
+          envelope = readEnvelope<MentionActionEnvelope>(result.payload);
+          sourceRecordRequirement = requireMentionActionSourceRecord(
+            envelope,
+            recordId,
+          );
+        } catch {
+          resolvePendingSocketTxn(clientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Mention action source record was invalid.");
+          finishSave("Conflict");
+          return;
+        }
+        requireViewportContinuitySourceRecord(
+          viewportContinuityToken,
+          sourceRecordRequirement,
+        );
         const entityMention = envelope.data.entity_mention;
-        if (action === "dismiss_item") {
-          setDismissedMentionsByRow((current) => {
-            const rowMentions = current[recordId] ?? [];
-            return {
-              ...current,
-              [recordId]: [
-                ...rowMentions.filter(
-                  (item) => item.itemRef !== currentMention.itemRef,
-                ),
-                {
-                  rowRecordId: recordId,
-                  fieldKey:
-                    entityMention.source_field_key === "timeline.identity_refs"
-                      ? "timeline.identity_refs"
-                      : currentMention.fieldKey,
-                  entityType:
-                    entityMention.entity_type === "identity"
-                      ? "identity"
-                      : currentMention.entityType,
-                  itemRef: currentMention.itemRef,
-                  rawText: entityMention.raw_text || currentMention.rawText,
-                  resolvedRecordId: currentMention.resolvedRecordId,
-                  mentionRowVersion: entityMention.row_version,
-                  resolutionMethod:
-                    entityMention.resolution_method ??
-                    currentMention.resolutionMethod,
-                  autoResolved: currentMention.autoResolved,
-                  displayText: currentMention.displayText,
-                  priorTargetEntityRecordId:
-                    currentMention.anchor.targetEntityRecordId ??
-                    currentMention.priorTargetEntityRecordId ??
-                    currentMention.resolvedRecordId,
-                  provenance: currentMention.provenance,
-                  confidence: currentMention.confidence,
-                  matchedAliasText: currentMention.matchedAliasText,
-                },
-              ],
-            };
-          });
-        }
-        if (action === "revert_to_unresolved") {
-          setDismissedMentionsByRow((current) => {
-            const rowMentions = (current[recordId] ?? []).filter(
-              (item) => item.itemRef !== currentMention.itemRef,
-            );
-            if (rowMentions.length < 1) {
-              const next = { ...current };
-              delete next[recordId];
-              return next;
-            }
-            return {
-              ...current,
-              [recordId]: rowMentions,
-            };
-          });
-        }
+        const applyMentionFollowUp =
+          action === "dismiss_item"
+            ? () => {
+                setDismissedMentionsByRow((current) => {
+                  const rowMentions = current[recordId] ?? [];
+                  return {
+                    ...current,
+                    [recordId]: [
+                      ...rowMentions.filter(
+                        (item) => item.itemRef !== currentMention.itemRef,
+                      ),
+                      {
+                        rowRecordId: recordId,
+                        fieldKey:
+                          entityMention.source_field_key ===
+                          "timeline.identity_refs"
+                            ? "timeline.identity_refs"
+                            : currentMention.fieldKey,
+                        entityType:
+                          entityMention.entity_type === "identity"
+                            ? "identity"
+                            : currentMention.entityType,
+                        itemRef: currentMention.itemRef,
+                        rawText:
+                          entityMention.raw_text || currentMention.rawText,
+                        resolvedRecordId: currentMention.resolvedRecordId,
+                        mentionRowVersion: entityMention.row_version,
+                        resolutionMethod:
+                          entityMention.resolution_method ??
+                          currentMention.resolutionMethod,
+                        autoResolved: currentMention.autoResolved,
+                        displayText: currentMention.displayText,
+                        priorTargetEntityRecordId:
+                          currentMention.anchor.targetEntityRecordId ??
+                          currentMention.priorTargetEntityRecordId ??
+                          currentMention.resolvedRecordId,
+                        provenance: currentMention.provenance,
+                        confidence: currentMention.confidence,
+                        matchedAliasText: currentMention.matchedAliasText,
+                      },
+                    ],
+                  };
+                });
+              }
+            : action === "revert_to_unresolved"
+              ? () => {
+                  setDismissedMentionsByRow((current) => {
+                    const rowMentions = (current[recordId] ?? []).filter(
+                      (item) => item.itemRef !== currentMention.itemRef,
+                    );
+                    if (rowMentions.length < 1) {
+                      const next = { ...current };
+                      delete next[recordId];
+                      return next;
+                    }
+                    return {
+                      ...current,
+                      [recordId]: rowMentions,
+                    };
+                  });
+                }
+              : undefined;
 
+        let projectionCommitted = false;
         await loadRows({
+          afterProjectionCommit: () => {
+            applyMentionFollowUp?.();
+            projectionCommitted = true;
+            finishSave("Saved");
+          },
           showLoading: false,
+          sourceRecordRequirement,
           viewportContinuityToken,
         });
-        finishSave("Saved");
+        if (!projectionCommitted) {
+          finishSave("Conflict");
+        }
       });
     },
     [
@@ -405,6 +469,7 @@ export function useTimelineMentionActions({
       finishSave,
       loadRows,
       nextClientTxnId,
+      requireViewportContinuitySourceRecord,
       resolvePendingSocketTxn,
       rowsRef,
       setDismissedMentionsByRow,
@@ -415,6 +480,26 @@ export function useTimelineMentionActions({
   );
 
   return { createEntityFromMention, submitMentionAction };
+}
+
+function requireMentionActionSourceRecord(
+  envelope: MentionActionEnvelope,
+  expectedRecordId: string,
+): TimelineSourceRecordRequirement {
+  const sourceRecord = envelope.data.source_record;
+  if (
+    sourceRecord.record_id !== expectedRecordId ||
+    !Number.isSafeInteger(sourceRecord.row_version) ||
+    sourceRecord.row_version < 1
+  ) {
+    throw new Error(
+      `Mention action source record ${sourceRecord.record_id}@${sourceRecord.row_version} does not match ${expectedRecordId}.`,
+    );
+  }
+  return {
+    recordId: sourceRecord.record_id,
+    minimumRowVersion: sourceRecord.row_version,
+  };
 }
 
 function currentMentionFromRow(

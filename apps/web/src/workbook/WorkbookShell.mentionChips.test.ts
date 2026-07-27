@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildInspectorMentions } from "./timeline/models/workbookMentionChips";
+import {
+  buildInspectorMentions,
+  type CollectionItem,
+  type DismissedMention,
+  reconcileDismissedMentionsForRow,
+} from "./timeline/models/workbookMentionChips";
 
 describe("browser.entity-linking mention chip state model", () => {
   it("preserves closed mention chip states by stable identifiers and field keys", () => {
@@ -207,5 +212,54 @@ describe("browser.entity-linking mention chip state model", () => {
         resolvedRecordId: null,
       }),
     );
+  });
+
+  it("retains dismissed evidence through stale projections and prunes it only after a newer restore version", () => {
+    const itemRef = "entity_mention:55555555-5555-4555-8555-555555555555";
+    const dismissed = {
+      rowRecordId: "record-1",
+      fieldKey: "timeline.host_refs",
+      entityType: "host",
+      itemRef,
+      rawText: "WS-023?",
+      resolvedRecordId: null,
+      mentionRowVersion: 5,
+      resolutionMethod: null,
+      autoResolved: false,
+    } satisfies DismissedMention;
+    const activeAtVersion = (mentionRowVersion: number): CollectionItem => ({
+      itemRef,
+      entityType: "host",
+      itemKind: "unresolved_mention",
+      displayText: "WS-023?",
+      rawText: "WS-023?",
+      resolvedRecordId: null,
+      mentionRowVersion,
+      resolutionMethod: null,
+      autoResolved: false,
+      provenance: null,
+      confidence: null,
+      matchedAliasText: null,
+    });
+    const dismissedByRow = { "record-1": [dismissed] };
+
+    expect(
+      reconcileDismissedMentionsForRow(dismissedByRow, {
+        recordId: "record-1",
+        collectionValues: {
+          hostRefs: [activeAtVersion(5)],
+          identityRefs: [],
+        },
+      }),
+    ).toBe(dismissedByRow);
+    expect(
+      reconcileDismissedMentionsForRow(dismissedByRow, {
+        recordId: "record-1",
+        collectionValues: {
+          hostRefs: [activeAtVersion(6)],
+          identityRefs: [],
+        },
+      }),
+    ).toEqual({});
   });
 });

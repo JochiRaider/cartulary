@@ -28,18 +28,22 @@ export function buildPlaywrightInvocations(root, unit, rows, workers, artifactRo
     }
     const partitionID = String(index + 1).padStart(3, "0");
     const reportPath = path.join(artifactRoot, `${partitionID}-playwright-report.json`);
+    const playwrightArgs = [
+      "--config", "playwright.config.ts",
+      "--reporter=json",
+      "--project", projects[0],
+      "--workers", String(unit.target_name === "browser-e2e-stateful" ? 1 : workers.playwright),
+      "--output", path.join(artifactRoot, `${partitionID}-playwright-output`),
+      ...files,
+      "-g", `(?:${titles.map(regexEscape).join("|")})`,
+    ];
     return {
       command: pnpm,
       args: [
         "--dir", "apps/web", "exec", "playwright", "test",
-        "--config", "playwright.config.ts",
-        "--reporter=json",
-        "--project", projects[0],
-        "--workers", String(unit.target_name === "browser-e2e-stateful" ? 1 : workers.playwright),
-        "--output", path.join(artifactRoot, `${partitionID}-playwright-output`),
-        ...files,
-        "-g", `(?:${titles.map(regexEscape).join("|")})`,
+        ...playwrightArgs,
       ],
+      playwrightArgs,
       browserSessionGroup: `owner-${unit.work_unit_id}-${partitionID}`,
       reportPath,
       rows: partition,
@@ -89,15 +93,43 @@ function adaptInvocation(runner, invocation, result) {
   throw new Error(`unsupported owner-slice runner ${runner}`);
 }
 
-function commandWithManagedServices(root, unit, command) {
+export function commandWithManagedServices(root, unit, command) {
+  const testServices =
+    process.env.TEST_SERVICES_BIN ||
+    path.join(root, "tmp", "toolbin", "cartulary-test-services");
   if (unit.runner === "playwright") {
+    if (!Array.isArray(command.playwrightArgs)) {
+      throw new Error("owner Playwright invocation is missing attach-only adapter arguments");
+    }
+    const browserCommand = {
+      command: path.join(
+        root,
+        "tools",
+        "harness",
+        "browser",
+        "start-web-e2e.sh",
+      ),
+      args: [
+        "--",
+        path.join(
+          root,
+          "tools",
+          "harness",
+          "browser",
+          "run-browser-e2e-owned-stack.sh",
+        ),
+        ...command.playwrightArgs,
+      ],
+    };
+    if (unit.managed_service_ids.length === 0) {
+      return browserCommand;
+    }
     return {
-      command: path.join(root, "tools", "harness", "browser", "start-web-e2e.sh"),
-      args: ["--", command.command, ...command.args],
+      command: testServices,
+      args: ["run", "--", browserCommand.command, ...browserCommand.args],
     };
   }
   if (unit.managed_service_ids.length === 0) return command;
-  const testServices = process.env.TEST_SERVICES_BIN || path.join(root, "tmp", "toolbin", "cartulary-test-services");
   return {
     command: testServices,
     args: ["run", "--", command.command, ...command.args],
@@ -142,6 +174,8 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
             CARTULARY_BROWSER_SESSION_GROUP:
               rawInvocation.browserSessionGroup ?? `owner-${unit.work_unit_id}`,
             CARTULARY_BROWSER_RUNTIME_PROFILE_ID: unit.runtime_profile_id,
+            CARTULARY_BROWSER_SERVICE_REQUIREMENT:
+              unit.managed_service_ids.length === 0 ? "none" : "test-services",
             CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER: unit.runner === "playwright" ? "1" : "",
             PLAYWRIGHT_JSON_OUTPUT_FILE: rawInvocation.reportPath ?? "",
             PLAYWRIGHT_WORKERS: String(plan.workers.playwright),

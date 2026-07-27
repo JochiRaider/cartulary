@@ -3,10 +3,13 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  dataTestIdSelector,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  gridScrollportSelector,
+  gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
@@ -250,9 +253,10 @@ function truncateDiagnostic(value: string) {
   return `${value.slice(0, limit)}...<truncated ${value.length - limit} chars>`;
 }
 
-export async function expectTimelineContinuity(
+export async function expectTimelineMutationContinuity(
   page: Page,
   recordId: string,
+  minimumRowVersion: number,
   preservedScroll: { left: number; top: number },
   options: {
     requireExactHorizontalScroll?: boolean;
@@ -262,25 +266,105 @@ export async function expectTimelineContinuity(
   await expect
     .poll(() => new URL(page.url()).searchParams.get("surface"))
     .toBeNull();
+  await expect
+    .poll(
+      async () => {
+        const rendered = await page
+          .getByTestId(timelineRowVersionTestId(recordId))
+          .textContent();
+        const rowVersion = Number(rendered);
+        return Number.isSafeInteger(rowVersion) ? rowVersion : -1;
+      },
+      {
+        message: [
+          "Timeline mutation projection did not reach its response version",
+          `record_id=${recordId}`,
+          `minimum_row_version=${minimumRowVersion}`,
+        ].join("\n"),
+      },
+    )
+    .toBeGreaterThanOrEqual(minimumRowVersion);
   const focusTestId = rowCellTestId(
     recordId,
     "timeline.activity_synopsis_text",
   );
-  await scrollGridTargetIntoView({
-    page,
-    surface: timelineViewSchemaId,
-    targetTestId: focusTestId,
-  });
-  await page.getByTestId(focusTestId).scrollIntoViewIfNeeded();
-  await assertGridFocusContinuity({
-    allowContainingGridCell: true,
-    focusTestId,
-    page,
-    preservedScroll,
-    requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,
-    requireExactVerticalScroll: options.requireExactVerticalScroll ?? false,
-    surface: timelineViewSchemaId,
-  });
+  try {
+    await assertGridFocusContinuity({
+      allowContainingGridCell: true,
+      focusTestId,
+      page,
+      preservedScroll,
+      requireExactHorizontalScroll:
+        options.requireExactHorizontalScroll ?? false,
+      requireExactVerticalScroll: options.requireExactVerticalScroll ?? false,
+      surface: timelineViewSchemaId,
+    });
+  } catch (error) {
+    const diagnostic = await timelineContinuityDiagnosticSnapshot(
+      page,
+      recordId,
+      minimumRowVersion,
+    );
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\n${diagnostic}`,
+      { cause: error },
+    );
+  }
+}
+
+async function timelineContinuityDiagnosticSnapshot(
+  page: Page,
+  recordId: string,
+  minimumRowVersion: number,
+) {
+  const snapshot = await page.evaluate(
+    ({ gridSelector, scrollportSelector, targetSelector }) => {
+      const active = document.activeElement;
+      const grid = document
+        .querySelector(gridSelector)
+        ?.querySelector<HTMLElement>(scrollportSelector);
+      return {
+        activeElement: {
+          role: active?.getAttribute("role") ?? null,
+          tag: active?.tagName.toLowerCase() ?? null,
+          testId: active?.getAttribute("data-testid") ?? null,
+        },
+        mountedRowIds: Array.from(
+          document.querySelectorAll<HTMLElement>("[data-grid-record-id]"),
+        )
+          .map((element) => element.dataset.gridRecordId)
+          .filter(
+            (candidate): candidate is string =>
+              candidate !== undefined && candidate !== "",
+          )
+          .filter((candidate, index, all) => all.indexOf(candidate) === index),
+        scroll: {
+          clientHeight: grid?.clientHeight ?? null,
+          clientWidth: grid?.clientWidth ?? null,
+          left: grid?.scrollLeft ?? null,
+          scrollHeight: grid?.scrollHeight ?? null,
+          scrollWidth: grid?.scrollWidth ?? null,
+          top: grid?.scrollTop ?? null,
+        },
+        targetPresent: document.querySelector(targetSelector) !== null,
+      };
+    },
+    {
+      gridSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
+      scrollportSelector: gridScrollportSelector(),
+      targetSelector: dataTestIdSelector(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
+    },
+  );
+  return [
+    `record_id=${recordId}`,
+    `minimum_row_version=${minimumRowVersion}`,
+    `target_present=${snapshot.targetPresent}`,
+    `active_element=${JSON.stringify(snapshot.activeElement)}`,
+    `mounted_row_ids=${JSON.stringify(snapshot.mountedRowIds)}`,
+    `scroll_geometry=${JSON.stringify(snapshot.scroll)}`,
+  ].join("\n");
 }
 
 function findRow(rows: ViewRow[], recordId: string) {

@@ -1,135 +1,102 @@
 import { describe, expect, it } from "vitest";
 import {
-  beginTimelineEntityRefreshBarrier,
-  settleTimelineViewportContinuityBarrier,
-  type TimelineEntityCatalogInput,
-  timelineEntityCatalogKey,
-  timelineEntityRefreshExpectationForMention,
-  timelineViewportContinuityBarrierSatisfied,
-  withTimelineEntityRefreshExpectation,
+  advanceTimelineContinuityRender,
+  beginTimelineContinuityLifecycle,
+  requireTimelineSourceRecord,
+  settleTimelineContinuityRequirement,
+  timelineContinuityRequirementsSettled,
+  timelineSourceRecordRequirementSatisfied,
+  transitionTimelineContinuity,
 } from "./timelineViewportContinuityModel";
 
-const baselineCatalog: TimelineEntityCatalogInput = {
-  hostEntities: [
-    {
-      entityType: "host",
-      recordId: "host-1",
-      rowVersion: 2,
-    },
-  ],
-  identityEntities: [
-    {
-      entityType: "identity",
-      recordId: "identity-1",
-      rowVersion: 3,
-    },
-  ],
-};
-
 describe("timelineViewportContinuityModel", () => {
-  it("builds stable semantic catalog keys independent of list identity and order", () => {
-    expect(timelineEntityCatalogKey(baselineCatalog)).toBe(
-      "host:host-1:2|identity:identity-1:3",
-    );
-    expect(
-      timelineEntityCatalogKey({
-        hostEntities: [
-          {
-            entityType: "host",
-            recordId: "host-1",
-            rowVersion: 2,
-          },
-        ],
-        identityEntities: [
-          {
-            entityType: "identity",
-            recordId: "identity-1",
-            rowVersion: 3,
-          },
-        ],
+  it("holds continuity until the authoritative source row reaches its response version", () => {
+    const required = requireTimelineSourceRecord(
+      beginTimelineContinuityLifecycle({
+        semanticFocusTarget: {
+          kind: "row-inspect",
+          recordId: "record-1",
+        },
+        userInterruptionGeneration: 4,
       }),
-    ).toBe(timelineEntityCatalogKey(baselineCatalog));
+      { recordId: "record-1", minimumRowVersion: 8 },
+    );
+
+    const stale = advanceTimelineContinuityRender(required, {
+      sourceRecord: { recordId: "record-1", rowVersion: 7 },
+    });
+    expect(timelineContinuityRequirementsSettled(stale)).toBe(false);
+
+    const exact = advanceTimelineContinuityRender(stale, {
+      sourceRecord: { recordId: "record-1", rowVersion: 8 },
+    });
+    expect(timelineContinuityRequirementsSettled(exact)).toBe(true);
+
+    const concurrent = advanceTimelineContinuityRender(required, {
+      sourceRecord: { recordId: "record-1", rowVersion: 9 },
+    });
+    expect(timelineContinuityRequirementsSettled(concurrent)).toBe(true);
   });
 
-  it("holds an entity refresh barrier until refresh settlement and catalog progress", () => {
-    const barrier = beginTimelineEntityRefreshBarrier(baselineCatalog);
-
-    expect(
-      timelineViewportContinuityBarrierSatisfied(barrier, baselineCatalog),
-    ).toBe(false);
-    expect(
-      timelineViewportContinuityBarrierSatisfied(
-        settleTimelineViewportContinuityBarrier(barrier, "complete"),
-        baselineCatalog,
-      ),
-    ).toBe(false);
-    expect(
-      timelineViewportContinuityBarrierSatisfied(
-        settleTimelineViewportContinuityBarrier(barrier, "complete"),
-        {
-          ...baselineCatalog,
-          identityEntities: [
-            ...baselineCatalog.identityEntities,
-            {
-              entityType: "identity",
-              recordId: "identity-2",
-              rowVersion: 1,
-            },
-          ],
-        },
-      ),
-    ).toBe(true);
-  });
-
-  it("settles when the expected create-from-mention entity becomes visible", () => {
-    const expected = timelineEntityRefreshExpectationForMention(
-      {
-        collectionValues: {
-          hostRefs: [],
-          identityRefs: [
-            {
-              entityType: "identity",
-              itemRef: "mention-1",
-              resolvedRecordId: "identity-2",
-            },
-          ],
-        },
+  it("rejects source row identity drift and never treats another row as convergence", () => {
+    const lifecycle = beginTimelineContinuityLifecycle({
+      semanticFocusTarget: {
+        kind: "row-inspect",
+        recordId: "record-1",
       },
-      "mention-1",
-    );
-    const barrier = settleTimelineViewportContinuityBarrier(
-      withTimelineEntityRefreshExpectation(
-        beginTimelineEntityRefreshBarrier(baselineCatalog),
-        expected,
-      ),
-      "complete",
-    );
+      userInterruptionGeneration: 0,
+    });
 
-    expect(
-      timelineViewportContinuityBarrierSatisfied(barrier, baselineCatalog),
-    ).toBe(false);
-    expect(
-      timelineViewportContinuityBarrierSatisfied(barrier, {
-        ...baselineCatalog,
-        identityEntities: [
-          {
-            entityType: "identity",
-            recordId: "identity-2",
-            rowVersion: 1,
-          },
-        ],
+    expect(() =>
+      requireTimelineSourceRecord(lifecycle, {
+        recordId: "record-2",
+        minimumRowVersion: 2,
       }),
-    ).toBe(true);
+    ).toThrow(/does not match target/);
+    expect(
+      timelineSourceRecordRequirementSatisfied(
+        { recordId: "record-1", minimumRowVersion: 2 },
+        { recordId: "record-2", rowVersion: 9 },
+      ),
+    ).toBe(false);
   });
 
-  it("lets terminal refresh failures release continuity to row-local fallback restoration", () => {
-    const barrier = settleTimelineViewportContinuityBarrier(
-      beginTimelineEntityRefreshBarrier(baselineCatalog),
-      "terminal",
+  it("tracks named follow-ups, render generations, interruption generation, and terminal state", () => {
+    const lifecycle = beginTimelineContinuityLifecycle({
+      semanticFocusTarget: {
+        kind: "row-inspect",
+        recordId: "record-1",
+      },
+      userInterruptionGeneration: 12,
+      requirements: ["entity-refresh"],
+    });
+    expect(lifecycle).toMatchObject({
+      followUpRequirements: { "entity-refresh": "pending" },
+      renderGeneration: 0,
+      state: "pending",
+      userInterruptionGeneration: 12,
+    });
+    expect(transitionTimelineContinuity(lifecycle, "cancelled")).toMatchObject({
+      followUpRequirements: { "entity-refresh": "pending" },
+      state: "cancelled",
+      userInterruptionGeneration: 12,
+    });
+
+    const settled = settleTimelineContinuityRequirement(
+      lifecycle,
+      "entity-refresh",
+      "settled",
+    );
+    expect(settled.renderGeneration).toBe(1);
+    expect(timelineContinuityRequirementsSettled(settled)).toBe(true);
+    expect(transitionTimelineContinuity(settled, "completed").state).toBe(
+      "completed",
     );
 
-    expect(
-      timelineViewportContinuityBarrierSatisfied(barrier, baselineCatalog),
-    ).toBe(true);
+    const failed = transitionTimelineContinuity(lifecycle, "failed");
+    expect(failed).toMatchObject({
+      followUpRequirements: { "entity-refresh": "terminal" },
+      state: "failed",
+    });
   });
 });

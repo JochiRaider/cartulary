@@ -220,6 +220,14 @@ a second import worker.
    `make generate-drift`.
 7. Audit retained owner evidence when the change affects release closure.
 
+A browser helper that prepares a virtualized grid row may scroll before the
+mutating action. After the action begins, a focus or viewport postcondition
+helper is an observer: it waits for the response's stable source record and
+row-version floor, then reads focus, visibility, and scroll state without
+focusing, scrolling, clicking, or dispatching input. Keep setup helpers and
+postcondition observers separate so the test cannot manufacture continuity
+that the application failed to restore.
+
 A new runner requires an adopted NLSpec and runner-registry revision, closed selector
 and result schemas, an allowlisted checked-in adapter, and positive/negative contract
 fixtures. Dynamic runner plugins and executable loading are unsupported.

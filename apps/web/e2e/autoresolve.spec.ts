@@ -10,8 +10,6 @@ import {
   timelineCollectionInputTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
@@ -23,8 +21,11 @@ import {
   collectionItems,
   findRow,
   hostRefsFieldKey,
+  readMentionAction,
+  readMentionActionRequest,
   requireItemByRawText,
   type ViewRow,
+  waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -35,7 +36,7 @@ import { createTimelineFillers } from "./support/timeline/fixtures";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import {
   ensureTimelineGridTargetVisible,
-  expectTimelineContinuity,
+  expectTimelineMutationContinuity,
   openTimelineInspector,
   readTimelineMutation,
   waitForTimelinePatch,
@@ -142,18 +143,12 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
       autoResolutionReviewButtonTestId(String(eligibleItem.item_ref)),
     ),
   ).toBeVisible();
-  await ensureTimelineGridTargetVisible(
+  await expectTimelineMutationContinuity(
     page,
-    rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+    eligibleRow.record_id,
+    eligibleEnvelope.data.row.row_version,
+    autoScroll,
   );
-  await expect(
-    page
-      .getByTestId(
-        rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
-      )
-      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
-  ).toBeFocused();
-  await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
   const undoScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   const undoResponsePromise = waitForMentionAction(page, eligibleItem.item_ref);
@@ -161,25 +156,22 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     .getByTestId(autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)))
     .click();
   const undoResponse = await undoResponsePromise;
-  const undoEnvelope = await readMentionAction(undoResponse);
+  const undoEnvelope = await readMentionAction(
+    undoResponse,
+    eligibleRow.record_id,
+  );
   const undoBody = readMentionActionRequest(undoResponse);
 
   await expect(autoNotice).toHaveCount(0);
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).not.toContainText(
     "Auto",
   );
-  await ensureTimelineGridTargetVisible(
+  await expectTimelineMutationContinuity(
     page,
-    rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+    eligibleRow.record_id,
+    undoEnvelope.data.source_record.row_version,
+    undoScroll,
   );
-  await expect(
-    page
-      .getByTestId(
-        rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
-      )
-      .locator("xpath=ancestor::*[@role='gridcell'][1]"),
-  ).toBeFocused();
-  await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
   expect(undoBody).toMatchObject({
     base_mention_row_version: eligibleItem.mention_row_version,
     action: "revert_to_unresolved",
@@ -254,38 +246,3 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     expect(item.matched_alias_text).toBeUndefined();
   }
 });
-
-type MentionActionEnvelope = {
-  data: {
-    entity_mention: {
-      resolution_status: string;
-    };
-  };
-};
-
-function waitForMentionAction(page: Page, itemRef: unknown) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
-  );
-}
-
-async function readMentionAction(response: Response) {
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as MentionActionEnvelope;
-}
-
-function readMentionActionRequest(response: Response) {
-  return JSON.parse(response.request().postData() ?? "{}") as Record<
-    string,
-    unknown
-  >;
-}
-
-function entityMentionIdFromItemRef(itemRef: unknown) {
-  const value = String(itemRef);
-  expect(value.startsWith("entity_mention:")).toBe(true);
-  return value.slice("entity_mention:".length);
-}

@@ -512,7 +512,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_builds_stable_se_6a2b4a7870",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_holds_vfloor_f0118a76d2",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
       "collaborator_ids": [],
@@ -523,7 +523,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
-          "timelineViewportContinuityModel builds stable semantic catalog keys independent of list identity and order"
+          "timelineViewportContinuityModel holds continuity until the authoritative source row reaches its response version"
         ]
       },
       "evidence_class": "unit",
@@ -535,7 +535,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_holds_an_entity_a89a871505",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_rejects_identity_a492b14027",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
       "collaborator_ids": [],
@@ -546,7 +546,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
-          "timelineViewportContinuityModel holds an entity refresh barrier until refresh settlement and catalog progress"
+          "timelineViewportContinuityModel rejects source row identity drift and never treats another row as convergence"
         ]
       },
       "evidence_class": "unit",
@@ -558,7 +558,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_lets_terminal_re_a5ad50e640",
+      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_tracks_generations_a6c71020c1",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
       "collaborator_ids": [],
@@ -569,30 +569,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
-          "timelineViewportContinuityModel lets terminal refresh failures release continuity to row-local fallback restoration"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.workbook.regression.timelineviewportcontinuitymodel_settles_when_the_f3dc6de742",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
-        "titles": [
-          "timelineViewportContinuityModel settles when the expected create-from-mention entity becomes visible"
+          "timelineViewportContinuityModel tracks named follow-ups, render generations, interruption generation, and terminal state"
         ]
       },
       "evidence_class": "unit",

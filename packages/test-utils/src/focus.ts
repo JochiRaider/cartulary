@@ -88,16 +88,30 @@ async function assertGridFocusContinuityOnce(options: {
     focusTarget,
     `assertGridFocusContinuity(${surface}, ${focusTestId}) requires locator.evaluate() support`,
   );
-  const isFocused = (await evaluateFocusTarget(
-    (element, allowGridCell) =>
-      document.activeElement === element ||
-      (allowGridCell &&
-        document.activeElement === element.closest('[role="gridcell"]')),
+  const focusState = (await evaluateFocusTarget(
+    (element, allowGridCell) => ({
+      activeRole: document.activeElement?.getAttribute("role") ?? null,
+      activeTag: document.activeElement?.tagName.toLowerCase() ?? null,
+      activeTestId: document.activeElement?.getAttribute("data-testid") ?? null,
+      focused:
+        document.activeElement === element ||
+        (allowGridCell &&
+          document.activeElement === element.closest('[role="gridcell"]')),
+      targetConnected: element.isConnected,
+      targetRole: element.getAttribute("role"),
+    }),
     allowContainingGridCell,
-  )) as boolean;
-  if (!isFocused) {
+  )) as {
+    activeRole: string | null;
+    activeTag: string | null;
+    activeTestId: string | null;
+    focused: boolean;
+    targetConnected: boolean;
+    targetRole: string | null;
+  };
+  if (!focusState.focused) {
     throw new Error(
-      `Expected ${focusTestId} to be focused within the ${surface} grid continuity restore`,
+      `Expected ${focusTestId} to be focused within the ${surface} grid continuity restore (targetConnected=${focusState.targetConnected}, targetRole=${focusState.targetRole ?? "none"}, activeTag=${focusState.activeTag ?? "none"}, activeRole=${focusState.activeRole ?? "none"}, activeTestId=${focusState.activeTestId ?? "none"})`,
     );
   }
   const viewportState = await readTestIdGridViewportState(

@@ -1,150 +1,180 @@
-export type TimelineContinuityEntityType = "host" | "identity";
+export type TimelineContinuitySemanticTarget =
+  | { readonly kind: "row-inspect"; readonly recordId: string }
+  | { readonly kind: "input"; readonly focusKey: string }
+  | { readonly kind: "scroll-only" };
 
-export type TimelineContinuityEntity = {
-  readonly entityType: TimelineContinuityEntityType | string;
-  readonly recordId: string | null | undefined;
-  readonly rowVersion: number | null | undefined;
-};
+export type TimelineContinuityRequirementName =
+  | "entity-refresh"
+  | "row-projection";
 
-export type TimelineEntityRefreshExpectation = {
-  readonly entityType: TimelineContinuityEntityType;
+export type TimelineContinuityRequirementState =
+  | "pending"
+  | "settled"
+  | "terminal";
+
+export type TimelineSourceRecordRequirement = {
   readonly recordId: string;
+  readonly minimumRowVersion: number;
 };
 
-export type TimelineEntityCatalogInput = {
-  readonly hostEntities: readonly TimelineContinuityEntity[];
-  readonly identityEntities: readonly TimelineContinuityEntity[];
+export type TimelineSourceRecordEvidence = {
+  readonly recordId: string;
+  readonly rowVersion: number;
 };
 
-export type TimelineEntityRefreshSettleState = "complete" | "terminal";
+export type TimelineContinuityLifecycleState =
+  | "pending"
+  | "completed"
+  | "cancelled"
+  | "failed";
 
-export type TimelineViewportContinuityBarrier = {
-  readonly kind: "entity-refresh";
-  readonly baselineCatalogKey: string;
-  readonly refreshState: "pending" | TimelineEntityRefreshSettleState;
-  readonly expectedEntity?: TimelineEntityRefreshExpectation | undefined;
-} | null;
-
-export type TimelineMentionEntityRefreshRow = {
-  readonly collectionValues: {
-    readonly hostRefs: readonly TimelineMentionEntityRefreshItem[];
-    readonly identityRefs: readonly TimelineMentionEntityRefreshItem[];
-  };
+export type TimelineContinuityLifecycle = {
+  readonly semanticFocusTarget: TimelineContinuitySemanticTarget;
+  readonly sourceRecordRequirement: TimelineSourceRecordRequirement | null;
+  readonly followUpRequirements: Readonly<
+    Partial<
+      Record<
+        TimelineContinuityRequirementName,
+        TimelineContinuityRequirementState
+      >
+    >
+  >;
+  readonly renderGeneration: number;
+  readonly userInterruptionGeneration: number;
+  readonly state: TimelineContinuityLifecycleState;
 };
 
-type TimelineMentionEntityRefreshItem = {
-  readonly entityType: TimelineContinuityEntityType | string;
-  readonly itemRef: string;
-  readonly resolvedRecordId: string | null;
-};
-
-function entityCatalogToken(entity: TimelineContinuityEntity) {
-  if (entity.recordId === null || entity.recordId === undefined) {
-    return null;
-  }
-  const rowVersion =
-    typeof entity.rowVersion === "number" ? String(entity.rowVersion) : "none";
-  return `${entity.entityType}:${entity.recordId}:${rowVersion}`;
-}
-
-export function timelineEntityCatalogKey(input: TimelineEntityCatalogInput) {
-  return [...input.hostEntities, ...input.identityEntities]
-    .map(entityCatalogToken)
-    .filter((token): token is string => token !== null)
-    .sort()
-    .join("|");
-}
-
-export function beginTimelineEntityRefreshBarrier(
-  input: TimelineEntityCatalogInput,
-): TimelineViewportContinuityBarrier {
+export function beginTimelineContinuityLifecycle({
+  semanticFocusTarget,
+  userInterruptionGeneration,
+  requirements = [],
+}: {
+  readonly semanticFocusTarget: TimelineContinuitySemanticTarget;
+  readonly userInterruptionGeneration: number;
+  readonly requirements?: readonly TimelineContinuityRequirementName[];
+}): TimelineContinuityLifecycle {
   return {
-    kind: "entity-refresh",
-    baselineCatalogKey: timelineEntityCatalogKey(input),
-    refreshState: "pending",
+    semanticFocusTarget,
+    sourceRecordRequirement: null,
+    followUpRequirements: Object.fromEntries(
+      requirements.map((requirement) => [requirement, "pending"]),
+    ),
+    renderGeneration: 0,
+    userInterruptionGeneration,
+    state: "pending",
   };
 }
 
-export function settleTimelineViewportContinuityBarrier(
-  barrier: TimelineViewportContinuityBarrier,
-  refreshState: TimelineEntityRefreshSettleState,
-): TimelineViewportContinuityBarrier {
-  if (barrier === null) {
-    return null;
-  }
-  return {
-    ...barrier,
-    refreshState,
-  };
-}
-
-export function withTimelineEntityRefreshExpectation(
-  barrier: TimelineViewportContinuityBarrier,
-  expectedEntity: TimelineEntityRefreshExpectation | null,
-): TimelineViewportContinuityBarrier {
-  if (barrier === null || expectedEntity === null) {
-    return barrier;
-  }
-  return {
-    ...barrier,
-    expectedEntity,
-  };
-}
-
-export function timelineEntityRefreshExpectationForMention(
-  row: TimelineMentionEntityRefreshRow,
-  itemRef: string,
-): TimelineEntityRefreshExpectation | null {
-  const item = [
-    ...row.collectionValues.hostRefs,
-    ...row.collectionValues.identityRefs,
-  ].find((candidate) => candidate.itemRef === itemRef);
+export function requireTimelineSourceRecord(
+  lifecycle: TimelineContinuityLifecycle,
+  sourceRecord: TimelineSourceRecordRequirement,
+): TimelineContinuityLifecycle {
   if (
-    item?.resolvedRecordId === null ||
-    item?.resolvedRecordId === undefined ||
-    !(item.entityType === "host" || item.entityType === "identity")
+    sourceRecord.recordId.trim() === "" ||
+    !Number.isSafeInteger(sourceRecord.minimumRowVersion) ||
+    sourceRecord.minimumRowVersion < 1
   ) {
-    return null;
+    throw new Error("Timeline continuity source record evidence is invalid.");
+  }
+  if (
+    lifecycle.semanticFocusTarget.kind === "row-inspect" &&
+    lifecycle.semanticFocusTarget.recordId !== sourceRecord.recordId
+  ) {
+    throw new Error(
+      `Timeline continuity source record ${sourceRecord.recordId} does not match target ${lifecycle.semanticFocusTarget.recordId}.`,
+    );
   }
   return {
-    entityType: item.entityType,
-    recordId: item.resolvedRecordId,
+    ...lifecycle,
+    sourceRecordRequirement: sourceRecord,
+    followUpRequirements: {
+      ...lifecycle.followUpRequirements,
+      "row-projection": "pending",
+    },
   };
 }
 
-function entityCatalogHasExpectedEntity(
-  input: TimelineEntityCatalogInput,
-  expectedEntity: TimelineEntityRefreshExpectation | undefined,
+export function timelineSourceRecordRequirementSatisfied(
+  requirement: TimelineSourceRecordRequirement,
+  evidence: TimelineSourceRecordEvidence,
 ) {
-  if (expectedEntity === undefined) {
-    return false;
-  }
-  const entities =
-    expectedEntity.entityType === "host"
-      ? input.hostEntities
-      : input.identityEntities;
-  return entities.some(
-    (entity) =>
-      entity.entityType === expectedEntity.entityType &&
-      entity.recordId === expectedEntity.recordId,
+  return (
+    evidence.recordId === requirement.recordId &&
+    evidence.rowVersion >= requirement.minimumRowVersion
   );
 }
 
-export function timelineViewportContinuityBarrierSatisfied(
-  barrier: TimelineViewportContinuityBarrier,
-  input: TimelineEntityCatalogInput,
+export function advanceTimelineContinuityRender(
+  lifecycle: TimelineContinuityLifecycle,
+  options: {
+    readonly sourceRecord?: TimelineSourceRecordEvidence | undefined;
+  } = {},
+): TimelineContinuityLifecycle {
+  const sourceRecordRequirement = lifecycle.sourceRecordRequirement;
+  const sourceRecordSatisfied =
+    sourceRecordRequirement !== null &&
+    options.sourceRecord !== undefined &&
+    timelineSourceRecordRequirementSatisfied(
+      sourceRecordRequirement,
+      options.sourceRecord,
+    );
+  return {
+    ...lifecycle,
+    followUpRequirements: sourceRecordSatisfied
+      ? {
+          ...lifecycle.followUpRequirements,
+          "row-projection": "settled",
+        }
+      : lifecycle.followUpRequirements,
+    renderGeneration: lifecycle.renderGeneration + 1,
+  };
+}
+
+export function settleTimelineContinuityRequirement(
+  lifecycle: TimelineContinuityLifecycle,
+  requirement: TimelineContinuityRequirementName,
+  state: Exclude<TimelineContinuityRequirementState, "pending">,
+): TimelineContinuityLifecycle {
+  if (lifecycle.followUpRequirements[requirement] === undefined) {
+    return lifecycle;
+  }
+  return {
+    ...lifecycle,
+    followUpRequirements: {
+      ...lifecycle.followUpRequirements,
+      [requirement]: state,
+    },
+    renderGeneration: lifecycle.renderGeneration + 1,
+  };
+}
+
+export function timelineContinuityRequirementsSettled(
+  lifecycle: TimelineContinuityLifecycle,
 ) {
-  if (barrier === null) {
-    return true;
-  }
-  if (barrier.refreshState === "pending") {
-    return false;
-  }
-  if (barrier.refreshState === "terminal") {
-    return true;
-  }
-  return (
-    entityCatalogHasExpectedEntity(input, barrier.expectedEntity) ||
-    timelineEntityCatalogKey(input) !== barrier.baselineCatalogKey
+  return Object.values(lifecycle.followUpRequirements).every(
+    (requirement) => requirement !== "pending",
   );
+}
+
+export function transitionTimelineContinuity(
+  lifecycle: TimelineContinuityLifecycle,
+  state: Exclude<TimelineContinuityLifecycleState, "pending">,
+): TimelineContinuityLifecycle {
+  if (lifecycle.state !== "pending") {
+    return lifecycle;
+  }
+  return {
+    ...lifecycle,
+    followUpRequirements:
+      state === "failed"
+        ? Object.fromEntries(
+            Object.keys(lifecycle.followUpRequirements).map((requirement) => [
+              requirement,
+              "terminal",
+            ]),
+          )
+        : lifecycle.followUpRequirements,
+    renderGeneration: lifecycle.renderGeneration + 1,
+    state,
+  };
 }

@@ -24,6 +24,28 @@ export const identityRefsFieldKey = "timeline.identity_refs";
 
 export type ViewRow = ViewApiRow;
 
+export type MentionActionEnvelope = {
+  data: {
+    incident_id: string;
+    entity_mention: {
+      entity_mention_id: string;
+      source_record_id: string;
+      source_field_key: string;
+      entity_type: "host" | "identity" | string;
+      raw_text: string;
+      resolution_status: "unresolved" | "resolved" | "dismissed" | string;
+      resolved_record_id: string | null;
+      row_version: number;
+      resolution_method: string | null;
+    };
+    source_record: {
+      record_id: string;
+      row_version: number;
+    };
+    change_set_id: string;
+  };
+};
+
 type CollectionItem = Record<string, unknown>;
 
 type TimelinePatchRequestPayload = {
@@ -144,6 +166,47 @@ export function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
       },
     ],
   };
+}
+
+export function entityMentionIdFromItemRef(itemRef: unknown) {
+  const value = String(itemRef);
+  expect(value.startsWith("entity_mention:")).toBe(true);
+  const mentionId = value.slice("entity_mention:".length);
+  expect(mentionId).not.toBe("");
+  return mentionId;
+}
+
+export function waitForMentionAction(page: Page, itemRef: unknown) {
+  const mentionId = entityMentionIdFromItemRef(itemRef);
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+  );
+}
+
+export async function readMentionAction(
+  response: Response,
+  expectedSourceRecordId: string,
+) {
+  expect(response.ok()).toBeTruthy();
+  const envelope = (await response.json()) as MentionActionEnvelope;
+  expect(envelope.data.source_record.record_id).toBe(expectedSourceRecordId);
+  expect(
+    Number.isSafeInteger(envelope.data.source_record.row_version),
+  ).toBeTruthy();
+  expect(envelope.data.source_record.row_version).toBeGreaterThan(0);
+  expect(envelope.data.entity_mention.source_record_id).toBe(
+    expectedSourceRecordId,
+  );
+  return envelope;
+}
+
+export function readMentionActionRequest(response: Response) {
+  return JSON.parse(response.request().postData() ?? "{}") as Record<
+    string,
+    unknown
+  >;
 }
 
 export function collectionItems(

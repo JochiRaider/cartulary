@@ -12,7 +12,7 @@ import {
   timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response, Route } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -24,10 +24,14 @@ import {
   aliasCollectionActionsPayload,
   collectionActionsPayload,
   collectionItems,
+  entityMentionIdFromItemRef,
   findRow,
   hostRefsFieldKey,
+  readMentionAction,
+  readMentionActionRequest,
   requireItemByRawText,
   type ViewRow,
+  waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -130,7 +134,10 @@ test(exactScenarioTitle, async ({ page }) => {
     .selectOption(manualTarget.record_id);
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const manualResolveResponse = await manualResolveResponsePromise;
-  const manualResolveEnvelope = await readMentionAction(manualResolveResponse);
+  const manualResolveEnvelope = await readMentionAction(
+    manualResolveResponse,
+    manualRow.record_id,
+  );
   const manualResolveBody = readMentionActionRequest(manualResolveResponse);
   expect(manualResolveBody).toMatchObject({
     base_mention_row_version: manualMention.mention_row_version,
@@ -174,7 +181,10 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await page.getByTestId(mentionDismissButtonTestId()).click();
   const dismissResponse = await dismissResponsePromise;
-  const dismissEnvelope = await readMentionAction(dismissResponse);
+  const dismissEnvelope = await readMentionAction(
+    dismissResponse,
+    manualRow.record_id,
+  );
   const dismissBody = readMentionActionRequest(dismissResponse);
   expect(dismissBody).toMatchObject({
     base_mention_row_version: manualResolvedItem.mention_row_version,
@@ -207,7 +217,10 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
-  const restoreEnvelope = await readMentionAction(restoreResponse);
+  const restoreEnvelope = await readMentionAction(
+    restoreResponse,
+    manualRow.record_id,
+  );
   const restoreBody = readMentionActionRequest(restoreResponse);
   expect(restoreBody).toMatchObject({
     base_mention_row_version: dismissEnvelope.data.entity_mention.row_version,
@@ -295,7 +308,10 @@ test(exactScenarioTitle, async ({ page }) => {
     .selectOption(correctionTarget.record_id);
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const correctionResponse = await correctionResponsePromise;
-  const correctionEnvelope = await readMentionAction(correctionResponse);
+  const correctionEnvelope = await readMentionAction(
+    correctionResponse,
+    autoCorrectionRow.record_id,
+  );
   const correctionBody = readMentionActionRequest(correctionResponse);
   expect(correctionBody).toMatchObject({
     base_mention_row_version: autoCorrectionItem.mention_row_version,
@@ -365,7 +381,10 @@ test(exactScenarioTitle, async ({ page }) => {
     .getByTestId(autoResolutionUndoButtonTestId(String(autoUndoItem.item_ref)))
     .click();
   const undoResponse = await undoResponsePromise;
-  const undoEnvelope = await readMentionAction(undoResponse);
+  const undoEnvelope = await readMentionAction(
+    undoResponse,
+    autoUndoRow.record_id,
+  );
   const undoBody = readMentionActionRequest(undoResponse);
   expect(undoBody).toMatchObject({
     base_mention_row_version: autoUndoItem.mention_row_version,
@@ -393,23 +412,6 @@ test(exactScenarioTitle, async ({ page }) => {
       .getByLabel(`Unresolved ${autoRawText}`),
   ).toBeVisible();
 });
-
-type MentionActionEnvelope = {
-  data: {
-    entity_mention: {
-      entity_mention_id: string;
-      raw_text: string;
-      resolution_status: string;
-      resolved_record_id: string | null;
-      row_version: number;
-    };
-    source_record: {
-      record_id: string;
-      row_version: number;
-    };
-    change_set_id: string;
-  };
-};
 
 async function routeFailedMentionActionOnce(
   page: Page,
@@ -446,33 +448,6 @@ async function routeFailedMentionActionOnce(
   return async () => {
     await page.unroute(routePattern, routeHandler);
   };
-}
-
-function waitForMentionAction(page: Page, itemRef: unknown) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
-  );
-}
-
-async function readMentionAction(response: Response) {
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as MentionActionEnvelope;
-}
-
-function readMentionActionRequest(response: Response) {
-  return JSON.parse(response.request().postData() ?? "{}") as Record<
-    string,
-    unknown
-  >;
-}
-
-function entityMentionIdFromItemRef(itemRef: unknown) {
-  const value = String(itemRef);
-  expect(value.startsWith("entity_mention:")).toBe(true);
-  return value.slice("entity_mention:".length);
 }
 
 async function refreshedTimelineRow(
