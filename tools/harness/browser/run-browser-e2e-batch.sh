@@ -105,7 +105,7 @@ fi
 
 for group_row in "${stage_groups[@]}"; do
   group_row_fields="${group_row//$'\t'/$'\x1f'}"
-  IFS=$'\x1f' read -r _group_name target _kind _workers reset_before _coverage _execution_dependency _stage_schedule_tags _stage_scheduler_needs _selected_row_ids _browser_session_group _browser_session_isolation_reason _runtime_profile_id _specs <<<"$group_row_fields"
+  IFS=$'\x1f' read -r _group_name target _kind _workers reset_before _coverage _execution_dependency _stage_schedule_tags _stage_scheduler_needs _selected_row_ids _browser_session_group _browser_session_isolation_reason _runtime_profile_id _service_requirement _specs <<<"$group_row_fields"
 
   if [[ -n "${CARTULARY_BROWSER_SELECTED_GROUPS:-}" && ",${CARTULARY_BROWSER_SELECTED_GROUPS}," != *",${_group_name},"* ]]; then
     continue

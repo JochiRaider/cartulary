@@ -284,16 +284,12 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "browser_batch") {
-    const wrapper =
-      recipe.service_wrapper === "test-services"
-        ? "$(TEST_SERVICES_BIN) run -- "
-        : "";
     return [
       ...prefix,
       header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./tools/harness/browser/run-browser-e2e-target.sh ${recipe.stage}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
   }
   if (recipe.type === "step_command") {

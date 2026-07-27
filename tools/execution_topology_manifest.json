@@ -1505,27 +1505,12 @@
             "check_service_backed_safe": true,
             "default_check_required": true
           },
-          "browser": {
-            "default_check_required": true,
-            "schedule_tags": [
-              "service_backed_check"
-            ],
-            "session_groups": [
-              {
-                "name": "default-check-browser-shared",
-                "stages": [
-                  "webserver-backed"
-                ]
-              },
-              {
-                "name": "default-check-stateful-isolated",
-                "stages": [
-                  "stateful"
-                ],
-                "isolation_reason": "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work"
-              }
-            ]
-          }
+    "browser": {
+      "default_check_required": true,
+      "schedule_tags": [
+        "service_backed_check"
+      ]
+    }
         }
       },
       {

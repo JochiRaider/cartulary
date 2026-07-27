@@ -109,6 +109,7 @@ function emptySessionInfo(group, source, sourceIndex) {
     sources: [],
     groups: [],
     runtimeProfileID: "",
+    serviceRequirement: "",
   };
 }
 
@@ -125,6 +126,21 @@ function applySessionGroup(info, source, group, {
     );
   }
   info.runtimeProfileID = runtimeProfileID;
+  const serviceRequirement = String(group.service_requirement ?? "").trim();
+  if (!["none", "test-services"].includes(serviceRequirement)) {
+    throw new Error(
+      `browser session ${info.group} has invalid service requirement ${serviceRequirement || "(missing)"}`,
+    );
+  }
+  if (
+    info.serviceRequirement &&
+    info.serviceRequirement !== serviceRequirement
+  ) {
+    throw new Error(
+      `browser session ${info.group} mixes service requirements ${info.serviceRequirement} and ${serviceRequirement}`,
+    );
+  }
+  info.serviceRequirement = serviceRequirement;
   if (!info.sources.includes(source)) {
     info.sources.push(source);
   }

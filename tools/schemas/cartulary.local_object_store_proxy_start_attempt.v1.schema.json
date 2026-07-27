@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.local_object_store_proxy_start_attempt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "instance_id", "state", "created_at", "configuration", "log_path"],
+  "properties": {
+    "schema_id": { "const": "cartulary.local_object_store_proxy_start_attempt.v1" },
+    "instance_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "state": { "enum": ["launching", "bound"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "bound_at": { "type": "string", "format": "date-time" },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "process": { "$ref": "#/$defs/process_proof" },
+    "log_path": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "bound" } } },
+      "then": { "required": ["bound_at", "process"] },
+      "else": {
+        "not": {
+          "anyOf": [
+            { "required": ["bound_at"] },
+            { "required": ["process"] }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["listen", "upstream_origin", "allowed_origin", "health_path", "configuration_fingerprint"],
+      "properties": {
+        "listen": { "type": "string", "pattern": "^127\\.0\\.0\\.1:[0-9]+$" },
+        "upstream_origin": { "type": "string", "pattern": "^https?://[^/?#]+(?:/[^?#]*)?$" },
+        "allowed_origin": { "type": "string", "pattern": "^https?://[^/?#]+$" },
+        "health_path": { "const": "/.cartulary/s3corsproxy/health" },
+        "configuration_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "process_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boot_id", "pid", "start_time_ticks", "effective_uid", "executable_device", "executable_inode", "executable_sha256"],
+      "properties": {
+        "boot_id": { "type": "string", "minLength": 1 },
+        "pid": { "type": "integer", "minimum": 1 },
+        "start_time_ticks": { "type": "integer", "minimum": 1 },
+        "effective_uid": { "type": "integer", "minimum": 0 },
+        "executable_device": { "type": "integer", "minimum": 0 },
+        "executable_inode": { "type": "integer", "minimum": 1 },
+        "executable_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

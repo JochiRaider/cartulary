@@ -387,8 +387,11 @@ function validateBrowserBatchRecipe({ errors, recipe, label }) {
   ) {
     errors.push(`${label}.workers must be a safe Make value`);
   }
-  if (!["direct", "test-services"].includes(recipe.service_wrapper)) {
-    errors.push(`${label}.service_wrapper must be direct or test-services`);
+  if (recipe.service_resolution !== "runtime-profile") {
+    errors.push(`${label}.service_resolution must be runtime-profile`);
+  }
+  if (recipe.service_wrapper !== undefined) {
+    errors.push(`${label}.service_wrapper is obsolete for browser batches`);
   }
 }
 
@@ -408,6 +411,23 @@ function validateStepCommandRecipe({ errors, recipe, label, helpers }) {
     errors.push(`${label}.failure_note must be a safe non-empty Make value`);
   }
   helpers.validateEnvEntries(errors, recipe.env, `${label}.env`);
+  if (recipe.service_resolution !== undefined) {
+    if (recipe.service_resolution !== "runtime-profile") {
+      errors.push(`${label}.service_resolution must be runtime-profile`);
+    }
+    if (
+      typeof recipe.browser_stage !== "string" ||
+      !makeTargetPattern.test(recipe.browser_stage)
+    ) {
+      errors.push(
+        `${label}.browser_stage must be a safe browser stage when service_resolution is runtime-profile`,
+      );
+    }
+  } else if (recipe.browser_stage !== undefined) {
+    errors.push(
+      `${label}.browser_stage requires service_resolution=runtime-profile`,
+    );
+  }
   helpers.validateCommandTokens(errors, recipe.command, `${label}.command`, {
     required: recipe.mode !== "node",
   });

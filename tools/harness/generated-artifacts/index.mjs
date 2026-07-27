@@ -16,6 +16,7 @@ export {
   renderCheckScheduleManifest,
   renderServiceBackedScheduleProfile,
   renderTaskSurfaceManifest,
+  serviceRequirementForRuntimeProfile,
 } from "./execution-topology.mjs";
 export {
   renderServiceBackedScheduleManifest,

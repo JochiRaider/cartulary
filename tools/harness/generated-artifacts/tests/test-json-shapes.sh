@@ -185,11 +185,12 @@ write_valid_browser_batch() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v6",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v7",
   "runtime_profiles": [
     {
       "id": "default",
-      "kind": "default"
+      "kind": "default",
+      "service_requirement": "test-services"
     }
   ],
   "stages": [
@@ -203,7 +204,8 @@ write_valid_browser_batch() {
         {
           "name": "functional-core",
           "kind": "functional",
-          "target": "browser-e2e-functional"
+          "target": "browser-e2e-functional",
+          "service_requirement": "test-services"
         }
       ]
     }

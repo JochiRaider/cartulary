@@ -30,6 +30,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.browser_group_result.v2",
+      "path": "tools/schemas/cartulary.browser_group_result.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "browser evidence adapter",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.browser_owner_index.v2",
       "path": "tools/schemas/cartulary.browser_owner_index.v2.schema.json",
       "classification": "public_contract",
@@ -41,6 +48,27 @@
       "path": "tools/schemas/cartulary.browser_startup_diagnostics.v1.schema.json",
       "classification": "public_contract",
       "producer": "browser lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_startup_diagnostics.v2",
+      "path": "tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "browser session lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_startup_event.v1",
+      "path": "tools/schemas/cartulary.browser_startup_event.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser session lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.browser_target_result.v1",
+      "path": "tools/schemas/cartulary.browser_target_result.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser evidence finalizer",
       "validation": "json-shape-check"
     },
     {
@@ -265,6 +293,27 @@
       "path": "tools/schemas/cartulary.incident_bundle_compatibility.v1.schema.json",
       "classification": "owner_input",
       "producer": "Incident Bundles compatibility owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_object_store_proxy_health.v1",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "local development object-store proxy lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_object_store_proxy_lease.v1",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_lease.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "local development object-store proxy lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.local_object_store_proxy_start_attempt.v1",
+      "path": "tools/schemas/cartulary.local_object_store_proxy_start_attempt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "local development object-store proxy lifecycle",
       "validation": "json-shape-check"
     },
     {
@@ -671,6 +720,20 @@
       "path": "tools/schemas/cartulary.web_e2e_stack.v3.schema.json",
       "classification": "public_contract",
       "producer": "browser lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.web_e2e_stack.v4",
+      "path": "tools/schemas/cartulary.web_e2e_stack.v4.schema.json",
+      "classification": "public_contract",
+      "producer": "browser session lifecycle",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.web_e2e_stack_lease.v1",
+      "path": "tools/schemas/cartulary.web_e2e_stack_lease.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser session lifecycle",
       "validation": "json-shape-check"
     }
   ]

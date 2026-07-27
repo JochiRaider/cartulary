@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+
+import {
+  secureMkdir,
+  secureWriteFile,
+  validateSchemaSync,
+} from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -38,15 +45,88 @@ function runRoot() {
   return path.resolve(root, results, runID);
 }
 
-function groupPassed(base, groupID, target) {
+function groupResult(base, groupID, target) {
   const file = path.join(base, target, "browser-groups", groupID, "browser-group-result.json");
-  return existsSync(file) && JSON.parse(readFileSync(file, "utf8")).status === "pass";
+  if (!existsSync(file)) return null;
+  const bytes = readFileSync(file);
+  const result = JSON.parse(bytes.toString("utf8"));
+  validateSchemaSync("cartulary.browser_group_result.v2", result);
+  return {
+    file,
+    bytes,
+    result,
+  };
+}
+
+function sha256(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function relativeToRun(base, file) {
+  const relative = path.relative(base, file).replaceAll("\\", "/");
+  if (!relative || relative.startsWith("../") || path.isAbsolute(relative)) {
+    throw new Error(`browser target artifact escapes run root: ${file}`);
+  }
+  return relative;
+}
+
+function writeTargetResult(base, options, groups) {
+  const targetDirectory = path.join(base, options.target);
+  const output = path.join(targetDirectory, "browser-target-result.json");
+  if (existsSync(output)) {
+    throw new Error(`browser target result is immutable: ${output}`);
+  }
+  const sessionsByID = new Map();
+  for (const group of groups) {
+    const existing = sessionsByID.get(group.result.browser_session_id);
+    const session = {
+      browser_session_id: group.result.browser_session_id,
+      runtime_profile_id: group.result.runtime_profile_id,
+      service_requirement: group.result.service_requirement,
+      artifacts: group.result.session_artifacts,
+    };
+    if (existing && JSON.stringify(existing) !== JSON.stringify(session)) {
+      throw new Error(
+        `browser session ${group.result.browser_session_id} has conflicting target evidence`,
+      );
+    }
+    sessionsByID.set(group.result.browser_session_id, session);
+  }
+  const payload = {
+    schema_id: "cartulary.browser_target_result.v1",
+    target_id: options.target,
+    status: groups.every((group) => group.result.status === "pass")
+      ? "pass"
+      : "fail",
+    group_results: groups
+      .map((group) => ({
+        group_id: group.result.group_id,
+        browser_session_id: group.result.browser_session_id,
+        ref: relativeToRun(base, group.file),
+        sha256: sha256(group.bytes),
+      }))
+      .sort((left, right) => left.group_id.localeCompare(right.group_id)),
+    sessions: [...sessionsByID.values()].sort((left, right) =>
+      left.browser_session_id.localeCompare(right.browser_session_id),
+    ),
+    generated_at: new Date().toISOString(),
+  };
+  validateSchemaSync(payload.schema_id, payload);
+  secureMkdir(targetDirectory);
+  secureWriteFile(output, `${JSON.stringify(payload, null, 2)}\n`);
+  return payload;
 }
 
 const options = parse(process.argv.slice(2));
-const requested = options.groups.every((group) => groupPassed(runRoot(), group, options.groupTargets.get(group)))
-  ? "pass"
-  : "fail";
+const base = runRoot();
+const groups = options.groups
+  .map((group) =>
+    groupResult(base, group, options.groupTargets.get(group)),
+  )
+  .filter((group) => group !== null);
+const complete = groups.length === options.groups.length;
+const targetResult = complete ? writeTargetResult(base, options, groups) : null;
+const requested = complete && targetResult.status === "pass" ? "pass" : "fail";
 const helper = process.env.TEST_OUTPUT_SCRIPT || path.join(root, "tools", "harness", "output", "test-output.mjs");
 const node = process.env.NODE_BIN || process.execPath;
 const args = [helper, "target-summary", options.target, requested];

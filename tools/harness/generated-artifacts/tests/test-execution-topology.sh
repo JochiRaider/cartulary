@@ -740,9 +740,13 @@ assert.deepEqual(
   ["test-service-images"],
   "check service session must start after service images and before build artifacts finish",
 );
-const webserverStageSession = expandedUnit("check-service-backed:browser-stage-session:default-check-browser-shared");
+const webserverStageSession = expandedUnit(
+  "check-service-backed:browser-stage-session:browser-e2e-webserver-backed-default",
+);
 const webserverBrowserGroup = expandedCheckSchedule.work_units.find(
-  (unit) => unit.kind === "browser_group" && unit.browser_session_group === "default-check-browser-shared",
+  (unit) =>
+    unit.kind === "browser_group" &&
+    unit.browser_session_group === "browser-e2e-webserver-backed-default",
 );
 const serviceCompleteUnit = expandedUnit("check-service-backed:complete");
 assert.equal(
@@ -754,6 +758,14 @@ assert.equal(
   webserverStageSession?.priority,
   36000,
   "check service-backed browser children must outrank static and drift work",
+);
+assert.deepEqual(
+  webserverStageSession?.env,
+  {
+    CARTULARY_BROWSER_RUNTIME_PROFILE_ID: "default",
+    CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
+  },
+  "check browser session startup must carry the profile-derived service requirement",
 );
 assert.deepEqual(
   webserverStageSession?.needs,

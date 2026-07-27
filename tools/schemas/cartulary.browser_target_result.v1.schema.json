@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_target_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target_id",
+    "status",
+    "group_results",
+    "sessions",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.browser_target_result.v1" },
+    "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "status": { "enum": ["pass", "fail"] },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "group_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group_id", "browser_session_id", "ref", "sha256"],
+        "properties": {
+          "group_id": { "type": "string", "minLength": 1 },
+          "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+          "ref": { "$ref": "#/$defs/run_relative_path" },
+          "sha256": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "sessions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser_session_id",
+          "runtime_profile_id",
+          "service_requirement",
+          "artifacts"
+        ],
+        "properties": {
+          "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+          "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "service_requirement": { "enum": ["none", "test-services"] },
+          "artifacts": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "$ref": "cartulary.browser_group_result.v2#/$defs/artifact" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "run_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  }
+}

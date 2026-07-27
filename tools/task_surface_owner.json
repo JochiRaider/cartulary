@@ -2552,13 +2552,11 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate",
-        "$(TEST_SERVICES_BIN)",
-        "test-service-images"
+        "build-migrate"
       ],
       "stage": "isolated",
       "workers": "1",
-      "service_wrapper": "test-services",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-webserver-backed": {
@@ -2572,7 +2570,7 @@
       ],
       "stage": "webserver-backed",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-functional": {
@@ -2586,7 +2584,7 @@
       ],
       "stage": "functional",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-support": {
@@ -2600,7 +2598,7 @@
       ],
       "stage": "support",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-stateful": {
@@ -2617,7 +2615,7 @@
       ],
       "stage": "stateful",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-resettable": {
@@ -2631,7 +2629,7 @@
       ],
       "stage": "resettable",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-measurement": {
@@ -2641,16 +2639,14 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate",
-        "$(TEST_SERVICES_BIN)",
-        "test-service-images"
+        "build-migrate"
       ],
       "comments": [
         "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
       ],
       "stage": "measurement",
       "workers": "1",
-      "service_wrapper": "test-services",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-visual": {
@@ -2664,13 +2660,15 @@
       ],
       "stage": "visual",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-visual-update": {
       "type": "step_command",
       "mode": "run_step",
       "step_label": "browser-e2e-visual-update",
+      "browser_stage": "visual",
+      "service_resolution": "runtime-profile",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
@@ -3214,7 +3212,7 @@
       ],
       "stage": "a11y",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     }
   },

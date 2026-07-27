@@ -875,24 +875,24 @@ browser-e2e:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" $(TEST_SERVICES_BIN) run -- ./tools/harness/browser/run-browser-e2e-target.sh isolated
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh isolated
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET ?= browser-e2e-webserver-backed
 browser-e2e-webserver-backed:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-webserver-backed)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh webserver-backed
 
 browser-e2e-functional: export CARTULARY_TEST_TARGET ?= browser-e2e-functional
 browser-e2e-functional: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate
+browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh functional
 
 browser-e2e-support: export CARTULARY_TEST_TARGET ?= browser-e2e-support
 browser-e2e-support: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate
+browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh support
 
 # Browser evidence that mutates process-global backend state belongs here.
@@ -901,12 +901,12 @@ browser-e2e-stateful: export CARTULARY_TEST_TARGET ?= browser-e2e-stateful
 browser-e2e-stateful:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-stateful)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh stateful
 
 browser-e2e-resettable: export CARTULARY_TEST_TARGET ?= browser-e2e-resettable
 browser-e2e-resettable: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate
+browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh resettable
 
 # Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
@@ -916,14 +916,14 @@ browser-e2e-measurement:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-measurement)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" $(TEST_SERVICES_BIN) run -- ./tools/harness/browser/run-browser-e2e-target.sh measurement
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh measurement
 
 browser-e2e-visual: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-visual: export CARTULARY_TEST_TARGET ?= browser-e2e-visual
 browser-e2e-visual:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh visual
 
 browser-e2e-visual-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -931,7 +931,7 @@ browser-e2e-visual-update: export CARTULARY_TEST_TARGET ?= browser-e2e-visual-up
 browser-e2e-visual-update:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual-update)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "browser-e2e-visual-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CARTULARY_SERVER_HARNESS_BIN="$(SERVER_HARNESS_BIN)" CARTULARY_MIGRATE_BIN="$(MIGRATE_BIN)" CARTULARY_TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" bash ./tools/harness/browser/run-browser-e2e-visual-update.sh
 	$(call RUN_TARGET_SUMMARY,browser-e2e-visual-update,pass)
 
@@ -1186,6 +1186,6 @@ browser-e2e-a11y: export CARTULARY_TEST_TARGET ?= browser-e2e-a11y
 browser-e2e-a11y:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-a11y)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP) build-web build-server-harness build-migrate $(TEST_SERVICES_BIN) test-service-images; fi
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ./tools/harness/browser/run-browser-e2e-target.sh a11y
 

@@ -56,6 +56,70 @@ function groupArtifactRoot(target, groupName) {
   return path.join(runRoot(), target, "browser-groups", safeName);
 }
 
+function sessionArtifacts() {
+  const stackPath = process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE;
+  const stackDigest = process.env.CARTULARY_WEB_E2E_STACK_SHA256;
+  const diagnosticRef = process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS_REF;
+  const diagnosticDigest =
+    process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS_SHA256;
+  if (!stackPath || !stackDigest || !diagnosticRef || !diagnosticDigest) {
+    throw new Error("browser group requires validated v4 session artifact evidence");
+  }
+  return [
+    {
+      kind: "stack_v4",
+      ref: path.relative(runRoot(), stackPath).replaceAll("\\", "/"),
+      sha256: stackDigest,
+    },
+    {
+      kind: "startup_diagnostics_v2",
+      ref: diagnosticRef,
+      sha256: diagnosticDigest,
+    },
+  ];
+}
+
+function validateCurrentSessionAttachment() {
+  const stackPath = process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE?.trim() ?? "";
+  if (!stackPath) {
+    throw new Error(
+      "browser group requires CARTULARY_WEB_E2E_STACK_JSON_FILE",
+    );
+  }
+  const validation = spawnSync(
+    process.env.NODE_BIN || process.execPath,
+    [
+      path.join(
+        root,
+        "tools/harness/browser/browser-session-evidence.mjs",
+      ),
+      "attach-json",
+      stackPath,
+    ],
+    {
+      cwd: root,
+      env: process.env,
+      encoding: "utf8",
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  );
+  if (validation.status !== 0) {
+    throw new Error(
+      `browser v4 attachment validation failed: ${(validation.stderr || validation.stdout || "unknown validation failure").trim()}`,
+    );
+  }
+  const assignments = JSON.parse(validation.stdout);
+  if (
+    !assignments ||
+    typeof assignments !== "object" ||
+    Array.isArray(assignments) ||
+    Object.values(assignments).some((value) => typeof value !== "string")
+  ) {
+    throw new Error("browser v4 attachment validator returned invalid environment");
+  }
+  Object.assign(process.env, assignments);
+}
+
 function executionTarget(group) {
   const mode = process.env.CARTULARY_BROWSER_MAINTENANCE_MODE ?? "";
   if (mode === "") return group.target;
@@ -136,6 +200,19 @@ function main() {
   const stage = resolveBrowserBatchStage(manifest, options.stage);
   const group = stage.groups.find((entry) => entry.name === options.group);
   if (!group) throw new Error(`browser stage ${options.stage} has no group ${options.group}`);
+  validateCurrentSessionAttachment();
+  const attachedSessionID =
+    process.env.CARTULARY_BROWSER_SESSION_GROUP?.trim() ?? "";
+  if (
+    process.env.CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED !== "1" ||
+    attachedSessionID !== group.browserSessionGroup ||
+    process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID !==
+      group.runtimeProfileID ||
+    process.env.CARTULARY_BROWSER_SERVICE_REQUIREMENT !==
+      group.serviceRequirement
+  ) {
+    throw new Error(`browser group ${group.name} session attachment mismatch`);
+  }
   const catalog = loadTestCatalog(root);
   const rows = groupRows(catalog, group);
   const target = executionTarget(group);
@@ -177,11 +254,13 @@ function main() {
   const rowResults = adaptPlaywrightReport(rows, report, child.status ?? 11);
   const exitCode = exitCodeForRows(rowResults, child);
   const result = {
-    schema_id: "cartulary.browser_group_result.v1",
+    schema_id: "cartulary.browser_group_result.v2",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,
+    browser_session_id: group.browserSessionGroup,
     runtime_profile_id: group.runtimeProfileID,
+    service_requirement: group.serviceRequirement,
     fixture_profile_ids: [...new Set(rows.map((row) => row.fixture_profile_id))].sort(),
     resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
     selected_rows: rows.map((row) => row.row_id).sort(),
@@ -191,6 +270,7 @@ function main() {
     status: exitCode === 0 ? "pass" : "fail",
     exit_code: exitCode,
     row_results: rowResults,
+    session_artifacts: sessionArtifacts(),
     artifacts: {
       playwright_report: path.relative(runRoot(), reportPath).replaceAll("\\", "/"),
       stdout: path.relative(runRoot(), stdoutPath).replaceAll("\\", "/"),

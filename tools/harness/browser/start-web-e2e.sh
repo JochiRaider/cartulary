@@ -5,18 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=tools/harness/browser/browser-lifecycle-adapter.sh
 source "${ROOT_DIR}/tools/harness/browser/browser-lifecycle-adapter.sh"
 
-COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
-DEV_SERVICES_SCRIPT="${ROOT_DIR}/tools/harness/readiness/dev-services.sh"
 GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_HARNESS_BIN="${CARTULARY_SERVER_HARNESS_BIN:-}"
-MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
 TEST_SERVICE_FRONTEND_PORT_START=39000
 TEST_SERVICE_FRONTEND_PORT_END=39199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
-TEST_SERVICE_FRONTEND_PREVIEW_RETRY_LIMIT=5
 WEB_DIST_INDEX="${ROOT_DIR}/apps/web/dist/index.html"
+SESSION_EVIDENCE_HELPER="${ROOT_DIR}/tools/harness/browser/browser-session-evidence.mjs"
 FRONTEND_MODE="preview"
 FRONTEND_COMMAND_KIND="vite-preview"
 
@@ -28,14 +25,18 @@ WEB_LOG=""
 STACK_ENV_FILE=""
 STACK_JSON_FILE=""
 STARTUP_DIAGNOSTIC_FILE=""
+STARTUP_EVENTS_FILE=""
+STACK_LEASE_FILE=""
+SERVICE_SCOPE_SNAPSHOT_FILE=""
+RUN_ROOT=""
+SUITE_ID="${CARTULARY_TEST_SUITE_ID:-}"
+BROWSER_SESSION_ID="${CARTULARY_BROWSER_SESSION_GROUP:-}"
 PLAYWRIGHT_STATE_DIR=""
 TEST_ROUTE_TOKEN=""
 TEST_ROUTE_TOKEN_FILE=""
 BACKEND_READY_AT=""
 FRONTEND_READY_AT=""
-BACKEND_IDENTITY_STATUS=""
 BACKEND_IDENTITY_SERVER_PID=""
-FRONTEND_OWNERSHIP_STATUS=""
 TEST_SERVICES_ENV_FILE=""
 TEST_SERVICES_METADATA_FILE=""
 E2E_DB=""
@@ -138,34 +139,56 @@ parse_child_command() {
 }
 
 prepare_runtime_root() {
-  local session_artifact_suffix=""
-  TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
-  if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
-    if [[ -n "${CARTULARY_BROWSER_SESSION_GROUP:-}" ]]; then
-      session_artifact_suffix="-$(slugify_step_label "${CARTULARY_BROWSER_SESSION_GROUP}")"
-    fi
-    TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack${session_artifact_suffix}"
-  fi
+  local results_root="${CARTULARY_TEST_RESULTS_DIR:-}"
+  local run_id="${CARTULARY_TEST_RUN_ID:-}"
 
-  if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
-    step_secure_mkdir "${TARGET_ARTIFACT_DIR}"
-    RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
-    SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
-    WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
-    STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
-    STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack.json"
-    STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
-    rm -rf "${RUNTIME_ROOT_BASE}"
-    rm -f "${SERVER_LOG}" "${WEB_LOG}" "${STACK_ENV_FILE}" "${STACK_JSON_FILE}" "${STARTUP_DIAGNOSTIC_FILE}"
-    KEEP_RUNTIME_ROOT=1
-  else
-    RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
-    SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
-    WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
-    STACK_ENV_FILE="${RUNTIME_ROOT_BASE}/stack.env"
-    STACK_JSON_FILE="${RUNTIME_ROOT_BASE}/stack.json"
-    STARTUP_DIAGNOSTIC_FILE="${RUNTIME_ROOT_BASE}/startup-diagnostics.json"
+  if [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" != "1" ]]; then
+    echo "managed browser sessions require CARTULARY_TEST_SERVICES_ACTIVE=1" >&2
+    return 2
   fi
+  if [[ "${CARTULARY_BROWSER_SERVICE_REQUIREMENT:-}" != "test-services" ]]; then
+    echo "browser lifecycle adapter requires CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services" >&2
+    return 2
+  fi
+  if [[ ! "${SUITE_ID}" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo "managed browser session requires a safe CARTULARY_TEST_SUITE_ID" >&2
+    return 2
+  fi
+  if [[ ! "${BROWSER_SESSION_ID}" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo "managed browser session requires a safe CARTULARY_BROWSER_SESSION_GROUP" >&2
+    return 2
+  fi
+  if [[ -z "${results_root}" || ! "${run_id}" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo "managed browser session requires CARTULARY_TEST_RESULTS_DIR and a safe CARTULARY_TEST_RUN_ID" >&2
+    return 2
+  fi
+  if [[ "${results_root}" = /* ]]; then
+    RUN_ROOT="${results_root}/${run_id}"
+  else
+    RUN_ROOT="${ROOT_DIR}/${results_root}/${run_id}"
+  fi
+  TARGET_ARTIFACT_DIR="${RUN_ROOT}/_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}"
+  step_secure_mkdir "${TARGET_ARTIFACT_DIR}" "${TARGET_ARTIFACT_DIR}/logs"
+  RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
+  SERVER_LOG="${TARGET_ARTIFACT_DIR}/logs/server.log"
+  WEB_LOG="${TARGET_ARTIFACT_DIR}/logs/web.log"
+  STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
+  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v4.json"
+  STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
+  STARTUP_EVENTS_FILE="${TARGET_ARTIFACT_DIR}/startup-events.jsonl"
+  STACK_LEASE_FILE="${TARGET_ARTIFACT_DIR}/browser-stack-lease.json"
+  SERVICE_SCOPE_SNAPSHOT_FILE="${TARGET_ARTIFACT_DIR}/service-scope-admission.json"
+  rm -rf "${RUNTIME_ROOT_BASE}"
+  rm -f \
+    "${SERVER_LOG}" \
+    "${WEB_LOG}" \
+    "${STACK_ENV_FILE}" \
+    "${STACK_JSON_FILE}" \
+    "${STARTUP_DIAGNOSTIC_FILE}" \
+    "${STARTUP_EVENTS_FILE}" \
+    "${STACK_LEASE_FILE}" \
+    "${SERVICE_SCOPE_SNAPSHOT_FILE}"
+  KEEP_RUNTIME_ROOT=1
 
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
   E2E_DB="cartulary_web_e2e_$$"
@@ -187,16 +210,12 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   export CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}"
+  export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="${TARGET_ARTIFACT_DIR}"
   export CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}"
   export CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
-  export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:-localhost:8333}"
-  export CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-cartulary-local}"
-  export CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:-cartulary-local-secret}"
-  export CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:-false}"
-  export CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}"
 }
 
 prepare_runtime_profile() {
@@ -225,6 +244,28 @@ prepare_runtime_profile() {
 write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
+  if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
+    return 0
+  fi
+  if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
+    echo "v4 browser stack publication requires terminal startup diagnostics" >&2
+    return 1
+  fi
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  export CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}"
+  export CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}"
+  export CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}"
+  export CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}"
+  export CARTULARY_WEB_E2E_BACKEND_READY_AT="${BACKEND_READY_AT}"
+  export CARTULARY_WEB_E2E_FRONTEND_READY_AT="${FRONTEND_READY_AT}"
+  export CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}"
+  export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}"
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" lease
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" stack >/dev/null
+  export CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}"
+
   step_secure_mkdir "$(dirname "${STACK_ENV_FILE}")"
   cat >"${STACK_ENV_FILE}" <<EOF
 CARTULARY_WEB_E2E_API_ORIGIN=${API_ORIGIN}
@@ -235,122 +276,14 @@ CARTULARY_WEB_E2E_RUNTIME_ROOT=${RUNTIME_ROOT_BASE}
 CARTULARY_WEB_E2E_SERVER_LOG=${SERVER_LOG}
 CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
 CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS=${STARTUP_DIAGNOSTIC_FILE}
+CARTULARY_WEB_E2E_STACK_JSON_FILE=${STACK_JSON_FILE}
 CARTULARY_WEB_E2E_FRONTEND_MODE=${FRONTEND_MODE}
 CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND=${FRONTEND_COMMAND_KIND}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID}
 CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT=${RUNTIME_PROFILE_FINGERPRINT}
 EOF
   chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
-
-  CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}" \
-  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
-  CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-  CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}" \
-  CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}" \
-  CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
-  CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
-  CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
-  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
-  CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
-  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
-  CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
-  CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID="${RUNTIME_PROFILE_ID}" \
-  CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="${RUNTIME_PROFILE_FINGERPRINT}" \
-  CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
-  CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
-  CARTULARY_WEB_E2E_BACKEND_READY_AT="${BACKEND_READY_AT}" \
-  CARTULARY_WEB_E2E_FRONTEND_READY_AT="${FRONTEND_READY_AT}" \
-  CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS="${BACKEND_IDENTITY_STATUS}" \
-  CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="${BACKEND_IDENTITY_SERVER_PID}" \
-  CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS="${FRONTEND_OWNERSHIP_STATUS}" \
-  CARTULARY_WEB_E2E_DB="${E2E_DB}" \
-  CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}" \
-  CARTULARY_TEST_SERVICES_ACTIVE="${CARTULARY_TEST_SERVICES_ACTIVE:-}" \
-    "${node_bin}" <<'EOF'
-const fs = require("node:fs");
-
-const fixtureIdentity = resolveFixtureIdentity();
-
-const payload = {
-  schema_id: "cartulary.web_e2e_stack.v3",
-  api_origin: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
-  public_origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
-  backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
-  frontend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT ?? "", 10),
-  frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
-  frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
-  runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
-  server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
-  web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
-  startup_diagnostics: stringOrUndefined(process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS),
-  runtime_profile_id: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
-  runtime_profile_fingerprint: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
-  backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
-  frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
-  backend_ready_at: stringOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_READY_AT),
-  frontend_ready_at: stringOrUndefined(process.env.CARTULARY_WEB_E2E_FRONTEND_READY_AT),
-  backend_identity: process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS
-    ? {
-        status: process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_STATUS,
-        server_pid: numberOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID),
-        schema_id: "cartulary.test.runtime_identity.v1",
-      }
-    : undefined,
-  frontend_ownership: process.env.CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS
-    ? {
-        status: process.env.CARTULARY_WEB_E2E_FRONTEND_OWNERSHIP_STATUS,
-      }
-    : undefined,
-  database: fixtureIdentity,
-};
-
-function stringOrUndefined(value) {
-  const normalized = value?.trim() ?? "";
-  return normalized === "" ? undefined : normalized;
-}
-
-function numberOrUndefined(value) {
-  const normalized = value?.trim() ?? "";
-  if (normalized === "") {
-    return undefined;
-  }
-  const parsed = Number.parseInt(normalized, 10);
-  return Number.isInteger(parsed) ? parsed : undefined;
-}
-
-function resolveFixtureIdentity() {
-  if (process.env.CARTULARY_TEST_SERVICES_ACTIVE === "1") {
-    const metadataFile = process.env.CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE;
-    if (metadataFile && fs.existsSync(metadataFile)) {
-      const metadata = JSON.parse(fs.readFileSync(metadataFile, "utf8"));
-      if (metadata.database_name) {
-        return {
-          logical_id: metadata.database_name,
-          source: "testservices",
-          bucket: metadata.bucket,
-        };
-      }
-    }
-    return undefined;
-  }
-  if (process.env.CARTULARY_WEB_E2E_DB) {
-    return {
-      logical_id: process.env.CARTULARY_WEB_E2E_DB,
-      source: "standalone",
-    };
-  }
-  return undefined;
-}
-
-for (const key of Object.keys(payload)) {
-  if (payload[key] === undefined) {
-    delete payload[key];
-  }
-}
-
-fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-fs.chmodSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, 0o600);
-EOF
+  return 0
 }
 
 write_startup_diagnostics() {
@@ -361,188 +294,53 @@ write_startup_diagnostics() {
   local message="${5:-}"
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
-  if [[ -z "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    return 0
-  fi
   if [[ ! -x "${node_bin}" ]]; then
     node_bin="node"
   fi
-
-  step_secure_mkdir "$(dirname "${STARTUP_DIAGNOSTIC_FILE}")"
-  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS="${status}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_STEP="${step}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS="${failure_class}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON="${failure_reason}" \
-  CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE="${message}" \
-  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
-  CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-  CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}" \
-  CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}" \
-  CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
-  CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
-  CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
-  CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
-  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
-  CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
-  CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
-    "${node_bin}" <<'EOF'
-const fs = require("node:fs");
-const path = require("node:path");
-
-const outputPath = process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS;
-const message = stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE);
-const backendLogSample = readLogSample(process.env.CARTULARY_WEB_E2E_SERVER_LOG);
-const frontendLogSample = readLogSample(process.env.CARTULARY_WEB_E2E_WEB_LOG);
-const combinedText = `${message ?? ""}\n${backendLogSample ?? ""}\n${frontendLogSample ?? ""}`;
-const inotify = /ENOSPC|System limit for number of file watchers reached|inotify/i.test(combinedText)
-  ? collectInotifyDiagnostics()
-  : undefined;
-const normalizedFailure = normalizeFailure(
-  process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS,
-  process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON,
-  combinedText,
-);
-
-const payload = {
-  schema_id: "cartulary.browser_startup_diagnostics.v1",
-  generated_at: new Date().toISOString(),
-  target: stringOrUndefined(process.env.CARTULARY_TEST_TARGET),
-  status: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS,
-  startup_step: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_STEP,
-  frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
-  frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
-  api_origin: stringOrUndefined(process.env.CARTULARY_WEB_E2E_API_ORIGIN),
-  public_origin: stringOrUndefined(process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN),
-  backend_port: numberOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_PORT),
-  frontend_port: numberOrUndefined(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT),
-  backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
-  frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
-  runtime_root: stringOrUndefined(process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT),
-  failure_class: normalizedFailure.failure_class,
-  failure_reason: normalizedFailure.failure_reason,
-  message,
-  logs: {
-    backend: stringOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_LOG),
-    frontend: stringOrUndefined(process.env.CARTULARY_WEB_E2E_WEB_LOG),
-  },
-  inotify,
-};
-
-for (const key of Object.keys(payload)) {
-  if (payload[key] === undefined) {
-    delete payload[key];
-  }
-}
-if (payload.logs && Object.values(payload.logs).every((value) => value === undefined)) {
-  delete payload.logs;
+  if [[ "${status}" == "fail" ]]; then
+    "${node_bin}" "${SESSION_EVIDENCE_HELPER}" terminal \
+      failed "${message:-browser session startup failed during ${step}}" \
+      "${failure_class:-infra}" "${failure_reason:-service_start_error}" || true
+    return 0
+  fi
+  if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
+    local state="${step}"
+    case "${step}" in
+      frontend_artifact) state="initializing" ;;
+      backend_readiness) state="backend_ready" ;;
+      frontend_readiness) state="frontend_ready" ;;
+    esac
+    "${node_bin}" "${SESSION_EVIDENCE_HELPER}" event \
+      "${state}" "${message:-browser session completed ${step}}" || true
+  fi
+  return 0
 }
 
-fs.mkdirSync(path.dirname(outputPath), { recursive: true, mode: 0o700 });
-fs.writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-fs.chmodSync(outputPath, 0o600);
-
-function stringOrUndefined(value) {
-  const normalized = value?.trim() ?? "";
-  return normalized === "" ? undefined : normalized;
+record_startup_event() {
+  local state="$1"
+  local message="$2"
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" event "${state}" "${message}"
 }
 
-function numberOrUndefined(value) {
-  const normalized = value?.trim() ?? "";
-  if (normalized === "") {
-    return undefined;
-  }
-  const parsed = Number.parseInt(normalized, 10);
-  return Number.isInteger(parsed) ? parsed : undefined;
+finalize_startup_ready() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" terminal \
+    ready "browser session ${BROWSER_SESSION_ID} is ready"
 }
 
-function readLogSample(file) {
-  if (!file || !fs.existsSync(file)) {
-    return undefined;
-  }
-  const text = fs.readFileSync(file, "utf8");
-  return text.split(/\r?\n/).slice(-40).join("\n");
-}
-
-function normalizeFailure(failureClass, failureReason, text) {
-  const inputClass = stringOrUndefined(failureClass);
-  const inputReason = stringOrUndefined(failureReason);
-  if (!inputClass && !inputReason) {
-    return {};
-  }
-  if (isResourceConflict(text)) {
-    return {
-      failure_class: "infra",
-      failure_reason: "resource_conflict",
-    };
-  }
-  return {
-    failure_class: inputClass,
-    failure_reason: inputReason,
-  };
-}
-
-function isResourceConflict(text) {
-  return /(?:port .* is already in use|is already in use|strictPort|eaddrinuse|address already in use|listener conflict|failed to allocate an available|port must differ)/i.test(text);
-}
-
-function readIntFile(file) {
-  try {
-    const parsed = Number.parseInt(fs.readFileSync(file, "utf8").trim(), 10);
-    return Number.isInteger(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function collectInotifyDiagnostics() {
-  const diagnostics = {
-    platform: process.platform,
-    max_user_watches: readIntFile("/proc/sys/fs/inotify/max_user_watches"),
-    max_user_instances: readIntFile("/proc/sys/fs/inotify/max_user_instances"),
-    remediation:
-      "Raise fs.inotify.max_user_watches and fs.inotify.max_user_instances or stop stale watcher-heavy processes; the harness does not mutate host sysctl settings.",
-  };
-  if (process.platform !== "linux") {
-    return diagnostics;
-  }
-
-  let currentInstances = 0;
-  let currentWatches = 0;
-  try {
-    for (const pid of fs.readdirSync("/proc")) {
-      if (!/^\d+$/.test(pid)) {
-        continue;
-      }
-      const fdinfoDir = `/proc/${pid}/fdinfo`;
-      let fdinfos = [];
-      try {
-        fdinfos = fs.readdirSync(fdinfoDir);
-      } catch {
-        continue;
-      }
-      for (const fdinfo of fdinfos) {
-        let text = "";
-        try {
-          text = fs.readFileSync(`${fdinfoDir}/${fdinfo}`, "utf8");
-        } catch {
-          continue;
-        }
-        const matches = text.match(/^inotify\b/gm);
-        if (matches) {
-          currentInstances += 1;
-          currentWatches += matches.length;
-        }
-      }
-    }
-    diagnostics.current_instances = currentInstances;
-    diagnostics.current_watches = currentWatches;
-  } catch {
-    diagnostics.current_usage_available = false;
-  }
-  return diagnostics;
-}
-EOF
+snapshot_service_scope() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  "${node_bin}" "${SESSION_EVIDENCE_HELPER}" snapshot-service-scope
 }
 
 require_frontend_preview_artifacts() {
@@ -637,13 +435,6 @@ stop_owned_process_group() {
   return "${status}"
 }
 
-cleanup_standalone_database() {
-  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-    psql -U cartulary -d postgres \
-    -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${E2E_DB}' AND pid <> pg_backend_pid();" \
-    -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1
-}
-
 remove_retained_secret_material() {
   local candidate=""
   local status=0
@@ -709,24 +500,8 @@ cleanup() {
   fi
   emit_target_timing_span "teardown" "browser-e2e stop owned processes" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${cleanup_status}"
 
-  if using_test_services_stack; then
-    if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
-      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
-    fi
-  else
-    step_start_time="$(step_now_utc)"
-    step_start_ms="$(step_now_monotonic_ms)"
-    step_status=0
-    cleanup_standalone_database || step_status=$?
-    step_end_time="$(step_now_utc)"
-    step_end_ms="$(step_now_monotonic_ms)"
-    step_duration_ms="$(step_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
-    step_span_status="pass"
-    if [[ "${step_status}" -ne 0 ]]; then
-      step_span_status="fail"
-      cleanup_status="${step_status}"
-    fi
-    emit_target_timing_span "teardown" "browser-e2e cleanup standalone database" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${step_status}"
+  if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
+    "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
   fi
   remove_retained_secret_material || cleanup_status=$?
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
@@ -793,6 +568,11 @@ write_session_files() {
   CARTULARY_WEB_E2E_DB="${E2E_DB}" \
   CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="${TEST_SERVICES_METADATA_FILE}" \
   CARTULARY_WEB_E2E_TEST_SERVICES_ACTIVE="${CARTULARY_TEST_SERVICES_ACTIVE:-}" \
+  CARTULARY_WEB_E2E_PGTEST_SCHEMA_HASH="${CARTULARY_PGTEST_SCHEMA_HASH}" \
+  CARTULARY_WEB_E2E_PGTEST_TEMPLATE_DB="${CARTULARY_PGTEST_TEMPLATE_DB}" \
+  CARTULARY_WEB_E2E_S3_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT}" \
+  CARTULARY_WEB_E2E_S3_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE}" \
+  CARTULARY_WEB_E2E_S3_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET}" \
     "${node_bin}" <<'EOF'
 const fs = require("node:fs");
 
@@ -807,11 +587,18 @@ const env = {
   CARTULARY_WEB_E2E_SERVER_LOG: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   CARTULARY_WEB_E2E_WEB_LOG: process.env.CARTULARY_WEB_E2E_WEB_LOG,
   CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS: process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS,
+  CARTULARY_WEB_E2E_STACK_JSON_FILE: process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE,
+  CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR: process.env.CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR,
   CARTULARY_WEB_E2E_FRONTEND_MODE: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
   CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   CARTULARY_TEST_ROUTE_TOKEN_FILE: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
   CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_ID,
   CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT: process.env.CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT,
+  CARTULARY_PGTEST_SCHEMA_HASH: process.env.CARTULARY_WEB_E2E_PGTEST_SCHEMA_HASH,
+  CARTULARY_PGTEST_TEMPLATE_DB: process.env.CARTULARY_WEB_E2E_PGTEST_TEMPLATE_DB,
+  CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT: process.env.CARTULARY_WEB_E2E_S3_ENDPOINT,
+  CARTULARY_S3_OBJECT_PRIMARY_SECURE: process.env.CARTULARY_WEB_E2E_S3_SECURE,
+  CARTULARY_S3_OBJECT_PRIMARY_BUCKET: process.env.CARTULARY_WEB_E2E_S3_BUCKET,
 };
 const lease = {
   schema_id: "cartulary.web_e2e_session_lease.v1",
@@ -896,6 +683,14 @@ on_exit() {
 
   trap - EXIT
   set +e
+  if [[ "${status}" -ne 0 && -n "${STARTUP_DIAGNOSTIC_FILE}" && ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
+    write_startup_diagnostics \
+      "fail" \
+      "initializing" \
+      "infra" \
+      "service_start_error" \
+      "browser session lifecycle exited before publishing ready evidence" || true
+  fi
   cleanup
   cleanup_status=$?
   set -e
@@ -1051,60 +846,55 @@ assert_port_free() {
   fi
 
   if ss -ltn "sport = :${port}" | tail -n +2 | grep -q .; then
-    echo "${name} port ${port} is already in use; stop the existing listener before browser e2e" >&2
+    local message="${name} port ${port} is already in use by an unowned listener"
+    echo "${message}" >&2
     ss -ltnp "sport = :${port}" >&2 || true
+    write_startup_diagnostics \
+      "fail" \
+      "${name}_readiness" \
+      "infra" \
+      "resource_conflict" \
+      "${message}" || true
     return 1
   fi
 }
 
 browser_start_services() {
-  if using_test_services_stack; then
-    require_test_services_bin || return $?
-    echo "browser e2e using active test-service Postgres and object-store stack"
-    return 0
+  if ! using_test_services_stack; then
+    echo "browser e2e refuses shared development services; run the Make-owned browser target" >&2
+    return 2
   fi
-
-  OBJECT_STORE_CORS_ORIGIN="${PUBLIC_ORIGIN}" \
-  OBJECT_STORE_CORS_ALLOWED_ORIGINS="${PUBLIC_ORIGIN}" \
-    "${DEV_SERVICES_SCRIPT}" up >/dev/null
+  require_test_services_bin || return $?
+  echo "browser e2e using active isolated test-service Postgres and object-store stack"
+  record_startup_event "service_attached" \
+    "attached browser session ${BROWSER_SESSION_ID} to suite ${SUITE_ID}"
 }
 
 browser_prepare_database() {
   assert_port_free "${BACKEND_PORT}" "backend"
   cd "${ROOT_DIR}"
 
-  if using_test_services_stack; then
-    require_test_services_bin || return $?
-    if [[ -z "${CARTULARY_PGTEST_TEMPLATE_DB:-}" ]]; then
-      echo "browser e2e active test-service mode requires CARTULARY_PGTEST_TEMPLATE_DB to clone the migrated suite template database" >&2
-      return 1
-    fi
-    "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
-    # shellcheck disable=SC1090
-    source "${TEST_SERVICES_ENV_FILE}"
-    E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}"
-    export CARTULARY_WEB_E2E_DB="${E2E_DB}"
-    export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}"
-    return 0
+  if ! using_test_services_stack; then
+    echo "browser database preparation requires an active isolated test-services suite" >&2
+    return 2
   fi
-
-  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-    psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
-  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-    psql -U cartulary -d postgres -c "CREATE DATABASE \"${E2E_DB}\";" >/dev/null
-
-  local -a migrate_command=()
-  resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}"
-
-  CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-  CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-  CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}" \
-  GOCACHE=/tmp/cartulary-go-build \
-  GOMODCACHE=/tmp/cartulary-go-mod \
-    "${migrate_command[@]}" up
-
+  require_test_services_bin || return $?
+  if [[ -z "${CARTULARY_PGTEST_TEMPLATE_DB:-}" ]]; then
+    echo "browser e2e active test-service mode requires CARTULARY_PGTEST_TEMPLATE_DB to clone the migrated suite template database" >&2
+    return 1
+  fi
+  "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
+  # shellcheck disable=SC1090
+  source "${TEST_SERVICES_ENV_FILE}"
+  E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}"
+  E2E_DB="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -e \
+    'const fs=require("node:fs"); process.stdout.write(String(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).database_name));' \
+    "${TEST_SERVICES_METADATA_FILE}")"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
   export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}"
+  snapshot_service_scope
+  record_startup_event "fixture_ready" \
+    "prepared isolated browser database and object-store fixture"
 }
 
 browser_wait_backend_ready() {
@@ -1129,10 +919,9 @@ browser_wait_backend_ready() {
         cat "${SERVER_LOG}" >&2 || true
         return 1
       fi
-      BACKEND_IDENTITY_STATUS="pass"
       BACKEND_IDENTITY_SERVER_PID="${identity_pid}"
       BACKEND_READY_AT="$(step_now_utc)"
-      write_stack_metadata
+      record_startup_event "backend_ready" "backend ready at ${API_ORIGIN}"
       return 0
     fi
     sleep 0.5
@@ -1165,10 +954,8 @@ browser_wait_frontend_ready() {
         cat "${WEB_LOG}" >&2 || true
         return 1
       fi
-      FRONTEND_OWNERSHIP_STATUS="pass"
       FRONTEND_READY_AT="$(step_now_utc)"
-      write_stack_metadata
-      write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
+      record_startup_event "frontend_ready" "frontend ready at ${PUBLIC_ORIGIN}"
       return 0
     fi
     sleep 0.5
@@ -1230,7 +1017,6 @@ start_frontend_preview_process() {
     CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
-  write_stack_metadata
 }
 
 retry_frontend_preview_port() {
@@ -1248,17 +1034,12 @@ retry_frontend_preview_port() {
   WEB_LOG="${TARGET_ARTIFACT_DIR:-${RUNTIME_ROOT_BASE}}/web-${FRONTEND_PORT}.log"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   echo "frontend port ${previous_port} hit a resource conflict; retrying with ${FRONTEND_PORT}" >&2
-  write_stack_metadata
 }
 
 start_frontend_preview_ready_with_retry() {
   local pnpm_bin="$1"
   local attempt
   local max_attempts=1
-
-  if using_test_services_stack && [[ "${FRONTEND_PORT_CONFIGURED}" -ne 1 ]]; then
-    max_attempts="${TEST_SERVICE_FRONTEND_PREVIEW_RETRY_LIMIT}"
-  fi
 
   for attempt in $(seq 1 "${max_attempts}"); do
     start_frontend_preview_process "${pnpm_bin}"
@@ -1282,10 +1063,7 @@ browser_verify_frontend_ready() {
     return 1
   fi
   if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
-    FRONTEND_OWNERSHIP_STATUS="pass"
     FRONTEND_READY_AT="${FRONTEND_READY_AT:-$(step_now_utc)}"
-    write_stack_metadata
-    write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
     return 0
   fi
 
@@ -1371,6 +1149,8 @@ main() {
   trap on_exit EXIT
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
+  record_startup_event "initializing" \
+    "initializing browser session ${BROWSER_SESSION_ID} for runtime profile ${RUNTIME_PROFILE_ID}"
 
   run_timing_span "setup" "browser-e2e frontend toolchain" \
     env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_RUN_ID -u CARTULARY_TEST_TARGET MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
@@ -1382,9 +1162,7 @@ main() {
 
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
-  run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
 
   CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
   CARTULARY_STEP_TIMING_BUCKET=migration run_step_command "browser-e2e startup database" browser_prepare_database
@@ -1416,11 +1194,11 @@ main() {
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}" \
-    CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:-localhost:8333}" \
-    CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:-cartulary-local}" \
-    CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:-cartulary-local-secret}" \
-    CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:-false}" \
-    CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}" \
+    CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
+    CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:?}" \
+    CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:?}" \
+    CARTULARY_S3_OBJECT_PRIMARY_SECURE="${CARTULARY_S3_OBJECT_PRIMARY_SECURE:?}" \
+    CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:?}" \
     CARTULARY_ENABLE_TEST_ROUTES=1 \
     CARTULARY_TEST_RUNTIME_MARKER=harness-owned \
     CARTULARY_TEST_ROUTE_TOKEN="${TEST_ROUTE_TOKEN}" \
@@ -1432,10 +1210,11 @@ main() {
     GOCACHE=/tmp/cartulary-go-build \
     GOMODCACHE=/tmp/cartulary-go-mod \
     "${backend_listen_command[@]}"
-  write_stack_metadata
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e verify frontend ready" browser_verify_frontend_ready
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
+  run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready
+  run_timing_span "setup" "browser-e2e publish immutable v4 stack" write_stack_metadata
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files

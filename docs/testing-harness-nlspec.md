@@ -278,7 +278,7 @@ The current runtime profiles are:
 | ID | Managed services required | Contract |
 | --- | ---: | --- |
 | `none` | no | No managed service or browser startup. |
-| `default` | yes | Ordinary unclaimed development service/browser configuration. |
+| `default` | yes | Ordinary unclaimed isolated test-service/browser configuration. |
 | `network_flow_claimed` | yes | Network Flow claimed startup configuration with its separately owned key-ring and secret-handling rules. |
 
 The current resource profiles are `none`, `go_balanced`, `go_cpu_heavy`, `go_io_heavy`, `go_transaction_heavy`, `go_reset_heavy`, `go_clone_heavy`, and `browser_exclusive`. The current fixture profiles are `none`, `postgres_transaction`, `postgres_package_reset`, `postgres_group_clone`, `postgres_template_clone`, `postgres_migration_scratch`, `object_store_isolated`, and `service_stack`. Each profile's exact claims, budgets, and compatibility keys MUST be present in the authored topology; omission has no implicit fallback except the explicit `none` profile.
@@ -292,6 +292,17 @@ Browser evidence MUST obtain `runtime_profile_id` through the catalog row and th
 A browser runtime profile is immutable startup identity. Generated groups, shards, and sessions MUST carry the profile ID; incompatible profiles MUST use distinct browser session groups. A mixed-profile session, an attach request whose expected profile differs from the retained stack, or a profile/configuration fingerprint mismatch MUST fail before product assertions. Runtime reset is data-only and MUST NOT change the profile, extension claims, key-ring identity, or child-process environment.
 
 Claimed-profile secrets MUST be generated in memory for each owned stack, passed only in the child server environment, and redacted from commands, logs, diagnostics, summaries, retained metadata, and failure messages. Retained browser-stack metadata MUST contain the non-secret runtime profile ID and deterministic configuration fingerprint and MUST NOT contain secret values or secret digests.
+
+Every Make-owned browser invocation MUST resolve its selected rows and their
+runtime profiles before service setup. A resolved browser session with one or
+more managed services has `service_requirement=test-services` and MUST either
+own one isolated suite or attach to an exact compatible active suite. A resolved
+session with no managed services has `service_requirement=none` and MUST start
+no service suite. Incompatible runtime profiles MUST remain separate sessions,
+including when one public target selects more than one profile. Target or stage
+names MUST NOT determine service need, and no browser path may fall back to the
+shared development Postgres, object store, Compose project, bucket, port, or
+proxy.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-066
 
 ### 3.6 Semantic digests and extension boundary
@@ -416,13 +427,48 @@ Playwright title filters. The subset MUST be non-empty, unique, and contained by
 the generated group. Reopening a full batch group by stage and group name MUST NOT
 discard, broaden, or replace the scheduler-owned row selection.
 
-`cartulary.browser_e2e_batch_manifest.v6` MUST be generated from the active catalog plus authored stage/runtime/fixture/isolation policy. Every generated group MUST contain exactly one selector file and a sorted non-empty set of semantic catalog row IDs; delivery-phase IDs, phase-selected batches, title-prefix inference, and runtime translation of retired IDs are forbidden. Across a direct evidence target, every applicable Playwright catalog row MUST occur in exactly one generated group for its stage and runtime profile.
+`cartulary.browser_e2e_batch_manifest.v7` MUST be generated from the active catalog plus authored stage/runtime/fixture/isolation policy. Every generated group MUST contain exactly one selector file, one runtime-profile-derived `service_requirement`, and a sorted non-empty set of semantic catalog row IDs; delivery-phase IDs, phase-selected batches, title-prefix inference, runtime translation of retired IDs, and renderer-owned dependency lists are forbidden. Across a direct evidence target, every applicable Playwright catalog row MUST occur in exactly one generated group for its stage and runtime profile. Task-surface ownership supplies the public Make binding, execution topology supplies row/profile/session/resource/fixture dependencies, and runtime-binary and image-readiness owners supply their existing producer prerequisites; generators join those owners without duplicating authority.
+
+For a managed browser session, the suite-scoped browser lifecycle adapter is the
+only owner of backend and frontend startup, readiness, startup events,
+terminal startup diagnostics, v4 stack publication, and teardown. The
+Playwright-facing adapter is attach-only. Before workers start it MUST validate
+an exact `cartulary.web_e2e_stack.v4`, the suite/session/profile identities, all
+referenced byte digests, the active schema/template/bucket/endpoint identities,
+the frontend build digest, and live backend/frontend process proofs.
+Missing, stale, v3-only, profile-mismatched, digest-mismatched, development-stack,
+or incomplete attachment evidence MUST fail before Playwright assertions.
+Canonical Playwright configuration MUST NOT start a web server, reuse an
+existing listener, or derive origins from defaults. `--no-deps` MUST NOT bypass
+the outer attachment guard.
+
+Each session MUST retain one append-only validated event stream and one
+immutable terminal diagnostic under
+`_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/`.
+Only the session lifecycle adapter may write them. A ready terminal requires
+the complete ordered state graph `initializing`, `service_attached`,
+`fixture_ready`, `backend_ready`, `frontend_ready`, `ready`; `failed` may close
+any nonterminal state and can never regress. The terminal ready diagnostic MUST
+be published before one immutable v4 stack binds its exact digest together with
+the service-scope snapshot, lease, database, object-store namespace, fixture,
+process, and frontend-build identities. Group and target results MUST carry
+ordered run-relative session artifact references and SHA-256 digests. Shared or
+multi-profile target projections MUST consume those artifacts without gaining
+write authority. V3 stack and v1 diagnostic schemas are historical-validation
+inputs only and MUST NOT be active-run admission fallbacks.
 
 The `browser-e2e-stateful` public target MAY use generated `stateful_partition` groups when each partition declares explicit semantic row IDs and an explicit browser session group. Partitioning MUST preserve the same row inventory as the unpartitioned target. An empty adapter invocation MUST be omitted rather than represented as product success. Direct execution MUST reset between selector-file partitions. Scheduler execution MUST serialize stateful partitions that share a browser session group in authored order, and each partition's reset MUST complete before the next partition starts. Distinct browser session groups MAY overlap only when each group owns an isolated retained lifecycle. The `network_flow_claimed` profile MUST always have a distinct startup session for stateful, accessibility, visual, measurement, and webserver-backed evidence. Partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, evidence-accounting, or target-summary evidence.
 
 A browser session cleanup unit is a failure-tolerant scheduler finalizer. It MUST run after successful, failed, or dependency-skipped group outcomes, MUST release every retained resource claim owned by that session, and MUST NOT be dependency-skipped. A finalizer whose producer never started and therefore acquired no resource MUST complete as a successful no-op; it MUST NOT invoke lease cleanup, emit a target pass summary, or add a secondary missing-artifact failure. Valid aggregate Go evidence requires the complete declared shard set. After early scheduler stop, an aggregate finalizer for which none or only a proper subset of declared shards started MUST complete as a successful no-op and MUST NOT emit partial target evidence; once every declared shard started, missing shard metadata remains fail-closed under the ordinary artifact classification. Missing browser lease metadata for work that did start likewise remains fail-closed under the ordinary artifact or cleanup classification. A failed browser group MUST still produce the normalized scheduler and target summaries needed to retain its row/group failure classification; cleanup after failure MUST NOT degrade a product assertion into scheduler deadlock, missing-summary inference, or `unknown_failure`.
 
 The Playwright result adapter MUST join observations by exact normalized selector file and exact catalog title. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
+
+Ordinary Playwright configuration MUST set `updateSnapshots=none`. Missing
+goldens therefore fail ordinary visual validation. Snapshot mutation is
+authorized only by `browser-e2e-visual-update`, which MUST retain the same row
+selection, profile-derived service resolution, session grouping, attachment
+evidence, and exact row accounting as validation and MUST NOT publish ordinary
+passing visual evidence.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-022, TH-HARNESS-AC-063, TH-HARNESS-AC-069
 
 **TH-HARNESS-REQ-057**
@@ -482,7 +528,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Web build and embedded web asset artifacts. | `web_build_artifact` | Readiness/build-artifact helper boundary. | `owner_facade` | `build-web` and embedded asset cache behavior, Vite build invocation, embed archive/stamp atomicity, and public build target behavior. |
 | Design-token generation. | `design_token_generation` | Generated-artifact design-token sub-boundary. | `owner_facade` | `docs/design.md` token parsing, generated token TypeScript content, generated provenance identity, and generated-artifact drift behavior. |
 | Font asset validation. | `font_asset_validation` | Static-analysis helper boundary. | `owner_facade` | Font manifest validation, vendored font checksum/license checks, local CSS activation checks, and remote-font ban diagnostics. |
-| Browser batch manifest loading, normalization, and target/stage metadata. | `browser_batch_manifest` | Browser manifest helper boundary; current canonical path `tools/harness/browser/browser-batch-manifest.mjs`. | `owner_facade` | `cartulary.browser_e2e_batch_manifest.v6`, catalog-derived semantic stage/group normalization, exact selector-file grouping, runtime-profile session identity, target/stage metadata, and diagnostics used by generated-artifact and execution helpers. |
+| Browser batch manifest loading, normalization, and target/stage metadata. | `browser_batch_manifest` | Browser manifest helper boundary; current canonical path `tools/harness/browser/browser-batch-manifest.mjs`. | `owner_facade` | `cartulary.browser_e2e_batch_manifest.v7`, catalog-derived semantic stage/group normalization, exact selector-file grouping, runtime-profile service resolution and session identity, target/stage metadata, and diagnostics used by generated-artifact and execution helpers. |
 | Browser scheduler adapter command/dependency projection. | `browser_scheduler_adapter` | Scheduler browser adapter boundary; current facade path `tools/harness/scheduler/adapters/browser.mjs`. | `owner_facade` | Browser work-unit command paths, stage/session completion keys, group dependency keys, worker slot ranges, worker environment variables, and scheduler expansion semantics. |
 | Scheduler DAG execution, events, finalizers, summaries, and failure mapping. | `scheduler_execution_core` | Scheduler execution helper boundary; current facade `tools/harness/scheduler/scheduler-runner.mjs`. | `owner_facade` | Work-unit ordering, logical resource scheduling, scheduler event stream, scheduler summary emission, finalizer handling, stable failure classes/reasons, public Make target behavior, and retained scheduler artifact paths. |
 | Scheduler manifest, resource, family, and reporting helpers. | `scheduler_contract_helpers` | Scheduler contract helper boundary; current facades `tools/harness/scheduler/scheduler-family-contract.mjs`, `tools/harness/scheduler/scheduler-manifest.mjs`, `tools/harness/scheduler/scheduler-resources.mjs`, and `tools/harness/scheduler/scheduler-reporting.mjs`. | `owner_facade` | `cartulary.scheduler_manifest.v2`, scheduler family tokens, scheduler resource registry behavior, resource default/auto policies, retained scheduler paths, bounded reporting lines, and artifact references. |
@@ -494,7 +540,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Browser target execution wrappers and stage dispatch. | `browser_target_execution` | Browser target execution helper boundary; current canonical private runner `tools/harness/browser/run-browser-e2e-target.sh`. | `owner_facade` | Browser target wrapper entrypoint behavior, batch stage dispatch, target/stage summaries, stack session wrapping, reset boundaries, artifact paths, and public failure mapping. |
 | Browser Playwright selection, webserver-batch execution, report parsing, and selection artifacts. | `browser_playwright_execution` | Browser Playwright execution plus test-output adapter boundary; current stable adapter `tools/harness/output/test-output/playwright-artifacts.mjs`. | `owner_facade` | Exact catalog row and scenario selection, Playwright runner report interpretation, selected-test title/file indexing, merged report behavior, owner summaries, stdout/stderr/output artifact paths, and failure normalization. |
 | Browser duration accounting, shard planning, drift, and baseline refresh inputs. | `browser_duration_accounting` | Browser duration accounting boundary; current canonical facade `tools/harness/browser/browser-duration-accounting.mjs`. | `owner_facade` | `cartulary.browser_e2e_duration_baselines.v3`, `cartulary.browser_e2e_shard_plan.v2`, manifest row ID joining, frontend readiness row inclusion, read-only drift semantics, explicit retained-run validation before mutation, and default weights. |
-| Browser owned-stack lifecycle, runtime identity proof, and runtime reset adapter. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v3`, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, reset route token/origin/host predicates, reset taint handling, and Playwright state cleanup. |
+| Browser owned-stack lifecycle, runtime identity proof, and runtime reset adapter. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v4`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, reset route token/origin/host predicates, reset taint handling, and Playwright state cleanup. |
 | Browser accessibility evidence summaries. | `browser_accessibility_evidence` | Browser helper boundary; current canonical path `tools/harness/browser/browser-catalog-group-cli.mjs`. | `owner_facade` | Accessibility summary schema, contrast record handling, retained Playwright runner references, and browser a11y target artifact paths. |
 | Browser visual snapshot update helper. | `browser_visual_update_helper` | Browser visual maintenance helper boundary; current entrypoint `tools/harness/browser/run-browser-e2e-visual-update.sh`. | `owner_facade` | Helper-only visual update target posture, snapshot-update mode propagation, authorized authored snapshot write path, retained browser evidence, and exclusion from default `check`, `test`, `ci`, and release gates unless separately declared. |
 
@@ -1532,8 +1578,14 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v2`          | `tools/schemas/cartulary.test_services.lifecycle.v2.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
 | `cartulary.test_services.scope.v1`              | `tools/schemas/cartulary.test_services.scope.v1.schema.json`              | present           | Service suite            | Before scheduler failure propagation consumes service-suite diagnostics. |
-| `cartulary.web_e2e_stack.v3`                    | `tools/schemas/cartulary.web_e2e_stack.v3.schema.json`                    | present           | Browser stack            | Before browser target starts Playwright.  |
-| `cartulary.browser_startup_diagnostics.v1`      | `tools/schemas/cartulary.browser_startup_diagnostics.v1.schema.json`      | present           | Browser stack            | On browser frontend artifact validation or readiness completion/failure. |
+| `cartulary.web_e2e_stack.v4`                    | `tools/schemas/cartulary.web_e2e_stack.v4.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
+| `cartulary.browser_startup_event.v1`             | `tools/schemas/cartulary.browser_startup_event.v1.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
+| `cartulary.browser_startup_diagnostics.v2`       | `tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
+| `cartulary.browser_group_result.v2`              | `tools/schemas/cartulary.browser_group_result.v2.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
+| `cartulary.browser_target_result.v1`             | `tools/schemas/cartulary.browser_target_result.v1.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
+| `cartulary.local_object_store_proxy_start_attempt.v1` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v1.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
+| `cartulary.local_object_store_proxy_lease.v1`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v1.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
+| `cartulary.local_object_store_proxy_health.v1`   | `tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
@@ -1884,8 +1936,12 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 | Runtime binary provenance                            | Go target runner                                | `_shared/<execution-family>/runtime-binaries.json` when an aggregate declares runtime binaries | diagnostic-only                                               | Runtime binary ID, scheduler-owned consumer env, producer target, normalized path, file digest, build-artifact ref, and output digest | Retained with the shared Go report. |
 | Service scope summary                                | Service suite                                   | `_shared/test-services/<suite-id>/service-scope.json`            | `cartulary.test_services.scope.v1`                         | Suite identity, target, preflight, failure, cleanup, and service summaries closed by Section 11 | Retained; cleanup may append diagnostics.                    |
 | Service lifecycle event stream                       | Service suite                                   | `_shared/test-services/<suite-id>/lifecycle-events.jsonl`        | `cartulary.test_services.lifecycle.v2`                        | `seq` strictly increases; transitions match Section 11.2                               | Retained; not cleanup proof.                                |
-| Browser stack metadata                               | Browser stack                                   | browser target support dir                                      | `cartulary.web_e2e_stack.v3`                                  | Origins, ports, frontend preview mode and command kind, runtime root, log paths, process group IDs, readiness timestamps, backend identity proof, frontend ownership proof, startup diagnostic reference, and selected fixture identity where known | Retained for browser target.                                 |
-| Browser startup diagnostics                          | Browser stack                                   | browser target support dir                                      | `cartulary.browser_startup_diagnostics.v1`                    | Frontend mode, command kind, selected origins and ports, readiness state, normalized failure cause when failed, log references, and inotify diagnostics when an ENOSPC watcher failure is detected | Retained for browser target startup pass/fail diagnostics.    |
+| Browser startup events                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-events.jsonl` | `cartulary.browser_startup_event.v1` | Exact suite/session/profile identity and validated append-only state transitions | Retained for the session; lifecycle adapter is sole writer. |
+| Browser startup diagnostics                          | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-diagnostics.json` | `cartulary.browser_startup_diagnostics.v2` | Immutable terminal state, event reference/digest, classification, redaction-safe message, origins, and artifact references | Retained for the session; group and target evidence consume by reference. |
+| Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v4.json` | `cartulary.web_e2e_stack.v4` | Immutable suite/session/mode/profile identity, service scope, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
+| Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v2` | Exact selected rows, terminal observations, and ordered session artifact references/digests | Retained for target accounting. |
+| Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v1` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
+| Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v1`, `cartulary.local_object_store_proxy_lease.v1`, `cartulary.local_object_store_proxy_health.v1` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Reset response/status/state                          | Reset route/wrapper                             | `reset-boundary/*.json`, `*.status`, `*.state-reset`            | `cartulary.test.runtime_reset.v1` for reset data              | Reset ID, table list, migration/admin flags, object count required                    | Retained for browser target.                                 |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
 | Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v1`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
@@ -2332,7 +2388,7 @@ whose selected closure remains attributable to that row.
 | `work_units[].env`                 | object               |       no | `{}`                         | Scheduler-owned child environment values; MUST NOT override scheduler-owned harness identity variables. |
 | `work_units[].readiness_attribution` | object             |       no | none                         | Scheduler-readable readiness/provisioning attribution metadata. When present it MUST declare `timing_role`, `readiness_class`, `warm_threshold_ms`, and `reason`; producers MUST NOT infer readiness attribution from work-unit names. |
 | `work_units[].browser_session_group` | string             |       no | stage target                  | Browser stack/session identity shared by compatible browser work units. |
-| `work_units[].browser_session_isolation_reason` | string |       no | none                          | Required explanation when a default-check browser stage uses an extra session instead of the shared default-check session. |
+| `work_units[].browser_session_isolation_reason` | string |       no | none                          | Required explanation when authored browser topology deliberately separates otherwise compatible work. |
 | `work_units[].browser_session_finalizer` | boolean        |       no | `true`                        | Whether a browser stage completion unit stops its session. Shared projection sessions MUST use a separate `browser_session_finalizer` work unit instead of coupling one target's summary to all groups. |
 | `work_units[].shard_names[]`     | string array         | required for `go_shard_finalize` | none               | Selected Go shard names that the aggregate finalizer is allowed to require. For `go_shard_finalize`, this list MUST be non-empty and MUST match the finalizer's `go_shard:<name>` needs after prefix removal. |
 | `work_units[].retained_resource_claims` | object         |       no | `{}`                         | Claims kept after work-unit exit until explicit release.    |
@@ -2446,7 +2502,17 @@ The runtime consumer MUST verify that its declared consumer environment is non-e
 Verified by: TH-HARNESS-AC-024, TH-HARNESS-AC-037
 
 **TH-HARNESS-REQ-398**
-Default `check-service-backed` browser work MUST model browser stack sharing explicitly through scheduler-owned browser session groups. Compatible check-selected browser stages MUST use one shared default-check browser session; an extra session is valid only when the immutable plan records `browser_session_isolation_reason`. Direct public browser leaf targets MUST retain their ordinary isolated stack behavior. A shared browser session MUST preserve per-target summaries, per-target completion keys, cleanup on failure, and redaction-safe session artifacts. Reset boundaries MUST be explicit scheduler work or an explicit isolation reason; target-name conventions MUST NOT be used as the sharing contract.
+Default `check-service-backed` browser work MUST consume the same generated
+`browser_session_group`, runtime-profile, and service-requirement identities as
+the selected browser batch plan. The check scheduler MUST NOT create
+check-specific session aliases or merge sessions merely because their current
+requirements appear compatible. Browser work shares a stack only when the
+authored browser topology resolves it to the same session group and runtime
+profile. A shared browser session MUST preserve per-target summaries,
+per-target completion keys, cleanup on failure, and redaction-safe session
+artifacts. Reset boundaries MUST be explicit scheduler work or an explicit
+isolation reason; target-name conventions MUST NOT be used as the sharing
+contract.
 
 The service-backed `webserver-backed` stage owns exactly two session lanes so
 its default and Network Flow-claimed sessions may overlap. They remain separate
@@ -3220,7 +3286,7 @@ Destructive reset, cleanup, attach-mode service mutation, and non-idempotent ope
 | object-store owned startup  |            `2` | `250ms` | transient Docker startup or transport failure before readiness polling begins | attempt startup only; readiness deadline is Section 11.4 `120s` | Failed attempt container is terminated first.     |
 | Template DB migration       |            `1` | none    | none                                                       | `180s`           | none                                              |
 | Browser backend startup     |            `1` | none    | none                                                       | `120s`           | readiness polling only                            |
-| Browser frontend startup    | `1`; auto-selected service-backed frontend bind conflicts MAY reselect a port up to `5` times before service, database, or backend startup begins | none | strict-port bind or listener conflict only for auto-selected service-backed frontend ports | `120s` per selected port | Retry scope is frontend preview process start/readiness only; explicit frontend port overrides do not retry. |
+| Browser frontend startup    |            `1` | none    | none                                                       | `120s`            | strict-port conflicts fail as `resource_conflict` |
 | Runtime reset route         |            `1` | none    | none                                                       | `30s`            | none                                              |
 | Owned teardown and cleanup  |            `1` | none    | none                                                       | cleanup-specific | cleanup records failure and leaves proof for janitor |
 
@@ -3236,7 +3302,7 @@ Attach mode MAY write diagnostic records and lease observations. It MUST NOT del
 
 For browser owned stacks, a listener conflict detected before process startup or during backend/frontend process bind/startup maps to `resource_conflict`. Backend or frontend process exit before readiness maps to `service_start_error` only when retained startup diagnostics and logs do not identify a listener, port, lock, or other resource conflict. A live owned process that does not satisfy its readiness predicates before the deadline maps to `service_readiness_timeout`. Suite-admin login failures after owned readiness has been proven are no longer treated as readiness failures.
 
-Startup retry windows and readiness deadlines are separate. If a Postgres or object-store startup attempt reaches readiness polling and then the Section 11.4 readiness deadline expires, the operation MUST NOT retry that service. The failure MUST be `failure_class=infra`, `failure_reason=service_readiness_timeout`, and public exit `3`. Browser backend startup, runtime reset, and cleanup have `max_attempts=1`; their polling or operation deadlines do not create retry attempts. Browser frontend startup may reselect and retry only auto-selected service-backed frontend ports after a strict-port or listener conflict, and that retry window MUST complete before service, database, or backend startup begins. A selected frontend process that reaches readiness MUST be rechecked after backend readiness without retry before browser child work begins.
+Startup retry windows and readiness deadlines are separate. If a Postgres or object-store startup attempt reaches readiness polling and then the Section 11.4 readiness deadline expires, the operation MUST NOT retry that service. The failure MUST be `failure_class=infra`, `failure_reason=service_readiness_timeout`, and public exit `3`. Browser backend startup, browser frontend startup, runtime reset, and cleanup have `max_attempts=1`; their polling or operation deadlines do not create retry attempts. Browser ports are dynamically allocated before process startup, but a later strict-port collision is terminal `failure_class=infra`, `failure_reason=resource_conflict`; silently changing the admitted port or replacing terminal startup evidence is forbidden.
 
 ### 11.6 Duration Baselines
 
@@ -3271,6 +3337,45 @@ Verified by: TH-HARNESS-AC-049
 **TH-HARNESS-REQ-409**
 Network Flow fixture materialization participates in the existing service lifecycle only as fixture preparation. If materialization fails before child work starts, the service-suite lifecycle records `startup_failed` with `fixture_error` or `artifact_error` according to Section 9 ownership, preserves diagnostics, and performs ordinary owned teardown. If child product work has started, later comparison failures are product or artifact failures according to the owning assertion, but the committed fixture root remains immutable.
 Verified by: TH-HARNESS-AC-049
+
+### 11.8 Local Development Object-Store Proxy
+
+**TH-HARNESS-REQ-413**
+The local development object-store proxy is development-only and MAY retain
+`127.0.0.1:8333`; browser evidence MUST never depend on it. Proxy lifecycle
+operations MUST serialize through one OS advisory operation lock. State,
+operation metadata, startup attempts, ready leases, and per-instance logs MUST
+reside beneath one owner-only repo runtime root as non-symlink regular files.
+State publication uses an owner-only temporary file, file `fsync`, atomic
+rename, and parent-directory `fsync`.
+
+The launcher MUST publish a secure
+`cartulary.local_object_store_proxy_start_attempt.v1` before spawn. The child
+MUST synchronously bind the exact loopback listener, then publish its instance
+identity and full process proof before serving normal proxy traffic. The proof
+contains Linux boot ID, PID, `/proc/<pid>/stat` start-time ticks, effective UID,
+executable device and inode, and SHA-256 of `/proc/<pid>/exe`. Promotion to
+`cartulary.local_object_store_proxy_lease.v1` is atomic and permitted only after
+the five-second bind/identity handshake, closed
+`cartulary.local_object_store_proxy_health.v1` identity, and the separately
+bounded object-store plus exact-CORS probe all pass.
+
+Recovery or reuse requires matching process, executable, health, listener,
+instance, and canonical nonsecret configuration proofs. A fully proven
+configuration mismatch is gracefully restarted. A stale or legacy PID file is
+untrusted metadata and MUST never authorize signaling. An unproven listener is
+an immediate `resource_conflict`. Signaling requires `pidfd_open`, complete
+proof revalidation after opening the pidfd, `pidfd_send_signal`, and confirmed
+termination through the pidfd. Unsupported pidfd behavior fails closed without
+PID-only fallback. A startup attempt abandoned before process proof may be
+discarded only when no listener occupies the configured endpoint.
+
+The upstream origin is canonicalized and MUST reject userinfo, query, and
+fragment; listener configuration MUST be an explicit loopback IP. Configuration
+fingerprints include only canonical nonsecret values. Development proxy health
+is loopback-only implementation support and MUST NOT become a product API,
+production deployment surface, browser attachment input, or product evidence.
+Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-010
 
 ## 12. Test-Only Harness Routes
 

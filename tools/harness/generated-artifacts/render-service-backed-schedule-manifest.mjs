@@ -759,6 +759,7 @@ function browserGroupSources(
       execution_dependency: projectedGroup.executionDependency,
       workers: projectedGroup.workers,
       runtime_profile_id: projectedGroup.runtimeProfileID,
+      service_requirement: projectedGroup.serviceRequirement,
       ...selectedGroupFields(projectedGroup),
       ...browserGroupSessionFields(stage, projectedGroup, sessionGroup),
       priority: priorities.browserCriticalPath,

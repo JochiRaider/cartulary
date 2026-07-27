@@ -114,6 +114,16 @@ make browser-e2e-visual
 make browser-e2e-measurement
 ```
 
+These Make-owned targets resolve rows and runtime profiles first, create or
+attach to exact isolated test-service sessions, and validate immutable v4 stack
+evidence before Playwright workers start. They do not use the local development
+database, bucket, Compose project, or object-store proxy. Package aliases are
+valid only when they delegate to these Make targets without recursion. Raw
+Playwright, Playwright UI mode, and IDE Playwright launchers do not establish
+the attachment contract and are unsupported as executable evidence surfaces.
+Use `make help` and `make help-all` for the current target inventory rather than
+copying target lists into new guidance.
+
 Run the narrow owner slice first, then the evidence-class gates generated for the
 owner. Do not treat a passing broad target as proof that an explicit owner selection
 ran unless retained row accounting records the exact selected inventory.

@@ -21,6 +21,7 @@ import {
   renderBrowserBatchManifest,
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
+  serviceRequirementForRuntimeProfile,
 } from "../generated-artifacts/index.mjs";
 import {
   expandServiceBackedSchedule,
@@ -1027,11 +1028,13 @@ test("target evidence finalization closes exact runner observations and scope", 
             "browser-group-result.json",
           ),
           {
-            schema_id: "cartulary.browser_group_result.v1",
+            schema_id: "cartulary.browser_group_result.v2",
             target_id: targetID,
             stage_id: "webserver-backed",
             group_id: "target-evidence-fixture",
+            browser_session_id: "target-evidence-fixture",
             runtime_profile_id: row.runtime_profile_id,
+            service_requirement: "test-services",
             fixture_profile_ids: [row.fixture_profile_id],
             resource_profile_ids: [row.resource_profile_id],
             selected_rows: [row.row_id],
@@ -1047,6 +1050,18 @@ test("target evidence finalization closes exact runner observations and scope", 
               exit_code: 0,
               failure_reason: null,
             }],
+            session_artifacts: [
+              {
+                kind: "stack_v4",
+                ref: "_shared/test-services/fixture/browser-sessions/target-evidence-fixture/stack-v4.json",
+                sha256: `sha256:${"1".repeat(64)}`,
+              },
+              {
+                kind: "startup_diagnostics_v2",
+                ref: "_shared/test-services/fixture/browser-sessions/target-evidence-fixture/startup-diagnostics.json",
+                sha256: `sha256:${"2".repeat(64)}`,
+              },
+            ],
             artifacts: {
               playwright_report: `${targetID}/browser-groups/fixture/report.json`,
               stdout: `${targetID}/browser-groups/fixture/stdout.log`,
@@ -3774,7 +3789,17 @@ test("visual snapshot update reuses profile-aware sessions without validation fi
   assert.ok(
     schedule.workUnits.every(
       (unit) =>
-        unit.command.command.endsWith("tools/harness/browser/start-web-e2e.sh") &&
+        unit.command.command.endsWith("cartulary-test-services") &&
+        unit.command.args[0] === "run" &&
+        unit.command.args.includes(
+          path.join(
+            repoRoot,
+            "tools",
+            "harness",
+            "browser",
+            "start-web-e2e.sh",
+          ),
+        ) &&
         unit.command.env.CARTULARY_BROWSER_MAINTENANCE_MODE === "snapshot_update" &&
         unit.command.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1",
     ),
@@ -4456,7 +4481,7 @@ test("default check defers lightweight OTel source validation past service fanou
 
 test("browser topology is catalog-derived, semantic, and profile-isolated", () => {
   const { browserBatch } = renderedArtifacts();
-  assert.equal(browserBatch.schema_id, "cartulary.browser_e2e_batch_manifest.v6");
+  assert.equal(browserBatch.schema_id, "cartulary.browser_e2e_batch_manifest.v7");
   assert.doesNotMatch(JSON.stringify(browserBatch), /(?:selected_phase|\bFE-|\bE-[0-9]|phase[0-9])/u);
   const catalog = loadTestCatalog(repoRoot);
   const selectorStageByBatchStage = new Map([
@@ -4480,12 +4505,32 @@ test("browser topology is catalog-derived, semantic, and profile-isolated", () =
     for (const group of stage.groups) {
       assert.equal(group.specs.length, 1);
       assert.ok(group.selected_row_ids.every((rowID) => catalog.rowByID.has(rowID)));
+      assert.equal(group.service_requirement, "test-services");
       if (group.runtime_profile_id === "network_flow_claimed") {
         assert.ok(group.browser_session_group);
         assert.match(group.browser_session_isolation_reason, /startup|configuration/u);
       }
     }
   }
+});
+
+test("browser service resolution follows the runtime profile, including none", () => {
+  assert.equal(
+    serviceRequirementForRuntimeProfile({
+      id: "future_browser_without_services",
+      browser_capable: true,
+      managed_service_ids: [],
+    }),
+    "none",
+  );
+  assert.equal(
+    serviceRequirementForRuntimeProfile({
+      id: "future_browser_with_object_store",
+      browser_capable: true,
+      managed_service_ids: ["object_store"],
+    }),
+    "test-services",
+  );
 });
 
 test("authored browser topology rejects obsolete selection fields", () => {
@@ -4523,7 +4568,7 @@ test("operator build owns its transitive embedded asset input", () => {
   assert.match(recipe, /--input-dir "\$\(EMBEDDED_WEB_ASSET_DIR\)"/u);
 });
 
-test("default check service-backed browser work uses declared session groups", () => {
+test("default check service-backed browser work retains canonical session groups", () => {
   const { serviceBacked, expandedCheckSchedule, taskSurface } = renderedArtifacts();
   const serviceCheck = serviceBacked.schedules.find(
     (schedule) => schedule.target === "check-service-backed",
@@ -4532,17 +4577,23 @@ test("default check service-backed browser work uses declared session groups", (
   const browserSources = serviceCheck.work_unit_sources.filter(
     (source) => source.type === "browser_stage",
   );
-  assert.deepEqual(
-    new Map(browserSources.map((source) => [source.browser_stage, source.browser_session_group])),
-    new Map([
-      ["webserver-backed", "default-check-browser-shared"],
-      ["stateful", "default-check-stateful-isolated"],
-    ]),
+  assert.ok(
+    browserSources.every(
+      (source) => source.browser_session_group === undefined,
+    ),
+    "check schedule must not create stage-level session aliases",
   );
-  assert.equal(
-    browserSources.find((source) => source.browser_stage === "stateful")
-      ?.browser_session_isolation_reason,
-    "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work",
+  assert.deepEqual(
+    new Map(
+      browserSources.map((source) => [
+        source.browser_stage,
+        [...new Set(source.groups.map((group) => group.browser_session_group))],
+      ]),
+    ),
+    new Map([
+      ["webserver-backed", ["browser-e2e-webserver-backed-default"]],
+      ["stateful", ["browser-stateful-default"]],
+    ]),
   );
 
   const check = expandedCheckSchedule.schedules.find(
@@ -4600,21 +4651,11 @@ test("default check service-backed browser work uses declared session groups", (
       "browser readiness releases its transient process slot after the stack is retained",
     );
   }
-  const statefulSource = browserSources.find((source) => source.browser_stage === "stateful");
-  const expectedStatefulSessionGroups = [
-    ...new Set(statefulSource.groups.map((group) => group.browser_session_group)),
-  ];
-  assert.equal(browserSessions.length, 1 + expectedStatefulSessionGroups.length);
+  assert.equal(browserSessions.length, 2);
   assert.deepEqual(
     browserSessions.map((unit) => unit.browser_session_group).sort(),
-    ["default-check-browser-shared", ...expectedStatefulSessionGroups].sort(),
+    ["browser-e2e-webserver-backed-default", "browser-stateful-default"].sort(),
   );
-  for (const session of browserSessions.filter((unit) => unit.browser_stage === "stateful")) {
-    assert.equal(
-      session.browser_session_isolation_reason,
-      "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work",
-    );
-  }
   const webserverBrowserGroups = check.work_units.filter(
     (unit) =>
       unit.kind === "browser_group" &&
@@ -4646,6 +4687,10 @@ test("default check service-backed browser work uses declared session groups", (
       `${excludedBrowserTarget} must remain outside default local check`,
     );
   }
+  const statefulSource = browserSources.find(
+    (source) => source.browser_stage === "stateful",
+  );
+  assert.ok(statefulSource);
   assert.equal(
     check.work_units.filter(
       (unit) =>
@@ -4898,7 +4943,7 @@ test("backend module boundary consumes test support inventory scan exclusions", 
       `support inventory exclusion missing: ${result.stdout}`,
     );
     assert.deepEqual(
-      report.violations.map((violation) => violation.path),
+      [...new Set(report.violations.map((violation) => violation.path))],
       ["internal/modules/future/production.go"],
       `support-root violation should be excluded: ${result.stdout}`,
     );

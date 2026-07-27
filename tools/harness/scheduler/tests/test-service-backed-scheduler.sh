@@ -748,11 +748,13 @@ if (exactRows.length === 0) {
 if (rows.length === 0) throw new Error(`fake browser evidence found no rows for ${targetID}`);
 const relativeGroup = path.relative(repoRoot, path.dirname(outputFile));
 const result = {
-  schema_id: "cartulary.browser_group_result.v1",
+  schema_id: "cartulary.browser_group_result.v2",
   target_id: targetID,
   stage_id: stageID,
   group_id: groupID,
+  browser_session_id: groupID,
   runtime_profile_id: rows[0].runtime_profile_id,
+  service_requirement: "test-services",
   fixture_profile_ids: [...new Set(rows.map((row) => row.fixture_profile_id))].sort(),
   resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
   selected_rows: rows.map((row) => row.row_id),
@@ -768,6 +770,18 @@ const result = {
     exit_code: 0,
     failure_reason: null,
   })),
+  session_artifacts: [
+    {
+      kind: "stack_v4",
+      ref: `_shared/test-services/fake/browser-sessions/${groupID}/stack-v4.json`,
+      sha256: `sha256:${"1".repeat(64)}`,
+    },
+    {
+      kind: "startup_diagnostics_v2",
+      ref: `_shared/test-services/fake/browser-sessions/${groupID}/startup-diagnostics.json`,
+      sha256: `sha256:${"2".repeat(64)}`,
+    },
+  ],
   artifacts: {
     playwright_report: `${relativeGroup}/playwright-report.json`,
     stdout: `${relativeGroup}/stdout.log`,
@@ -2834,22 +2848,26 @@ for (const target of ["browser-e2e-stateful", "browser-e2e-visual"]) {
 }
 const checkBrowserSources = (byTarget.get("check-service-backed")?.work_unit_sources ?? [])
   .filter((source) => source.class === "browser");
-const sessionGroups = new Map(checkBrowserSources.map((source) => [source.browser_stage, source.browser_session_group]));
+if (checkBrowserSources.some((source) => source.browser_session_group !== undefined)) {
+  throw new Error("check-service-backed must not create stage-level browser session aliases");
+}
+const sessionGroups = new Map(
+  checkBrowserSources.map((source) => [
+    source.browser_stage,
+    [...new Set((source.groups ?? []).map((group) => group.browser_session_group))],
+  ]),
+);
 const expectedSessionGroups = new Map([
-  ["webserver-backed", "default-check-browser-shared"],
-  ["stateful", "default-check-stateful-isolated"],
+  ["webserver-backed", ["browser-e2e-webserver-backed-default"]],
+  ["stateful", ["browser-stateful-default"]],
 ]);
 for (const [stage, expectedGroup] of expectedSessionGroups.entries()) {
-  if (sessionGroups.get(stage) !== expectedGroup) {
-    throw new Error(`check-service-backed ${stage} session group got ${sessionGroups.get(stage)} want ${expectedGroup}`);
+  if (JSON.stringify(sessionGroups.get(stage)) !== JSON.stringify(expectedGroup)) {
+    throw new Error(`check-service-backed ${stage} session groups got ${JSON.stringify(sessionGroups.get(stage))} want ${JSON.stringify(expectedGroup)}`);
   }
 }
 if (checkBrowserSources.some((source) => source.browser_stage === "measurement")) {
   throw new Error("check-service-backed must not include measurement browser session work");
-}
-const statefulSource = checkBrowserSources.find((source) => source.browser_stage === "stateful");
-if (!statefulSource?.browser_session_isolation_reason) {
-  throw new Error("check-service-backed isolated stateful browser session must declare an isolation reason");
 }
 const measurementSource = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (candidate) => candidate.target === "browser-e2e-measurement",

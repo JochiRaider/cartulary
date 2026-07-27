@@ -11,12 +11,17 @@ run_stderr=""
 run_status=0
 
 cleanup() {
-  if [[ -f "$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid" ]]; then
-    pid="$(cat "$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid" 2>/dev/null || true)"
+  local lease=""
+  local pid=""
+  for lease in \
+    "$tmp_dir/runtime/object-store-proxy/ready-lease.json" \
+    "$tmp_dir/concurrent-runtime/object-store-proxy/ready-lease.json"; do
+    [[ -f "$lease" ]] || continue
+    pid="$(awk '{print $2}' "$lease" 2>/dev/null || true)"
     if [[ -n "${pid:-}" ]]; then
       kill "$pid" >/dev/null 2>&1 || true
     fi
-  fi
+  done
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
@@ -99,8 +104,62 @@ if [[ "${1:-}" == "build" ]]; then
     mkdir -p "$(dirname "$output")"
     cat >"$output" <<'FAKE_PROXY'
 #!/usr/bin/env bash
-trap 'exit 0' TERM INT
-while true; do sleep 60; done
+set -euo pipefail
+
+command="${1:-}"
+shift || true
+attempt_file=""
+lease_file=""
+state_file=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --attempt-file)
+      attempt_file="$2"
+      shift 2
+      ;;
+    --lease-file)
+      lease_file="$2"
+      shift 2
+      ;;
+    --state-file)
+      state_file="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+case "$command" in
+  attempt)
+    printf 'launching 0\n' >"$attempt_file"
+    ;;
+  serve)
+    printf 'bound %d\n' "$$" >"$attempt_file"
+    trap 'exit 0' TERM INT
+    while true; do sleep 1; done
+    ;;
+  status)
+    [[ -f "$state_file" && "$(awk '{print $1}' "$state_file")" == "bound" ]]
+    ;;
+  promote)
+    mv "$attempt_file" "$lease_file"
+    ;;
+  stop)
+    pid="$(awk '{print $2}' "$state_file")"
+    if [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]; then
+      kill -TERM "$pid" >/dev/null 2>&1 || true
+    fi
+    rm -f "$state_file"
+    ;;
+  discard)
+    rm -f "$state_file"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
 FAKE_PROXY
     chmod +x "$output"
   fi
@@ -128,6 +187,9 @@ run_service() {
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
       CARTULARY_RUNTIME_DIR="$tmp_dir/runtime" \
+      SEAWEEDFS_S3_PORT=48333 \
+      OBJECT_STORE_ENDPOINT=127.0.0.1:48333 \
+      OBJECT_STORE_CORS_PROXY_LISTEN=127.0.0.1:48333 \
       CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=5 \
       CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=5 \
       "$@"
@@ -181,11 +243,16 @@ assert_log_empty "$docker_log" "services-down dry-run docker"
 assert_log_empty "$go_log" "services-down dry-run go"
 
 reset_logs
+mkdir -p "$tmp_dir/runtime"
+printf '%s\n' "$$" >"$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid"
 run_service services_down_real bash tools/harness/readiness/dev-services.sh services-down
 assert_status 0
 assert_file_contains "$docker_log" "down --remove-orphans" "services-down command"
 assert_file_not_contains "$docker_log" "--volumes" "services-down volume preservation"
 assert_log_empty "$go_log" "services-down real go"
+kill -0 "$$" || fail "legacy PID metadata must never authorize signaling"
+[[ ! -e "$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid" ]] ||
+  fail "legacy PID metadata must be discarded"
 
 reset_logs
 run_service db_down_removed bash tools/harness/readiness/dev-services.sh db-down
@@ -257,3 +324,35 @@ assert_file_contains "$go_log" "./tools/s3corsproxy" "object-store-reset builds 
 assert_file_contains "$go_log" "run ./tools/objectstoreprobe" "object-store-reset runs object-store probe"
 assert_file_contains "$go_log" "--mode reset" "object-store-reset selects reset mode"
 assert_file_contains "$go_log" "--bucket ct-test" "object-store-reset passes configured bucket"
+
+reset_logs
+concurrent_runtime="$tmp_dir/concurrent-runtime"
+concurrent_pids=()
+for index in 1 2; do
+  (
+    cd "$repo_root"
+    PATH="$fake_bin:$PATH" \
+      GO=go \
+      FAKE_DOCKER_LOG="$docker_log" \
+      FAKE_GO_LOG="$go_log" \
+      CARTULARY_RUNTIME_DIR="$concurrent_runtime" \
+      SEAWEEDFS_S3_PORT=48334 \
+      OBJECT_STORE_ENDPOINT=127.0.0.1:48334 \
+      OBJECT_STORE_CORS_PROXY_LISTEN=127.0.0.1:48334 \
+      CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=5 \
+      CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=5 \
+      CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset \
+      bash tools/harness/readiness/dev-services.sh object-store-reset
+  ) >"$tmp_dir/concurrent-${index}.stdout" 2>"$tmp_dir/concurrent-${index}.stderr" &
+  concurrent_pids+=("$!")
+done
+for concurrent_pid in "${concurrent_pids[@]}"; do
+  if ! wait "$concurrent_pid"; then
+    fail "concurrent proxy lifecycle operation failed"
+  fi
+done
+build_count="$(grep -c '^build -o ' "$go_log" || true)"
+[[ "$build_count" == "1" ]] ||
+  fail "concurrent proxy starts must publish exactly one owned instance, got $build_count builds"
+[[ -f "$concurrent_runtime/object-store-proxy/ready-lease.json" ]] ||
+  fail "concurrent proxy starts must publish one ready lease"

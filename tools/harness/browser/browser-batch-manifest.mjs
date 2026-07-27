@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v6";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v7";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
@@ -39,6 +39,7 @@ const browserGroupKeys = new Set([
   "browser_session_group",
   "browser_session_isolation_reason",
   "runtime_profile_id",
+  "service_requirement",
   "specs",
 ]);
 const allowedGroupKinds = new Set([
@@ -66,13 +67,26 @@ export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOr
   validateObjectArray(
     manifest.runtime_profiles,
     `${label}.runtime_profiles`,
-    { nonEmpty: true, keys: new Set(["id", "kind", "key_ring_manifest_path"]) },
+    {
+      nonEmpty: true,
+      keys: new Set([
+        "id",
+        "kind",
+        "key_ring_manifest_path",
+        "service_requirement",
+      ]),
+    },
     (profile, profileLabel) => {
       requireString(profile.id, `${profileLabel}.id`, { pattern: /^[a-z][a-z0-9_]*$/u });
       requireString(profile.kind, `${profileLabel}.kind`, { pattern: /^[a-z][a-z0-9_]*$/u });
       if (profile.key_ring_manifest_path !== undefined) {
         requireString(profile.key_ring_manifest_path, `${profileLabel}.key_ring_manifest_path`);
       }
+      requireString(
+        profile.service_requirement,
+        `${profileLabel}.service_requirement`,
+        { pattern: /^(?:none|test-services)$/u },
+      );
     },
   );
   validateObjectArray(
@@ -116,7 +130,12 @@ export function loadBrowserBatchStages(manifestPath) {
 }
 
 export function normalizeBrowserBatchStages(manifest) {
-  const runtimeProfiles = new Set((manifest.runtime_profiles ?? []).map((profile) => profile.id));
+  const runtimeProfiles = new Map(
+    (manifest.runtime_profiles ?? []).map((profile) => [
+      profile.id,
+      profile.service_requirement,
+    ]),
+  );
   if (!runtimeProfiles.has("default")) {
     throw new Error("browser E2E batch manifest must declare the default runtime profile");
   }
@@ -275,6 +294,17 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       `browser E2E batch group ${group.name} references unknown runtime profile ${runtimeProfileID}`,
     );
   }
+  const serviceRequirement = normalizeOptionalString(group.service_requirement);
+  if (!new Set(["none", "test-services"]).has(serviceRequirement)) {
+    throw new Error(
+      `browser E2E batch group ${group.name} must declare service_requirement none or test-services`,
+    );
+  }
+  if (serviceRequirement !== runtimeProfiles.get(runtimeProfileID)) {
+    throw new Error(
+      `browser E2E batch group ${group.name} service requirement ${serviceRequirement} does not match runtime profile ${runtimeProfileID}`,
+    );
+  }
   const browserSessionGroup = normalizeOptionalString(group.browser_session_group);
   if (!browserSessionGroup) {
     throw new Error(`browser E2E batch group ${group.name} must declare browser_session_group`);
@@ -299,6 +329,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     browserSessionGroup,
     browserSessionIsolationReason,
     runtimeProfileID,
+    serviceRequirement,
   };
 }
 
@@ -380,6 +411,7 @@ function printRunnerMetadata(stage) {
         group.browserSessionGroup,
         group.browserSessionIsolationReason,
         group.runtimeProfileID,
+        group.serviceRequirement,
         group.specs.join(","),
       ].join("\t") + "\n",
     );

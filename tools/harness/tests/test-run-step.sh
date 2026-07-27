@@ -468,27 +468,26 @@ assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_rea
 
 browser_resource_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/browser-resource-conflict.XXXXXX")"
 cleanup_paths+=("$browser_resource_conflict_results")
-browser_resource_conflict_owned_stack="$browser_resource_conflict_results/browser-resource-conflict/browser-e2e-webserver-backed/owned-stack"
-mkdir -p "$browser_resource_conflict_owned_stack"
-cat >"$browser_resource_conflict_owned_stack/startup-diagnostics.json" <<'JSON'
+browser_resource_conflict_session="$browser_resource_conflict_results/browser-resource-conflict/_shared/test-services/suite-test/browser-sessions/session-test"
+mkdir -p "$browser_resource_conflict_session"
+cat >"$browser_resource_conflict_session/startup-diagnostics.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_startup_diagnostics.v1",
+  "schema_id": "cartulary.browser_startup_diagnostics.v2",
+  "suite_id": "suite-test",
+  "browser_session_id": "session-test",
+  "runtime_profile_id": "default",
   "generated_at": "2026-01-01T00:00:00Z",
-  "target": "browser-e2e-webserver-backed",
-  "status": "fail",
-  "startup_step": "frontend_readiness",
+  "status": "failed",
+  "startup_phase": "failed",
+  "message": "Port 39000 is already in use",
+  "events_ref": "_shared/test-services/suite-test/browser-sessions/session-test/startup-events.jsonl",
+  "events_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "frontend_mode": "preview",
   "frontend_command_kind": "vite-preview",
   "api_origin": "http://127.0.0.1:39080",
   "public_origin": "http://127.0.0.1:39000",
-  "backend_port": 39080,
-  "frontend_port": 39000,
   "failure_class": "infra",
-  "failure_reason": "resource_conflict",
-  "message": "Port 39000 is already in use",
-  "logs": {
-    "frontend": ".cartulary/test-results/run/browser-e2e-webserver-backed/owned-stack/web.log"
-  }
+  "failure_reason": "resource_conflict"
 }
 JSON
 set +e

@@ -46,10 +46,11 @@ function parseArgs(argv) {
 function sessions(stage) {
   const grouped = new Map();
   for (const group of stage.groups) {
-    const key = `${group.browserSessionGroup}\0${group.runtimeProfileID}`;
+    const key = `${group.browserSessionGroup}\0${group.runtimeProfileID}\0${group.serviceRequirement}`;
     const entry = grouped.get(key) ?? {
       id: group.browserSessionGroup,
       runtimeProfileID: group.runtimeProfileID,
+      serviceRequirement: group.serviceRequirement,
       groupIDs: [],
     };
     entry.groupIDs.push(group.name);
@@ -74,46 +75,77 @@ export function buildBrowserStageSchedule(stage, manifestPath, options = {}) {
     ? (options.target ?? "browser-e2e-visual-update")
     : stage.target;
   const stageResource = `browser_stage_${target.replaceAll(/[^a-z0-9_]/gu, "_")}`;
-  const sessionUnits = sessions(stage).map((session, order) => ({
-    id: `browser_session:${session.id}:${session.runtimeProfileID}`,
-    label: `browser session ${session.id} (${session.runtimeProfileID})`,
-    kind: "browser_stage_session",
-    class: "browser",
-    target,
-    aggregateTarget: target,
-    needs: [],
-    completionKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
-    failureKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
-    resourceClaims: new Map([["browser_stack", 1], [stageResource, 1], ["process", 1]]),
-    priority: 0,
-    weightMs: 1,
-    order,
-    timeoutMs: 1_800_000,
-    command: {
-      command: path.join(root, "tools", "harness", "browser", "start-web-e2e.sh"),
-      args: [
-        "--",
-        path.join(root, "tools", "harness", "browser", "run-browser-e2e-batch.sh"),
-        stage.name,
-        "--defer-summary",
-      ],
-      env: {
-        ...process.env,
-        BROWSER_E2E_BATCH_MANIFEST: manifestPath,
-        CARTULARY_TEST_TARGET: target,
-        CARTULARY_BROWSER_SESSION_GROUP: session.id,
-        CARTULARY_BROWSER_RUNTIME_PROFILE_ID: session.runtimeProfileID,
-        CARTULARY_BROWSER_SELECTED_GROUPS: session.groupIDs.join(","),
-        CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        ...(mode === snapshotUpdateMode
-          ? {
-              CARTULARY_BROWSER_MAINTENANCE_MODE: snapshotUpdateMode,
-              CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS: "1",
-            }
-          : {}),
+  const testServicesBin =
+    options.testServicesBin ??
+    process.env.CARTULARY_TEST_SERVICES_BIN ??
+    path.join(root, "tmp", "toolbin", "cartulary-test-services");
+  const sessionUnits = sessions(stage).map((session, order) => {
+    const lifecycleCommand = path.join(
+      root,
+      "tools",
+      "harness",
+      "browser",
+      "start-web-e2e.sh",
+    );
+    const batchCommand = path.join(
+      root,
+      "tools",
+      "harness",
+      "browser",
+      "run-browser-e2e-batch.sh",
+    );
+    const managed = session.serviceRequirement === "test-services";
+    return {
+      id: `browser_session:${session.id}:${session.runtimeProfileID}`,
+      label: `browser session ${session.id} (${session.runtimeProfileID})`,
+      kind: "browser_stage_session",
+      class: "browser",
+      target,
+      aggregateTarget: target,
+      needs: [],
+      completionKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
+      failureKeys: [`browser_session:${session.id}:${session.runtimeProfileID}`],
+      resourceClaims: new Map([
+        ...(managed ? [["browser_stack", 1]] : []),
+        [stageResource, 1],
+        ["process", 1],
+      ]),
+      priority: 0,
+      weightMs: 1,
+      order,
+      timeoutMs: 1_800_000,
+      command: {
+        command: managed ? testServicesBin : batchCommand,
+        args: managed
+          ? [
+              "run",
+              "--",
+              lifecycleCommand,
+              "--",
+              batchCommand,
+              stage.name,
+              "--defer-summary",
+            ]
+          : [stage.name, "--defer-summary"],
+        env: {
+          ...process.env,
+          BROWSER_E2E_BATCH_MANIFEST: manifestPath,
+          CARTULARY_TEST_TARGET: target,
+          CARTULARY_BROWSER_RUNTIME_PROFILE_ID: session.runtimeProfileID,
+          CARTULARY_BROWSER_SERVICE_REQUIREMENT: session.serviceRequirement,
+          CARTULARY_BROWSER_SESSION_GROUP: session.id,
+          CARTULARY_BROWSER_SELECTED_GROUPS: session.groupIDs.join(","),
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          ...(mode === snapshotUpdateMode
+            ? {
+                CARTULARY_BROWSER_MAINTENANCE_MODE: snapshotUpdateMode,
+                CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS: "1",
+              }
+            : {}),
+        },
       },
-    },
-  }));
+    };
+  });
   const sessionIDs = sessionUnits.map((unit) => unit.id);
   const evidenceTargets = mode === validationMode
     ? [...new Set(stage.groups.map((group) => group.target))].sort()
@@ -200,6 +232,7 @@ export function buildBrowserStageSchedule(stage, manifestPath, options = {}) {
       target: group.target,
       runtime_profile_id: group.runtimeProfileID,
       browser_session_group: group.browserSessionGroup,
+      service_requirement: group.serviceRequirement,
       selected_rows: group.selectedRowIDs,
     })),
     evidence_targets: evidenceTargets,

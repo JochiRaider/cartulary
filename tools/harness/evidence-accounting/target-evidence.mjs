@@ -298,7 +298,7 @@ function playwrightObservations(targetDir, selectedRows) {
   const groups = groupFiles.map((file) => ({ file, result: readJSON(file) }));
   const byRow = new Map();
   for (const group of groups) {
-    validateSchemaSync("cartulary.browser_group_result.v1", group.result);
+    validateSchemaSync("cartulary.browser_group_result.v2", group.result);
     for (const row of group.result.row_results ?? []) {
       const values = byRow.get(row.row_id) ?? [];
       values.push({ group, row });

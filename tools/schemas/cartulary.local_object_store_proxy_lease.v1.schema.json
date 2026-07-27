@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.local_object_store_proxy_lease.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "instance_id", "ready_at", "configuration", "process", "log_path"],
+  "properties": {
+    "schema_id": { "const": "cartulary.local_object_store_proxy_lease.v1" },
+    "instance_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "ready_at": { "type": "string", "format": "date-time" },
+    "configuration": { "$ref": "cartulary.local_object_store_proxy_start_attempt.v1#/$defs/configuration" },
+    "process": { "$ref": "cartulary.local_object_store_proxy_start_attempt.v1#/$defs/process_proof" },
+    "log_path": { "type": "string", "minLength": 1 }
+  }
+}

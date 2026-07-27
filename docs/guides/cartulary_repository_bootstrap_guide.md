@@ -68,6 +68,14 @@ make db-migrate
 make object-store-init
 ```
 
+Local development keeps its object-store CORS proxy on
+`127.0.0.1:8333`. Its lease is proof-gated and browser tests never attach to it.
+If startup reports `resource_conflict`, inspect and stop the unrelated listener
+yourself, then rerun the Make target; the lifecycle deliberately will not signal
+a listener it cannot prove it owns. Legacy proxy PID files are not ownership
+evidence. `make services-down` stops a proven local proxy and preserves named
+development volumes.
+
 Use `make db-reset` only when resetting repo-local development data is intended.
 Application tests that claim storage, migration, transaction, object-lifecycle,
 or service-integration behavior must use the applicable managed-service harness,

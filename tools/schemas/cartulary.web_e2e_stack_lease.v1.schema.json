@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_stack_lease.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "suite_id",
+    "browser_session_id",
+    "runtime_profile_id",
+    "backend_process_group_id",
+    "frontend_process_group_id",
+    "backend_port",
+    "frontend_port",
+    "runtime_root",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_stack_lease.v1" },
+    "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "backend_process_group_id": { "type": "integer", "minimum": 1 },
+    "frontend_process_group_id": { "type": "integer", "minimum": 1 },
+    "backend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "frontend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "runtime_root": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

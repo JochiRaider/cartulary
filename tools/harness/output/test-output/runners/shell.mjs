@@ -4,6 +4,7 @@ import { repoRoot } from "../../../contract/index.mjs";
 import {
   existsSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
 } from "node:fs";
@@ -11,6 +12,7 @@ import path from "node:path";
 import {
   classifyExecutionFailure,
   classifyExecutionFailureReason,
+  primaryPublicFailure,
 } from "../../../contract/failure-taxonomy.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
@@ -233,31 +235,54 @@ function finalizeShellStep(context, stdoutLog, stderrLog, details) {
 }
 
 function browserStartupDiagnosticFailureDetails(context) {
-  const startupDiagnostics = path.join(
-    path.dirname(context.stepDir),
-    "owned-stack",
-    "startup-diagnostics.json",
+  const servicesRoot = path.resolve(
+    repoRoot,
+    requiredEnv("CARTULARY_TEST_RESULTS_DIR"),
+    requiredEnv("CARTULARY_TEST_RUN_ID"),
+    "_shared",
+    "test-services",
   );
-  if (!existsSync(startupDiagnostics)) {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(readFileSync(startupDiagnostics, "utf8"));
-    if (
-      payload?.schema_id !== "cartulary.browser_startup_diagnostics.v1" ||
-      payload?.status !== "fail" ||
-      typeof payload?.failure_class !== "string" ||
-      typeof payload?.failure_reason !== "string"
-    ) {
-      return null;
+  const diagnostics = [];
+  if (existsSync(servicesRoot)) {
+    for (const suite of readdirSync(servicesRoot, { withFileTypes: true })) {
+      const sessionsRoot = path.join(servicesRoot, suite.name, "browser-sessions");
+      if (!suite.isDirectory() || !existsSync(sessionsRoot)) continue;
+      for (const session of readdirSync(sessionsRoot, { withFileTypes: true })) {
+        if (!session.isDirectory()) continue;
+        const file = path.join(sessionsRoot, session.name, "startup-diagnostics.json");
+        if (!existsSync(file)) continue;
+        try {
+          const payload = JSON.parse(readFileSync(file, "utf8"));
+          if (
+            payload?.schema_id === "cartulary.browser_startup_diagnostics.v2" &&
+            payload?.status === "failed" &&
+            typeof payload?.failure_class === "string" &&
+            typeof payload?.failure_reason === "string"
+          ) {
+            diagnostics.push({
+              failure_class: payload.failure_class,
+              failure_reason: payload.failure_reason,
+              kind: "browser_startup",
+              source: "browser_session",
+              target: context.target,
+              step: context.label,
+              message: payload.message ?? "",
+              artifact: normalizePath(path.relative(repoRoot, file)),
+            });
+          }
+        } catch {
+          // Malformed artifacts are classified by the ordinary artifact boundary.
+        }
+      }
     }
-    return {
-      failure_class: payload.failure_class,
-      failure_reason: payload.failure_reason,
-    };
-  } catch {
-    return null;
   }
+  const primary = primaryPublicFailure(diagnostics);
+  return primary
+    ? {
+        failure_class: primary.failure_class,
+        failure_reason: primary.failure_reason,
+      }
+    : null;
 }
 
 function classifyShellFailureDetails(context, stdoutLines, stderrLines, message) {

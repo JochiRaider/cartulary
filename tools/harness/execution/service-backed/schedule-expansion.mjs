@@ -86,6 +86,8 @@ function browserGroupSelectionEnv(group) {
   const env = {
     CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
       String(group.runtime_profile_id ?? "default").trim() || "default",
+    CARTULARY_BROWSER_SERVICE_REQUIREMENT:
+      String(group.service_requirement ?? "").trim(),
   };
   if (Array.isArray(group.selected_row_ids) && group.selected_row_ids.length > 0) {
     env.CARTULARY_BROWSER_SELECTED_ROW_IDS = group.selected_row_ids.join(",");
@@ -219,6 +221,8 @@ export function expandServiceBackedScheduleForCheck({
           env: {
             CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
               sessionInfo.runtimeProfileID || "default",
+            CARTULARY_BROWSER_SERVICE_REQUIREMENT:
+              sessionInfo.serviceRequirement,
           },
           ...(sessionInfo.isolationReason
             ? { browser_session_isolation_reason: sessionInfo.isolationReason }
@@ -532,6 +536,8 @@ export function expandServiceBackedSchedule({
           env: {
             CARTULARY_BROWSER_RUNTIME_PROFILE_ID:
               sessionInfo.runtimeProfileID || "default",
+            CARTULARY_BROWSER_SERVICE_REQUIREMENT:
+              sessionInfo.serviceRequirement,
           },
           ...(sessionInfo.isolationReason
             ? { browser_session_isolation_reason: sessionInfo.isolationReason }

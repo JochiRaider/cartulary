@@ -2877,7 +2877,7 @@
       ],
       "stage": "isolated",
       "workers": "1",
-      "service_wrapper": "test-services",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-webserver-backed": {
@@ -2887,11 +2887,13 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "webserver-backed",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-functional": {
@@ -2901,11 +2903,13 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "functional",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-support": {
@@ -2915,11 +2919,13 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "support",
       "workers": "$(PLAYWRIGHT_WORKERS)",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-stateful": {
@@ -2929,14 +2935,16 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "comments": [
         "Browser evidence that mutates process-global backend state belongs here."
       ],
       "stage": "stateful",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-resettable": {
@@ -2946,11 +2954,13 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "resettable",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-measurement": {
@@ -2969,7 +2979,7 @@
       ],
       "stage": "measurement",
       "workers": "1",
-      "service_wrapper": "test-services",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-visual": {
@@ -2979,23 +2989,29 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "visual",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     },
     "browser-e2e-visual-update": {
       "type": "step_command",
       "mode": "run_step",
       "step_label": "browser-e2e-visual-update",
+      "browser_stage": "visual",
+      "service_resolution": "runtime-profile",
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "env": {
         "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
@@ -3529,11 +3545,13 @@
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
         "build-server-harness",
-        "build-migrate"
+        "build-migrate",
+        "$(TEST_SERVICES_BIN)",
+        "test-service-images"
       ],
       "stage": "a11y",
       "workers": "1",
-      "service_wrapper": "direct",
+      "service_resolution": "runtime-profile",
       "test_target": "self"
     }
   },

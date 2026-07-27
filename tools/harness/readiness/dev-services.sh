@@ -30,8 +30,14 @@ GO_CACHE="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
 GO_MOD_CACHE="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
 RUNTIME_DIR="${CARTULARY_RUNTIME_DIR:-$ROOT_DIR/.cartulary/runtime}"
 OBJECT_STORE_CORS_PROXY_PID_FILE="${OBJECT_STORE_CORS_PROXY_PID_FILE:-$RUNTIME_DIR/seaweedfs-s3-cors-proxy.pid}"
-OBJECT_STORE_CORS_PROXY_LOG_FILE="${OBJECT_STORE_CORS_PROXY_LOG_FILE:-$RUNTIME_DIR/seaweedfs-s3-cors-proxy.log}"
-OBJECT_STORE_CORS_PROXY_BIN="${OBJECT_STORE_CORS_PROXY_BIN:-$RUNTIME_DIR/s3corsproxy}"
+OBJECT_STORE_CORS_PROXY_STATE_DIR="${OBJECT_STORE_CORS_PROXY_STATE_DIR:-$RUNTIME_DIR/object-store-proxy}"
+OBJECT_STORE_CORS_PROXY_LOCK_FILE="${OBJECT_STORE_CORS_PROXY_LOCK_FILE:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/operation.lock}"
+OBJECT_STORE_CORS_PROXY_LOCK_METADATA_FILE="${OBJECT_STORE_CORS_PROXY_LOCK_METADATA_FILE:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/operation.json}"
+OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE="${OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/start-attempt.json}"
+OBJECT_STORE_CORS_PROXY_LEASE_FILE="${OBJECT_STORE_CORS_PROXY_LEASE_FILE:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/ready-lease.json}"
+OBJECT_STORE_CORS_PROXY_LOG_DIR="${OBJECT_STORE_CORS_PROXY_LOG_DIR:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/logs}"
+OBJECT_STORE_CORS_PROXY_BIN="${OBJECT_STORE_CORS_PROXY_BIN:-$OBJECT_STORE_CORS_PROXY_STATE_DIR/s3corsproxy}"
+OBJECT_STORE_CORS_PROXY_LOG_FILE=""
 export OBJECT_STORE_CORS_ALLOWED_ORIGINS
 export SEAWEEDFS_S3_UPSTREAM_PORT
 
@@ -124,38 +130,205 @@ probe_object_store() {
       --image-digest "$SEAWEEDFS_S3_IMAGE_DIGEST"
 }
 
-stop_object_store_proxy() {
-  local pid=""
-  if [[ -f "$OBJECT_STORE_CORS_PROXY_PID_FILE" ]]; then
-    pid="$(cat "$OBJECT_STORE_CORS_PROXY_PID_FILE" 2>/dev/null || true)"
-  fi
-  if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
-    kill "$pid" >/dev/null 2>&1 || true
-    for _ in {1..50}; do
-      if ! kill -0 "$pid" >/dev/null 2>&1; then
-        break
-      fi
-      sleep 0.1
-    done
-    if kill -0 "$pid" >/dev/null 2>&1; then
-      kill -9 "$pid" >/dev/null 2>&1 || true
-    fi
-  fi
-  rm -f "$OBJECT_STORE_CORS_PROXY_PID_FILE"
+proxy_listener_in_use() {
+  local port="${OBJECT_STORE_CORS_PROXY_LISTEN##*:}"
+  command -v ss >/dev/null 2>&1 &&
+    ss -ltn "sport = :${port}" 2>/dev/null | tail -n +2 | grep -q .
 }
 
-start_object_store_proxy() {
-  mkdir -p "$RUNTIME_DIR"
-  stop_object_store_proxy
+proxy_command() {
+  "$OBJECT_STORE_CORS_PROXY_BIN" "$@" \
+    --listen "$OBJECT_STORE_CORS_PROXY_LISTEN" \
+    --upstream "$OBJECT_STORE_CORS_PROXY_UPSTREAM" \
+    --origin "$OBJECT_STORE_CORS_ORIGIN"
+}
+
+build_object_store_proxy() {
   cd "$ROOT_DIR"
   env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" \
     "$GO_BIN" build -o "$OBJECT_STORE_CORS_PROXY_BIN" ./tools/s3corsproxy
-  nohup "$OBJECT_STORE_CORS_PROXY_BIN" \
+}
+
+write_proxy_lock_metadata() {
+  local operation="$1"
+  local temporary="${OBJECT_STORE_CORS_PROXY_LOCK_METADATA_FILE}.tmp.$$"
+  umask 077
+  printf '{"schema_id":"cartulary.local_object_store_proxy_operation.v1","operation":"%s","owner_pid":%d,"started_at":"%s"}\n' \
+    "$operation" "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$temporary"
+  chmod 600 "$temporary"
+  sync "$temporary"
+  mv -f "$temporary" "$OBJECT_STORE_CORS_PROXY_LOCK_METADATA_FILE"
+  sync "$OBJECT_STORE_CORS_PROXY_STATE_DIR"
+}
+
+with_proxy_lock() {
+  local operation="$1"
+  shift
+  local lock_status=0
+  local lock_fd
+  if ! command -v flock >/dev/null 2>&1; then
+    echo "local object-store proxy lifecycle requires flock" >&2
+    return 1
+  fi
+  umask 077
+  mkdir -p "$OBJECT_STORE_CORS_PROXY_STATE_DIR" "$OBJECT_STORE_CORS_PROXY_LOG_DIR"
+  chmod 700 "$OBJECT_STORE_CORS_PROXY_STATE_DIR" "$OBJECT_STORE_CORS_PROXY_LOG_DIR"
+  exec {lock_fd}>"$OBJECT_STORE_CORS_PROXY_LOCK_FILE"
+  flock -x "$lock_fd"
+  write_proxy_lock_metadata "$operation"
+  "$@" || lock_status=$?
+  rm -f "$OBJECT_STORE_CORS_PROXY_LOCK_METADATA_FILE"
+  sync "$OBJECT_STORE_CORS_PROXY_STATE_DIR"
+  flock -u "$lock_fd"
+  eval "exec ${lock_fd}>&-"
+  return "$lock_status"
+}
+
+discard_proxy_state() {
+  local state_file="$1"
+  [[ -f "$state_file" ]] || return 0
+  proxy_command discard --state-file "$state_file"
+}
+
+resolve_existing_proxy_state() {
+  local state_file="$1"
+  local state_status=0
+  [[ -f "$state_file" ]] || return 1
+
+  if proxy_command status --state-file "$state_file" >/dev/null 2>&1; then
+    return 0
+  else
+    state_status=$?
+  fi
+
+  case "$state_status" in
+    3)
+      proxy_command stop --state-file "$state_file"
+      ;;
+    4)
+      discard_proxy_state "$state_file"
+      ;;
+    *)
+      if proxy_listener_in_use; then
+        echo "resource_conflict: unproven listener owns ${OBJECT_STORE_CORS_PROXY_LISTEN}" >&2
+        return 2
+      fi
+      discard_proxy_state "$state_file"
+      ;;
+  esac
+  return 1
+}
+
+start_object_store_proxy_locked() {
+  local instance_id=""
+  local start_time="$SECONDS"
+  local child_pid=""
+  local proxy_binary_built=0
+
+  rm -f "$OBJECT_STORE_CORS_PROXY_PID_FILE"
+  if [[ ! -x "$OBJECT_STORE_CORS_PROXY_BIN" ]]; then
+    build_object_store_proxy
+    proxy_binary_built=1
+  fi
+  if resolve_existing_proxy_state "$OBJECT_STORE_CORS_PROXY_LEASE_FILE"; then
+    return 0
+  elif [[ "$?" -eq 2 ]]; then
+    return 1
+  fi
+  if resolve_existing_proxy_state "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE"; then
+    return 0
+  elif [[ "$?" -eq 2 ]]; then
+    return 1
+  fi
+  if proxy_listener_in_use; then
+    echo "resource_conflict: unproven listener owns ${OBJECT_STORE_CORS_PROXY_LISTEN}" >&2
+    return 1
+  fi
+
+  if [[ "$proxy_binary_built" -ne 1 ]]; then
+    build_object_store_proxy
+  fi
+  instance_id="$(cat /proc/sys/kernel/random/uuid)"
+  instance_id="${instance_id//-/}"
+  OBJECT_STORE_CORS_PROXY_LOG_FILE="$OBJECT_STORE_CORS_PROXY_LOG_DIR/${instance_id}.log"
+  proxy_command attempt \
+    --attempt-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" \
+    --instance-id "$instance_id" \
+    --log-path "$OBJECT_STORE_CORS_PROXY_LOG_FILE"
+  # The path is recorded as metadata and independently receives process output.
+  # shellcheck disable=SC2094
+  nohup "$OBJECT_STORE_CORS_PROXY_BIN" serve \
     --listen "$OBJECT_STORE_CORS_PROXY_LISTEN" \
     --upstream "$OBJECT_STORE_CORS_PROXY_UPSTREAM" \
     --origin "$OBJECT_STORE_CORS_ORIGIN" \
+    --attempt-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" \
+    --instance-id "$instance_id" \
+    --log-path "$OBJECT_STORE_CORS_PROXY_LOG_FILE" \
     >"$OBJECT_STORE_CORS_PROXY_LOG_FILE" 2>&1 &
-  printf '%s\n' "$!" >"$OBJECT_STORE_CORS_PROXY_PID_FILE"
+  child_pid="$!"
+
+  while (( SECONDS - start_time < 5 )); do
+    if proxy_command status --state-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" >/dev/null 2>&1; then
+      return 0
+    fi
+    if ! kill -0 "$child_pid" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.1
+  done
+
+  echo "resource_conflict: local object-store proxy did not complete its bind/identity handshake" >&2
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_LOG_FILE" ]]; then
+    cat "$OBJECT_STORE_CORS_PROXY_LOG_FILE" >&2 || true
+  fi
+  return 1
+}
+
+start_object_store_proxy() {
+  with_proxy_lock start start_object_store_proxy_locked
+}
+
+promote_object_store_proxy_locked() {
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_LEASE_FILE" ]]; then
+    proxy_command status --state-file "$OBJECT_STORE_CORS_PROXY_LEASE_FILE" >/dev/null
+    return $?
+  fi
+  proxy_command promote \
+    --attempt-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" \
+    --lease-file "$OBJECT_STORE_CORS_PROXY_LEASE_FILE"
+}
+
+promote_object_store_proxy() {
+  with_proxy_lock promote promote_object_store_proxy_locked
+}
+
+stop_object_store_proxy_locked() {
+  local status=0
+  rm -f "$OBJECT_STORE_CORS_PROXY_PID_FILE"
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_LEASE_FILE" ]]; then
+    proxy_command stop --state-file "$OBJECT_STORE_CORS_PROXY_LEASE_FILE" || status=$?
+  fi
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" ]]; then
+    if ! proxy_command stop --state-file "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE"; then
+      if proxy_listener_in_use; then
+        echo "resource_conflict: refusing to signal an unproven proxy listener" >&2
+        status=1
+      else
+        discard_proxy_state "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" || status=$?
+      fi
+    fi
+  fi
+  if [[ ! -f "$OBJECT_STORE_CORS_PROXY_LEASE_FILE" &&
+        ! -f "$OBJECT_STORE_CORS_PROXY_ATTEMPT_FILE" ]] &&
+    proxy_listener_in_use; then
+    echo "resource_conflict: listener at ${OBJECT_STORE_CORS_PROXY_LISTEN} is not owned by the local proxy lifecycle" >&2
+    status=1
+  fi
+  return "$status"
+}
+
+stop_object_store_proxy() {
+  with_proxy_lock stop stop_object_store_proxy_locked
 }
 
 wait_object_store() {
@@ -166,6 +339,7 @@ wait_object_store() {
   start_object_store_proxy
   while (( SECONDS - start_time < OBJECT_STORE_READY_TIMEOUT_SECONDS )); do
     if probe_object_store probe >/dev/null 2>&1; then
+      promote_object_store_proxy
       return 0
     fi
 

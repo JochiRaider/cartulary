@@ -1,14 +1,16 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v6",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v7",
   "runtime_profiles": [
     {
       "id": "default",
-      "kind": "default"
+      "kind": "default",
+      "service_requirement": "test-services"
     },
     {
       "id": "network_flow_claimed",
       "kind": "network_flow_claimed",
-      "key_ring_manifest_path": "configs/dev/network-flow-key-rings.example.json"
+      "key_ring_manifest_path": "configs/dev/network-flow-key-rings.example.json",
+      "service_requirement": "test-services"
     }
   ],
   "stages": [
@@ -44,6 +46,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -60,6 +63,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -80,6 +84,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -97,6 +102,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -113,6 +119,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -133,6 +140,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -149,6 +157,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -169,6 +178,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -185,6 +195,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -206,6 +217,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -222,6 +234,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -241,6 +254,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -257,6 +271,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -273,6 +288,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -289,6 +305,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -305,6 +322,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -321,6 +339,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -337,6 +356,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -362,6 +382,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -378,6 +399,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -396,6 +418,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -412,6 +435,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -428,6 +452,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -449,6 +474,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -466,7 +492,8 @@
           ],
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "functional-support-network-flow-claimed-network-flow",
@@ -491,7 +518,8 @@
           ],
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -523,6 +551,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -539,6 +568,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -559,6 +589,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -576,6 +607,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -592,6 +624,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -612,6 +645,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -628,6 +662,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -648,6 +683,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -664,6 +700,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -685,6 +722,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -701,6 +739,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -720,6 +759,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -736,6 +776,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -752,6 +793,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -768,6 +810,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -784,6 +827,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -800,6 +844,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -816,6 +861,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -841,6 +887,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -857,6 +904,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -875,6 +923,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -891,6 +940,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -907,6 +957,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -928,6 +979,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -945,7 +997,8 @@
           ],
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "functional-network-flow-claimed-network-flow",
@@ -970,7 +1023,8 @@
           ],
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -996,7 +1050,8 @@
           "specs": [
             "apps/web/e2e/auth.support.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "support-incident-support",
@@ -1015,7 +1070,8 @@
           "specs": [
             "apps/web/e2e/incident.support.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "support-keyboard",
@@ -1032,7 +1088,8 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "support-timeline-support",
@@ -1050,7 +1107,8 @@
           "specs": [
             "apps/web/e2e/timeline.support.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "support-workbook-support",
@@ -1067,7 +1125,8 @@
           "specs": [
             "apps/web/e2e/workbook.support.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -1093,7 +1152,8 @@
           ],
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "stateful-default-clock",
@@ -1110,6 +1170,7 @@
           "specs": [
             "apps/web/e2e/clock.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-clock"
         },
         {
@@ -1127,6 +1188,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-collaboration"
         },
         {
@@ -1144,6 +1206,7 @@
           "specs": [
             "apps/web/e2e/coordination-public-route.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-coordination-public-route"
         },
         {
@@ -1161,6 +1224,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-evidence-integration"
         },
         {
@@ -1179,6 +1243,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-inspector-actions"
         },
         {
@@ -1196,6 +1261,7 @@
           "specs": [
             "apps/web/e2e/mention-lifecycle.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
         {
@@ -1213,6 +1279,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-sentinel"
         },
         {
@@ -1230,6 +1297,7 @@
           "specs": [
             "apps/web/e2e/session-recovery.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-session-recovery"
         },
         {
@@ -1247,6 +1315,7 @@
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-timeline-public-route"
         },
         {
@@ -1265,6 +1334,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-workbook"
         },
         {
@@ -1282,7 +1352,8 @@
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "stateful-network-flow-claimed-network-flow",
@@ -1300,6 +1371,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         }
       ]
@@ -1325,6 +1397,7 @@
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-measurement-default"
         },
         {
@@ -1343,7 +1416,8 @@
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -1381,7 +1455,8 @@
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "a11y-network-flow-claimed-workbook-a11y",
@@ -1398,7 +1473,8 @@
           ],
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -1448,7 +1524,8 @@
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
-          "runtime_profile_id": "default"
+          "runtime_profile_id": "default",
+          "service_requirement": "test-services"
         },
         {
           "name": "visual-network-flow-claimed-workbook-visual",
@@ -1465,7 +1542,8 @@
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     },
@@ -1491,6 +1569,7 @@
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-resettable-default"
         },
         {
@@ -1509,7 +1588,8 @@
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "visual-workbook-visual",
@@ -1549,6 +1629,7 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-resettable-default"
         }
       ]
@@ -1577,7 +1658,8 @@
           ],
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "stateful-default-clock",
@@ -1594,6 +1676,7 @@
           "specs": [
             "apps/web/e2e/clock.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-clock"
         },
         {
@@ -1611,6 +1694,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-collaboration"
         },
         {
@@ -1628,6 +1712,7 @@
           "specs": [
             "apps/web/e2e/coordination-public-route.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-coordination-public-route"
         },
         {
@@ -1645,6 +1730,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-evidence-integration"
         },
         {
@@ -1663,6 +1749,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-inspector-actions"
         },
         {
@@ -1680,6 +1767,7 @@
           "specs": [
             "apps/web/e2e/mention-lifecycle.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
         {
@@ -1697,6 +1785,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-sentinel"
         },
         {
@@ -1714,6 +1803,7 @@
           "specs": [
             "apps/web/e2e/session-recovery.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-session-recovery"
         },
         {
@@ -1731,6 +1821,7 @@
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-timeline-public-route"
         },
         {
@@ -1749,6 +1840,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-default-before-workbook"
         },
         {
@@ -1766,7 +1858,8 @@
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "stateful-network-flow-claimed-network-flow",
@@ -1784,6 +1877,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "service_requirement": "test-services",
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         },
         {
@@ -1801,6 +1895,7 @@
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-default"
         },
         {
@@ -1819,7 +1914,8 @@
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "a11y-workbook-a11y",
@@ -1847,6 +1943,7 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-default"
         },
         {
@@ -1865,7 +1962,8 @@
           ],
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         },
         {
           "name": "visual-workbook-visual",
@@ -1905,6 +2003,7 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-default"
         },
         {
@@ -1923,7 +2022,8 @@
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
-          ]
+          ],
+          "service_requirement": "test-services"
         }
       ]
     }

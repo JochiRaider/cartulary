@@ -29,7 +29,7 @@ export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v6";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v7";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultCheckWorkUnitWeightMs = 10_000;
@@ -540,6 +540,91 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
         }
       }
     }
+  }
+}
+
+export function serviceRequirementForRuntimeProfile(profile) {
+  const managedServiceIDs = requireArray(
+    profile?.managed_service_ids,
+    "runtime profile managed_service_ids",
+  );
+  return managedServiceIDs.length === 0 ? "none" : "test-services";
+}
+
+function runtimeProfileByID(topology) {
+  return new Map(
+    requireNonEmptyArray(topology.runtime_profiles, "runtime_profiles").map(
+      (profile, index) => {
+        const label = `runtime_profiles[${index + 1}]`;
+        const id = requireString(profile?.id, `${label}.id`);
+        const managedServiceIDs = requireArray(
+          profile.managed_service_ids,
+          `${label}.managed_service_ids`,
+        ).map((serviceID, serviceIndex) =>
+          requireString(
+            serviceID,
+            `${label}.managed_service_ids[${serviceIndex + 1}]`,
+          ),
+        );
+        return [
+          id,
+          {
+            browserCapable: profile.browser_capable === true,
+            managedServiceIDs,
+            serviceRequirement: serviceRequirementForRuntimeProfile(profile),
+          },
+        ];
+      },
+    ),
+  );
+}
+
+function browserStageForRecipe(topology, recipe, label) {
+  const stageName =
+    recipe.type === "browser_batch" ? recipe.stage : recipe.browser_stage;
+  if (typeof stageName !== "string" || stageName.trim() === "") {
+    throw new Error(`${label} must declare its browser stage`);
+  }
+  const stage = topology.browserBatch.stages.find(
+    (candidate) => candidate.name === stageName,
+  );
+  if (!stage) {
+    throw new Error(`${label} references unknown browser stage ${stageName}`);
+  }
+  return stage;
+}
+
+function enrichProfileResolvedBrowserRecipes(taskSurface, topology) {
+  const profiles = runtimeProfileByID(topology.raw);
+  for (const [target, recipe] of Object.entries(taskSurface.make_recipes)) {
+    if (recipe?.service_resolution !== "runtime-profile") {
+      continue;
+    }
+    const label = `make_recipes.${target}`;
+    const stage = browserStageForRecipe(topology, recipe, label);
+    let requiresManagedServices = false;
+    for (const group of stage.groups) {
+      const profileID = group.runtime_profile_id ?? "default";
+      const profile = profiles.get(profileID);
+      if (!profile) {
+        throw new Error(`${label} references unknown runtime profile ${profileID}`);
+      }
+      if (!profile.browserCapable) {
+        throw new Error(
+          `${label} references runtime profile ${profileID}, which is not browser-capable`,
+        );
+      }
+      requiresManagedServices ||= profile.serviceRequirement === "test-services";
+    }
+    const prerequisites = (recipe.prerequisites ?? []).filter(
+      (prerequisite) =>
+        prerequisite !== "$(TEST_SERVICES_BIN)" &&
+        prerequisite !== "test-service-images",
+    );
+    if (requiresManagedServices) {
+      prerequisites.push("$(TEST_SERVICES_BIN)", "test-service-images");
+    }
+    recipe.prerequisites = prerequisites;
   }
 }
 
@@ -1273,6 +1358,7 @@ export function renderTaskSurfaceManifest(topology) {
       priority: schedule.steps[index].priority,
     }));
   }
+  enrichProfileResolvedBrowserRecipes(taskSurface, topology);
   delete taskSurface.schema_id;
   return {
     schema_id: taskSurfaceSchemaID,
@@ -1281,6 +1367,7 @@ export function renderTaskSurfaceManifest(topology) {
 }
 
 export function renderBrowserBatchManifest(topology) {
+  const globalRuntimeProfiles = runtimeProfileByID(topology.raw);
   const catalogRows = loadCatalogRowsForGeneratedTopology(topology.root);
   const selectorStageByKind = new Map([
     ["webserver-backed", "webserver_backed"],
@@ -1302,6 +1389,17 @@ export function renderBrowserBatchManifest(topology) {
         throw new Error(`browser group ${policyGroup.name} has no catalog selector-stage mapping`);
       }
       const runtimeProfileID = policyGroup.runtime_profile_id ?? "default";
+      const runtimeProfile = globalRuntimeProfiles.get(runtimeProfileID);
+      if (!runtimeProfile) {
+        throw new Error(
+          `browser group ${policyGroup.name} references unknown runtime profile ${runtimeProfileID}`,
+        );
+      }
+      if (!runtimeProfile.browserCapable) {
+        throw new Error(
+          `browser group ${policyGroup.name} references non-browser-capable runtime profile ${runtimeProfileID}`,
+        );
+      }
       const rows = catalogRows
         .filter(
           (row) => row.runner === "playwright" &&
@@ -1335,6 +1433,7 @@ export function renderBrowserBatchManifest(topology) {
             selected_row_ids: fileRows.map((row) => row.row_id),
             specs: [file],
             runtime_profile_id: runtimeProfileID,
+            service_requirement: runtimeProfile.serviceRequirement,
             browser_session_group:
               policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
           };
@@ -1347,7 +1446,18 @@ export function renderBrowserBatchManifest(topology) {
   }));
   return {
     schema_id: browserBatchManifestSchemaID,
-    runtime_profiles: clone(topology.browserBatch.runtime_profiles),
+    runtime_profiles: topology.browserBatch.runtime_profiles.map((profile) => {
+      const globalProfile = globalRuntimeProfiles.get(profile.id);
+      if (!globalProfile) {
+        throw new Error(
+          `browser runtime profile ${profile.id} is missing from runtime_profiles`,
+        );
+      }
+      return {
+        ...clone(profile),
+        service_requirement: globalProfile.serviceRequirement,
+      };
+    }),
     stages,
   };
 }

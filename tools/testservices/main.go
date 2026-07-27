@@ -308,7 +308,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	if suiteservices.SuiteActive(env) {
 		deps.recordEvent(env, suiteservices.Event{Type: suiteservices.EventWrapperPassThrough})
-		child, err := deps.startChild(command, env)
+		attachEnv := cloneEnv(env)
+		attachEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "attach"
+		child, err := deps.startChild(command, attachEnv)
 		if err != nil {
 			recordFailureAndRefresh(deps, env, failureSummary("", stageChildStart, "start child command", err))
 			return 1
@@ -326,6 +328,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
+	ownedEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
@@ -526,6 +529,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
+	ownedEnv["CARTULARY_TEST_SERVICES_CALL_MODE"] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {

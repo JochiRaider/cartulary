@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.web_e2e_stack.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "suite_id",
+    "browser_session_id",
+    "service_mode",
+    "runtime_profile_id",
+    "configuration_fingerprint",
+    "service_scope_ref",
+    "service_scope_sha256",
+    "postgres_identity",
+    "object_store_identity",
+    "backend",
+    "frontend",
+    "fixture_identity",
+    "startup_diagnostics_ref",
+    "startup_diagnostics_sha256",
+    "lease_ref",
+    "lease_sha256",
+    "ready_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.web_e2e_stack.v4" },
+    "suite_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "service_mode": { "enum": ["owned", "attach"] },
+    "runtime_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "configuration_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "service_scope_ref": { "$ref": "#/$defs/run_relative_path" },
+    "service_scope_sha256": { "$ref": "#/$defs/digest" },
+    "postgres_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database_name", "template_database", "schema_hash", "fixture_profile_id"],
+      "properties": {
+        "database_name": { "type": "string", "minLength": 1 },
+        "template_database": { "type": "string", "minLength": 1 },
+        "schema_hash": { "$ref": "#/$defs/digest" },
+        "fixture_profile_id": { "const": "web_e2e" }
+      }
+    },
+    "object_store_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint_origin", "bucket", "fixture_generation"],
+      "properties": {
+        "endpoint_origin": {
+          "type": "string",
+          "pattern": "^https?://(?:127\\.0\\.0\\.1|localhost):[0-9]+$"
+        },
+        "bucket": { "type": "string", "minLength": 1 },
+        "fixture_generation": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "backend": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/process_proof" },
+        {
+          "type": "object",
+          "required": ["origin", "port", "ready_at"],
+          "properties": {
+            "origin": { "type": "string", "pattern": "^http://127\\.0\\.0\\.1:[0-9]+$" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "ready_at": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "frontend": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/process_proof" },
+        {
+          "type": "object",
+          "required": [
+            "origin",
+            "port",
+            "frontend_mode",
+            "frontend_command_kind",
+            "build_artifact_ref",
+            "build_artifact_sha256",
+            "ready_at"
+          ],
+          "properties": {
+            "origin": { "type": "string", "pattern": "^http://127\\.0\\.0\\.1:[0-9]+$" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "frontend_mode": { "const": "preview" },
+            "frontend_command_kind": { "const": "vite-preview" },
+            "build_artifact_ref": { "$ref": "#/$defs/repo_relative_path" },
+            "build_artifact_sha256": { "$ref": "#/$defs/digest" },
+            "ready_at": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "fixture_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_profile_id", "fixture_id", "scenario_id"],
+      "properties": {
+        "fixture_profile_id": { "const": "web_e2e" },
+        "fixture_id": { "$ref": "#/$defs/digest" },
+        "scenario_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" }
+      }
+    },
+    "startup_diagnostics_ref": { "$ref": "#/$defs/run_relative_path" },
+    "startup_diagnostics_sha256": { "$ref": "#/$defs/digest" },
+    "lease_ref": { "$ref": "#/$defs/run_relative_path" },
+    "lease_sha256": { "$ref": "#/$defs/digest" },
+    "ready_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "run_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "process_proof": {
+      "type": "object",
+      "required": [
+        "status",
+        "pid",
+        "process_group_id",
+        "boot_id",
+        "start_time_ticks",
+        "effective_uid",
+        "executable_device",
+        "executable_inode",
+        "executable_sha256"
+      ],
+      "properties": {
+        "status": { "const": "pass" },
+        "pid": { "type": "integer", "minimum": 1 },
+        "process_group_id": { "type": "integer", "minimum": 1 },
+        "boot_id": { "type": "string", "minLength": 1 },
+        "start_time_ticks": { "type": "integer", "minimum": 1 },
+        "effective_uid": { "type": "integer", "minimum": 0 },
+        "executable_device": { "type": "integer", "minimum": 0 },
+        "executable_inode": { "type": "integer", "minimum": 1 },
+        "executable_sha256": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

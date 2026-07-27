@@ -167,18 +167,19 @@ Prepare the built browser evidence shape:
 make build-web build-server build-migrate playwright-install
 ```
 
-For exploratory headed review, use Playwright directly as a developer
-convenience. This is not canonical retained evidence:
+Browser execution requires the same Make-owned isolated service lifecycle and
+validated v4 attachment as retained evidence. Run the applicable target and
+inspect its retained Playwright report, screenshots, traces, and session logs:
 
 ```bash
-tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test apps/web/e2e/workbook.visual.spec.ts -g "visual.workbook-shell.row-01" --headed --debug --workers=1
+make browser-e2e-visual
 ```
 
-Use Playwright UI mode when browsing scenarios interactively:
-
-```bash
-tmp/node-runtime/bin/pnpm --dir apps/web exec playwright test --ui apps/web/e2e/workbook.visual.spec.ts
-```
+Raw `playwright test`, Playwright UI mode, and IDE launchers are unsupported
+because they do not own or validate an isolated browser session. They are not
+equivalent developer-convenience evidence paths. A future interactive surface
+must be Make-owned and establish the same attachment contract before enabling
+Playwright UI or debug execution.
 
 Useful scenario greps:
 
