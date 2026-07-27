@@ -1,13 +1,17 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-011",
   "title": "Object storage",
-  "status": "adopted_conformant",
-  "owner_requirement": "Upload target, attach, preview/download handle issuance, object-store unavailable, transfer size, and forbidden object-identifier cases emit only allowed object-store telemetry.",
   "objectstore_dependency_assertions": {
-    "span_families": ["objectstore_dependency"],
-    "span_names": ["cartulary.objectstore.operation"],
-    "span_kinds": ["client"],
+    "span_families": [
+      "objectstore_dependency"
+    ],
+    "span_names": [
+      "cartulary.objectstore.operation"
+    ],
+    "span_kinds": [
+      "client"
+    ],
     "metrics": [
       "cartulary.objectstore.operation.duration",
       "cartulary.objectstore.transfer.bytes"
@@ -23,7 +27,11 @@
       "delete_object",
       "ensure_bucket_for_dev_test"
     ],
-    "safe_error_classes": ["dependency_unavailable", "timeout", "internal_error"],
+    "safe_error_classes": [
+      "dependency_unavailable",
+      "timeout",
+      "internal_error"
+    ],
     "forbidden_values_absent": [
       "bucket",
       "key",

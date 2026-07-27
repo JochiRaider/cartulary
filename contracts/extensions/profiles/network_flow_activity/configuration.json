@@ -16,5 +16,5 @@
   ],
   "namespace_schema_id": "cartulary.network_flow_activity.configuration_namespace.v1",
   "profile_id": "network_flow_activity",
-  "schema_id": "cartulary.extension_profile_configuration_contract.v2"
+  "schema_id": "cartulary.extension_profile_configuration_contract.v3"
 }

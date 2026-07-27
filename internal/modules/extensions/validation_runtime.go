@@ -15,16 +15,15 @@ const (
 )
 
 type ValidationCondition struct {
-	ConditionID        string
-	Phase              string
-	ConditionClass     string
-	PathAlgorithmID    string
-	ReasonCode         string
-	ExpectedFormatter  string
-	ActualFormatter    string
-	Multiplicity       string
-	SecretPolicy       string
-	OwnerRequirementID string
+	ConditionID       string
+	Phase             string
+	ConditionClass    string
+	PathAlgorithmID   string
+	ReasonCode        string
+	ExpectedFormatter string
+	ActualFormatter   string
+	Multiplicity      string
+	SecretPolicy      string
 }
 
 type OwnerFinding struct {
@@ -147,16 +146,15 @@ func parseValidationConditions(registry map[string]any) (map[string]ValidationCo
 	previous := ""
 	for _, row := range rows {
 		condition := ValidationCondition{
-			ConditionID:        stringValue(row["condition_id"]),
-			Phase:              stringValue(row["phase"]),
-			ConditionClass:     stringValue(row["condition_class"]),
-			PathAlgorithmID:    stringValue(row["path_algorithm_id"]),
-			ReasonCode:         stringValue(row["reason_code"]),
-			ExpectedFormatter:  stringValue(row["expected_formatter_id"]),
-			ActualFormatter:    stringValue(row["actual_formatter_id"]),
-			Multiplicity:       stringValue(row["multiplicity"]),
-			SecretPolicy:       stringValue(row["secret_policy"]),
-			OwnerRequirementID: stringValue(row["owner_requirement_id"]),
+			ConditionID:       stringValue(row["condition_id"]),
+			Phase:             stringValue(row["phase"]),
+			ConditionClass:    stringValue(row["condition_class"]),
+			PathAlgorithmID:   stringValue(row["path_algorithm_id"]),
+			ReasonCode:        stringValue(row["reason_code"]),
+			ExpectedFormatter: stringValue(row["expected_formatter_id"]),
+			ActualFormatter:   stringValue(row["actual_formatter_id"]),
+			Multiplicity:      stringValue(row["multiplicity"]),
+			SecretPolicy:      stringValue(row["secret_policy"]),
 		}
 		orderKey := condition.ConditionID
 		if orderKey == "" || orderKey <= previous {

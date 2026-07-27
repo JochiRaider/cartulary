@@ -122,29 +122,6 @@
       "status": "active"
     },
     {
-      "row_id": "module.reporting.unit.fixture_corpus_machine_contract",
-      "owner_id": "module.reporting",
-      "family_id": "module.reporting.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reporting.verification.fixture_corpus"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reporting",
-        "tests": [
-          "TestReportingTraceabilityAndFixtureCorpus"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.reporting.unit.snapshot_reporting_open_api_uses_reusable_closed_0d1a4531ba",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.unit",
@@ -156,7 +133,8 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestOpenAPIReleaseEnumsAndExactResources_Unit"
+          "TestOpenAPIReleaseEnumsAndExactResources_Unit",
+          "TestSupportedOutputKindsAreClosed_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -1,7 +1,6 @@
 {
-  "schema_id": "cartulary.openapi_source_manifest.v2",
+  "schema_id": "cartulary.openapi_source_manifest.v3",
   "target": "contracts/openapi/cartulary.openapi.yaml",
-  "requirements_registry": "contracts/requirements/registry.json",
   "policy": "contracts/openapi-source/assembly-policy.json",
   "unit_root": "contracts/openapi-source/owners",
   "units": [

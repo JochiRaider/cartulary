@@ -85,7 +85,6 @@ func main() {
 type networkFlowMappingRegistry struct {
 	SchemaID            string                                    `json:"schema_id"`
 	ProfileID           string                                    `json:"profile_id"`
-	DocumentVersion     string                                    `json:"document_version"`
 	TargetKind          string                                    `json:"target_kind"`
 	TargetTableSchemaID string                                    `json:"target_table_schema_id"`
 	SystemDerivations   []networkFlowMappingSystemDerivation      `json:"system_derivations"`
@@ -378,7 +377,7 @@ func contractFamilyPackage(familyDir string) string {
 }
 
 func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
-	const registryPath = "contracts/network-flow/mapping-registry.v1.json"
+	const registryPath = "contracts/network-flow/mapping-registry.v2.json"
 	var registryJSON string
 	for _, current := range families {
 		for _, currentArtifact := range current.Artifacts {
@@ -411,11 +410,10 @@ func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
 	buffer.WriteString("\tSourceProfileID string\n\tDisplayName string\n\tConformanceStatus string\n\tParserProfileID string\n\tDefaultUnknownColumnPolicy string\n\tSupportedUnknownColumnPolicies []string\n\tDefaultTimestampProfile TimestampProfile\n\tSupportedTimestampModes []string\n\tFields []Field\n}\n\n")
 	buffer.WriteString("type SystemDerivation struct {\n\tFieldKey string\n\tDerivationID string\n\tCombinability string\n}\n\n")
 	buffer.WriteString("type MappingRegistry struct {\n")
-	buffer.WriteString("\tSchemaID string\n\tProfileID string\n\tDocumentVersion string\n\tTargetKind string\n\tTargetTableSchemaID string\n\tSystemDerivations []SystemDerivation\n\tSourceProfiles []SourceProfile\n}\n\n")
+	buffer.WriteString("\tSchemaID string\n\tProfileID string\n\tTargetKind string\n\tTargetTableSchemaID string\n\tSystemDerivations []SystemDerivation\n\tSourceProfiles []SourceProfile\n}\n\n")
 	buffer.WriteString("var Registry = MappingRegistry{\n")
 	fmt.Fprintf(&buffer, "\tSchemaID: %s,\n", strconv.Quote(registry.SchemaID))
 	fmt.Fprintf(&buffer, "\tProfileID: %s,\n", strconv.Quote(registry.ProfileID))
-	fmt.Fprintf(&buffer, "\tDocumentVersion: %s,\n", strconv.Quote(registry.DocumentVersion))
 	fmt.Fprintf(&buffer, "\tTargetKind: %s,\n", strconv.Quote(registry.TargetKind))
 	fmt.Fprintf(&buffer, "\tTargetTableSchemaID: %s,\n", strconv.Quote(registry.TargetTableSchemaID))
 	buffer.WriteString("\tSystemDerivations: []SystemDerivation{\n")

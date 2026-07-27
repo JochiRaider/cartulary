@@ -586,15 +586,15 @@ const networkFlowMappingRegistry = readJSON(
   requireString(networkFlowConfig.mapping_registry_path, "network_flow.mapping_registry_path"),
 );
 for (const [label, artifact, schemaID] of [
-  ["presentation", networkFlowPresentation, "cartulary.network_flow.presentation.v1"],
-  ["mapping registry", networkFlowMappingRegistry, "cartulary.network_flow.mapping_registry.v1"],
+  ["presentation", networkFlowPresentation, "cartulary.network_flow.presentation.v2"],
+  ["mapping registry", networkFlowMappingRegistry, "cartulary.network_flow.mapping_registry.v2"],
 ]) {
   requireObject(artifact, `network-flow ${label}`);
   if (artifact.schema_id !== schemaID) {
     throw new Error(`network-flow ${label} has unexpected schema_id`);
   }
-  if (artifact.document_version !== networkFlowIndex.document_version) {
-    throw new Error(`network-flow ${label} document version drifted from index`);
+  if (artifact.profile_id !== networkFlowIndex.profile_id) {
+    throw new Error(`network-flow ${label} profile identity drifted from index`);
   }
 }
 const networkFlowDefinitions = requireObject(
@@ -681,10 +681,6 @@ const [networkFlowTypes, coreHTTPTypes, collaborationTypes] = await Promise.all(
 const descriptor = {
   profile_id: requireString(networkFlowIndex.profile_id, "network-flow profile_id"),
   contract_major: networkFlowIndex.contract_major,
-  document_version: requireString(
-    networkFlowIndex.document_version,
-    "network-flow document_version",
-  ),
 };
 writeFilesAtomically([
   {

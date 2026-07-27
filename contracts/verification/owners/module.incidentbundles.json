@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.incidentbundles",
   "verifications": [
     {
@@ -8,11 +8,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.incidentbundles.requirement.behavior_contract",
-        "module.incidentbundles.requirement.timeline_portability_versions"
       ]
     },
     {
@@ -21,10 +16,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.incidentbundles.requirement.extensions_portability"
       ]
     }
   ]

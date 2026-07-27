@@ -1,11 +1,11 @@
 {
-  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-  "manifest_version": 1,
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
   "fixture_id": "NF-FIX-020-atomic-import-commit",
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 1,
+    "revision": 2,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,8 +28,8 @@
     {
       "logical_path": "source/atomic-import-commit.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 309,
-      "sha256": "5922ec11152c7ae115b8ae90242473b999494634367fab9945e464bc219deab4",
+      "size_bytes": 232,
+      "sha256": "3e5f7bdc60c12863ee293d541e00ab6184766d83174263bd9a31a06aeed54296",
       "role": "support",
       "newline_policy": "lf_required"
     }
@@ -39,7 +39,7 @@
       "logical_path": "expected/atomic-import-commit.expected.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 1366,
-      "sha256": "b02443f45cdbc3b2253a0b4d914355f20bdad6e6b83f0ecc530f8e4b937f5a14",
+      "sha256": "bf638a111985c7070ecd89b4f8d059b16c6c5211bde52f0d7d158fbb9722ab55",
       "role": "expected_error"
     }
   ],
@@ -48,21 +48,10 @@
       "logical_path": "transcripts/atomic-import-commit.transcript.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 589,
-      "sha256": "582c3d65d0e82c610c91983672b214ccea2cf4a878d2128a8c5d2d822b57de81",
+      "sha256": "7d11142b86a29bd9085cc6be04b165580973b02b86768a7451a50e3044601bb5",
       "transcript_kind": "apply"
     }
   ],
-  "acceptance_ids": [
-    "NF-AC-081",
-    "NF-AC-082",
-    "NF-AC-107"
-  ],
-  "execution_selectors": [
-    "phase12/network-flow/NF-FIX-020-atomic-import-commit"
-  ],
-  "source_bundle_sha256": "2d57eb1b14293c2a800af760f0918145ef7b9c919546c97b371081c49c795b59",
-  "expected_bundle_sha256": "726cc34422730a2c51eabde6410cc5793f32ff4f4a5657d7f5c2432efcb9c14e",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "source_bundle_sha256": "b51386e9d071df1dc44605cb20637cdb74a3e69536a36bf7ceafb2fff807ba62",
+  "expected_bundle_sha256": "99f265c2c1c2f49686a01b5b45433d399a4d58945790d8a8ebfcd0521f2fc59b"
 }

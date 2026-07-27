@@ -2,7 +2,7 @@
   "schema_id": "cartulary.network_flow.fixture_transcript.v1",
   "fixture_id": "NF-FIX-011-alias-collision",
   "transcript_kind": "preview",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "steps": [
     {
       "ordinal": 1,

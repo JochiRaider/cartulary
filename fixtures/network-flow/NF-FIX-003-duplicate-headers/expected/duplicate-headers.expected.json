@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-003-duplicate-headers",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "duplicate source headers are represented by contiguous source-column descriptors and ordinal mappings",
   "table_resource": {
     "network_flow_table_id": "nft_ed12c7386986bd416c1ba3113cdce449",

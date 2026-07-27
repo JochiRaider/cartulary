@@ -4,6 +4,7 @@ import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
 
 import { canonicalJSONString } from "../test-catalog/semantic-json.mjs";
+import { restrictedExecutableInputRoots } from "../test-catalog/restricted-input-boundary.mjs";
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -13,7 +14,32 @@ function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 
-function repositoryPaths(root) {
+function validateRepositoryPath(relativePath) {
+  if (
+    path.isAbsolute(relativePath) ||
+    relativePath.includes("\\") ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    relativePath.startsWith("../")
+  ) {
+    throw new Error(`source snapshot path is not normalized: ${relativePath}`);
+  }
+  return relativePath;
+}
+
+function isDocumentationOnlyPath(relativePath, restrictedRoots) {
+  const extension = path.posix.extname(relativePath).toLowerCase();
+  return (
+    restrictedRoots.some(
+      (restrictedRoot) =>
+        relativePath === restrictedRoot ||
+        relativePath.startsWith(`${restrictedRoot}/`),
+    ) ||
+    extension === ".md" ||
+    extension === ".markdown"
+  );
+}
+
+function repositoryPaths(root, restrictedRoots) {
   return execFileSync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
@@ -21,6 +47,11 @@ function repositoryPaths(root) {
   )
     .split("\0")
     .filter(Boolean)
+    .map(validateRepositoryPath)
+    .filter(
+      (relativePath) =>
+        !isDocumentationOnlyPath(relativePath, restrictedRoots),
+    )
     .filter((relativePath) => {
       try {
         lstatSync(path.join(root, relativePath));
@@ -33,21 +64,15 @@ function repositoryPaths(root) {
     .sort(asciiCompare);
 }
 
-export function buildSourceSnapshot(root) {
+export function buildSourceSnapshot(root, options = {}) {
   const resolvedRoot = path.resolve(root);
-  const paths = repositoryPaths(resolvedRoot);
+  const restrictedRoots =
+    options.restrictedRoots ?? restrictedExecutableInputRoots(resolvedRoot);
+  const paths = repositoryPaths(resolvedRoot, restrictedRoots);
   if (new Set(paths).size !== paths.length) {
     throw new Error("source snapshot contains duplicate repository paths");
   }
   const entries = paths.map((relativePath) => {
-    if (
-      path.isAbsolute(relativePath) ||
-      relativePath.includes("\\") ||
-      path.posix.normalize(relativePath) !== relativePath ||
-      relativePath.startsWith("../")
-    ) {
-      throw new Error(`source snapshot path is not normalized: ${relativePath}`);
-    }
     const absolutePath = path.join(resolvedRoot, relativePath);
     const stat = lstatSync(absolutePath);
     if (stat.isSymbolicLink()) {
@@ -69,7 +94,7 @@ export function buildSourceSnapshot(root) {
     };
   });
   const snapshot = {
-    schema_id: "cartulary.source_snapshot_digest.v1",
+    schema_id: "cartulary.source_snapshot_digest.v2",
     entries,
   };
   return {

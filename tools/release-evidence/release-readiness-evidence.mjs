@@ -16,8 +16,8 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");
 const schemaID = "cartulary.release_readiness_evidence.v2";
-const evidenceAccountingSchemaID = "cartulary.test_evidence_accounting.v1";
-const ownerSummarySchemaID = "cartulary.test_owner_summary.v1";
+const evidenceAccountingSchemaID = "cartulary.test_evidence_accounting.v2";
+const ownerSummarySchemaID = "cartulary.test_owner_summary.v2";
 const releaseVerificationID =
   "harness.release.verification.current_owner_evidence_only";
 const accountingVerificationID =
@@ -321,8 +321,13 @@ function ownerPartitionEvidenceRecords(runRootAbs, runRootRel, definition) {
         const ownerSummary = readJSON(ownerSummaryFile);
         validateSchemaSync(evidenceAccountingSchemaID, accounting);
         validateSchemaSync(ownerSummarySchemaID, ownerSummary);
+        const currentCatalog = catalogContext.catalog.summary;
         const observedRows = accounting.observed_rows.map((row) => row.row_id).sort();
         const consistent =
+          accounting.evidence_epoch === currentCatalog.evidence_epoch &&
+          accounting.test_catalog_digest === currentCatalog.test_catalog_digest &&
+          accounting.verification_routing_digest ===
+            currentCatalog.verification_routing_digest &&
           accounting.owner_id === ownerID &&
           ownerSummary.owner_id === ownerID &&
           accounting.target_id === definition.target &&
@@ -330,6 +335,16 @@ function ownerPartitionEvidenceRecords(runRootAbs, runRootRel, definition) {
           sameArray(accounting.selected_rows, expectedRows) &&
           sameArray(ownerSummary.selected_rows, expectedRows) &&
           sameArray(observedRows, expectedRows) &&
+          [
+            "evidence_epoch",
+            "run_id",
+            "source_snapshot_digest",
+            "test_catalog_digest",
+            "verification_routing_digest",
+            "runtime_profile_digest",
+            "resource_profile_digest",
+            "fixture_profile_digest",
+          ].every((field) => accounting[field] === ownerSummary[field]) &&
           accounting.status === "pass" &&
           ownerSummary.status === "pass" &&
           accounting.observed_rows.every((row) =>

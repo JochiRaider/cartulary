@@ -1784,8 +1784,7 @@
       "command": [
         "./tools/harness/generated-artifacts/check-generate-drift.sh"
       ],
-      "test_target": "self",
-      "success_summary": true
+      "test_target": "self"
     },
     "generated-artifact-policy-check": {
       "prerequisites": [
@@ -1813,7 +1812,8 @@
         "$(NODE_BIN)",
         "./tools/harness/generated-artifacts/check-json-shapes.mjs"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "toolchain-drift": {
       "prerequisites": [
@@ -2461,6 +2461,22 @@
       ],
       "test_target": "self"
     },
+    "harness-evidence-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-evidence-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-name-pattern=evidence",
+        "./tools/harness/tests/test-harness-contracts.mjs"
+      ],
+      "test_target": "self"
+    },
     "harness-contract": {
       "type": "step_command",
       "prerequisites": [
@@ -2955,6 +2971,20 @@
       },
       "test_target": "self",
       "success_summary": true
+    },
+    "release-evidence-contract": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "release-evidence-contract",
+      "command": [
+        "bash",
+        "./tools/release-evidence/tests/test-release-readiness-evidence.sh"
+      ],
+      "test_target": "self"
     },
     "license-report": {
       "prerequisites": [
@@ -8793,6 +8823,17 @@
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
+      "command_id": "cartulary.harness.command.harness_test_catalog_tests.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-evidence-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-contracts.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_evidence_contract.v1",
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
@@ -10465,6 +10506,17 @@
         "undeclared_inherited_env": "ignore",
         "inputs": []
       }
+    },
+    {
+      "name": "release-evidence-contract",
+      "backing_scripts": [
+        "tools/release-evidence/tests/test-release-readiness-evidence.sh",
+        "tools/release-evidence/release-readiness-evidence.mjs"
+      ],
+      "command_id": "cartulary.harness.command.release_evidence_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     },
     {
       "name": "license-report",

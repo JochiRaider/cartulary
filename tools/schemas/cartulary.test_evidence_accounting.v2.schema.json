@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_evidence_accounting.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "evidence_epoch",
+    "command_id",
+    "run_id",
+    "owner_id",
+    "selected_rows",
+    "source_snapshot_digest",
+    "test_catalog_digest",
+    "verification_routing_digest",
+    "runtime_profile_digest",
+    "resource_profile_digest",
+    "fixture_profile_digest",
+    "target_id",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "status",
+    "expected_rows",
+    "observed_rows"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test_evidence_accounting.v2"
+    },
+    "evidence_epoch": {
+      "const": "cartulary.test_evidence.nlspec.v1"
+    },
+    "command_id": {
+      "type": "string",
+      "pattern": "^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v[0-9]+$"
+    },
+    "run_id": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/nonempty"
+    },
+    "owner_id": {
+      "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id"
+    },
+    "selected_rows": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/row_ids"
+    },
+    "source_snapshot_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "test_catalog_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "verification_routing_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "runtime_profile_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "resource_profile_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "fixture_profile_digest": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+    },
+    "target_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "started_at": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/timestamp"
+    },
+    "finished_at": {
+      "$ref": "cartulary.test_slice_plan.v3#/$defs/timestamp"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "expected_rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/expected_row"
+      }
+    },
+    "observed_rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/observed_row"
+      }
+    }
+  },
+  "$defs": {
+    "terminal_state": {
+      "enum": [
+        "passed",
+        "failed",
+        "infrastructure_failed",
+        "skipped_dependency",
+        "cancelled",
+        "skipped_authorized"
+      ]
+    },
+    "expected_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_id",
+        "owner_id",
+        "family_id",
+        "verification_ids",
+        "runner",
+        "selector_digest",
+        "evidence_class",
+        "evidence_target_id",
+        "runtime_profile_id",
+        "resource_profile_id",
+        "fixture_profile_id"
+      ],
+      "properties": {
+        "row_id": {
+          "$ref": "cartulary.test_family_manifest.v2#/$defs/row_id"
+        },
+        "owner_id": {
+          "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id"
+        },
+        "family_id": {
+          "$ref": "cartulary.test_family_manifest.v2#/$defs/family_id"
+        },
+        "verification_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "cartulary.test_family_manifest.v2#/$defs/verification_id"
+          }
+        },
+        "runner": {
+          "enum": [
+            "go",
+            "vitest",
+            "playwright",
+            "shell"
+          ]
+        },
+        "selector_digest": {
+          "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+        },
+        "evidence_class": {
+          "enum": [
+            "unit",
+            "integration",
+            "browser",
+            "accessibility",
+            "visual",
+            "measurement",
+            "static",
+            "security",
+            "release"
+          ]
+        },
+        "evidence_target_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "runtime_profile_id": {
+          "$ref": "cartulary.test_slice_plan.v3#/$defs/nonempty"
+        },
+        "resource_profile_id": {
+          "$ref": "cartulary.test_slice_plan.v3#/$defs/nonempty"
+        },
+        "fixture_profile_id": {
+          "$ref": "cartulary.test_slice_plan.v3#/$defs/nonempty"
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_class",
+        "failure_reason",
+        "exit_code"
+      ],
+      "properties": {
+        "failure_class": {
+          "enum": [
+            "product",
+            "artifact"
+          ]
+        },
+        "failure_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt",
+        "terminal_state",
+        "exit_code",
+        "duration_ms",
+        "artifact_refs"
+      ],
+      "properties": {
+        "attempt": {
+          "const": 1
+        },
+        "terminal_state": {
+          "$ref": "#/$defs/terminal_state"
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "observed_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_id",
+        "terminal_state",
+        "logical_duration_ms",
+        "executed_duration_ms",
+        "attempts",
+        "failure"
+      ],
+      "properties": {
+        "row_id": {
+          "$ref": "cartulary.test_family_manifest.v2#/$defs/row_id"
+        },
+        "terminal_state": {
+          "$ref": "#/$defs/terminal_state"
+        },
+        "logical_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executed_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/attempt"
+          }
+        },
+        "failure": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/failure"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

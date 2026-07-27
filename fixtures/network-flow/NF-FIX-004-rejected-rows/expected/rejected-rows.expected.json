@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-004-rejected-rows",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "partially and fully rejected CSV rows produce deterministic diagnostics without graph participation",
   "table_resource": {
     "network_flow_table_id": "nft_fdd5fac00ac346df7b463e2385090492",

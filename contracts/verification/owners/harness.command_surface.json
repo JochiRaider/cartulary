@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.command_surface",
   "verifications": [
     {
@@ -9,11 +9,7 @@
       "evidence_kinds": [
         "static_check"
       ],
-      "public_target": "harness-contract",
-      "status": "active",
-      "requirement_ids": [
-        "harness.command_surface.requirement.public_registry_parity"
-      ]
+      "public_target": "harness-contract"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "app.server",
   "verifications": [
     {
@@ -9,11 +9,6 @@
       "evidence_kinds": [
         "go_test",
         "playwright"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "app.server.requirement.behavior_contract",
-        "app.server.requirement.deployment_process_models"
       ]
     }
   ]

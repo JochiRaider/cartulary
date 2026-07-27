@@ -93,6 +93,7 @@
   lint-scripts \
   lint-markdown \
   harness-contract-tests \
+  harness-evidence-contract \
   harness-contract \
   lint-shell \
   format \
@@ -129,6 +130,7 @@
   release-browser-readiness \
   release-check \
   release-readiness-evidence \
+  release-evidence-contract \
   license-report \
   sbom \
   seaweedfs-compatibility \
@@ -462,8 +464,7 @@ generate-drift: export CARTULARY_TEST_TARGET ?= generate-drift
 generate-drift:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate-drift)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory codegen-toolchain; fi
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/check-generate-drift.sh
-	$(call RUN_TARGET_SUMMARY,generate-drift,pass)
+	$(Q)$(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) ./tools/harness/generated-artifacts/check-generate-drift.sh
 
 generated-artifact-policy-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 generated-artifact-policy-check: export CARTULARY_TEST_TARGET ?= generated-artifact-policy-check
@@ -479,7 +480,8 @@ json-shape-check:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,json-shape-check)
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(FRONTEND_INSTALL_STAMP); fi
-	$(Q)$(RUN_STEP_SCRIPT) "json-shape-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-json-shapes.mjs
+	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "json-shape-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/check-json-shapes.mjs
+	$(call RUN_TARGET_SUMMARY,json-shape-check,pass)
 
 toolchain-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 toolchain-drift:
@@ -829,6 +831,11 @@ harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-contract-tests: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs
 
+harness-evidence-contract: export CARTULARY_TEST_TARGET ?= harness-evidence-contract
+harness-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test --test-name-pattern=evidence ./tools/harness/tests/test-harness-contracts.mjs
+
 harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
 harness-contract:
@@ -1059,6 +1066,11 @@ release-readiness-evidence:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-readiness-evidence)
 	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "release-readiness-evidence" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/release-evidence/release-readiness-evidence.mjs; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,release-readiness-evidence,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,release-readiness-evidence,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; \
 	  exit "$$status"
+
+release-evidence-contract: export CARTULARY_TEST_TARGET ?= release-evidence-contract
+release-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+release-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "release-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) bash ./tools/release-evidence/tests/test-release-readiness-evidence.sh
 
 license-report: export CARTULARY_TEST_TARGET ?= license-report
 license-report: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

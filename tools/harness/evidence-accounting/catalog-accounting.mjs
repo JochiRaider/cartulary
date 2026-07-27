@@ -135,10 +135,11 @@ export function loadOwnerAccountingSelection(
   }));
 
   return {
+    evidence_epoch: catalog.summary.evidence_epoch,
     owner_id: ownerID,
     selected_rows: expectedRows.map((row) => row.row_id),
-    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+    test_catalog_digest: catalog.summary.test_catalog_digest,
+    verification_routing_digest: catalog.summary.verification_routing_digest,
     runtime_profile_digest: semanticJSONDigest(runtimeProfiles),
     resource_profile_digest: semanticJSONDigest(resourceProfiles),
     fixture_profile_digest: semanticJSONDigest(fixtureProfiles),

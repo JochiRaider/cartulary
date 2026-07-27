@@ -11,7 +11,7 @@ func TestCrossOwnerDescriptorsUsesCurrentMachineContract(t *testing.T) {
 		ParticipantID:         "current.participant",
 		OwnerProfileID:        "current",
 		ContractSHA256:        "current-sha256",
-		ContractKind:          "cartulary.extension_transaction_participant_contract.v2",
+		ContractKind:          "cartulary.extension_transaction_participant_contract.v3",
 		InputSchemaID:         "current.input.v1",
 		PrepareAlgorithmID:    "current.prepare.v1",
 		ValidationAlgorithmID: "current.validate.v1",

@@ -1,11 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-018-resource-limits",
-  "summary": "resource limits enforce parser/import, diagnostic truncation, graph, counter digit, and invalid deployment config boundaries",
-  "acceptance_ids": [
-    "NF-AC-038",
-    "NF-AC-048",
-    "NF-AC-064",
-    "NF-AC-076"
-  ]
+  "summary": "resource limits enforce parser/import, diagnostic truncation, graph, counter digit, and invalid deployment config boundaries"
 }

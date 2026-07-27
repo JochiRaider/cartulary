@@ -1,14 +1,20 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-006",
   "title": "HTTP route shape",
-  "status": "adopted_conformant",
-  "owner_requirement": "Route-template spans and metrics appear without raw paths, query strings, headers, cookies, user agents, client IPs, bodies, route parameters, or stable IDs.",
   "http_route_shape_assertions": {
-    "span_families": ["http_server"],
-    "span_names": ["<HTTP_METHOD> <route_template>"],
-    "span_kinds": ["server"],
-    "metrics": ["cartulary.http.server.request.duration"],
+    "span_families": [
+      "http_server"
+    ],
+    "span_names": [
+      "<HTTP_METHOD> <route_template>"
+    ],
+    "span_kinds": [
+      "server"
+    ],
+    "metrics": [
+      "cartulary.http.server.request.duration"
+    ],
     "required_attributes": [
       "http.request.method",
       "http.route",

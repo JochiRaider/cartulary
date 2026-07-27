@@ -8,13 +8,6 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "REQ-RPT-019a",
-      "profile_id": "snapshot_reporting"
-    },
-    {
-      "conformance_manifest_id": "snapshot_reporting.conformance.v1",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
     },
     {
@@ -24,7 +17,6 @@
         "route_family": "/api/v1/incidents/{incident_id}/report-compositions"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
     },
     {
@@ -34,7 +26,6 @@
         "route_family": "/api/v1/releases"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
     },
     {
@@ -44,7 +35,6 @@
         "route_family": "/api/v1/snapshots"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
     },
     {
@@ -52,17 +42,14 @@
         "kind": "snapshot_reporting_participant",
         "contribution_id": "snapshot_reporting.render_export",
         "participant_id": "snapshot_reporting.render_export_v1",
-        "participant_requirement_id": "REQ-RPT-019a",
-        "participant_contract_sha256": "cea7694d0fd7bbbf3d68dc970dc5f9b06b5f5ed32410dbd8509d01848bb38d85"
+        "participant_contract_sha256": "7111bf8628b3421b731ed498762c0418c3a207197db337c03a31e5400b3052ab"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting"
     },
     {
       "fact_kind": "job_kind",
       "profile_id": "snapshot_reporting",
-      "owner_requirement_id": "REQ-RPT-019a",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "snapshot_reporting",
@@ -80,7 +67,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "snapshot_reporting",
-      "owner_requirement_id": "REQ-RPT-019a",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "snapshot_reporting",
@@ -104,7 +90,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "snapshot_reporting",
-      "owner_requirement_id": "REQ-RPT-019a",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "snapshot_reporting",
@@ -128,28 +113,23 @@
     {
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_requirement_id": "REQ-RPT-019a",
-      "profile_id": "snapshot_reporting",
-      "egress_requirement_id": null
+      "profile_id": "snapshot_reporting"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_requirement_id": "REQ-RPT-019a",
       "participant_id": null,
       "profile_id": "snapshot_reporting"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "REQ-RPT-019a",
       "participant_id": "snapshot_reporting.render_export_v1",
       "profile_id": "snapshot_reporting",
       "snapshot_reporting_mode": "participant"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "REQ-RPT-019a",
       "profile_id": "snapshot_reporting",
       "state_ownership": {
         "kind": "core_managed"
@@ -158,14 +138,10 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "snapshot_reporting",
-      "owner_requirement_id": "REQ-RPT-019a",
       "worker_kind": "snapshot_reporting.job_worker_v1"
     }
   ],
   "owner_fragment_id": "snapshot_reporting.participation.v1",
   "owner_id": "reporting",
-  "schema_id": "cartulary.extension_owner_fragment.v2",
-  "requirement_catalog_ref": "contracts/requirements/owners/reporting.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "82bcf59e0fbb48a50204401fc4857af08a25e539b42cd269a94dac077ffd8a08"
+  "schema_id": "cartulary.extension_owner_fragment.v3"
 }

@@ -1,6 +1,6 @@
 {
-  "schema_id": "cartulary.graph_projection_fixture_manifest.v2",
-  "fixture_version": 2,
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v3",
+  "fixture_version": 3,
   "fixture_id": "GP-FIX-005",
   "execution_layer": "backend_unit",
   "test_symbol": "TestGPFIX005Remediation",
@@ -21,12 +21,12 @@
     {
       "path": "input.json",
       "role": "input",
-      "sha256": "0e057ece9307068ec9d83bb7832f8cbb95859727d3cb0221df4ed52693aa55ec"
+      "sha256": "0e1c2cd1f068452ff31d16ca1acb35f692c60efe69dbc6c1f1dd61861fe4b693"
     },
     {
       "path": "expected.response.json",
       "role": "expected_response",
-      "sha256": "efd3e164292fc212c5ebebf123a3fa7fb940046e4084287b71c7105c13be97b2"
+      "sha256": "a8f22d798c85308b1391302faedfbca63cbef3988a8bb458a50dd0f20be71091"
     }
   ],
   "golden": {
@@ -39,11 +39,5 @@
   },
   "state_effects": {
     "mode": "no_retained_state_change"
-  },
-  "requirement_ids": [
-    "GP-AC-019",
-    "GP-AC-036",
-    "GP-AC-037",
-    "GP-AC-061"
-  ]
+  }
 }

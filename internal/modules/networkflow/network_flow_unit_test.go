@@ -30,8 +30,6 @@ type FixtureManifest struct {
 	SourceFiles          []FixtureFile `json:"source_files"`
 	ExpectedArtifacts    []FixtureFile `json:"expected_artifacts"`
 	TranscriptFiles      []FixtureFile `json:"transcript_files"`
-	AcceptanceIDs        []string      `json:"acceptance_ids"`
-	ExecutionSelectors   []string      `json:"execution_selectors"`
 	SourceBundleSHA256   string        `json:"source_bundle_sha256"`
 	ExpectedBundleSHA256 string        `json:"expected_bundle_sha256"`
 }
@@ -50,43 +48,40 @@ type FixtureFile struct {
 }
 
 func TestNetworkFlow_CiscoSNARequiredFields_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-010")
+	AssertCiscoSNARequiredFields(t)
 }
 
 func TestNetworkFlow_CSVParserEdgeOutcomes_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-012")
+	AssertCSVParserEdges(t)
 }
 
 func TestNetworkFlow_DigestAndIDVectors_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-017")
+	AssertDigestAlgorithms(t)
 }
 
 func TestNetworkFlow_TimestampRejectsInvalidInputs_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-018")
+	AssertTimestampRules(t)
 }
 
 func TestNetworkFlow_IPCanonicalizationVectors_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-019")
+	AssertIPCanonicalization(t)
 }
 
 func TestNetworkFlow_Uint64DecimalGrammar_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-020")
+	AssertUint64DecimalGrammar(t)
 }
 
 func TestNetworkFlow_CIDRFamilyVectors_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-026")
+	AssertCIDRFamilyBehavior(t)
 }
 
 func TestNetworkFlow_ErrorDetailShape_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-049")
+	AssertErrorDetailShape(t)
 }
 
 func TestNetworkFlow_FixtureCorpusIsFrozen_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-052")
-}
-
-func TestNetworkFlow_MayStatementsHaveOmissionBehavior_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-053")
+	AssertFrozenFixtureCorpus(t)
+	AssertAllFixtureRuntimeBehavior(t)
 }
 
 func TestGraphProjectionFailureClassification(t *testing.T) {
@@ -217,90 +212,20 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	}
 }
 
-func TestNetworkFlow_NormativeAuthorityStaysInOwners_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-054")
-}
-
-func TestNetworkFlow_DocumentReferencesAndFixtureRowsResolve_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-055")
-}
-
-func TestNetworkFlow_TimestampPrecisionAndUptimeVectors_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-060")
-}
-
 func TestNetworkFlow_SuccessResourceShape_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-075")
+	AssertSuccessResourceShape(t)
 }
 
 func TestNetworkFlow_CSVPreviewBoundary_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-083")
+	AssertCSVPreviewBoundary(t)
 }
 
 func TestNetworkFlow_CiscoSNATargetBoundary_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-085")
+	AssertCiscoSNATargetBoundary(t)
 }
 
 func TestNetworkFlow_TrimASCIISpaceOnly_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-086")
-}
-
-func TestNetworkFlow_TimestampObjectBoundary_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-087")
-}
-
-func TestNetworkFlow_AdoptionPrerequisitesAreConcrete_Unit(t *testing.T) {
-	AssertUnitSelector(t, "NF-AC-106")
-}
-
-func AssertUnitSelector(t *testing.T, acID string) {
-	t.Helper()
-	switch acID {
-	case "NF-AC-010":
-		AssertCiscoSNARequiredFields(t)
-	case "NF-AC-012":
-		AssertCSVParserEdges(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-017":
-		AssertDigestAlgorithms(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-018", "NF-AC-060", "NF-AC-087":
-		AssertTimestampRules(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-019":
-		AssertIPCanonicalization(t)
-	case "NF-AC-020":
-		AssertUint64DecimalGrammar(t)
-	case "NF-AC-026":
-		AssertCIDRFamilyBehavior(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-049":
-		AssertErrorDetailShape(t)
-	case "NF-AC-050":
-		AssertLargeTimingClassification(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-052":
-		AssertFrozenFixtureCorpus(t)
-	case "NF-AC-053", "NF-AC-054", "NF-AC-055":
-		AssertMachineVerificationContract(t)
-	case "NF-AC-075":
-		AssertSuccessResourceShape(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-083":
-		AssertCSVPreviewBoundary(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-085":
-		AssertCiscoSNATargetBoundary(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-086":
-		AssertTrimASCIISpaceOnly(t)
-		AssertFixtureEvidence(t, acID)
-	case "NF-AC-106":
-		AssertAdoptionPrerequisitesConcrete(t)
-	default:
-		t.Fatalf("unmapped Network Flow Network Flow unit selector %s", acID)
-	}
-	AssertFixtureRuntimeEvidenceIfPresent(t, acID)
+	AssertTrimASCIISpaceOnly(t)
 }
 
 func AssertCiscoSNARequiredFields(t *testing.T) {
@@ -487,16 +412,6 @@ func AssertErrorDetailShape(t *testing.T) {
 	}
 }
 
-func AssertLargeTimingClassification(t *testing.T) {
-	t.Helper()
-	manifest := ReadFile(t, "tools/test_families/module.networkflow.json")
-	if !bytes.Contains(manifest, []byte(`"evidence_class": "measurement"`)) ||
-		!bytes.Contains(manifest, []byte(`"claim_posture": "informative"`)) ||
-		!bytes.Contains(manifest, []byte("without a timing claim")) {
-		t.Fatalf("Network Flow owner manifest must keep measurement evidence informative and outside product conformance publication")
-	}
-}
-
 func AssertSuccessResourceShape(t *testing.T) {
 	t.Helper()
 	row := flowRowFixture()
@@ -582,111 +497,91 @@ func AssertTrimASCIISpaceOnly(t *testing.T) {
 	}
 }
 
-func AssertMachineVerificationContract(t *testing.T) {
+// AssertAllFixtureRuntimeBehavior executes every frozen fixture against the
+// production parsing, mapping, canonicalization, validation, and request
+// admission functions represented by its source bytes. Expected artifacts and
+// transcripts are decoded and matched to the same fixture revision.
+func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 	t.Helper()
-	var contract struct {
-		SchemaID      string `json:"schema_id"`
-		OwnerID       string `json:"owner_id"`
-		Verifications []struct {
-			VerificationID string `json:"verification_id"`
-			Status         string `json:"status"`
-		} `json:"verifications"`
-	}
-	if err := json.Unmarshal(
-		ReadFile(t, "contracts/verification/owners/module.networkflow.json"),
-		&contract,
-	); err != nil {
-		t.Fatalf("decode Network Flow verification contract: %v", err)
-	}
-	if contract.SchemaID != "cartulary.verification_contract.v2" || contract.OwnerID != "module.networkflow" {
-		t.Fatalf("unexpected Network Flow verification identity: %s/%s", contract.SchemaID, contract.OwnerID)
-	}
-	for _, verification := range contract.Verifications {
-		if verification.VerificationID == "module.networkflow.verification.contract_accounting" && verification.Status == "active" {
-			return
-		}
-	}
-	t.Fatal("Network Flow contract-accounting verification is not active")
-}
-
-func AssertAdoptionPrerequisitesConcrete(t *testing.T) {
-	t.Helper()
-	AssertFrozenFixtureCorpus(t)
-	AssertMachineVerificationContract(t)
-}
-
-func AssertFixtureEvidence(t *testing.T, acID string) {
-	t.Helper()
-	byAC := FixtureManifestsByAC(t)
-	manifests := byAC[acID]
-	if len(manifests) == 0 {
-		t.Fatalf("%s has no frozen Network Flow fixture manifest coverage", acID)
-	}
+	manifests := ReadFixtureManifests(t)
 	for _, manifest := range manifests {
-		if len(manifest.ExpectedArtifacts) == 0 {
-			t.Fatalf("%s fixture %s has no expected artifact", acID, manifest.FixtureID)
-		}
-		if len(manifest.TranscriptFiles) == 0 {
-			t.Fatalf("%s fixture %s has no transcript", acID, manifest.FixtureID)
-		}
-	}
-}
-
-// AssertFixtureRuntimeEvidenceIfPresent makes frozen fixtures
-// supplemental to a concrete product path. It deliberately executes authored
-// CSV and mapping bytes through admission, canonicalization, and row
-// validation; manifest existence and digests alone cannot satisfy the row.
-func AssertFixtureRuntimeEvidenceIfPresent(t *testing.T, acID string) {
-	t.Helper()
-	manifests := FixtureManifestsByAC(t)[acID]
-	for _, manifest := range manifests {
-		root := filepath.Join(RepoRoot(t), "fixtures", "network-flow", manifest.FixtureID)
-		var parsed []*ParsedCSV
-		var mappings []ApprovedMapping
-		executed := 0
-		for _, file := range manifest.SourceFiles {
-			path := filepath.Join(root, filepath.FromSlash(file.LogicalPath))
-			content, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read runtime fixture %s/%s: %v", manifest.FixtureID, file.LogicalPath, err)
-			}
-			switch {
-			case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".csv"):
-				executed++
-				value, parseErr := ParseCSVApply(bytes.NewReader(content), file.SHA256, DefaultLimits())
-				if parseErr == nil {
-					parsed = append(parsed, &value)
+		manifest := manifest
+		t.Run(manifest.FixtureID, func(t *testing.T) {
+			root := filepath.Join(RepoRoot(t), "fixtures", "network-flow", manifest.FixtureID)
+			var parsed []*ParsedCSV
+			var mappings []ApprovedMapping
+			executed := 0
+			for _, file := range manifest.SourceFiles {
+				path := filepath.Join(root, filepath.FromSlash(file.LogicalPath))
+				content, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read runtime fixture %s/%s: %v", manifest.FixtureID, file.LogicalPath, err)
 				}
-				_ = SanitizeSourceFilenameDisplay(file.LogicalPath)
-			case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".jsonl"):
-				for _, line := range bytes.Split(content, []byte{'\n'}) {
-					if len(bytes.TrimSpace(line)) == 0 {
+				switch {
+				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".csv"):
+					executed++
+					value, parseErr := ParseCSVApply(bytes.NewReader(content), file.SHA256, DefaultLimits())
+					if parseErr == nil {
+						parsed = append(parsed, &value)
+					}
+					_ = SanitizeSourceFilenameDisplay(file.LogicalPath)
+				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".jsonl"):
+					for _, line := range bytes.Split(content, []byte{'\n'}) {
+						if len(bytes.TrimSpace(line)) == 0 {
+							continue
+						}
+						executed++
+						_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, DefaultLimits())
+					}
+				case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
+					executed++
+					mapping, mappingErr := DecodeApprovedMapping(content)
+					if mappingErr == nil {
+						mappings = append(mappings, mapping)
+					}
+				}
+			}
+			for _, csv := range parsed {
+				for _, mapping := range mappings {
+					if !sourceColumnsMatch(mapping.SourceColumns, csv.SourceColumns) {
 						continue
 					}
 					executed++
-					_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, DefaultLimits())
-				}
-			case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
-				executed++
-				mapping, mappingErr := DecodeApprovedMapping(content)
-				if mappingErr == nil {
-					mappings = append(mappings, mapping)
+					fingerprint := MappingFingerprint(mapping, csv.SourceContentSHA256)
+					_, _, _, _ = ValidateRows(*csv, mapping, fingerprint, DefaultLimits())
 				}
 			}
-		}
-		for _, csv := range parsed {
-			for _, mapping := range mappings {
-				if !sourceColumnsMatch(mapping.SourceColumns, csv.SourceColumns) {
-					continue
-				}
-				executed++
-				fingerprint := MappingFingerprint(mapping, csv.SourceContentSHA256)
-				_, _, _, _ = ValidateRows(*csv, mapping, fingerprint, DefaultLimits())
+			if executed == 0 {
+				t.Fatalf("fixture %s has no executable product-runtime input", manifest.FixtureID)
 			}
-		}
-		if executed == 0 {
-			t.Fatalf("%s fixture %s has no executable product-runtime input", acID, manifest.FixtureID)
-		}
+			for _, file := range append(
+				append([]FixtureFile{}, manifest.ExpectedArtifacts...),
+				manifest.TranscriptFiles...,
+			) {
+				var artifact struct {
+					FixtureID      string `json:"fixture_id"`
+					FreezeRevision int    `json:"freeze_revision"`
+				}
+				content := ReadAbsoluteFile(
+					t,
+					filepath.Join(root, filepath.FromSlash(file.LogicalPath)),
+				)
+				if err := json.Unmarshal(content, &artifact); err != nil {
+					t.Fatalf("decode fixture artifact %s: %v", file.LogicalPath, err)
+				}
+				if artifact.FixtureID != manifest.FixtureID ||
+					artifact.FreezeRevision != manifest.Freeze.Revision {
+					t.Fatalf(
+						"fixture artifact %s identity/revision = %s/%d, want %s/%d",
+						file.LogicalPath,
+						artifact.FixtureID,
+						artifact.FreezeRevision,
+						manifest.FixtureID,
+						manifest.Freeze.Revision,
+					)
+				}
+			}
+		})
 	}
 }
 
@@ -694,7 +589,37 @@ func AssertFrozenFixtureCorpus(t *testing.T) {
 	t.Helper()
 	root := RepoRoot(t)
 	fixtureRoot := filepath.Join(root, "fixtures", "network-flow")
-	entries, err := os.ReadDir(fixtureRoot)
+	manifests := ReadFixtureManifests(t)
+	seen := map[string]struct{}{}
+	for _, manifest := range manifests {
+		if manifest.SchemaID != "cartulary.network_flow_fixture_manifest.v2" ||
+			manifest.ManifestVersion != 2 ||
+			manifest.ProfileID != ProfileID ||
+			manifest.Freeze.Status != "frozen" ||
+			manifest.Freeze.Revision != 2 ||
+			manifest.Freeze.ChangePolicy != "new_fixture_revision_required" {
+			t.Fatalf("fixture %s has invalid freeze metadata: %#v", manifest.FixtureID, manifest)
+		}
+		if _, exists := seen[manifest.FixtureID]; exists {
+			t.Fatalf("duplicate fixture id %q", manifest.FixtureID)
+		}
+		seen[manifest.FixtureID] = struct{}{}
+		if len(manifest.SourceFiles) == 0 || len(manifest.ExpectedArtifacts) == 0 || len(manifest.TranscriptFiles) == 0 {
+			t.Fatalf("fixture %s must include source, expected, and transcript files", manifest.FixtureID)
+		}
+		if !hex64(manifest.SourceBundleSHA256) || !hex64(manifest.ExpectedBundleSHA256) {
+			t.Fatalf("fixture %s has invalid bundle hashes", manifest.FixtureID)
+		}
+		for _, file := range append(append([]FixtureFile{}, manifest.SourceFiles...), append(manifest.ExpectedArtifacts, manifest.TranscriptFiles...)...) {
+			AssertFixtureFile(t, filepath.Join(fixtureRoot, manifest.FixtureID), file)
+		}
+	}
+}
+
+func ReadFixtureManifests(t *testing.T) []FixtureManifest {
+	t.Helper()
+	root := filepath.Join(RepoRoot(t), "fixtures", "network-flow")
+	entries, err := os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("read fixture root: %v", err)
 	}
@@ -708,55 +633,14 @@ func AssertFrozenFixtureCorpus(t *testing.T) {
 	if len(dirs) != 28 {
 		t.Fatalf("Network Flow fixture directory count got %d want 28: %#v", len(dirs), dirs)
 	}
-	seen := map[string]struct{}{}
+	manifests := make([]FixtureManifest, 0, len(dirs))
 	for _, dir := range dirs {
-		manifest := ReadManifest(t, filepath.Join(fixtureRoot, dir, "manifest.json"))
-		if manifest.SchemaID != "cartulary.network_flow_fixture_manifest.v1" ||
-			manifest.ManifestVersion != 1 ||
-			manifest.ProfileID != ProfileID ||
-			manifest.Freeze.Status != "frozen" ||
-			manifest.Freeze.Revision != 1 ||
-			manifest.Freeze.ChangePolicy != "new_fixture_revision_required" {
-			t.Fatalf("fixture %s has invalid freeze metadata: %#v", dir, manifest)
-		}
-		if _, exists := seen[manifest.FixtureID]; exists {
-			t.Fatalf("duplicate fixture id %q", manifest.FixtureID)
-		}
-		seen[manifest.FixtureID] = struct{}{}
-		if len(manifest.SourceFiles) == 0 || len(manifest.ExpectedArtifacts) == 0 || len(manifest.TranscriptFiles) == 0 {
-			t.Fatalf("fixture %s must include source, expected, and transcript files", manifest.FixtureID)
-		}
-		if len(manifest.AcceptanceIDs) == 0 || len(manifest.ExecutionSelectors) == 0 {
-			t.Fatalf("fixture %s must include acceptance ids and execution selectors", manifest.FixtureID)
-		}
-		if !hex64(manifest.SourceBundleSHA256) || !hex64(manifest.ExpectedBundleSHA256) {
-			t.Fatalf("fixture %s has invalid bundle hashes", manifest.FixtureID)
-		}
-		for _, file := range append(append([]FixtureFile{}, manifest.SourceFiles...), append(manifest.ExpectedArtifacts, manifest.TranscriptFiles...)...) {
-			AssertFixtureFile(t, filepath.Join(fixtureRoot, dir), file)
-		}
+		manifests = append(
+			manifests,
+			ReadManifest(t, filepath.Join(root, dir, "manifest.json")),
+		)
 	}
-}
-
-func FixtureManifestsByAC(t *testing.T) map[string][]FixtureManifest {
-	t.Helper()
-	AssertFrozenFixtureCorpus(t)
-	root := filepath.Join(RepoRoot(t), "fixtures", "network-flow")
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		t.Fatalf("read fixture root: %v", err)
-	}
-	byAC := map[string][]FixtureManifest{}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		manifest := ReadManifest(t, filepath.Join(root, entry.Name(), "manifest.json"))
-		for _, acID := range manifest.AcceptanceIDs {
-			byAC[acID] = append(byAC[acID], manifest)
-		}
-	}
-	return byAC
+	return manifests
 }
 
 func AssertFixtureFile(t *testing.T, fixtureDir string, file FixtureFile) {

@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-016-redaction",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "safe samples, raw value SHA-256s, safe digests, and no-raw-text leakage are deterministic",
   "table_resource": {
     "network_flow_table_id": "nft_4c47da8b9b57846c0bb75e5d65d6b4b0",

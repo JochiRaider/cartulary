@@ -12,7 +12,7 @@ func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *t
 	valid := validExtensionDependencyDeclarationSet()
 	dependencies := valid["dependencies"].([]any)
 
-	for _, key := range []string{"imported_requirement_ids", "imported_contract_ids", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
+	for _, key := range []string{"imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
 		t.Run("omitted "+key, func(t *testing.T) {
 			row := cloneJSONMap(t, dependencies[0].(map[string]any))
 			delete(row, key)
@@ -36,17 +36,13 @@ func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *t
 
 func TestValidateExtensionOwnerFragmentRejectsCapabilities(t *testing.T) {
 	fragment := map[string]any{
-		"schema_id":                     "cartulary.extension_owner_fragment.v2",
-		"owner_fragment_id":             "test.fragment.v1",
-		"owner_id":                      "test",
-		"requirement_catalog_ref":       "contracts/requirements/owners/test.json",
-		"requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-		"requirement_catalog_sha256":    strings.Repeat("0", 64),
+		"schema_id":         "cartulary.extension_owner_fragment.v3",
+		"owner_fragment_id": "test.fragment.v1",
+		"owner_id":          "test",
 		"facts": []any{map[string]any{
-			"fact_kind":            "capability",
-			"profile_id":           "test",
-			"owner_requirement_id": "TEST-REQ-001",
-			"capability_id":        "test.capability",
+			"fact_kind":     "capability",
+			"profile_id":    "test",
+			"capability_id": "test.capability",
 		}},
 	}
 	requireErrorContains(t, validateExtensionOwnerFragment(fragment, "fragment.json"), "capability facts are prohibited")
@@ -54,7 +50,7 @@ func TestValidateExtensionOwnerFragmentRejectsCapabilities(t *testing.T) {
 
 func TestValidateExtensionConfigurationRequiresInertSchemaReference(t *testing.T) {
 	contract := map[string]any{
-		"schema_id":                    "cartulary.extension_profile_configuration_contract.v2",
+		"schema_id":                    "cartulary.extension_profile_configuration_contract.v3",
 		"configuration_contract_id":    "test.configuration.v1",
 		"profile_id":                   "test",
 		"configuration_contract_major": json.Number("1"),
@@ -77,48 +73,6 @@ func TestExtensionCanonicalDigestIncludesRequiredFinalLF(t *testing.T) {
 	if digest != "a03b53978fe4447e8fd7539e7778e4764686c694690529ce76b9fe2e3b51f9ae" {
 		t.Fatalf("unexpected extension canonical digest %s", digest)
 	}
-}
-
-func TestValidateExtensionRequirementCoverageRejectsMismatchedSemanticDigest(t *testing.T) {
-	root := t.TempDir()
-	catalogPath := filepath.Join(
-		root,
-		"contracts",
-		"requirements",
-		"owners",
-		"extensions.json",
-	)
-	if err := os.MkdirAll(filepath.Dir(catalogPath), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	catalog := map[string]any{
-		"schema_id": "cartulary.requirement_catalog.v1",
-		"owner_id":  "extensions",
-		"requirements": []any{map[string]any{
-			"requirement_id": "EXT-REQ-001",
-			"statement":      "Fixture extension requirement.",
-			"status":         "active",
-		}},
-	}
-	body, err := json.Marshal(catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(catalogPath, body, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	indexed := map[string]map[string]any{
-		"traceability/mapping-source.json": {
-			"requirement_catalog_ref":    "contracts/requirements/owners/extensions.json",
-			"requirement_catalog_sha256": strings.Repeat("0", 64),
-			"mappings":                   []any{},
-		},
-	}
-	requireErrorContains(
-		t,
-		validateExtensionRequirementCoverage(root, indexed),
-		"stale catalog digest",
-	)
 }
 
 func TestValidateExtensionBindingSourcesRejectsUnsortedContributions(t *testing.T) {
@@ -164,24 +118,21 @@ func TestValidateExtensionParticipantContractEnforcesAggregateCeiling(t *testing
 
 func TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult(t *testing.T) {
 	contract := map[string]any{
-		"schema_id":                "cartulary.extension_participant_specialization.v2",
+		"schema_id":                "cartulary.extension_participant_specialization.v3",
 		"profile_id":               "snapshot_reporting",
 		"participant_id":           "snapshot_reporting.render_export_v1",
 		"participant_kind":         "snapshot_reporting",
 		"shared_context_schema_id": "cartulary.extension_snapshot_reporting_participant_context.v1",
 		"operations": []any{map[string]any{
-			"operation_kind":               "emit",
-			"result_schema_id":             "cartulary.obsolete_snapshot_reporting_result.v1",
-			"algorithm_id":                 "snapshot_reporting.render_export_v1",
-			"output_schema_id":             "cartulary.reporting_export_model.v1",
-			"ordering_algorithm_id":        "materialize_reporting_export_model_v1",
-			"authorization_requirement_id": "REQ-RPT-019a",
-			"redaction_requirement_id":     "REQ-RPT-059a",
-			"error_requirement_id":         "REQ-RPT-114",
-			"state_family_ids":             []any{},
-			"max_input_bytes":              json.Number("67108864"),
-			"max_output_bytes":             json.Number("67108864"),
-			"max_items":                    json.Number("1048576"),
+			"operation_kind":        "emit",
+			"result_schema_id":      "cartulary.obsolete_snapshot_reporting_result.v1",
+			"algorithm_id":          "snapshot_reporting.render_export_v1",
+			"output_schema_id":      "cartulary.reporting_export_model.v1",
+			"ordering_algorithm_id": "materialize_reporting_export_model_v1",
+			"state_family_ids":      []any{},
+			"max_input_bytes":       json.Number("67108864"),
+			"max_output_bytes":      json.Number("67108864"),
+			"max_items":             json.Number("1048576"),
 		}},
 	}
 	requireErrorContains(t, validateExtensionParticipantSpecialization(contract, "participant.json"), "result_schema_id does not match")
@@ -215,7 +166,6 @@ func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
 	}
 	for _, requiredPath := range []string{
 		generatedExtensionPrefix + "profile-registry.json",
-		generatedExtensionPrefix + "requirement-coverage.json",
 		generatedExtensionPrefix + "registry-integrity.json",
 		generatedExtensionPrefix + "validation-condition-registry.json",
 		generatedExtensionPrefix + "implementation-bindings/network_flow_activity.json",
@@ -263,27 +213,15 @@ func validExtensionDependencyDeclarationSet() map[string]any {
 	rows := make([]any, 0, len(requiredExtensionDependencies))
 	for _, dependencyID := range requiredExtensionDependencies {
 		rows = append(rows, map[string]any{
-			"dependency_id":                  dependencyID,
-			"requirement_catalog_ref":        "contracts/requirements/owners/" + dependencyID + ".json",
-			"requirement_catalog_schema_id":  "cartulary.requirement_catalog.v1",
-			"requirement_catalog_sha256":     strings.Repeat("0", 64),
-			"owner_contract_manifest_ref":    "contracts/extensions/owners/" + dependencyID + ".json",
-			"owner_contract_manifest_id":     dependencyID + ".manifest.v1",
-			"owner_contract_manifest_sha256": strings.Repeat("1", 64),
-			"imported_requirement_ids":       []any{},
-			"imported_contract_ids":          []any{dependencyID + ".v1"},
-			"imported_schema_ids":            []any{},
-			"imported_algorithm_ids":         []any{},
-			"imported_artifacts":             []any{},
-			"required_status":                "adopted/current",
+			"dependency_id":          dependencyID,
+			"imported_schema_ids":    []any{},
+			"imported_algorithm_ids": []any{},
+			"imported_artifacts":     []any{},
 		})
 	}
 	return map[string]any{
-		"schema_id":                      "cartulary.extension_dependency_declaration_set.v2",
-		"requirement_registry_ref":       "contracts/requirements/registry.json",
-		"requirement_registry_schema_id": "cartulary.requirement_registry.v1",
-		"requirement_registry_sha256":    strings.Repeat("2", 64),
-		"dependencies":                   rows,
+		"schema_id":    "cartulary.extension_dependency_declaration_set.v3",
+		"dependencies": rows,
 	}
 }
 
@@ -852,8 +790,6 @@ func validContractFamilyEntry(familyID, root, status, goName, tsName string, ord
 		"go_name":                              goName,
 		"ts_name":                              tsName,
 		"output_order":                         order,
-		"owner_requirement_ids":                []any{"test.requirement.contract_family"},
-		"owner_contract_ids":                   []any{"test.contract.family"},
 		"generated_outputs":                    []any{"internal/gen/contracts/contracts_gen.go"},
 		"typescript_runtime_artifact_prefixes": []any{root + "/"},
 		"activation_dependency_ids":            activationDependencyIDs,

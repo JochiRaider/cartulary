@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.reporting",
   "verifications": [
     {
@@ -8,24 +8,6 @@
       "profile": "extension.snapshot_reporting",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.reporting.requirement.behavior_contract"
-      ]
-    },
-    {
-      "verification_id": "module.reporting.verification.fixture_corpus",
-      "behavior_class": "product",
-      "profile": "extension.snapshot_reporting",
-      "evidence_kinds": [
-        "go_test",
-        "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "RPT-FIX-003",
-        "module.reporting.requirement.fixture_corpus"
       ]
     }
   ]

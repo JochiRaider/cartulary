@@ -1,12 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-010-json-admission",
-  "summary": "malformed JSON, duplicate members, invalid nulls, unknown members, and non-object bodies fail admission deterministically",
-  "acceptance_ids": [
-    "NF-AC-003",
-    "NF-AC-004",
-    "NF-AC-005",
-    "NF-AC-078",
-    "NF-AC-105"
-  ]
+  "summary": "malformed JSON, duplicate members, invalid nulls, unknown members, and non-object bodies fail admission deterministically"
 }

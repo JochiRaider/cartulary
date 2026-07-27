@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.visual",
   "verifications": [
     {
@@ -10,11 +10,7 @@
         "playwright",
         "static_check"
       ],
-      "public_target": "browser-e2e-visual",
-      "status": "active",
-      "requirement_ids": [
-        "harness.visual.requirement.stable_fixture_identity"
-      ]
+      "public_target": "browser-e2e-visual"
     }
   ]
 }

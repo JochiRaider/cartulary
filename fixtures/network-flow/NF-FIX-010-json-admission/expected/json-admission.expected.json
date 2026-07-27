@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-010-json-admission",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "malformed JSON, duplicate members, invalid nulls, unknown members, and non-object bodies fail admission deterministically",
   "table_resource": {
     "network_flow_table_id": "nft_2e57f3169cc701c91fc5bcf2e2b5dc01",

@@ -1,1 +1,33 @@
-{"schema_id":"cartulary.otel_corpus_input.v1","case_id":"OTEL-CORPUS-005","title":"Hostile declarative configuration","status":"adopted_conformant","owner_requirement":"Exporter, resource detector, sampler, metric reader, View, exemplar, log bridge, and plugin-provider instantiation attempts have no runtime effect.","hostile_declarative_config_assertions":{"hazard_matrix":"contracts/otel/config_hazard_fixture_matrix.v1.json","component_attempts":["otlp_http_exporter","otlp_grpc_per_signal_endpoint","resource_detector_host_process_container_cloud_service","sampler_adaptive_remote_plugin","metric_reader_export_interval","view_stream_rename_or_attribute_change","exemplars","log_bridge_or_log_exporter","plugin_component_provider"],"required_result":"no_externally_observable_telemetry_effect","network_export_enabled":false,"per_signal_endpoint_used":false,"resource_detector_invoked":false,"sampler_profile_changed":false,"metric_reader_schedule_changed":false,"unregistered_metric_stream_exported":false,"exemplars_enabled":false,"log_bridge_authority_changed":false,"plugin_provider_loaded":false,"evidence":["contracts/otel/import_boundary.json","internal/platform/config/config_otel_test.go::TestOpenTelemetryEnvironmentBindingParser"]}}
+{
+  "schema_id": "cartulary.otel_corpus_input.v2",
+  "case_id": "OTEL-CORPUS-005",
+  "title": "Hostile declarative configuration",
+  "hostile_declarative_config_assertions": {
+    "hazard_matrix": "contracts/otel/config_hazard_fixture_matrix.v2.json",
+    "component_attempts": [
+      "otlp_http_exporter",
+      "otlp_grpc_per_signal_endpoint",
+      "resource_detector_host_process_container_cloud_service",
+      "sampler_adaptive_remote_plugin",
+      "metric_reader_export_interval",
+      "view_stream_rename_or_attribute_change",
+      "exemplars",
+      "log_bridge_or_log_exporter",
+      "plugin_component_provider"
+    ],
+    "required_result": "no_externally_observable_telemetry_effect",
+    "network_export_enabled": false,
+    "per_signal_endpoint_used": false,
+    "resource_detector_invoked": false,
+    "sampler_profile_changed": false,
+    "metric_reader_schedule_changed": false,
+    "unregistered_metric_stream_exported": false,
+    "exemplars_enabled": false,
+    "log_bridge_authority_changed": false,
+    "plugin_provider_loaded": false,
+    "evidence": [
+      "contracts/otel/import_boundary.json",
+      "internal/platform/config/config_otel_test.go::TestOpenTelemetryEnvironmentBindingParser"
+    ]
+  }
+}

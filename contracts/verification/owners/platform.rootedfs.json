@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.rootedfs",
   "verifications": [
     {
@@ -9,10 +9,6 @@
       "evidence_kinds": [
         "go_test",
         "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.rootedfs.requirement.operation_containment"
       ]
     }
   ]

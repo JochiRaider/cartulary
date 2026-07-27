@@ -1,9 +1,7 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-015",
   "title": "Metrics",
-  "status": "adopted_conformant",
-  "owner_requirement": "Registration identity, stream identity, duplicate rejection, temporality, View rejection, filters, row buckets, no Bind bypass, no exemplars, and overflow behavior match the metric profile.",
   "metric_registry_assertions": {
     "metric_names": [
       "cartulary.http.server.request.duration",
@@ -22,10 +20,51 @@
       "cartulary.telemetry.queue.depth"
     ],
     "temporality_profile": "cumulative_current_profile",
-    "duration_buckets": [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
-    "byte_buckets": [1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456],
-    "row_buckets": [0, 1, 5, 10, 25, 50, 100, 250, 500],
-    "row_bucket_fixture_values": [0, 1, 5, 6, 500, 501],
+    "duration_buckets": [
+      0.005,
+      0.01,
+      0.025,
+      0.05,
+      0.1,
+      0.25,
+      0.5,
+      1,
+      2.5,
+      5,
+      10,
+      30
+    ],
+    "byte_buckets": [
+      1024,
+      4096,
+      16384,
+      65536,
+      262144,
+      1048576,
+      4194304,
+      16777216,
+      67108864,
+      268435456
+    ],
+    "row_buckets": [
+      0,
+      1,
+      5,
+      10,
+      25,
+      50,
+      100,
+      250,
+      500
+    ],
+    "row_bucket_fixture_values": [
+      0,
+      1,
+      5,
+      6,
+      500,
+      501
+    ],
     "duplicate_metric_name_policy": "case_insensitive_reject",
     "view_stream_rename": "rejected_or_absent",
     "exemplars_enabled": false,

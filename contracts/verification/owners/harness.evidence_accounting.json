@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.evidence_accounting",
   "verifications": [
     {
@@ -8,13 +8,10 @@
       "profile": "support",
       "evidence_kinds": [
         "artifact_audit",
+        "shell",
         "static_check"
       ],
-      "public_target": "test-evidence-audit",
-      "status": "active",
-      "requirement_ids": [
-        "harness.evidence_accounting.requirement.semantic_evidence_identity"
-      ]
+      "public_target": "test-evidence-audit"
     }
   ]
 }

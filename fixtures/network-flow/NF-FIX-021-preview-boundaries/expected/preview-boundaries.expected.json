@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-021-preview-boundaries",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "preview consumes exactly 50 complete logical records and row limit reports limit plus one without full scan",
   "table_resource": {
     "network_flow_table_id": "nft_6c3b2b1bb1be544714f158dd38f53722",

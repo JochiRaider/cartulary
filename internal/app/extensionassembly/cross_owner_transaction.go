@@ -18,7 +18,7 @@ import (
 func CrossOwnerDescriptors(contracts []extensions.ParticipantContract) []crossownertransaction.Descriptor {
 	result := make([]crossownertransaction.Descriptor, 0, len(contracts))
 	for _, contract := range contracts {
-		if contract.ContractKind != "cartulary.extension_transaction_participant_contract.v2" {
+		if contract.ContractKind != "cartulary.extension_transaction_participant_contract.v3" {
 			continue
 		}
 		result = append(result, crossownertransaction.Descriptor{

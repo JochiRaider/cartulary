@@ -1,0 +1,26 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "harness.evidence_accounting",
+  "rows": [
+    {
+      "row_id": "harness.evidence_accounting.behavior.current_epoch_evidence",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.semantic_evidence_identity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_evidence_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

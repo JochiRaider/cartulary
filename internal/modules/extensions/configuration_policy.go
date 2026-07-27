@@ -64,7 +64,7 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 		if readErr != nil {
 			return nil, readErr
 		}
-		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v2" || stringValue(contract["profile_id"]) != profileID {
+		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" || stringValue(contract["profile_id"]) != profileID {
 			return nil, invalidArtifact("configuration_contract", fmt.Errorf("profile mismatch for %s", profileID))
 		}
 		keys, ok := objectSlice(contract["keys"])

@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-009-soft-delete-stale-graph",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "soft delete removes active resources, invalidates graph/cursors, and keeps retained non-queryable state",
   "table_resource": {
     "network_flow_table_id": "nft_c5ce5255bf97d46b815b7c204cf66cd5",

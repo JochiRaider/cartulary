@@ -909,7 +909,7 @@ write_valid_release_readiness_evidence() {
     {
       "evidence_id": "owner-partition:browser-e2e-visual:web.workbook",
       "source_target": "browser-e2e-visual",
-      "schema_id": "cartulary.test_owner_summary.v1",
+      "schema_id": "cartulary.test_owner_summary.v2",
       "owner_refs": [
         "harness.evidence_accounting.verification.semantic_evidence_identity"
       ],

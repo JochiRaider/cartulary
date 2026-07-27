@@ -284,41 +284,18 @@
       "status": "active"
     },
     {
-      "row_id": "module.extensions.static.bc008_clause_traceability_1991b482d2",
+      "row_id": "module.extensions.static.behavior_routing_e80c9e3dc7",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.static",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.extensions.verification.behavior_contract"
+        "module.extensions.verification.behavior_routing"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestExtensionBC008RequirementCoverage_Static"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.extensions.static.contract_accounting_e80c9e3dc7",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.static",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.extensions.verification.contract_accounting"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/extensions",
-        "tests": [
-          "TestExtensionContractAccounting_Static"
+          "TestExtensionBehaviorRouting_Static"
         ]
       },
       "evidence_class": "static",
@@ -380,7 +357,7 @@
       "status": "active"
     },
     {
-      "row_id": "module.extensions.unit.bc005_descriptor_provenance_1e0ea91df8",
+      "row_id": "module.extensions.unit.bc005_descriptor_projection_1e0ea91df8",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [],
@@ -391,7 +368,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestExtensionBC005DescriptorProvenance_Unit"
+          "TestExtensionBC005DescriptorProjection_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -417,29 +394,6 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestExtensionBC006ValidationInventory_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.extensions.unit.bc007_closure_mapping_08c4e88841",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.extensions.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/extensions",
-        "tests": [
-          "TestExtensionBC007ClosureMapping_Unit"
         ]
       },
       "evidence_class": "unit",

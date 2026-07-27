@@ -151,7 +151,7 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 	if err != nil {
 		return nil, err
 	}
-	if integrity["schema_id"] != "cartulary.extension_registry_integrity.v1" || stringValue(integrity["registry_sha256"]) != registryArtifact.SHA256 {
+	if integrity["schema_id"] != "cartulary.extension_registry_integrity.v2" || stringValue(integrity["registry_sha256"]) != registryArtifact.SHA256 {
 		return nil, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Expected: stringValue(integrity["registry_sha256"]), Actual: registryArtifact.SHA256})
 	}
 	descriptorDigests, err := digestRows(integrity["descriptor_digests"], "profile_id", "descriptor_sha256")
@@ -868,7 +868,7 @@ func (c *Coordinator) validateCollisions(source ArtifactSource, expectedBaseRese
 }
 
 func parseDescriptor(object map[string]any) (Descriptor, error) {
-	if err := requireExactKeys(object, "schema_id", "profile_id", "claimable", "contract_major", "owner_id", "claim_config_key", "route_families", "workspace_keys", "capability_ids", "runtime_dependencies", "contributions", "public_schema_ids", "prestage_config_keys", "state_ownership", "admission_validation", "egress_mode", "incident_portability_mode", "snapshot_reporting_mode", "conformance_manifest_id"); err != nil {
+	if err := requireExactKeys(object, "schema_id", "profile_id", "claimable", "contract_major", "owner_id", "claim_config_key", "route_families", "workspace_keys", "capability_ids", "runtime_dependencies", "contributions", "public_schema_ids", "prestage_config_keys", "state_ownership", "admission_validation", "egress_mode", "incident_portability_mode", "snapshot_reporting_mode"); err != nil {
 		return Descriptor{}, err
 	}
 	profileID := stringValue(object["profile_id"])
@@ -878,7 +878,7 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 	workspaces, workspacesOK := stringSlice(object["workspace_keys"])
 	capabilities, capabilitiesOK := stringSlice(object["capability_ids"])
 	dependenciesObjects, dependenciesOK := objectSlice(object["runtime_dependencies"])
-	if object["schema_id"] != "cartulary.extension_profile_descriptor.v2" || !extensionProfileIDPattern.MatchString(profileID) || !ok || major < 1 || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
+	if object["schema_id"] != "cartulary.extension_profile_descriptor.v3" || !extensionProfileIDPattern.MatchString(profileID) || !ok || major < 1 || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
 		return Descriptor{}, errors.New("descriptor identity, scalar, collection, or capability contract is invalid")
 	}
 	dependencies := make([]Dependency, 0, len(dependenciesObjects))

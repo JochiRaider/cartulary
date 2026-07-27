@@ -1,16 +1,14 @@
 {
-  "schema_id": "cartulary.extension_validation_surface_declaration_set.v2",
+  "schema_id": "cartulary.extension_validation_surface_declaration_set.v3",
   "declarations": [
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "EXT-REQ-224",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [
         {
           "surface_id": "extensions.owner_input",
           "schema_ids": [
-            "cartulary.extension_dependency_declaration_set.v2",
-            "cartulary.extension_owner_contract_manifest.v2",
-            "cartulary.extension_owner_fragment.v2"
+            "cartulary.extension_dependency_declaration_set.v3",
+            "cartulary.extension_owner_fragment.v3"
           ],
           "conditions": [
             {
@@ -36,19 +34,6 @@
               "reason_code": "extension_registry_conflict",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_count_v1",
-              "multiplicity": "one_per_identity",
-              "secret_policy": "safe_value"
-            },
-            {
-              "condition_id": "extension_owner_input_digest_mismatch",
-              "location": "$",
-              "constraint": "sha256_binding",
-              "condition_class": "digest_mismatch",
-              "phase": "owner_contract_manifest",
-              "path_algorithm_id": "extension_json_pointer_v1",
-              "reason_code": "extension_registry_invalid",
-              "expected_formatter_id": "diagnostic_sha256_v1",
-              "actual_formatter_id": "diagnostic_sha256_v1",
               "multiplicity": "one_per_identity",
               "secret_policy": "safe_value"
             }
@@ -153,8 +138,7 @@
       ]
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "REQ-01-631",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [],
       "procedural_surfaces": [
         {
@@ -229,13 +213,12 @@
       ]
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "REQ-04-144",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [
         {
           "surface_id": "core04.inactive_configuration",
           "schema_ids": [
-            "cartulary.extension_profile_configuration_contract.v2"
+            "cartulary.extension_profile_configuration_contract.v3"
           ],
           "conditions": [
             {
@@ -315,8 +298,7 @@
       ]
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "NF-REQ-186",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [
         {
           "surface_id": "network_flow_activity.state",
@@ -344,8 +326,7 @@
       "procedural_surfaces": []
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "REQ-RPT-019b",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [],
       "procedural_surfaces": [
         {
@@ -374,8 +355,7 @@
       ]
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
-      "owner_requirement_id": "REQ-RC-076a",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "schema_surfaces": [],
       "procedural_surfaces": []
     }

@@ -2,9 +2,8 @@
 
 export const networkFlowPresentationRegistry = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow.presentation.v1",
+  "schema_id": "cartulary.network_flow.presentation.v2",
   "profile_id": "network_flow_activity",
-  "document_version": "2.0.0",
   "grid_schemas": [
     {
       "grid_schema_id": "network_flow.accepted_rows.v1",

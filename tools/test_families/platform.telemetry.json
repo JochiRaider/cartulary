@@ -1,0 +1,188 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "platform.telemetry",
+  "rows": [
+    {
+      "row_id": "platform.telemetry.unit.accessors_registries_and_sampler",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestAccessorsConcurrentNoSDKUse",
+          "TestAccessorsNoSDKRegisteredScopes",
+          "TestAccessorsUnknownScopeFallsBackToNoopTelemetryScope",
+          "TestFixedTraceIDRatioCompatCorpus",
+          "TestHTTPMiddlewareNoSDK",
+          "TestMetricRegistryClosed",
+          "TestResolveSamplerProfile",
+          "TestSpanRegistryClosed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.telemetry.unit.bootstrap_activation_and_containment",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestBootstrapActivatesExplicitOTLPHTTPExport",
+          "TestBootstrapIgnoresHostileOTelEnvironment",
+          "TestBootstrapNoSDKExportDisabled"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.telemetry.unit.exporter_failure_invariance",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestBuildExporterRequestHeadersRedactsConfiguredSecrets",
+          "TestBuildExporterRequestHeadersRejectsUnsafeShapes",
+          "TestBuildOTLPGRPCTarget",
+          "TestBuildOTLPGRPCTargetRejectsPerSignalOrPathDivergence",
+          "TestBuildOTLPHTTPURLs",
+          "TestBuildOTLPHTTPURLsRejectsUnsupportedEndpointShapes",
+          "TestExportFailureMetricUsesSafeRegistryAttributes",
+          "TestExporterUserAgentGrammar",
+          "TestOTLPStatusRetryClassification",
+          "TestOfferProcessorQueueDropNewOverflow",
+          "TestPlanExporterAttemptTimeoutClassification",
+          "TestPlanRetryEnvelope",
+          "TestPlanSelfDiagnosticRecursionGuard",
+          "TestPlanShutdownTimeoutAndIdempotence",
+          "TestRetryingSpanExporterDoesNotRetryPermanentError",
+          "TestRetryingSpanExporterUsesConfiguredMultiplier",
+          "TestRuntimeInvarianceMatrixMatchesNoExportBaseline"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.telemetry.unit.log_mapping_and_queue_behavior",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestDropNewLogProcessorRetainsQueuedRecord",
+          "TestLogBridgeBodyBoundsAndExceptionReduction",
+          "TestLogBridgeDisabledDoesNotExport",
+          "TestLogBridgeEnabledMapping",
+          "TestLogBridgeOmitsEventNameExceptionParameterAndSpanEvents",
+          "TestLogCorrelationDropsUnsafeFields",
+          "TestLogCorrelationSafeFields"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.telemetry.unit.privacy_and_redaction",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestForbiddenValueActionsAreClosed",
+          "TestNullLikeValuesOmittedBeforeRecordingForAllSignalFamilies",
+          "TestRedactionDropMetricRecordsOnlyWhenNonRecursive",
+          "TestResourceIdentityFailsWhenResourceAttributeLeavesRegistry",
+          "TestSafeAttributesOmitNullEquivalentAndUnknownCartularyKeys",
+          "TestSafeAttributesOmitsForbiddenValueFamiliesBeforeRecording",
+          "TestSafeAttributesPreservesAdoptedLowCardinalityAttributes"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "platform.telemetry.unit.resource_identity",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.telemetry.verification.current_conformance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": [
+          "TestExternalResourceContributionRejectsSchemaURLAndDetectorAttributes",
+          "TestIncidentHash64Shape",
+          "TestResourceIdentityClosedRegistry",
+          "TestResourceIdentityOmitsOptionalNullDeploymentEnvironment",
+          "TestResourceIdentityRejectsUnboundOrNoncanonicalClaimIdentity",
+          "TestResourceIdentityTrustsDigestBoundFutureProfileWithoutLocalVocabulary",
+          "TestResourceInstanceIDOpacityPredicate",
+          "TestRuntimeResourceIdentityIsCopied"
+        ]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

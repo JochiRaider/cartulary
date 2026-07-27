@@ -1,12 +1,14 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-013",
   "title": "Attribute boundary",
-  "status": "adopted_conformant",
-  "owner_requirement": "Null-like internal values are omitted before OTel API calls across spans, metrics, logs, resource attributes, and self-diagnostics.",
   "null_omission_assertions": {
     "omission_point": "before_otel_api_call",
-    "null_like_values": ["", "null", "invalid_attribute_value"],
+    "null_like_values": [
+      "",
+      "null",
+      "invalid_attribute_value"
+    ],
     "signal_families": [
       "spans",
       "metrics",

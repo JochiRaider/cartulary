@@ -1,11 +1,11 @@
 {
-  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-  "manifest_version": 1,
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
   "fixture_id": "NF-FIX-002-cisco-sna-interface-fields",
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 1,
+    "revision": 2,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,8 +28,8 @@
     {
       "logical_path": "source/cisco-sna-interface-fields.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 305,
-      "sha256": "bb544122789e3f25399fa3821adefc6bfa2dc4c1e76ddd26fed7a386030056e3",
+      "size_bytes": 228,
+      "sha256": "38085c090c17153e79dd813e88faebeb1c3841c3fd19b6eac7a27fb002c0025b",
       "role": "support",
       "newline_policy": "lf_required"
     }
@@ -39,7 +39,7 @@
       "logical_path": "expected/cisco-sna-interface-fields.expected.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 2514,
-      "sha256": "9881a18cefd6fff9e6c1cf89c1837ebbae2901f03ae2b4985bccfe7caeb8ed4a",
+      "sha256": "9f350b4a70b63a216f9501c5bdb07e1ea2ef7a694cef6dc007ee8a449988d4ad",
       "role": "expected_rows"
     }
   ],
@@ -48,21 +48,10 @@
       "logical_path": "transcripts/cisco-sna-interface-fields.transcript.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 585,
-      "sha256": "277002c32bc5861e5c7f141a807608fdb2794610ef5aca72c3a4fd60aba0bae7",
+      "sha256": "7659b5e520e570e5cab9b7292441ed833286702c73b07d33676f7e63c0a74a1e",
       "transcript_kind": "apply"
     }
   ],
-  "acceptance_ids": [
-    "NF-AC-070",
-    "NF-AC-085",
-    "NF-AC-090"
-  ],
-  "execution_selectors": [
-    "phase12/network-flow/NF-FIX-002-cisco-sna-interface-fields"
-  ],
-  "source_bundle_sha256": "01370193ba2cd0ba60ff5927733c8a6a21cde992baaf31cb679d519e900643c1",
-  "expected_bundle_sha256": "d745518f222fe44f85fcc2f8a417da96afec106eb2d56836b5c835df541b9923",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "source_bundle_sha256": "027387d8ad3ca9689cdc0111809cb4537ad85d2a707bd09ba3921c9e5d8665c6",
+  "expected_bundle_sha256": "a80e47a29b2d9ca0c800616678ce814e0e5f728532f202bd0a3f9ef25b50f808"
 }

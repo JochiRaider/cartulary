@@ -34,13 +34,14 @@ function sortedUnique(values, label) {
 
 function identityFields(plan) {
   return {
+    evidence_epoch: plan.evidence_epoch,
     command_id: plan.command_id,
     run_id: plan.run_id,
     owner_id: plan.owner_id,
     selected_rows: [...plan.selected_rows],
     source_snapshot_digest: plan.source_snapshot_digest,
-    catalog_semantic_digest: plan.catalog_semantic_digest,
-    verification_semantic_digest: plan.verification_semantic_digest,
+    test_catalog_digest: plan.test_catalog_digest,
+    verification_routing_digest: plan.verification_routing_digest,
     runtime_profile_digest: plan.runtime_profile_digest,
     resource_profile_digest: plan.resource_profile_digest,
     fixture_profile_digest: plan.fixture_profile_digest,
@@ -132,7 +133,7 @@ export function buildTestEvidenceAccounting(plan, execution, logs, startedAt, fi
     };
   });
   return {
-    schema_id: "cartulary.test_evidence_accounting.v1",
+    schema_id: "cartulary.test_evidence_accounting.v2",
     ...identityFields(plan),
     target_id: plan.target,
     started_at: startedAt,
@@ -150,7 +151,7 @@ export function buildTestEvidenceAccounting(plan, execution, logs, startedAt, fi
 export function buildTestOwnerSummary(plan, accounting, artifacts) {
   const counts = countStates(accounting.observed_rows);
   return {
-    schema_id: "cartulary.test_owner_summary.v1",
+    schema_id: "cartulary.test_owner_summary.v2",
     ...identityFields(plan),
     target_id: plan.target,
     started_at: accounting.started_at,
@@ -265,9 +266,10 @@ function readAccountingArtifact(runRoot, targetID, ownerID) {
 function expectedIdentity(root, ownerID, rowIDs) {
   const selection = loadOwnerAccountingSelection(root, { ownerID, rowIDs });
   return {
+    evidence_epoch: selection.evidence_epoch,
     selected_rows: selection.selected_rows,
-    catalog_semantic_digest: selection.catalog_semantic_digest,
-    verification_semantic_digest: selection.verification_semantic_digest,
+    test_catalog_digest: selection.test_catalog_digest,
+    verification_routing_digest: selection.verification_routing_digest,
     runtime_profile_digest: selection.runtime_profile_digest,
     resource_profile_digest: selection.resource_profile_digest,
     fixture_profile_digest: selection.fixture_profile_digest,
@@ -288,15 +290,15 @@ function authorizedSkip(catalog, rowID, timestamp) {
 
 function artifactReasons(artifact, expected, common, targetID, ownerID, catalog, timestamp) {
   try {
-    validateSchemaSync("cartulary.test_evidence_accounting.v1", artifact);
+    validateSchemaSync("cartulary.test_evidence_accounting.v2", artifact);
   } catch {
     return ["schema_validation_failed"];
   }
   const reasons = [];
-  if (artifact.schema_id !== "cartulary.test_evidence_accounting.v1") reasons.push("unsupported_schema");
+  if (artifact.schema_id !== "cartulary.test_evidence_accounting.v2") reasons.push("unsupported_schema");
   if (artifact.owner_id !== ownerID) reasons.push("owner_mismatch");
   if (artifact.target_id !== targetID) reasons.push("target_mismatch");
-  for (const field of ["source_snapshot_digest", "catalog_semantic_digest", "verification_semantic_digest"]) {
+  for (const field of ["source_snapshot_digest", "test_catalog_digest", "verification_routing_digest"]) {
     if (artifact[field] !== common[field]) reasons.push(`${field}_mismatch`);
   }
   for (const field of ["selected_rows", "runtime_profile_digest", "resource_profile_digest", "fixture_profile_digest"]) {
@@ -355,8 +357,8 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
   const snapshot = buildSourceSnapshot(root);
   const common = {
     source_snapshot_digest: snapshot.digest,
-    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+    test_catalog_digest: catalog.summary.test_catalog_digest,
+    verification_routing_digest: catalog.summary.verification_routing_digest,
   };
   const acceptedArtifacts = [];
   const rejectedArtifacts = [];
@@ -395,7 +397,8 @@ export function auditOwnerEvidence(root, { ownerID, manifestPath, timestamp = ne
   }
   const status = rejectedArtifacts.length === 0 ? "pass" : "fail";
   return {
-    schema_id: "cartulary.test_evidence_audit_summary.v1",
+    schema_id: "cartulary.test_evidence_audit_summary.v2",
+    evidence_epoch: catalog.summary.evidence_epoch,
     command_id: "cartulary.harness.command.test_evidence_audit.v1",
     owner_id: ownerID,
     status,

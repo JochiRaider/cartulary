@@ -146,13 +146,14 @@ for (const { target, owner } of [...ownerTargets.values()].sort((left, right) =>
 )) {
   const selection = accountingRowsForTarget(root, { ownerID: owner, targetName: target });
   const plan = {
+    evidence_epoch: selection.evidence_epoch,
     command_id: "cartulary.harness.command.release_readiness_fixture.v1",
     run_id: path.basename(runRoot),
     owner_id: owner,
     selected_rows: selection.selected_rows,
     source_snapshot_digest: `sha256:${"0".repeat(64)}`,
-    catalog_semantic_digest: selection.catalog_semantic_digest,
-    verification_semantic_digest: selection.verification_semantic_digest,
+    test_catalog_digest: selection.test_catalog_digest,
+    verification_routing_digest: selection.verification_routing_digest,
     runtime_profile_digest: selection.runtime_profile_digest,
     resource_profile_digest: selection.resource_profile_digest,
     fixture_profile_digest: selection.fixture_profile_digest,

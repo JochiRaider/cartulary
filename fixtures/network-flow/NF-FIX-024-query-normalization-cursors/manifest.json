@@ -1,11 +1,11 @@
 {
-  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-  "manifest_version": 1,
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
   "fixture_id": "NF-FIX-024-query-normalization-cursors",
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 1,
+    "revision": 2,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -20,8 +20,8 @@
     {
       "logical_path": "source/query-normalization-cursors.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 467,
-      "sha256": "c7dd2d63ca71842d8a39ef7ee9f3d1afd0e09ddd05ae1dd4c877ad5de2c84d31",
+      "size_bytes": 271,
+      "sha256": "26db3527ce9fa6d5b3f538cb9edfb20e6fedeebc9649b2f0779f355640f9bd2b",
       "role": "support",
       "newline_policy": "lf_required"
     }
@@ -31,7 +31,7 @@
       "logical_path": "expected/query-normalization-cursors.expected.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 1299,
-      "sha256": "2c7c06c45022e2f85e15372f62c0e195dc3e0628bcdc796b2723e06781872587",
+      "sha256": "ee8842ce85a56186c3300d77ff8aa1f06d21ce76426820c925508b105b06c940",
       "role": "expected_response"
     }
   ],
@@ -40,28 +40,10 @@
       "logical_path": "transcripts/query-normalization-cursors.transcript.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 628,
-      "sha256": "f023faf8047935b189e21faacc2baaed0ca58bbd9e7e77d911bb05b3639ac1ee",
+      "sha256": "18ee5ff4185ad9c9558f5d733aae915715d05d545c6da0ab26e628fdb4ad0883",
       "transcript_kind": "query"
     }
   ],
-  "acceptance_ids": [
-    "NF-AC-024",
-    "NF-AC-025",
-    "NF-AC-026",
-    "NF-AC-031",
-    "NF-AC-057",
-    "NF-AC-071",
-    "NF-AC-092",
-    "NF-AC-093",
-    "NF-AC-094",
-    "NF-AC-095"
-  ],
-  "execution_selectors": [
-    "phase12/network-flow/NF-FIX-024-query-normalization-cursors"
-  ],
-  "source_bundle_sha256": "d40ad09966abf40feb575142ca7672c77b5e3445e676f460a371d6481f27d851",
-  "expected_bundle_sha256": "75a9c73688471ddbcb384e49beeedde1e4eda160d7b87f78e136d836e3f7f60b",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "source_bundle_sha256": "9bdd7454518d4c9ed1054b6208eaf95e19044245e83f626e10051a448c5016be",
+  "expected_bundle_sha256": "4f2c0e2f57147f465c713bb6561afd1803b49d3a389b0f84f335753854464148"
 }

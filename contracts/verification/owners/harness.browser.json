@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.browser",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "harness.browser.requirement.support_contract"
       ]
     }
   ]

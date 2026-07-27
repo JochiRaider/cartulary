@@ -203,13 +203,14 @@ const selection = accountingRowsForTarget(root, {
 });
 const snapshot = buildSourceSnapshot(root);
 const plan = {
+  evidence_epoch: selection.evidence_epoch,
   command_id: "cartulary.harness.command.agent_finalize_fixture.v1",
   run_id: path.basename(runRoot),
   owner_id: selection.owner_id,
   selected_rows: selection.selected_rows,
   source_snapshot_digest: snapshot.digest,
-  catalog_semantic_digest: selection.catalog_semantic_digest,
-  verification_semantic_digest: selection.verification_semantic_digest,
+  test_catalog_digest: selection.test_catalog_digest,
+  verification_routing_digest: selection.verification_routing_digest,
   runtime_profile_digest: selection.runtime_profile_digest,
   resource_profile_digest: selection.resource_profile_digest,
   fixture_profile_digest: selection.fixture_profile_digest,

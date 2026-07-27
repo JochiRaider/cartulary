@@ -36,6 +36,10 @@ function readPolicy(root) {
   return policy;
 }
 
+export function restrictedExecutableInputRoots(root) {
+  return [...readPolicy(root).restricted_roots];
+}
+
 function trackedExecutableSources(root) {
   const result = spawnSync(
     "git",

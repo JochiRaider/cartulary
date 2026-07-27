@@ -1,14 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-001-cisco-sna-minimal",
-  "summary": "minimal Cisco SNA import with one accepted row, zero diagnostics, stable row IDs, and graph output",
-  "acceptance_ids": [
-    "NF-AC-006",
-    "NF-AC-007",
-    "NF-AC-008",
-    "NF-AC-017",
-    "NF-AC-052",
-    "NF-AC-075",
-    "NF-AC-090"
-  ]
+  "summary": "minimal Cisco SNA import with one accepted row, zero diagnostics, stable row IDs, and graph output"
 }

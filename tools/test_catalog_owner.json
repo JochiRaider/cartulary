@@ -17,8 +17,23 @@
       "status": "active"
     },
     {
+      "owner_id": "harness.evidence_accounting",
+      "manifest_path": "tools/test_families/harness.evidence_accounting.json",
+      "status": "active"
+    },
+    {
       "owner_id": "harness.generated_artifacts",
       "manifest_path": "tools/test_families/harness.generated_artifacts.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.release",
+      "manifest_path": "tools/test_families/harness.release.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "harness.test_catalog",
+      "manifest_path": "tools/test_families/harness.test_catalog.json",
       "status": "active"
     },
     {
@@ -224,6 +239,11 @@
     {
       "owner_id": "platform.rootedfs",
       "manifest_path": "tools/test_families/platform.rootedfs.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "platform.telemetry",
+      "manifest_path": "tools/test_families/platform.telemetry.json",
       "status": "active"
     },
     {

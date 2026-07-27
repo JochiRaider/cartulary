@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	manifestSchemaID = "cartulary.openapi_source_manifest.v2"
+	manifestSchemaID = "cartulary.openapi_source_manifest.v3"
 	baseAvailability = "base"
 )
 

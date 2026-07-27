@@ -1,21 +1,26 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-008",
   "title": "WebSocket collaboration",
-  "status": "adopted_conformant",
-  "owner_requirement": "Connect, authorize, subscribe, event-send, replay, close, overflow, and unauthorized-subscribe paths emit only registered safe telemetry.",
   "websocket_signal_assertions": {
-    "span_families": ["websocket_lifecycle", "websocket_event_send"],
+    "span_families": [
+      "websocket_lifecycle",
+      "websocket_event_send"
+    ],
     "span_names": [
       "cartulary.collaboration.websocket",
       "cartulary.collaboration.event_send"
     ],
-    "span_kinds": ["internal"],
+    "span_kinds": [
+      "internal"
+    ],
     "metrics": [
       "cartulary.collaboration.connections.active",
       "cartulary.collaboration.events.sent"
     ],
-    "safe_lifecycle_operations": ["connect"],
+    "safe_lifecycle_operations": [
+      "connect"
+    ],
     "safe_event_types": [
       "record_changed",
       "job_progress",
@@ -28,7 +33,15 @@
       "error",
       "other"
     ],
-    "safe_results": ["success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped"],
+    "safe_results": [
+      "success",
+      "rejected",
+      "conflict",
+      "canceled",
+      "failed",
+      "timeout",
+      "dropped"
+    ],
     "forbidden_values_absent": [
       "connection_id",
       "user_id",

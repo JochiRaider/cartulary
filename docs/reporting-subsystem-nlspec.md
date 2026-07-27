@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.1.1
+document_version: 1.2.0
 ---
 
 # 1. Status, scope, and authority
@@ -24,7 +24,7 @@ This NLSpec governs only reporting-subsystem behavior inside the Snapshot and Re
 - digest-bound report-composition consumption as a render input;
 - render validation;
 - deterministic render-bundle packaging and hashing;
-- reporting-subsystem conformance fixtures and acceptance criteria.
+- reporting-subsystem behavioral acceptance outcomes.
 
 **REQ-RPT-002**
 This NLSpec MUST NOT redefine Core 00 through Core 04 behavior outside the reporting subsystem. It MUST NOT redefine live workbook authorization, workbook-surface identity, source-record mutation semantics, graph-projection semantics, public snapshot or release route admission, incident membership, evidence access authorization, release approvals, deployment administration, WebSocket behavior, or Core 05 claim-publication behavior.
@@ -56,7 +56,7 @@ A repository MUST NOT promote this NLSpec to `adopted/current` until the promoti
 | Core 04 authored presentation text gate | `allow_authored_presentation_text` is adopted with default `false`. |
 | Report Composition NLSpec (`docs/report-composition-nlspec.md`) | `cartulary.report_composition.v1` is adopted as the authoring and schema owner for compositions consumed by this NLSpec. |
 | Reporting derivation profile | `cartulary.reporting_derivation_profile.v1` is adopted and every `derivation_version` resolves to it under REQ-RPT-027a. |
-| Reporting acceptance matrix | Every `REQ-RPT-*` in this NLSpec maps to at least one `RPT-AC-*` or fixture. |
+| Reporting behavioral validation | Every current behavior in this NLSpec has an implementation disposition and production-facing validation where implemented. |
 
 # 2. Normative language and document discipline
 
@@ -287,7 +287,9 @@ The terms in Table 6-A have the meanings defined here inside this NLSpec.
 ## 6.2 Closed schema and algorithm identifiers
 
 **REQ-RPT-021**
-This revision defines exactly the identifiers in Table 6-B. Every identifier in the table MUST have a normative owner section and acceptance coverage.
+This revision defines exactly the identifiers in Table 6-B. Every identifier in
+the table MUST have a normative owner section and observable behavioral
+validation where implemented.
 
 **Table 6-B. Closed identifiers**
 
@@ -477,7 +479,11 @@ For `external_release`, every member of `recipient_partition_refs[]` MUST match 
 A graph-derived template or composition diagram MUST resolve its `source_graph_view_id` against `graph_projection_refs[]` to exactly one item. No match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_not_bound'`. More than one match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_ambiguous'`. Reporting MUST NOT select the latest projection run, request a projection run during render, fall back to a mutable graph view, or substitute a different projection whose digests do not match the tuple item.
 
 **REQ-RPT-027c**
-`cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a later revision that adds an algorithm token MUST define the token's inputs, ordering, output shape, failure behavior, and acceptance coverage in the same revision.
+`cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members
+are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a
+later revision that adds an algorithm token MUST define the token's inputs,
+ordering, output shape, failure behavior, and behavioral validation in the same
+revision.
 
 **Table 7-A2. Reporting derivation profile schema**
 
@@ -1942,7 +1948,7 @@ Reporting v1 MUST generate only the Slidev subset defined by this section. Arbit
 | Diagram refs | Auto-layout refs emit exact opening ```` ```mermaid```` and canonical `.mmd` source bytes inside; manual-layout refs emit one local SVG image reference. |
 | Speaker notes | Final slide block serialized as `<!--\n{escaped note lines}\n-->`. |
 | Tables | Pipe table, deterministic column order, escaped cells, no alignment syntax. |
-| Code fences | Only `text` and `mermaid`. A later revision that adds a code-fence language MUST define the language token, allowed source positions, escaping rules, parser safety checks, render behavior, and fixture coverage in the same revision. |
+| Code fences | Only `text` and `mermaid`. A later revision that adds a code-fence language MUST define the language token, allowed source positions, escaping rules, parser safety checks, render behavior, and behavioral validation in the same revision. |
 | Click components | `v-click` and `v-clicks` wrap the target block Markdown as an HTML block: opening line `<v-click at="{at}">` or `<v-clicks at="{at}">`, blank line, block content, blank line, and closing line `</v-click>` or `</v-clicks>`. |
 
 **REQ-RPT-091a**
@@ -2858,14 +2864,18 @@ Resource-limit units and count points are closed. `MiB` means `1,048,576` octets
 **REQ-RPT-124**
 The implementation MUST evaluate every applicable resource limit before persisting external release output. When multiple limits fail, issue ordering in §23.4 determines `first_failure`.
 
-# 26. Conformance fixtures
+# 26. Behavioral verification scenarios
 
 **REQ-RPT-125**
-A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are stable and MUST NOT be reused for different behavior.
+The scenarios in Table 26-A describe observable behavior that a conforming
+implementation MUST satisfy. They do not require a checked-in fixture corpus,
+one test per row, stable test identities, or a scenario-to-test completeness
+map. Tests MAY combine scenarios or decompose a scenario across layers when the
+result exercises production code and proves the complete observable outcome.
 
-**Table 26-A. Required reporting fixtures**
+**Table 26-A. Reporting behavior scenarios**
 
-| Fixture ID | Fixture | Required result |
+| Scenario label | Scenario | Required result |
 | --- | --- | --- |
 | `RPT-FIX-001` | Minimal external Mermaid release with no tokens. | Passes and emits `.mmd`, SVG, validation, manifests, and deterministic `output_sha256`. |
 | `RPT-FIX-002` | Minimal external Slidev release with one auto-layout diagram. | Passes and emits `slides.md`, PDF, `.mmd`, SVG, validation, manifests, and deterministic `output_sha256`. |
@@ -2948,12 +2958,16 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-079` | Mermaid output request containing a retained manual-layout diagram. | Render fails before approvable bytes with `failure_code='composition_invalid'` and `reason_code='manual_layout_not_supported_for_output_kind'`. |
 | `RPT-FIX-080` | Same manual-layout Slidev tuple and toolchain rendered twice in clean working directories. | Manual SVG bytes, bundle manifest, and `output_sha256` are byte-identical across both attempts. |
 
-# 27. Acceptance criteria and traceability
+# 27. Behavioral acceptance criteria
 
-## 27.1 Requirement-to-acceptance rule
+## 27.1 Validation structure
 
 **REQ-RPT-126**
-Every `REQ-RPT-*` requirement in this NLSpec MUST map to at least one acceptance criterion in §27.2 or to one fixture in §26. A requirement without acceptance coverage is incomplete and cannot support adoption.
+Acceptance criteria summarize required outcomes for implementation and review.
+They do not create a one-to-one requirement-to-test mapping and do not require
+machine coverage counts. A current behavior without observable evidence MUST
+be implemented and tested, or this NLSpec MUST be revised before that behavior
+is removed or moved to a future profile.
 
 ## 27.2 Acceptance criteria
 
@@ -2967,7 +2981,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-AUTH-001` | A conformance claim fails when this NLSpec is marked adopted/current while any Table 1-A promotion condition remains unmet or future-only. |
 | `RPT-AC-LINT-001` | Adopted text contains no open delegation phrase outside rationale, examples, source notes, future-only material, or an adjacent closed owner table. |
 | `RPT-AC-CORE-001` | Every Core dependency row has owner, classification, affected Reporting requirements, and conformance consequence. |
-| `RPT-AC-ID-001` | Every schema or algorithm identifier listed in §6.2 has a body section defining required fields, nullability, defaults, ordering, failure behavior, and acceptance coverage. |
+| `RPT-AC-ID-001` | Every schema or algorithm identifier listed in §6.2 has a body section defining required fields, nullability, defaults, ordering, failure behavior, and behavioral validation. |
 | `RPT-AC-KIND-001` | `markdown`, `html`, `reenactment`, unknown strings, aliases, and case variants are rejected with `unsupported_output_kind`. |
 | `RPT-AC-OPT-001` | Omitted `output_options` materializes to exact §7.5 defaults and canonical bytes match explicit defaults. |
 | `RPT-AC-OPT-002` | Every invalid option, scope, or template combination fails with the mapped structured error before output bytes persist. |
@@ -3046,44 +3060,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-CLICK-002` | `click_step.v1.ordinal` and `click_step.v1.at` use `positive_integer`, reject non-integer JSON number forms and out-of-bound values, and remain contiguous `1..N`. |
 | `RPT-AC-EXTENSIONS-001` | Reporting invokes only the admitted `snapshot_reporting.render_export_v1` specialization for profiles selecting participant mode, never invokes `no_participation`, and retains sole ownership of result admission and rendering. |
 | `RPT-AC-EXTENSIONS-002` | Reporting participant schemas and procedural validators declare every reachable condition, emit no unregistered condition, and apply the shared validation-result precedence and exact finding-count boundaries. |
-| `RPT-AC-TRACE-001` | Table 27-B maps every `REQ-RPT-*` requirement, including suffixed requirements, to at least one acceptance criterion or fixture. |
-
-## 27.3 Requirement traceability
-
-**REQ-RPT-127a**
-Table 27-B is the normative requirement-to-acceptance map. A numeric range includes suffixed requirements whose numeric base falls inside the range; for example `REQ-RPT-027..REQ-RPT-032` includes `REQ-RPT-027a` through `REQ-RPT-027d` and `REQ-RPT-032a`. A requirement listed in more than one row MUST satisfy every listed acceptance criterion and fixture family.
-
-**Table 27-B. Requirement-to-acceptance map**
-
-| Requirement range | Acceptance coverage |
-| --- | --- |
-| `REQ-RPT-001..REQ-RPT-006` | `RPT-AC-AUTH-001`, `RPT-AC-CORE-001` |
-| `REQ-RPT-007..REQ-RPT-012` | `RPT-AC-LINT-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TRACE-001` |
-| `REQ-RPT-013..REQ-RPT-016` | `RPT-AC-CORE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-REVEAL-001` |
-| `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001`, `RPT-AC-EXTENSIONS-001`, `RPT-AC-EXTENSIONS-002` |
-| `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
-| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-GRAPH-005`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046`, `RPT-FIX-059`, `RPT-FIX-060`, `RPT-FIX-064`, `RPT-FIX-073` |
-| `REQ-RPT-028..REQ-RPT-032` | `RPT-AC-KIND-001`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-AC-OPT-003`, `RPT-AC-REDACT-003`, `RPT-FIX-017`, `RPT-FIX-030`, `RPT-FIX-049` |
-| `REQ-RPT-033..REQ-RPT-037` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TIME-002`, `RPT-AC-ERR-001`, `RPT-FIX-031` |
-| `REQ-RPT-038..REQ-RPT-046` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-003`, `RPT-AC-MAT-001`, `RPT-AC-FIELD-001`, `RPT-AC-SUPPORT-001`, `RPT-FIX-028`, `RPT-FIX-044`, `RPT-FIX-045`, `RPT-FIX-050` |
-| `REQ-RPT-047..REQ-RPT-052` | `RPT-AC-TIME-001`, `RPT-AC-TIME-002`, `RPT-AC-ID-002`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-004`, `RPT-FIX-032` |
-| `REQ-RPT-053..REQ-RPT-054` | `RPT-AC-MAT-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-ERR-001`, `RPT-AC-LIMIT-001`, `RPT-FIX-060` |
-| `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038`, `RPT-FIX-070` |
-| `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-COMP-004`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REDACT-003`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048`, `RPT-FIX-049`, `RPT-FIX-062`, `RPT-FIX-063` |
-| `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029`, `RPT-FIX-068` |
-| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-GRAPH-005`, `RPT-AC-COMP-005`, `RPT-AC-DIAGRAM-LAYOUT-001`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-071`, `RPT-FIX-073`, `RPT-FIX-078`, `RPT-FIX-079` |
-| `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-AC-MMD-005`, `RPT-AC-DIAGRAM-LAYOUT-001`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027`, `RPT-FIX-074`, `RPT-FIX-078`, `RPT-FIX-079`, `RPT-FIX-080` |
-| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-DIAGRAM-LAYOUT-001`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-AC-CLICK-002`, `RPT-AC-PREVIEW-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066`, `RPT-FIX-072`, `RPT-FIX-075`, `RPT-FIX-076`, `RPT-FIX-077`, `RPT-FIX-078`, `RPT-FIX-080` |
-| `REQ-RPT-097..REQ-RPT-099` | `RPT-AC-TOOLCHAIN-001`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-014`, `RPT-FIX-032` |
-| `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-AC-TEMPLATE-003`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-013`, `RPT-FIX-054`, `RPT-FIX-069`, `RPT-FIX-070`, `RPT-FIX-071` |
-| `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-BUNDLE-002`, `RPT-AC-ARCHIVE-001`, `RPT-AC-DIAGRAM-LAYOUT-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022`, `RPT-FIX-067`, `RPT-FIX-069`, `RPT-FIX-078` |
-| `REQ-RPT-109..REQ-RPT-115` | `RPT-AC-ERR-001`, `RPT-AC-ERR-002`, `RPT-AC-VALID-001`, `RPT-AC-VALID-002`, `RPT-FIX-055` |
-| `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-LIFE-002`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-SANDBOX-003`, `RPT-AC-DIAGRAM-LAYOUT-001`, `RPT-AC-TIME-001`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-018`, `RPT-FIX-019`, `RPT-FIX-056`, `RPT-FIX-057`, `RPT-FIX-058`, `RPT-FIX-069`, `RPT-FIX-080` |
-| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-AC-COMP-004`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-033`, `RPT-FIX-062`, `RPT-FIX-069` |
-| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-080` |
-| `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006` |
-| `REQ-RPT-128` | `RPT-AC-KIND-001`, `RPT-AC-OPT-002`, `RPT-AC-SANDBOX-002` |
-| `REQ-RPT-129` | `RPT-AC-AUTH-001`, `RPT-AC-LINT-001`, `RPT-AC-TRACE-001` |
+| `RPT-AC-BEHAVIOR-001` | Current behavior has production-facing evidence or a prior specification disposition; no status row, identifier count, or static corpus is accepted as behavioral evidence. |
 
 # 28. Future-only areas
 
@@ -3162,7 +3139,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Authored-presentation-text closure | Text roles, profile permission, partition labels, LF rules, subject placeholders, limits, and residual free-text-scanning boundary are explicit. |
 | Composition diagram closure | Composition diagrams use existing selection rules, completed projections, and optional closed layout data; raw Mermaid, arbitrary nodes or edges, endpoint mutation, and tokenized-subject label overrides are invalid. |
 | Deck v2 closure | `derive_deck_v2` applies composition operations before chunking and click generation while preserving `derive_deck_v1` for all-null composition; operation conflicts and duplicate diagram insertion fail deterministically. |
-| Acceptance traceability | Every `REQ-RPT-*` maps to at least one `RPT-AC-*` or fixture. |
+| Behavioral disposition | Every current behavior is retained and routed, implemented and tested, or revised before being pruned or moved to a future profile. |
 | Filtering algorithm | `filter_disclosure_partitions_v1` exists with effective-set construction, subset predicate, profile-rule-only resolution, and fail-closed unresolved-disclosure behavior. |
 | Recipient validation | `external_release` recipient partitions are validated against snapshot Parties and the selected redaction profile's allowed `party:*` set. |
 | Redaction-manifest bytes | `cartulary.redaction_manifest.v1` is defined, digest-bound, safe, and acceptance-covered. |

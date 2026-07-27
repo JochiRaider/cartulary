@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v1",
+  "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v2",
   "ruleset_id": "tzdb-2026c",
   "profile_id": "network_flow_activity",
   "iana_version": "2026c",
@@ -56,8 +56,5 @@
     "latest_url_allowed": false,
     "verification_required_before_use": true,
     "allowed_internal_ruleset_substitution": "later_ruleset_only_when_all_tzdb_2026c_fixture_transitions_are_byte_identical"
-  },
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  }
 }

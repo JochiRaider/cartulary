@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.workbook",
   "verifications": [
     {
@@ -10,11 +10,6 @@
         "go_test",
         "playwright",
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.workbook.requirement.behavior_contract",
-        "module.workbook.requirement.mutation_admission"
       ]
     }
   ]

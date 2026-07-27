@@ -188,13 +188,14 @@ const selection = accountingRowsForTarget(root, {
   targetName: "browser-e2e-webserver-backed",
 });
 const plan = {
+  evidence_epoch: selection.evidence_epoch,
   command_id: "cartulary.harness.command.browser_duration_fixture.v1",
   run_id: "compatible",
   owner_id: selection.owner_id,
   selected_rows: selection.selected_rows,
   source_snapshot_digest: buildSourceSnapshot(root).digest,
-  catalog_semantic_digest: selection.catalog_semantic_digest,
-  verification_semantic_digest: selection.verification_semantic_digest,
+  test_catalog_digest: selection.test_catalog_digest,
+  verification_routing_digest: selection.verification_routing_digest,
   runtime_profile_digest: selection.runtime_profile_digest,
   resource_profile_digest: selection.resource_profile_digest,
   fixture_profile_digest: selection.fixture_profile_digest,

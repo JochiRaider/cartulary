@@ -217,7 +217,6 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
       contract_major: 2,
-      document_version: "2.0.0",
     });
 
     const valid = networkFlowDecoders.tableList.decode({

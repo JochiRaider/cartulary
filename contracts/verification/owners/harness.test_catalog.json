@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.test_catalog",
   "verifications": [
     {
@@ -7,13 +7,10 @@
       "behavior_class": "harness",
       "profile": "support",
       "evidence_kinds": [
+        "shell",
         "static_check"
       ],
-      "public_target": "harness-contract",
-      "status": "active",
-      "requirement_ids": [
-        "harness.test_catalog.requirement.closed_owner_catalog"
-      ]
+      "public_target": "harness-contract"
     }
   ]
 }

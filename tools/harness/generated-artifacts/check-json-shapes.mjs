@@ -65,7 +65,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
-const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v2";
+const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v3";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
@@ -79,20 +79,16 @@ const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v4";
-const graphProjectionConformanceMatrixSchemaID =
-  "cartulary.graph_projection_conformance_matrix.v2";
-const graphProjectionFixtureCorpusSchemaID =
-  "cartulary.graph_projection_fixture_corpus.v2";
 const graphProjectionFixtureManifestSchemaID =
-  "cartulary.graph_projection_fixture_manifest.v2";
+  "cartulary.graph_projection_fixture_manifest.v3";
 const networkFlowFixtureManifestSchemaID =
-  "cartulary.network_flow_fixture_manifest.v1";
-const networkFlowActivityAccountingSchemaID =
-  "cartulary.network_flow_activity_accounting.v2";
+  "cartulary.network_flow_fixture_manifest.v2";
+const networkFlowFixtureScenarioSchemaID =
+  "cartulary.network_flow_fixture_scenario.v2";
 const networkFlowContractIndexSchemaID =
-  "cartulary.network_flow_contract_index.v1";
+  "cartulary.network_flow_contract_index.v2";
 const networkFlowTimezoneRulesetProvenanceSchemaID =
-  "cartulary.network_flow_timezone_ruleset_provenance.v1";
+  "cartulary.network_flow_timezone_ruleset_provenance.v2";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v4";
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
@@ -102,8 +98,6 @@ const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
 const sha256Pattern = /^[a-f0-9]{64}$/;
 const networkFlowFixtureIDPattern = /^NF-FIX-\d{3}-[a-z0-9][a-z0-9-]*$/;
-const networkFlowFixtureBaseIDPattern = /^NF-FIX-\d{3}$/;
-const networkFlowAcceptanceIDPattern = /^NF-AC-\d{3}$/;
 const manifestRelativePathPattern =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\/\/)[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*$/;
 const topologyTopLevelKeys = new Set([
@@ -143,61 +137,10 @@ const contractFamilyEntryKeys = new Set([
   "go_name",
   "ts_name",
   "output_order",
-  "owner_requirement_ids",
-  "owner_contract_ids",
   "generated_outputs",
   "typescript_runtime_artifact_prefixes",
   "activation_dependency_ids",
   "description",
-]);
-const networkFlowAccountingKeys = new Set([
-  "$schema",
-  "schema_id",
-  "profile_id",
-  "owner_id",
-  "verification_ids",
-  "contract_registry",
-  "fixture_accounting",
-  "acceptance_accounting",
-  "drift_accounting",
-]);
-const networkFlowContractRegistryAccountingKeys = new Set([
-  "path",
-  "family_id",
-  "contract_root",
-  "planned_activation_dependency_ids",
-  "generated_symbol_markers",
-]);
-const networkFlowDependencyLocatorAccountingKeys = new Set([
-  "table_caption",
-  "expected_count",
-  "blocked_tokens",
-  "required_dependencies",
-  "required_locator_fragments",
-]);
-const networkFlowDependencyLocatorFragmentKeys = new Set([
-  "dependency",
-  "fragments",
-]);
-const networkFlowFixtureAccountingKeys = new Set([
-  "expected_count",
-  "first_id",
-  "last_id",
-  "manifest_root",
-]);
-const networkFlowAcceptanceAccountingKeys = new Set([
-  "expected_count",
-  "first_id",
-  "last_id",
-  "selector_prefix",
-  "tracker_row_prefix",
-  "matrix_source",
-  "rows",
-]);
-const networkFlowDriftAccountingKeys = new Set([
-  "scratch_manifest",
-  "required_copy_paths",
-  "required_public_targets",
 ]);
 const testSupportInventoryKeys = new Set([
   "schema_id",
@@ -228,10 +171,8 @@ const networkFlowContractIndexKeys = new Set([
   "schema_id",
   "profile_id",
   "contract_major",
-  "document_version",
   "family_id",
   "owner_id",
-  "verification_ids",
   "contract_files",
   "public_schema_ids",
   "closure_policy",
@@ -249,7 +190,6 @@ const networkFlowClosurePolicyKeys = new Set([
   "objects_closed_by_default",
   "dynamic_maps_must_name_key_pattern",
   "raw_source_values_forbidden_outside_diagnostics",
-  "generated_outputs_blocked_until",
 ]);
 const networkFlowRouteContractKeys = new Set([
   "schema_id",
@@ -392,45 +332,15 @@ const projectionProviderRestoreRebuildValues = new Set([
   "nonparticipating",
   "unsupported",
 ]);
-const graphProjectionMatrixKeys = new Set([
-  "schema_id",
-  "matrix_version",
-  "acceptance_criteria",
-  "fixture_registry",
-]);
-const graphProjectionAcceptanceKeys = new Set([
-  "id",
-  "owner",
-  "coverage_status",
-  "areas",
-  "fixture_ids",
-]);
-const graphProjectionFixtureKeys = new Set([
-  "fixture_id",
-  "fixture_path",
-  "coverage",
-]);
-const graphProjectionFixtureCorpusKeys = new Set([
-  "schema_id",
-  "fixtures",
-]);
-const graphProjectionCorpusFixtureKeys = new Set([
-  "fixture_id",
-  "coverage",
-  "input_kind",
-]);
 const networkFlowFixtureManifestKeys = new Set([
   "schema_id",
   "manifest_version",
   "fixture_id",
   "profile_id",
   "freeze",
-  "verification_ids",
   "source_files",
   "expected_artifacts",
   "transcript_files",
-  "acceptance_ids",
-  "execution_selectors",
   "source_bundle_sha256",
   "expected_bundle_sha256",
   "extensions",
@@ -450,7 +360,6 @@ const networkFlowTimezoneProvenanceKeys = new Set([
   "detached_signature",
   "license",
   "embedded_file_hashes",
-  "verification_ids",
   "conformance_policy",
 ]);
 const networkFlowTimezoneReleaseKeys = new Set([
@@ -516,19 +425,6 @@ const networkFlowFixtureTranscriptFileKeys = new Set([
   "size_bytes",
   "sha256",
   "transcript_kind",
-]);
-const graphProjectionAcceptanceCount = 69;
-const graphProjectionFixtureCount = 36;
-const graphProjectionCoverageStatuses = new Set([
-  "planned",
-  "implemented",
-  "deferred",
-]);
-const graphProjectionAreas = new Set([
-  "implementation",
-  "tests",
-  "contracts",
-  "migration",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -1025,16 +921,6 @@ function validateContractFamilyRegistryShape(file) {
         min: 0,
       });
       outputOrders.push(String(outputOrder).padStart(4, "0"));
-      requireStringArray(
-        entry.owner_requirement_ids,
-        `${label}.owner_requirement_ids`,
-        {
-          nonEmpty: true,
-        },
-      );
-      requireStringArray(entry.owner_contract_ids, `${label}.owner_contract_ids`, {
-        nonEmpty: true,
-      });
       const generatedOutputs = requireStringArray(
         entry.generated_outputs,
         `${label}.generated_outputs`,
@@ -1137,13 +1023,6 @@ function validateContractFamilyRegistryShape(file) {
   }
 }
 
-function expectedNetworkFlowIDs(prefix, count) {
-  return Array.from(
-    { length: count },
-    (_entry, index) => `${prefix}${String(index + 1).padStart(3, "0")}`,
-  );
-}
-
 function assertExactIDSet(actualIDs, expectedIDs, label) {
   const actual = [...actualIDs].sort();
   const expected = [...expectedIDs].sort();
@@ -1156,465 +1035,6 @@ function assertExactIDSet(actualIDs, expectedIDs, label) {
   }
 }
 
-function extractUniqueMatches(source, pattern) {
-  return new Set([...source.matchAll(pattern)].map((match) => match[0]));
-}
-
-function extractNetworkFlowFixtureBaseIDs(source) {
-  const fixtureIDs = extractUniqueMatches(
-    source,
-    /NF-FIX-\d{3}-[a-z0-9][a-z0-9-]*/gu,
-  );
-  const baseIDs = new Set();
-  const seenFullByBase = new Map();
-  for (const fixtureID of fixtureIDs) {
-    if (!networkFlowFixtureIDPattern.test(fixtureID)) {
-      throw new Error(`invalid Network Flow fixture ID ${fixtureID}`);
-    }
-    const baseID = fixtureID.slice(0, "NF-FIX-000".length);
-    if (seenFullByBase.has(baseID) && seenFullByBase.get(baseID) !== fixtureID) {
-      throw new Error(
-        `Network Flow fixture base ID ${baseID} maps to multiple fixture slugs`,
-      );
-    }
-    seenFullByBase.set(baseID, fixtureID);
-    baseIDs.add(baseID);
-  }
-  return baseIDs;
-}
-
-function pathIsCoveredByAny(pathValue, candidates) {
-  return candidates.some(
-    (candidate) => pathValue === candidate || pathValue.startsWith(`${candidate}/`),
-  );
-}
-
-function generatedOutputsContainMarker(root, generatedOutputs, markers) {
-  for (const generatedOutput of generatedOutputs) {
-    const outputPath = repoFile(root, generatedOutput);
-    if (!existsSync(outputPath) || !lstatSync(outputPath).isFile()) {
-      throw new Error(`contract generated output missing: ${generatedOutput}`);
-    }
-    const output = readFileSync(outputPath, "utf8");
-    if (markers.some((marker) => output.includes(marker))) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function taskSurfaceTargetNames(taskSurface) {
-  const names = new Set();
-  for (const target of requireObjectArray(taskSurface.targets, "task_surface.targets")) {
-    names.add(requireString(target.name, "task_surface.targets[].name"));
-  }
-  for (const recipeName of Object.keys(requireObject(taskSurface.make_recipes, "task_surface.make_recipes"))) {
-    names.add(recipeName);
-  }
-  return names;
-}
-
-function validateNetworkFlowActivityAccountingShape(file) {
-  const accounting = readShapeFile(file, file);
-  validateSchemaSync(networkFlowActivityAccountingSchemaID, accounting);
-  assertObjectKeys(accounting, networkFlowAccountingKeys, file);
-  assertRequiredKeys(accounting, networkFlowAccountingKeys, file);
-  requireSchemaID(accounting, networkFlowActivityAccountingSchemaID, file);
-  requireExact(accounting.profile_id, "network_flow_activity", `${file}.profile_id`);
-
-  requireExact(accounting.owner_id, "module.networkflow", `${file}.owner_id`);
-  requireExactArray(
-    requireStringArray(accounting.verification_ids, `${file}.verification_ids`, {
-      nonEmpty: true,
-    }),
-    ["module.networkflow.verification.contract_accounting"],
-    `${file}.verification_ids`,
-  );
-  const contractRegistry = requireObject(
-    accounting.contract_registry,
-    `${file}.contract_registry`,
-  );
-  assertObjectKeys(
-    contractRegistry,
-    networkFlowContractRegistryAccountingKeys,
-    `${file}.contract_registry`,
-  );
-  assertRequiredKeys(
-    contractRegistry,
-    networkFlowContractRegistryAccountingKeys,
-    `${file}.contract_registry`,
-  );
-  const registryPath = requireRepoRelativePath(
-    contractRegistry.path,
-    `${file}.contract_registry.path`,
-  );
-  requireExact(
-    contractRegistry.family_id,
-    "network-flow",
-    `${file}.contract_registry.family_id`,
-  );
-  requireExact(
-    contractRegistry.contract_root,
-    "contracts/network-flow",
-    `${file}.contract_registry.contract_root`,
-  );
-  const plannedActivationIDs = requireStringArray(
-    contractRegistry.planned_activation_dependency_ids,
-    `${file}.contract_registry.planned_activation_dependency_ids`,
-    { nonEmpty: true },
-  );
-  const generatedMarkers = requireStringArray(
-    contractRegistry.generated_symbol_markers,
-    `${file}.contract_registry.generated_symbol_markers`,
-    { nonEmpty: true },
-  );
-
-  const fixtureAccounting = requireObject(
-    accounting.fixture_accounting,
-    `${file}.fixture_accounting`,
-  );
-  assertObjectKeys(
-    fixtureAccounting,
-    networkFlowFixtureAccountingKeys,
-    `${file}.fixture_accounting`,
-  );
-  assertRequiredKeys(
-    fixtureAccounting,
-    networkFlowFixtureAccountingKeys,
-    `${file}.fixture_accounting`,
-  );
-  const expectedFixtureCount = requireInteger(
-    fixtureAccounting.expected_count,
-    `${file}.fixture_accounting.expected_count`,
-    { min: 1 },
-  );
-  const fixtureFirstID = requireString(
-    fixtureAccounting.first_id,
-    `${file}.fixture_accounting.first_id`,
-    { pattern: networkFlowFixtureBaseIDPattern },
-  );
-  const fixtureLastID = requireString(
-    fixtureAccounting.last_id,
-    `${file}.fixture_accounting.last_id`,
-    { pattern: networkFlowFixtureBaseIDPattern },
-  );
-  requireExact(fixtureFirstID, "NF-FIX-001", `${file}.fixture_accounting.first_id`);
-  requireExact(fixtureLastID, "NF-FIX-028", `${file}.fixture_accounting.last_id`);
-  requireExact(
-    fixtureAccounting.manifest_root,
-    "fixtures/network-flow",
-    `${file}.fixture_accounting.manifest_root`,
-  );
-
-  const acceptanceAccounting = requireObject(
-    accounting.acceptance_accounting,
-    `${file}.acceptance_accounting`,
-  );
-  assertObjectKeys(
-    acceptanceAccounting,
-    networkFlowAcceptanceAccountingKeys,
-    `${file}.acceptance_accounting`,
-  );
-  assertRequiredKeys(
-    acceptanceAccounting,
-    networkFlowAcceptanceAccountingKeys,
-    `${file}.acceptance_accounting`,
-  );
-  const expectedAcceptanceCount = requireInteger(
-    acceptanceAccounting.expected_count,
-    `${file}.acceptance_accounting.expected_count`,
-    { min: 1 },
-  );
-  const acceptanceFirstID = requireString(
-    acceptanceAccounting.first_id,
-    `${file}.acceptance_accounting.first_id`,
-    { pattern: networkFlowAcceptanceIDPattern },
-  );
-  const acceptanceLastID = requireString(
-    acceptanceAccounting.last_id,
-    `${file}.acceptance_accounting.last_id`,
-    { pattern: networkFlowAcceptanceIDPattern },
-  );
-  requireExact(
-    acceptanceFirstID,
-    "NF-AC-001",
-    `${file}.acceptance_accounting.first_id`,
-  );
-  requireExact(
-    acceptanceLastID,
-    "NF-AC-107",
-    `${file}.acceptance_accounting.last_id`,
-  );
-  requireExact(
-    acceptanceAccounting.selector_prefix,
-    "network-flow/acceptance/",
-    `${file}.acceptance_accounting.selector_prefix`,
-  );
-  requireExact(
-    acceptanceAccounting.tracker_row_prefix,
-    "NF-AC-",
-    `${file}.acceptance_accounting.tracker_row_prefix`,
-  );
-  const matrixSource = requireRepoRelativePath(
-    acceptanceAccounting.matrix_source,
-    `${file}.acceptance_accounting.matrix_source`,
-  );
-  requireExact(
-    matrixSource,
-    "tools/test_families/module.networkflow.json",
-    `${file}.acceptance_accounting.matrix_source`,
-  );
-  const acceptanceRows = requireObjectArray(
-    acceptanceAccounting.rows,
-    `${file}.acceptance_accounting.rows`,
-    { nonEmpty: true },
-  );
-  if (acceptanceRows.length !== expectedAcceptanceCount) {
-    throw new Error(
-      `${file}.acceptance_accounting.rows must contain ${expectedAcceptanceCount} rows`,
-    );
-  }
-
-  const driftAccounting = requireObject(
-    accounting.drift_accounting,
-    `${file}.drift_accounting`,
-  );
-  assertObjectKeys(
-    driftAccounting,
-    networkFlowDriftAccountingKeys,
-    `${file}.drift_accounting`,
-  );
-  assertRequiredKeys(
-    driftAccounting,
-    networkFlowDriftAccountingKeys,
-    `${file}.drift_accounting`,
-  );
-  const scratchManifestPath = requireRepoRelativePath(
-    driftAccounting.scratch_manifest,
-    `${file}.drift_accounting.scratch_manifest`,
-  );
-  const requiredCopyPaths = requireStringArray(
-    driftAccounting.required_copy_paths,
-    `${file}.drift_accounting.required_copy_paths`,
-    { nonEmpty: true },
-  );
-  const requiredPublicTargets = requireStringArray(
-    driftAccounting.required_public_targets,
-    `${file}.drift_accounting.required_public_targets`,
-    { nonEmpty: true },
-  );
-
-  const expectedFixtureIDs = new Set(
-    expectedNetworkFlowIDs("NF-FIX-", expectedFixtureCount),
-  );
-  const expectedAcceptanceIDs = new Set(
-    expectedNetworkFlowIDs("NF-AC-", expectedAcceptanceCount),
-  );
-  const matrix = readShapeFile(repoFile(repoRoot, matrixSource), matrixSource);
-  const matrixRows = requireObjectArray(matrix.rows, `${matrixSource}.rows`, {
-    nonEmpty: true,
-  }).filter((row) => row.status === "active");
-  const accountedAcceptanceIDs = new Set();
-  for (const [index, row] of acceptanceRows.entries()) {
-    const label = `${file}.acceptance_accounting.rows[${index}]`;
-    const acceptanceID = requireString(row.acceptance_id, `${label}.acceptance_id`, {
-      pattern: networkFlowAcceptanceIDPattern,
-    });
-    if (accountedAcceptanceIDs.has(acceptanceID)) {
-      throw new Error(`${label}.acceptance_id duplicates ${acceptanceID}`);
-    }
-    accountedAcceptanceIDs.add(acceptanceID);
-    requireStringArray(
-      row.owner_requirements,
-      `${label}.owner_requirements`,
-      { nonEmpty: true },
-    );
-    const behaviorClass = requireEnum(
-      row.behavior_class,
-      `${label}.behavior_class`,
-      new Set(["product_runtime", "normative_structure", "fixture_integrity", "evidence_policy"]),
-    );
-    const requiredEvidenceKinds = new Set(
-      requireStringArray(row.required_evidence_kinds, `${label}.required_evidence_kinds`, {
-        nonEmpty: true,
-      }),
-    );
-    const selectors = requireObjectArray(row.exact_selectors, `${label}.exact_selectors`, {
-      nonEmpty: true,
-    });
-    const actualKinds = new Set();
-    for (const [selectorIndex, selector] of selectors.entries()) {
-      const selectorLabel = `${label}.exact_selectors[${selectorIndex}]`;
-      const kind = requireEnum(
-        selector.kind,
-        `${selectorLabel}.kind`,
-        new Set(["unit", "store", "process", "browser"]),
-      );
-      actualKinds.add(kind);
-      const selectorFile = requireRepoRelativePath(
-        selector.file,
-        `${selectorLabel}.file`,
-      );
-      const selectorPath = repoFile(repoRoot, selectorFile);
-      if (!existsSync(selectorPath) || !lstatSync(selectorPath).isFile()) {
-        throw new Error(`${selectorLabel}.file does not resolve: ${selectorFile}`);
-      }
-      const symbolOrTitle = selector.symbol ?? selector.title;
-      const selectorSource = readFileSync(selectorPath, "utf8");
-      if (!symbolOrTitle || !selectorSource.includes(symbolOrTitle)) {
-        throw new Error(`${selectorLabel} does not resolve in ${selectorFile}`);
-      }
-      const catalogRows = matrixRows.filter((candidate) => {
-        const catalogSelector = candidate.selector;
-        if (!catalogSelector || typeof catalogSelector !== "object") {
-          return false;
-        }
-        if (selector.title) {
-          return (
-            candidate.runner === "playwright" &&
-            catalogSelector.file === selectorFile &&
-            Array.isArray(catalogSelector.titles) &&
-            catalogSelector.titles.includes(selector.title)
-          );
-        }
-        return (
-          candidate.runner === "go" &&
-          catalogSelector.package === selector.package &&
-          Array.isArray(catalogSelector.tests) &&
-          catalogSelector.tests.includes(selector.symbol)
-        );
-      });
-      if (catalogRows.length !== 1) {
-        throw new Error(
-          `${selectorLabel} must resolve to exactly one active ${acceptanceID} catalog row; found ${catalogRows.length}`,
-        );
-      }
-    }
-    assertExactIDSet(actualKinds, requiredEvidenceKinds, `${label}.required_evidence_kinds`);
-    if (behaviorClass === "product_runtime" && actualKinds.size === 0) {
-      throw new Error(`${label} product_runtime evidence must execute a runtime selector`);
-    }
-    const fixtureIDs = requireStringArray(
-      row.supplemental_fixture_ids,
-      `${label}.supplemental_fixture_ids`,
-    );
-    for (const fixtureID of fixtureIDs) {
-      const manifestPath = `fixtures/network-flow/${fixtureID}/manifest.json`;
-      if (!existsSync(repoFile(repoRoot, manifestPath))) {
-        throw new Error(`${label} references missing supplemental fixture ${fixtureID}`);
-      }
-      const manifest = readShapeFile(repoFile(repoRoot, manifestPath), manifestPath);
-      const fixtureAcceptanceIDs = new Set(manifest.acceptance_ids ?? []);
-      if (!fixtureAcceptanceIDs.has(acceptanceID)) {
-        throw new Error(`${manifestPath} does not claim supplemental coverage for ${acceptanceID}`);
-      }
-    }
-  }
-  assertExactIDSet(
-    accountedAcceptanceIDs,
-    expectedAcceptanceIDs,
-    `${file}.acceptance_accounting.rows acceptance IDs`,
-  );
-
-  const registry = readShapeFile(repoFile(repoRoot, registryPath), registryPath);
-  validateSchemaSync(contractFamilyRegistrySchemaID, registry);
-  const family = requireObjectArray(registry.families, `${registryPath}.families`).find(
-    (entry) => entry.family_id === contractRegistry.family_id,
-  );
-  if (!family) {
-    throw new Error(`${registryPath} is missing network-flow family`);
-  }
-  requireExact(
-    family.contract_root,
-    contractRegistry.contract_root,
-    `${registryPath}.families[network-flow].contract_root`,
-  );
-  const generatedOutputs = requireStringArray(
-    family.generated_outputs,
-    `${registryPath}.families[network-flow].generated_outputs`,
-    { nonEmpty: true },
-  );
-  const generationStatus = requireEnum(
-    family.generation_status,
-    `${registryPath}.families[network-flow].generation_status`,
-    new Set(["active", "planned"]),
-  );
-  const familyActivationIDs = requireStringArray(
-    family.activation_dependency_ids,
-    `${registryPath}.families[network-flow].activation_dependency_ids`,
-  );
-  const markerPresent = generatedOutputsContainMarker(
-    repoRoot,
-    generatedOutputs,
-    generatedMarkers,
-  );
-  if (generationStatus === "planned") {
-    assertExactIDSet(
-      new Set(familyActivationIDs),
-      new Set(plannedActivationIDs),
-      `${registryPath}.families[network-flow].activation_dependency_ids`,
-    );
-    if (markerPresent) {
-      throw new Error(
-        `${registryPath} marks network-flow planned but generated outputs contain Network Flow markers`,
-      );
-    }
-  } else {
-    if (familyActivationIDs.length !== 0) {
-      throw new Error(
-        `${registryPath} marks network-flow active but activation dependencies remain`,
-      );
-    }
-    if (!markerPresent) {
-      throw new Error(
-        `${registryPath} marks network-flow active but generated outputs lack Network Flow markers`,
-      );
-    }
-  }
-
-  const scratchManifest = readShapeFile(
-    repoFile(repoRoot, scratchManifestPath),
-    scratchManifestPath,
-  );
-  const copyPaths = new Set(
-    requireStringArray(
-      scratchManifest.copy_paths,
-      `${scratchManifestPath}.copy_paths`,
-      { nonEmpty: true },
-    ),
-  );
-  for (const requiredPath of requiredCopyPaths) {
-    if (!copyPaths.has(requiredPath)) {
-      throw new Error(
-        `${scratchManifestPath}.copy_paths must include ${requiredPath}`,
-      );
-    }
-  }
-  const generatedPaths = requireStringArray(
-    scratchManifest.generated_paths,
-    `${scratchManifestPath}.generated_paths`,
-    { nonEmpty: true },
-  );
-  for (const generatedOutput of generatedOutputs) {
-    if (!pathIsCoveredByAny(generatedOutput, generatedPaths)) {
-      throw new Error(
-        `${scratchManifestPath}.generated_paths does not cover ${generatedOutput}`,
-      );
-    }
-  }
-
-  const taskSurface = readShapeFile(
-    repoFile(repoRoot, "tools/task_surface_manifest.json"),
-    "tools/task_surface_manifest.json",
-  );
-  const targetNames = taskSurfaceTargetNames(taskSurface);
-  for (const target of requiredPublicTargets) {
-    if (!targetNames.has(target)) {
-      throw new Error(`task surface is missing public target ${target}`);
-    }
-  }
-}
-
 function validateNetworkFlowContractIndexShape(file) {
   const contractIndex = readShapeFile(file, file);
   validateSchemaSync(networkFlowContractIndexSchemaID, contractIndex);
@@ -1623,18 +1043,8 @@ function validateNetworkFlowContractIndexShape(file) {
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
   requireExact(contractIndex.contract_major, 2, `${file}.contract_major`);
-  requireExact(contractIndex.document_version, "2.0.0", `${file}.document_version`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
-  requireExactArray(
-    requireStringArray(
-      contractIndex.verification_ids,
-      `${file}.verification_ids`,
-      { nonEmpty: true },
-    ),
-    ["module.networkflow.verification.contract_accounting"],
-    `${file}.verification_ids`,
-  );
 
   const contractFiles = requireObject(contractIndex.contract_files, `${file}.contract_files`);
   assertObjectKeys(contractFiles, networkFlowContractFilesKeys, `${file}.contract_files`);
@@ -1670,12 +1080,12 @@ function validateNetworkFlowContractIndexShape(file) {
   );
   requireExact(
     contractFiles.mapping_registry,
-    "contracts/network-flow/mapping-registry.v1.json",
+    "contracts/network-flow/mapping-registry.v2.json",
     `${file}.contract_files.mapping_registry`,
   );
   requireExact(
     contractFiles.presentation,
-    "contracts/network-flow/presentation.v1.json",
+    "contracts/network-flow/presentation.v2.json",
     `${file}.contract_files.presentation`,
   );
   for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile, keyRingsFile, mappingRegistryFile, presentationFile]) {
@@ -1699,18 +1109,6 @@ function validateNetworkFlowContractIndexShape(file) {
   ]) {
     requireExact(closurePolicy[key], expected, `${file}.closure_policy.${key}`);
   }
-  assertExactIDSet(
-    new Set(
-      requireStringArray(
-        closurePolicy.generated_outputs_blocked_until,
-        `${file}.closure_policy.generated_outputs_blocked_until`,
-        { nonEmpty: true },
-      ),
-    ),
-    new Set(["NFA-GEN-003", "NFA-GEN-004"]),
-    `${file}.closure_policy.generated_outputs_blocked_until`,
-  );
-
   validateNetworkFlowRouteContractsShape(repoFile(repoRoot, routeFile), publicSchemaIDs);
   const errorCodes = validateNetworkFlowErrorContractsShape(repoFile(repoRoot, errorFile));
   validateNetworkFlowPublicSchemaBundle(repoFile(repoRoot, schemaFile), publicSchemaIDs);
@@ -1738,12 +1136,11 @@ function networkFlowContractRepoPath(value, label) {
 
 function validateNetworkFlowPresentationShape(file) {
   const presentation = readShapeFile(file, file);
-  const rootKeys = new Set(["$schema", "schema_id", "profile_id", "document_version", "grid_schemas"]);
+  const rootKeys = new Set(["$schema", "schema_id", "profile_id", "grid_schemas"]);
   assertObjectKeys(presentation, rootKeys, file);
   assertRequiredKeys(presentation, rootKeys, file);
-  requireSchemaID(presentation, "cartulary.network_flow.presentation.v1", file);
+  requireSchemaID(presentation, "cartulary.network_flow.presentation.v2", file);
   requireExact(presentation.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(presentation.document_version, "2.0.0", `${file}.document_version`);
   const grids = requireObjectArray(presentation.grid_schemas, `${file}.grid_schemas`);
   requireExactArrayLength(grids, 3, `${file}.grid_schemas`);
   const expectedIDs = [
@@ -1821,14 +1218,13 @@ function validateNetworkFlowPresentationShape(file) {
 function validateNetworkFlowMappingRegistryShape(file) {
   const registry = readShapeFile(file, file);
   const rootKeys = new Set([
-    "$schema", "schema_id", "profile_id", "document_version", "target_kind",
+    "$schema", "schema_id", "profile_id", "target_kind",
     "target_table_schema_id", "system_derivations", "source_profiles",
   ]);
   assertObjectKeys(registry, rootKeys, file);
   assertRequiredKeys(registry, rootKeys, file);
-  requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v1", file);
+  requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v2", file);
   requireExact(registry.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(registry.document_version, "2.0.0", `${file}.document_version`);
   requireExact(registry.target_kind, "network_flow_table", `${file}.target_kind`);
   requireExact(registry.target_table_schema_id, "cartulary.network_flow_table.v1", `${file}.target_table_schema_id`);
   const derivations = requireObjectArray(registry.system_derivations, `${file}.system_derivations`);
@@ -3258,174 +2654,6 @@ function validateProjectionImportPolicyPackages(packagePaths, label) {
   }
 }
 
-function graphProjectionIDRange(prefix, count) {
-  return Array.from({ length: count }, (_, index) =>
-    `${prefix}-${String(index + 1).padStart(3, "0")}`,
-  );
-}
-
-function validateGraphProjectionFixtureCorpusShape(file, expectedFixtureIDs) {
-  const corpus = readShapeFile(file, file);
-  assertObjectKeys(corpus, graphProjectionFixtureCorpusKeys, file);
-  assertRequiredKeys(corpus, graphProjectionFixtureCorpusKeys, file);
-  requireSchemaID(corpus, graphProjectionFixtureCorpusSchemaID, file);
-  const corpusFixtureIDs = [];
-  validateObjectArray(
-    corpus.fixtures,
-    `${file}.fixtures`,
-    {
-      nonEmpty: true,
-      keys: graphProjectionCorpusFixtureKeys,
-      requiredKeys: graphProjectionCorpusFixtureKeys,
-    },
-    (entry, label) => {
-      const fixtureID = requireString(entry.fixture_id, `${label}.fixture_id`, {
-        pattern: /^GP-FIX-\d{3}$/,
-      });
-      corpusFixtureIDs.push(fixtureID);
-      requireString(entry.coverage, `${label}.coverage`);
-      requireString(entry.input_kind, `${label}.input_kind`);
-    },
-  );
-  assertUnique(corpusFixtureIDs, `${file}.fixtures.fixture_id`);
-  requireSorted(
-    corpusFixtureIDs,
-    `${file}.fixtures.fixture_id`,
-    (entry) => entry,
-    "GP-FIX identifier",
-  );
-  if (corpusFixtureIDs.join("\n") !== expectedFixtureIDs.join("\n")) {
-    throw new Error(
-      `${file}.fixtures must list ${expectedFixtureIDs[0]} through ${
-        expectedFixtureIDs[expectedFixtureIDs.length - 1]
-      }`,
-    );
-  }
-}
-
-function validateGraphProjectionConformanceMatrixShape(file) {
-  const matrix = readShapeFile(file, file);
-  assertObjectKeys(matrix, graphProjectionMatrixKeys, file);
-  assertRequiredKeys(matrix, graphProjectionMatrixKeys, file);
-  requireSchemaID(matrix, graphProjectionConformanceMatrixSchemaID, file);
-  requirePositiveInteger(matrix.matrix_version, `${file}.matrix_version`);
-
-  const acceptanceIDs = [];
-  const seenFixtureIDs = new Set();
-  validateObjectArray(
-    matrix.acceptance_criteria,
-    `${file}.acceptance_criteria`,
-    {
-      nonEmpty: true,
-      keys: graphProjectionAcceptanceKeys,
-      requiredKeys: graphProjectionAcceptanceKeys,
-    },
-    (entry, label) => {
-      const id = requireString(entry.id, `${label}.id`, {
-        pattern: /^GP-AC-\d{3}$/,
-      });
-      acceptanceIDs.push(id);
-      requireString(entry.owner, `${label}.owner`, {
-        pattern: /^[a-z][a-z0-9_]*$/,
-      });
-      requireEnum(
-        entry.coverage_status,
-        `${label}.coverage_status`,
-        graphProjectionCoverageStatuses,
-      );
-      const areas = requireStringArray(entry.areas, `${label}.areas`, {
-        nonEmpty: true,
-      });
-      for (const area of areas) {
-        if (!graphProjectionAreas.has(area)) {
-          throw new Error(`${label}.areas contains invalid area ${area}`);
-        }
-      }
-      for (const fixtureID of requireStringArray(
-        entry.fixture_ids,
-        `${label}.fixture_ids`,
-      )) {
-        if (!/^GP-FIX-\d{3}$/.test(fixtureID)) {
-          throw new Error(`${label}.fixture_ids contains invalid ${fixtureID}`);
-        }
-        seenFixtureIDs.add(fixtureID);
-      }
-    },
-  );
-  assertUnique(acceptanceIDs, `${file}.acceptance_criteria.id`);
-  requireSorted(
-    acceptanceIDs,
-    `${file}.acceptance_criteria.id`,
-    (entry) => entry,
-    "GP-AC identifier",
-  );
-  const expectedAcceptanceIDs = graphProjectionIDRange(
-    "GP-AC",
-    graphProjectionAcceptanceCount,
-  );
-  if (acceptanceIDs.join("\n") !== expectedAcceptanceIDs.join("\n")) {
-    throw new Error(
-      `${file}.acceptance_criteria must list ${expectedAcceptanceIDs[0]} through ${
-        expectedAcceptanceIDs[expectedAcceptanceIDs.length - 1]
-      }`,
-    );
-  }
-
-  const fixtureIDs = [];
-  validateObjectArray(
-    matrix.fixture_registry,
-    `${file}.fixture_registry`,
-    {
-      nonEmpty: true,
-      keys: graphProjectionFixtureKeys,
-      requiredKeys: graphProjectionFixtureKeys,
-    },
-    (entry, label) => {
-      const fixtureID = requireString(entry.fixture_id, `${label}.fixture_id`, {
-        pattern: /^GP-FIX-\d{3}$/,
-      });
-      fixtureIDs.push(fixtureID);
-      const fixturePath = requireRepoRelativePath(
-        entry.fixture_path,
-        `${label}.fixture_path`,
-        { extension: ".json" },
-      );
-      const resolvedFixturePath = path.resolve(repoRoot, fixturePath);
-      if (!existsSync(resolvedFixturePath)) {
-        throw new Error(`${label}.fixture_path does not exist: ${fixturePath}`);
-      }
-      requireString(entry.coverage, `${label}.coverage`);
-    },
-  );
-  assertUnique(fixtureIDs, `${file}.fixture_registry.fixture_id`);
-  requireSorted(
-    fixtureIDs,
-    `${file}.fixture_registry.fixture_id`,
-    (entry) => entry,
-    "GP-FIX identifier",
-  );
-  const expectedFixtureIDs = graphProjectionIDRange(
-    "GP-FIX",
-    graphProjectionFixtureCount,
-  );
-  if (fixtureIDs.join("\n") !== expectedFixtureIDs.join("\n")) {
-    throw new Error(
-      `${file}.fixture_registry must list ${expectedFixtureIDs[0]} through ${
-        expectedFixtureIDs[expectedFixtureIDs.length - 1]
-      }`,
-    );
-  }
-  for (const fixtureID of seenFixtureIDs) {
-    if (!fixtureIDs.includes(fixtureID)) {
-      throw new Error(`${file}.acceptance_criteria references unknown fixture ${fixtureID}`);
-    }
-  }
-  validateGraphProjectionFixtureCorpusShape(
-    repoFile(repoRoot, "contracts/graph-projection/fixtures/corpus.v1.json"),
-    expectedFixtureIDs,
-  );
-}
-
 function validateGraphProjectionEvidenceSelector(selector, label) {
   const separator = selector.indexOf("::");
   const selectedPath = separator === -1 ? selector : selector.slice(0, separator);
@@ -3455,18 +2683,6 @@ function validateGraphProjectionEvidenceSelector(selector, label) {
 
 function validateGraphProjectionFixtureManifests(root) {
   const fixtureRoot = repoFile(root, "contracts/graph-projection/fixtures");
-  const matrix = readShapeFile(
-    repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
-  );
-  const matrixFixtureAcceptance = new Map();
-  for (const criterion of matrix.acceptance_criteria) {
-    for (const fixtureID of criterion.fixture_ids) {
-      if (!matrixFixtureAcceptance.has(fixtureID)) {
-        matrixFixtureAcceptance.set(fixtureID, new Set());
-      }
-      matrixFixtureAcceptance.get(fixtureID).add(criterion.id);
-    }
-  }
   for (const entry of readdirSync(fixtureRoot, { withFileTypes: true })) {
     if (!entry.isDirectory() || !/^GP-FIX-\d{3}$/.test(entry.name)) {
       continue;
@@ -3480,22 +2696,6 @@ function validateGraphProjectionFixtureManifests(root) {
     const manifest = readShapeFile(manifestPath, manifestPath);
     validateSchemaSync(graphProjectionFixtureManifestSchemaID, manifest);
     requireExact(manifest.fixture_id, fixtureID, `${manifestPath}.fixture_id`);
-    const declaredAcceptance = new Set(manifest.requirement_ids);
-    const matrixAcceptance = matrixFixtureAcceptance.get(fixtureID) ?? new Set();
-    for (const acceptanceID of declaredAcceptance) {
-      if (!matrixAcceptance.has(acceptanceID)) {
-        throw new Error(
-          `${manifestPath}.requirement_ids contains ${acceptanceID}, but the matrix does not attach ${fixtureID} to it`,
-        );
-      }
-    }
-    for (const acceptanceID of matrixAcceptance) {
-      if (!declaredAcceptance.has(acceptanceID)) {
-        throw new Error(
-          `${manifestPath}.requirement_ids omits matrix attachment ${acceptanceID}`,
-        );
-      }
-    }
     validateGraphProjectionEvidenceSelector(
       `internal/modules/graphprojection::${manifest.test_symbol}`,
       `${manifestPath}.test_symbol`,
@@ -3642,7 +2842,7 @@ function validateNetworkFlowFixtureManifestShape(file) {
   if (path.basename(file) !== "manifest.json") {
     throw new Error(`${file} must be named manifest.json`);
   }
-  requirePositiveInteger(manifest.manifest_version, `${file}.manifest_version`);
+  requireExact(manifest.manifest_version, 2, `${file}.manifest_version`);
   if (manifest.profile_id !== "network_flow_activity") {
     throw new Error(`${file}.profile_id must be network_flow_activity`);
   }
@@ -3658,14 +2858,6 @@ function validateNetworkFlowFixtureManifestShape(file) {
     );
   }
 
-  requireExactArray(
-    requireStringArray(manifest.verification_ids, `${file}.verification_ids`, {
-      nonEmpty: true,
-    }),
-    ["module.networkflow.verification.contract_accounting"],
-    `${file}.verification_ids`,
-  );
-
   const manifestDir = path.dirname(file);
   const sourceFiles = requireObjectArray(manifest.source_files, `${file}.source_files`, {
     nonEmpty: true,
@@ -3676,6 +2868,20 @@ function validateNetworkFlowFixtureManifestShape(file) {
     manifestDir,
     networkFlowFixtureSourceFileKeys,
   );
+  const scenarioFiles = sourceFiles.filter((sourceFile) =>
+    sourceFile.logical_path.endsWith(".scenario.json")
+  );
+  requireExactArrayLength(scenarioFiles, 1, `${file}.source_files scenario files`);
+  for (const sourceFile of scenarioFiles) {
+    const scenarioPath = path.join(manifestDir, sourceFile.logical_path);
+    const scenario = readShapeFile(scenarioPath, sourceFile.logical_path);
+    validateSchemaSync(networkFlowFixtureScenarioSchemaID, scenario);
+    requireExact(
+      scenario.fixture_id,
+      fixtureID,
+      `${sourceFile.logical_path}.fixture_id`,
+    );
+  }
   const expectedArtifacts = requireObjectArray(
     manifest.expected_artifacts,
     `${file}.expected_artifacts`,
@@ -3709,32 +2915,6 @@ function validateNetworkFlowFixtureManifestShape(file) {
       throw new Error(`${file} contains unlisted fixture file ${actualPath}`);
     }
   }
-
-  const acceptanceIDs = requireStringArray(
-    manifest.acceptance_ids,
-    `${file}.acceptance_ids`,
-    { nonEmpty: true },
-  );
-  for (const id of acceptanceIDs) {
-    if (!networkFlowAcceptanceIDPattern.test(id)) {
-      throw new Error(`${file}.acceptance_ids contains invalid ${id}`);
-    }
-  }
-  assertUnique(acceptanceIDs, `${file}.acceptance_ids`);
-  requireSorted(acceptanceIDs, `${file}.acceptance_ids`, (entry) => entry, "NF-AC ID");
-
-  const executionSelectors = requireStringArray(
-    manifest.execution_selectors,
-    `${file}.execution_selectors`,
-    { nonEmpty: true },
-  );
-  assertUnique(executionSelectors, `${file}.execution_selectors`);
-  requireSorted(
-    executionSelectors,
-    `${file}.execution_selectors`,
-    (entry) => entry,
-    "execution selector",
-  );
 
   const sourceBundleDigest = requireSHA256(
     manifest.source_bundle_sha256,
@@ -4013,16 +3193,6 @@ function validateNetworkFlowTimezoneRulesetProvenanceShape(file) {
     }
   }
 
-  requireExactArray(
-    requireStringArray(
-      provenance.verification_ids,
-      `${file}.verification_ids`,
-      { nonEmpty: true },
-    ),
-    ["module.networkflow.verification.contract_accounting"],
-    `${file}.verification_ids`,
-  );
-
   const policy = requireObject(
     provenance.conformance_policy,
     `${file}.conformance_policy`,
@@ -4124,9 +3294,6 @@ function validateKind(kind, file, root = repoRoot) {
     case "network-flow-fixture-manifest":
       validateNetworkFlowFixtureManifestShape(file);
       return;
-    case "network-flow-activity-accounting":
-      validateNetworkFlowActivityAccountingShape(file);
-      return;
     case "network-flow-contract-index":
       validateNetworkFlowContractIndexShape(file);
       return;
@@ -4226,13 +3393,7 @@ function validateAll(root) {
   validateProjectionProviderManifestShape(
     repoFile(root, "contracts/projection-providers/index.json"),
   );
-  validateGraphProjectionConformanceMatrixShape(
-    repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
-  );
   validateGraphProjectionFixtureManifests(root);
-  validateNetworkFlowActivityAccountingShape(
-    repoFile(root, "tools/network_flow_activity_accounting.json"),
-  );
   validateNetworkFlowContractIndexShape(
     repoFile(root, "contracts/network-flow/index.json"),
   );

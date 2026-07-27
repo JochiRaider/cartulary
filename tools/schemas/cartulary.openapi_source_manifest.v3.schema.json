@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.openapi_source_manifest.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target",
+    "policy",
+    "unit_root",
+    "units"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.openapi_source_manifest.v3"
+    },
+    "target": {
+      "const": "contracts/openapi/cartulary.openapi.yaml"
+    },
+    "policy": {
+      "const": "contracts/openapi-source/assembly-policy.json"
+    },
+    "unit_root": {
+      "const": "contracts/openapi-source/owners"
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner_id",
+          "path",
+          "role"
+        ],
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "pattern": "^(module|platform|app|web|package|harness)\\.[a-z][a-z0-9_]{0,62}$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^contracts/openapi-source/owners/[A-Za-z0-9._-]+/openapi\\.json$"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "root"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

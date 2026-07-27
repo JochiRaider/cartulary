@@ -1,0 +1,26 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v2",
+  "owner_id": "harness.release",
+  "rows": [
+    {
+      "row_id": "harness.release.behavior.current_owner_evidence",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.release.verification.current_owner_evidence_only"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.release_evidence_contract.v1"
+      },
+      "evidence_class": "release",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    }
+  ]
+}

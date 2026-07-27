@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "package.ui",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.ui.requirement.behavior_contract"
       ]
     },
     {
@@ -21,11 +17,7 @@
       "evidence_kinds": [
         "static_check"
       ],
-      "public_target": "generate-drift",
-      "status": "active",
-      "requirement_ids": [
-        "package.ui.requirement.machine_owned_tokens"
-      ]
+      "public_target": "generate-drift"
     },
     {
       "verification_id": "package.ui.verification.shared_contract",
@@ -33,10 +25,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.ui.requirement.shared_contract"
       ]
     }
   ]

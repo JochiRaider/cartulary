@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-002-cisco-sna-interface-fields",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "optional interface fields remain bounded text/null and unsupported Cisco targets stay null",
   "table_resource": {
     "network_flow_table_id": "nft_4f8bfefbb7b5df81f47d4710ece447e8",

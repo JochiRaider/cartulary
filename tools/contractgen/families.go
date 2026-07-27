@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v2"
+	contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v3"
 	contractFamilyRegistryID       = "cartulary.contract_families.v1"
 )
 
@@ -29,8 +29,6 @@ type contractFamilyEntry struct {
 	GoName                    string   `json:"go_name"`
 	TSName                    string   `json:"ts_name"`
 	OutputOrder               int      `json:"output_order"`
-	OwnerRequirementIDs       []string `json:"owner_requirement_ids"`
-	OwnerContractIDs          []string `json:"owner_contract_ids"`
 	GeneratedOutputs          []string `json:"generated_outputs"`
 	TypeScriptRuntimePrefixes []string `json:"typescript_runtime_artifact_prefixes"`
 	ActivationDependencyIDs   []string `json:"activation_dependency_ids"`
@@ -119,27 +117,6 @@ func activeFamiliesFromRegistry(root string, registry contractFamilyRegistry) ([
 			return nil, fmt.Errorf("%s.output_order duplicates family %s", label, previous)
 		}
 		seenOutputOrders[entry.OutputOrder] = entry.FamilyID
-		if len(entry.OwnerRequirementIDs) == 0 {
-			return nil, fmt.Errorf("%s.owner_requirement_ids must not be empty", label)
-		}
-		if len(entry.OwnerContractIDs) == 0 {
-			return nil, fmt.Errorf("%s.owner_contract_ids must not be empty", label)
-		}
-		for key, values := range map[string][]string{
-			"owner_requirement_ids": entry.OwnerRequirementIDs,
-			"owner_contract_ids":    entry.OwnerContractIDs,
-		} {
-			seen := map[string]struct{}{}
-			for _, value := range values {
-				if strings.TrimSpace(value) == "" {
-					return nil, fmt.Errorf("%s.%s entries must not be empty", label, key)
-				}
-				if _, duplicate := seen[value]; duplicate {
-					return nil, fmt.Errorf("%s.%s contains duplicate %s", label, key, value)
-				}
-				seen[value] = struct{}{}
-			}
-		}
 		if len(entry.GeneratedOutputs) == 0 {
 			return nil, fmt.Errorf("%s.generated_outputs must not be empty", label)
 		}

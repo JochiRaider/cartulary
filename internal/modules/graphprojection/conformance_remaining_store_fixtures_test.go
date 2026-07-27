@@ -28,6 +28,26 @@ func TestGPFIX032Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-032")
 func TestGPFIX033Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-033") }
 func TestGPFIX035Remediation(t *testing.T) { verifyStoreFixture(t, "GP-FIX-035") }
 
+func TestGraphProjectionStoreBehaviorFixtures_Integration(t *testing.T) {
+	for _, fixtureID := range []string{
+		"GP-FIX-004",
+		"GP-FIX-018",
+		"GP-FIX-019",
+		"GP-FIX-020",
+		"GP-FIX-021",
+		"GP-FIX-029",
+		"GP-FIX-030",
+		"GP-FIX-031",
+		"GP-FIX-032",
+		"GP-FIX-033",
+		"GP-FIX-035",
+	} {
+		t.Run(fixtureID, func(t *testing.T) {
+			verifyStoreFixture(t, fixtureID)
+		})
+	}
+}
+
 func verifyStoreFixture(t *testing.T, fixtureID string) {
 	t.Helper()
 	wd, err := os.Getwd()

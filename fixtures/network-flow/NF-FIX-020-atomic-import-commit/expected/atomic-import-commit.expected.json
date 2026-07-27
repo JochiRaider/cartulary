@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-020-atomic-import-commit",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "final-commit fault points prove no ghost table, partial rows, diagnostics, bindings, or domain audit",
   "table_resource": {
     "network_flow_table_id": "nft_bf384618f8f6797fa08c1e296e208695",

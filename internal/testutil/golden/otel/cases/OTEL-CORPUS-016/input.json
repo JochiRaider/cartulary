@@ -1,13 +1,22 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-016",
   "title": "Exporter",
-  "status": "adopted_conformant",
-  "owner_requirement": "Export disabled, OTLP HTTP URL construction, OTLP gRPC target/security, secret_ref_v1 headers, User-Agent grammar, retry, timeout, and shutdown match the exporter profile.",
   "retry_classification_matrix": {
     "pinned_exporter_version_source": "contracts/otel/otel_source_snapshot.v1.json",
-    "http_transient": [429, 502, 503, 504],
-    "http_permanent": [400, 401, 403, 404, 422],
+    "http_transient": [
+      429,
+      502,
+      503,
+      504
+    ],
+    "http_permanent": [
+      400,
+      401,
+      403,
+      404,
+      422
+    ],
     "grpc_transient": [
       "CANCELLED",
       "DEADLINE_EXCEEDED",
@@ -44,7 +53,10 @@
     },
     "header_policy": {
       "configured_source": "telemetry.exporter.headers.secret_ref_v1",
-      "protocol_required_headers": ["content-type", "user-agent"],
+      "protocol_required_headers": [
+        "content-type",
+        "user-agent"
+      ],
       "configured_values_redacted_in_diagnostics": true,
       "secret_values_absent_from_retained_artifacts": true,
       "otel_environment_headers_ignored": true

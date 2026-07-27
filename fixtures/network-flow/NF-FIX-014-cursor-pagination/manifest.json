@@ -1,11 +1,11 @@
 {
-  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-  "manifest_version": 1,
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
   "fixture_id": "NF-FIX-014-cursor-pagination",
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 1,
+    "revision": 2,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,8 +28,8 @@
     {
       "logical_path": "source/cursor-pagination.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 326,
-      "sha256": "7ca028edf754f6f42968d7ed2e16a9ed7e579249ebe1938fcdc7ddae3b665d4e",
+      "size_bytes": 232,
+      "sha256": "56ad0a5c258bf2eb589f665d26789477d607b89629660aab7a1c82b800331c5b",
       "role": "support",
       "newline_policy": "lf_required"
     }
@@ -39,7 +39,7 @@
       "logical_path": "expected/cursor-pagination.expected.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 1049,
-      "sha256": "6e278633b83f9c04a0687a53ab2f9ef291313e8c466e8d4062843370af903787",
+      "sha256": "12acd82990543522d98311ec354ac86dcd1b998d8e78bdfd5ff7189e7e62e42f",
       "role": "expected_rows"
     }
   ],
@@ -48,22 +48,10 @@
       "logical_path": "transcripts/cursor-pagination.transcript.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 591,
-      "sha256": "9013c54696a319bbf19d1fee5b27951b5e8a9aaeb4f410be7c57ccf1da271ebd",
+      "sha256": "3a7747077056db7b2db9a1729c93a3f3a0091afe3947cc027746cbb2816d5866",
       "transcript_kind": "cursor"
     }
   ],
-  "acceptance_ids": [
-    "NF-AC-027",
-    "NF-AC-028",
-    "NF-AC-094",
-    "NF-AC-095"
-  ],
-  "execution_selectors": [
-    "phase12/network-flow/NF-FIX-014-cursor-pagination"
-  ],
-  "source_bundle_sha256": "89aed2d8fd40ab4a944095386425d99b6676e17a693f767c4888df019857eb3c",
-  "expected_bundle_sha256": "a600b9fcb3681b546b4232d4c10822a12edb6ffeb90aa52e9e4fe652ab403ae9",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "source_bundle_sha256": "b6890d40227a8142281d7ce8243881647d8746f624bf2e03bca7f57520d2619f",
+  "expected_bundle_sha256": "5bc71d8087c8f4f8e58cb23cb3caa99ca04761b753b21568e7f22fda900ff235"
 }

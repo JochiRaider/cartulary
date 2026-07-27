@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.collaboration",
   "verifications": [
     {
@@ -10,13 +10,6 @@
         "go_test",
         "playwright",
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.collaboration.requirement.behavior_contract",
-        "module.collaboration.requirement.bounded_stream_operations",
-        "module.collaboration.requirement.durable_replayable_stream",
-        "module.collaboration.requirement.source_owner_producer_exclusivity"
       ]
     }
   ]

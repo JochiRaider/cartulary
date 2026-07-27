@@ -1,15 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-006-cross-table-graph",
-  "summary": "two selected tables compose one graph with shared endpoint vertex, aggregated edge, provenance, and stable graph IDs",
-  "acceptance_ids": [
-    "NF-AC-029",
-    "NF-AC-030",
-    "NF-AC-032",
-    "NF-AC-033",
-    "NF-AC-034",
-    "NF-AC-035",
-    "NF-AC-056",
-    "NF-AC-059"
-  ]
+  "summary": "two selected tables compose one graph with shared endpoint vertex, aggregated edge, provenance, and stable graph IDs"
 }

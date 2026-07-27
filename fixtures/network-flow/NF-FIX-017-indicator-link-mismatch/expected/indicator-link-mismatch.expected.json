@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-017-indicator-link-mismatch",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "indicator-link mismatch paths reject non-IP fields, ambiguous edge values, stale graph digests, and Core dependency failures",
   "table_resource": {
     "network_flow_table_id": "nft_4c1d4e7c93690db53b306f278089a337",

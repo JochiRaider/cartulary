@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.config",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.behavior_contract"
       ]
     },
     {
@@ -20,10 +16,6 @@
       "profile": "extension.network_flow_activity",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.network_flow_claim_admission"
       ]
     },
     {
@@ -32,10 +24,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.telemetry_defaults_namespace"
       ]
     },
     {
@@ -44,10 +32,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.telemetry_environment_parser"
       ]
     },
     {
@@ -56,10 +40,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.telemetry_secret_references"
       ]
     },
     {
@@ -68,10 +48,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.config.requirement.telemetry_validation"
       ]
     }
   ]

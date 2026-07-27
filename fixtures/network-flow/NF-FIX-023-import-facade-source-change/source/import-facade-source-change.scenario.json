@@ -1,10 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "summary": "preview/apply facade freezes source descriptors, opaque source digest, no path leakage, and source-change failures",
-  "acceptance_ids": [
-    "NF-AC-088",
-    "NF-AC-089",
-    "NF-AC-107"
-  ]
+  "summary": "preview/apply facade freezes source descriptors, opaque source digest, no path leakage, and source-change failures"
 }

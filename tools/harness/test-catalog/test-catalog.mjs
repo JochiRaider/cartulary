@@ -19,6 +19,7 @@ import {
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v2";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
+export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
   go: "go_exact_tests",
   playwright: "playwright_exact_scenarios",
@@ -324,7 +325,7 @@ export function loadTestCatalog(root) {
   const knownOwnerIDs = new Set(verification.registry.owners.map((entry) => entry.owner_id));
   const runners = loadRunnerRegistry(root);
   const profiles = loadTopologyProfiles(root);
-  const taskSurface = readStrictJSON(path.join(root, "tools/task_surface_manifest.json"));
+  const taskSurface = readStrictJSON(path.join(root, "tools/task_surface_owner.json"));
   const taskSurfaceCommandIDs = new Set(taskSurface.targets.map((entry) => entry.command_id));
   const manifests = [];
   const rows = [];
@@ -413,15 +414,16 @@ export function loadTestCatalog(root) {
     profiles: profiles.semantic,
   });
   const summary = {
-    schema_id: "cartulary.test_catalog_check_summary.v1",
+    schema_id: "cartulary.test_catalog_check_summary.v2",
+    evidence_epoch: evidenceEpoch,
     status: "pass",
     owner_count: ownerIDs.length,
     family_count: familyIDs.size,
     row_count: rows.length,
     selector_count: selectors.size,
     runner_counts: runnerCounts,
-    catalog_semantic_digest: catalogSemanticDigest,
-    verification_semantic_digest: verification.semantic_digest,
+    test_catalog_digest: catalogSemanticDigest,
+    verification_routing_digest: verification.routing_digest,
   };
   validateSchemaSync(summary.schema_id, summary);
   const coveredVerificationIDs = new Set(
@@ -446,7 +448,7 @@ export function loadTestCatalog(root) {
     runners: runners.registry,
     profiles,
     summary,
-    semantic_digest: catalogSemanticDigest,
+    test_catalog_digest: catalogSemanticDigest,
   };
 }
 

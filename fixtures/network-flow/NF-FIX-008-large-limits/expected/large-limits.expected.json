@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-008-large-limits",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "large-limit engineering fixture records graph/table limit behavior without Core 05 publication evidence",
   "table_resource": {
     "network_flow_table_id": "nft_dda0d49415f689c0b555de6262e7b3a0",

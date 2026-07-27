@@ -8,13 +8,6 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "NF-REQ-186",
-      "profile_id": "network_flow_activity"
-    },
-    {
-      "conformance_manifest_id": "network_flow_activity.conformance.v2",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "NF-REQ-181",
       "profile_id": "network_flow_activity"
     },
     {
@@ -24,7 +17,6 @@
         "route_family": "/api/v1/incidents/{incident_id}/network-flow"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-006a",
       "profile_id": "network_flow_activity"
     },
     {
@@ -34,7 +26,6 @@
         "workspace_key": "network_analysis"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-006a",
       "profile_id": "network_flow_activity"
     },
     {
@@ -44,31 +35,26 @@
         "target_kind": "network_flow_table"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-185",
       "profile_id": "network_flow_activity"
     },
     {
       "contribution": {
         "contribution_id": "network_flow_activity.import_apply",
         "kind": "cross_owner_transaction_participant",
-        "participant_requirement_id": "NF-REQ-185",
-        "participant_contract_sha256": "42ea4ee9bdebbd5c08e8d3ee2f106896e287b008058275cabc2665ac214b419b",
+        "participant_contract_sha256": "84f91d73afa2d414fbf877c225c72deb19dc3345d64d63c6bf16b4a79619e356",
         "participant_id": "network_flow_activity.import_apply_v1"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-185",
       "profile_id": "network_flow_activity"
     },
     {
       "contribution": {
         "contribution_id": "network_flow_activity.indicator_link",
         "kind": "cross_owner_transaction_participant",
-        "participant_requirement_id": "NF-REQ-185",
-        "participant_contract_sha256": "993baf9c5c37a21b807656aa5feb0573cfdced4956aca0546c6fe3f6f26f7be3",
+        "participant_contract_sha256": "1ac87bd0454747a5125ee1d720fb5fb1423d5eb1a281d897c094fb38162c8977",
         "participant_id": "network_flow_activity.indicator_link_v1"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-185",
       "profile_id": "network_flow_activity"
     },
     {
@@ -78,27 +64,22 @@
         "resource_kind": "network_flow_table"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-182",
       "profile_id": "network_flow_activity"
     },
     {
       "contribution": {
         "contribution_id": "network_flow_activity.backup_restore",
         "kind": "backup_restore_participant",
-        "participant_requirement_id": "NF-REQ-184",
         "participant_contract_sha256": "b9e5a9ac55176dd464d7370f4099c1d37a192c772a3e02eee7a67a70661e4b19",
         "participant_id": "network_flow_activity.backup_restore_v1"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "NF-REQ-184",
       "profile_id": "network_flow_activity"
     },
     {
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_requirement_id": "NF-REQ-185",
-      "profile_id": "network_flow_activity",
-      "egress_requirement_id": null
+      "profile_id": "network_flow_activity"
     },
     {
       "blocking_predicate": {
@@ -110,20 +91,17 @@
       },
       "fact_kind": "portability",
       "incident_portability_mode": "blocked_when_present",
-      "owner_requirement_id": "NF-REQ-185",
       "participant_id": null,
       "profile_id": "network_flow_activity"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "NF-REQ-185",
       "participant_id": null,
       "profile_id": "network_flow_activity",
       "snapshot_reporting_mode": "no_participation"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "NF-REQ-182",
       "profile_id": "network_flow_activity",
       "state_ownership": {
         "current_state_version": 1,
@@ -141,8 +119,5 @@
   ],
   "owner_fragment_id": "network_flow_activity.profile.v2",
   "owner_id": "network_flow_activity",
-  "schema_id": "cartulary.extension_owner_fragment.v2",
-  "requirement_catalog_ref": "contracts/requirements/owners/network_flow_activity.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "91783f77694ae89fabe520a065b77fa5029e9bb32499d76044e6f1e07a5c5203"
+  "schema_id": "cartulary.extension_owner_fragment.v3"
 }

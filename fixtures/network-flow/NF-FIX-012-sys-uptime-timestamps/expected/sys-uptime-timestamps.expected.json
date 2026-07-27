@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-012-sys-uptime-timestamps",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "sys-uptime timestamps derive event times from export time and exporter uptime with wrap-ambiguous rejection",
   "table_resource": {
     "network_flow_table_id": "nft_b5f6d49435ff65cb5d0f8e15c5cfe4b6",

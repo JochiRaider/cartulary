@@ -1,32 +1,48 @@
 ---
 doc_id: cartulary.testing_harness.v2
-title: Testing Harness Human Reference
+title: Testing Harness NLSpec
 conformance_profile_id: cartulary.testing_harness.current.v2
-doc_type: human_reference
-status: maintained/non-executable
-authority_boundary: Human explanation of machine-owned harness mechanics.
+doc_type: nlspec
+status: adopted/current
+authority_boundary: Harness mechanics only; command invocation, target selection, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, cleanup, and harness verification gates.
 ---
 
 ## 1. Status, Scope, and Authority
 
-This document explains the Cartulary testing harness subsystem for maintainers.
-Executable authority lives in machine-readable requirement catalogs,
-verification contracts, test family manifests, schemas, task-surface inputs,
-execution topology, and policy registries. No harness test, generator,
-conformance command, or release command consumes this file or any other
-documentation file as evidence.
+This NLSpec defines the Cartulary testing harness subsystem. It is the sole
+adopted current authority for the harness mechanics identified in
+`authority_boundary`, including owner and row selection, catalog validation,
+runner adaptation, retained-evidence auditing, and the existing scheduler,
+fixture, service, artifact, cleanup, and verification-gate contracts. Adoption
+does not make harness readiness evidence product conformance or Core 05
+claim-publication evidence.
+
+No harness test, generator, conformance command, or release command reads,
+stats, hashes, or otherwise consumes this file or any other documentation file
+as executable evidence. Versioned machine inputs are reviewed projections of
+this NLSpec and the applicable product/support specifications; executable tools
+validate those projections without parsing their source documents.
+OpenAPI release change sets are operational review records: each entry contains
+only its semantic fingerprint, compatibility classification, owning component,
+and rationale. They MUST NOT copy specification requirement identifiers or use
+a requirement catalog as approval authority.
 
 **TH-HARNESS-REQ-001**
-The machine contracts described here own harness mechanics: command invocation,
-owner and row selection, catalog and runner validation, scheduling, fixture
-lifecycle, service ownership, artifact emission, summary emission,
-retained-evidence auditing, cleanup, and harness verification gates.
+This NLSpec owns only harness mechanics: command invocation, owner and row
+selection, catalog and runner validation, scheduling, fixture lifecycle,
+service ownership, artifact emission, summary emission, retained-evidence
+auditing, cleanup, and harness verification gates. Core 00 through Core 04
+remain the sole owners of product behavior and product-profile authority. Core
+05 remains the sole owner of claim-publication and benchmark-publication
+activation.
 
-Requirement catalogs, verification contracts, schemas, task-surface inputs, and
-execution-topology inputs are the executable contracts. Documentation,
-migration trackers, and handoffs may explain them but cannot create or close
-testable behavior. Generated outputs, repository source, tests, and retained
-artifacts also do not become alternate requirement owners.
+Owner catalogs, verification contracts, schemas, task-surface inputs, and
+execution-topology inputs are reviewed derived contracts. They MUST implement
+this NLSpec and their cited product or support owners, but they MUST NOT
+supersede either source. Migration trackers and handoffs are implementation
+authorities only; they MUST NOT create lasting harness behavior. Guides,
+generated outputs, repository source, tests, and retained artifacts MUST NOT
+become alternate behavior owners.
 
 Frontend readiness mechanics introduced by `browser-e2e-visual`, `browser-e2e-a11y`, `test-evidence-audit`, owner test-family manifests, `tools/frontend_visual_fixture_registry.json`, `cartulary.test_evidence_accounting.v1`, `cartulary.frontend_visual_fixture_registry.v4`, `cartulary.frontend_accessibility_summary.v4`, and `cartulary.frontend_claim_publication_review.v1` are harness and implementation-readiness mechanics only. They MUST NOT define Core product behavior, MUST NOT promote visual or accessibility evidence into product-conformance evidence, and MUST NOT activate Core 05 claim-publication review unless a claim-bearing publication predicate is active.
 
@@ -191,35 +207,40 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-068
 ### 3.2 Owner, verification, and family contracts
 
 **TH-HARNESS-REQ-013**
-The current owner inputs are `contracts/requirements/registry.json`,
-`contracts/requirements/owners/*.json`,
-`contracts/verification/registry.json`,
+The current owner inputs are `contracts/verification/registry.json`,
 `contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and
 `tools/test_families/*.json`. They validate respectively as
-`cartulary.requirement_registry.v1`, `cartulary.requirement_catalog.v1`,
-`cartulary.verification_registry.v2`, `cartulary.verification_contract.v2`,
+`cartulary.verification_registry.v3`, `cartulary.verification_contract.v3`,
 `cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v2`.
 Every schema uses JSON Schema Draft 2020-12, requires its exact `schema_id`,
 rejects unknown properties, and closes every current enum.
 
-Requirement IDs are globally unique. Every active requirement resolves through
-at least one active verification and then to an active catalog row or registered
-public target. Planned requirements describe incomplete work and cannot be
-claimed by verification, conformance, release, or publication evidence.
+Every verification resolves to an active catalog row or registered public
+target. Verification v3 contains no requirement, acceptance,
+specification-trace, or specification-status field. Specification completeness
+is assessed against the adopted owner by human review, not inferred from
+routing counts.
 
-An active owner registry row MUST contain `owner_id`, `manifest_path`, and `status="active"`; it MAY contain display metadata. `manifest_path` MUST be a normalized repository-relative path under the matching owner root, MUST resolve exactly once, and MUST remain inside the repository after realpath resolution. Every active owner MUST own at least one active executable row.
+An active test owner registry row MUST contain `owner_id`, `manifest_path`, and
+`status="active"`; it MAY contain display metadata. A verification registry
+owner row contains only `owner_id` and `contract_path`. Each path MUST be a
+normalized repository-relative path under the matching owner root, MUST
+resolve exactly once, and MUST remain inside the repository after realpath
+resolution. Every active test owner MUST own at least one active executable
+row.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-014**
 Every active catalog row MUST contain `row_id`, `owner_id`, `family_id`, `collaborator_ids`, `verification_ids`, `runner`, `selector`, `evidence_class`, `runtime_profile_id`, `resource_profile_id`, `fixture_profile_id`, `default_check`, `claim_posture`, and `status="active"`.
 
 `collaborator_ids` is required and MAY be empty. `verification_ids` is required
-and MUST be nonempty. Verification contracts contain required
-`requirement_ids`; documentation references are not accepted. Reference arrays
-MUST be sorted and duplicate-free, and every reference MUST resolve exactly
-once. `owner_id` MUST equal the containing manifest owner. A row MUST NOT embed
-commands, ports, capacities, service topology, child environment variables,
-fixture paths, documentation paths, or document-derived behavior.
+and MUST be nonempty. Verification entries contain only routing semantics:
+`verification_id`, `behavior_class`, `profile`, `evidence_kinds`, optional
+`public_target`, and optional `skip_policy`. Reference arrays MUST be sorted and
+duplicate-free, and every reference MUST resolve exactly once. `owner_id` MUST
+equal the containing manifest owner. A row MUST NOT embed commands, ports,
+capacities, service topology, child environment variables, fixture paths,
+documentation paths, or document-derived behavior.
 Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-015**
@@ -1328,18 +1349,40 @@ Retained artifacts prove only the explicit `{result_root, run_id, target}` tripl
 Verified by: TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-152**
-Every v2 row-bearing evidence artifact MUST identify `schema_id`, `command_id`, `run_id`, `owner_id`, `selected_rows`, `source_snapshot_digest`, `catalog_semantic_digest`, `verification_semantic_digest`, `runtime_profile_digest`, `resource_profile_digest`, `fixture_profile_digest`, `started_at`, `finished_at`, and `duration_ms`. `selected_rows` MUST be sorted and duplicate-free. Missing identity fields make the artifact incompatible, not stale-by-age.
+Every post-cutover row-bearing evidence artifact MUST identify `schema_id`,
+`evidence_epoch`, `command_id`, `run_id`, `owner_id`, `selected_rows`,
+`source_snapshot_digest`, `test_catalog_digest`,
+`verification_routing_digest`, `runtime_profile_digest`,
+`resource_profile_digest`, `fixture_profile_digest`, `started_at`,
+`finished_at`, and `duration_ms`. `selected_rows` MUST be sorted and
+duplicate-free. Missing identity fields make the artifact incompatible, not
+stale-by-age.
 
 An internal evidence partition MUST retain its own `target_id` while using the command identity of the public semantic command that owns the partition. The `backend-integration-support` partition therefore MUST use `target_id=backend-integration-support` and `command_id=cartulary.harness.command.backend_integration.v1`. This ownership route MUST be explicit catalog-side policy; runtime target-name inference and a new public or private support command identity are forbidden.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-153**
-`source_snapshot_digest_v1` is SHA-256 over RFC 8785 canonical JSON describing every Git-tracked and non-ignored untracked repository file, ordered by repository-relative path. Each entry contains path, stable file-kind or Git-mode identity, and byte digest. Ignored paths, result roots, and cache roots are excluded. A symlink is recorded as a link and its link bytes are hashed; the digest algorithm MUST NOT follow it. Duplicate, escaping, unreadable, or unstable paths MUST fail snapshot construction.
+`source_snapshot_digest_v2` is SHA-256 over RFC 8785 canonical JSON
+describing every Git-tracked and non-ignored untracked executable repository
+input, ordered by repository-relative path. Each entry contains path, stable
+file-kind or Git-mode identity, and byte digest. Ignored paths, result roots,
+cache roots, the complete `docs/` subtree, and every Markdown file
+(`.md` or `.markdown`, ASCII case-insensitive) are excluded.
+
+Documentation exclusion MUST use only the normalized repository-relative path
+returned by Git and MUST occur before any `lstat`, `stat`, open, read,
+`readlink`, or hashing operation for that path. Editing, adding, deleting,
+renaming, or rearranging an excluded specification or Markdown guidance file
+MUST NOT change the snapshot digest or file count. A retained symlink outside
+the excluded documentation surfaces is recorded as a link and its link bytes
+are hashed; the digest algorithm MUST NOT follow it. Duplicate, escaping,
+unreadable, or unstable executable-input paths MUST fail snapshot
+construction.
 Verified by: TH-HARNESS-AC-066, TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-154**
 Evidence from different retained roots is compatible only when `owner_id`, source
-snapshot digest, catalog semantic digest, and verification semantic digest are
+snapshot digest, test-catalog digest, and verification-routing digest are
 identical. Selected-row inventories are target partitions and therefore MAY differ
 between gates. Each artifact's selected rows and runtime, resource, and fixture
 profile digests MUST exactly equal the current catalog-derived partition for that
@@ -1463,7 +1506,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
 | `cartulary.same_run_helper_artifact_ref.v2`     | `tools/schemas/cartulary.same_run_helper_artifact_ref.v2.schema.json`     | present           | Run summary generator    | Before an aggregate reports same-run helper artifact reuse. |
 | `cartulary.task_surface_owner.v1`               | `tools/schemas/cartulary.task_surface_owner.v1.schema.json`               | present           | Authored task-surface owner validation | Before task-surface, scheduler, or generated Make projection. |
-| `cartulary.contract_family_registry.v2`         | `tools/schemas/cartulary.contract_family_registry.v2.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
+| `cartulary.contract_family_registry.v3`         | `tools/schemas/cartulary.contract_family_registry.v3.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
 | `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
 | `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.test_slice_scheduler_summary.v1`     | `tools/schemas/cartulary.test_slice_scheduler_summary.v1.schema.json`     | present           | Owner-slice scheduler    | Before an owner-slice scheduler target succeeds. |
@@ -1500,10 +1543,10 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test.network_flow_auth_transition_control.v1` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v1.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
 | `cartulary.test.network_flow_audit_assertion_control.v1` | `tools/schemas/cartulary.test.network_flow_audit_assertion_control.v1.schema.json` | present | Network Flow audit-assertion control route | Before an armed Network Flow audit-count or replay assertion is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
-| `cartulary.network_flow_fixture_manifest.v1`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for conformance execution. |
-| `cartulary.graph_projection_fixture_manifest.v2` | `tools/schemas/cartulary.graph_projection_fixture_manifest.v2.schema.json` | present | Graph Projection fixture manifest validator | Before a Graph Projection fixture is selected for conformance execution. |
-| `cartulary.network_flow_activity_accounting.v2` | `tools/schemas/cartulary.network_flow_activity_accounting.v2.schema.json` | present           | Network Flow acceptance-to-runtime accounting validator | During JSON shape checks and before Network Flow generated-contract or catalog drift evidence is accepted. |
-| `cartulary.network_flow_timezone_ruleset_provenance.v1` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v1.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |
+| `cartulary.network_flow_fixture_manifest.v2`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v2.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for behavior execution. |
+| `cartulary.network_flow_fixture_scenario.v2`    | `tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json`    | present           | Network Flow fixture scenario validator | Before a Network Flow fixture scenario is selected for behavior execution. |
+| `cartulary.graph_projection_fixture_manifest.v3` | `tools/schemas/cartulary.graph_projection_fixture_manifest.v3.schema.json` | present | Graph Projection fixture manifest validator | Before a Graph Projection behavior fixture is selected for execution. |
+| `cartulary.network_flow_timezone_ruleset_provenance.v2` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v2.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
 | `cartulary.cache.readiness.v1`                  | `tools/schemas/cartulary.cache.readiness.v1.schema.json`                  | present           | Readiness cache helper   | Before a readiness cache record or retained cache artifact is accepted. |
 | `cartulary.cache.build_artifact.v1`             | `tools/schemas/cartulary.cache.build_artifact.v1.schema.json`             | present           | Build-artifact cache helper | Before a build cache record or retained cache artifact is accepted. |
@@ -1852,7 +1895,7 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v4`                  | Active `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Test evidence accounting                            | Owner-aware target summaries                    | `<target>/owners/<owner-id>/test-evidence-accounting.json`           | `cartulary.test_evidence_accounting.v1`                        | Selection identity, semantic digests, exact expected and terminal row records, attempts, and required-target closure | Retained for target; target/tool-run summaries reference every owner shard instead of duplicating row details. |
 | Release-readiness evidence                           | Release-readiness aggregation                   | `release-readiness-evidence/release-readiness-evidence.json`        | `cartulary.release_readiness_evidence.v2`                      | Evidence records with explicit owner refs, evidence class, product conformance effect, Core 05 publication effect, release-gate effect, run root, artifact refs, and status | Retained for release-readiness target; target/tool-run summaries reference the artifact. |
-| Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v1`                   | Fixture IDs, owner refs, source files, expected artifacts, transcript files, selectors, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
+| Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v2`                   | Fixture identity, source files, expected artifacts, transcript files, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
 | Logs                                                 | Shell, Go, scheduler, browser, service wrappers | target log dirs                                                 | diagnostic-only unless producer declares schema               | Logs are text after redaction; empty logs may be omitted                              | Retained unless cleanup removes result root.                 |
 | Coverage reports                                     | Go/frontend/test tools                          | tool-specific coverage paths                                    | diagnostic-only                                               | No current schema-owned field contract; retained only as tool diagnostic output       | Removed by `make clean` when under registered paths.         |
@@ -1908,7 +1951,19 @@ Network Flow conformance fixtures MUST use a directory-scoped manifest at `fixtu
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-263**
-A Network Flow fixture manifest MUST validate as `cartulary.network_flow_fixture_manifest.v1`, MUST be schema-closed at every object boundary, and MUST declare `profile_id="network_flow_activity"`, `manifest_version`, `freeze.status`, `freeze.revision`, `owner_refs[]`, `source_files[]`, `expected_artifacts[]`, `transcript_files[]`, `acceptance_ids[]`, `execution_selectors[]`, `source_bundle_sha256`, and `expected_bundle_sha256`. `source_files[]`, `expected_artifacts[]`, and `transcript_files[]` MUST be ordered by `logical_path` ascending by Unicode code point, and each listed file MUST declare exact byte `size_bytes` and lowercase hex SHA-256 of the committed file bytes.
+A Network Flow fixture manifest MUST validate as
+`cartulary.network_flow_fixture_manifest.v2`, MUST be schema-closed at every
+object boundary, and MUST declare `profile_id="network_flow_activity"`,
+`manifest_version=2`, `freeze.status`, `freeze.revision`, `source_files[]`,
+`expected_artifacts[]`, `transcript_files[]`, `source_bundle_sha256`, and
+`expected_bundle_sha256`. It MUST omit acceptance IDs, verification IDs,
+copied requirements, execution selectors, phase selectors, and specification
+provenance. Each listed scenario file MUST validate as
+`cartulary.network_flow_fixture_scenario.v2` and contain only fixture identity
+and a human-readable behavior summary. File arrays MUST be ordered by
+`logical_path` ascending by Unicode code point, and each listed file MUST
+declare exact byte `size_bytes` and lowercase hex SHA-256 of the committed file
+bytes.
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-264**
@@ -1916,7 +1971,13 @@ The Network Flow source bundle digest algorithm is `network_flow_fixture_bundle_
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-265**
-Only `freeze.status="frozen"` Network Flow manifests may close Network Flow conformance evidence. A frozen manifest is append-only by revision: any byte change to source files, expected artifacts, transcript files, owner refs, selectors, or aggregate digests requires a new `freeze.revision` and a tracker entry that names the changed fixture. Draft manifests MAY exist during fixture authoring, but public conformance targets MUST report them as blocked rather than treating draft bytes as current evidence.
+Only `freeze.status="frozen"` Network Flow manifests may close Network Flow
+behavior evidence. A frozen manifest is append-only by revision: any byte
+change to source files, expected artifacts, transcript files, or aggregate
+digests requires a new `freeze.revision` and a tracker entry that names the
+changed fixture. Draft manifests MAY exist during fixture authoring, but public
+verification targets MUST report them as blocked rather than treating draft
+bytes as current evidence.
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-266**
@@ -1924,7 +1985,12 @@ Network Flow fixture execution MUST materialize manifest-listed files into a run
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-267**
-Network Flow fixture manifests route evidence; they do not own domain semantics. `owner_refs[]`, `acceptance_ids[]`, and `execution_selectors[]` MAY cite Network Flow, Core, Graph Projection, or harness rows, but the manifest MUST NOT redefine import parsing, row identity, cursor behavior, graph behavior, indicator binding, authorization, retention, audit occurrence rules, or generated contract shape. If no adopted product owner defines the expected behavior named by a manifest selector, the harness MUST classify the row as blocked or unsupported.
+Network Flow fixture manifests carry integrity and execution data; they do not
+route evidence or own domain semantics. Test-catalog rows route executable
+fixture tests through the Network Flow behavior verification. A manifest MUST
+NOT redefine import parsing, row identity, cursor behavior, graph behavior,
+indicator binding, authorization, retention, audit occurrence rules, or
+generated contract shape.
 Verified by: TH-HARNESS-AC-049
 
 ### 8.3 Agent Finalizer
@@ -3879,7 +3945,10 @@ Verified by: TH-HARNESS-AC-076
 ## 16. Integration with Product Specifications
 
 **TH-HARNESS-REQ-650**
-Harness tests and verification contracts MAY reference product requirement IDs and acceptance criteria for evidence routing only. They MUST NOT reference deleted delivery registries or ledgers and MUST NOT redefine product behavior under test.
+Harness verification contracts and catalog rows route behavior classes and
+executable selectors only. They MUST NOT copy or resolve product requirement
+IDs, acceptance criteria, specification lifecycle status, deleted delivery
+registries, or ledgers, and they MUST NOT redefine product behavior under test.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-651**
@@ -3928,45 +3997,81 @@ The harness MAY route, schedule, and retain evidence for the probe, but it MUST 
 Verified by: TH-HARNESS-AC-047
 
 **TH-HARNESS-REQ-657**
-Network Flow fixture manifests are evidence-routing and byte-freeze artifacts. They MAY cite adopted Network Flow, Core, Graph Projection, and harness requirements, but they MUST NOT define product behavior independently of those owners. A Network Flow conformance row that cites a manifest selector MUST also cite the adopted owner requirement or acceptance criterion that defines the expected route, import, lifecycle, cursor, graph, indicator, authorization, audit, redaction, or retention behavior. Missing owner citation, draft owner status, or selector-only semantics MUST leave the affected row blocked or unsupported.
+Network Flow fixture manifests are byte-freeze and execution-input artifacts.
+They MUST omit product requirement IDs, acceptance IDs, verification IDs,
+copied owner text, and test or phase selectors. Product semantics remain in the
+adopted Network Flow, Core, and Graph Projection specifications. The test
+catalog routes fixture execution through the Network Flow behavior
+verification without copying specification identities into the fixture.
 Verified by: TH-HARNESS-AC-049
 
 **TH-HARNESS-REQ-658**
-Network Flow fault controls are harness mechanics for exercising adopted product-owned commit, worker, cancellation, replay, and recovery requirements. A fixture or target MAY use `cartulary.test.network_flow_fault_control.v1` evidence only when the same row cites the adopted Network Flow, Core, or Graph Projection owner requirement that defines the expected state after the injected fault. Fault-control boundary names, fault kinds, correlation keys, and route responses MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, or performance evidence.
+Network Flow fault controls are harness mechanics for exercising adopted
+product-owned commit, worker, cancellation, replay, and recovery behavior. A
+fixture or target MAY use `cartulary.test.network_flow_fault_control.v1` only
+from a row routed through the Network Flow behavior verification. Fault-control
+boundary names, fault kinds, correlation keys, and route responses MUST NOT be
+cited as independent product semantics, public API compatibility, Core 05
+publication evidence, or performance evidence.
 Verified by: TH-HARNESS-AC-050
 
 **TH-HARNESS-REQ-659**
-Network Flow clock-control evidence is harness mechanics for exercising adopted product-owned time behavior. A fixture or target MAY use `cartulary.test.clock_control.v1` evidence only when the same row cites the adopted Network Flow, Core, or Graph Projection owner requirement that defines the expected timestamp, cursor TTL, retention, rotation, or timezone result. Clock route responses, wall-clock mode names, offsets, and fixed timestamps MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, or performance evidence.
+Network Flow clock-control evidence is harness mechanics for exercising adopted
+product-owned time behavior. A fixture or target MAY use
+`cartulary.test.clock_control.v1` only from a row routed through the Network
+Flow behavior verification. Clock route responses, wall-clock mode names,
+offsets, and fixed timestamps MUST NOT be cited as independent product
+semantics, public API compatibility, Core 05 publication evidence, or
+performance evidence.
 Verified by: TH-HARNESS-AC-051
 
 **TH-HARNESS-REQ-660**
-Network Flow deterministic-randomness evidence is harness mechanics for exercising adopted product-owned identity, nonce, digest, collision, ordering, and replay behavior. A fixture or target MAY use `cartulary.test.network_flow_randomness_control.v1` evidence only when the same row cites the adopted Network Flow, Core, Graph Projection, or security owner requirement that defines the expected product result. Stream names, value kinds, collision values, response counts, and fail-closed exhaustion behavior MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, production secret management, or performance evidence.
+Network Flow deterministic-randomness evidence is harness mechanics for
+exercising adopted product-owned identity, nonce, digest, collision, ordering,
+and replay behavior. A fixture or target MAY use
+`cartulary.test.network_flow_randomness_control.v1` only from a row routed
+through the Network Flow behavior verification. Stream names, value kinds,
+collision values, response counts, and fail-closed exhaustion behavior MUST
+NOT be cited as independent product semantics, public API compatibility, Core
+05 publication evidence, production secret management, or performance
+evidence.
 Verified by: TH-HARNESS-AC-052
 
 **TH-HARNESS-REQ-661**
-Network Flow auth-transition evidence is harness mechanics for exercising adopted product-owned route authorization, hidden-resource, cursor recheck, and extension-resource invalidation behavior. A fixture or target MAY use `cartulary.test.network_flow_auth_transition_control.v1` evidence only when the same row cites the adopted Network Flow, Core 03, Core 04, Graph Projection, or security owner requirement that defines the expected product result. Boundary names, transition kinds, safe fixture refs, hidden-response kinds, correlation keys, and route responses MUST NOT be cited as independent product semantics, public API compatibility, production authorization policy, Core 05 publication evidence, or performance evidence.
+Network Flow auth-transition evidence is harness mechanics for exercising
+adopted product-owned route authorization, hidden-resource, cursor recheck, and
+extension-resource invalidation behavior. A fixture or target MAY use
+`cartulary.test.network_flow_auth_transition_control.v1` only from a row
+routed through the Network Flow behavior verification. Boundary names,
+transition kinds, safe fixture refs, hidden-response kinds, correlation keys,
+and route responses MUST NOT be cited as independent product semantics, public
+API compatibility, production authorization policy, Core 05 publication
+evidence, or performance evidence.
 Verified by: TH-HARNESS-AC-053
 
 **TH-HARNESS-REQ-662**
-Network Flow audit-assertion evidence is harness mechanics for exercising adopted product-owned domain audit occurrence counts, transactional audit boundaries, exact idempotency replay behavior, and no-audit failure cases. A fixture or target MAY use `cartulary.test.network_flow_audit_assertion_control.v1` evidence only when the same row cites the adopted Network Flow, Core 04, Core 01, or security owner requirement that defines the expected product result. Assertion kinds, event codes, safe fixture refs, baseline counts, expected final counts, replay increments, correlation keys, and route responses MUST NOT be cited as independent product semantics, public API compatibility, audit storage design, Core 05 publication evidence, or performance evidence.
+Network Flow audit-assertion evidence is harness mechanics for exercising
+adopted product-owned domain audit occurrence counts, transactional audit
+boundaries, exact idempotency replay behavior, and no-audit failure cases. A
+fixture or target MAY use
+`cartulary.test.network_flow_audit_assertion_control.v1` only from a row routed
+through the Network Flow behavior verification. Assertion kinds, event codes,
+safe fixture refs, baseline counts, expected final counts, replay increments,
+correlation keys, and route responses MUST NOT be cited as independent product
+semantics, public API compatibility, audit storage design, Core 05 publication
+evidence, or performance evidence.
 Verified by: TH-HARNESS-AC-054
 
 **TH-HARNESS-REQ-663**
-Network Flow structural-accounting evidence is harness mechanics for failing
-closed before generated contracts, fixture selection, or Network Flow catalog evidence
-are accepted. The current accounting manifest MUST validate all of the
-following: Network Flow fixture and acceptance IDs are contiguous and present
-in the owner spec and adoption tracker; the owner spec's Table 1-B dependency
-registry has exactly the expected dependency rows and no placeholder locator cells;
-the `network-flow` contract family is present in the contract-family registry;
-planned contract status has the declared activation dependencies and no
-generated Network Flow symbols; active contract status has generated Network
-Flow symbols and no remaining activation dependencies; generated-drift scratch
-inputs include the accounting and contract owner inputs; and required public
-Make targets exist. This accounting MUST NOT define Network Flow product
-behavior, activate generated outputs, invent fixture semantics, or close a
-product conformance row without the product owner citations required by
-TH-HARNESS-REQ-657 through TH-HARNESS-REQ-662.
+Network Flow generation and fixture integrity MUST be checked by their owning
+validators without an acceptance-accounting manifest. Contract-family
+validation owns generation lifecycle and generated-output closure; the
+generated-drift manifest owns scratch-copy coverage; task-surface validation
+owns public targets; fixture validation owns containment, regular-file and
+symlink policy, resource bounds, exact sizes, per-file digests, bundle digests,
+and frozen revision state. None of those validators may parse a specification,
+count acceptance IDs, resolve prose locators, or infer product completeness
+from static metadata.
 Verified by: TH-HARNESS-AC-055
 
 **TH-HARNESS-REQ-664**
@@ -3989,7 +4094,12 @@ Verified by: TH-HARNESS-AC-050, TH-HARNESS-AC-052, TH-HARNESS-AC-053,
 TH-HARNESS-AC-054, TH-HARNESS-AC-056
 
 **TH-HARNESS-REQ-666**
-Harness tests and catalog rows MAY reference product requirements and acceptance criteria for evidence routing only. They MUST NOT reference deleted delivery-phase maps or ledgers, and they MUST NOT redefine product behavior. Support-only rows and direct package scripts cannot close product conformance unless an adopted verification contract and canonical Make target select their exact evidence.
+Harness tests and catalog rows MUST NOT carry product requirements, acceptance
+criteria, deleted delivery-phase maps, or ledgers, and they MUST NOT redefine
+product behavior. Support-only rows and direct package scripts cannot close
+product conformance merely because a verification contract or canonical Make
+target selects them; retained execution evidence remains subject to human
+review against the adopted product specification.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-062, TH-HARNESS-AC-069
 
 **TH-HARNESS-REQ-667**
@@ -4044,14 +4154,19 @@ Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-071
 
 ## 17. Acceptance Criteria / Definition of Done
 
-The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
+The acceptance matrix is the harness Definition of Done: it defines what must
+be true at the observable boundary. It is not a mandatory one-row-per-test,
+one-row-per-verification, or machine completeness map. Implementations MAY
+combine compatible scenarios in one test or use multiple tests for one
+scenario, provided the resulting behavior evidence is unambiguous.
 
 Owner-slice acceptance under TH-HARNESS-AC-063 through TH-HARNESS-AC-065 MUST cover omitted and exact-row plans, complete owner and service-backed dependency scopes, and target-wide checks whose closure remains limited to resolved rows. Negative fixtures MUST cover missing and unknown owners, blank tokens, normalized duplicates, cross-owner IDs, inactive rows, unmapped rows, zero-row owners, and a non-service-backed row requested by `service-backed-test-slice`. Each rejected selection MUST exit `2` before setup or child launch. The retained plan, retained scheduler summary, and target-local JSON scheduler summary MUST contain identical selection identity, and every selected-subset fixture MUST prove that row rollup is not treated as full-owner completion.
 
 Cutover acceptance MUST execute in this order:
 
-1. Run document cross-reference, requirement-ID, and unbounded-language checks.
-2. Run `make lint-markdown`.
+1. Review specification ownership, internal references, and open decisions
+   editorially; executable tools do not inspect specification content.
+2. Run `make lint-markdown` as documentation maintenance only.
 3. Run schema and negative-fixture validation through `make json-shape-check`.
 4. Run `make generated-artifact-policy-check`.
 5. Run `make harness-contract` and inspect the public command/input surface.
@@ -4082,7 +4197,7 @@ A later step MUST NOT compensate for an earlier failure, and evidence from diffe
 | TH-HARNESS-AC-013 | Sections 9, 16     | Product versus harness failure   | One known failing assertion, one harness setup failure, and one browser strict-port conflict fixture | Canonical test target under each fixture                                                  | Product failure exits `10`; setup failure exits Section 9 code; strict-port conflict retains its existing resource-conflict exit | Failure headline names class and reason                | Bounded diagnostic                                           | Target/tool, owner, and scheduler summaries agree on `resource_conflict` | Setup failure classified as product, or strict-port conflict classified as `service_start_error` | harness cleanup attempted                               |
 | TH-HARNESS-AC-014 | Section 9          | Exit-code matrix                 | Controlled failure fixtures                                                  | Exit matrix test target                                                                   | Exact Section 9 code for every class                           | Per output mode                                        | Per output mode                                              | Failure summaries with primary failure selection                                                   | Cleanup failure overrides earlier product failure                            | cleanup failure recorded but primary exit preserved     |
 | TH-HARNESS-AC-015 | Sections 6, 8      | Retained artifact identity       | Explicit result root/run ID plus generated default identity fixtures for public node-tool and owner-slice targets | `CARTULARY_TEST_RESULTS_DIR=<dir> CARTULARY_TEST_RUN_ID=<id> make backend-unit`; direct generated-ID public targets | `0`                                                            | Summary names run root                                 | Empty                                                        | Artifacts under one `<dir>/<id>` with target, run ID, run root, invocation marker, and terminal summary; retained run roots and target dirs are owner-only on POSIX hosts | Preflight marker and summary use sibling generated IDs, newest-run fallback is accepted as proof, or retained directories are group/world-accessible | custom absolute result root not removed by `make clean` |
-| TH-HARNESS-AC-016 | Sections 1, 2, 18, 19 | Editorial and boundary closure | Revised document                                                             | Editorial lint, open-delegation scanner, and future-decision scanner                       | `0`                                                            | Bounded summary                                        | Empty on success                                             | No prohibited evidence markers in Sections 1-17; no adopted-section open delegation phrase without a cited closed table, schema attachment, algorithm, or diagnostic boundary; no current blockers in Section 19 | Current-profile blocker appears in future section, or an adopted section uses open delegation without a cited closure owner | none                                                    |
+| TH-HARNESS-AC-016 | Sections 1, 2, 18, 19 | Editorial and boundary closure | Revised document                                                             | Human owner review; `make lint-markdown` checks Markdown quality only                      | Review complete; Markdown lint `0`                             | Existing Markdown-lint output                         | Existing Markdown-lint diagnostic                            | Human review records owner conflicts or open decisions; no executable artifact consumes this document | A specification conflict is silently resolved by a machine projection or Markdown lint is cited as product conformance | none                                                    |
 | TH-HARNESS-AC-017 | Section 11         | Lifecycle-machine conformance    | Service-suite fixtures for happy path, startup failure, interrupted child, cleanup failure, illegal transition, and crash/rerun | Lifecycle-machine conformance target or unit harness                                      | Happy path `0`; failure fixtures use exact Section 9 code      | Bounded summary or machine object                      | Empty on happy path; bounded diagnostic on failure fixture | `cartulary.test_services.lifecycle.v2` stream with sequential events, valid transitions, terminal state, Section 9 failure mapping, and cleanup proof behavior | Unlisted `(state,event)` mutates state, terminal state accepts later event, or lifecycle stream validates with a sequence gap | normal suite cleanup; unproven resources retained       |
 | TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm scheduler health            | Retained warm-ready `check` fixture plus over-budget, cold-provisioning, measurement-in-default-check, skewed-lane, shared-browser-session, unexpected-reuse, and fixture-budget fixtures | `make scheduler-summary-timing-drift RESULTS_DIR=<dir> TARGET=check SCHEDULER_WARM_CHECK_BUDGET_MS=60000 SCHEDULER_WARM_CHECK_BALANCE_RATIO=1.25` | Success only for warm-eligible, in-budget, balanced fixtures                    | Bounded summary                                        | Bounded diagnostic on failure fixture                  | Scheduler and target summaries identify `check-service-backed` wall time, evaluated lanes, browser session groups, unexpected reused accounting, readiness attribution, and fixture class counts | Measurement stage, undeclared extra browser session, hidden provisioning, unexplained reused work, unplanned clone/reset, or skewed non-isolated lane passes unnoticed | none                                                    |
 | TH-HARNESS-AC-019 | Section 8.2        | Agent finalizer                  | Fake Make fixture plus valid, missing, failed, incomplete, contaminated, non-warm retained run, action-cache hit/miss/disabled/corrupt/input-change/output-change fixtures | `make agent-finalize`; `RESULTS_DIR=<dir> make agent-finalize`; `CARTULARY_OUTPUT_MODE=machine make agent-finalize` | Success for coherent maintenance inputs; fail-fast for first failed action substep or invalid retained run; cache hits only for eligible closed-profile actions | One `[FINALIZE]` line then bounded result/artifact lines; machine emits one JSON object | Bounded failure diagnostic naming failed action/substep | `agent-finalize/finalize-summary.json`, per-action `execution_state` and cache state, child summaries/logs when executed, and `finalize_summary` artifact ref | Excluded targets run, mutation starts after invalid `RESULTS_DIR`, cache hit bypasses retained-run validation, corrupt cache produces success, machine output requires log parsing, semantic action IDs are absent, or skipped-after-failure work is absent | No cleanup or destructive command is run               |
@@ -4115,13 +4230,13 @@ A later step MUST NOT compensate for an earlier failure, and evidence from diffe
 | TH-HARNESS-AC-046 | Section 4.1A      | Moved-test accounting | Test-path movement fixtures covering catalog, task-surface, topology, generated schedules, and runtime-binary profiles | JSON/catalog validation, task-surface report, and generated drift | Success only when owner inputs change before generated artifacts and outputs regenerate through Make | Bounded report | Empty on success; bounded accounting diagnostic | Owner-input diff plus drift/schema summaries | A moved test hand-edits generated output or changes profiles/scheduling without NLSpec coverage | none |
 | TH-HARNESS-AC-047 | Section 16        | Restore-workbook-probe owner routing | Recovery probe catalog rows with owner-cited and owner-missing fixtures | Verification routing and affected owner planning | Success only when probe evidence cites Core 01 or an adopted recovery owner and harness fixtures do not define semantics | Bounded report | Empty on success; bounded owner-routing diagnostic | Probe routing report with verification ID or blocked status | Fixture, filename, or package inference closes recovery proof | none |
 | TH-HARNESS-AC-048 | Section 8         | Same-run helper artifact closure | Helper aggregate fixtures plus valid, scheduler-reused, missing-digest, and old-run-scope schema fixtures | Run-summary helper fixture, `explain-run`, schema validation, and `make json-shape-check` | Success only when helper refs validate, resolve under the current run root, expose producer artifact digests and consumer refs, report helper reuse without scheduler `reused`, and fail closed for old-run or malformed refs | Bounded run summary and `explain-run` lines | Bounded schema/artifact diagnostic on mismatch | `cartulary.same_run_helper_artifact_ref.v2` retained under `_shared/same-run-helper-artifacts`; run summary links helper refs; pressure/scheduler reused counts remain current-profile zero | Old retained helper artifacts are accepted as fresh, helper reuse is reported as scheduler `reused`, malformed refs pass, or selected conformance rows are skipped | none |
-| TH-HARNESS-AC-049 | Sections 8, 11, 16 | Network Flow fixture manifests | Positive frozen fixture manifest with committed source, expected, and transcript bytes plus negative fixtures for unsorted paths, missing files, symlink/traversal paths, digest mismatch, draft selection, and ownerless selector | Network Flow fixture-manifest validator, schema validation, `make json-shape-check`, and the Network Flow conformance target that selects the fixture | Success only when every selected Network Flow fixture manifest validates, hashes match exact bytes, committed fixture roots are not mutated, run-local materialization is used, frozen-only conformance selection is enforced, and owner refs route behavior to product owners | Bounded summary naming fixture IDs and bundle digests | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_fixture_manifest.v1` manifest validation evidence and retained execution summary with manifest SHA-256, source and expected bundle digests, materialized input root, produced artifact refs, comparison status, and blocked/unsupported rows for ownerless selectors | Fixture identity inferred from filename, unlisted file accepted, committed bytes mutated, missing owner semantics closes evidence, draft fixture selected as current evidence, or digest/order/path mismatch reaches product code | Run-local materialization removed by result-root cleanup; committed fixture bytes retained |
+| TH-HARNESS-AC-049 | Sections 8, 11, 16 | Network Flow fixture manifests | Positive frozen fixture manifest and scenario with committed source, expected, and transcript bytes plus negative fixtures for forbidden provenance fields, unsorted paths, missing files, symlink/traversal paths, digest mismatch, and draft selection | Network Flow fixture/scenario validators, schema validation, `make json-shape-check`, and the Network Flow behavior tests that execute fixtures | Success only when every selected manifest and scenario validates, hashes match exact bytes, committed fixture roots are not mutated, run-local materialization is used, frozen-only selection is enforced, and no acceptance, verification, requirement, selector, or specification-provenance field is accepted | Bounded summary naming fixture IDs and bundle digests | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_fixture_manifest.v2` and `cartulary.network_flow_fixture_scenario.v2` validation evidence plus retained execution summary with manifest SHA-256, source and expected bundle digests, materialized input root, produced artifact refs, and comparison status | Fixture identity inferred from an untyped filename, unlisted file accepted, committed bytes mutated, forbidden provenance accepted, draft fixture selected as current evidence, or digest/order/path mismatch reaches product code | Run-local materialization removed by result-root cleanup; committed fixture bytes retained |
 | TH-HARNESS-AC-050 | Sections 12, 16    | Network Flow fault controls | Disabled route, token/host/origin edge cases, invalid boundary/kind/correlation/error-code bodies, pending conflict, exact boundary/correlation consume, reset-clears-fault, and ownerless selector fixtures | Network Flow fault-control route tests, schema validation, and Network Flow fixture targets that select commit or worker fault controls | Success only when the test route is unavailable by default, guard failures happen before mutation, request validation is closed, one pending fault is consumed once by exact boundary and optional correlation key, reset clears pending faults, and fault evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_fault_control.v1` route response plus fixture transcript naming boundary, fault kind, correlation scope, owner refs, pre/post state counts, and replay or recovery result where product work executed | Product auth bypasses the token, a second fault replaces a pending fault, wrong boundary or correlation consumes a fault, reset leaves a pending fault, or fault-control-only evidence closes a product row | runtime reset clears pending fault state |
 | TH-HARNESS-AC-051 | Sections 12, 16    | Test clock controls | Disabled route, token/host/origin edge cases, fixed clock, offset clock, reset clock, read-only state, invalid payloads, runtime-reset-clears-clock, and ownerless Network Flow time selector fixtures | Test clock route tests, reset route tests, schema validation, and Network Flow fixture targets that select time-sensitive rows | Success only when test clock routes are unavailable by default, guard failures happen before mutation/disclosure, set accepts exactly one command, reset restores wall mode, state is non-mutating, runtime reset clears registered clock state, responses validate as `cartulary.test.clock_control.v1`, and clock evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.clock_control.v1` route response plus fixture transcript naming mode, fixed/offset selection, owner refs, pre/post state, and product time result where product work executed | Product auth bypasses the token, fixed time survives runtime reset, state mutates the clock, invalid payload changes clock state, or clock-control-only evidence closes a product row | runtime reset or explicit clock reset restores wall mode |
 | TH-HARNESS-AC-052 | Sections 12, 16    | Network Flow deterministic randomness controls | Disabled route, token/host/origin edge cases, invalid stream/kind/value/exhaustion bodies, duplicate value collision fixture, same-stream pending conflict, fail-closed exhaustion, reset-clears-randomness, and ownerless selector fixtures | Network Flow randomness-control route tests, schema validation, and Network Flow fixture targets that select deterministic ID, nonce, digest, collision, ordering, or replay controls | Success only when the test route is unavailable by default, guard failures happen before mutation/disclosure, request validation is closed, duplicate fixture values are preserved in order, response data never echoes values, same-stream replacement is rejected, exhausted or wrong-kind streams fail closed, reset clears registered streams, and randomness evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_randomness_control.v1` route response plus fixture transcript naming stream, value kind, value count, owner refs, pre/post state counts, and product result where product work executed | Product auth bypasses the token, deterministic values leak in responses/logs, a second sequence replaces a pending stream, duplicate values are deduplicated, exhaustion silently falls back to production randomness, reset leaves registered stream state, or randomness-control-only evidence closes a product row | runtime reset clears registered deterministic-randomness streams |
 | TH-HARNESS-AC-053 | Sections 12, 16    | Network Flow auth-transition controls | Disabled route, token/host/origin edge cases, invalid boundary/transition/resource/hidden-response/ref bodies, exact transition consume, correlation-scoped consume, independent tuple arming, duplicate tuple conflict, reset-clears-transitions, and ownerless selector fixtures | Network Flow auth-transition route tests, schema validation, and Network Flow fixture targets that select route authorization, cursor recheck, hidden-resource, or invalidation controls | Success only when the test route is unavailable by default, guard failures happen before mutation/disclosure, request validation is closed, exact boundary/actor/incident/resource/correlation matching consumes once, mismatches leave pending state, independent tuples can coexist, duplicate tuple replacement is rejected, reset clears registered transitions, responses never disclose hidden resource details, and auth-transition evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_auth_transition_control.v1` route response plus fixture transcript naming boundary, transition kind, actor ref, incident ref, resource kind/ref, hidden response kind, owner refs, pre/post auth state, and product result where product work executed | Product auth bypasses the token, a mismatch consumes a transition, a duplicate replaces pending state, hidden resource identifiers leak in route output/logs, reset leaves registered transition state, or auth-transition-only evidence closes a product row | runtime reset clears registered auth-transition controls |
 | TH-HARNESS-AC-054 | Sections 12, 16    | Network Flow audit assertion controls | Disabled route, token/host/origin edge cases, invalid assertion/event/resource/ref/count bodies, exact-count assertion, zero-occurrence assertion, no-audit replay assertion, exact consume, correlation-scoped consume, independent tuple arming, duplicate tuple conflict, reset-clears-assertions, and ownerless selector fixtures | Network Flow audit-assertion route tests, schema validation, and Network Flow fixture targets that select transactional audit, replay, failure, graph-success, or binding-count controls | Success only when the test route is unavailable by default, guard failures happen before mutation/disclosure, request validation is closed, exact event/operation/resource/correlation matching consumes once, mismatches leave pending state, independent tuples can coexist, duplicate tuple replacement is rejected, count rules fail closed, reset clears registered assertions, responses never disclose raw audit payloads or secret material, and audit-assertion evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_audit_assertion_control.v1` route response plus fixture transcript naming assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, expected replay increment, owner refs, observed product counts, and product result where product work executed | Product auth bypasses the token, a mismatch consumes an assertion, a duplicate replaces pending state, invalid count rules arm a control, raw audit payloads or secret material leak, reset leaves registered assertion state, or audit-assertion-only evidence closes a product row | runtime reset clears registered audit assertions |
-| TH-HARNESS-AC-055 | Sections 8, 16     | Network Flow acceptance-to-runtime accounting | Current Network Flow owner spec, acceptance evidence matrix, fixture manifests, contract-family registry, generated outputs, generated-drift scratch manifest, and task surface, plus negative cases for missing IDs, structural-only product claims, unresolved selectors, fixture-only product claims, unresolved dependency locators, missing scratch inputs, and missing public targets | Network Flow acceptance-to-runtime validator, schema validation, `make json-shape-check`, `make harness-contract`, and `make generate-drift` | Success only when fixture and acceptance IDs are contiguous, every acceptance row records owner text, behavior class, required evidence kinds, exact executable selectors, and supplemental fixtures, every product-runtime row has unit/store/process/browser evidence, selector symbols or browser titles resolve, Table 1-B has no blocked locator cells, scratch replay copies required inputs, and required public Make targets exist | Bounded summary naming current counts, runtime selector coverage, locator status, and contract status | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_activity_accounting.v2` manifest validation plus retained JSON-shape, harness-contract, and generate-drift summaries | Missing owner IDs, structural-only or fixture-only product claims, selector fallthrough, unresolved selectors, unresolved dependency locators, missing scratch input, or private raw target closes drift evidence | no child work beyond shape and drift checks |
+| TH-HARNESS-AC-055 | Sections 8, 16     | Network Flow generation and fixture integrity | Contract-family registry, generated outputs, generated-drift scratch manifest, task surface, fixture manifests, and scenario files, plus negative cases for invalid lifecycle, missing generated output, missing scratch input, missing public target, forbidden provenance, and unsafe fixture path | Contract-family, generated-artifact, task-surface, fixture/scenario, and generated-drift validators; `make json-shape-check`; `make harness-contract`; `make generate-drift` | Success only when each owner validates its own closed input, the active Network Flow family has no activation dependency, official generation reproduces outputs, scratch replay contains required typed inputs, public targets resolve, and fixture integrity rejects unsafe or forbidden metadata without parsing specifications | Bounded owner-specific summaries | Bounded schema/artifact diagnostic on mismatch | Retained JSON-shape, harness-contract, generated-policy, and generate-drift summaries | Static acceptance accounting, specification parsing, missing typed input, unsafe path, private raw target, or hand-authored generated output closes evidence | no child product work beyond the separately routed behavior tests |
 | TH-HARNESS-AC-056 | Sections 4, 11, 12, 15, 16 | Test-support ownership and explicit policy | Registered shared and owner-local support roots, unknown-root fixtures, in-process server mode fixtures, fixture-policy agreement fixtures, security-profile rendering fixtures, and module control contributions | Support-inventory validator, service-backed guard tests, server-helper tests, PostgreSQL helper tests, static-analysis wrapper tests, backend boundary check, and affected product-control route tests | Success only when support roots are owner-named and registered exactly once, phase-shaped active helpers are absent, route mode and database policy are explicit, manifest and call-site fixture policy agree, every support root is security-scanned, runtime-compiled controls stay in runtime scans, and module contributions preserve guarded behavior | Bounded ownership/policy summary | Bounded configuration, boundary, or security diagnostic | Validated test-support inventory plus ordinary target summaries from the affected checks | Unknown/duplicate support root, zero-value route mode, fixture-policy mismatch, unscanned support root, phase-shaped active helper, or runtime control hidden by support exclusions passes | no cleanup beyond the selected test/service contract |
 | TH-HARNESS-AC-057 | Section 4.1B | Runtime-binary and private-runner closure | Production and harness server profiles, runtime-binary registry fixtures, invalid harness-only environment, missing/nonregular/nonexecutable/digest-mismatched injection, nested-build attempts, legacy runner aliases, and static shell-import fixtures | Server build-profile tests, runtime-binary validator, harness import-boundary checks, and private runner usage tests | Success only when the repository exposes exactly the three deployable identities, the harness server remains a non-deployable build profile, production rejects harness-only inputs, every black-box row receives an exact validated scheduler artifact, and every legacy or contextless runner path fails closed | Bounded build and contract summaries | Bounded configuration, boundary, or usage diagnostic | Runtime-binary registry validation, build summaries, injection provenance, and import-boundary report | A fourth deployable appears, production consumes a harness-only input, a nested build fallback executes, an injected binary lacks identity proof, or a legacy alias succeeds | build outputs and run-local injected binaries follow their target cleanup contracts |
 | TH-HARNESS-AC-058 | Sections 4, 5, 8 | Task-surface ownership and generated Make density | Authored task-surface owner, execution topology, generated task-surface projection, shared Make runtime, thin Make bindings, and synthetic-growth fixtures | Task-surface owner/schema validation, public registry parity, generation drift, density validation, and public wrapper characterization | Success only when public command metadata has one authored machine owner, topology cannot redefine it, generated v15 parity holds, unsupported `alias` profiles and per-variable origin transport are rejected, every size/line/growth budget passes, and public target behavior is unchanged | Bounded ownership and density report | Bounded configuration or generated-drift diagnostic | Owner/projection digest relationship plus byte, line-length, repeated-expansion, and synthetic-growth metrics | A generated projection becomes an owner, topology embeds task metadata, dense global input plumbing returns, budgets regress, or public behavior changes | generated scratch outputs removed |

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "package.view_contracts",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.view_contracts.requirement.behavior_contract"
       ]
     },
     {
@@ -20,10 +16,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.view_contracts.requirement.openapi_required_grid_editable"
       ]
     },
     {
@@ -32,10 +24,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.view_contracts.requirement.openapi_required_inline_create"
       ]
     },
     {
@@ -44,10 +32,6 @@
       "profile": "support",
       "evidence_kinds": [
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "package.view_contracts.requirement.shared_contract"
       ]
     }
   ]

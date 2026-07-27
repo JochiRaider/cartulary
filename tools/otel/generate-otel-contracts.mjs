@@ -71,7 +71,6 @@ const generatedConstantsManifestKeys = [
   "output_path",
   "standard_attribute_allowlist_exceptions",
   "standard_metric_allowlist_exceptions",
-  "status",
 ];
 
 const importBoundaryTopLevelKeys = [
@@ -344,8 +343,8 @@ function validateBuiltOtelContracts(root, contracts, { requireTrackedGenerator =
   }));
 
   errors.push(...objectKeyErrors(manifest, generatedConstantsManifestKeys, "generated_constants_manifest"));
-  if (manifest?.schema_id !== "cartulary.otel_generated_constants_manifest.v1") {
-    errors.push("generated_constants_manifest.schema_id must be cartulary.otel_generated_constants_manifest.v1");
+  if (manifest?.schema_id !== "cartulary.otel_generated_constants_manifest.v2") {
+    errors.push("generated_constants_manifest.schema_id must be cartulary.otel_generated_constants_manifest.v2");
   }
   if (manifest?.generator_source_ref !== otelGeneratorSourceRef) {
     errors.push(`generated_constants_manifest.generator_source_ref must be ${otelGeneratorSourceRef}`);

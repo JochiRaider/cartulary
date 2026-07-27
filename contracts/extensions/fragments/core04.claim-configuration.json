@@ -2,57 +2,43 @@
   "facts": [
     {
       "claim_config_key": "enterprise_authentication.claimed",
-      "configuration_requirement_id": "REQ-04-143",
-      "configuration_contract_sha256": "31a2af58d886e22a73d29486cd85be393860eb4d06ab379a2f71639ffbf7c1b1",
+      "configuration_contract_sha256": "f27fba2b719b19cd189f36ea467170fe655db98c13d6c03e49fc275e8adc9f29",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "enterprise_authentication"
     },
     {
       "claim_config_key": "import.claimed",
-      "configuration_requirement_id": "REQ-04-143",
-      "configuration_contract_sha256": "5880fe547910ecdbd81d108cf255b72f5d5446691a37ab5fbfbe429351680dec",
+      "configuration_contract_sha256": "03e4696e624c274db9ac148a0c2b6cddbec37c1f7cc5db3cbb4f08e9d9416b76",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "import"
     },
     {
       "claim_config_key": "incident_portability.claimed",
-      "configuration_requirement_id": "REQ-04-143",
-      "configuration_contract_sha256": "be5a0718d2dfe61409331d27e91491374900fcede4dc3ad6d04a2f78a84c9fcc",
+      "configuration_contract_sha256": "61fa89f680ee495e7318764aa1de1b15cc704f465fbda73770e4cfb995ceb699",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "incident_portability"
     },
     {
       "claim_config_key": "network_flow_activity.claimed",
-      "configuration_schema_id": "cartulary.extension_profile_configuration_contract.v1",
-      "configuration_contract_sha256": "18adf1b0e000ffef56fc56934ada31f0f0ff5a9f4820554deeaa448012057c15",
+      "configuration_schema_id": "cartulary.extension_profile_configuration_contract.v3",
+      "configuration_contract_sha256": "87120eca07a31d0fc78ba73821683b9ca9962112f0ecc92280359b427e84af49",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "network_flow_activity"
     },
     {
       "claim_config_key": "reference_pack.claimed",
-      "configuration_requirement_id": "REQ-04-143",
-      "configuration_contract_sha256": "5f8f4091ed18a4ab04af7b3b53ec58b2d655471a83064bbedb076738e5c0e7dd",
+      "configuration_contract_sha256": "65a4695d55c51ccb6010d3fc9cbaa8178c60caa480f921ccc0e2433b72a1d006",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "reference_pack"
     },
     {
       "claim_config_key": "snapshot_reporting.claimed",
-      "configuration_requirement_id": "REQ-04-143",
-      "configuration_contract_sha256": "0562d115cad051c55c306e6bdc837fdc4df571b86fa92aea728ade99bc327a97",
+      "configuration_contract_sha256": "05d5aa092fbbb3ac0e2b820ac5e700fd65d8c784d88491c9771a6bae2da6e587",
       "fact_kind": "claim_configuration",
-      "owner_requirement_id": "REQ-04-143",
       "profile_id": "snapshot_reporting"
     }
   ],
   "owner_fragment_id": "core04.extension_claim_configuration.v1",
   "owner_id": "core04",
-  "schema_id": "cartulary.extension_owner_fragment.v2",
-  "requirement_catalog_ref": "contracts/requirements/owners/core04.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "02d4c1874e68ddde15acd4dfef6c318f3da0f0bd254a99a0d4910bd9e91a3f28"
+  "schema_id": "cartulary.extension_owner_fragment.v3"
 }

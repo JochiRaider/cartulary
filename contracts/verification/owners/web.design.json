@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "web.design",
   "verifications": [
     {
@@ -9,10 +9,6 @@
       "evidence_kinds": [
         "playwright",
         "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "web.design.requirement.readiness_direction"
       ]
     }
   ]

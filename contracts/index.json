@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.contract_family_registry.v2",
+  "schema_id": "cartulary.contract_family_registry.v3",
   "registry_id": "cartulary.contract_families.v1",
-  "note": "Authoritative contract-family ownership and generation status. Only active families are emitted by tools/contractgen.",
+  "note": "Operational contract-family generation configuration. Only active families are emitted by tools/contractgen.",
   "families": [
     {
       "family_id": "openapi",
@@ -18,13 +18,7 @@
       ],
       "typescript_runtime_artifact_prefixes": [],
       "activation_dependency_ids": [],
-      "description": "Public HTTP/OpenAPI contract artifacts.",
-      "owner_requirement_ids": [
-        "contract-family:openapi"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.openapi.v1"
-      ]
+      "description": "Public HTTP/OpenAPI contract artifacts."
     },
     {
       "family_id": "ws",
@@ -43,13 +37,7 @@
         "contracts/ws/"
       ],
       "activation_dependency_ids": [],
-      "description": "WebSocket and invalidation contract artifacts.",
-      "owner_requirement_ids": [
-        "contract-family:ws"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.ws.v1"
-      ]
+      "description": "WebSocket and invalidation contract artifacts."
     },
     {
       "family_id": "view-schemas",
@@ -70,13 +58,7 @@
         "contracts/view-schemas/"
       ],
       "activation_dependency_ids": [],
-      "description": "Workbook view-schema contract artifacts.",
-      "owner_requirement_ids": [
-        "contract-family:view-schemas"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.view-schemas.v1"
-      ]
+      "description": "Workbook view-schema contract artifacts."
     },
     {
       "family_id": "errors",
@@ -95,13 +77,7 @@
         "contracts/errors/"
       ],
       "activation_dependency_ids": [],
-      "description": "Public error and reason-code registry artifacts.",
-      "owner_requirement_ids": [
-        "contract-family:errors"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.errors.v1"
-      ]
+      "description": "Public error and reason-code registry artifacts."
     },
     {
       "family_id": "extensions",
@@ -122,13 +98,7 @@
         "contracts/extensions/generated/profile-registry.json"
       ],
       "activation_dependency_ids": [],
-      "description": "Extension profile discovery contract artifacts.",
-      "owner_requirement_ids": [
-        "contract-family:extensions"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.extensions.v1"
-      ]
+      "description": "Extension profile discovery contract artifacts."
     },
     {
       "family_id": "network-flow",
@@ -147,13 +117,7 @@
         "contracts/network-flow/"
       ],
       "activation_dependency_ids": [],
-      "description": "Network Flow Activity extension contracts derived from the adopted owner inputs.",
-      "owner_requirement_ids": [
-        "contract-family:network-flow"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.network-flow.v1"
-      ]
+      "description": "Network Flow Activity extension contracts derived from the adopted owner inputs."
     },
     {
       "family_id": "audit",
@@ -173,13 +137,7 @@
         "contracts/audit/"
       ],
       "activation_dependency_ids": [],
-      "description": "Administrative audit vocabularies, action mappings, and secret-safe projection policy.",
-      "owner_requirement_ids": [
-        "contract-family:audit"
-      ],
-      "owner_contract_ids": [
-        "cartulary.contract_family.audit.v1"
-      ]
+      "description": "Administrative audit vocabularies, action mappings, and secret-safe projection policy."
     }
   ]
 }

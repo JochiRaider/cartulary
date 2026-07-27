@@ -1,12 +1,11 @@
 {
-  "schema_id": "cartulary.extension_owner_fragment.v2",
+  "schema_id": "cartulary.extension_owner_fragment.v3",
   "owner_fragment_id": "core01.extension_profile_jobs.v1",
   "owner_id": "core01",
   "facts": [
     {
       "fact_kind": "job_kind",
       "profile_id": "import",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "import",
@@ -35,7 +34,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "import",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "import",
@@ -59,19 +57,16 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "import",
-      "owner_requirement_id": "REQ-01-634",
       "worker_kind": "import.apply_worker_v1"
     },
     {
       "fact_kind": "worker_kind",
       "profile_id": "import",
-      "owner_requirement_id": "REQ-01-634",
       "worker_kind": "import.discovery_worker_v1"
     },
     {
       "fact_kind": "job_kind",
       "profile_id": "incident_portability",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "incident_portability",
@@ -95,7 +90,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "incident_portability",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "incident_portability",
@@ -119,13 +113,11 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "incident_portability",
-      "owner_requirement_id": "REQ-01-634",
       "worker_kind": "incident_portability.bundle_worker_v1"
     },
     {
       "fact_kind": "job_kind",
       "profile_id": "reference_pack",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "reference_pack",
@@ -149,7 +141,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "reference_pack",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "reference_pack",
@@ -173,7 +164,6 @@
     {
       "fact_kind": "job_kind",
       "profile_id": "reference_pack",
-      "owner_requirement_id": "REQ-01-634",
       "job_kind_contract": {
         "schema_id": "cartulary.extension_job_kind_contract.v1",
         "profile_id": "reference_pack",
@@ -197,11 +187,7 @@
     {
       "fact_kind": "worker_kind",
       "profile_id": "reference_pack",
-      "owner_requirement_id": "REQ-01-634",
       "worker_kind": "reference_pack.lifecycle_worker_v1"
     }
-  ],
-  "requirement_catalog_ref": "contracts/requirements/owners/core01.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d"
+  ]
 }

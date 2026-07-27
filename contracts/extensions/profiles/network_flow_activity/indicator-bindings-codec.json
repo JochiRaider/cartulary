@@ -1,9 +1,8 @@
 {
-  "schema_id": "cartulary.extension_backup_binding_codec.v2",
+  "schema_id": "cartulary.extension_backup_binding_codec.v3",
   "backup_codec_id": "network_flow_activity.indicator_bindings_codec.v1",
   "binding_id": "network_flow_activity.indicator_bindings",
   "storage_kind": "postgres",
-  "codec_requirement_id": "NF-REQ-184",
   "logical_identity_algorithm_id": "network_flow_activity.indicator_bindings_identity_v1",
   "content_encoding_algorithm_id": "extension_registry_canonical_json_v1",
   "max_items": 1048576,

@@ -1,12 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-004-rejected-rows",
-  "summary": "partially and fully rejected CSV rows produce deterministic diagnostics without graph participation",
-  "acceptance_ids": [
-    "NF-AC-014",
-    "NF-AC-015",
-    "NF-AC-016",
-    "NF-AC-063",
-    "NF-AC-091"
-  ]
+  "summary": "partially and fully rejected CSV rows produce deterministic diagnostics without graph participation"
 }

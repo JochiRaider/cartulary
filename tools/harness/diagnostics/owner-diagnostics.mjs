@@ -56,11 +56,12 @@ export function explainTestOwner(root, ownerID) {
   const projection = ownerProjection(root, ownerID);
   const familyIDs = [...new Set(projection.rows.map((row) => row.family_id))].sort(asciiCompare);
   return {
-    schema_id: "cartulary.test_owner_explanation.v1",
+    schema_id: "cartulary.test_owner_explanation.v2",
+    evidence_epoch: projection.catalog.summary.evidence_epoch,
     owner_id: projection.owner.owner_id,
     manifest_path: projection.owner.manifest_path,
-    catalog_semantic_digest: projection.catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: projection.catalog.summary.verification_semantic_digest,
+    test_catalog_digest: projection.catalog.summary.test_catalog_digest,
+    verification_routing_digest: projection.catalog.summary.verification_routing_digest,
     row_count: projection.rows.length,
     service_backed_row_count: projection.serviceRows.length,
     families: familyIDs.map((familyID) => ({
@@ -112,11 +113,12 @@ export function buildModuleAuthorTaskGuide(root, ownerID, role) {
   }
   const releaseRequired = evidenceClasses.has("release");
   return {
-    schema_id: "cartulary.task_guide_summary.v2",
+    schema_id: "cartulary.task_guide_summary.v3",
+    evidence_epoch: projection.catalog.summary.evidence_epoch,
     role,
     owner_id: projection.owner.owner_id,
-    catalog_semantic_digest: projection.catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: projection.catalog.summary.verification_semantic_digest,
+    test_catalog_digest: projection.catalog.summary.test_catalog_digest,
+    verification_routing_digest: projection.catalog.summary.verification_routing_digest,
     focused_commands: [
       `make test-slice OWNER=${projection.owner.owner_id}`,
       ...(projection.serviceRows.length > 0

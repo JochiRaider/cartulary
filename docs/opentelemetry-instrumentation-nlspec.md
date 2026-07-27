@@ -1428,6 +1428,19 @@ A dependency update to OTel API, SDK, exporter, semantic-convention constants, r
 **OTEL-REQ-120**
 The update gate MUST compare span names, span kinds, span status policy, span events, links, SDK instrument registration identity, exported metric-stream identity, metric temporality, aggregation, View stream-name behavior, exemplar behavior, log top-level fields, Logs API exception-parameter behavior, resource attributes, Resource schema URL, instrumentation-scope names, instrumentation-scope schema URLs, instrumentation-scope attributes, sampler profile behavior, retry envelope, standard attributes, custom attributes, User-Agent, endpoint paths, non-transfer rules, and forbidden-value exclusions.
 
+**OTEL-REQ-150**
+Telemetry conformance is a result of the current verification run, not an
+authored repository declaration. `make otel-conformance` MUST derive its result
+from the current source snapshot, generated constants, closed configuration,
+import boundaries, built browser artifacts, normalized golden comparison,
+runtime behavior, privacy tests, exporter-failure invariance, queue behavior,
+retry behavior, and shutdown behavior. A checked-in file MUST NOT declare a
+conformance pass, acceptance completion, release readiness, or
+`claim_allowed`. Retained conformance summaries are run outputs only and MUST
+NOT be consumed as permission for a later run to pass. Authored configuration
+and corpus fixtures MUST contain executable facts only and MUST omit copied
+owner-requirement prose and static conformance or acceptance status fields.
+
 ## 15. Verification and acceptance criteria
 
 ### 15.1 Configuration and source-baseline criteria
@@ -1560,10 +1573,15 @@ This NLSpec is complete for implementation when all of the following are true:
 - Repository harness diagnostics are delegated to the testing-harness NLSpec, remain isolated from application telemetry bootstrap and configuration, and use only scope `cartulary.harness.execution`.
 - Non-transferred OpenTelemetry concepts are explicitly forbidden or deferred.
 - Golden telemetry corpus comparison is required for OTel dependency, SDK, exporter, semantic-convention, generated-constant, sampler, metric-view, and retry-behavior updates.
-- All acceptance criteria in §15 are binary and pass.
+- All acceptance criteria in §15 have binary predicates evaluated by the
+  current verification run; no checked-in pass or release-readiness
+  declaration is accepted as evidence.
 - No `TODO`, `TBD`, placeholder digest, placeholder package version, placeholder generated constants source, shortened SHA, `main` ref, or unresolved adoption-decision row remains in the adopted source snapshot.
 - `otel_source_snapshot` validates before conformance tests are accepted, and the snapshot is byte-stable for identical inputs.
 - Static dependency checks prove API-only ordinary instrumentation and SDK/exporter-only bootstrap import boundaries.
 - Browser bundle checks prove no browser SDK, exporter, vendor telemetry package, Collector client, session replay package, analytics initialization path, or telemetry configuration path.
 - Committed normalized goldens and retained raw captures follow §14.1 paths.
-- Every acceptance criterion in §15 is executable by a named harness target or explicitly mapped to a repo-control validation tool.
+- Every acceptance criterion in §15 is executable by a named harness target
+  or explicitly mapped to a repo-control validation tool, and
+  `make otel-conformance` fails when its current runtime, privacy,
+  failure-invariance, source, configuration, boundary, or golden checks fail.

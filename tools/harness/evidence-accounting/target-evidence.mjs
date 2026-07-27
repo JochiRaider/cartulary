@@ -396,8 +396,8 @@ function existingOwnerShards(
     }
     const accounting = readJSON(accountingFile);
     const summary = readJSON(summaryFile);
-    validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
-    validateSchemaSync("cartulary.test_owner_summary.v1", summary);
+    validateSchemaSync("cartulary.test_evidence_accounting.v2", accounting);
+    validateSchemaSync("cartulary.test_owner_summary.v2", summary);
     for (const [field, expected] of Object.entries({
       run_id: runID,
       owner_id: entry.name,
@@ -456,8 +456,8 @@ export function targetOwnerEvidenceArtifactPaths(
       }
       const accounting = readJSON(accountingFile);
       const summary = readJSON(summaryFile);
-      validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
-      validateSchemaSync("cartulary.test_owner_summary.v1", summary);
+      validateSchemaSync("cartulary.test_evidence_accounting.v2", accounting);
+      validateSchemaSync("cartulary.test_owner_summary.v2", summary);
       if (
         accounting.target_id !== targetID ||
         summary.target_id !== targetID ||
@@ -473,10 +473,11 @@ export function targetOwnerEvidenceArtifactPaths(
         );
       }
       const identity = {
+        evidence_epoch: accounting.evidence_epoch,
         run_id: accounting.run_id,
         source_snapshot_digest: accounting.source_snapshot_digest,
-        catalog_semantic_digest: accounting.catalog_semantic_digest,
-        verification_semantic_digest: accounting.verification_semantic_digest,
+        test_catalog_digest: accounting.test_catalog_digest,
+        verification_routing_digest: accounting.verification_routing_digest,
       };
       if (commonIdentity === null) {
         commonIdentity = identity;
@@ -492,7 +493,7 @@ export function targetOwnerEvidenceArtifactPaths(
 
 function writeBrowserIndex(targetDir, targetID, runID, identity, selectedRows, shards) {
   const index = {
-    schema_id: "cartulary.browser_owner_index.v1",
+    schema_id: "cartulary.browser_owner_index.v2",
     target_id: targetID,
     run_id: runID,
     ...identity,
@@ -543,9 +544,10 @@ export function finalizeTargetOwnerEvidence(
   secureMkdir(targetDir);
   const sourceSnapshot = buildSourceSnapshot(root);
   const identity = {
+    evidence_epoch: catalog.summary.evidence_epoch,
     source_snapshot_digest: sourceSnapshot.digest,
-    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+    test_catalog_digest: catalog.summary.test_catalog_digest,
+    verification_routing_digest: catalog.summary.verification_routing_digest,
   };
   const existing = existingOwnerShards(
     targetDir,

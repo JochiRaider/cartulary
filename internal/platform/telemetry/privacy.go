@@ -85,14 +85,16 @@ func safeString(attr attribute.KeyValue, validator func(string) bool) bool {
 }
 
 func safeStringIn(attr attribute.KeyValue, allowed ...string) bool {
-	return safeString(attr, func(value string) bool {
-		for _, candidate := range allowed {
-			if value == candidate {
-				return true
-			}
-		}
+	if attr.Value.Type() != attribute.STRING {
 		return false
-	})
+	}
+	value := attr.Value.AsString()
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func safeAttributeToken(value string) bool {
@@ -146,13 +148,19 @@ func safeRouteTemplate(value string) bool {
 
 func safeProfileClaims(value string) bool {
 	seenBase := false
-	for _, token := range strings.Split(value, ",") {
-		switch token {
-		case "base":
-			seenBase = true
-		case "enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting":
-		default:
+	tokens := strings.Split(value, ",")
+	for index, token := range tokens {
+		if !resolvedClaimProfileIDPattern.MatchString(token) {
 			return false
+		}
+		if index > 0 && tokens[index-1] >= token {
+			return false
+		}
+		if token == "base" {
+			if seenBase {
+				return false
+			}
+			seenBase = true
 		}
 	}
 	return seenBase

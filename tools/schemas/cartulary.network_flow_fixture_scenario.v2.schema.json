@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_fixture_scenario.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fixture_id",
+    "summary"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.network_flow_fixture_scenario.v2"
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^NF-FIX-[0-9]{3}-[a-z0-9][a-z0-9-]*$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  }
+}

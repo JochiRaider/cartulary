@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.extension_profile_configuration_contract.v2",
+  "schema_id": "cartulary.extension_profile_configuration_contract.v3",
   "configuration_contract_id": "enterprise_authentication.configuration.v1",
   "profile_id": "enterprise_authentication",
   "configuration_contract_major": 1,
@@ -7,7 +7,6 @@
   "keys": [
     {
       "key": "enterprise_authentication.provider_manifest_path",
-      "value_requirement_id": "REQ-04-115",
       "omission_policy": {
         "kind": "required"
       },

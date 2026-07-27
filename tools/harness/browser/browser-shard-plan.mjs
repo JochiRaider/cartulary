@@ -574,10 +574,11 @@ function collectObservedBrowserEntryDurations(
     }
   }
   const currentIdentity = {
+    evidence_epoch: catalog.summary.evidence_epoch,
     source_snapshot_digest:
       retainedSourceDigest || buildSourceSnapshot(repoRoot).digest,
-    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+    test_catalog_digest: catalog.summary.test_catalog_digest,
+    verification_routing_digest: catalog.summary.verification_routing_digest,
   };
   const authoritative = new Map(
     browserDurationBaselineEntries(repoRoot).map((entry) => [entry.id, entry]),
@@ -604,7 +605,7 @@ function collectObservedBrowserEntryDurations(
       let accounting;
       try {
         accounting = readJSON(next);
-        validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
+        validateSchemaSync("cartulary.test_evidence_accounting.v2", accounting);
       } catch {
         continue;
       }

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.network_flow.fixture_transcript.v1",
   "fixture_id": "NF-FIX-028-graph-aggregate-bounds",
   "transcript_kind": "graph",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "steps": [
     {
       "ordinal": 1,

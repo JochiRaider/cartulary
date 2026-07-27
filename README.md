@@ -2,7 +2,9 @@
 
 Cartulary is an open-source, specification-first incident-response workbook system intended to replace the spreadsheet-centric coordination pattern widely known in DFIR as the **Spreadsheet of Doom**.
 
-The repository is an active, contract-driven implementation. Human-facing specifications and guides live under `docs/`; executable requirements and production contracts live under `contracts/`.
+The repository is an active, specification-first implementation. Adopted
+specifications live under `docs/`; versioned machine projections and production
+contracts live under `contracts/` and never replace their behavioral owners.
 
 - one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
 - one top-level pnpm workspace with a Vite + React web client under `apps/web` and shared packages under `packages/`;
@@ -206,17 +208,19 @@ Post-MVP reporting direction includes internal incident-start briefings, phase-c
 
 ## Specification structure
 
-Human-facing product specifications live under `docs/spec/`. They explain the
-design and its history, but tests, generators, runtime metadata, conformance,
-and release evidence do not consume them.
+Normative product specifications live under `docs/spec/`, with adopted
+subsystem NLSpecs owning their explicitly bounded scopes. They define required
+behavior but are not executable inputs: tests, generators, runtime metadata,
+conformance, and release evidence validate versioned downstream projections
+without reading documentation.
 
-Executable requirement authority is registered by
-`contracts/requirements/registry.json`, with stable owner catalogs under
-`contracts/requirements/owners/`. Exact schemas, limits, enums, mappings, and
-algorithms live in typed subsystem contracts under `contracts/`; verification
-and test routing live in `contracts/verification/` and `tools/test_families/`.
+Exact schemas, limits, enums, mappings, algorithms, and fixtures live in typed
+subsystem contracts under `contracts/`; verification and test routing live in
+`contracts/verification/` and `tools/test_families/`. These artifacts implement
+and verify the adopted specifications but do not replace them or prove
+specification completeness.
 
-The human-facing specification set is organized as:
+The normative specification set is organized as:
 
 - `00_document_set_status_and_precedence.md`
 - `01_architecture_storage_and_view_contracts.md`
@@ -256,11 +260,11 @@ The current core also defines bounded extension profiles for:
 
 ## Project status
 
-Cartulary is under active implementation on a contract-driven basis. Machine
-requirements and typed contracts define testable behavior; verification
-contracts and the owner catalog select backend, frontend, and cross-cutting
-evidence. Prose documents explain those decisions without participating in
-executable evidence.
+Cartulary is under active specification-first implementation. Adopted
+specifications define behavior; typed contracts project executable facts; and
+verification contracts plus test-family manifests select backend, frontend,
+and cross-cutting execution evidence. Specifications never participate as
+executable inputs.
 
 The Go backend builds runnable `server`, `migrate`, and `operator` binaries and implements the Base Profile plus bounded Import, Snapshot and Reporting, Reference Pack, and Incident Portability extension-profile behavior. Sequential migrations live under `db/migrations/`, derived contracts live under `contracts/`, and the Enterprise Authentication extension profile remains reserved and unclaimed.
 

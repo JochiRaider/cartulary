@@ -4,15 +4,44 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.6.2
-contract_major: 1
+document_version: 0.7.0
+contract_major: 2
 ---
 
 # 1. Status, scope, and authority
 
-This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract accounting exist even when every optional extension profile is unclaimed.
+This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Its coordinated adoption gates in §29 were closed together with the exact companion owner revisions, generated artifacts, implementation evidence, and Harness accounting recorded by the controlling implementation tracker.
+This document is `status: adopted/current`. Its coordinated adoption gates in §29 were closed together with the exact companion owner revisions, generated artifacts, implementation evidence, and Harness validation recorded by the controlling implementation tracker.
+
+## 1.1 Current projection and evidence boundary
+
+This revision replaces the former document-provenance, requirement-accounting, clause-traceability, closure-catalog, conformance-manifest, and static registry-accounting design. Those mechanisms do not define product behavior and are not part of the current Extensions contract. In particular:
+
+- adopted NLSpec behavior is the authority; machine artifacts are versioned projections of operational facts only;
+- executable inputs MUST NOT read, stat, hash, parse, or resolve files under `docs/`;
+- owner fragments contain typed extension facts and are admitted by the authored Extensions input catalog, not by owner-document manifests, requirement catalogs, document hashes, byte ranges, or synthetic document contract IDs;
+- dependencies identify only imported typed schemas, algorithms, and artifacts that have real executable resolvers;
+- generated descriptors, registries, public types, runtime inputs, and tests MUST NOT carry requirement IDs, acceptance-criterion IDs, document provenance, traceability mappings, coverage closures, conformance declarations, or static pass/claim status;
+- conformance is established by behavioral tests and public verification targets. A checked-in identity, count, mapping, or status cannot establish completeness or success.
+
+The legacy document-provenance and completeness-accounting contract families are withdrawn with no compatibility reader. Historical evidence remains historical only and cannot satisfy this revision.
+
+The current machine projection uses these breaking versions with no compatibility reader:
+
+- `cartulary.extension_authored_input_catalog.v3`;
+- `cartulary.extension_dependency_declaration_set.v3` and `cartulary.extension_dependency_snapshot.v3`;
+- `cartulary.extension_owner_fragment.v3` and `cartulary.extension_owner_input_registry.v2`;
+- `cartulary.extension_profile_configuration_contract.v3`;
+- `cartulary.extension_validation_surface_declaration_set.v3`;
+- `cartulary.base_route_reservation_registry.v3`;
+- `cartulary.extension_participant_specialization.v3`;
+- `cartulary.extension_transaction_participant_contract.v3`;
+- `cartulary.extension_backup_binding_codec.v3`;
+- `cartulary.extension_profile_descriptor.v3`;
+- `cartulary.extension_registry_integrity.v2`.
+
+Every other Extensions schema retains its current version only when its executable shape and meaning are unchanged.
 
 **EXT-REQ-001**
 The Extensions Subsystem MUST own only these behavior families:
@@ -48,7 +77,7 @@ This NLSpec MUST NOT own:
 - Base record families, `view_schema` resources, saved views, workbook query semantics, or Base workbook tabs;
 - deployment-configuration artifact discovery, overlay parsing, unknown-key rejection, or the top-level deployment-configuration error envelope;
 - extension-specific resources, route bodies, domain algorithms, resource limits, state transitions, or authorization matrices except for the shared boundaries explicitly allocated by this NLSpec;
-- Reporting derivation, report composition, Graph Projection, OpenTelemetry signal semantics, or Testing Harness v2 owner catalogs, verification-contract validation, runner selection, execution profiles, scheduling, fixture lifecycle, retained evidence, or evidence-audit mechanics;
+- Reporting derivation, report composition, Graph Projection, OpenTelemetry signal semantics, or Testing Harness verification routing, runner selection, execution profiles, scheduling, fixture lifecycle, retained evidence, or evidence-audit mechanics;
 - process lifecycle, readiness-envelope shape, health-envelope shape, or process-exit semantics owned by Core 04;
 - physical database-table, object-bucket, source-package, or generated-file placement;
 - runtime installation, update, revocation, or execution of independently distributed third-party packages.
@@ -71,87 +100,20 @@ Verified by: EXT-AC-001, EXT-AC-059, EXT-AC-070, EXT-AC-074
 | Graph-oriented projection | Graph Projection NLSpec | No redefinition. Extensions consume only declared interfaces admitted by their named owners. |
 | Reporting and report composition | Reporting Subsystem and Report Composition NLSpecs | No redefinition. Extension participation is typed and explicit. |
 | Telemetry signal shape | OpenTelemetry Instrumentation NLSpec | Consumes the canonical claimed-profile set. |
-| Harness execution and retained evidence | Testing Harness NLSpec v2 | Owns verification-contract and owner-catalog validation, exact runner selectors, runtime/resource/fixture profiles, owner slices, scheduling, retained row evidence, owner summaries, evidence auditing, and harness gates. The Extensions Subsystem supplies product requirements and static contract inputs only. |
+| Harness execution and retained evidence | Testing Harness NLSpec | Owns verification routing, runner selection, execution profiles, owner slices, scheduling, retained row evidence, owner summaries, evidence auditing, and harness gates. The Extensions Subsystem supplies behavior and operational typed contracts only. |
 | Timed or fixture-sensitive public claims | Core 05 | This NLSpec creates no claim-publication behavior. |
 | Vocabulary and owner navigation | `docs/domain.md` | Adds terms only after owner behavior is adopted. |
 | Rationale, examples, operator guidance, diagrams, physical paths, and implementation mechanisms | Appendices and implementation-support guides | Non-normative only. |
 
 **EXT-REQ-174**
-The specification owner MUST author one closed `cartulary.extension_dependency_declaration_set.v1` object containing exactly `schema_id`, `extensions_document_version`, and `dependencies[]`. `schema_id` MUST equal `cartulary.extension_dependency_declaration_set.v1`; the document version MUST equal this NLSpec's exact `document_version`; and `dependencies[]` MUST be present, MUST NOT be `null`, and MUST contain exactly one declaration for every dependency in Table 1-B and no other declaration. An empty array is valid only when Table 1-B is empty. Every declaration MUST supply the exact owner-document identity, version and digest, owner-contract-manifest identity and digest, imported anchors, schemas, algorithms, artifacts, and required status used by the snapshot row below. Omission, explicit `null`, a duplicate, an extra declaration, a stale version or digest, and a manifest version or digest mismatch are invalid. The generator MUST NOT derive a dependency from imports, package references, source code, prose, or a prior generated snapshot.
+The specification owner MUST author one closed `cartulary.extension_dependency_declaration_set.v3` object containing exactly `schema_id` and `dependencies[]`. The generated `cartulary.extension_dependency_snapshot.v3` MUST be the canonical, byte-stable projection of that declaration set.
 
-Coordinated adoption MUST generate one canonical `cartulary.extension_dependency_snapshot.v1` object solely from the validated declaration set and the exact digest-bound owner manifests. The object MUST contain exactly:
+Each dependency row MUST contain exactly `dependency_id`, `imported_schema_ids[]`, `imported_algorithm_ids[]`, and `imported_artifacts[]`. Arrays are required even when empty, reject explicit `null`, contain unique values, and use ascending UTF-8 byte order. Each imported artifact contains exactly `artifact_id`, `schema_id`, `artifact_sha256`, and `safe_ref` and MUST resolve to a regular, contained, non-symlink machine artifact. Imported schema and algorithm IDs MUST resolve through typed contract registries or executable implementations. A dependency MUST NOT identify a source document, requirement catalog, acceptance criterion, document hash, owner manifest, or synthetic contract invented only for provenance.
 
-- `schema_id`, exactly `cartulary.extension_dependency_snapshot.v1`;
-- `extensions_document_version`, exactly this NLSpec's adopted `document_version`;
-- `dependencies[]`, containing exactly one row for every dependency in Table 1-B and no other row.
-
-Each `dependencies[]` row MUST contain exactly:
-
-- `dependency_id`;
-- `owner_document_ref`;
-- `owner_document_schema_id`;
-- `owner_document_version`;
-- `owner_document_sha256`;
-- `owner_contract_manifest_ref`;
-- `owner_contract_manifest_id`;
-- `owner_contract_manifest_sha256`;
-- `imported_anchor_refs[]`;
-- `imported_schema_ids[]`;
-- `imported_algorithm_ids[]`;
-- `imported_artifacts[]`;
-- `required_status`.
-
-`dependencies[]` MUST be ordered by ascending UTF-8 bytes of `dependency_id`. `dependency_id` MUST equal one Table 1-B token and satisfy `^[a-z][a-z0-9_]{0,63}$`. `owner_document_ref` MUST be a whole-document `owner_locator_v1`. `owner_document_schema_id` MUST satisfy the public schema-ID scalar contract. `owner_document_version` MUST contain `1..64` ASCII bytes and match `[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}`. `required_status` MUST equal `adopted/current`. `owner_document_sha256` MUST be the lowercase 64-character result of `owner_document_sha256_v1`.
-
-`owner_contract_manifest_ref` MUST be a normalized repository-relative POSIX path under EXT-REQ-203 and MUST resolve to one regular file without following a symlink. `owner_contract_manifest_id` MUST contain `1..160` ASCII bytes and match `[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}`. `owner_contract_manifest_sha256` MUST be the lowercase digest returned by `extension_owner_contract_manifest_sha256_v1`. The manifest's owner-document identity, version, and digest MUST exactly equal the dependency row. Across `dependencies[]`, owner-document refs, owner-contract-manifest refs, and owner-contract-manifest IDs MUST each be unique.
-
-`imported_anchor_refs[]` MUST contain `1..256` unique `owner_locator_v1` values sorted by ascending UTF-8 bytes. Every imported anchor MUST exist in the exact owner contract manifest named by the dependency row. `imported_schema_ids[]` and `imported_algorithm_ids[]` MUST each contain `0..256` unique public schema or algorithm IDs sorted by ascending UTF-8 bytes. `[]` for one of those two arrays means the dependency imports no schema or no algorithm directly; it does not waive the required anchor set.
-
-Each `imported_artifacts[]` row MUST contain exactly:
-
-- `artifact_id`;
-- `schema_id`;
-- `artifact_sha256`;
-- `safe_ref`.
-
-`imported_artifacts[]` MUST contain `0..64` rows, reject duplicate `artifact_id` values, and sort by ascending UTF-8 bytes of `artifact_id`. An `artifact_id` MUST occur in at most one dependency row. `artifact_id` and `schema_id` MUST each satisfy the public schema-ID scalar contract. `artifact_sha256` MUST be a SHA-256 digest string. `safe_ref` MUST satisfy EXT-REQ-233. The Core 01 dependency row MUST include exactly one artifact whose `artifact_id='cartulary.base_route_reservation_registry.current'` and `schema_id='cartulary.base_route_reservation_registry.v1'`. Every other dependency row MUST NOT declare that artifact ID.
-
-Every array in the authored declaration set and generated snapshot MUST be present even when empty and MUST reject explicit `null`. The generated snapshot MUST exactly equal the normalized declaration set after owner-manifest verification. Omission behavior: no dependency row or member has a default. A missing, duplicate, extra, unresolved, non-adopted, stale, version-mismatched, digest-mismatched, schema-mismatched, algorithm-mismatched, manifest-mismatched, or imported-artifact-mismatched dependency MUST block registry generation and coordinated adoption before any downstream artifact is emitted. No `cartulary.extensions.phase2.v1` alias, reader, translation, or fallback is conformant.
+The required dependency identities remain `core00`, `core01`, `core02`, `core03`, `core04`, `network_flow_activity`, `opentelemetry`, `report_composition`, `reporting`, and `testing_harness`. Adding or removing an identity requires an adopted specification change and a new dependency contract major. The v1 and v2 dependency schemas have no compatibility reader.
 
 Profiles: base
-Verified by: EXT-AC-076, EXT-AC-077, EXT-AC-098, EXT-AC-145
-
-`owner_document_sha256_v1` MUST execute these steps:
-
-1. validate the `owner_document_ref` grammar, require `anchor-kind='document'`, require the anchor ID to equal `owner_document_schema_id`, and extract only the repository-relative path component;
-2. resolve that path beneath the repository root without consulting or following an owner anchor, manifest anchor range, symlink, search result, or Markdown parser;
-3. reject a symlink, non-regular file, absolute path, path traversal, backslash, NUL, unreadable file, UTF-8 BOM, invalid UTF-8, or any CR byte;
-4. require every line ending to be LF and permit the file either to end in LF or to contain no final line terminator;
-5. hash the exact accepted file bytes with SHA-256;
-6. return lowercase 64-character hexadecimal.
-
-Dependency validation MUST then compare that digest with both the dependency row and the owner contract manifest before any non-document anchor is resolved. This two-stage path-and-digest bootstrap avoids a manifest-resolution cycle.
-
-The digest algorithm MUST NOT rewrite whitespace, normalize Unicode, alter the final LF state, or exclude front matter, comments, examples, or appendices. The dependency snapshot itself MUST serialize under `extension_registry_canonical_json_v1`; `extension_dependency_snapshot_sha256_v1` is the digest of that canonical byte form.
-
-**Table 1-B. Required dependency declarations**
-
-| `dependency_id` | Owner document | Imported interface | Required owner-fragment fact families |
-| --- | --- | --- | --- |
-| `core00` | `docs/spec/00_document_set_status_and_precedence.md` | Recognition, claimability, contract major, owner identity, adopted-document precedence, and runtime dependencies | `recognized_profile`, `runtime_dependency` |
-| `core01` | `docs/spec/01_architecture_storage_and_view_contracts.md` | Discovery, Base route-reservation registry, route-family reservation and dispatch, authorized workspace availability, common jobs, `sheet_ref`, invalidation, import owner façades, deterministic cross-owner transaction publication, staged-object cleanup, backup, and portability orchestration | `route_family`, `workspace`, `public_schema` |
-| `core02` | `docs/spec/02_domain_model_schema_and_history.md` | Core-record boundary, cross-owner source-state boundary, and incident-removal reservation | No descriptor fact; exact imported anchors remain required |
-| `core03` | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Extension workspace shell, startup fallback, lazy interaction, unknown-value handling, and client cleanup | No descriptor fact; exact imported anchors remain required |
-| `core04` | `docs/spec/04_security_deployment_and_conformance.md` | Claim configuration, normalized profile configuration, secret references, authorization, application-process lease, extension limits and deadlines, publication admission, startup findings, egress trust boundary, readiness, and exit behavior | `claim_configuration` |
-| `network_flow_activity` | `docs/network-flow-activity-nlspec.md` | Current adopted extension-resource, workspace, import-target, state, job, lifecycle, and portability specialization | Every named-profile fact allocated to Network Flow by Table 5-A |
-| `testing_harness` | `docs/testing-harness-nlspec.md` | `cartulary.testing_harness.v2`; owner and verification registries, exact catalog selectors, runner and execution profiles, owner slices, retained row accounting and owner summaries, evidence-root auditing, generated-artifact policy, and drift | No descriptor fact; exact imported anchors remain required |
-| `opentelemetry` | `docs/opentelemetry-instrumentation-nlspec.md` | Canonical claimed-profile telemetry representation | No descriptor fact; exact imported anchors remain required |
-| `reporting` | `docs/reporting-subsystem-nlspec.md` | Snapshot and Reporting mode registry and participant boundary | No descriptor fact; exact imported anchors remain required |
-| `report_composition` | `docs/report-composition-nlspec.md` | Report-composition ownership boundary | No descriptor fact; exact imported anchors remain required |
-
-Table 1-B declares the required dependency identities and interface classes. The dependency snapshot carries the exact adopted version, content digest, stable anchor locators, schema IDs, and algorithm IDs. Human-readable section numbers, headings, line numbers, branch names, and repository timestamps MUST NOT substitute for those exact fields.
-
-The `testing_harness` dependency MUST bind `doc_id='cartulary.testing_harness.v2'`, `conformance_profile_id='cartulary.testing_harness.current.v2'`, and `status='adopted/current'`. Its imported schema set MUST include the current v2 verification registry and contract, test-owner registry, test-family manifest, runner registry, test-slice plan and summary, test-evidence accounting, test-owner summary, evidence-root manifest, and evidence-audit summary schemas used by §27. Pre-v2 commands, ordinal execution identities, retired schemas, custom extension fixture-result interfaces, compatibility readers, and historical retained runs MUST NOT satisfy dependency validation, registry accounting, adoption, or release closure.
+Verified by: behavioral dependency-generation and invalid-input tests
 
 **EXT-REQ-003**
 The Extensions Subsystem MUST NOT appear in extension discovery, MUST NOT have a `<profile_id>.claimed` key, and MUST NOT be claimable. Its Base Profile behavior MUST operate with every optional extension profile unclaimed.
@@ -180,7 +142,7 @@ Verified by: EXT-AC-004, EXT-AC-005, EXT-AC-072, EXT-AC-076
 | Generated runtime input | Descriptor, registry, registry-integrity object, conformance-manifest index | Runtime and conformance input; cannot override owner facts. |
 | Build-time implementation declaration | `cartulary.extension_implementation_binding.v1` | Declares packaged support; cannot widen the descriptor or owner contract. |
 | Durable runtime state | State metadata, migration ledger, job commit proof, cancellation observation | Authoritative only for the runtime fact explicitly represented by its schema. |
-| Harness v2 evidence | Verification contracts, catalog rows, exact selectors, paired row-accounting and owner-summary shards, evidence-audit summaries, and retained target results | Derived evidence only; cannot define product behavior, make an incomplete owner contract complete, or activate Core 05 publication. |
+| Harness evidence | Verification routes, executed rows, owner summaries, evidence-audit summaries, and retained target results | Derived evidence only; cannot define product behavior or make an incomplete specification complete. |
 | Non-normative support | Examples, paths, diagrams, operator guidance, implementation recipes | No implementation-conformance authority. |
 
 # 2. Normative language and document discipline
@@ -240,7 +202,7 @@ Profiles: base
 Verified by: EXT-AC-001
 
 **EXT-REQ-014**
-`EXT-REQ-*`, `EXT-AC-*`, and `EXT-GATE-*` identifiers MUST remain unique and MUST NOT be reused after publication. Harness v2 verification, owner, family, and row identifiers follow their imported immutability and non-reuse contracts.
+`EXT-REQ-*`, `EXT-AC-*`, and `EXT-GATE-*` identifiers MUST remain unique and MUST NOT be reused after publication. Harness verification, owner, family, and row identifiers follow their imported immutability and non-reuse contracts.
 
 Profiles: base
 Verified by: EXT-AC-002
@@ -387,103 +349,16 @@ Verified by: EXT-AC-004, EXT-AC-021, EXT-AC-040, EXT-AC-077
 | Claim key | Exactly `<profile_id>.claimed`. |
 | Configuration namespace | Exactly `<profile_id>`. |
 | Fully qualified profile configuration key | `<profile_id>` followed by one or more `.`-separated segments; each segment matches `[a-z][a-z0-9_]{0,63}`; maximum 256 ASCII bytes. |
-| `conformance_manifest_id` | Exactly `<profile_id>.conformance.v<contract_major>`. |
+
 | Public schema ID | ASCII `1..160` bytes matching `[A-Za-z0-9][A-Za-z0-9_.-]{0,159}`. |
 | Owner-defined extension resource ID | Non-empty UTF-8 `1..256` bytes; the named owner MUST define a narrower exact scalar contract. |
 | SHA-256 digest string | Exactly 64 lowercase ASCII hexadecimal characters. |
 
 **EXT-REQ-175**
-`owner_contract_ref`, `owner_document_ref`, and every owner locator used by this NLSpec MUST conform to `owner_locator_v1`:
-
-```text
-<repo-relative-posix-path>#<anchor-kind>:<anchor-id>
-```
-
-The closed `anchor-kind` values are defined by Table 4-C.
-
-**Table 4-C. Owner locator anchor kinds**
-
-| `anchor-kind` | Required target |
-| --- | --- |
-| `document` | The complete owner document. |
-| `req` | One stable normative requirement ID. |
-| `table` | One explicitly assigned stable table ID. |
-| `schema` | One explicitly assigned schema ID. |
-| `algorithm` | One explicitly assigned algorithm ID. |
-
-The complete locator MUST contain `1..512` UTF-8 bytes. The path MUST be repository-relative POSIX syntax and MUST contain no leading slash, backslash, NUL, empty segment, `.` segment, `..` segment, percent escape, URI scheme, query, or fragment other than the single `#` delimiter in the grammar. `anchor-id` MUST contain `1..160` ASCII bytes and MUST match `[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}`. A heading text, section number, line number, source-control branch, mutable tag, display label, or first textual occurrence MUST NOT be an anchor identity.
-
-`resolve_owner_locator_v1` MUST:
-
-1. validate the locator grammar;
-2. locate the exact dependency-snapshot row for the path;
-3. validate that row's owner contract manifest under EXT-REQ-203;
-4. require the path and owner-document digest to equal the manifest's `owner_document` object;
-5. find exactly one `anchors[]` row whose `anchor_kind` and `anchor_id` equal the locator;
-6. validate that row's byte range and `anchor_sha256` against the exact accepted owner-document bytes;
-7. return the exact owner-document identity, anchor identity, byte interval, and anchor digest;
-8. fail on zero matches, multiple matches, stale digest, wrong anchor kind, invalid range, path mismatch, or unresolved path without scanning Markdown headings, prose, code fences, search results, or nearby similarly named identifiers.
-
-A whole-document `owner_document_ref` MUST use `#document:<owner_document_schema_id>`, and the matching manifest document anchor MUST cover the exact byte interval `[0, byte_length)`. Within this NLSpec, every normative caption of the exact form `Table <section>-<suffix>` explicitly assigns the stable table anchor ID `EXT-TABLE-<section>-<suffix>`, preserving the caption characters after replacing the space with `-`; for example, `Table 7-F` assigns `EXT-TABLE-7-F` and `Table 27-A1` assigns `EXT-TABLE-27-A1`. A locator MUST NOT target a companion owner-document anchor until that owner contract manifest assigns the anchor a stable ID. The visible caption does not independently declare an anchor.
+Every schema ID, algorithm ID, and artifact ID imported by an Extensions machine input MUST identify an actual versioned typed contract or executable resolver. Resolution MUST validate identity, expected kind, uniqueness, containment where a path is involved, regular-file status, symlink rejection, and declared resource limits before product assertions execute. A document path, Markdown anchor, heading, byte range, requirement ID, or display label is not a machine contract identity.
 
 Profiles: base
-Verified by: EXT-AC-077, EXT-AC-098
-
-**EXT-REQ-203**
-Every dependency row MUST resolve to one closed canonical `cartulary.extension_owner_contract_manifest.v1` object containing exactly:
-
-- `schema_id`, exactly `cartulary.extension_owner_contract_manifest.v1`;
-- `owner_contract_manifest_id`;
-- `owner_id`;
-- `owner_document`;
-- `anchors[]`;
-- `owner_fragments[]`.
-
-`owner_document` MUST contain exactly:
-
-- `owner_document_ref`;
-- `owner_document_schema_id`;
-- `owner_document_version`;
-- `owner_document_sha256`;
-- `byte_length`.
-
-`owner_document_ref` MUST be the whole-document locator used by the dependency row. `byte_length` MUST equal the exact accepted owner-document byte length and be a JSON integer in `1..67108864`.
-
-Each `anchors[]` row MUST contain exactly:
-
-- `anchor_kind`;
-- `anchor_id`;
-- `start_byte`;
-- `end_byte`;
-- `anchor_sha256`;
-- `closure_categories[]`.
-
-For `anchor_kind='req'`, `closure_categories[]` MUST contain `1..19` unique category tokens from Table 19-A, sorted by ascending UTF-8 bytes. For every other anchor kind, `closure_categories[]` MUST equal `[]`. Category assignment is owner-authored normative metadata used only to derive the closure catalog; it does not replace the requirement text or permit a profile owner to omit the requirement from closure.
-
-`anchors[]` MUST contain `1..4096` rows. `(anchor_kind, anchor_id)` MUST be unique. `start_byte` and `end_byte` MUST be zero-based JSON integers satisfying `0 <= start_byte < end_byte <= owner_document.byte_length`. The interval is half-open `[start_byte, end_byte)`, MUST begin and end on UTF-8 scalar boundaries, and `anchor_sha256` MUST hash exactly those bytes. Exactly one `document` anchor MUST exist, its ID MUST equal `owner_document_schema_id`, and its interval MUST equal `[0, byte_length)`. Overlapping non-document anchor intervals are permitted and have no identity effect.
-
-Anchor rows MUST sort first by this closed kind order and then by ascending UTF-8 bytes of `anchor_id`:
-
-```text
-document
-req
-table
-schema
-algorithm
-```
-
-Each `owner_fragments[]` row MUST contain exactly:
-
-- `owner_fragment_id`;
-- `owner_fragment_ref`;
-- `owner_fragment_sha256`.
-
-`owner_fragments[]` MUST contain `0..512` rows, reject duplicate fragment IDs and normalized paths, and sort by ascending UTF-8 bytes of `owner_fragment_id`. `owner_fragment_ref` MUST be a normalized repository-relative POSIX path to one regular file. Absolute paths, backslashes, NUL, empty segments, `.`, `..`, symlinks, non-regular files, and repository-root escape are invalid.
-
-The manifest MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` bytes including the final LF, and have digest `extension_owner_contract_manifest_sha256_v1`. A manifest MUST NOT be embedded in its owner document. The owner document MAY name the stable manifest ID but MUST NOT embed the manifest digest. Omission behavior: when the owner document does not name the ID, the dependency-snapshot association remains complete and unchanged. The dependency snapshot binds the manifest digest, and the manifest binds the owner-document and fragment digests; this is the only current adoption association and introduces no digest cycle.
-
-Profiles: base
-Verified by: EXT-AC-098
+Verified by: typed-identity, containment, symlink, and resource-limit tests
 
 **EXT-REQ-022**
 Visible labels, icons, path strings other than declared route identities, package names, module names, database object names, React component names, row positions, array positions, and display order MUST NOT be used as profile, capability, contribution, workspace, migration, manifest, worker, job, or extension-resource identity.
@@ -512,211 +387,25 @@ Verified by: EXT-AC-003, EXT-AC-005, EXT-AC-006, EXT-AC-072, EXT-AC-076
 | `recognized_profile`, `runtime_dependency` | Core 00 | Other owners consume the exact identity and dependency result. |
 | `route_family`, `workspace`, `public_schema` | Core 01 | Core 03 and named profile owners define behavior behind the registered identities but emit no duplicate fact. |
 | `claim_configuration` | Core 04 | Named profile owners define their namespace-local value schemas but emit no duplicate claim fact. |
-| `capability`, `state_ownership`, `migration_definition`, `worker_kind`, `job_kind`, `admission_validation`, `egress`, `portability`, `snapshot_reporting`, `contribution`, `conformance_manifest` | Named profile owner contract, including an explicit Core section when Core is that profile's owner | Shared Core, Incident Portability, and Reporting owners admit the typed interface through digest-bound anchors and MUST NOT emit a second fact. Harness v2 validates only derived verification routing and exact catalog coverage; it emits no descriptor fact and derives no behavior from owner prose. |
+| `capability`, `state_ownership`, `migration_definition`, `worker_kind`, `job_kind`, `admission_validation`, `egress`, `portability`, `snapshot_reporting`, `contribution` | Named profile owner contract, including an explicit Core section when Core is that profile's owner | Shared owners admit only the typed interface and MUST NOT emit a duplicate fact. |
 
 **EXT-REQ-025**
 A profile owner contract MUST be either an adopted standalone NLSpec or an explicit adopted Core section. The Extensions Subsystem MUST NOT require a standalone document when Core already owns the profile-specific behavior completely.
 
-Each owner document that contributes descriptor facts MUST have one validated `cartulary.extension_owner_contract_manifest.v1` whose `owner_fragments[]` is the complete adopted fragment set. An owner fragment is adopted if and only if its exact ID, normalized repository reference, and canonical digest appear in that set. Directory scanning, filename convention, document prose, matching `owner_document_sha256`, implementation code, or repository search MUST NOT add a fragment. An owner fragment MUST NOT be embedded inside the owner document because the fragment carries the independent digest of that document.
+Each owner that contributes descriptor facts MUST publish one or more typed owner fragments listed explicitly by the authored Extensions input catalog. The catalog entry, schema validation, and owner allocation adopt the fragment as an executable projection; documentation paths or bytes play no role.
 
 Profiles: base
 Verified by: EXT-AC-006, EXT-AC-073, EXT-AC-076
 
 **EXT-REQ-176**
-`cartulary.extension_owner_fragment.v1` MUST be a closed canonical object containing exactly the members in Table 5-B.
+`cartulary.extension_owner_fragment.v3` MUST be a closed canonical object containing exactly `schema_id`, `owner_fragment_id`, `owner_id`, and `facts[]`. An owner fragment contains only typed operational facts allocated by Table 5-A. Every fact contains `fact_kind`, `profile_id`, and its variant-specific executable members. Requirement identifiers, acceptance identifiers, owner-document fields, document digests, owner locators, conformance declarations, and static status claims are forbidden.
+
+The authored `cartulary.extension_authored_input_catalog.v3` is the complete input allowlist. It MUST enumerate every owner fragment and supporting typed contract by normalized repository-relative JSON path, schema ID, owner ID, and operational artifact class. Directory scanning, filename inference, documentation parsing, and generated-output discovery MUST NOT add an input. Catalog paths MUST remain contained beneath `contracts/extensions`, reject traversal, absolute paths, backslashes, symlinks, non-regular files, duplicates, missing files, and unlisted JSON files.
+
+`cartulary.extension_owner_input_registry.v2` MUST contain exactly `schema_id`, one complete dependency snapshot, and the canonical sorted owner-fragment set. It MUST reject duplicate fragment identities, duplicate fact identities, unrecognized profiles, invalid owner allocation, and missing per-profile scalar facts before descriptor generation. The same authored inputs MUST produce byte-identical registry bytes.
 
 Profiles: base
-Verified by: EXT-AC-076
-
-**Table 5-B. `cartulary.extension_owner_fragment.v1`**
-
-| Member | Required rule |
-| --- | --- |
-| `schema_id` | Exactly `cartulary.extension_owner_fragment.v1`. |
-| `owner_fragment_id` | Table 4-B; globally unique across the owner-input registry. |
-| `owner_id` | Table 4-B; exact normative owner identity. |
-| `owner_document_ref` | Whole-document `owner_locator_v1`. |
-| `owner_document_schema_id` | Exact non-empty owner-document identifier, `1..160` ASCII bytes. |
-| `owner_document_version` | Exact adopted owner version, `1..64` ASCII bytes; no default. |
-| `owner_document_sha256` | Exact `owner_document_sha256_v1` digest. |
-| `facts[]` | `1..4096` closed fact objects from Table 5-C. |
-
-A canonical owner fragment MUST serialize under `extension_registry_canonical_json_v1` and contain `1..1048576` bytes including its required final LF. `extension_owner_fragment_sha256_v1` is the digest of that canonical byte form. The canonical owner-input registry MUST contain `0..512` owner fragments and `0..65536` normalized facts. An individual fragment MUST still contain `1..4096` facts; an empty fragment is invalid and MUST be omitted. Exceeding any bound MUST fail with `extension_registry_limit_exceeded`; truncation is forbidden.
-
-Every fact object MUST contain exactly:
-
-- `fact_kind`;
-- `profile_id`;
-- `owner_contract_ref`;
-- the variant-specific members in Table 5-C.
-
-`owner_contract_ref` MUST resolve inside the same owner document named by the fragment. The fragment MUST NOT claim a fact allocated to another owner by Table 5-A.
-
-**Table 5-C. Closed owner-fact variants**
-
-| `fact_kind` | Variant-specific exact members and contracts | Fact identity key |
-| --- | --- | --- |
-| `recognized_profile` | `claimable` Boolean; `contract_major` positive integer or `null`; `primary_owner_id` under Table 4-B; `primary_owner_contract_ref` under `owner_locator_v1` | `profile_id` |
-| `runtime_dependency` | `dependency_profile_id` under `profile_id`; positive integer `required_contract_major` | `(profile_id, dependency_profile_id)` |
-| `route_family` | `route_family` under `route_family_template_v1` | `(profile_id, route_family)` |
-| `workspace` | `workspace_key` under Table 4-B | `(profile_id, workspace_key)` |
-| `claim_configuration` | exact `claim_config_key='<profile_id>.claimed'`; `configuration_contract_ref` under `owner_locator_v1`; `configuration_contract_sha256` as a SHA-256 digest string | `profile_id` |
-| `capability` | `capability_id` under Table 4-B; nullable `prerequisite_contract_ref` under `owner_locator_v1` | `capability_id` |
-| `public_schema` | `public_schema_id` under Table 4-B | `public_schema_id` |
-| `state_ownership` | `state_ownership` under Table 7-C | `profile_id` |
-| `migration_definition` | one `cartulary.extension_migration_definition.v1` object | `migration_definition.migration_id` |
-| `worker_kind` | `worker_kind` under Table 4-B | `worker_kind` |
-| `job_kind` | one `cartulary.extension_job_kind_contract.v1` object | `job_kind_contract.job_kind` |
-| `admission_validation` | one `cartulary.extension_admission_validation.v1` object | `profile_id` |
-| `egress` | `egress_mode` exactly `none` or `owner_declared`; nullable `egress_contract_ref` under `owner_locator_v1` | `profile_id` |
-| `portability` | `incident_portability_mode` under Table 7-D; nullable Table 4-B `participant_id`; nullable `blocking_predicate` under `cartulary.extension_state_blocking_predicate.v1` | `profile_id` |
-| `snapshot_reporting` | `snapshot_reporting_mode` under Table 7-E; nullable Table 4-B `participant_id` | `profile_id` |
-| `contribution` | one closed contribution object under §16 | `contribution.contribution_id` |
-| `conformance_manifest` | nullable `conformance_manifest_id` under Table 4-B | `profile_id` |
-
-The following variant nullability rules are exhaustive:
-
-- `recognized_profile.contract_major` MUST be non-null when `claimable=true` and MUST be `null` when `claimable=false`;
-- `recognized_profile.primary_owner_contract_ref` MUST resolve to the exact adopted primary owner document and MUST agree with `primary_owner_id`; it is required even when `claimable=false`;
-- `capability.prerequisite_contract_ref` MAY be `null`; omission is invalid;
-- `egress_contract_ref` MUST be non-null only when `egress_mode='owner_declared'` and MUST be `null` when `egress_mode='none'`;
-- `portability.participant_id` MUST be non-null only for `participant` and MUST otherwise be `null`;
-- `portability.blocking_predicate` MUST be non-null only for `blocked_when_present` and MUST otherwise be `null`;
-- `snapshot_reporting.participant_id` MUST be non-null only for `participant` and MUST be `null` for `no_participation`;
-- `admission_validation.preflight_algorithm_ref` and `post_migration_algorithm_ref` MAY be `null`; omission is invalid and `null` means no additional profile-owned algorithm for that phase;
-- `admission_validation.dependency_probes[]` MAY be empty; `[]` means no external startup dependency probe;
-- `conformance_manifest_id` MUST be non-null for a claimable profile and MAY be `null` for a recognized unclaimable profile.
-
-`cartulary.extension_admission_validation.v1` MUST contain exactly:
-
-- `schema_id`, exactly `cartulary.extension_admission_validation.v1`;
-- `preflight_algorithm_ref`, an algorithm `owner_locator_v1` or `null`;
-- `post_migration_algorithm_ref`, an algorithm `owner_locator_v1` or `null`;
-- `dependency_probes[]`, containing `0..16` closed probe objects.
-
-Each `dependency_probes[]` item MUST contain exactly `probe_id` and `algorithm_ref`. `probe_id` MUST use the profile prefix under Table 4-B. `algorithm_ref` MUST be an algorithm `owner_locator_v1` in the same profile owner document. Probe objects MUST reject duplicate `probe_id` values and sort by ascending UTF-8 bytes of `probe_id`. A non-empty probe array requires `egress_mode='owner_declared'` and an exact Table 24-A startup-probe contract. `egress_mode='none'` requires `dependency_probes=[]`.
-
-`cartulary.extension_migration_definition.v1`, carried by a `migration_definition` fact, MUST contain exactly:
-
-- `schema_id`, exactly `cartulary.extension_migration_definition.v1`;
-- `profile_id`;
-- `migration_lineage_id`;
-- `migration_id`;
-- `from_state_version`;
-- `to_state_version`;
-- `apply_algorithm_id`;
-- `apply_algorithm_ref`;
-- `validation_algorithm_id`;
-- `validation_algorithm_ref`.
-
-`to_state_version` MUST equal `from_state_version + 1`. Every algorithm ID MUST satisfy the public schema-ID scalar contract. Each algorithm reference MUST use `anchor-kind='algorithm'` with an `anchor-id` exactly equal to its paired algorithm ID and MUST resolve in the same owner contract as the enclosing fact. The canonical migration-definition bytes are its canonical JSON bytes followed by one LF. `migration_definition_sha256_v1` is the lowercase SHA-256 digest of those bytes.
-
-**Table 5-D. Fact multiplicity per recognized profile**
-
-| Fact kind | Required count and condition |
-| --- | --- |
-| `recognized_profile` | Exactly `1`. |
-| `claim_configuration` | Exactly `1`. |
-| `state_ownership` | Exactly `1`. |
-| `admission_validation` | Exactly `1`. |
-| `egress` | Exactly `1`. |
-| `portability` | Exactly `1`. |
-| `snapshot_reporting` | Exactly `1`. |
-| `conformance_manifest` | Exactly `1`; its ID follows claimability nullability. |
-| `runtime_dependency` | `0..16`, unique by dependency profile. |
-| `route_family` | `0..16`. |
-| `workspace` | `0..16`. |
-| `capability` | `0..64`. |
-| `public_schema` | `0..128`. |
-| `migration_definition` | `0..256`; MUST be `0` unless state ownership is `extension_versioned`. |
-| `worker_kind` | `0..64`. |
-| `job_kind` | `0..64`. |
-| `contribution` | `0..64`. |
-
-A count outside Table 5-D, a missing exactly-one fact, or two facts with the same identity key MUST fail owner-input derivation. Shared supporting owners MUST be represented by dependency-snapshot anchors or contract-closure locators, not by a duplicate machine fact.
-
-**EXT-REQ-177**
-`cartulary.extension_owner_input_registry.v1` MUST contain exactly:
-
-- `schema_id`, exactly `cartulary.extension_owner_input_registry.v1`;
-- `dependency_snapshot`, one complete `cartulary.extension_dependency_snapshot.v1` object;
-- `owner_contract_manifests[]`, containing exactly one validated manifest per dependency row;
-- `owner_fragments[]`, containing every fragment adopted by those manifests and no other fragment.
-
-`derive_extension_owner_input_registry_v1` MUST execute these steps in order:
-
-1. validate the dependency snapshot and every imported owner-document digest;
-2. decode and validate every owner contract manifest as strict canonical UTF-8 JSON;
-3. require exact one-to-one parity between dependency rows and manifests;
-4. derive the complete adopted fragment set only from manifest `owner_fragments[]` rows;
-5. reject a missing fragment, extra fragment, duplicate fragment path, duplicate fragment ID, or fragment digest mismatch;
-6. decode every owner fragment as strict UTF-8 JSON, reject BOM, duplicate members, trailing bytes, unknown members, and noncanonical bytes;
-7. validate every fragment scalar, collection bound, owner allocation, owner-document digest, and same-document owner locator;
-8. resolve every `owner_document_ref` and `owner_contract_ref` exactly once under `resolve_owner_locator_v1`;
-9. derive `cartulary.extension_owner_fact_identity.v1` for every fact under EXT-REQ-205;
-10. reject duplicate fact identities, including byte-identical duplicates;
-11. reject a fact naming an unrecognized profile except while validating `recognized_profile` facts;
-12. enforce every Table 5-D per-profile multiplicity and no profile identity derived from another fact kind;
-13. order manifests by ascending UTF-8 bytes of `owner_contract_manifest_id`;
-14. order fragments by ascending UTF-8 bytes of `owner_fragment_id`;
-15. order facts within each fragment by `profile_id`, then `fact_kind`, then canonical fact-identity bytes, all ascending;
-16. serialize the owner-input registry under `extension_registry_canonical_json_v1`;
-17. return canonical bytes and the normalized in-memory owner-input registry.
-
-`owner_contract_manifests[]` MUST remain the exact non-empty one-per-dependency set even when the recognized-profile set is empty. `owner_fragments[]` MAY be empty only when no validated manifest adopts a fragment; in the zero-profile case, every manifest MUST adopt zero descriptor-fact fragments. The canonical owner-input registry MUST contain `1..67108864` bytes. The same dependency snapshot, manifest bytes, and owner-fragment bytes MUST produce byte-identical output.
-
-Profiles: base
-Verified by: EXT-AC-076, EXT-AC-077, EXT-AC-098, EXT-AC-099
-
-**EXT-REQ-204**
-The complete adopted owner-fragment set MUST equal the set union of every validated manifest `owner_fragments[]` row. A fragment whose owner-document identity or digest does not match the manifest owner document is invalid. A matching digest without an adoption row does not adopt the fragment. A fragment adoption row without a matching regular file is invalid. The generator MUST reject both missing and extra fragments before decoding facts.
-
-Profiles: base
-Verified by: EXT-AC-098
-
-**EXT-REQ-205**
-`cartulary.extension_owner_fact_identity.v1` MUST be a closed discriminated object containing `fact_kind` and exactly the identity members in Table 5-E. An identity object MUST NOT contain `owner_contract_ref`, a display value, a nested source object, or a member absent from Table 5-E.
-
-**Table 5-E. Canonical owner-fact identity objects**
-
-| `fact_kind` | Exact identity members after `fact_kind` |
-| --- | --- |
-| `recognized_profile` | `profile_id` |
-| `runtime_dependency` | `profile_id`, `dependency_profile_id` |
-| `route_family` | `profile_id`, `route_family` |
-| `workspace` | `profile_id`, `workspace_key` |
-| `claim_configuration` | `profile_id` |
-| `capability` | `capability_id` |
-| `public_schema` | `public_schema_id` |
-| `state_ownership` | `profile_id` |
-| `migration_definition` | `migration_id` |
-| `worker_kind` | `worker_kind` |
-| `job_kind` | `job_kind` |
-| `admission_validation` | `profile_id` |
-| `egress` | `profile_id` |
-| `portability` | `profile_id` |
-| `snapshot_reporting` | `profile_id` |
-| `contribution` | `contribution_id` |
-| `conformance_manifest` | `profile_id` |
-
-`derive_extension_owner_fact_identity_v1` MUST lift nested source identities such as `migration_definition.migration_id`, `job_kind_contract.job_kind`, and `contribution.contribution_id` into the exact top-level scalar members in Table 5-E. It MUST serialize the identity under `extension_registry_canonical_json_v1` without the final LF for in-memory ordering. Those exact bytes MUST be used for duplicate rejection, fact ordering, collision identity, and `identity_sha256`. No second identity representation is conformant.
-
-Profiles: base
-Verified by: EXT-AC-099
-
-**EXT-REQ-206**
-Contract major `1` permits zero recognized profiles. The empty case MUST satisfy all of these invariants:
-
-- `recognized profiles=[]` requires zero normalized facts;
-- `owner_contract_manifests[]` still contains exactly one validated manifest per dependency row, while `owner_fragments[]=[]`;
-- a fragment with `facts=[]` is invalid and MUST be omitted;
-- a synthetic profile, owner fragment, or placeholder fact MUST NOT be created to avoid an empty collection;
-- the dependency snapshot remains non-empty because this NLSpec still imports its companion owners;
-- the canonical profile registry bytes equal the canonical JSON object `{"profiles":[],"schema_id":"cartulary.extension_profile_registry.v1"}` followed by one LF under the existing member-ordering algorithm;
-- the owner-input registry, integrity object, static accounting object, and Harness v2 owner evidence MUST each define and test their own empty-profile representation under their respective owners.
-
-Profiles: base
-Verified by: EXT-AC-100
+Verified by: owner-input shape, catalog containment, fact-closure, and deterministic-generation tests
 
 **EXT-REQ-026**
 The descriptor and registry generator MUST consume only explicit normalized owner facts from `cartulary.extension_owner_input_registry.v1`. Repository search results, Markdown tables, headings, prose, implementation package discovery, route enumeration from a running server, database introspection, generated contract scanning, and source-code reflection MAY be used as drift evidence but MUST NOT create, alter, default, or select a missing owner fact. Omission behavior: when these secondary checks are not used, owner-derived generation behavior is unchanged.
@@ -725,7 +414,7 @@ Profiles: base
 Verified by: EXT-AC-005, EXT-AC-072, EXT-AC-076
 
 **EXT-REQ-027**
-Any owner fact required by a descriptor, dependency, state-version declaration, portability declaration, egress declaration, contribution declaration, conformance manifest, contract-closure row, or adoption gate that is absent, unresolved, or internally inconsistent MUST block the profile from becoming claimable or this NLSpec from becoming `adopted/current`, according to the owning gate.
+Any typed fact required by a descriptor, dependency, state-version declaration, portability declaration, egress declaration, contribution declaration, or adoption gate that is absent, unresolved, or internally inconsistent MUST block generation or runtime admission according to the owning gate.
 
 Profiles: base
 Verified by: EXT-AC-073, EXT-AC-075, EXT-AC-095
@@ -748,11 +437,11 @@ A recognized profile MUST have exactly one Core 00 `recognized_profile` owner fa
 - one generated valid canonical descriptor;
 - one matching registry-integrity entry;
 - one packaged implementation binding in every build that permits the profile to be claimed;
-- one uniquely indexed complete conformance manifest;
-- one complete generated contract-closure catalog and matching `contract_closure[]` resolution set;
+
+
 - one complete profile configuration contract, even when it declares zero profile-local keys;
 - one current job-kind contract per declared job kind and one current participant specialization contract per typed contribution;
-- closed state-presence, physical-state binding, migration, final-state validation, worker, job, portability, reporting, egress, contribution, client-support, active Harness v2 verification contracts, and exact-selector catalog coverage as applicable.
+- closed state-presence, physical-state binding, migration, final-state validation, worker, job, portability, reporting, egress, contribution, client-support, behavioral verification routes as applicable.
 
 Profiles: base
 Verified by: EXT-AC-006, EXT-AC-010, EXT-AC-073, EXT-AC-076, EXT-AC-080, EXT-AC-081, EXT-AC-095
@@ -772,7 +461,7 @@ Verified by: EXT-AC-003, EXT-AC-072
 **EXT-REQ-032**
 At coordinated adoption, normalized owner inputs MUST resolve to the current-profile baselines in Tables 6-A and 6-B. These tables are generated or parity-checked human-readable renderings of owner-fragment facts. They MUST NOT be edited as a second profile registry and MUST NOT override a validated owner fragment.
 
-A mismatch between either table and the canonical owner-input registry MUST fail generation and conformance accounting.
+A mismatch between either table and the canonical owner-input registry MUST fail generation.
 
 Profiles: base
 Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-035, EXT-AC-064, EXT-AC-065, EXT-AC-067, EXT-AC-068, EXT-AC-072, EXT-AC-076
@@ -800,7 +489,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-
 | `snapshot_reporting` | `core_managed` | `none` | `participant` | `participant` |
 
 **EXT-REQ-033**
-At coordinated adoption, every current profile's `capability_ids[]` and `prestage_config_keys[]` MUST be empty. A later additive capability or pre-stageable configuration key requires an owner contract, owner-fragment revision, descriptor revision, active v2 verification coverage with exact selectors, and public discovery or configuration support before emission is permitted.
+At coordinated adoption, every current profile's `capability_ids[]` and `prestage_config_keys[]` MUST be empty. A later additive capability or pre-stageable configuration key requires an owner contract, owner-fragment revision, descriptor revision, observable behavioral coverage through current verification routing, and public discovery or configuration support before emission is permitted.
 
 Profiles: base
 Verified by: EXT-AC-017, EXT-AC-024, EXT-AC-029
@@ -808,7 +497,7 @@ Verified by: EXT-AC-017, EXT-AC-024, EXT-AC-029
 # 7. Extension-profile descriptor
 
 **EXT-REQ-034**
-For each recognized profile, the generator MUST construct exactly one in-memory source object conforming to `cartulary.extension_profile_descriptor_source.v1` and exactly one canonical descriptor conforming to `cartulary.extension_profile_descriptor.v1`. The source object exists only to make omission materialization explicit. It is not a repo-control artifact instance, runtime input, persisted object, traceability object, or digest input. The canonical descriptor is the only descriptor admitted into the canonical registry.
+For each recognized profile, the generator MUST construct exactly one in-memory descriptor source and exactly one canonical descriptor conforming to `cartulary.extension_profile_descriptor.v3`. The source exists only to make omission materialization explicit and is not written, persisted, or hashed. The canonical descriptor is the only descriptor admitted into the registry.
 
 Profiles: base
 Verified by: EXT-AC-005, EXT-AC-008, EXT-AC-009, EXT-AC-078, EXT-AC-101
@@ -835,7 +524,7 @@ Verified by: EXT-AC-005, EXT-AC-008, EXT-AC-009, EXT-AC-078, EXT-AC-101
 | `egress_mode` | String | Optional | Omission materializes `none`. |
 | `incident_portability_mode` | String | Required | One token from Table 7-D. |
 | `snapshot_reporting_mode` | String | Required | One token from Table 7-E. |
-| `conformance_manifest_id` | String or `null` | Required | Non-null when `claimable=true`. |
+
 
 Explicit JSON `null` is invalid for every optional source member. No required source member has an omission default.
 
@@ -852,13 +541,13 @@ Explicit JSON `null` is invalid for every optional source member. No required so
 
 Default materialization MUST occur before canonical serialization, descriptor digest calculation, collision detection, or registry construction. Explicit `null` MUST never invoke a default.
 
-Each descriptor scalar MUST have exactly one source fact allocated by Table 5-A, and each descriptor set member MUST have exactly one normalized source fact. `recognized_profile.primary_owner_contract_ref` is the sole source of the descriptor's primary owner contract. Generation MUST reject a missing scalar source, multiple scalar sources, duplicate set members even when their values agree, a stale owner locator, and any attempt to infer a descriptor fact from source code, package imports, routes, configuration behavior, filenames, tests, or prose. The materializer may apply only the explicit Table 7-A defaults; it MUST NOT use a default to hide an absent required owner fact.
+Each descriptor scalar MUST have exactly one source fact allocated by Table 5-A, and each descriptor set member MUST have exactly one normalized source fact. `recognized_profile.primary_owner_id` is the sole source of the descriptor's primary owner. Generation MUST reject a missing scalar source, multiple scalar sources, duplicate set members even when their values agree, and any attempt to infer a descriptor fact from source code, package imports, routes, configuration behavior, filenames, tests, or prose. The materializer may apply only the explicit Table 7-A defaults; it MUST NOT use a default to hide an absent required owner fact.
 
 Profiles: base
 Verified by: EXT-AC-078, EXT-AC-146
 
 **EXT-REQ-209**
-A `cartulary.extension_profile_descriptor_source.v1` instance is an ephemeral derivation intermediate with no canonical bytes and no digest. It MUST NOT be written to the repository, packaged output, runtime storage, logs, telemetry, conformance bundles, traceability manifests, or drift-accounting inputs. Runtime code MUST NOT read it. Default-valued source members MAY be omitted only until `materialize_extension_descriptor_v1` executes; every canonical descriptor member is required afterward. A later revision that retains descriptor-source instances MUST introduce a new schema ID, byte form, digest algorithm, artifact class, compatibility action, verification-contract revision, and exact catalog coverage.
+A descriptor-source instance is an ephemeral derivation intermediate with no canonical bytes and no digest. It MUST NOT be written to the repository, packaged output, runtime storage, logs, telemetry, evidence, or drift inputs. Runtime code MUST NOT read it. Default-valued source members MAY be omitted only until descriptor materialization executes; every canonical descriptor member is required afterward.
 
 Profiles: base
 Verified by: EXT-AC-101
@@ -885,7 +574,7 @@ Verified by: EXT-AC-101
 | `egress_mode` | String | Required; exactly `none` or `owner_declared`. |
 | `incident_portability_mode` | String | Required; one Table 7-D token. |
 | `snapshot_reporting_mode` | String | Required; one Table 7-E token. |
-| `conformance_manifest_id` | String or `null` | Required; conditional nullability in EXT-REQ-039 and EXT-REQ-040. |
+
 
 **EXT-REQ-035**
 A descriptor source or canonical descriptor MUST NOT contain secrets, resolved secret values, deployment-specific claim state, incident data, live resource counts, database table or column names, object-store keys, absolute filesystem paths, Go package names, React component names, executable callbacks, middleware, SQL, display-state caches, visible labels used as identity, remotely loadable code or asset locations, runtime timestamps, hostnames, process IDs, or build-directory names.
@@ -980,13 +669,13 @@ Profiles: base
 Verified by: EXT-AC-021, EXT-AC-031, EXT-AC-080
 
 **EXT-REQ-039**
-A descriptor for `claimable=false` MUST have `contract_major=null`. `owner_contract_ref` and `conformance_manifest_id` MAY be `null`. Every contribution or capability not required solely to reserve identity MUST be absent from its arrays. Reserved route families and workspace identities MAY remain present when Core owners reserve them. Omission behavior: owner identities that are not reserved are emitted as empty arrays.
+A descriptor for `claimable=false` MUST have `contract_major=null`. Every contribution or capability not required solely to reserve identity MUST be absent from its arrays. Reserved route families and workspace identities MAY remain present when Core owners reserve them. Omission behavior: owner identities that are not reserved are emitted as empty arrays.
 
 Profiles: base
 Verified by: EXT-AC-009, EXT-AC-024
 
 **EXT-REQ-040**
-A descriptor for `claimable=true` MUST have non-null `contract_major`, `owner_contract_ref`, and `conformance_manifest_id`. `conformance_manifest_id` MUST equal `<profile_id>.conformance.v<contract_major>`. A valid implementation binding is not encoded in the descriptor and MUST be verified independently at startup.
+A descriptor for `claimable=true` MUST have a non-null `contract_major`. A valid implementation binding is not encoded in the descriptor and MUST be verified independently at startup.
 
 Profiles: base
 Verified by: EXT-AC-006, EXT-AC-010, EXT-AC-081
@@ -1022,7 +711,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-005, EXT-AC-082
 9. one canonical file or object byte form is the canonical JSON bytes followed by exactly one LF byte;
 10. no BOM or trailing byte after the required LF is emitted or accepted.
 
-`extension_dependency_snapshot_sha256_v1`, `extension_owner_contract_manifest_sha256_v1`, `extension_owner_fragment_sha256_v1`, `extension_descriptor_sha256_v1`, `extension_contribution_sha256_v1`, `extension_owner_input_registry_sha256_v1`, `extension_registry_sha256_v1`, `extension_implementation_binding_sha256_v1`, `extension_profile_configuration_contract_sha256_v1`, `extension_base_route_reservation_registry_sha256_v1`, `extension_client_support_registry_sha256_v1`, `client_asset_set_sha256_v1`, `extension_physical_state_binding_sha256_v1`, `extension_state_presence_manifest_sha256_v1`, `extension_state_initialization_definition_sha256_v1`, `extension_backup_binding_codec_sha256_v1`, `extension_job_kind_contract_sha256_v1`, `extension_participant_contract_sha256_v1`, `extension_validation_condition_registry_sha256_v1`, `extension_contract_closure_catalog_sha256_v1`, and `extension_registry_integrity_sha256_v1` are the lowercase SHA-256 hexadecimal digests of their respective canonical byte forms. Harness v2 semantic digests retain their imported `sha256:<64-lowercase-hex>` form and MUST NOT be converted into an extension canonical-artifact digest. No other digest input or newline convention is conformant for those identifiers.
+`extension_dependency_snapshot_sha256_v1`, `extension_owner_fragment_sha256_v1`, `extension_descriptor_sha256_v1`, `extension_contribution_sha256_v1`, `extension_owner_input_registry_sha256_v1`, `extension_registry_sha256_v1`, `extension_implementation_binding_sha256_v1`, `extension_profile_configuration_contract_sha256_v1`, `extension_base_route_reservation_registry_sha256_v1`, `extension_client_support_registry_sha256_v1`, `client_asset_set_sha256_v1`, `extension_physical_state_binding_sha256_v1`, `extension_state_presence_manifest_sha256_v1`, `extension_state_initialization_definition_sha256_v1`, `extension_backup_binding_codec_sha256_v1`, `extension_job_kind_contract_sha256_v1`, `extension_participant_contract_sha256_v1`, `extension_validation_condition_registry_sha256_v1`, and `extension_registry_integrity_sha256_v1` are the lowercase SHA-256 hexadecimal digests of their respective canonical byte forms. No other digest input or newline convention is conformant for those identifiers.
 
 This algorithm is a Cartulary-specific canonicalization algorithm. It MUST NOT be labeled or treated as another JSON canonicalization standard.
 
@@ -1076,19 +765,19 @@ Verified by: EXT-AC-079, EXT-AC-136
 | `registry_schema_id` | Exactly `cartulary.extension_profile_registry.v1`. |
 | `registry_sha256` | Exact `extension_registry_sha256_v1` digest. |
 | `descriptor_digests[]` | One closed `{profile_id, descriptor_sha256}` object per recognized profile. |
-| `owner_contract_manifest_digests[]` | One closed `{owner_contract_manifest_id, owner_contract_manifest_sha256}` object per dependency owner manifest. |
+
 | `owner_fragment_digests[]` | One closed `{owner_fragment_id, owner_fragment_sha256}` object per owner fragment. |
 | `implementation_binding_digests[]` | One closed `{profile_id, binding_sha256}` object per packaged binding. |
 | `supporting_contract_artifact_digests[]` | One closed `{artifact_id, schema_id, artifact_sha256}` object per packaged static extension contract artifact not represented by another digest member. |
 | `generator_id` | Stable ASCII `1..160` byte identifier. |
 | `generator_sources[]` | `1..1024` closed `{source_ref, source_sha256}` objects covering every byte-affecting repo-control generator input not already represented by another digest in this object. |
-| `generated_schema_digests[]` | One closed `{schema_id, schema_sha256}` object for every generated runtime schema used to validate or emit the dependency snapshot, owner inputs, descriptors, registry, integrity object, bindings, admission-validation contracts, state contracts, proof contracts, or packaged conformance artifacts. Documentation traceability and Harness v2 schemas are excluded. |
+| `generated_schema_digests[]` | One closed `{schema_id, schema_sha256}` object for every generated runtime schema used to validate or emit the dependency snapshot, owner inputs, descriptors, registry, integrity object, bindings, admission-validation contracts, state contracts, or proof contracts. Harness schemas are excluded. |
 
 Each `generator_sources[]` item MUST contain exactly `source_ref` and `source_sha256`. `source_ref` MUST be a normalized repository-relative POSIX path of `1..512` UTF-8 bytes; it MUST reject an absolute path, backslash, NUL, empty segment, `.` segment, `..` segment, symlink, non-regular file, or path outside the repository root. `source_sha256` MUST be the lowercase SHA-256 digest of the exact regular-file bytes. The array MUST include every generator source file, template, schema attachment, static mapping, and lock or manifest file whose bytes the generator reads and whose effect is not already bound by `dependency_snapshot_sha256`, `owner_input_registry_sha256`, an owner-fragment digest, a descriptor digest, an implementation-binding digest, or `generated_schema_digests[]`. A generator MUST NOT read an undeclared byte-affecting repo-control file, network resource, clock, random source, host setting, or environment value.
 
-Each `supporting_contract_artifact_digests[]` item MUST contain exactly `artifact_id`, `schema_id`, and `artifact_sha256`. It MUST include every profile configuration contract, Base route-reservation registry, client support registry, client asset-set manifest, physical-state binding, state-presence manifest, state-initialization definition, backup-binding codec, job-kind contract, participant specialization contract, validation-condition registry, contract-closure catalog, conformance manifest, and conformance-manifest index required by the recognized profile set. It MUST NOT contain a deployment-generated profile configuration view, runtime state, Harness verification or catalog input, clause-traceability object, registry-accounting object, owner result, retained result, or other run evidence. Duplicate artifact IDs are invalid.
+Each `supporting_contract_artifact_digests[]` item MUST contain exactly `artifact_id`, `schema_id`, and `artifact_sha256`. It MUST include every profile configuration contract, Base route-reservation registry, client support registry, client asset-set manifest, physical-state binding, state-presence manifest, state-initialization definition, backup-binding codec, job-kind contract, participant specialization contract, and validation-condition registry required by the recognized profile set. It MUST NOT contain a deployment-generated profile configuration view, runtime state, Harness routing input, owner result, retained result, or other run evidence. Duplicate artifact IDs are invalid.
 
-Each `generated_schema_digests[]` item MUST contain exactly `schema_id` and `schema_sha256`. The schema artifact MUST be a closed canonical JSON object serialized under `extension_registry_canonical_json_v1`; `schema_sha256` MUST be the lowercase SHA-256 digest of that canonical byte form. Duplicate schema IDs are invalid. Each array MUST reject duplicates and sort by its first identity member, then digest, using ascending UTF-8 bytes. `owner_contract_manifest_digests[]` MUST sort by manifest ID; `supporting_contract_artifact_digests[]` MUST sort by `artifact_id`, then `schema_id`, then digest; `generator_sources[]` MUST sort by `source_ref`, then `source_sha256`; `generated_schema_digests[]` MUST sort by `schema_id`, then `schema_sha256`. The integrity object MUST contain `1..8388608` bytes including its final LF. It MUST contain no timestamp or environment-dependent path.
+Each `generated_schema_digests[]` item MUST contain exactly `schema_id` and `schema_sha256`. The schema artifact MUST be a closed canonical JSON object serialized under `extension_registry_canonical_json_v1`; `schema_sha256` MUST be the lowercase SHA-256 digest of that canonical byte form. Duplicate schema IDs are invalid. Each array MUST reject duplicates and sort by its first identity member, then digest, using ascending UTF-8 bytes. `supporting_contract_artifact_digests[]` MUST sort by `artifact_id`, then `schema_id`, then digest; `generator_sources[]` MUST sort by `source_ref`, then `source_sha256`; `generated_schema_digests[]` MUST sort by `schema_id`, then `schema_sha256`. The integrity object MUST contain `1..8388608` bytes including its final LF. It MUST contain no timestamp or environment-dependent path.
 
 Generation and drift verification MUST resolve every `generator_sources[]` path inside the repository root and verify its exact regular-file bytes against `source_sha256`. The build MUST package exactly one canonical dependency snapshot, owner-input registry, canonical extension registry, registry-integrity object, set of implementation bindings, and every canonical runtime supporting artifact named by the integrity object. The build MUST bind the expected `extension_registry_integrity_sha256_v1` digest into the application executable or another packaged application artifact whose bytes cannot be changed independently of that executable. The embedding mechanism is not prescribed; the expected digest's immutability and runtime comparison are required.
 
@@ -1121,7 +810,7 @@ Profiles: base
 Verified by: EXT-AC-005, EXT-AC-013, EXT-AC-079
 
 **EXT-REQ-046**
-A generated dependency snapshot, owner-input registry, descriptor, registry, integrity object, schema, manifest index, or accounting object MUST NOT be hand-edited. A source-control change that modifies generated bytes without the corresponding owner-input or generator change and successful regeneration MUST fail drift validation.
+A generated dependency snapshot, owner-input registry, descriptor, registry, integrity object, schema, or runtime registry MUST NOT be hand-edited. A source-control change that modifies generated bytes without the corresponding owner-input or generator change and successful regeneration MUST fail drift validation.
 
 Profiles: base
 Verified by: EXT-AC-004, EXT-AC-072, EXT-AC-076
@@ -1284,7 +973,7 @@ Verified by: EXT-AC-082
 | Canonical state-presence manifest bytes per profile | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical state-initialization definition bytes per profile | `1..1048576` | `extension_registry_limit_exceeded` |
 | Canonical backup-binding codec bytes per binding | `1..1048576` | `extension_registry_limit_exceeded` |
-| Canonical contract-closure catalog bytes per profile | `1..33554432` | `extension_registry_limit_exceeded` |
+
 | Static supporting contract artifacts | `0..65536` | `extension_registry_limit_exceeded` |
 | Canonical validation-condition registry bytes | `1..16777216` | `extension_registry_limit_exceeded` |
 | Canonical descriptor bytes | `1..262144` | `extension_registry_limit_exceeded` |
@@ -1294,9 +983,9 @@ Verified by: EXT-AC-082
 | Canonical implementation-binding bytes | `1..1048576` | `extension_registry_limit_exceeded` |
 | Migration definitions per profile | `0..256` | `extension_migration_path_too_long` |
 | Startup findings per validation phase | `0..4096` | `extension_diagnostic_overflow` |
-| Conformance accounting findings | `0..4096` | `extension_accounting_overflow` |
-| Canonical clause-traceability rows | `0..65536` | `extension_registry_limit_exceeded` |
-| Canonical clause-traceability bytes | `1..67108864` | `extension_registry_limit_exceeded` |
+
+
+
 
 **Table 9-C. Core 04 extension configuration keys**
 
@@ -1817,7 +1506,7 @@ Verified by: EXT-AC-021, EXT-AC-022, EXT-AC-023, EXT-AC-083
 | `transaction_participant` | Duplicate exact `participant_id` | One exact duplicated participant ID | `extension_registry_conflict` |
 | `deployment_admin_panel` | Duplicate exact `panel_key` | One exact duplicated panel key | `extension_registry_conflict` |
 | `authentication_entry` | Duplicate exact `entry_key` | One exact duplicated entry key | `extension_registry_conflict` |
-| `conformance_manifest_id` | Duplicate exact manifest ID | One exact duplicated manifest ID | `extension_registry_conflict` |
+
 | `migration_lineage_id` | Duplicate lineage across different profiles or incompatible declarations | One exact duplicated lineage ID | `extension_registry_conflict` |
 | `migration_id` | Duplicate exact migration ID | One exact duplicated migration ID | `extension_registry_conflict` |
 | `migration_edge` | Duplicate `(profile_id, from_state_version, to_state_version)` | One `<profile_id>:<from_state_version>-><to_state_version>` token | `extension_registry_conflict` |
@@ -1890,7 +1579,7 @@ The registry reserves path namespaces independently of HTTP method. An `exact` r
 
 Every extension `route_family` is treated as `descendants`. `validate_extension_registry_collisions_v1` MUST consume only the digest-bound Base registry imported by EXT-REQ-174 when evaluating `base_route_capture`. Parsing Core prose, reflecting a running router, enumerating handlers, or scanning OpenAPI output MUST NOT create the normative reservation set. Runtime route enumeration MAY provide parity evidence only. Omission behavior: when enumeration is not performed, route-collision admission remains unchanged and uses only the canonical Base registry.
 
-The Base registry MUST cover every current Base public path namespace exactly once and MUST contain no extension-owned namespace. A broad descendant reservation MUST NOT capture an intentionally extensible incident root. Its canonical digest MUST appear in the dependency snapshot, registry-integrity object, and drift accounting.
+The Base registry MUST cover every current Base public path namespace exactly once and MUST contain no extension-owned namespace. A broad descendant reservation MUST NOT capture an intentionally extensible incident root. Its canonical digest MUST appear in the dependency snapshot, registry-integrity object, and drift validation.
 
 Profiles: base
 Verified by: EXT-AC-107
@@ -1926,7 +1615,7 @@ Verified by: EXT-AC-015, EXT-AC-018, EXT-AC-028
 | Version | Purpose | Public discovery | Primary owner |
 | --- | --- | ---: | --- |
 | `contract_major` | Public caller compatibility and dependency compatibility | Yes | Core 00 plus named profile owner |
-| `document_version` | Repository revision and adoption traceability | No | Named profile owner |
+| `document_version` | Human-readable specification revision | No | Named profile owner |
 | `state_schema_version` | Interpretation of extension-owned durable state | No | Named profile owner plus this lifecycle contract |
 | Schema or algorithm version suffix | Canonical member, byte, identity, or algorithm interpretation | Only when the public owner exposes the identifier | Owning schema or algorithm document |
 
@@ -1990,7 +1679,7 @@ Profiles: base
 Verified by: EXT-AC-028, EXT-AC-044, EXT-AC-045, EXT-AC-046, EXT-AC-086
 
 **EXT-REQ-196**
-Every profile owner, Core companion, generated schema, implementation binding, client compatibility registry, and conformance manifest MUST apply the same Table 14-B classification. A conformance check MUST fail when two artifacts classify the same change differently or when a behavior-affecting change lacks the required document, contract, state, schema, or algorithm version action.
+Every profile owner, Core companion, generated schema, implementation binding, and client compatibility registry MUST apply the same Table 14-B classification. Validation MUST fail when two typed artifacts classify the same change differently or when a behavior-affecting change lacks the required specification, contract, state, schema, or algorithm version action.
 
 Profiles: base
 Verified by: EXT-AC-093
@@ -2095,7 +1784,7 @@ The default coordinated action is therefore:
 
 - revise the Network Flow Activity owner to `document_version=2.0.0` and `contract_major=2`;
 - replace its local discovery schema with `cartulary.extension_discovery_item.v1`;
-- update Core 00 recognition, owner fragments, dependency snapshot, descriptors, implementation bindings, client support registry, discovery verification contracts and exact selectors, conformance manifests, and accounting;
+- update Core 00 recognition, owner fragments, dependency snapshot, descriptors, implementation bindings, client support registry, and behavioral verification routing;
 - leave persisted Network Flow state version unchanged unless another owner change independently requires a state migration.
 
 A contract-major-1 correction is valid only when one adopted authority finding proves all of these facts: no released server emitted the local shape; no released compatible client depended on it; no compatible retained Harness v2 evidence or claim treated it as valid; and the correction changes no previously conforming observable implementation. Without that exact finding, contract major `2` is mandatory. A patch or minor document-version increment is insufficient.
@@ -2493,7 +2182,7 @@ Every profile that owns a durable resource or public interface MUST define, in i
 - security, secret, trust, and egress behavior;
 - backup and restore classification;
 - portability and Snapshot/Reporting participation;
-- binary acceptance criteria, active Harness v2 verification IDs, and exact-selector coverage obligations.
+- current behavioral obligations and their primary-owner verification routes.
 
 Profiles: base
 Verified by: EXT-AC-059, EXT-AC-060, EXT-AC-061, EXT-AC-064, EXT-AC-073, EXT-AC-095
@@ -2525,125 +2214,12 @@ Verified by: EXT-AC-061, EXT-AC-062, EXT-AC-063
 Every `extension_versioned` profile owner MUST publish one `cartulary.extension_state_presence_manifest.v1` under §21. The manifest MUST use logical authoritative database-family and object-reference-family IDs, not physical table, bucket, key, or package names. Physical binding of those logical families remains implementation-support manifest data owned by the storage and backup implementation.
 
 **EXT-REQ-200**
-Every claimable profile MUST have one generated `cartulary.extension_contract_closure_catalog.v1` and one matching `contract_closure[]` resolution in its `cartulary.extension_conformance_manifest.v1`. Closure MUST operate at closure-item level, not by asserting that one broad Table 19-A category is complete.
+Each claimable profile MUST define its current behavior completely through adopted specification clauses and typed executable contracts. Reviewers MUST evaluate public interfaces, schemas, omission behavior, bounds, identities, ordering, authorization, concurrency, errors, lifecycle, jobs, migration, client states, security, audit, backup, portability, and reporting participation when applicable. This is a human specification-review obligation, not a generated coverage matrix.
 
-A closure item is closed only by resolved exact owner locators or by one item-specific adopted `not_applicable` reason permitted by that catalog item. Broad prose, a directory path, a heading-only reference, generated code, an implementation test without an owner requirement, a category-level assertion, or a `TODO` placeholder does not close an item.
-
-Profiles: base
-Verified by: EXT-AC-095, EXT-AC-121
-
-**Table 19-A. Required profile contract-closure categories**
-
-| Category | Required owner subject |
-| --- | --- |
-| `public_interfaces` | Complete route, operation, contribution, and shared-owner interface inventory. |
-| `request_response_schemas` | Closed request, response, event, job-result, durable proof, participant-context, and participant-result schemas. |
-| `defaults_omission_null` | Every default, omission, empty, and explicit-`null` case. |
-| `scalar_collection_bounds` | Every scalar, byte, item, nesting, time, and work bound. |
-| `identity_canonicalization_ordering` | Identifiers, normalization, canonical bytes, digests, comparators, and output ordering. |
-| `pagination` | Cursor, ordering, continuation, complete-collection, and no-pagination behavior. |
-| `authorization` | Complete role, scope, current-authorization, and disclosure behavior. |
-| `idempotency_concurrency` | Idempotency identity, replay, optimistic concurrency, serialization, commit, cancellation, and race behavior. |
-| `errors_precedence_retry` | Error schemas, precedence, retryability, timeouts, and partial-result prohibition. |
-| `resource_lifecycle_retention` | States, transitions, delete, restore, retirement, retention, and purge. |
-| `jobs_reconciliation` | Job kinds, terminal results, commit proof, cancellation, crash recovery, and inactive reconciliation. |
-| `state_migration` | State presence, metadata, lineage, definitions, locks, forward migration, final validation, and downgrade rejection. |
-| `client_ui_states` | Workspace availability, loading, progress, empty, error, unsupported, cleanup, and fallback states. |
-| `security_secrets_egress` | Trust, inert input, secret/file/trust-material handling, upload, and external dependency boundaries. |
-| `audit_observability` | Audit occurrences, safe fields, telemetry, and secret-safe diagnostics. |
-| `backup_restore` | Authoritative/derived classification, physical backup inclusion, restore validation, and rebuild behavior. |
-| `portability` | Export/import mode, state-presence matrix, target compatibility, inactive behavior, and errors. |
-| `snapshot_reporting` | Participation mode, inputs, outputs, empty/omit behavior, redaction, retained inactive state, and errors. |
-| `conformance_evidence` | Required observable-branch inventory, active Harness v2 verification-contract identity, exact-selector catalog coverage, and retained-evidence boundary. |
-
-**EXT-REQ-226**
-`cartulary.extension_contract_closure_catalog.v1` MUST contain exactly:
-
-- `schema_id`, exactly `cartulary.extension_contract_closure_catalog.v1`;
-- `profile_id`;
-- `contract_major`;
-- `owner_document_sha256`;
-- `items[]`.
-
-Each `items[]` row MUST contain exactly:
-
-- `closure_item_id`;
-- `category`;
-- `subject_kind`;
-- `subject_id`;
-- `allowed_not_applicable_reason_codes[]`.
-
-`subject_kind` MUST equal `baseline`, `owner_requirement`, `configuration_key`, `public_schema`, `contribution`, `job_kind`, `migration`, `initialization`, `state_family`, `backup_codec`, or `verification_contract`. `category` MUST use Table 19-A. `subject_id` MUST be the exact stable owner identity for the subject and contain `1..512` UTF-8 bytes. `allowed_not_applicable_reason_codes[]` MUST contain `0..8` unique Table 27-A2 tokens sorted by ascending UTF-8 bytes. `[]` means the item can be closed only as `specified`.
-
-`closure_item_id` MUST equal `extclosure:` followed by the first 32 lowercase hexadecimal characters of SHA-256 over the canonical JSON object containing exactly `profile_id`, `contract_major`, `category`, `subject_kind`, and `subject_id`, serialized under `extension_registry_canonical_json_v1` without the final LF.
-
-`derive_extension_contract_closure_catalog_v1` MUST construct the required item set as the union of:
-
-1. every fixed baseline item in Table 19-B;
-2. one `owner_requirement` item for every profile-owner `req` anchor, repeated once for each category in that anchor's `closure_categories[]`;
-3. one `configuration_key` item for every row in the profile configuration contract, under exactly `defaults_omission_null`, `scalar_collection_bounds`, and `security_secrets_egress`;
-4. one `public_schema` item for every declared public schema, under exactly `request_response_schemas`, `defaults_omission_null`, `scalar_collection_bounds`, and `identity_canonicalization_ordering`;
-5. one `contribution` item for every contribution, under exactly the Table 19-C categories for its contribution kind;
-6. one `job_kind` item for every job-kind contract, covering `jobs_reconciliation`, `idempotency_concurrency`, `errors_precedence_retry`, and `resource_lifecycle_retention`;
-7. one `migration` item for every migration definition, covering `state_migration`, `errors_precedence_retry`, and `audit_observability`;
-8. one `initialization` item for the state-initialization definition, covering `state_migration`, `defaults_omission_null`, `scalar_collection_bounds`, and `security_secrets_egress`;
-9. one `state_family` item for every logical state family, covering `resource_lifecycle_retention`, `backup_restore`, and the selected portability and Snapshot/Reporting categories;
-10. one `backup_codec` item for every physical binding codec, covering `backup_restore`, `identity_canonicalization_ordering`, `scalar_collection_bounds`, and `errors_precedence_retry`;
-11. one `verification_contract` item for every required applicable Harness v2 verification ID, covering `conformance_evidence`.
-
-The profile owner MUST NOT remove, rename, merge, suppress, or mark optional a derived item. Duplicate item identities are invalid. Items MUST sort by `category`, `subject_kind`, `subject_id`, then `closure_item_id`, using ascending UTF-8 bytes. The catalog MUST contain `1..65536` items and `1..33554432` canonical bytes. `extension_contract_closure_catalog_sha256_v1` is the lowercase SHA-256 digest of the canonical byte form.
-
-A Core-owned behavior is not `not_applicable`. The manifest MUST close that item as `specified` with the exact Core owner locator. Generated artifacts and implementation bindings are permitted as evidence inputs but MUST NOT be the sole locator proving a behavior. Every row generated from items 2 through 11 MUST have `allowed_not_applicable_reason_codes=[]`; an owner-authored override, omission, or `not_applicable` reason for such a row is invalid. Only the fixed baseline rows in Table 19-B may carry nonempty reason arrays, and each may contain only the exact enumerated reason for that row. An unknown reason token is invalid.
+Completeness MUST NOT be represented by a closure catalog, one-to-one requirement mapping, conformance manifest, checked-in pass status, or count of identifiers. Observable retained behavior is validated by direct production-facing tests or public verification targets. Behavior intentionally removed or moved to a future profile requires the owning specification change before executable coverage is removed.
 
 Profiles: base
-Verified by: EXT-AC-121, EXT-AC-148
-
-**Table 19-B. Fixed baseline closure items**
-
-| Baseline `subject_id` | Category | Required closure question | Permitted not-applicable reason codes |
-| --- | --- | --- | --- |
-| `interface_inventory` | `public_interfaces` | Are every public and shared-owner callable interface and contribution enumerated? | `no_public_interface` |
-| `wire_schema_family` | `request_response_schemas` | Are every request, response, event, job result, proof, participant context, and participant result closed? | `no_public_interface` |
-| `omission_matrix` | `defaults_omission_null` | Are omission, default, empty, explicit-null, and no-value states exhaustive? | None |
-| `resource_limits` | `scalar_collection_bounds` | Are scalar, collection, byte, nesting, time, and work limits exhaustive? | None |
-| `identity_and_bytes` | `identity_canonicalization_ordering` | Are identity, normalization, serialization, digest, and ordering rules deterministic? | None |
-| `collection_continuation` | `pagination` | Is pagination defined, or is every collection explicitly non-pageable? | `no_pagination` |
-| `current_authorization` | `authorization` | Are current authorization, disclosure, and revalidation behavior complete? | `no_public_interface` |
-| `commit_and_replay` | `idempotency_concurrency` | Are replay, serialization, final commit, and cancel/commit races complete? | `read_only_profile`, `no_public_interface` |
-| `error_contract` | `errors_precedence_retry` | Are error shape, selection, retryability, timeout, and partial-result behavior complete? | None |
-| `lifecycle_and_retention` | `resource_lifecycle_retention` | Are lifecycle, deletion, restoration, retirement, retention, and purge complete? | `no_durable_state` |
-| `job_contract` | `jobs_reconciliation` | Are job kind, proof, cancellation, crash, and inactive reconciliation complete? | `no_jobs` |
-| `state_contract` | `state_migration` | Are state presence, metadata, migration, final validation, and downgrade complete? | `no_durable_state` |
-| `client_availability` | `client_ui_states` | Are availability, loading, empty, error, unsupported, cleanup, and fallback complete? | `no_client_surface` |
-| `trust_boundary` | `security_secrets_egress` | Are inert input, secrets, file references, uploads, and egress fail-closed? | None |
-| `safe_evidence` | `audit_observability` | Are audit, telemetry, diagnostic, and redaction fields complete? | None |
-| `recovery_contract` | `backup_restore` | Are physical bindings, backup, restore validation, and rebuild complete? | `no_durable_state` |
-| `portability_contract` | `portability` | Is the selected portability mode and its state matrix complete? | None |
-| `snapshot_reporting_contract` | `snapshot_reporting` | Is the selected Snapshot/Reporting mode and its state matrix complete? | None |
-| `scenario_coverage` | `conformance_evidence` | Are all required boundary and semantic branches mapped to active Harness v2 verification IDs and exact-selector catalog coverage, with execution closure remaining in retained v2 row evidence? | None |
-
-`None` in the final column means `allowed_not_applicable_reason_codes=[]`.
-
-**Table 19-C. Exhaustive contribution closure-category mapping**
-
-| Contribution kind | Exact categories |
-| --- | --- |
-| `http_route_family` | `public_interfaces`, `request_response_schemas`, `authorization`, `errors_precedence_retry`, `security_secrets_egress`, `audit_observability`, `conformance_evidence` |
-| `incident_workspace` | `public_interfaces`, `client_ui_states`, `authorization`, `errors_precedence_retry`, `resource_lifecycle_retention`, `conformance_evidence` |
-| `deployment_admin_panel` | `public_interfaces`, `client_ui_states`, `authorization`, `security_secrets_egress`, `audit_observability`, `conformance_evidence` |
-| `authentication_entry` | `public_interfaces`, `client_ui_states`, `authorization`, `security_secrets_egress`, `audit_observability`, `conformance_evidence` |
-| `import_target` | `public_interfaces`, `request_response_schemas`, `idempotency_concurrency`, `errors_precedence_retry`, `resource_lifecycle_retention`, `security_secrets_egress`, `audit_observability`, `conformance_evidence` |
-| `extension_resource_kind` | `public_interfaces`, `request_response_schemas`, `resource_lifecycle_retention`, `backup_restore`, `portability`, `snapshot_reporting`, `conformance_evidence` |
-| `websocket_invalidation` | `public_interfaces`, `request_response_schemas`, `authorization`, `identity_canonicalization_ordering`, `errors_precedence_retry`, `conformance_evidence` |
-| `job_resource_ref_kind` | `public_interfaces`, `request_response_schemas`, `jobs_reconciliation`, `resource_lifecycle_retention`, `conformance_evidence` |
-| `cross_owner_transaction_participant` | `request_response_schemas`, `scalar_collection_bounds`, `identity_canonicalization_ordering`, `idempotency_concurrency`, `errors_precedence_retry`, `security_secrets_egress`, `audit_observability`, `conformance_evidence` |
-| `snapshot_reporting_participant` | `request_response_schemas`, `scalar_collection_bounds`, `identity_canonicalization_ordering`, `authorization`, `errors_precedence_retry`, `security_secrets_egress`, `snapshot_reporting`, `conformance_evidence` |
-| `incident_portability_participant` | `request_response_schemas`, `scalar_collection_bounds`, `identity_canonicalization_ordering`, `authorization`, `idempotency_concurrency`, `errors_precedence_retry`, `security_secrets_egress`, `portability`, `conformance_evidence` |
-| `backup_restore_participant` | `request_response_schemas`, `scalar_collection_bounds`, `identity_canonicalization_ordering`, `errors_precedence_retry`, `state_migration`, `security_secrets_egress`, `backup_restore`, `conformance_evidence` |
-
-The mapping is closed. Adding a contribution kind or changing its exact category set requires an amendment to Tables 16-A and 19-C in the same coordinated owner revision; a generator or owner fragment MUST NOT add, remove, or infer categories.
-
-# 20. Cross-owner transaction semantics
+Verified by: behavior tests and owner review
 
 **EXT-REQ-115**
 An operation that commits extension state together with Core, import, job, audit, idempotency, indicator, release, portability, object-reference, or other owner state MUST define one final atomic database commit boundary.
@@ -2706,7 +2282,7 @@ Every cross-owner final commit MUST use the shared typed transaction-participant
 - `owned_state_family_ids[]`;
 - `error_contract_ref`.
 
-The participant ID and owner profile MUST equal the contribution. Schema and algorithm IDs MUST resolve through the owner manifest and implementation binding. `serialization_key_kinds[]` MUST contain `1..32` unique profile-prefixed or Core-owner-prefixed key-kind tokens sorted by UTF-8 bytes. `owned_state_family_ids[]` MUST contain `1..64` unique logical state-family IDs sorted by UTF-8 bytes. `error_contract_ref` MUST resolve to the complete participant error mapping. The canonical contract MUST contain `1..1048576` bytes and have digest `extension_participant_contract_sha256_v1`.
+The participant ID and owner profile MUST equal the contribution. Schema and algorithm IDs MUST resolve through typed registries and the implementation binding. `serialization_key_kinds[]` MUST contain `1..32` unique profile-prefixed or Core-owner-prefixed key-kind tokens sorted by UTF-8 bytes. `owned_state_family_ids[]` MUST contain `1..64` unique logical state-family IDs sorted by UTF-8 bytes. `error_contract_ref` MUST resolve to the complete participant error mapping. The canonical contract MUST contain `1..1048576` bytes and have digest `extension_participant_contract_sha256_v1`.
 
 The resolved participant set for one transaction MUST contain `1..16384` participants. Zero participants and participant `16385` MUST fail before input construction or transaction creation. There is no unbounded or empty legacy mode.
 
@@ -2931,7 +2507,7 @@ State presence is true exactly when at least one authoritative member exists in 
 
 When no authoritative member exists, `state_present=false`. Pending or committed generic metadata with `state_present=false` is valid only when `empty_state_policy='allowed'`; with `forbidden`, initialization and final validation MUST produce at least one authoritative member before metadata may commit. `allowed` does not create a synthetic member and does not make state present. Network Flow Activity MUST declare `empty_state_policy='allowed'`.
 
-The manifest MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_presence_manifest_sha256_v1`. Its schema, canonical bytes, digest, and identity MUST appear in generated-schema accounting, registry integrity, implementation-binding parity, the contract-closure catalog, and conformance accounting.
+The state-presence manifest MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_presence_manifest_sha256_v1`. Its schema, canonical bytes, digest, and identity MUST appear in registry integrity and implementation-binding parity.
 
 Profiles: base
 Verified by: EXT-AC-086, EXT-AC-132, EXT-AC-142
@@ -3227,9 +2803,9 @@ Every durable extension job kind MUST be declared by one closed canonical `cartu
 - `cancellation_policy`;
 - `max_proof_bytes`.
 
-`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current owner manifest and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same boundaries; `none` requires `idempotency_identity_schema_id=null`. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
+`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current typed schema registry and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same typed boundaries; `none` requires `idempotency_identity_schema_id=null`. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
 
-`resource_ref_contracts[]` MUST contain `0..64` rows. Each row MUST contain exactly `resource_ref_kind`, `resource_id_schema_id`, and `max_refs`. `resource_ref_kind` MUST satisfy Table 4-B. `resource_id_schema_id` MUST be a public schema ID that resolves through the current owner manifest and implementation binding. Rows MUST reject duplicate kinds and sort by ascending UTF-8 bytes of `resource_ref_kind`. `max_refs` MUST be a JSON integer in `1..1024`; a kind that permits no references MUST be omitted rather than declared with zero. The sum across rows MUST NOT exceed `1024`. `max_proof_bytes` MUST be a JSON integer in `1..1048576`.
+`resource_ref_contracts[]` MUST contain `0..64` rows. Each row MUST contain exactly `resource_ref_kind`, `resource_id_schema_id`, and `max_refs`. `resource_ref_kind` MUST satisfy Table 4-B. `resource_id_schema_id` MUST be a public schema ID that resolves through the current typed schema registry and implementation binding. Rows MUST reject duplicate kinds and sort by ascending UTF-8 bytes of `resource_ref_kind`. `max_refs` MUST be a JSON integer in `1..1024`; a kind that permits no references MUST be omitted rather than declared with zero. The sum across rows MUST NOT exceed `1024`. `max_proof_bytes` MUST be a JSON integer in `1..1048576`.
 
 A proof-required job MUST have at most one immutable proof, and its committed terminal success MUST have exactly one immutable proof. Proof replacement and proof deletion are forbidden while the job or its idempotency outcome is retained. The proof's total nesting depth MUST NOT exceed `32`; resource references MUST sort by `resource_ref_kind`, then canonical resource-ID bytes. The job-kind contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_job_kind_contract_sha256_v1`. Reconciliation MUST determine proof requiredness only from this digest-bound contract and MUST reject a proof present under `forbidden` or absent under a committed required success.
 
@@ -3422,7 +2998,7 @@ Each `bindings[]` row MUST contain exactly:
 
 `physical_ref` MUST be an opaque, non-secret implementation-local storage selector containing `1..512` UTF-8 bytes. It MUST contain no credential, endpoint host, bucket name, object key, database name, absolute filesystem path, query, fragment, C0 or C1 control, or incident value. It MUST NOT appear in public responses, ordinary diagnostics, telemetry, portability payloads, profile descriptors, or conformance findings. Its resolution to actual implementation storage is build-time implementation data and MUST preserve the exact one-to-one binding checks in this requirement.
 
-`backup_codec_id` MUST satisfy the public schema-ID scalar and identify the exact EXT-REQ-235 codec for the row. `backup_codec_sha256` MUST equal that codec's `extension_backup_binding_codec_sha256_v1` digest. `post_restore_validation_algorithm_id` MUST equal the exact shared storage-owner algorithm in Table 23-E for the row's `storage_kind`. It MUST resolve through the Core backup/restore owner manifest and packaged Core implementation binding, not through profile executable code. `rebuild_algorithm_id` MUST be non-null exactly when `state_class='derived'` and `backup_inclusion='excluded_rebuildable'`; otherwise it MUST be `null`. A rebuild algorithm MUST resolve through the profile owner manifest and implementation binding. Any rebuild execution MUST occur only after the profile is claimed and its compatibility and final-state admission have succeeded.
+`backup_codec_id` MUST satisfy the public schema-ID scalar and identify the exact EXT-REQ-235 codec for the row. `backup_codec_sha256` MUST equal that codec's `extension_backup_binding_codec_sha256_v1` digest. `post_restore_validation_algorithm_id` MUST equal the exact shared storage-owner algorithm in Table 23-E for the row's `storage_kind`. It MUST resolve through the Core backup/restore algorithm registry and packaged Core implementation binding, not through profile executable code. `rebuild_algorithm_id` MUST be non-null exactly when `state_class='derived'` and `backup_inclusion='excluded_rebuildable'`; otherwise it MUST be `null`. A rebuild algorithm MUST resolve through the typed algorithm registry and profile implementation binding. Any rebuild execution MUST occur only after the profile is claimed and its compatibility and final-state admission have succeeded.
 
 `bindings[]` MUST contain `1..4096` rows, reject duplicate `binding_id`, `logical_family_id`, and `physical_ref` values, and sort by `restore_order_group`, then `logical_family_id`, then `binding_id`, using ascending numeric or UTF-8 order as applicable. Every authoritative logical family in the state-presence manifest MUST have exactly one required backup binding. Every physical authoritative store owned by the implementation MUST appear exactly once. Derived state never affects state presence and MUST NOT be a backup source for authoritative state.
 
@@ -3532,7 +3108,7 @@ Every `incident_portability_participant`, `snapshot_reporting_participant`, and 
 - `max_output_bytes`;
 - `max_items`.
 
-`operations[]` MUST reject duplicate `operation_kind` values and sort by ascending UTF-8 bytes of `operation_kind`; array position has no other semantic meaning, and the specialization digest uses that order. The operation set and each `result_schema_id` MUST equal Table 23-D for the participant kind and operation. `shared_context_schema_id` is the complete serialized input schema for every operation of that specialization; an operation MUST NOT extend the shared context with profile-local members. Algorithm, result, and output schema IDs MUST resolve through current owner manifests and implementation bindings. `authorization_contract_ref`, `error_contract_ref`, and every non-null `redaction_contract_ref` MUST resolve to exact adopted owner requirements. `redaction_contract_ref` MUST be non-null only for `snapshot_reporting.emit`; it MUST be `null` for every other current operation.
+`operations[]` MUST reject duplicate `operation_kind` values and sort by ascending UTF-8 bytes of `operation_kind`; array position has no other semantic meaning, and the specialization digest uses that order. The operation set and each `result_schema_id` MUST equal Table 23-D for the participant kind and operation. `shared_context_schema_id` is the complete serialized input schema for every operation of that specialization; an operation MUST NOT extend the shared context with profile-local members. Algorithm, result, and output schema IDs MUST resolve through current typed registries and implementation bindings. Authorization, redaction, and error behavior remains normative in the applicable product specifications and MUST be exercised directly; participant contracts MUST NOT carry requirement identifiers or synthetic provenance references.
 
 `state_family_ids[]` MUST contain `0..64` unique logical state-family IDs sorted by UTF-8 bytes. Portability, Snapshot/Reporting, `backup_enumerate`, and `restore_validate` IDs MUST resolve in the authoritative state-presence manifest. `restore_rebuild` IDs MUST resolve only to derived `excluded_rebuildable` physical-binding rows and MUST NOT resolve in the state-presence manifest. `max_input_bytes` and `max_output_bytes` MUST be JSON integers in `1..67108864` and `0..67108864`, respectively; `max_items` MUST be a JSON integer in `0..1048576`. `max_input_bytes` limits the aggregate canonical bytes of the shared context plus every state, snapshot, portability-payload, or physical-binding item made available through the scoped input accessor. `max_items` independently limits both the selected input item count and emitted output item count. `max_output_bytes=0` means the operation permits only the generic empty or omit result and no referenced payload or output bytes. `max_items=0` means the scoped input accessor exposes no selected item and the result emits no item. `ordering_algorithm_id` is required even when the output can contain at most one item; in that case it MUST resolve to an exact identity-order algorithm.
 
@@ -3935,15 +3511,15 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `extension_state_validation_failed` | Fresh, current-version, migrated, or restored profile state failed the final state validator. |
 | `extension_validation_result_invalid` | An owner algorithm returned malformed validation-result bytes or a structurally invalid result. |
 | `extension_diagnostic_overflow` | A validation phase or valid findings array would produce more than 4096 findings. |
-| `extension_accounting_overflow` | Conformance accounting would produce more than 4096 findings. |
+
 | `extension_integrity_failure` | Fatal runtime integrity condition in EXT-REQ-134. |
 
 **Table 26-A1. Closed diagnostic detail token registries**
 
 | Detail member | Closed values or derivation |
 | --- | --- |
-| `artifact_kind` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `profile_configuration_contract`, `profile_configuration_view`, `descriptor_source`, `descriptor`, `registry`, `registry_integrity`, `implementation_binding`, `client_support_registry`, `base_route_reservation_registry`, `physical_state_binding`, `state_presence_manifest`, `state_initialization_definition`, `backup_binding_codec`, `job_kind_contract`, `participant_contract`, `validation_condition_registry`, `contract_closure_catalog`, `admission_validation`, `admission_validation_context`, `admission_validation_result`, `generated_schema`, `generator_source`, `conformance_manifest`, `manifest_index`, `accounting`, or `clause_traceability`. |
-| `phase` | Exactly `dependency_snapshot`, `owner_contract_manifest`, `owner_fragment`, `owner_input_registry`, `configuration_contract`, `descriptor_materialization`, `registry_generation`, `registry_collision`, `claim_configuration`, `process_lease`, `implementation_binding`, `dependency_validation`, `profile_preflight`, `migration`, `state_validation`, `post_migration_validation`, `dependency_probe`, `transaction`, `backup_restore`, `inactive_reconciliation`, `staged_object_cleanup`, `publication`, `normative_source_lint`, or `conformance_accounting`. |
+| `artifact_kind` | Exactly one current typed Extensions artifact family: dependency snapshot, owner fragment/input, configuration, descriptor/registry/integrity, binding, client support, route reservation, state, backup codec, job, participant, validation, generated schema, or generator source. |
+| `phase` | Exactly one current execution phase: dependency/owner input, configuration, descriptor/registry generation, collision admission, claim, process lease, binding/dependency validation, preflight, migration/state validation, probe, transaction, backup/restore, reconciliation, cleanup, or publication. |
 | `collision_class` | Exactly one `collision_class` token from Table 13-A; owner-input completeness and unrecognized-profile failures are not collision classes. |
 | Migration-timeout `operation_kind` | Exactly `migration_step` or `profile_migration`. |
 | `fatal_condition` | Exactly `indeterminate_database_commit`, `in_memory_contract_digest_mismatch`, `migration_ledger_state_mismatch`, `application_process_lease_lost`, or `staged_object_publication_mismatch`. |
@@ -3989,10 +3565,10 @@ Verified by: EXT-AC-069, EXT-AC-084
 | `extension_state_validation_failed` | `Extension state failed final validation.` | `profile_id`, `phase`, `algorithm_id`. |
 | `extension_validation_result_invalid` | `An extension validation algorithm returned an invalid result.` | `profile_id`, `phase`, `algorithm_id`, `actual`; `profile_id` and `algorithm_id` are nullable; `actual` MUST use a safe formatter token from Table 26-D. |
 | `extension_diagnostic_overflow` | `Extension validation produced too many findings.` | `phase`, `limit`, `actual`. |
-| `extension_accounting_overflow` | `Extension conformance accounting produced too many findings.` | `phase`, `limit`, `actual`. |
+
 | `extension_integrity_failure` | `The process detected an extension integrity failure and is shutting down.` | `fatal_condition`. |
 
-All identifiers and digests in details MUST satisfy their owning scalar contracts. `artifact_kind`, `phase`, `collision_class`, migration-timeout `operation_kind`, and `fatal_condition` MUST use Table 26-A1. `safe_ref` MUST satisfy EXT-REQ-233. Nullable `expected` and `actual` under `extension_registry_invalid` MUST each be either `null` or a non-secret UTF-8 string of `0..512` bytes. `conflicting_profile_ids[]` MUST contain every recognized profile ID whose normalized declaration participates in the collision, no other profile ID, and `0..256` unique values sorted by ascending UTF-8 bytes; it MUST be `[]` only when the collision is not attributable to a recognized profile. `conflicting_tokens[]` MUST contain `1..256` unique strings derived exactly by Table 13-A and sorted by ascending UTF-8 bytes. `duplicate_count` MUST equal the actual normalized declaration or edge count as a JSON integer in `2..2147483647` when the Table 13-A predicate requires two or more declarations or duplicate edges. It MUST be `null` exactly for `route_family_overlap`, `base_route_capture`, `dependency_self`, and `dependency_cycle`. `timed_out` is Boolean. `timeout_seconds` MUST equal the effective Table 9-C value. For `extension_admission_validation_failed`, diagnostic `phase` MUST be `profile_preflight` when context phase is `preflight` and `post_migration_validation` when context phase is `post_migration`. For `extension_dependency_probe_failed`, diagnostic `phase` is not a details member and the startup phase is `dependency_probe`. `algorithm_id` and `probe_id` MUST satisfy their owning identifier contracts. `limit` and numeric `actual` values are non-negative JSON integers. `timeout_seconds` for `extension_application_process_active`, `extension_publication_failed`, and `extension_transaction_timeout` MUST equal the effective Table 9-C value for the applicable operation. For diagnostic or accounting overflow, `limit` MUST equal `4096` and `actual` MUST equal `4097`, representing the first finding beyond the permitted set. A string-valued `actual` MUST be one exact safe formatter output admitted by Table 26-D.
+All identifiers and digests in details MUST satisfy their owning scalar contracts. `artifact_kind`, `phase`, `collision_class`, migration-timeout `operation_kind`, and `fatal_condition` MUST use Table 26-A1. `safe_ref` MUST satisfy EXT-REQ-233. Nullable `expected` and `actual` under `extension_registry_invalid` MUST each be either `null` or a non-secret UTF-8 string of `0..512` bytes. `conflicting_profile_ids[]` MUST contain every recognized profile ID whose normalized declaration participates in the collision, no other profile ID, and `0..256` unique values sorted by ascending UTF-8 bytes; it MUST be `[]` only when the collision is not attributable to a recognized profile. `conflicting_tokens[]` MUST contain `1..256` unique strings derived exactly by Table 13-A and sorted by ascending UTF-8 bytes. `duplicate_count` MUST equal the actual normalized declaration or edge count as a JSON integer in `2..2147483647` when the Table 13-A predicate requires two or more declarations or duplicate edges. It MUST be `null` exactly for `route_family_overlap`, `base_route_capture`, `dependency_self`, and `dependency_cycle`. `timed_out` is Boolean. `timeout_seconds` MUST equal the effective Table 9-C value. For `extension_admission_validation_failed`, diagnostic `phase` MUST be `profile_preflight` when context phase is `preflight` and `post_migration_validation` when context phase is `post_migration`. For `extension_dependency_probe_failed`, diagnostic `phase` is not a details member and the startup phase is `dependency_probe`. `algorithm_id` and `probe_id` MUST satisfy their owning identifier contracts. `limit` and numeric `actual` values are non-negative JSON integers. `timeout_seconds` for `extension_application_process_active`, `extension_publication_failed`, and `extension_transaction_timeout` MUST equal the effective Table 9-C value for the applicable operation. For diagnostic overflow, `limit` MUST equal `4096` and `actual` MUST equal `4097`, representing the first finding beyond the permitted set. A string-valued `actual` MUST be one exact safe formatter output admitted by Table 26-D.
 
 **EXT-REQ-161**
 Diagnostics MUST NOT include raw secret values, transformed secret values, incident content, provider assertions, access tokens, table names, column names, SQL, object keys, bucket names, database names, raw endpoint credentials, source cells, file bytes, raw cryptographic failure details, or absolute filesystem paths. A `safe_ref` MUST be a non-secret `owner_locator_v1` or `extension_safe_logical_ref_v1`. Malformed packaged bytes use the package-slot derivation in EXT-REQ-233.
@@ -4046,7 +3622,7 @@ Every validation owner MUST author one closed `cartulary.extension_validation_su
 Coordinated generation MUST produce one canonical `cartulary.extension_validation_condition_registry.v1` object solely from those declarations and the digest-bound owner inputs. It MUST contain exactly:
 
 - `schema_id`, exactly `cartulary.extension_validation_condition_registry.v1`;
-- `conditions[]`, containing exactly one row for every invalid condition reachable through dependency and owner-input derivation, descriptor materialization, registry generation, startup admission, migration, participant validation, runtime contract validation, or conformance accounting.
+- `conditions[]`, containing exactly one row for every invalid condition reachable through dependency and owner-input derivation, descriptor materialization, registry generation, startup admission, migration, participant validation, runtime contract validation.
 
 Each `conditions[]` row MUST contain exactly:
 
@@ -4065,7 +3641,7 @@ Each `conditions[]` row MUST contain exactly:
 
 Rows MUST sort by `phase`, then `condition_id`, using ascending UTF-8 bytes. The array MUST contain `1..16384` rows. The canonical object MUST contain `1..16777216` bytes and serialize under `extension_registry_canonical_json_v1`. `extension_validation_condition_registry_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
 
-The registry MUST include exact rows for transaction deadline expiry with proven absent commit using `extension_transaction_timeout`, unsupported backup codec selection using `backup_binding_codec_unsupported`, and staged-object cleanup authorization or storage-configuration failure using `extension_staged_object_cleanup_dependency_failed`. Their paths, formatters, multiplicity, secrecy, and owner locators MUST match EXT-REQ-219, EXT-REQ-235, and Table 20-B; omission of any row is invalid.
+The registry MUST include exact rows for transaction deadline expiry with proven absent commit using `extension_transaction_timeout`, unsupported backup codec selection using `backup_binding_codec_unsupported`, and staged-object cleanup authorization or storage-configuration failure using `extension_staged_object_cleanup_dependency_failed`. Their paths, formatters, multiplicity and secrecy MUST match EXT-REQ-219, EXT-REQ-235, and Table 20-B; omission of any row is invalid.
 
 An implementation MUST NOT infer a diagnostic path, reason code, expected value, actual value, multiplicity, or secret policy from local validation-library behavior. Every schema constraint and procedural decision row MUST resolve to exactly one registry condition, and every registry condition MUST be reachable from exactly one declared surface. A condition absent from the canonical registry is a specification or generator defect and MUST fail conformance rather than produce an implementation-selected diagnostic. A validator that attempts to emit an unregistered condition MUST terminate that validation surface with `extension_validation_result_invalid`; it MUST NOT expose the invented condition or library error.
 
@@ -4136,330 +3712,34 @@ Invalid requested-profile admission MUST cause process exit code `2` and MUST st
 Profiles: base
 Verified by: EXT-AC-013, EXT-AC-020, EXT-AC-090
 
-# 27. Conformance contracts and Harness v2 evidence
+# 27. Behavioral verification and evidence
 
 **EXT-REQ-164**
-Coordinated adoption MUST provide every repo-control artifact and Harness v2 input in Table 27-A. Each extension artifact MUST be generated or authored by its named owner and included in drift accounting. Harness inputs and retained artifacts MUST validate under `cartulary.testing_harness.current.v2`. Physical file paths, Make targets, result roots, run IDs, scheduling, fixture lifecycle, cleanup, and retained-run metadata remain owned exclusively by the Testing Harness or its authored implementation-support manifests.
+The Testing Harness NLSpec owns verification routing, runner selection, execution profiles, owner slices, retained evidence, and auditing. Extensions owns only the behavior and typed operational inputs that those tests exercise. Verification artifacts MUST identify what ran; they MUST NOT restate requirements, acceptance criteria, document status, document hashes, or completeness claims.
+
+The Extensions generator MUST produce dependency, owner-input, descriptor, registry, integrity, binding, state, backup, participant, validation-condition, client-support, job, and generated-schema artifacts required by current runtime behavior. It MUST NOT generate requirement coverage, clause traceability, contract closure, conformance manifests, manifest indexes, or registry accounting.
+
+Every current behavior retained by this NLSpec MUST be exercised through a real production-facing test or public target. A row that only proves an ID, mapping, status, count, or checked-in declaration is not evidence. Moved behavior remains routed through its real primary owner. Planned behavior is not executable evidence.
+
+Canonical artifact validation MUST preserve closed shapes, bounds, canonical bytes, digest checks for real machine artifacts, deterministic ordering, containment, symlink rejection, redaction, and failure invariance. Markdown content and arrangement MUST have no effect on generation, routing, runtime admission, or evidence identity.
 
 Profiles: base
-Verified by: EXT-AC-004, EXT-AC-072, EXT-AC-073, EXT-AC-076, EXT-AC-081
-
-**Table 27-A. Required extension artifacts and Harness v2 inputs**
-
-| Artifact or input | Required owner or producer |
-| --- | --- |
-| `cartulary.extension_dependency_declaration_set.v1` | Extensions specification owner |
-| `cartulary.extension_dependency_snapshot.v1` | Extensions generator from adopted dependencies |
-| `cartulary.extension_owner_contract_manifest.v1` schema and one manifest per dependency owner document | Named owner plus coordinated adoption tooling |
-| `cartulary.extension_owner_fragment.v1` schema and zero or more exactly adopted fragments per contributing owner | Named owner documents |
-| `cartulary.extension_owner_input_registry.v1` | Extensions generator |
-| `cartulary.extension_owner_fact_identity.v1` schema and derivation vectors | Extensions Subsystem |
-| `cartulary.extension_profile_configuration_contract.v1` schema and one contract per claimable profile | Extensions Subsystem shape; named profile owner content |
-| `cartulary.extension_profile_configuration_view.v1` schema | Core 04 plus Extensions Subsystem |
-| `cartulary.extension_profile_descriptor_source.v1` schema | Extensions Subsystem; instances are ephemeral under EXT-REQ-209 |
-| `cartulary.extension_profile_descriptor.v1` schema and one descriptor per recognized profile | Extensions generator |
-| `cartulary.extension_profile_registry.v1` schema and canonical registry | Extensions generator |
-| `cartulary.extension_registry_integrity.v1` | Extensions generator and build packaging |
-| `cartulary.base_route_reservation_registry.v1` | Core 01 |
-| `cartulary.client_extension_support_registry.v1` | Packaged client build |
-| `cartulary.client_asset_set_manifest.v1` | Packaged client build |
-| `cartulary.extension_workspace_availability.v1` | Core 01 plus Extensions Subsystem |
-| `cartulary.extension_publication_plan.v1` and its six canonical component schemas | Extensions Subsystem plus Core 04 startup orchestration |
-| `cartulary.extension_implementation_binding.v1` schema and packaged bindings | Build system and packaged implementation |
-| `cartulary.extension_admission_validation.v1` schema | Extensions Subsystem |
-| `cartulary.extension_admission_validation_context.v1` schema | Extensions Subsystem |
-| `cartulary.extension_admission_validation_result.v1` schema | Extensions Subsystem |
-| `cartulary.extension_migration_context.v1` and migration apply/validation/final-state result schemas | Extensions Subsystem |
-| `cartulary.extension_state_presence_manifest.v1`, canonical digest artifacts, and golden vectors | Each `extension_versioned` profile owner plus Extensions generator |
-| `cartulary.extension_state_initialization_definition.v1`, context, and result schemas | Extensions Subsystem shape; each `extension_versioned` profile owner supplies one definition |
-| `cartulary.extension_physical_state_binding.v1` | Build system plus each durable profile owner |
-| `cartulary.extension_backup_binding_codec.v1` and codec/digest vectors | Build system, backup owner, and each durable profile owner |
-| `cartulary.extension_state_metadata.v1` logical schema | Extensions Subsystem |
-| `cartulary.extension_migration_ledger_entry.v1` logical schema | Extensions Subsystem |
-| `cartulary.extension_job_kind_contract.v1` and one contract per declared job kind | Extensions Subsystem shape; named profile owner content |
-| `cartulary.extension_job_commit_proof.v1` and cancellation-observation schemas | Core 01 common jobs plus Extensions Subsystem |
-| `cartulary.extension_transaction_participant_contract.v1`, shared context/result schemas, and `cartulary.extension_transaction_participant_finding.v1` | Core 01 plus Extensions Subsystem |
-| `cartulary.extension_participant_specialization.v1` plus distinct portability export/import-preparation, Snapshot/Reporting, and backup/restore participant context/result schemas and specialization contracts | Applicable shared and profile owners |
-| `cartulary.extension_state_blocking_predicate.v1` | Extensions Subsystem plus applicable profile owner |
-| `cartulary.extension_staged_object.v1` logical schema | Core 01 object-storage owner plus Extensions Subsystem |
-| `cartulary.extension_validation_surface_declaration.v1` per validation owner | Each validation owner |
-| `cartulary.extension_validation_condition_registry.v1` | Extensions generator plus every validation owner |
-| `cartulary.extension_startup_finding.v1` | Core 04 plus Extensions Subsystem |
-| `cartulary.extension_contract_closure_catalog.v1` per claimable profile | Extensions generator |
-| `cartulary.extension_conformance_manifest.v1` and `cartulary.extension_conformance_manifest_index.v1` | Named profile owners plus Extensions generator |
-| `cartulary.extension_registry_accounting.v1` | Extensions generator from static contract inputs |
-| `cartulary.extension_traceability_mapping_source.v1` | Extensions specification owner |
-| `cartulary.extension_clause_traceability.v1` | Specification owner plus documentation-generation tooling |
-| Canonicalization and normative-source-lint golden vectors | Extensions Subsystem plus documentation-generation tooling |
-| `extension_safe_logical_ref_v1` schema and golden vectors | Extensions Subsystem |
-| `cartulary.verification_registry.v1` and owner `cartulary.verification_contract.v1` inputs | Harness v2 verification owners |
-| `cartulary.test_owner_registry.v1` and `cartulary.test_family_manifest.v1` inputs | Harness v2 test owners |
-| `cartulary.test_runner_registry.v1` and authored runtime/resource/fixture profiles | Testing Harness v2 |
-| `cartulary.test_slice_plan.v2` and `cartulary.test_slice_scheduler_summary.v1` | Harness v2 owner-slice planner and scheduler |
-| `cartulary.test_evidence_accounting.v1` and `cartulary.test_owner_summary.v1` | Harness v2 owner-aware target finalizers |
-| `cartulary.test_evidence_root_manifest.v1` and `cartulary.test_evidence_audit_summary.v1` | Harness v2 evidence-audit caller and auditor |
-
-The four removed extension-fixture schema families have no successor alias. Product coverage is represented by owner requirements and acceptance criteria, routed through v2 verification IDs and exact catalog selectors. Harness v2 artifacts prove execution only; they MUST NOT enter the extension registry, descriptor, runtime admission set, or owner-fragment authority chain.
-
-**EXT-REQ-183**
-`cartulary.extension_conformance_manifest.v1`, `cartulary.extension_conformance_manifest_index.v1`, and `cartulary.extension_registry_accounting.v1` MUST satisfy Tables 27-A1 through 27-A6.
-
-Profiles: base
-Verified by: EXT-AC-081, EXT-AC-095, EXT-AC-121, EXT-AC-122
-
-**Table 27-A1. `cartulary.extension_conformance_manifest.v1`**
-
-| Member | Type and required rule |
-| --- | --- |
-| `schema_id` | Exactly `cartulary.extension_conformance_manifest.v1`. |
-| `conformance_manifest_id` | Exactly `<profile_id>.conformance.v<contract_major>`. |
-| `profile_id` | Exact claimable profile ID. |
-| `contract_major` | Exact positive current contract major. |
-| `descriptor_sha256` | Exact `extension_descriptor_sha256_v1` digest. |
-| `contract_closure_catalog_sha256` | Exact `extension_contract_closure_catalog_sha256_v1` digest. |
-| `owner_contract_refs[]` | `1..4096` unique owner locators, sorted by UTF-8 bytes. |
-| `requirement_ids[]` | `1..4096` unique ASCII owner requirement IDs of `1..128` bytes, sorted by numeric suffix where the family has one, then UTF-8 bytes. |
-| `acceptance_criterion_ids[]` | `1..4096` unique ASCII owner acceptance IDs of `1..128` bytes, sorted by numeric suffix where the family has one, then UTF-8 bytes. |
-| `verification_ids[]` | `1..4096` unique Harness v2 verification IDs, sorted by ascending ASCII bytes. |
-| `public_schema_ids[]` | Exact canonical descriptor array. |
-| `contribution_ids[]` | Exact descriptor contribution IDs, sorted by UTF-8 bytes. |
-| `contract_closure[]` | Exactly one resolution row per catalog item, ordered by matching closure-catalog item order. |
-
-`verification_ids[]` MUST equal the complete set of active v2 verification contracts that route the manifest profile's extension-owned postconditions and imported shared-owner postconditions. Every ID MUST satisfy the Harness v2 grammar, resolve exactly once through the current verification registry, and use `profile='base'` or `profile='extension.<profile_id>'` as allocated by its behavior owner. A support or claim-publication verification MUST NOT appear in this product conformance set. Catalog row IDs, runner selectors, Make targets, runtime profiles, result roots, and retained artifacts MUST NOT appear in the manifest.
-
-`owner_contract_refs[]` MUST equal the complete union of every owner locator that supplied a descriptor fact, every locator in a `contract_closure[]` row with `status='specified'`, and every locator required by the profile's configuration, migration, job, state, participant, public-schema, and verification obligations.
-
-The manifest MUST contain no run timestamp, run ID, result root, manually asserted pass/fail claim, secret, incident value, implementation package path, physical storage name, absolute path, catalog row ID, or selector. It MUST serialize under `extension_registry_canonical_json_v1`. `extension_conformance_manifest_sha256_v1` is the lowercase SHA-256 digest of that canonical byte form.
-
-Each `contract_closure[]` row MUST contain exactly `closure_item_id`, `category`, `status`, `owner_contract_refs[]`, and `not_applicable_reason_code`. `status` MUST equal `specified` or `not_applicable`. A specified row requires `1..32` resolved owner locators and a null reason. A not-applicable row requires an empty locator array and one permitted Table 27-A2 reason. A Core-owned behavior MUST use `specified` with the Core locator.
-
-**Table 27-A2. Closed contract-closure not-applicable reasons**
-
-| Reason code | Required meaning |
-| --- | --- |
-| `no_public_interface` | The profile exposes no public or shared-owner callable interface for the addressed item. |
-| `read_only_profile` | The addressed item concerns mutation, idempotency, commit, or concurrency and the profile is strictly read-only. |
-| `no_durable_state` | The profile owns no durable state for the addressed item. |
-| `no_pagination` | The addressed collection is explicitly non-pageable or no addressed collection exists. |
-| `no_jobs` | The profile owns and produces no durable job for the addressed item. |
-| `no_client_surface` | The profile exposes no browser workspace or client action for the addressed item. |
-| `no_external_egress` | `egress_mode='none'`, no external dependency probe exists, and the addressed item is egress-only. |
-| `no_portability_participation` | The selected portability mode has no participant, and the addressed item is participant-specific rather than mode semantics. |
-| `no_snapshot_reporting_participation` | `snapshot_reporting_mode='no_participation'`, and the addressed item is participant-specific rather than mode semantics. |
-| `no_cross_owner_transaction` | The addressed item can never commit state with another owner. |
-| `no_profile_configuration` | The profile configuration contract contains zero profile-local keys other than the claim key. |
-| `no_migrations` | The profile owns no extension-versioned state or its current lineage requires zero migration definitions. |
-| `no_backup_participation` | The profile owns no durable state and therefore no backup/restore participant. |
-| `no_runtime_worker` | The profile defines no worker kind and no background execution. |
-
-**Table 27-A3. `cartulary.extension_conformance_manifest_index.v1`**
-
-| Member | Required rule |
-| --- | --- |
-| `schema_id` | Exactly `cartulary.extension_conformance_manifest_index.v1`. |
-| `manifests[]` | One row per claimable descriptor, sorted by `conformance_manifest_id`. |
-
-Each `manifests[]` row MUST contain exactly `conformance_manifest_id`, `profile_id`, `contract_major`, `manifest_sha256`, and `safe_ref`. `safe_ref` MUST be an `extension_safe_logical_ref_v1` whose namespace is exactly `extensions`. Each claimable descriptor MUST resolve to exactly one index row and matching manifest. An unclaimable descriptor with `conformance_manifest_id=null` MUST have no row and no manifest.
-
-**Table 27-A4. `cartulary.extension_registry_accounting.v1`**
-
-| Member | Type and required rule |
-| --- | --- |
-| `schema_id` | Exactly `cartulary.extension_registry_accounting.v1`. |
-| `registry_sha256` | Exact `extension_registry_sha256_v1` digest. |
-| `registry_integrity_sha256` | Exact `extension_registry_integrity_sha256_v1` digest. |
-| `verification_semantic_digest` | Exact current Harness v2 verification-contract semantic digest. |
-| `catalog_semantic_digest` | Exact current Harness v2 owner-catalog semantic digest. |
-| `status` | Exactly `pass` or `fail`. |
-| `checks[]` | Exactly one row for every required Table 27-A5 check instance. |
-| `findings[]` | `0..4096` finding objects, sorted by nullable profile ID, check ID, reason code, and safe reference. |
-
-Each `checks[]` row MUST contain exactly `check_id`, `profile_id`, `status`, `input_digests[]`, and `safe_refs[]`. `profile_id` MUST be null exactly for registry-global checks. Each input-digest row contains exactly `artifact_id` and `sha256`, rejects duplicate artifact IDs, and sorts by `artifact_id`. Extension artifact digests use their owning lowercase hexadecimal contract; Harness semantic digests retain the exact `sha256:<64-lowercase-hex>` v2 form. `safe_refs[]` contains `0..64` unique non-secret owner locators or extension-safe logical references sorted by UTF-8 bytes.
-
-A finding contains exactly `profile_id`, `check_id`, `reason_code`, and `safe_ref`. `status='pass'` if and only if every required static check instance is present exactly once, every check passes from the declared current input digests, and `findings=[]`. Finding overflow MUST fail with `extension_accounting_overflow` without emitting a truncated accounting object.
-
-**EXT-REQ-227**
-Registry accounting MUST be computed only by the named deterministic static predicates in Table 27-A5. A human assertion, test-run exit code, owner-summary status, evidence-audit status, broad target success, retained prior run, or implementation-local heuristic MUST NOT populate a passing registry-accounting check.
-
-Every registry-scoped row occurs exactly once with `profile_id=null`. Every profile-scoped row occurs exactly once for each recognized profile. Missing, duplicate, malformed, stale, or mismatched static input MUST produce a failing check and at least one Table 27-A6 finding; it MUST NOT omit the check. Registry accounting validates routing and catalog structure only. Harness v2 retained evidence independently proves execution under EXT-REQ-236.
-
-Profiles: base
-Verified by: EXT-AC-122
-
-**Table 27-A5. Required static accounting checks and predicates**
-
-| `check_id` | Scope | Exact predicate input and pass condition |
-| --- | --- | --- |
-| `registry_artifact_set_match` | registry | Dependency snapshot, owner manifests/input, descriptors, registry, integrity object, bindings, supporting contracts, schemas, and generator inputs equal the integrity-object identity and digest sets. |
-| `validation_condition_registry_match` | registry | Every reachable invalid condition has exactly one current registry row, every row resolves, and the registry digest equals the integrity object. |
-| `normative_source_lint_match` | registry | This NLSpec and every adopted profile owner pass EXT-REQ-229 under exact current document digests. |
-| `verification_registry_match` | registry | The current v2 verification registry resolves each required owner contract exactly once with no inactive, support-only, claim-only, or unknown substitute. |
-| `test_catalog_match` | registry | Every required verification ID is referenced by at least one active exact-selector catalog row owned under the Harness v2 owner algorithm, and no row derives behavior from documentation text. |
-| `dependency_snapshot_match` | profile | The profile's complete imported dependency, anchor, schema, algorithm, and artifact set equals the current dependency snapshot. |
-| `owner_input_match` | profile | Normalized facts used for the descriptor equal exact owner-fragment facts and canonical fact identities. |
-| `core00_match` | profile | Recognition, claimability, contract major, owner identity, and runtime dependencies equal Core 00 facts. |
-| `core01_discovery_match` | profile | Generic discovery, route families, capabilities, and current major equal the descriptor and Core 01 producer contract. |
-| `core03_workspace_match` | profile | Workspace declarations and client eligibility inputs equal Core 03 and the descriptor. |
-| `core04_claim_configuration_match` | profile | Claim key, default, explicit-null behavior, and configuration-contract digest equal Core 04 and the descriptor. |
-| `owner_contract_match` | profile | Every owner locator, requirement, schema, algorithm, configuration, migration, job, state, and participant declaration resolves through current owner manifests. |
-| `implementation_binding_match` | profile | The packaged binding satisfies every descriptor and owner-contract parity rule and supplies no undeclared behavior. |
-| `client_support_match` | profile | The packaged client support registry advertises only current descriptor majors, workspaces, capabilities, and schemas and binds the verified asset-set digest. |
-| `physical_state_binding_match` | profile | State-presence, implementation-owned stores, initialization definitions, backup codecs, backup inclusion, validators, and rebuild declarations have exact parity. |
-| `job_kind_contract_match` | profile | Every declared job kind has exactly one digest-bound contract and every proof/cancellation declaration matches it. |
-| `participant_contract_match` | profile | Every contribution requiring a participant resolves to one current shared interface and specialization digest, with no extra participant. |
-| `telemetry_match` | profile | The OpenTelemetry claimed-profile representation derives from the same resolved claim-set identity and current profile major. |
-| `conformance_manifest_match` | profile | Claimable descriptors resolve to exactly one matching manifest and index row; unclaimable descriptors resolve to neither. |
-| `contract_closure_match` | profile | The closure catalog digest is current and every catalog item has exactly one valid manifest resolution. |
-| `verification_contract_match` | profile | Manifest verification IDs equal the current active v2 contracts allocated to that profile's owner postconditions. |
-| `catalog_coverage_match` | profile | Current catalog rows reference every required verification ID, use exact non-overlapping selectors and admitted profiles, and contain no historical or document-derived identity. |
-
-**Table 27-A6. Closed accounting finding reasons**
-
-| `reason_code` | Required meaning |
-| --- | --- |
-| `missing_check` | A required check instance is absent. |
-| `duplicate_check` | A required check identity occurs more than once. |
-| `missing_input` | A predicate input artifact or semantic digest is absent. |
-| `duplicate_input` | An input artifact identity occurs more than once. |
-| `input_digest_mismatch` | The supplied digest differs from the current exact artifact or semantic digest. |
-| `semantic_mismatch` | Canonical inputs are valid but the named predicate comparison fails. |
-| `unexpected_artifact` | An undeclared artifact, manifest, binding, participant, verification contract, or catalog row is present. |
-| `invalid_check_result` | The check object or predicate result violates its closed schema. |
-| `stale_contract` | A traceability, lint, verification, catalog, or owner input is bound to older source bytes. |
-
-**EXT-REQ-165**
-The v2 verification contracts introduced for the Extensions Subsystem are exactly:
-
-- `module.extensions.verification.behavior_contract`, for shared Base Profile extension runtime postconditions;
-- `module.extensions.verification.contract_accounting`, for owner-input, generated-contract, registry-integrity, closure, diagnostic, and static routing postconditions.
-
-Both IDs are immutable Harness v2 verification IDs owned by `module.extensions`. Coordinated adoption MUST add one active closed `cartulary.verification_contract.v1` owner file and its verification-registry row together with one active `module.extensions` test-owner row and a nonempty active family manifest. An active zero-row owner, unresolved verification ID, or partially adopted owner input is invalid. Imported Core, web, platform, application, and named-profile postconditions MUST continue through their primary owner's active verification IDs under Table 1-A and the Harness v2 ownership algorithm; `module.extensions` MUST NOT duplicate an imported owner's verification contract.
-
-Profiles: base
-Verified by: EXT-AC-073, EXT-AC-097
-
-**EXT-REQ-166**
-Every normative requirement MUST map to at least one acceptance criterion. Every acceptance criterion MUST map to one or more active Harness v2 verification IDs, and every verification ID cited by this NLSpec MUST map back to at least one current requirement and acceptance criterion. The mappings MUST be carried by `cartulary.extension_clause_traceability.v1` and validated against the current verification registry. Unmapped requirements, criteria, or verification contracts block adoption.
-
-Profiles: base
-Verified by: EXT-AC-002, EXT-AC-073, EXT-AC-097
-
-**EXT-REQ-202**
-Traceability MUST operate at independently observable clause level. The specification owner MUST maintain one closed `cartulary.extension_clause_traceability.v1` object containing exactly `schema_id`, `extensions_document_sha256`, and `clauses[]`. `schema_id` equals `cartulary.extension_clause_traceability.v1`, the document digest equals `owner_document_sha256_v1` for this NLSpec, and `clauses[]` contains `1..65536` rows.
-
-Each clause row contains exactly `clause_id`, `document_ordinal`, `parent_anchor_kind`, `parent_anchor_id`, `clause_kind`, `clause_ordinal`, `source_start_byte`, `source_end_byte`, `clause_text_sha256`, `requirement_ids[]`, `acceptance_criterion_ids[]`, and `verification_ids[]`. `parent_anchor_kind` MUST equal `document`, `h1`, or `requirement`. `clause_kind` MUST equal `frontmatter_member`, `normative_table_caption`, `normative_table_row`, `list_item`, `fenced_literal`, `prose_block`, or `acceptance_row`. All ordinals are zero-based JSON integers. `document_ordinal` MUST be contiguous from `0`; `clause_ordinal` MUST be contiguous from `0` within one exact `(parent_anchor_kind,parent_anchor_id)` scope. Source ranges are zero-based byte offsets into the exact digested source and use half-open `[source_start_byte,source_end_byte)` form with `0 <= start < end <= document_byte_length`. Ranges MUST equal the exact hashed clause bytes, MUST NOT overlap, and MUST remain within the extraction region. `verification_ids[]` contains unique current Harness v2 IDs sorted by ascending ASCII bytes; every ID MUST resolve exactly once and MUST share at least one requirement or acceptance mapping with the clause.
-
-The specification owner MUST author one closed `cartulary.extension_traceability_mapping_source.v1` object containing exactly `schema_id`, `extensions_document_sha256`, and `mappings[]`. Each mapping contains exactly `source_start_byte`, `source_end_byte`, `parent_anchor_kind`, `parent_anchor_id`, `clause_kind`, `requirement_ids[]`, `acceptance_criterion_ids[]`, and `verification_ids[]`. It MUST bind this document's exact digest and map every extracted clause exactly once. A mapping to another document, stale digest, overlap, gap, out-of-bounds range, wrong parent scope, wrong kind, or association with clause bytes not at the declared range is invalid. Heading heuristics, text search, and manually assigning generated clause IDs are forbidden.
-
-Before extraction, exact source bytes MUST pass EXT-REQ-229. `extract_extension_clauses_v1` MUST parse from the opening front-matter delimiter through the LF immediately preceding Appendix A and MUST:
-
-1. bind the valid linter result to the exact document digest;
-2. emit each non-delimiter front-matter member as one document-parent clause;
-3. reset the parent at each H1 and select a requirement parent after an exact requirement marker;
-4. ignore headings, blank lines, requirement markers, `Profiles:` lines, `Verified by:` lines, table headers, and table delimiters;
-5. emit each fenced block as one `fenced_literal`;
-6. emit each normative table caption and data row separately;
-7. emit each one-line list item separately;
-8. emit every remaining maximal contiguous nonblank block under the same parent as one `prose_block`;
-9. classify Table 28-A data rows as `acceptance_row`;
-10. hash exact raw clause bytes without prefix removal, whitespace normalization, Unicode normalization, line reflow, or Markdown rendering.
-
-`clause_id` MUST equal `extcl:` plus the first 32 lowercase hexadecimal characters of SHA-256 over the canonical JSON object containing exactly `extensions_document_sha256`, `document_ordinal`, `parent_anchor_kind`, `parent_anchor_id`, `clause_kind`, `clause_ordinal`, `source_start_byte`, `source_end_byte`, and `clause_text_sha256`, serialized under `extension_registry_canonical_json_v1` without the final LF. Rows sort by contiguous `document_ordinal`. Requirement and acceptance arrays sort by numeric suffix; verification IDs sort by ASCII bytes.
-
-Any unmapped clause, orphan criterion or verification, duplicate identity, noncontiguous ordinal, stale digest, unresolved parent, inactive verification, or linter/source mismatch MUST fail adoption accounting. This artifact is documentation-generation and drift input only. It MUST NOT be loaded by catalog selection, generate a verification contract or row, infer an owner, create a runner selector, or serve as retained execution evidence. Documentation tooling MAY read the exact source under the Testing Harness documentation-read exception; product and catalog executors MUST NOT.
-
-Profiles: base
-Verified by: EXT-AC-097, EXT-AC-123, EXT-AC-124, EXT-AC-149
-
-**EXT-REQ-228**
-Every active catalog row used for this NLSpec MUST validate as `cartulary.test_family_manifest.v1` and contain one owner, nonempty verification IDs, an allowlisted runner, an exact selector, one evidence class, immutable runtime/resource/fixture profile IDs, `default_check`, claim posture, and `status='active'`. Ownership MUST follow the Harness v2 normative-postcondition algorithm. Cross-owner participants are collaborators and MUST NOT create duplicate ownership.
-
-Catalog rows MUST NOT embed commands, ports, service topology, environment overrides, fixture paths, document-derived behavior, requirement text, acceptance text, or clause bytes. Optional documentation references are inert and MUST NOT be opened, hashed, parsed, or used for selection. Go, Vitest, Playwright, and shell evidence MUST use their exact v2 selector forms; zero resolution, multiple resolution, selector overlap, globbing, regular expressions, or unmapped executed cases MUST fail before a passing owner result is emitted.
-
-The unclaimed Base runtime and each claimed-profile runtime are immutable startup identities. Runtime reset MUST NOT toggle extension claims, mutate the key-ring identity, or translate between profiles. Current Network Flow browser evidence uses the adopted `network_flow_claimed` profile; ordinary unclaimed evidence uses `default` or `none` according to service needs. A new public command, runner, schema family, or execution-profile contract requires a Testing Harness NLSpec amendment before use. Adding rows or selectors within existing v2 contracts requires only the authored verification, owner, catalog, and topology updates plus their generated projections.
-
-Profiles: base
-Verified by: EXT-AC-123, EXT-AC-140
-
-**EXT-REQ-236**
-Every independently observable acceptance branch, boundary value, enum token, matrix row, failure-injection position, and semantic condition required by this NLSpec MUST resolve to exact executable selector inventory in at least one active catalog row. A row MAY select multiple exact cases only when the runner adapter accounts for every registered symbol, title, or scenario and fails on any missing, duplicate, skipped-without-authorization, or unexpected observation. A family name, filename, title prefix, direct package script, raw target result, or aggregate process exit MUST NOT close row evidence.
-
-A current passing execution obligation requires:
-
-1. the exact active verification and catalog semantic digests;
-2. a compatible successful full-owner `test-slice` partition for every affected owner;
-3. every evidence-class gate required by the verification contracts;
-4. paired `cartulary.test_evidence_accounting.v1` and `cartulary.test_owner_summary.v1` shards for each selected owner/target partition;
-5. exactly one successful terminal record for every required row;
-6. one `cartulary.test_evidence_audit_summary.v1` that accepts the exact supplied roots and closes every required owner/target/row partition.
-
-An explicit selected-subset slice is focused execution evidence only and MUST NOT claim full-owner closure. A broad passing `check` root does not prove a separately required browser, accessibility, visual, measurement, static, security, or release target ran. Pre-v2 artifacts, newest-run discovery, mixed semantic digests, stale roots, support-only rows, informative rows, compatibility translations, and absent explicit roots MUST NOT close extension adoption. Core 05 claim publication remains separately gated and is never implied by implementation or release-readiness evidence.
-
-Profiles: base
-Verified by: EXT-AC-123, EXT-AC-140
-
-**EXT-REQ-229**
-`lint_extension_normative_source_v1` MUST accept a normative source document if and only if all of these conditions hold:
-
-1. bytes are valid UTF-8, contain no BOM, CR, NUL, or tab byte, and end with exactly one LF;
-2. headings use ATX syntax only, with one ASCII space after the marker; Setext headings are forbidden;
-3. outside code fences, heading depth may remain the same or decrease freely, but an increase is exactly one level;
-4. fenced code blocks use exactly three backticks at column 1 and terminate;
-5. indented code blocks and raw HTML blocks are forbidden;
-6. pipe tables use leading and trailing pipes, one header and delimiter row, and one column count;
-7. a literal pipe in a table cell is escaped exactly as `\|`;
-8. list markers begin at column 1; nested markers and multiline continuations are forbidden;
-9. requirement markers use exact `**EXT-REQ-NNN**` form, acceptance IDs use `EXT-AC-NNN`, and duplicate IDs are invalid;
-10. Table 28-A is continuous with unique acceptance IDs from `EXT-AC-001` through `EXT-AC-158`;
-11. requirement-looking and acceptance-looking text inside code fences is ignored structurally.
-
-The result MUST bind the exact source digest and contain either `status='valid'` with no findings or `status='invalid'` with `1..4096` findings under Section 26 ordering, formatting, secrecy, and overflow rules. The linter MUST run before owner-anchor validation, clause extraction, closure derivation, or static adoption accounting.
-
-Golden vectors MUST cover valid and invalid heading transitions, split tables, escaped pipes, fenced pipes, nested lists, final LF, duplicate and skipped acceptance IDs, unequal columns, tabs, CRLF, BOM, raw HTML, Setext headings, four-backtick fences, and unterminated fences. Linting and clause extraction are support/documentation mechanics. Their passing result MUST NOT become a product row result or authorize catalog derivation from prose.
-
-Profiles: base
-Verified by: EXT-AC-124, EXT-AC-141
-
-**EXT-REQ-230**
-Unless a narrower contract applies, every canonical extension JSON artifact MUST enforce Table 27-D before emitting canonical bytes or a digest.
-
-**Table 27-D. Shared canonical artifact limits**
-
-| Property | Maximum |
-| --- | ---: |
-| Nesting depth | `32` |
-| Members in one object | `4096` |
-| UTF-8 bytes in one string | `1048576` |
-| Items in one array | `65536` |
-| Canonical bytes in one artifact | `67108864` |
-
-The clause-traceability artifact has a narrower maximum nesting depth of `16`, `65536` clause rows, and `67108864` canonical bytes. A participant payload contract MUST declare its own maximum canonical bytes and MUST NOT exceed `67108864`; omission is invalid.
-
-For every shared or narrower limit, the first value outside the admitted domain MUST fail deterministically with the owning `limit_exceeded` condition. Truncation, partial canonical output, partial digest output, silent item dropping, saturating byte counts, and continued scanning solely to discover a larger overage are forbidden. The implementation MUST prove item count and aggregate byte ceiling before publishing ordered output.
-
-Profiles: base
-Verified by: EXT-AC-082, EXT-AC-125, EXT-AC-127
-
-**EXT-REQ-167**
-A required owner fragment, dependency snapshot, descriptor, binding, state-presence declaration, initialization definition, migration definition, backup codec, owner reference, conformance manifest, generated schema, verification contract, owner-catalog row, execution-profile reference, registry-accounting artifact, clause-traceability artifact, or adoption gate MUST NOT contain a `TODO` placeholder when this document is promoted to `adopted/current`.
-
-Profiles: base
-Verified by: EXT-AC-075, EXT-AC-128
+Verified by: module.extensions owner slices, generated-artifact drift checks, and Harness routing checks
 
 # 28. Acceptance criteria
 
-The implementation and coordinated document set are conformant only when every criterion below passes. When a criterion names an absent optional condition, it passes only by proving the criterion's specified omission behavior. A broad criterion does not satisfy an independently observable clause unless clause traceability maps that clause to an active Harness v2 verification ID and exact executed selector inventory.
+The implementation and coordinated specification set are conformant only when every current criterion below passes. When a criterion names an absent optional condition, it passes only by proving the specified omission behavior through observable behavior.
 
 **Table 28-A. Acceptance criteria**
 
 | ID | Binary criterion |
 | --- | --- |
 | `EXT-AC-001` | The adopted document has one owner for every behavior family and contains no unresolved contradiction or open delegation in normative text. |
-| `EXT-AC-002` | Every `EXT-REQ-*` maps to at least one `EXT-AC-*`, every criterion maps to one or more active Harness v2 verification IDs, every cited verification maps back, and no identifier is reused. |
+| `EXT-AC-002` | Every current behavior family has a human-reviewed disposition and observable evidence; identifiers are unique and never reused. |
 | `EXT-AC-003` | Core 00, the canonical registry, and public discovery contain the same recognized profile IDs and current contract majors. |
 | `EXT-AC-004` | The same owner inputs produce byte-identical descriptors and canonical registry bytes under `extension_registry_canonical_json_v1`. |
 | `EXT-AC-005` | A missing, duplicate, extra, malformed, stale, or unrecognized descriptor fails before listeners or workers start. |
-| `EXT-AC-006` | Every claimable profile has a non-null owner reference, contract major, descriptor, and conformance manifest. |
+| `EXT-AC-006` | Every claimable profile has a non-null contract major, canonical descriptor, and admitted implementation binding. |
 | `EXT-AC-007` | Omitted descriptor and configuration defaults materialize before validation and canonical serialization. |
 | `EXT-AC-008` | Unknown descriptor, registry, dependency, state-variant, or contribution members are rejected. |
 | `EXT-AC-009` | A recognized unclaimable profile remains discoverable and rejects a true claim request before startup. |
@@ -4525,16 +3805,16 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-069` | Secrets and prohibited sensitive values do not appear in descriptors, discovery, errors, audit, telemetry, jobs, readiness, browser state, or WebSocket payloads. |
 | `EXT-AC-070` | No runtime package installation, marketplace, arbitrary callback bus, arbitrary UI injection, separate extension host, or extension microservice is present. |
 | `EXT-AC-071` | OpenTelemetry claimed-profile identity derives from the canonical resolved claim set. |
-| `EXT-AC-072` | Drift among Core 00, Core 01, Core 03, Core 04, profile owners, descriptors, discovery evidence, telemetry, v2 verification contracts, and owner-catalog routing fails the owning canonical gate. |
-| `EXT-AC-073` | Every claimable profile has complete owner, dependency, contribution, state, portability, reporting, egress, conformance-manifest, verification-contract, and exact-selector coverage. |
+| `EXT-AC-072` | Drift among adopted specifications, typed owner inputs, descriptors, discovery behavior, telemetry, and verification routing fails the owning canonical gate. |
+| `EXT-AC-073` | Every claimable profile has complete typed owner, dependency, contribution, state, portability, reporting, and egress contracts plus observable behavioral evidence. |
 | `EXT-AC-074` | Base Profile conformance passes with every optional profile unclaimed and with no dynamic-package behavior. |
-| `EXT-AC-075` | No required owner reference, descriptor, dependency, migration, schema, conformance manifest, verification contract, catalog row, traceability object, or adoption gate contains a `TODO` placeholder at adoption. |
+| `EXT-AC-075` | No required descriptor, dependency, migration, schema, typed contract, behavioral test, or adoption gate contains a `TODO` placeholder at adoption. |
 | `EXT-AC-076` | Every descriptor fact derives from a digest-bound adopted owner fragment; arbitrary prose, implementation, route, and database extraction cannot create a fact. |
-| `EXT-AC-077` | Every owner locator resolves exactly once against the declared owner-document digest; absolute, traversal, backslash, symlink, stale, zero-match, and multi-match cases fail. |
+| `EXT-AC-077` | Every machine artifact reference resolves exactly once within its declared root; absolute, traversal, backslash, symlink, stale, zero-match, and multi-match cases fail before use. |
 | `EXT-AC-078` | Descriptor-source omissions materialize exactly as specified, explicit `null` never invokes a default, and every canonical descriptor member is present. |
 | `EXT-AC-079` | Generation and build verify every declared generator-source path and byte digest, while runtime accepts only the exact packaged canonical artifact identity and digest sets plus the embedded root digest and does not require source bytes. |
 | `EXT-AC-080` | Binding profile, major, descriptor digest, contributions, capabilities, admission, initialization, state, migration, codec, rebuild, transaction-limit, schema, worker, job, and participant declarations satisfy exact parity. |
-| `EXT-AC-081` | Every claimable descriptor manifest ID resolves to exactly one matching manifest; static registry-accounting pass/fail is biconditional; an unclaimable null manifest has no entry; overflow emits no conformant truncated accounting object. |
+| `EXT-AC-081` | Every claimable descriptor has exact registry-integrity and implementation-binding parity; stale or extra fields fail runtime admission. |
 | `EXT-AC-082` | Every static and configured limit accepts both valid boundaries and rejects the first value outside the domain with the exact reason and no partial admission. |
 | `EXT-AC-083` | Missing dependency edges are reported before graph ordering; each maximal multi-profile strongly connected component produces one canonical cycle finding; duplicate and pair findings follow the closed multiplicity table. |
 | `EXT-AC-084` | Startup finding paths, exact generic messages, closed detail objects, ordering, profile-local replacement rules, and overflow behavior match §26. |
@@ -4548,12 +3828,12 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-092` | Discovery retains the existing three Core fields, adds exactly the four generic fields, and no Network Flow profile-local discovery item remains normative or emitted. |
 | `EXT-AC-093` | Every compatibility-matrix row causes the required document, contract, state, schema, or algorithm action; unsupported majors and unknown values follow their exact client outcomes. |
 | `EXT-AC-094` | Every portability and Snapshot/Reporting state-presence and claim-state matrix combination produces the specified include, omit, empty, or fail result. |
-| `EXT-AC-095` | Every claimable profile resolves every generated closure-catalog item exactly once with current owner locators or one item-permitted closed not-applicable reason. |
+| `EXT-AC-095` | Every affected current behavior has a recorded RETAIN-ROUTE, IMPLEMENT, or prior SPEC-PRUNE/FUTURE disposition. |
 | `EXT-AC-096` | Every transport, session, authorization, closure, unclaim, retirement, unsupported-major, and resource-removal condition produces the exact cache, request, queue, optimistic-state, and draft consequence. |
-| `EXT-AC-097` | Every independently observable normative clause maps to an acceptance criterion and active Harness v2 verification ID, and every cited verification maps back to current digest-bound clauses. |
-| `EXT-AC-098` | Every owner locator resolves through one digest-bound owner contract manifest; anchor ranges and adopted fragment IDs, paths, and digests match exactly, and Markdown search cannot add an anchor or fragment. |
+| `EXT-AC-097` | Every active Extensions verification routes to a real test or public target; mapping-only and status-only rows are rejected. |
+| `EXT-AC-098` | The authored input catalog admits every typed owner fragment exactly once; path containment and schema/owner parity hold, and Markdown cannot add an input. |
 | `EXT-AC-099` | Every owner fact kind produces exactly one declared canonical identity object, and the same identity bytes drive ordering, duplicate rejection, collision reporting, and identity digests. |
-| `EXT-AC-100` | Zero recognized profiles, with the required dependency manifests retained but zero adopted owner fragments and zero normalized facts, produce the exact canonical empty-profile owner input, registry, integrity, discovery, and accounting states. |
+| `EXT-AC-100` | Zero recognized profiles produce exact canonical empty owner-input, registry, integrity, and discovery states without placeholder facts. |
 | `EXT-AC-101` | Descriptor-source instances remain ephemeral and are never persisted, hashed, packaged, logged, drift-checked, or consumed at runtime. |
 | `EXT-AC-102` | Every profile-local configuration key has a value schema, omission policy, inactive policy, resolution kind, diagnostic policy, and bound; claimed normalization produces the exact configuration view. |
 | `EXT-AC-103` | Inactive and retired configuration performs only JSON-shape, scalar/reference-grammar, byte, and depth checks and never performs resolution, existence checks, DNS, connection validation, egress, or profile code. |
@@ -4572,16 +3852,16 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-116` | Every authoritative and derived family has exact presence/binding classification, codec, backup inclusion, restore ordering, validator, and rebuild parity; filesystem is derived-only and inactive restore invokes no profile code. |
 | `EXT-AC-117` | Participant operations have canonical order and unique kinds; closed contexts/results, scoped access, limits, logical references, findings, and every shared-owner/profile-code invocation row are exact. |
 | `EXT-AC-118` | Inactive-state portability blockage is evaluated only by the declarative shared predicate over declared logical state families; inactive and retired profile code never executes. |
-| `EXT-AC-119` | Every reachable invalid condition, including transaction timeout, unsupported backup codec, and cleanup dependency failure, maps to exactly one phase, path algorithm, reason, formatter set, multiplicity, secret policy, and owner locator. |
+| `EXT-AC-119` | Every reachable invalid condition, including transaction timeout, unsupported backup codec, and cleanup dependency failure, maps to exactly one phase, path algorithm, reason, formatter set, multiplicity, and secret policy. |
 | `EXT-AC-120` | Validation-result precedence distinguishes invalid bytes, invalid shape, 4097-item overflow, remaining schema defects, and valid ordinary findings exactly, without a truncated result. |
-| `EXT-AC-121` | The closure catalog contains every baseline, owner requirement, configuration, schema, contribution, job, migration, initialization, state-family, backup-codec, and verification-obligation item, and no profile owner can reduce it. |
-| `EXT-AC-122` | Every accounting status is produced by a named predicate over exact current input digests; all required check instances are present once, and no manual Boolean or broad target result can produce `pass`. |
-| `EXT-AC-123` | Every independently observable acceptance branch resolves to exact active v2 selector inventory and one compatible successful terminal row record; family names, title prefixes, raw scripts, and aggregate exits cannot close accounting. |
+| `EXT-AC-121` | Human owner review confirms each retained current behavior family has an adopted specification disposition and observable behavioral evidence. |
+| `EXT-AC-122` | No checked-in status, claim, count, mapping, or broad target result can establish Extensions conformance. |
+| `EXT-AC-123` | Every retained independently observable branch is exercised through production-facing behavior, and evidence identifies the executed route and result. |
 | `EXT-AC-124` | The normative-source linter accepts only the declared Markdown subset and heading transitions; Table 28-A is continuous with unique contiguous IDs, and all golden vectors classify exactly. |
-| `EXT-AC-125` | Every canonical extension artifact, including state-presence, initialization, codec, registry-accounting, and clause-traceability artifacts, enforces total bytes, nesting, members, strings, arrays, and first-overflow without partial output or digest. |
+| `EXT-AC-125` | Every canonical extension artifact enforces total bytes, nesting, members, strings, arrays, and first-overflow without partial output or digest. |
 | `EXT-AC-126` | Every public error token owned outside the profile resolves to the exact owner contract for status, code, reason vocabulary, retryability, and closed safe details. |
-| `EXT-AC-127` | Registry integrity and runtime admission cover every owner manifest and required static supporting artifact with exact identity/digest parity while generator source bytes remain build-only provenance. |
-| `EXT-AC-128` | No current-scope owner input, closure item, verification contract, catalog row, generated artifact, accounting predicate, acceptance mapping, or adoption gate contains an unresolved `TODO` placeholder or open delegation phrase. |
+| `EXT-AC-127` | Registry integrity and runtime admission cover every owner fragment and required supporting typed artifact with exact identity/digest parity while generator source bytes remain build-only provenance. |
+| `EXT-AC-128` | No current-scope typed input, behavior test, generated artifact, or adoption gate contains an unresolved `TODO` placeholder or open delegation phrase. |
 | `EXT-AC-129` | Inactive syntax-only configuration never resolves, probes, validates existence of, or activates an external or local resource. |
 | `EXT-AC-130` | Transaction input, result, finding, key, and deadline bounds; cancellation checkpoints; and commit-boundary outcomes are exact. |
 | `EXT-AC-131` | Staged bytes become inaccessible independently of cleanup, and every storage outcome follows Table 20-B. |
@@ -4602,7 +3882,7 @@ The implementation and coordinated document set are conformant only when every c
 | `EXT-AC-146` | Every descriptor scalar and set member has one exact owner source through `primary_owner_contract_ref`; zero or multiple scalar sources, duplicate sets, stale refs, and code/prose inference fail generation. |
 | `EXT-AC-147` | Every schema constraint and procedural decision maps exactly once through a complete validation-surface declaration, and missing, duplicate, stale, extra, incomplete, or emitted-unregistered conditions fail closed. |
 | `EXT-AC-148` | Every subject and contribution kind receives exactly its exhaustive closure categories; generated rows reject omission and owner-authored not-applicable, while fixed baseline rows admit only their enumerated reasons. |
-| `EXT-AC-149` | Traceability enforces closed parent/clause kinds, zero-based scoped ordinals, exact half-open byte ranges, document digest/mapping, clause-ID inputs, and rejection of overlap, bounds, scope, digest, and document mismatches. |
+| `EXT-AC-149` | Specification prose, formatting, headings, paths, and file arrangement do not alter Extensions generation, runtime admission, routing, or evidence identity. |
 | `EXT-AC-150` | `syntax_only` requires an inert non-null schema and never applies omission/default semantics, creates a view, retains a value, resolves a resource or secret, performs egress, or invokes profile code. |
 | `EXT-AC-151` | The application lease follows every declared acquisition, held, uncertainty, recovery, loss, release, crash, session-identity, deadline, and no-reacquisition branch with startup exit `2` and confirmed-loss exit `70`. |
 | `EXT-AC-152` | Deadline calculation checks and saturates arithmetic, selects the inherited minimum with deterministic equal ties, expires at `now >= deadline`, supports zero grace, and applies cancellation/timeout/proven-commit precedence exactly. |
@@ -4631,20 +3911,20 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |
 | `EXT-GATE-005` | Core 03 adopts availability epoch/generation, stable `client_instance_id` and WebSocket identity, exact discovery/support/authorization intersection, lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and Base cache/request/queue/draft preservation. |
 | `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, `fatal_integrity_shutdown_v1`, and exit codes `2` and `70`. |
-| `EXT-GATE-007` | Network Flow Activity publishes its owner manifest and fragments, removes its competing discovery shape, adopts major 2 unless the complete exception is recorded, and declares Import dependency, empty initialization, migration/final validation, state presence/bindings/codecs, job kinds, participants, rebuilds, and portability blocking. |
+| `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments, removes its competing discovery shape, adopts major 2 unless the complete exception is recorded, and declares Import dependency, empty initialization, migration/final validation, state presence/bindings/codecs, job kinds, participants, rebuilds, and portability blocking. |
 | `EXT-GATE-008` | Reporting and Report Composition import the generic descriptor, claim, compatibility, state-presence, participant-context, result, and lifecycle contracts without transferring reporting or composition ownership. |
-| `EXT-GATE-009` | Testing Harness v2 remains `adopted/current`; the verification registry contains both `module.extensions` contracts; the owner registry and family manifests contain every required active exact-selector row; runner and execution profiles validate; and no pre-v2 identity, custom extension-fixture result, compatibility reader, or historical run can close adoption. |
+| `EXT-GATE-009` | The Testing Harness remains adopted/current; every Extensions verification routes to a real test or public target; runner and execution profiles validate; and no compatibility reader or historical run can close adoption. |
 | `EXT-GATE-010` | OpenTelemetry derives `cartulary.profile.claims` only from the canonical resolved claim set and its published digest and records no profile-local secret or incident content. |
 | `EXT-GATE-011` | `docs/domain.md` and implementation-support guides remove stale discovery, unclaimable, multi-process, migration, client-support, and owner-boundary language and add the adopted extension vocabulary without becoming behavior owners. |
-| `EXT-GATE-012` | Every required extension artifact, static supporting contract, closure catalog, generated schema, v2 verification contract, owner-catalog row, execution-profile reference, and traceability object exists; every acceptance criterion passes; and no required placeholder or open delegation remains. |
-| `EXT-GATE-013` | Every contributing owner document has one current owner contract manifest; its anchor ranges validate against the exact owner-document digest; and its adopted fragment ID/path/digest set matches exactly. |
-| `EXT-GATE-014` | Dependency snapshot, owner manifests/input, descriptors, registry/integrity, bindings, state-presence/init/codec artifacts, schemas, static accounting, clause traceability, and embedded root digest generate and validate without drift. |
+| `EXT-GATE-012` | Every required typed extension artifact, generated schema, behavioral verification route, and execution-profile reference exists; every current acceptance criterion passes; and no required placeholder or open delegation remains. |
+| `EXT-GATE-013` | The authored input catalog contains every contributing typed owner fragment exactly once, with schema and owner parity and no unlisted JSON input. |
+| `EXT-GATE-014` | Dependency snapshot, owner input, descriptors, registry/integrity, bindings, state-presence/init/codec artifacts, schemas, and embedded root digest generate and validate without drift. |
 | `EXT-GATE-015` | Core 04 and the Extensions generator adopt every static/configurable limit, timeout, validation-condition row, new runtime reason, diagnostic formatter, exact message/details object, readiness state, lifecycle import, and exit code. |
 | `EXT-GATE-016` | Every state-owning profile adopts state presence, initialization definition, physical binding, backup codecs, migration definitions/interfaces, exact-once final validation, rebuild algorithms, metadata, ledger, locks, and job-kind contracts. |
 | `EXT-GATE-017` | Core 01 and Network Flow complete the additive generic discovery transition under the adopted major-version action, and no competing profile-local discovery item or inactive precedence remains normative or emitted. |
 | `EXT-GATE-018` | Incident Portability, Reporting, Report Composition, and backup owners adopt the closed participant contexts/results/findings, logical-reference scalar, invocation matrix, declarative inactive predicate, physical codec boundary, and complete state/claim matrices. |
-| `EXT-GATE-019` | Every claimable profile has a current generated closure catalog and its conformance manifest resolves every catalog item through exact owner locators or one item-permitted not-applicable reason. |
-| `EXT-GATE-020` | Clause traceability maps every requirement and criterion bidirectionally to active v2 verification IDs; every independently observable branch has exact executable selector coverage; verification and catalog semantic digests are current; and static accounting passes. |
+| `EXT-GATE-019` | Every claimable profile has complete typed inputs and observable behavioral tests for retained current behavior. |
+| `EXT-GATE-020` | Every active Extensions verification routes to a real test or public target, and no mapping-only or static-pass row is counted as evidence. |
 | `EXT-GATE-021` | The packaged browser assets include one digest-bound client support registry whose profile majors, workspaces, capabilities, and public schemas pass registry parity. |
 | `EXT-GATE-022` | The canonical Base route-reservation registry covers every Base public path namespace exactly once and passes parity against packaged Base handlers without capturing an extension-owned namespace. |
 | `EXT-GATE-023` | Exact v2 catalog selectors prove second-process denial and crash release, plus lease loss before bind, after bind before serving, and while serving under the imported fatal lifecycle. |
@@ -4652,7 +3932,7 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | `EXT-GATE-025` | Exact v2 catalog selectors inject failure or cancellation at every ordered transaction position and prove input/result/key limits, deadline, lock order, no retry, exact conflict/timeout/commit outcomes, and no partial effects. |
 | `EXT-GATE-026` | Exact v2 catalog selectors prove multi-batch staged-object cutoff sweeping, access denial at expiry independently of cleanup, every deletion outcome, deterministic retry, no exposure, readiness degradation, and fatal contradictions. |
 | `EXT-GATE-027` | Every affected owner has compatible successful full-owner row accounting and owner-summary shards, every required evidence-class gate passes, and one v2 evidence audit closes every required owner/target/row partition without subset, broad-target, stale-root, newest-run, or historical fallback. |
-| `EXT-GATE-028` | Support-only documentation tooling accepts this exact normative source, Table 28-A remains continuous from `EXT-AC-001` through `EXT-AC-158`, aggregate-limit exact selectors prove no partial output or digest, and no linter result is promoted into product row evidence. |
+| `EXT-GATE-028` | Markdown lint passes, aggregate-limit behavioral tests prove no partial output or digest, and no documentation-lint result is promoted into product evidence. |
 
 **EXT-REQ-169**
 Core 00 MUST preserve ownership of recognition and claimability after adoption. This NLSpec's current-profile parity tables and generated registry MUST be regenerated when Core 00 changes; they MUST NOT prevent a valid later profile addition or retirement performed through a new coordinated contract revision.
@@ -4665,7 +3945,7 @@ Core 00, Core 01, Core 03, Core 04, and the Network Flow Activity NLSpec MUST be
 
 The default coordinated action is Network Flow `contract_major=2` and document version `2.0.0` because removing public `document_version` and singular `route_root` changes a previously required response shape. A contract-major-1 correction is conformant only when the adopted document-status authority records every condition in EXT-REQ-231 as proven. A patch or minor document-version change without that proof is invalid.
 
-A repository MUST NOT adopt this NLSpec while an older competing discovery item, inactive-route precedence, client major, owner fragment, conformance manifest, pre-v2 harness identity, stale catalog row, compatibility reader, or generated artifact remains current.
+A repository MUST NOT adopt this NLSpec while an older competing discovery item, inactive-route precedence, client major, owner fragment, compatibility reader, or generated artifact remains current.
 
 Profiles: base, network_flow_activity
 Verified by: EXT-AC-025, EXT-AC-026, EXT-AC-027, EXT-AC-031, EXT-AC-033, EXT-AC-072, EXT-AC-092, EXT-AC-110
@@ -4681,11 +3961,11 @@ The coordinated adoption order is mandatory:
 1. revise this NLSpec and retain `status: draft`;
 2. revise Core 00, Core 01, Core 03, and Core 04;
 3. revise affected profile owners and state-owning migrations;
-4. revise Incident Portability, Reporting, and Report Composition when this revision changes an interface imported from that owner; when no imported interface changes for one of those owners, record an exact no-change parity result in conformance accounting;
-5. register the Harness v2 verification contracts, owner and family rows, exact selectors, and topology profiles; amend the Testing Harness NLSpec only if a new public command, runner, schema family, or execution-profile contract is required; revise OpenTelemetry;
-6. generate every §27 extension artifact, clause-traceability object, and v2 projection;
+4. revise Incident Portability, Reporting, and Report Composition when this revision changes an interface imported from that owner; when no imported interface changes for one of those owners, record an exact no-change parity result in the handoff;
+5. register verification routing, owner and family rows, and topology profiles; amend the Testing Harness NLSpec only if a new public command, runner, schema family, or execution-profile contract is required; revise OpenTelemetry;
+6. generate every current §27 typed artifact;
 7. execute every affected full-owner slice and required evidence-class gate;
-8. audit the exact compatible retained roots and execute static registry, clause-level traceability, and drift accounting;
+8. audit compatible retained roots and execute registry-integrity and drift validation;
 9. promote this NLSpec and all required companion revisions together.
 
 An intermediate artifact MUST NOT claim the generic Extensions Subsystem is current while importing an older competing discovery, state, diagnostic, or lifecycle contract.

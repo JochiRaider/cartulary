@@ -116,18 +116,15 @@ type ParticipantContract struct {
 }
 
 type ParticipantOperation struct {
-	OperationKind              string
-	ResultSchemaID             string
-	AlgorithmID                string
-	OutputSchemaID             string
-	OrderingAlgorithmID        string
-	AuthorizationRequirementID string
-	RedactionRequirementID     string
-	ErrorRequirementID         string
-	StateFamilyIDs             []string
-	MaxInputBytes              int64
-	MaxOutputBytes             int64
-	MaxItems                   int
+	OperationKind       string
+	ResultSchemaID      string
+	AlgorithmID         string
+	OutputSchemaID      string
+	OrderingAlgorithmID string
+	StateFamilyIDs      []string
+	MaxInputBytes       int64
+	MaxOutputBytes      int64
+	MaxItems            int
 }
 
 const (
@@ -517,11 +514,11 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 		SerializationKeyKinds: catalogStrings(body["serialization_key_kinds"]),
 		OwnedStateFamilyIDs:   catalogStrings(body["owned_state_family_ids"]),
 	}
-	if contract.ContractKind == "cartulary.extension_transaction_participant_contract.v2" {
+	if contract.ContractKind == "cartulary.extension_transaction_participant_contract.v3" {
 		contract.AlgorithmIDs = []string{contract.PrepareAlgorithmID, contract.ValidationAlgorithmID, contract.WriteAlgorithmID}
 		sort.Strings(contract.AlgorithmIDs)
 	}
-	if contract.ContractKind == "cartulary.extension_participant_specialization.v2" {
+	if contract.ContractKind == "cartulary.extension_participant_specialization.v3" {
 		contract.InputSchemaID = stringValue(body["shared_context_schema_id"])
 		operations, ok := objectSlice(body["operations"])
 		if !ok || len(operations) == 0 {
@@ -531,22 +528,18 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 		stateFamilySet := map[string]struct{}{}
 		for _, operation := range operations {
 			parsed := ParticipantOperation{
-				OperationKind:              stringValue(operation["operation_kind"]),
-				ResultSchemaID:             stringValue(operation["result_schema_id"]),
-				AlgorithmID:                stringValue(operation["algorithm_id"]),
-				OutputSchemaID:             stringValue(operation["output_schema_id"]),
-				OrderingAlgorithmID:        stringValue(operation["ordering_algorithm_id"]),
-				AuthorizationRequirementID: stringValue(operation["authorization_requirement_id"]),
-				RedactionRequirementID:     stringValue(operation["redaction_requirement_id"]),
-				ErrorRequirementID:         stringValue(operation["error_requirement_id"]),
-				StateFamilyIDs:             catalogStrings(operation["state_family_ids"]),
-				MaxInputBytes:              int64Value(operation["max_input_bytes"]),
-				MaxOutputBytes:             int64Value(operation["max_output_bytes"]),
-				MaxItems:                   intValue(operation["max_items"]),
+				OperationKind:       stringValue(operation["operation_kind"]),
+				ResultSchemaID:      stringValue(operation["result_schema_id"]),
+				AlgorithmID:         stringValue(operation["algorithm_id"]),
+				OutputSchemaID:      stringValue(operation["output_schema_id"]),
+				OrderingAlgorithmID: stringValue(operation["ordering_algorithm_id"]),
+				StateFamilyIDs:      catalogStrings(operation["state_family_ids"]),
+				MaxInputBytes:       int64Value(operation["max_input_bytes"]),
+				MaxOutputBytes:      int64Value(operation["max_output_bytes"]),
+				MaxItems:            intValue(operation["max_items"]),
 			}
 			if parsed.OperationKind == "" || parsed.ResultSchemaID == "" || parsed.AlgorithmID == "" ||
 				parsed.OutputSchemaID == "" || parsed.OrderingAlgorithmID == "" ||
-				parsed.AuthorizationRequirementID == "" || parsed.ErrorRequirementID == "" ||
 				parsed.MaxInputBytes < 1 || parsed.MaxOutputBytes < 0 || parsed.MaxItems < 0 {
 				return ParticipantContract{}, errors.New("participant specialization operation is incomplete")
 			}

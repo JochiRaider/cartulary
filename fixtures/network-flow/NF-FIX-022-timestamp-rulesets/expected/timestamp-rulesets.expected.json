@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-022-timestamp-rulesets",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "timestamp variants freeze RFC3339, tzdb-2026c fold/gap, epoch, uptime, and ordinal rules",
   "table_resource": {
     "network_flow_table_id": "nft_ded4ccfeddd17b581fe176c429f52901",

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.networkflow",
   "verifications": [
     {
@@ -10,24 +10,6 @@
         "go_test",
         "playwright",
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.networkflow.requirement.behavior_contract"
-      ]
-    },
-    {
-      "verification_id": "module.networkflow.verification.contract_accounting",
-      "behavior_class": "product",
-      "profile": "extension.network_flow_activity",
-      "evidence_kinds": [
-        "go_test",
-        "playwright",
-        "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.networkflow.requirement.contract_accounting"
       ]
     }
   ]

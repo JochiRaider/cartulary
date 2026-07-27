@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.entities",
   "verifications": [
     {
@@ -10,10 +10,6 @@
         "go_test",
         "playwright",
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.entities.requirement.behavior_contract"
       ]
     }
   ]

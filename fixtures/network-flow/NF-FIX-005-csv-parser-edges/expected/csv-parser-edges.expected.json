@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-005-csv-parser-edges",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "CSV parser boundary cases cover terminal newline, blank records, quoted newline, quote escaping, and malformed quotes",
   "table_resource": {
     "network_flow_table_id": "nft_397afc0cb3ed0e4f3fc9531cdb944ca6",

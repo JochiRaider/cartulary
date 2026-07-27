@@ -2433,6 +2433,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
     fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
@@ -2517,6 +2518,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
     fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.generated_artifacts",
   "verifications": [
     {
@@ -8,17 +8,6 @@
       "profile": "support",
       "evidence_kinds": [
         "shell"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "contract-family:audit",
-        "contract-family:errors",
-        "contract-family:extensions",
-        "contract-family:network-flow",
-        "contract-family:openapi",
-        "contract-family:view-schemas",
-        "contract-family:ws",
-        "harness.generated_artifacts.requirement.behavior_contract"
       ]
     },
     {
@@ -28,11 +17,7 @@
       "evidence_kinds": [
         "static_check"
       ],
-      "public_target": "json-shape-check",
-      "status": "active",
-      "requirement_ids": [
-        "harness.generated_artifacts.requirement.schema_attachment_closure"
-      ]
+      "public_target": "json-shape-check"
     }
   ]
 }

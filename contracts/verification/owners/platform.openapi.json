@@ -1,55 +1,45 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.openapi",
   "verifications": [
     {
       "verification_id": "platform.openapi.verification.contract_integrity",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.openapi.requirement.contract_integrity"
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {
       "verification_id": "platform.openapi.verification.deterministic_assembly",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.openapi.requirement.deterministic_assembly"
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {
       "verification_id": "platform.openapi.verification.release_compatibility",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.openapi.requirement.release_compatibility"
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {
       "verification_id": "platform.openapi.verification.runtime_contract_parity",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.openapi.requirement.runtime_contract_parity"
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {
       "verification_id": "platform.openapi.verification.runtime_profile_parity",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.openapi.requirement.runtime_profile_parity"
+      "evidence_kinds": [
+        "go_test"
       ]
     }
   ]

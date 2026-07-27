@@ -1,11 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-014-cursor-pagination",
-  "summary": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival",
-  "acceptance_ids": [
-    "NF-AC-027",
-    "NF-AC-028",
-    "NF-AC-094",
-    "NF-AC-095"
-  ]
+  "summary": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival"
 }

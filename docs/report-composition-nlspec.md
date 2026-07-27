@@ -3,6 +3,7 @@ title: Cartulary Report Composition NLSpec
 status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
+document_version: 1.1.0
 schema_id: cartulary.report_composition_nlspec.v1
 document_version: 1.1.1
 ---
@@ -973,14 +974,18 @@ The builder UI MUST serialize subject references inside authored text using the 
 **REQ-RC-083a**
 The builder UI MAY expose generated Mermaid source as read-only diagnostic text for auto-layout diagrams. The builder UI MAY offer a local, non-persisted Mermaid scratchpad only when saving requires conversion into `composition_diagram_decl.v1` and `composition_diagram_layout.v1` objects and discards the raw Mermaid text. A conforming implementation MUST NOT persist raw Mermaid text, raw Mermaid fragments, Mermaid init blocks, Mermaid comments, Mermaid styling, Mermaid click actions, generated `.mmd` bytes, or renderer-local syntax as composition source.
 
-# 14. Acceptance Criteria And Fixtures
+# 14. Behavioral Acceptance Scenarios
 
 **REQ-RC-084**
-Every requirement in this NLSpec MUST trace to at least one acceptance criterion in Table 14-B or fixture in Table 14-A before promotion to `adopted/current`. Table 14-C is the normative requirement-to-acceptance map.
+Tables 14-A and 14-B summarize observable behavior for implementation and
+review. They do not require a fixture corpus, one test per row, stable test
+identities, or a requirement-to-test completeness map. Current behavior without
+observable evidence MUST be implemented and tested, or this NLSpec MUST be
+revised before that behavior is removed or moved to a future profile.
 
-**Table 14-A. Required Fixtures**
+**Table 14-A. Behavior Scenarios**
 
-| Fixture ID | Required fixture | Pass condition |
+| Scenario label | Scenario | Pass condition |
 | --- | --- | --- |
 | `RC-FIX-001` | Empty valid composition with no operations, no diagrams, and no authored text. | Canonical bytes are deterministic and digest excludes only `composition_sha256`. |
 | `RC-FIX-002` | Same composition serialized with non-canonical member ordering and with omitted defaults versus explicit defaults. | Server canonicalization produces the same digest as the canonical fixture. |
@@ -1004,7 +1009,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-FIX-020` | Full validation context with `internal_draft`, `internal_review`, and `external_release` scopes, recipient partitions, redaction profile digest, graph projection refs, output options, and render profile. | Valid context enables snapshot-dependent checks; null context remains local-only; internal scopes require empty recipient partitions; malformed or duplicate graph bindings fail with `composition_validation_context_invalid`; omitted external context fails with `composition_validation_context_missing`. |
 | `RC-FIX-021` | Draft preview and immutable-version preview over the same resource. | Draft preview emits `preview_source_sha256` and `composition_sha256=null`; immutable preview emits both `preview_source_sha256` and immutable `composition_sha256`; preview digest cannot satisfy release binding. |
 | `RC-FIX-022` | Operation sequencing fixture with repeated excludes, repeated reorders, same-anchor inserts, later scalar overrides, repeated label overrides, ambiguous anchors, and duplicate diagram insertion. | Operation effects match Table 11-D exactly; duplicate diagram insertion fails with `composition_duplicate_diagram_insert`. |
-| `RC-FIX-023` | Requirement traceability and validation-issue ordering fixture over this NLSpec. | Table 14-C covers every `REQ-RC-*`, including suffixed requirements, with at least one `RC-AC-*` or `RC-FIX-*`; issue ordering follows Table 12-D1 across source arrays and nested layout entries. |
+| `RC-FIX-023` | Validation-issue ordering across source arrays and nested layout entries. | Issue ordering follows Table 12-D1 and is independent of traversal or storage order. |
 | `RC-FIX-024` | Manual-layout flowchart with valid coordinate space and node placement for every retained selected vertex. | Layout validates, node placement targets exact retained vertex refs, coordinates fit inside the declared coordinate space, and canonical bytes contain no generated IDs. |
 | `RC-FIX-025` | Manual layout with missing node placement, duplicate targets, unknown targets, and non-retained targets. | Cases fail with `diagram_layout_missing_node_position`, `diagram_layout_duplicate_target`, or `diagram_layout_unknown_target` as attributable. |
 | `RC-FIX-026` | Manual edge-route subset with endpoint-preserving routes and invalid endpoint-changing attempts. | Valid route subset passes; attempts to create edges, remove edges, change endpoints, or target non-selected refs fail with `diagram_layout_invalid` or `diagram_layout_unknown_target`. |
@@ -1012,7 +1017,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 
 **Table 14-B. Acceptance Criteria**
 
-| ID | Criterion | Traces to | Pass condition | Failure condition |
+| ID | Criterion | Owner section | Pass condition | Failure condition |
 | --- | --- | --- | --- | --- |
 | `RC-AC-AUTH-001` | Authority boundary is explicit. | §1 | This NLSpec owns authoring schemas and lifecycle only; Reporting owns render effects. | The document states or implies composition authoring owns render bytes or release approval. |
 | `RC-AC-SCOPE-001` | Non-goals are closed. | §3 | Raw source editing, workbook mutation, template mutation, post-redaction editing, and cross-template migration are explicitly rejected or future-only. | Any non-goal is admitted as current behavior. |
@@ -1038,31 +1043,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-AC-BUILDER-001` | Builder UI is a composition-data author. | §13 | Builder emits route requests, validation requests, and preview requests only. | Builder edits generated source, workbook records, templates, or release bytes. |
 | `RC-AC-PREVIEW-001` | Preview boundary is Reporting-owned. | §13 | Authoritative preview creates an `internal_draft` Reporting attempt, not approvable release bytes. | Client preview or builder bytes are treated as reviewable output. |
 | `RC-AC-PREVIEW-002` | Preview source digest bytes are closed. | §6 | `cartulary.report_composition_preview_source.v1` contains materialized draft/version arrays and binds by `preview_source_sha256`; immutable preview keeps `composition_sha256` separate. | Draft previews reuse release `composition_sha256` or omit materialized source arrays from the digest input. |
-| `RC-AC-TRACE-001` | Requirement traceability is complete. | §14 | Table 14-C maps every `REQ-RC-*`, including suffixed requirements, to acceptance criteria or fixtures. | Any requirement lacks explicit coverage. |
-
-**REQ-RC-084a**
-Table 14-C is normative. A numeric range includes suffixed requirements whose numeric base falls inside the range; for example `REQ-RC-029..REQ-RC-033` includes `REQ-RC-031a`, `REQ-RC-031b`, and `REQ-RC-033a`. A requirement listed in more than one row MUST satisfy every listed acceptance criterion and fixture family.
-
-**Table 14-C. Requirement-to-acceptance map**
-
-| Requirement range | Acceptance coverage |
-| --- | --- |
-| `REQ-RC-001..REQ-RC-006` | `RC-AC-AUTH-001`, `RC-AC-SCOPE-001` |
-| `REQ-RC-007..REQ-RC-011` | `RC-AC-SCALAR-001`, `RC-AC-CANON-001`, `RC-FIX-002`, `RC-FIX-013` |
-| `REQ-RC-012..REQ-RC-015` | `RC-AC-SCOPE-001`, `RC-AC-TEXT-001`, `RC-FIX-009` |
-| `REQ-RC-016..REQ-RC-019` | `RC-AC-AUTH-001`, `RC-AC-SCALAR-001`, `RC-FIX-013` |
-| `REQ-RC-020..REQ-RC-028` | `RC-AC-LIFE-001`, `RC-AC-RETIRE-001`, `RC-AC-CANON-001`, `RC-FIX-004`, `RC-FIX-005`, `RC-FIX-014` |
-| `REQ-RC-029..REQ-RC-033` | `RC-AC-ROUTE-001`, `RC-AC-ROUTE-002`, `RC-AC-AUTHZ-001`, `RC-FIX-003`, `RC-FIX-011`, `RC-FIX-019` |
-| `REQ-RC-034..REQ-RC-035` | `RC-AC-ROUTE-001`, `RC-AC-PREVIEW-001`, `RC-AC-PREVIEW-002`, `RC-FIX-012`, `RC-FIX-021` |
-| `REQ-RC-036..REQ-RC-042` | `RC-AC-CANON-001`, `RC-AC-SCALAR-001`, `RC-FIX-001`, `RC-FIX-002`, `RC-FIX-013` |
-| `REQ-RC-043..REQ-RC-050` | `RC-AC-ANCHOR-001`, `RC-FIX-007`, `RC-FIX-008` |
-| `REQ-RC-051..REQ-RC-059` | `RC-AC-TEXT-001`, `RC-FIX-009` |
-| `REQ-RC-060..REQ-RC-063` | `RC-AC-DIAGRAM-001`, `RC-AC-DIAGRAM-LAYOUT-001`, `RC-AC-DIAGRAM-LAYOUT-002`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-FIX-010`, `RC-FIX-016`, `RC-FIX-017`, `RC-FIX-024`, `RC-FIX-025`, `RC-FIX-026`, `RC-FIX-027` |
-| `REQ-RC-064..REQ-RC-071` | `RC-AC-OPS-001`, `RC-AC-OPS-002`, `RC-FIX-006`, `RC-FIX-018`, `RC-FIX-022` |
-| `REQ-RC-072..REQ-RC-076` | `RC-AC-VALID-001`, `RC-AC-VALID-002`, `RC-AC-VALID-003`, `RC-AC-VALID-004`, `RC-FIX-015`, `RC-FIX-020` |
-| `REQ-RC-077..REQ-RC-083` | `RC-AC-BUILDER-001`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-AC-PREVIEW-001`, `RC-FIX-012`, `RC-FIX-027` |
-| `REQ-RC-084..REQ-RC-084` | `RC-AC-TRACE-001`, `RC-FIX-023` |
-| `REQ-RC-085` | `RC-AC-AUTH-001`, `RC-AC-TRACE-001` |
+| `RC-AC-BEHAVIOR-001` | Current behavior has durable evidence or a prior specification disposition. | §14 | Production-facing tests or public targets prove retained behavior without relying on IDs, counts, or status rows. | A current behavior is represented only by accounting metadata or an executable placeholder. |
 
 # 15. Promotion Checklist
 
@@ -1081,8 +1062,7 @@ This NLSpec MUST NOT be promoted to `adopted/current` until every row in Table 1
 | Core redaction profile convention | Core 04 exposes `allow_authored_presentation_text` and release-scope redaction profile identity, version, and digest for Reporting validation. |
 | Reporting preview import | `docs/reporting-subsystem-nlspec.md` accepts `cartulary.report_composition_preview_source.v1` only for `internal_draft` preview and never for external release. |
 | Graph Projection dependency | Core 01 and the adopted Graph Projection owner expose completed digest-bound `graph_projection_refs[]` required by graph composition diagrams. |
-| Fixture coverage | Every `RC-FIX-*` row exists in the accepted fixture suite or is explicitly marked future-only with owner approval. |
-| Traceability | Every `REQ-RC-*` maps to at least one `RC-AC-*` or `RC-FIX-*`. |
+| Behavioral disposition | Every current behavior is retained and routed, implemented and tested, or revised before being pruned or moved to a future profile. |
 
 # 16. Non-Normative Source Notes
 

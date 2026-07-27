@@ -1487,7 +1487,7 @@ function validatedBrowserOwnerIndex(targetDir, target = "") {
   const file = path.join(targetDir, "browser-owner-index.json");
   if (!existsSync(file)) return null;
   const value = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync("cartulary.browser_owner_index.v1", value);
+  validateSchemaSync("cartulary.browser_owner_index.v2", value);
   if (target && value.target_id !== target) {
     throw new Error(`browser owner index target ${value.target_id} does not match ${target}`);
   }

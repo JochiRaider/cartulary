@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-013-filename-display",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "filename display strips paths, handles hidden/trailing-dot stems, duplicates, overrides, and soft-delete name reuse",
   "table_resource": {
     "network_flow_table_id": "nft_0a0892cd46fe0f079dfe607b5a857a45",

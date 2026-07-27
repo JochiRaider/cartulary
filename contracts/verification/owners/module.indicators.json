@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.indicators",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.indicators.requirement.behavior_contract"
       ]
     }
   ]

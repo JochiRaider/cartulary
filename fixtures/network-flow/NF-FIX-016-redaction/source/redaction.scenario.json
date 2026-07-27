@@ -1,11 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-016-redaction",
-  "summary": "safe samples, raw value SHA-256s, safe digests, and no-raw-text leakage are deterministic",
-  "acceptance_ids": [
-    "NF-AC-046",
-    "NF-AC-047",
-    "NF-AC-077",
-    "NF-AC-102"
-  ]
+  "summary": "safe samples, raw value SHA-256s, safe digests, and no-raw-text leakage are deterministic"
 }

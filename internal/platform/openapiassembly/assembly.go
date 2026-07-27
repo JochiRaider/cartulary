@@ -9,13 +9,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 )
 
 const (
-	manifestSchemaID = "cartulary.openapi_source_manifest.v2"
+	manifestSchemaID = "cartulary.openapi_source_manifest.v3"
 	policySchemaID   = "cartulary.openapi_assembly_policy.v1"
 	unitRootRole     = "root"
 	unitOwnerRole    = "owner"
@@ -40,13 +41,14 @@ var requiredSecuritySchemeNames = []string{
 	"sessionCookie",
 }
 
+var ownerIDPattern = regexp.MustCompile(`^(module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$`)
+
 type manifest struct {
-	SchemaID             string      `json:"schema_id"`
-	Target               string      `json:"target"`
-	RequirementsRegistry string      `json:"requirements_registry"`
-	Policy               string      `json:"policy"`
-	UnitRoot             string      `json:"unit_root"`
-	Units                []unitEntry `json:"units"`
+	SchemaID string      `json:"schema_id"`
+	Target   string      `json:"target"`
+	Policy   string      `json:"policy"`
+	UnitRoot string      `json:"unit_root"`
+	Units    []unitEntry `json:"units"`
 }
 
 type assemblyPolicy struct {
@@ -70,13 +72,6 @@ type unitEntry struct {
 	OwnerID string `json:"owner_id"`
 	Path    string `json:"path"`
 	Role    string `json:"role"`
-}
-
-type requirementRegistry struct {
-	Owners []struct {
-		OwnerID string `json:"owner_id"`
-		Status  string `json:"status"`
-	} `json:"owners"`
 }
 
 type valueKind uint8
@@ -155,13 +150,6 @@ func Assemble(manifestPath string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("target: %w", err)
 	}
-	if _, err := safePath(repositoryRoot, sourceManifest.RequirementsRegistry); err != nil {
-		return nil, "", fmt.Errorf("requirements_registry: %w", err)
-	}
-	knownOwners, err := loadKnownOwners(repositoryFiles, sourceManifest.RequirementsRegistry)
-	if err != nil {
-		return nil, "", err
-	}
 	unitRoot, err := safePath(repositoryRoot, sourceManifest.UnitRoot)
 	if err != nil {
 		return nil, "", fmt.Errorf("unit_root: %w", err)
@@ -184,9 +172,6 @@ func Assemble(manifestPath string) ([]byte, string, error) {
 		return units[left].Path < units[right].Path
 	})
 	for index, entry := range units {
-		if _, ok := knownOwners[entry.OwnerID]; !ok {
-			return nil, "", fmt.Errorf("unit %d references unknown active owner %q", index+1, entry.OwnerID)
-		}
 		ownerPrefix := strings.TrimSuffix(sourceManifest.UnitRoot, "/") + "/" + entry.OwnerID + "/"
 		if !strings.HasPrefix(entry.Path, ownerPrefix) {
 			return nil, "", fmt.Errorf(
@@ -262,10 +247,9 @@ func validateManifest(sourceManifest manifest, policy assemblyPolicy) error {
 		return fmt.Errorf("manifest schema_id must be %q", manifestSchemaID)
 	}
 	if sourceManifest.Target == "" ||
-		sourceManifest.RequirementsRegistry == "" ||
 		sourceManifest.Policy == "" ||
 		sourceManifest.UnitRoot == "" {
-		return errors.New("target, requirements_registry, policy, and unit_root are required")
+		return errors.New("target, policy, and unit_root are required")
 	}
 	limits := policy.Limits
 	if limits.MaxUnits != 256 ||
@@ -286,6 +270,9 @@ func validateManifest(sourceManifest manifest, policy assemblyPolicy) error {
 	for index, entry := range sourceManifest.Units {
 		if entry.OwnerID == "" || entry.Path == "" {
 			return fmt.Errorf("unit %d requires owner_id and path", index+1)
+		}
+		if !ownerIDPattern.MatchString(entry.OwnerID) {
+			return fmt.Errorf("unit %d has invalid owner_id %q", index+1, entry.OwnerID)
 		}
 		if entry.Role != unitRootRole && entry.Role != unitOwnerRole {
 			return fmt.Errorf("unit %d has invalid role %q", index+1, entry.Role)
@@ -346,31 +333,6 @@ func findRepositoryRoot(manifestPath string) (string, error) {
 			return "", errors.New("manifest is not inside a repository containing go.mod")
 		}
 	}
-}
-
-func loadKnownOwners(repositoryFiles *os.Root, path string) (map[string]struct{}, error) {
-	info, err := repositoryFiles.Lstat(path)
-	if err != nil {
-		return nil, fmt.Errorf("stat requirements registry: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, errors.New("requirements registry must not be a symlink")
-	}
-	content, err := repositoryFiles.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read requirements registry: %w", err)
-	}
-	var registry requirementRegistry
-	if err := json.Unmarshal(content, &registry); err != nil {
-		return nil, fmt.Errorf("parse requirements registry: %w", err)
-	}
-	owners := make(map[string]struct{}, len(registry.Owners))
-	for _, owner := range registry.Owners {
-		if owner.Status == "active" {
-			owners[owner.OwnerID] = struct{}{}
-		}
-	}
-	return owners, nil
 }
 
 func loadAssemblyPolicy(repositoryFiles *os.Root, path string) (assemblyPolicy, error) {

@@ -1,1 +1,5 @@
-{"schema_id":"cartulary.otel_corpus_input.v1","case_id":"OTEL-CORPUS-003","title":"Cartulary environment binding parser","status":"adopted_conformant","owner_requirement":"Omitted, empty, valid, invalid, and explicit null cases for boolean, integer, decimal, enum, URL, header-map, and string key families produce exact declared results."}
+{
+  "schema_id": "cartulary.otel_corpus_input.v2",
+  "case_id": "OTEL-CORPUS-003",
+  "title": "Cartulary environment binding parser"
+}

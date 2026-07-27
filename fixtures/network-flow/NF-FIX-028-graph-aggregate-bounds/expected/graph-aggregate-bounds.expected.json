@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-028-graph-aggregate-bounds",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "aggregate bounds fixture freezes arbitrary precision sums, digit limits, failure order, and no partial adapter output",
   "table_resource": {
     "network_flow_table_id": "nft_36401336335558b7c328f5b0c2f17319",

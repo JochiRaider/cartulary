@@ -1,9 +1,7 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-017",
   "title": "Product-boundary runtime invariance",
-  "status": "adopted_conformant",
-  "owner_requirement": "HTTP request, workbook query, workbook mutation, WebSocket send, evidence access, and background-job transition outputs and committed state match the no-export baseline under exporter failure modes.",
   "runtime_invariance_matrix": {
     "surfaces": [
       "http_request",

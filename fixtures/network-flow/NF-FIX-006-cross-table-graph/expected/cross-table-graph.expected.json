@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-006-cross-table-graph",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "two selected tables compose one graph with shared endpoint vertex, aggregated edge, provenance, and stable graph IDs",
   "table_resource": {
     "network_flow_table_id": "nft_5b1a2e44244e55020e98e047786745ea",

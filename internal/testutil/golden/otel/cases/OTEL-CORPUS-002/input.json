@@ -1,9 +1,7 @@
 {
-  "schema_id": "cartulary.otel_corpus_input.v1",
+  "schema_id": "cartulary.otel_corpus_input.v2",
   "case_id": "OTEL-CORPUS-002",
   "title": "Source baseline",
-  "status": "adopted_conformant",
-  "owner_requirement": "Immutable OTel spec and semantic-convention refs, full commit SHAs, exact source paths, document statuses, semantic-convention model digest, generated constants version, and SDK package versions match the adopted baseline.",
   "source_baseline_assertions": {
     "snapshot": "contracts/otel/otel_source_snapshot.v1.json",
     "generated_constants_manifest": "contracts/otel/generated_constants_manifest.json",
@@ -11,11 +9,31 @@
     "sampler_profile_current_fractional": "cartulary.sampler.traceidratio_compat.v1",
     "probability_sampler_status": "not_adopted_development",
     "fixed_trace_id_corpus": [
-      { "trace_id": "10000000000000000000000000000000", "sample_ratio": 0, "allow": false },
-      { "trace_id": "10000000000000000000000000000000", "sample_ratio": 1, "allow": true },
-      { "trace_id": "10000000000000000000000000000000", "sample_ratio": 0.25, "allow": true },
-      { "trace_id": "10000000000000004000000000000000", "sample_ratio": 0.25, "allow": false },
-      { "trace_id": "1000000000000000ffffffffffffffff", "sample_ratio": 0.5, "allow": false }
+      {
+        "trace_id": "10000000000000000000000000000000",
+        "sample_ratio": 0,
+        "allow": false
+      },
+      {
+        "trace_id": "10000000000000000000000000000000",
+        "sample_ratio": 1,
+        "allow": true
+      },
+      {
+        "trace_id": "10000000000000000000000000000000",
+        "sample_ratio": 0.25,
+        "allow": true
+      },
+      {
+        "trace_id": "10000000000000004000000000000000",
+        "sample_ratio": 0.25,
+        "allow": false
+      },
+      {
+        "trace_id": "1000000000000000ffffffffffffffff",
+        "sample_ratio": 0.5,
+        "allow": false
+      }
     ],
     "evidence": [
       "internal/platform/telemetry/bootstrap_test.go::TestBootstrapNoSDKExportDisabled",

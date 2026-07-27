@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-001-cisco-sna-minimal",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "minimal Cisco SNA import with one accepted row, zero diagnostics, stable row IDs, and graph output",
   "table_resource": {
     "network_flow_table_id": "nft_2a0b730f2a8f83aa4fbf1801c38892e2",

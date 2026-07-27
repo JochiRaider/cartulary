@@ -2,9 +2,8 @@
 
 export const networkFlowMappingRegistry = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow.mapping_registry.v1",
+  "schema_id": "cartulary.network_flow.mapping_registry.v2",
   "profile_id": "network_flow_activity",
-  "document_version": "2.0.0",
   "target_kind": "network_flow_table",
   "target_table_schema_id": "cartulary.network_flow_table.v1",
   "system_derivations": [

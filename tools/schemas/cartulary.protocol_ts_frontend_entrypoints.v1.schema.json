@@ -8,7 +8,7 @@
     "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
     "schema_id": { "const": "cartulary.protocol_ts_frontend_entrypoints.v1" },
     "owner_id": { "const": "package.protocol_ts" },
-    "network_flow_entrypoints_path": { "const": "contracts/network-flow/frontend-entrypoints.v1.json" },
+    "network_flow_entrypoints_path": { "const": "contracts/network-flow/frontend-entrypoints.v3.json" },
     "http_operation_selection_path": { "const": "contracts/protocol-ts/http-operations.v1.json" },
     "core_http": {
       "type": "object",

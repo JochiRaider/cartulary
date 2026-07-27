@@ -1,23 +1,22 @@
-# Cartulary Core 00: Human-Facing Status, Precedence, and Conformance Reference
+# Cartulary Normative Core 00: Document Set Status, Precedence, and Conformance
 
 ## 1. Status
 
-This document set is the human-facing explanation of the current Cartulary
-profile. Executable authority lives in `contracts/requirements/registry.json`,
-the owner catalogs under `contracts/requirements/owners/`, and typed subsystem
-contracts under `contracts/`. Tests, generators, runtime metadata, conformance,
-and release evidence resolve only those machine-readable inputs.
+This document set is the authoritative normative core for the current Cartulary
+profile.
 
-Requirement IDs and prose here remain useful for review and navigation, but a
-documentation move, line edit, anchor change, or hash change has no executable
-effect. When prose and a machine contract differ, the machine contract governs
-executable behavior and the prose should be repaired as documentation
-maintenance.
+Core 00 through Core 04 are the implementation-conformance corpus for the
+current profile. Core 05 is a separate normative companion for claim
+publication and benchmark reproducibility only. It governs claim-bearing
+publication requirements for timed or fixture-sensitive criteria and is not
+part of Base Profile or extension-profile implementation conformance.
+Appendices remain non-normative.
 
-Core 00 through Core 04 describe the intended implementation-conformance
-profile. Core 05 describes claim publication and benchmark reproducibility.
-Machine requirement status and verification coverage determine what can
-actually count as conformance or publication evidence.
+Versioned schemas, enums, limits, mappings, algorithms, fixtures, generated
+artifacts, implementation, tests, and retained evidence are downstream of the
+applicable normative owner. A difference between an adopted specification and
+a derived machine artifact is a defect in that projection or implementation;
+executable tools do not resolve the defect by parsing the specification text.
 
 It is derived from the exploratory design artifact preserved in Appendix G. For the current profile, the base profile and the currently defined extension-profile boundaries are closed here. The normative core is authoritative for current-profile requirements, closed design decisions, and current conformance claims. Roadmap items, rationale, illustrative UI mockups, explanatory diagrams, source extracts, and historical source-question material are non-normative unless restated in the normative core as explicit requirements.
 
@@ -41,9 +40,9 @@ When a projections-specific NLSpec is adopted or substantively revised, projecti
 Profiles: base
 Verified by: AC-469
 
-## 2. Human-document precedence
+## 2. Precedence
 
-For interpreting the prose set, the order is:
+The order of authority is:
 
 1. future Cartulary NLSpecs derived from this core, once adopted,
 2. this normative core,
@@ -52,9 +51,7 @@ For interpreting the prose set, the order is:
 
 If two normative core documents appear to conflict, the apparent contradiction is a corpus defect to be repaired. Overlapping contract families resolve through the primary owner identified in §5.1 rather than through later document numbering.
 
-When the core prose and an appendix differ, the core prose is the preferred
-human explanation. Neither source overrides the machine-readable requirement
-and subsystem contracts.
+When the normative core and an appendix differ, the normative core governs.
 
 ## 3. Normative language
 

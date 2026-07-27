@@ -151,7 +151,7 @@ export function resolveOwnerSliceSelection(root, options) {
       runtime_binary_ids: runtimeBinaryIDs,
       resource_claims: resource.resource_claims,
       dependencies: [],
-      expected_artifacts: ["cartulary.test_evidence_accounting.v1"],
+      expected_artifacts: ["cartulary.test_evidence_accounting.v2"],
       timeout_seconds: runnerTimeoutSeconds(rows[0].runner),
     };
   }).sort((left, right) => asciiCompare(left.work_unit_id, right.work_unit_id));
@@ -201,9 +201,9 @@ export function buildOwnerSlicePlan(root, options) {
     },
   ];
   const expectedArtifacts = [
-    "cartulary.test_evidence_accounting.v1",
-    "cartulary.test_owner_summary.v1",
-    "cartulary.test_slice_scheduler_summary.v1",
+    "cartulary.test_evidence_accounting.v2",
+    "cartulary.test_owner_summary.v2",
+    "cartulary.test_slice_scheduler_summary.v2",
     "cartulary.tool_run_summary.v5",
   ];
   const planSemanticDigest = semanticJSONDigest({
@@ -230,15 +230,16 @@ export function buildOwnerSlicePlan(root, options) {
     finalizers,
   });
   return {
-    schema_id: "cartulary.test_slice_plan.v2",
+    schema_id: "cartulary.test_slice_plan.v3",
+    evidence_epoch: resolved.catalog.summary.evidence_epoch,
     command_id: options.commandID,
     target: options.target,
     run_id: options.runID,
     owner_id: resolved.selection.owner_id,
     selected_rows: [...resolved.selection.resolved_row_ids],
     source_snapshot_digest: snapshot.digest,
-    catalog_semantic_digest: resolved.catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: resolved.catalog.summary.verification_semantic_digest,
+    test_catalog_digest: resolved.catalog.summary.test_catalog_digest,
+    verification_routing_digest: resolved.catalog.summary.verification_routing_digest,
     runtime_profile_digest: semanticJSONDigest(runtimeProfiles),
     resource_profile_digest: semanticJSONDigest(resourceProfiles),
     fixture_profile_digest: semanticJSONDigest(fixtureProfiles),

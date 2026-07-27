@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "preview/apply facade freezes source descriptors, opaque source digest, no path leakage, and source-change failures",
   "table_resource": {
     "network_flow_table_id": "nft_d2e672acc7b14456a5a022095f656247",

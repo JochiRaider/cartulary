@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.timeline",
   "verifications": [
     {
@@ -10,17 +10,6 @@
         "go_test",
         "playwright",
         "vitest"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.timeline.requirement.behavior_contract",
-        "module.timeline.requirement.canonical_row_derivation",
-        "module.timeline.requirement.complete_projection_input",
-        "module.timeline.requirement.normalized_source_provenance",
-        "module.timeline.requirement.owner_batch_application",
-        "module.timeline.requirement.record_change_intents",
-        "module.timeline.requirement.source_semantics",
-        "module.timeline.requirement.transactional_peer_effects"
       ]
     }
   ]

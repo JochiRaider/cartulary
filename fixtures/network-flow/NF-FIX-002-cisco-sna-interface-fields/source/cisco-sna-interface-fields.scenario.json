@@ -1,10 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-002-cisco-sna-interface-fields",
-  "summary": "optional interface fields remain bounded text/null and unsupported Cisco targets stay null",
-  "acceptance_ids": [
-    "NF-AC-070",
-    "NF-AC-085",
-    "NF-AC-090"
-  ]
+  "summary": "optional interface fields remain bounded text/null and unsupported Cisco targets stay null"
 }

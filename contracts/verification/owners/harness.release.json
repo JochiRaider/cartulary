@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "harness.release",
   "verifications": [
     {
@@ -7,13 +7,10 @@
       "behavior_class": "harness",
       "profile": "support",
       "evidence_kinds": [
-        "release_check"
+        "release_check",
+        "shell"
       ],
-      "public_target": "release-check",
-      "status": "active",
-      "requirement_ids": [
-        "harness.release.requirement.current_owner_evidence_only"
-      ]
+      "public_target": "release-check"
     }
   ]
 }

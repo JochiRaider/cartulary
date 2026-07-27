@@ -1,17 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow_contract_index.v1",
+  "schema_id": "cartulary.network_flow_contract_index.v2",
   "profile_id": "network_flow_activity",
   "contract_major": 2,
-  "document_version": "2.0.0",
   "family_id": "network-flow",
   "contract_files": {
     "routes": "contracts/network-flow/routes.v1.json",
     "schemas": "contracts/network-flow/schemas.v1.json",
     "errors": "contracts/network-flow/errors.v1.json",
     "key_rings": "contracts/network-flow/key-rings.v1.schema.json",
-    "mapping_registry": "contracts/network-flow/mapping-registry.v1.json",
-    "presentation": "contracts/network-flow/presentation.v1.json",
+    "mapping_registry": "contracts/network-flow/mapping-registry.v2.json",
+    "presentation": "contracts/network-flow/presentation.v2.json",
     "timezone_provenance": "contracts/network-flow/timezone/tzdb-2026c.provenance.json"
   },
   "public_schema_ids": [
@@ -58,14 +57,7 @@
   "closure_policy": {
     "objects_closed_by_default": true,
     "dynamic_maps_must_name_key_pattern": true,
-    "raw_source_values_forbidden_outside_diagnostics": true,
-    "generated_outputs_blocked_until": [
-      "NFA-GEN-003",
-      "NFA-GEN-004"
-    ]
+    "raw_source_values_forbidden_outside_diagnostics": true
   },
-  "owner_id": "module.networkflow",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "owner_id": "module.networkflow"
 }

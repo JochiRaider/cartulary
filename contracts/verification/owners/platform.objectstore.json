@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.objectstore",
   "verifications": [
     {
@@ -8,10 +8,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "platform.objectstore.requirement.behavior_contract"
       ]
     },
     {
@@ -22,11 +18,7 @@
         "release_check",
         "static_check"
       ],
-      "public_target": "release-check",
-      "status": "active",
-      "requirement_ids": [
-        "platform.objectstore.requirement.release_threat_policy"
-      ]
+      "public_target": "release-check"
     }
   ]
 }

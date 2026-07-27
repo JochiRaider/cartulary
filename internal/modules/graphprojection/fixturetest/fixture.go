@@ -1,5 +1,5 @@
-// Package fixturetest provides test-only loading and byte comparison for the
-// authored Graph Projection conformance corpus. It intentionally contains no
+// Package fixturetest provides test-only loading and byte comparison for
+// authored Graph Projection behavior fixtures. It intentionally contains no
 // projection derivation or expected-value construction.
 package fixturetest
 
@@ -17,14 +17,13 @@ import (
 	"strings"
 )
 
-const ManifestSchemaID = "cartulary.graph_projection_fixture_manifest.v2"
+const ManifestSchemaID = "cartulary.graph_projection_fixture_manifest.v3"
 
 type Manifest struct {
 	SchemaID       string       `json:"schema_id"`
 	FixtureVersion int          `json:"fixture_version"`
 	FixtureID      string       `json:"fixture_id"`
 	ExecutionLayer string       `json:"execution_layer"`
-	RequirementIDs []string     `json:"requirement_ids"`
 	TestSymbol     string       `json:"test_symbol"`
 	Determinism    Determinism  `json:"determinism"`
 	Comparison     Comparison   `json:"comparison"`
@@ -123,10 +122,10 @@ func Load(root, fixtureID string) (Manifest, string, error) {
 	if err := decoder.Decode(&manifest); err != nil {
 		return Manifest{}, "", fmt.Errorf("decode %s: %w", manifestPath, err)
 	}
-	if manifest.SchemaID != ManifestSchemaID || manifest.FixtureVersion != 2 || manifest.FixtureID != fixtureID {
+	if manifest.SchemaID != ManifestSchemaID || manifest.FixtureVersion != 3 || manifest.FixtureID != fixtureID {
 		return Manifest{}, "", fmt.Errorf("invalid fixture identity in %s", manifestPath)
 	}
-	if len(manifest.RequirementIDs) == 0 || len(manifest.Steps) == 0 || len(manifest.Artifacts) == 0 || manifest.TestSymbol == "" {
+	if len(manifest.Steps) == 0 || len(manifest.Artifacts) == 0 || manifest.TestSymbol == "" {
 		return Manifest{}, "", fmt.Errorf("fixture %s is incomplete", fixtureID)
 	}
 	if manifest.Comparison.Mode != "exact_artifacts" || (manifest.Comparison.Scope != "run_specific" && manifest.Comparison.Scope != "run_independent") {

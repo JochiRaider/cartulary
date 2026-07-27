@@ -65,13 +65,14 @@ function resultsRoot() {
 
 function identityFields(plan) {
   return {
+    evidence_epoch: plan.evidence_epoch,
     command_id: plan.command_id,
     run_id: plan.run_id,
     owner_id: plan.owner_id,
     selected_rows: plan.selected_rows,
     source_snapshot_digest: plan.source_snapshot_digest,
-    catalog_semantic_digest: plan.catalog_semantic_digest,
-    verification_semantic_digest: plan.verification_semantic_digest,
+    test_catalog_digest: plan.test_catalog_digest,
+    verification_routing_digest: plan.verification_routing_digest,
     runtime_profile_digest: plan.runtime_profile_digest,
     resource_profile_digest: plan.resource_profile_digest,
     fixture_profile_digest: plan.fixture_profile_digest,
@@ -93,7 +94,7 @@ function schedulerSummary(plan, execution, logs, startedAt, finishedAt) {
   for (const result of execution.row_results) counts[result.terminal_state] += 1;
   const ownerPrefix = `${plan.target}/owners/${plan.owner_id}`;
   return {
-    schema_id: "cartulary.test_slice_scheduler_summary.v1",
+    schema_id: "cartulary.test_slice_scheduler_summary.v2",
     ...identityFields(plan),
     target: plan.target,
     status: execution.status,

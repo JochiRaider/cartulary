@@ -1024,45 +1024,43 @@ Declared scope: every owner-owned exact fact copied or summarized by this docume
 14. Every `core` row in §10.1 MUST satisfy the core-domain pressure test.
 15. Coding-agent or AI-assistant vocabulary MUST enter only through §16 and §16.1 until accepted as canonical vocabulary by §6.1, §11, §11.1, and the applicable owner section.
 
-### 18.4 Repository checks
+### 18.4 Editorial review
 
-A repository validation suite for `docs/domain.md` MUST fail the domain-document check when any of the following conditions is true:
+The consistency conditions below are human/editorial review criteria. Product,
+test, generator, conformance, and release tooling MUST NOT parse
+`docs/domain.md`, extract its tables, compare its headings, or treat its
+formatting as an executable contract.
 
-- a `cartulary.view.*.v1` string in §9 is absent from the owner-derived view-schema registry, is not listed by Core 01 as a standardized optional surface, and is not labeled future-only;
-- an exact token membership list appears outside an owner-derived generated mirror;
-- a glossary row lacks behavior owner, applicability, or current-profile status;
-- a bounded context lacks a subdomain classification or context-map relationship;
-- an external-system row lacks an anti-corruption mapping;
-- a future-only row lacks current handling;
-- an acceptance criterion lacks trace, pass condition, or failure condition.
-- a §10 bounded-context row lacks `context_kind` or uses a value outside the closed `context_kind` table;
-- a §10.1 row with `Subdomain class='core'` lacks pressure-test support in its reason or modeling-latitude text;
-- a §10.2 relationship row lacks `Change obligation`;
-- a §10.2 relationship type is absent from §10.3 or is not `status='current-used'`;
-- a §10.3 relationship type with `status='recognized-unused'` or `status='recognized-diagnostic-only'` appears in §10.2;
-- a §11 glossary term is absent from §11.1;
-- a §11.1 term does not exactly match one §11 glossary term;
-- a §11.1 bounded context does not exactly match one §10 bounded context and is not explicitly marked external or future-only;
-- coding-agent or AI-assistant vocabulary appears as a domain source without a §16.1 anti-corruption row and owner-backed glossary mapping;
-- a domain-language manifest or lint artifact, when present, disagrees with §10, §10.2, §10.3, §11, §11.1, or §16.1.
+Reviewers check that:
 
-Omission behavior: if the repository does not yet contain such a validation suite, reviewers MUST perform the same checks manually before accepting a behavior-affecting domain update.
+- stable identifiers and current/future classifications agree with the
+  applicable adopted owner;
+- exact token membership is not copied outside an owner-derived projection;
+- glossary and bounded-context rows name their owner and applicability;
+- external-system language has an anti-corruption mapping;
+- future-only language states current handling;
+- Strategic DDD relationship and subdomain classifications remain internally
+  coherent; and
+- coding-agent or AI-assistant vocabulary is not promoted without owner-backed
+  review.
 
-### 18.5 Domain-language manifest validation shape
+Markdown lint MAY check generic document quality. It does not establish product
+or vocabulary conformance.
 
-A repository validation suite MAY materialize a domain-language manifest for automated checks. Omission behavior: if no manifest exists, §18.4 manual review remains required and sufficient for this document.
+### 18.5 Typed projection boundary
 
-When present, the manifest MUST be derived from `docs/domain.md` and MUST NOT become an independent source of domain truth.
+Do not create a domain-language manifest merely to mirror this document. If a
+production, generator, or test consumer needs a vocabulary enum, relationship
+type, identifier set, or mapping, the applicable adopted behavioral owner MUST
+define the fact and a separately reviewed versioned machine projection MAY
+encode it.
 
-| Manifest family | Required content |
-| --- | --- |
-| `bounded_contexts[]` | §10 bounded-context names, `context_kind`, applicability, §10.1 subdomain class, and stewardship trigger reference. |
-| `context_relationships[]` | §10.2 upstream, downstream, relationship type, published language, translation owner, and change obligation. |
-| `relationship_types[]` | §10.3 relationship type, status, meaning, and omission or use behavior. |
-| `glossary_terms[]` | §11 term, canonical identifiers or tokens, behavior owner, applicability, current-profile status, and §11.1 bounded context. |
-| `external_mappings[]` | §16.1 external system or model, external term or identifier, allowed preservation form, canonical Cartulary target, translation owner, and forbidden promotion. |
-
-A generated manifest mismatch MUST be treated as evidence of documentation drift, not as authority to reinterpret `docs/domain.md`.
+Such a projection validates against its own schema and MUST NOT carry or
+resolve documentation paths, headings, anchors, line or byte ranges, hashes,
+document lifecycle status, or copied narrative requirements. Human review
+establishes that it reflects the owner specification. A mismatch is repaired in
+the owner specification or projection; executable tooling does not settle it
+by reading this document.
 
 ## 19. Acceptance criteria
 
@@ -1098,7 +1096,7 @@ The document is useful and complete enough for practical repository use only whe
 | DOMAIN-AC-AI-BOUNDARY-001 | Coding-agent and AI-assistant vocabulary is anti-corrupted. | §16, §16.1, §17 | Coding-agent or AI-assistant output is treated as implementation-support input unless owner-backed review accepts it through §6.1, §11, and §11.1. | Agent-generated terms, inferred entities, summaries, or mappings become domain vocabulary by repetition in generated code, tests, comments, prompts, or documentation. |
 | DOMAIN-AC-AGENT-001 | Coding-agent rules prohibit known drift patterns. | §17 | Required orientation, prohibited shortcuts, and review checklist are present. | A prohibited shortcut is allowed without an owner-backed exception. |
 | DOMAIN-AC-MAINT-001 | Copied owner facts are controlled. | §18.2 | Every copied owner fact family has copy class, allowed detail, validation, and failure handling. | An exact copied fact exists without a copy-policy row. |
-| DOMAIN-AC-MANIFEST-001 | Domain-language validation artifacts are subordinate. | §18.5 | Any domain-language manifest is derived from `docs/domain.md`, includes the declared strategic DDD sections, and is not treated as independent authority. If absent, §18.4 manual review remains required. | A generated manifest redefines domain vocabulary, omits the required strategic DDD sections, or is used to bypass manual review when no validator exists. |
+| DOMAIN-AC-MANIFEST-001 | Domain-language validation artifacts are subordinate. | §18.5 | Any executable vocabulary fact is encoded only in a separately reviewed, versioned projection of its adopted behavioral owner; no tool reads this document. | A manifest mirrors this document, carries document provenance, or is treated as independent behavioral authority. |
 | DOMAIN-AC-FUTURE-001 | Future-only concepts have current handling. | §20 | Every future-only topic has current status, current handling, allowed locations now, and required next step. | A future-only topic is implemented or documented as current behavior without rejection. |
 | DOMAIN-AC-ECONOMY-001 | Spec economy is preserved. | Whole document, §18 | The document does not duplicate full route contracts, field registries, or product acceptance criteria owned elsewhere. | The document contains an owner-owned route table, exhaustive field registry, or Core 04 product AC copy as domain authority. |
 | DOMAIN-AC-TWO-AGENT-001 | Two independent agents would make the same boundary decisions. | §5 through §20 | For the aliases `case`, `worksheet`, `IOC`, `artifact`, `approval`, `owner`, `contact`, `ticket`, `report`, `release`, `report composition`, `system view`, `flow table`, and `Network Analysis`, the document maps each to one canonical term, owner disposition, applicability class, and current handling. | Any listed alias yields incompatible current-profile interpretations. |

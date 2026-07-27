@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-007-indicator-linking",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "existing-indicator, create-indicator, duplicate, and resolved binding identity paths commit atomically",
   "table_resource": {
     "network_flow_table_id": "nft_5e8893a8eb48f22828ef2375dccc4be2",

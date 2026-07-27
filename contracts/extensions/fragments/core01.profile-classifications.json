@@ -2,7 +2,6 @@
   "facts": [
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication",
       "state_ownership": {
         "kind": "core_managed"
@@ -16,36 +15,25 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
-      "egress_requirement_id": "REQ-04-143",
       "egress_mode": "owner_declared",
       "fact_kind": "egress",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "enterprise_authentication"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "enterprise_authentication",
       "snapshot_reporting_mode": "no_participation"
-    },
-    {
-      "conformance_manifest_id": "enterprise_authentication.conformance.v1",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "REQ-01-151.1",
-      "profile_id": "enterprise_authentication"
     },
     {
       "contribution": {
@@ -54,7 +42,6 @@
         "route_family": "/api/v1/auth/oidc"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -64,7 +51,6 @@
         "route_family": "/api/v1/auth/providers"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -74,7 +60,6 @@
         "route_family": "/api/v1/auth/saml"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
@@ -84,12 +69,10 @@
         "route_family": "/api/v1/users/{user_id}/auth-bindings"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "enterprise_authentication"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import",
       "state_ownership": {
         "kind": "core_managed"
@@ -103,36 +86,25 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import"
     },
     {
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_requirement_id": "REQ-01-151.1",
-      "profile_id": "import",
-      "egress_requirement_id": null
+      "profile_id": "import"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "import"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "import",
       "snapshot_reporting_mode": "no_participation"
-    },
-    {
-      "conformance_manifest_id": "import.conformance.v1",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "REQ-01-151.1",
-      "profile_id": "import"
     },
     {
       "contribution": {
@@ -141,12 +113,10 @@
         "route_family": "/api/v1/import-sessions"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "import"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability",
       "state_ownership": {
         "kind": "core_managed"
@@ -160,36 +130,25 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability"
     },
     {
       "egress_mode": "none",
       "fact_kind": "egress",
-      "owner_requirement_id": "REQ-01-631",
-      "profile_id": "incident_portability",
-      "egress_requirement_id": null
+      "profile_id": "incident_portability"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_requirement_id": "REQ-01-631",
       "participant_id": null,
       "profile_id": "incident_portability"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "REQ-01-631",
       "participant_id": null,
       "profile_id": "incident_portability",
       "snapshot_reporting_mode": "no_participation"
-    },
-    {
-      "conformance_manifest_id": "incident_portability.conformance.v1",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "REQ-01-631",
-      "profile_id": "incident_portability"
     },
     {
       "contribution": {
@@ -198,12 +157,10 @@
         "route_family": "/api/v1/incident-bundles"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-631",
       "profile_id": "incident_portability"
     },
     {
       "fact_kind": "state_ownership",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack",
       "state_ownership": {
         "kind": "core_managed"
@@ -217,36 +174,25 @@
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "fact_kind": "admission_validation",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     },
     {
-      "egress_requirement_id": "REQ-04-143",
       "egress_mode": "owner_declared",
       "fact_kind": "egress",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     },
     {
       "blocking_predicate": null,
       "fact_kind": "portability",
       "incident_portability_mode": "no_authoritative_incident_state",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "reference_pack"
     },
     {
       "fact_kind": "snapshot_reporting",
-      "owner_requirement_id": "REQ-01-151.1",
       "participant_id": null,
       "profile_id": "reference_pack",
       "snapshot_reporting_mode": "no_participation"
-    },
-    {
-      "conformance_manifest_id": "reference_pack.conformance.v1",
-      "fact_kind": "conformance_manifest",
-      "owner_requirement_id": "REQ-01-151.1",
-      "profile_id": "reference_pack"
     },
     {
       "contribution": {
@@ -255,14 +201,10 @@
         "route_family": "/api/v1/reference-packs"
       },
       "fact_kind": "contribution",
-      "owner_requirement_id": "REQ-01-151.1",
       "profile_id": "reference_pack"
     }
   ],
   "owner_fragment_id": "core01.extension_profile_classifications.v1",
   "owner_id": "core01",
-  "schema_id": "cartulary.extension_owner_fragment.v2",
-  "requirement_catalog_ref": "contracts/requirements/owners/core01.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "1e8130fd3f093063ded7503065407f5b7da924c7c3d3e5f06cb05db454faa73d"
+  "schema_id": "cartulary.extension_owner_fragment.v3"
 }

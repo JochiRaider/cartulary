@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.projections",
   "verifications": [
     {
@@ -9,11 +9,6 @@
       "evidence_kinds": [
         "go_test",
         "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.projections.requirement.application_assembled_catalog",
-        "module.projections.requirement.provider_validation"
       ]
     },
     {
@@ -22,11 +17,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.projections.requirement.physical_query",
-        "module.projections.requirement.storage_lifecycle"
       ]
     },
     {
@@ -35,10 +25,6 @@
       "profile": "base",
       "evidence_kinds": [
         "go_test"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "module.projections.requirement.rebuild"
       ]
     }
   ]

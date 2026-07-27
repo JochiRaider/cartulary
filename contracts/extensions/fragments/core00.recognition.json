@@ -4,8 +4,6 @@
       "claimable": true,
       "contract_major": 1,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.core01.current.v1",
       "primary_owner_id": "core01",
       "profile_id": "enterprise_authentication"
     },
@@ -13,8 +11,6 @@
       "claimable": true,
       "contract_major": 1,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.core01.current.v1",
       "primary_owner_id": "core01",
       "profile_id": "import"
     },
@@ -22,8 +18,6 @@
       "claimable": true,
       "contract_major": 1,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.core01.current.v1",
       "primary_owner_id": "core01",
       "profile_id": "incident_portability"
     },
@@ -31,15 +25,12 @@
       "claimable": true,
       "contract_major": 2,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.network_flow_activity.current.v2",
       "primary_owner_id": "network_flow_activity",
       "profile_id": "network_flow_activity"
     },
     {
       "dependency_profile_id": "import",
       "fact_kind": "runtime_dependency",
-      "owner_requirement_id": "REQ-00-065",
       "profile_id": "network_flow_activity",
       "required_contract_major": 1
     },
@@ -47,8 +38,6 @@
       "claimable": true,
       "contract_major": 1,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.core01.current.v1",
       "primary_owner_id": "core01",
       "profile_id": "reference_pack"
     },
@@ -56,16 +45,11 @@
       "claimable": true,
       "contract_major": 1,
       "fact_kind": "recognized_profile",
-      "owner_requirement_id": "REQ-00-065",
-      "primary_owner_contract_id": "cartulary.reporting_subsystem_nlspec.v1",
       "primary_owner_id": "reporting",
       "profile_id": "snapshot_reporting"
     }
   ],
   "owner_fragment_id": "core00.extension_recognition.v1",
   "owner_id": "core00",
-  "schema_id": "cartulary.extension_owner_fragment.v2",
-  "requirement_catalog_ref": "contracts/requirements/owners/core00.json",
-  "requirement_catalog_schema_id": "cartulary.requirement_catalog.v1",
-  "requirement_catalog_sha256": "ed97b6f76f8b8106f1464561d5f6ebf3ce182d56da98f864661841817a4ab422"
+  "schema_id": "cartulary.extension_owner_fragment.v3"
 }

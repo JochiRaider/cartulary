@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 2.0.1
+document_version: 2.0.2
 contract_major: 2
 profile_id: network_flow_activity
 document_class: nlspec
@@ -11,9 +11,15 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.1`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.2`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
 
-Document version: `2.0.1`. Contract major: `2`. Version `2.0.1` corrects inactive deployment-configuration admission to use the Extensions-owned generic diagnostic; no conforming released artifact relied on the conflicting profile-local diagnostic. The state schema remains version `1`; the public-contract major change removes the competing profile-local discovery shape and does not reinterpret durable Network Flow state.
+Document version: `2.0.2`. Contract major: `2`. Version `2.0.2` removes
+acceptance-accounting and document-provenance metadata from executable test and
+contract projections. It does not change Network Flow product behavior,
+durable state, or public route schemas. Version `2.0.1` corrected inactive
+deployment-configuration admission to use the Extensions-owned generic
+diagnostic; no conforming released artifact relied on the conflicting
+profile-local diagnostic.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -81,7 +87,7 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 | Core 04 | Closed inactive configuration, validation precedence, lease/publication lifecycle, authorization, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `67583e759aea19b52ca1718b53537d6c1ca1328f4a83031267891c916542658b`; `REQ-04-123..146`. |
 | Extensions Subsystem NLSpec | Owner manifests and fragments, generated registry, state coordination, bindings/codecs, participants, and conformance accounting. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.6.1`, SHA-256 `e4251be03942465ffdf587776035011c0939fe753c43e2cfc1acefbd689d5fd2`; `EXT-REQ-001..236`, `EXT-AC-001..158`. This dependency closed in the same atomic companion revision. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
-| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v1`, `cartulary.network_flow_activity_accounting.v2`, `cartulary.network_flow_timezone_ruleset_provenance.v1`. |
+| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v2`, `cartulary.network_flow_fixture_scenario.v2`, and `cartulary.network_flow_timezone_ruleset_provenance.v2`. |
 
 ## 2. Normative language
 
@@ -639,7 +645,7 @@ schemas, not `view_schema_id` values. A flow table, accepted row, or diagnostic
 MUST NOT be represented as a Core record or workbook projection.
 
 The closed repo-local presentation registry at
-`contracts/network-flow/presentation.v1.json` owns column field keys, labels,
+`contracts/network-flow/presentation.v2.json` owns column field keys, labels,
 value/renderer kinds, filter and sort eligibility, copy and indicator-link
 eligibility, default visibility/order/width, minimum width, and inspector-only
 posture. UI code MUST consume generated registry metadata and MUST NOT infer
@@ -1070,7 +1076,7 @@ Mapping suggestions under `cisco_sna_netflow_csv_v1` MUST be computed by Table 9
 
 **NF-REQ-080c**
 The closed repo-local registry at
-`contracts/network-flow/mapping-registry.v1.json` is the derived machine-readable
+`contracts/network-flow/mapping-registry.v2.json` is the derived machine-readable
 owner input for the claimable source-profile identifiers, parser and unknown
 column defaults, timestamp modes, field requirements, aliases, transforms,
 empty-value policies, and suggestion order in §§9.4 through 9.7. Backend and
@@ -1130,7 +1136,7 @@ A non-UTC IANA-zone timestamp profile MUST declare `timezone_ruleset_id='tzdb-20
 
 The immutable v1 provenance artifact for this ruleset is
 `contracts/network-flow/timezone/tzdb-2026c.provenance.json` with
-`schema_id='cartulary.network_flow_timezone_ruleset_provenance.v1'`. That
+`schema_id='cartulary.network_flow_timezone_ruleset_provenance.v2'`. That
 artifact MUST pin the IANA data-only archive `tzdata2026c.tar.gz`, its exact
 release version, release timestamp, byte size, SHA-256 digest, detached
 signature URL and digest, signing key identifier, license file digest, owner
@@ -2945,40 +2951,48 @@ For Network Flow-owned mutating routes, exact committed idempotency replay looku
 ## 22. Fixtures
 
 **NF-REQ-177**
-Conformance fixtures MUST include Table 22-A for this NLSpec to remain adopted/current. Draft successor revisions MAY contain explicit `TODO:` fixture rows. Omission behavior: a fixture row with any `TODO:` value is a known adoption blocker and MUST NOT satisfy adoption or implementation conformance.
+Behavior fixtures MUST include the scenarios in Table 22-A for this NLSpec to
+remain adopted/current. Each fixture bundle MUST be independently executable
+against production-facing adapters and MUST compare its produced behavior with
+the committed expected artifacts or state. Fixture manifests are integrity and
+execution inputs only: they MUST NOT contain acceptance IDs, verification IDs,
+copied owner requirements, test selectors, phase selectors, specification
+paths, specification versions, or specification hashes. Draft successor
+fixtures MAY contain explicit `TODO:` values, but those fixtures MUST NOT be
+used as evidence for current behavior.
 
-**Table 22-A. Fixture bundle registry**
+**Table 22-A. Fixture behavior registry**
 
-| Fixture ID | Path | SHA-256 | Source profile | Parser profile | Required expected outputs |
-| --- | --- | --- | --- | --- | --- |
-| `NF-FIX-001-cisco-sna-minimal` | `fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/manifest.json` | `b87f8eec4754ee852ef6d6ba6fcf26622b7eeb1f05c2a9e3771fe32191c4431c` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Table resource, mapping fingerprint, exact row IDs, zero diagnostics, graph result. |
-| `NF-FIX-002-cisco-sna-interface-fields` | `fixtures/network-flow/NF-FIX-002-cisco-sna-interface-fields/manifest.json` | `01370193ba2cd0ba60ff5927733c8a6a21cde992baaf31cb679d519e900643c1` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Interface field mapping outputs, exact row IDs, graph result. |
-| `NF-FIX-003-duplicate-headers` | `fixtures/network-flow/NF-FIX-003-duplicate-headers/manifest.json` | `d0ecd247b193ef6a889c89eb8de61d89aa30b16b208f1e8e8ce8ae42080206b5` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Source-column descriptors proving ordinal disambiguation. |
-| `NF-FIX-004-rejected-rows` | `fixtures/network-flow/NF-FIX-004-rejected-rows/manifest.json` | `fb0ee5d1ac8b5ec72d35b28c0919a274f553b0cf7cdc7bca84d12ac250f1d859` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Invalid IP, port, protocol, timestamp, counter, field-count, and end-before-start diagnostics in exact order. |
-| `NF-FIX-005-csv-parser-edges` | `fixtures/network-flow/NF-FIX-005-csv-parser-edges/manifest.json` | `f04665b06b128a986973b85a5817ab13b0516f0e7c36f2eb5a9e753b37d22dc5` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Terminal newline, blank line, quoted newline, quote escaping, and malformed quote outcomes. |
-| `NF-FIX-006-cross-table-graph` | `fixtures/network-flow/NF-FIX-006-cross-table-graph/manifest.json` | `f75cfd9ec9d058fb0fa531da56c93c55ee289a3a200de764d031fa0fb36410c9` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Two table resources, shared endpoint vertex, aggregated edge, exact graph query digest, exact source snapshot ID, and exact edge IDs. |
-| `NF-FIX-007-indicator-linking` | `fixtures/network-flow/NF-FIX-007-indicator-linking/manifest.json` | `3817ca7bb750e20bd36377c0c18dd63896f61ec95738f38c56f3f7d595b336e1` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Existing-indicator link, create-indicator link, duplicate binding result. |
-| `NF-FIX-008-large-limits` | `fixtures/network-flow/NF-FIX-008-large-limits/manifest.json` | `796c5984554e79259acef7505699ee4f0588bac681ebacded5422e830eb53298` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Graph/table limit failures; engineering measurement only, not Core 05 publication evidence. |
-| `NF-FIX-009-soft-delete-stale-graph` | `fixtures/network-flow/NF-FIX-009-soft-delete-stale-graph/manifest.json` | `a7e1c9db21c90b9e535d642d0b9ee1c52e882a873ca578b6c00a442c32877860` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Active graph query containing a table that is then soft-deleted; stale graph and cursor invalidation. |
-| `NF-FIX-010-json-admission` | `fixtures/network-flow/NF-FIX-010-json-admission/manifest.json` | `8edc935cd2c5bc976aa8489a12ab9ee1f1573e9cb851c1b5cedc61e16dfc6c53` | n/a | n/a | Duplicate member, explicit null, unknown member, malformed JSON, non-object body failures. |
-| `NF-FIX-011-alias-collision` | `fixtures/network-flow/NF-FIX-011-alias-collision/manifest.json` | `f9100a1047d6df34d78e04128c67cafc86f8f2d7252e043e1b24a307a2b008d2` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Alias match keys, duplicate-alias warning, explicit approved mapping, and mapping conflict for source reuse. |
-| `NF-FIX-012-sys-uptime-timestamps` | `fixtures/network-flow/NF-FIX-012-sys-uptime-timestamps/manifest.json` | `fc69425962a5c04156fc65693ba5cbc72afe0e8aeef141bb9cf5a6750b843389` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Export time, exporter uptime-at-export, start/end event uptime derivations, and wrap-ambiguous rejection. |
-| `NF-FIX-013-filename-display` | `fixtures/network-flow/NF-FIX-013-filename-display/manifest.json` | `3cb396782f502dc573cbaef01a8d20cc2dc47f08d0a8e5cbc6c07cc11df741ac` | n/a | n/a | Path stripping, hidden-file stem, trailing-dot stem, display-name override rejection, duplicate suffixing, and soft-delete name reuse. |
-| `NF-FIX-014-cursor-pagination` | `fixtures/network-flow/NF-FIX-014-cursor-pagination/manifest.json` | `89aed2d8fd40ab4a944095386425d99b6676e17a693f767c4888df019857eb3c` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Mandatory default sort tail, keyset continuation tuple, terminal null cursor, actor mismatch, and table rename cursor survival. |
-| `NF-FIX-015-graph-adapter-input` | `fixtures/network-flow/NF-FIX-015-graph-adapter-input/manifest.json` | `39c9c5c1a10b5163ef269d84afaa8dc80b173e592793e0f3ac6cd8abd87dd9e7` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact `network_flow_graph_projection_input_v1`, graph view key, source snapshot ID, property definitions, and safe metadata. |
-| `NF-FIX-016-redaction` | `fixtures/network-flow/NF-FIX-016-redaction/manifest.json` | `04c84b78bb1a5822dbdc1fbabf55b4a619584478096d0c99425234de4255a064` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Deterministic `safe_sample` nulls, integer-like samples, raw value SHA-256s, audit safe digests, and no raw text leakage. |
-| `NF-FIX-017-indicator-link-mismatch` | `fixtures/network-flow/NF-FIX-017-indicator-link-mismatch/manifest.json` | `b351f48f5fb23cdb886cf7e19d565a96c0e34a59e4f7f677d92fae578318f2fe` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Non-IP field rejection, edge field disambiguation, `confirm_exact_value` mismatch, existing-indicator normalized-value mismatch, and create-indicator Core dependency failure. |
-| `NF-FIX-018-resource-limits` | `fixtures/network-flow/NF-FIX-018-resource-limits/manifest.json` | `1ed98e03e4a60afe97675cf68d59d75035ebdb06bef358d55827d5eb8e86dd63` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Parser/import resource limit failures, diagnostic truncation, graph limit failure, counter digit limit failure, and invalid deployment config cases. |
-| `NF-FIX-019-canonical-json-unicode` | `fixtures/network-flow/NF-FIX-019-canonical-json-unicode/manifest.json` | `fd274df8eb5c6ec3530429c20a8aaf774b6b0d257a7c326aca7ce2dcc0373428` | n/a | n/a | Exact JSON escapes, Unicode scalar ordering, Unicode 17 whitespace, NFC, null/present digest framing, and unpaired-surrogate rejection. |
-| `NF-FIX-020-atomic-import-commit` | `fixtures/network-flow/NF-FIX-020-atomic-import-commit/manifest.json` | `2d57eb1b14293c2a800af760f0918145ef7b9c919546c97b371081c49c795b59` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Failure injection at every final-commit step proves no ghost table, partial row, diagnostic, binding, or domain audit. |
-| `NF-FIX-021-preview-boundaries` | `fixtures/network-flow/NF-FIX-021-preview-boundaries/manifest.json` | `65d0c177472782d735fb85338289439ed140d369f1869f6839e1db95fe343b43` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | First-record header semantics, invalid controls, exact 50-record preview stop, post-preview malformed data, blank/mismatch row counting, and row limit `limit+1`. |
-| `NF-FIX-022-timestamp-rulesets` | `fixtures/network-flow/NF-FIX-022-timestamp-rulesets/manifest.json` | `6c05ce8005f057657e6c62ed0d9b4b0fbcf52c12fa3f986651e37b32f91b7c32` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Closed variants, exact RFC3339 grammar, `tzdb-2026c` fold/gap transitions, epoch canonical integers, uptime 32-bit bounds, and distinct ordinals. |
-| `NF-FIX-023-import-facade-source-change` | `fixtures/network-flow/NF-FIX-023-import-facade-source-change/manifest.json` | `ce665c2d8574f8ec610c8b0869adbcba3de6f7051a8b98281ba97a83f513cdb1` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact preview/apply requests and results, server-derived descriptors, no path leakage, and all `network_flow_source_changed` reasons. |
-| `NF-FIX-024-query-normalization-cursors` | `fixtures/network-flow/NF-FIX-024-query-normalization-cursors/manifest.json` | `d40ad09966abf40feb575142ca7672c77b5e3445e676f460a371d6481f27d851` | n/a | n/a | Closed table scopes, normalized duplicate filters, initial/continuation separation, 4096-byte bound, expiry boundary, and independent row/diagnostic cursor tuples. |
-| `NF-FIX-025-graph-contributors` | `fixtures/network-flow/NF-FIX-025-graph-contributors/manifest.json` | `22bd2071d57ec54ae6e759e24764bce8ad329d876cd80962b971a7e82e6d0c6a` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact graph response objects, vertex/edge contributor pages, current-authorization recomputation, stale digest, and no rejected contributors. |
-| `NF-FIX-026-audit-and-replay` | `fixtures/network-flow/NF-FIX-026-audit-and-replay/manifest.json` | `11e3a0066d1567564a9f2e316a5836f75d336571db49a7781cdbc537e356a252` | n/a | n/a | Created-versus-reused binding events, digest key IDs, exact replay with no second domain audit, graph-success-only audit, and exact truncated-ref count. |
-| `NF-FIX-027-retention-soft-delete` | `fixtures/network-flow/NF-FIX-027-retention-soft-delete/manifest.json` | `3319cd131bcc817c9d0a9e295c29b4173c5130823786c1e5df9abcdd203e348b` | n/a | n/a | Soft-delete terminal behavior, incident-closure retention, non-queryability, retained counts, cursor invalidation, Core-governed audit retention, and no v1 whole-incident purge claim. |
-| `NF-FIX-028-graph-aggregate-bounds` | `fixtures/network-flow/NF-FIX-028-graph-aggregate-bounds/manifest.json` | `5acf103d56b2e3e1db0711abdfb354b7e29f14f43dd220ccbebaa4a2070facc1` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Arbitrary-precision sums, exact digit limit, fixed vertex/edge/counter failure order, and no partial adapter output. |
+| Fixture ID | Source profile | Parser profile | Required expected outputs |
+| --- | --- | --- | --- |
+| `NF-FIX-001-cisco-sna-minimal` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Table resource, mapping fingerprint, exact row IDs, zero diagnostics, graph result. |
+| `NF-FIX-002-cisco-sna-interface-fields` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Interface field mapping outputs, exact row IDs, graph result. |
+| `NF-FIX-003-duplicate-headers` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Source-column descriptors proving ordinal disambiguation. |
+| `NF-FIX-004-rejected-rows` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Invalid IP, port, protocol, timestamp, counter, field-count, and end-before-start diagnostics in exact order. |
+| `NF-FIX-005-csv-parser-edges` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Terminal newline, blank line, quoted newline, quote escaping, and malformed quote outcomes. |
+| `NF-FIX-006-cross-table-graph` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Two table resources, shared endpoint vertex, aggregated edge, exact graph query digest, exact source snapshot ID, and exact edge IDs. |
+| `NF-FIX-007-indicator-linking` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Existing-indicator link, create-indicator link, duplicate binding result. |
+| `NF-FIX-008-large-limits` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Graph/table limit failures; engineering measurement only, not Core 05 publication evidence. |
+| `NF-FIX-009-soft-delete-stale-graph` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Active graph query containing a table that is then soft-deleted; stale graph and cursor invalidation. |
+| `NF-FIX-010-json-admission` | n/a | n/a | Duplicate member, explicit null, unknown member, malformed JSON, non-object body failures. |
+| `NF-FIX-011-alias-collision` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Alias match keys, duplicate-alias warning, explicit approved mapping, and mapping conflict for source reuse. |
+| `NF-FIX-012-sys-uptime-timestamps` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Export time, exporter uptime-at-export, start/end event uptime derivations, and wrap-ambiguous rejection. |
+| `NF-FIX-013-filename-display` | n/a | n/a | Path stripping, hidden-file stem, trailing-dot stem, display-name override rejection, duplicate suffixing, and soft-delete name reuse. |
+| `NF-FIX-014-cursor-pagination` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Mandatory default sort tail, keyset continuation tuple, terminal null cursor, actor mismatch, and table rename cursor survival. |
+| `NF-FIX-015-graph-adapter-input` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact `network_flow_graph_projection_input_v1`, graph view key, source snapshot ID, property definitions, and safe metadata. |
+| `NF-FIX-016-redaction` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Deterministic `safe_sample` nulls, integer-like samples, raw value SHA-256s, audit safe digests, and no raw text leakage. |
+| `NF-FIX-017-indicator-link-mismatch` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Non-IP field rejection, edge field disambiguation, `confirm_exact_value` mismatch, existing-indicator normalized-value mismatch, and create-indicator Core dependency failure. |
+| `NF-FIX-018-resource-limits` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Parser/import resource limit failures, diagnostic truncation, graph limit failure, counter digit limit failure, and invalid deployment config cases. |
+| `NF-FIX-019-canonical-json-unicode` | n/a | n/a | Exact JSON escapes, Unicode scalar ordering, Unicode 17 whitespace, NFC, null/present digest framing, and unpaired-surrogate rejection. |
+| `NF-FIX-020-atomic-import-commit` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Failure injection at every final-commit step proves no ghost table, partial row, diagnostic, binding, or domain audit. |
+| `NF-FIX-021-preview-boundaries` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | First-record header semantics, invalid controls, exact 50-record preview stop, post-preview malformed data, blank/mismatch row counting, and row limit `limit+1`. |
+| `NF-FIX-022-timestamp-rulesets` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Closed variants, exact RFC3339 grammar, `tzdb-2026c` fold/gap transitions, epoch canonical integers, uptime 32-bit bounds, and distinct ordinals. |
+| `NF-FIX-023-import-facade-source-change` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact preview/apply requests and results, server-derived descriptors, no path leakage, and all `network_flow_source_changed` reasons. |
+| `NF-FIX-024-query-normalization-cursors` | n/a | n/a | Closed table scopes, normalized duplicate filters, initial/continuation separation, 4096-byte bound, expiry boundary, and independent row/diagnostic cursor tuples. |
+| `NF-FIX-025-graph-contributors` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact graph response objects, vertex/edge contributor pages, current-authorization recomputation, stale digest, and no rejected contributors. |
+| `NF-FIX-026-audit-and-replay` | n/a | n/a | Created-versus-reused binding events, digest key IDs, exact replay with no second domain audit, graph-success-only audit, and exact truncated-ref count. |
+| `NF-FIX-027-retention-soft-delete` | n/a | n/a | Soft-delete terminal behavior, incident-closure retention, non-queryability, retained counts, cursor invalidation, Core-governed audit retention, and no v1 whole-incident purge claim. |
+| `NF-FIX-028-graph-aggregate-bounds` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Arbitrary-precision sums, exact digit limit, fixed vertex/edge/counter failure order, and no partial adapter output. |
 
 **NF-REQ-178**
 Each fixture bundle MUST include canonical expected-output transcripts for route success `data` objects, route error payloads, table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, Graph Projection adapter input, indicator-link result, resource-limit details, and redaction outputs where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration. Fixture-only safe digest expectations MUST declare deterministic fixture `network_flow_safe_digest_key_material`; production deployments MUST NOT use that fixture secret.
@@ -2986,9 +3000,13 @@ Each fixture bundle MUST include canonical expected-output transcripts for route
 ## 23. Acceptance criteria
 
 **NF-REQ-179**
-An implementation claiming `network_flow_activity` MUST satisfy every acceptance criterion in Table 23-A.
+An implementation claiming `network_flow_activity` MUST satisfy every
+behavioral criterion in Table 23-A. The table defines observable behavior, not
+an acceptance-to-test accounting surface. Verification MAY consolidate
+criteria into cohesive behavior tests and fixture executions; it MUST NOT
+require one row, selector, or fixture annotation per criterion.
 
-**Table 23-A. Binary acceptance criteria**
+**Table 23-A. Behavioral verification scenarios**
 
 | ID | Criterion |
 | --- | --- |
@@ -3043,10 +3061,10 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-049` | Every route-local error includes the detail schema required by §21.2. |
 | `NF-AC-050` | Large-fixture timing results are classified as engineering measurements unless Core 05 claim-publication requirements are separately satisfied. |
 | `NF-AC-051` | `unmapped_raw` values are retained as inert provenance under the default policy and are not filterable, sortable, graphable, or linkable. |
-| `NF-AC-052` | Every fixture row has concrete path, byte SHA-256, approved mapping JSON, mapping fingerprint, expected IDs, expected diagnostics, and expected graph/link output before adoption. |
-| `NF-AC-053` | The document contains no `MAY` statement whose omission behavior is absent. |
-| `NF-AC-054` | No behavior is moved into appendices, research reports, UI guides, implementation guides, or vendor documentation as normative authority. |
-| `NF-AC-055` | Internal section references, table references, error-code references, and requirement references resolve without dangling anchors before adoption. |
+| `NF-AC-052` | Every fixture bundle has concrete executable input, byte SHA-256, expected artifacts or state, and comparison output before adoption. |
+| `NF-AC-053` | Optional behavior is conformant when omitted unless the owning requirement defines an observable omission result. |
+| `NF-AC-054` | Appendices, research reports, UI guides, implementation guides, and vendor documentation do not define runtime behavior. |
+| `NF-AC-055` | Executable validation resolves only versioned typed contracts and fixture bytes; it does not resolve prose sections, requirement IDs, or acceptance IDs. |
 | `NF-AC-056` | `network_flow_flow_edge_id_v1` produces exact fixture edge IDs, and null destination ports form a distinct aggregation and edge-ID key. |
 | `NF-AC-057` | Request members `time_range.bucket` and `aggregation.include_time_buckets` fail as unknown members in v1; no time-bucket error code is exposed. |
 | `NF-AC-058` | `observation_mode` values other than `binding_only` fail, and `created_observation_refs[]` is always `[]` in binding resources and link responses. |
@@ -3097,9 +3115,9 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-103` | Audit occurrences match Table 16-C exactly, exact replay emits no new domain occurrence, and graph truncated-ref count equals the specified sum. |
 | `NF-AC-104` | Soft delete and incident closure retain Network Flow state but make it non-queryable as specified in Table 8-D, invalidate affected cursors, preserve Core-governed audit retention, and expose no v1 whole-incident purge claim. |
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
-| `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
+| `NF-AC-106` | Every typed dependency required by execution has a resolvable versioned contract, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
-| `NF-AC-108` | The owner manifest and fragment resolve exactly to document version `2.0.1`, contract major `2`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact. |
+| `NF-AC-108` | The owner fragment resolves contract major `2`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact; runtime descriptors contain no source-document version. |
 | `NF-AC-109` | State presence uses only the four authoritative logical families, permits metadata-only empty state under `empty_state_policy='allowed'`, and never treats jobs, ledgers, caches, projections, or staged objects as state. |
 | `NF-AC-110` | Fresh initialization is empty and invokes only the final validator; current state version `1` requires no profile migration definition, while an omitted, extra, or code-inferred migration fails contract generation. |
 | `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` with top-level `invalid_deployment_config`, reason `extension_config_without_claim`, the generic Extensions message, profile ID, extension JSON path, deployment-config item path, and no `profile_incompatible_binding` alias; rejection occurs without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
@@ -3121,9 +3139,9 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | `NF-BLOCK-003` | Core 01 import terminal result references admit `kind='network_flow_table'`. |
 | `NF-BLOCK-004` | Core 03 admits extension-contributed top-level incident tabs without expanding base built-in tabs. |
 | `NF-BLOCK-005` | Core 04 adds Network Flow route-family authorization/conformance hooks. |
-| `NF-BLOCK-006` | Every fixture row in §22 has concrete path, byte hash, and expected output transcript. |
+| `NF-BLOCK-006` | Every fixture in §22 has a frozen v2 manifest with concrete source, expected-artifact, transcript, size, and digest data. |
 | `NF-BLOCK-007` | The generated contract artifacts derived from this NLSpec exist and pass drift checks. |
-| `NF-BLOCK-008` | Route, parser, digest, graph, indicator-link, security, and limit acceptance criteria have executable tests. |
+| `NF-BLOCK-008` | Route, parser, digest, graph, indicator-link, security, and limit behavior has executable tests. |
 | `NF-BLOCK-009` | Core 02 or the adopted Core indicator registry designates the exact IP-literal indicator type token required by §15. |
 | `NF-BLOCK-010` | Every normative dependency in Table 1-B has an adopted version and immutable repository locator. |
 | `NF-BLOCK-011` | Core 01 adopts the two-operation import owner-facade boundary, opaque stream capability, source-change check, and atomic final-commit/result publication contract. |
@@ -3138,7 +3156,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 
 **NF-REQ-181**
 The primary owner document identity is
-`cartulary.network_flow_activity.current.v2`, version `2.0.1`. Its only runtime
+`cartulary.network_flow_activity.current.v2`, version `2.0.2`. Its only runtime
 dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
 exact Import owner manifest version and digest selected by the Extensions
 dependency declaration set. The recognized profile is claimable at contract
@@ -3207,7 +3225,7 @@ post-restore structural validator, and `rebuild_algorithm_id=null`. Restore
 order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, and `400` for `indicator_bindings`; bindings within
 a group execute sequentially by binding ID. Historical codec declarations and
-derived physical bindings are empty in version `2.0.1`. Backup/restore operates
+derived physical bindings are empty in version `2.0.2`. Backup/restore operates
 on a stopped empty target, validates each binding before advancing, never invokes
 Network Flow code while inactive, and never serves a failed target. There is no
 persisted derived state to rebuild after claim; the graph remains an ephemeral

@@ -174,16 +174,16 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			wantError: "without exact parameter declarations",
 		},
 		{
-			name: "unknown owner",
+			name: "invalid owner identifier",
 			units: []unitEntry{
 				{OwnerID: "platform.openapi", Path: rootUnitPath(), Role: unitRootRole},
-				{OwnerID: "module.unknown", Path: authUnitPath(), Role: unitOwnerRole},
+				{OwnerID: "module.Invalid", Path: authUnitPath(), Role: unitOwnerRole},
 			},
 			contents: map[string]string{
 				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
 				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
 			},
-			wantError: "unknown active owner",
+			wantError: "invalid owner_id",
 		},
 		{
 			name: "owner directory mismatch",
@@ -572,12 +572,6 @@ func newAssemblyFixture(
 	t.Helper()
 	root := t.TempDir()
 	writeFixtureFile(t, root, "go.mod", "module fixture\n\ngo 1.25\n")
-	writeFixtureFile(
-		t,
-		root,
-		"contracts/requirements/registry.json",
-		`{"owners":[{"owner_id":"platform.openapi","status":"active"},{"owner_id":"module.auth","status":"active"},{"owner_id":"module.incidents","status":"active"}]}`,
-	)
 	writeFixtureFile(t, root, "contracts/openapi-source/assembly-policy.json", fixturePolicyJSON(t))
 	preparedContents := prepareFixtureContents(t, units, contents)
 	for path, content := range preparedContents {
@@ -588,12 +582,11 @@ func newAssemblyFixture(
 		root:         root,
 		manifestPath: filepath.Join(root, "contracts", "openapi-source", "manifest.json"),
 		manifest: manifest{
-			SchemaID:             manifestSchemaID,
-			Target:               "contracts/openapi/cartulary.openapi.yaml",
-			RequirementsRegistry: "contracts/requirements/registry.json",
-			Policy:               "contracts/openapi-source/assembly-policy.json",
-			UnitRoot:             "contracts/openapi-source/owners",
-			Units:                units,
+			SchemaID: manifestSchemaID,
+			Target:   "contracts/openapi/cartulary.openapi.yaml",
+			Policy:   "contracts/openapi-source/assembly-policy.json",
+			UnitRoot: "contracts/openapi-source/owners",
+			Units:    units,
 		},
 	}
 	fixture.writeManifest(t)

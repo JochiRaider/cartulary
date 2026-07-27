@@ -142,31 +142,9 @@ function writeFixtureFile(root, relativePath, content) {
 }
 
 function writeOwnerCatalogFixture(root, mutate = () => {}) {
-  const requirementRegistry = {
-    schema_id: "cartulary.requirement_registry.v1",
-    owners: [
-      {
-        owner_id: "module.fixture",
-        catalog_path: "contracts/requirements/owners/module.fixture.json",
-        status: "active",
-      },
-    ],
-  };
-  const requirementCatalog = {
-    schema_id: "cartulary.requirement_catalog.v1",
-    owner_id: "module.fixture",
-    requirements: [
-      {
-        requirement_id: "module.fixture.requirement.behavior",
-        statement: "Fixture-owned behavior remains exact.",
-        contract_ids: ["cartulary.fixture.behavior.v1"],
-        status: "active",
-      },
-    ],
-  };
   const contractFamilyRegistry = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    schema_id: "cartulary.contract_family_registry.v2",
+    schema_id: "cartulary.contract_family_registry.v3",
     registry_id: "cartulary.contract_families.v1",
     note: "Fixture machine contract family.",
     families: [
@@ -177,8 +155,6 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
         go_name: "FixtureArtifacts",
         ts_name: "fixtureArtifacts",
         output_order: 0,
-        owner_requirement_ids: ["module.fixture.requirement.behavior"],
-        owner_contract_ids: ["cartulary.fixture.behavior.v1"],
         generated_outputs: [
           "internal/gen/contracts/contracts_gen.go",
           "packages/protocol-ts/src/generated/contracts.ts",
@@ -190,26 +166,23 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
     ],
   };
   const verificationRegistry = {
-    schema_id: "cartulary.verification_registry.v2",
+    schema_id: "cartulary.verification_registry.v3",
     owners: [
       {
         owner_id: "module.fixture",
         contract_path: "contracts/verification/owners/module.fixture.json",
-        status: "active",
       },
     ],
   };
   const verificationContract = {
-    schema_id: "cartulary.verification_contract.v2",
+    schema_id: "cartulary.verification_contract.v3",
     owner_id: "module.fixture",
     verifications: [
       {
         verification_id: "module.fixture.verification.behavior",
         behavior_class: "product",
         profile: "base",
-        requirement_ids: ["module.fixture.requirement.behavior"],
         evidence_kinds: ["go_test"],
-        status: "active",
       },
     ],
   };
@@ -248,8 +221,6 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   const topology = readJSON("tools/execution_topology_manifest.json");
   const schedulerResources = readJSON("tools/scheduler_resource_registry.json");
   const fixture = {
-    requirementRegistry,
-    requirementCatalog,
     contractFamilyRegistry,
     verificationRegistry,
     verificationContract,
@@ -267,14 +238,6 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   };
   mutate(fixture);
   writeJSONFile(
-    path.join(root, "contracts/requirements/registry.json"),
-    fixture.requirementRegistry,
-  );
-  writeJSONFile(
-    path.join(root, "contracts/requirements/owners/module.fixture.json"),
-    fixture.requirementCatalog,
-  );
-  writeJSONFile(
     path.join(root, "contracts/index.json"),
     fixture.contractFamilyRegistry,
   );
@@ -291,7 +254,7 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   writeJSONFile(path.join(root, "tools/test_runner_registry.json"), fixture.runnerRegistry);
   writeJSONFile(path.join(root, "tools/execution_topology_manifest.json"), fixture.topology);
   writeJSONFile(path.join(root, "tools/scheduler_resource_registry.json"), fixture.schedulerResources);
-  writeJSONFile(path.join(root, "tools/task_surface_manifest.json"), fixture.taskSurface);
+  writeJSONFile(path.join(root, "tools/task_surface_owner.json"), fixture.taskSurface);
   for (const runner of fixture.runnerRegistry.runners) {
     writeFixtureFile(root, runner.adapter_path, "export const fixture = true;\n");
   }
@@ -300,24 +263,63 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   return fixture;
 }
 
-test("owner catalog closes identities, selectors, profiles, and semantic digests", () => {
+test("owner catalog closes identities, selectors, profiles, and routing digests", () => {
   const catalog = loadTestCatalog(repoRoot);
+  assert.equal(catalog.summary.evidence_epoch, "cartulary.test_evidence.nlspec.v1");
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
-  assert.equal(catalog.summary.owner_count, 54);
-  assert.equal(catalog.summary.family_count, 194);
-  assert.equal(catalog.summary.row_count, 936);
-  assert.equal(catalog.summary.selector_count, 1617);
+  assert.equal(catalog.summary.owner_count, 58);
+  assert.equal(catalog.summary.family_count, 197);
+  assert.equal(catalog.summary.row_count, 877);
+  assert.equal(catalog.summary.selector_count, 1597);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
   );
-  assert.match(catalog.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
-  assert.match(catalog.verification.semantic_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.match(catalog.test_catalog_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.match(catalog.verification.routing_digest, /^sha256:[0-9a-f]{64}$/u);
   assert.ok(
     catalog.rowByID.has("module.graphprojection.engine.canonical_behavior"),
     "Graph Projection must be absorbed by the unified catalog",
   );
+});
+
+test("OTel conformance is derived from current checks without a checked-in pass declaration", () => {
+  assert.equal(
+    existsSync(path.join(repoRoot, "contracts/otel/conformance_status.json")),
+    false,
+  );
+  const checker = readFileSync(
+    path.join(repoRoot, "tools/otel/check-otel-conformance.mjs"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    checker,
+    /conformance_status|claim_allowed|acceptance_status|otel_release_ready/u,
+  );
+  assert.match(checker, /validateRuntimeBehavior\(checks\)/u);
+  assert.match(checker, /OWNER=platform\.telemetry/u);
+  assert.match(
+    checker,
+    /CARTULARY_TEST_TARGET:\s*"test-slice"/u,
+    "nested runtime evidence must carry a complete prepared identity",
+  );
+  assert.doesNotMatch(
+    checker,
+    /verification\?\.status/u,
+    "verification v3 presence defines the current routing set",
+  );
+  for (const derivedInput of [
+    "validateSnapshot",
+    "validateGeneratedConstantsManifest",
+    "validateTelemetryConfigSchema",
+    "validateConfigHazardMatrix",
+    "validateImportBoundary",
+    "validateGoldenCorpus",
+    "validateErrorClassRegistry",
+  ]) {
+    assert.match(checker, new RegExp(`${derivedInput}\\(`, "u"));
+  }
 });
 
 test("owner evidence accounting projects exact catalog rows without delivery metadata", () => {
@@ -513,14 +515,95 @@ test("source snapshots omit tracked files deleted from the worktree", () => {
       }).status,
       0,
     );
-    const beforeDeletion = buildSourceSnapshot(fixtureRoot);
+    const beforeDeletion = buildSourceSnapshot(fixtureRoot, {
+      restrictedRoots: [],
+    });
 
     rmSync(path.join(fixtureRoot, "deleted.txt"));
-    const afterDeletion = buildSourceSnapshot(fixtureRoot);
+    const afterDeletion = buildSourceSnapshot(fixtureRoot, {
+      restrictedRoots: [],
+    });
 
     assert.equal(beforeDeletion.file_count, 2);
     assert.equal(afterDeletion.file_count, 1);
     assert.notEqual(beforeDeletion.digest, afterDeletion.digest);
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("source snapshots exclude documentation before filesystem inspection", () => {
+  const fixtureRoot = mkdtempSync(
+    path.join(repoRoot, "tmp", "source-snapshot-docs."),
+  );
+  try {
+    const documentationRoot = ["do", "cs"].join("");
+    assert.equal(
+      spawnSync("git", ["init", "--quiet"], {
+        cwd: fixtureRoot,
+        encoding: "utf8",
+      }).status,
+      0,
+    );
+    writeFixtureFile(fixtureRoot, "internal/runtime.js", "export const value = 1;\n");
+    writeFixtureFile(
+      fixtureRoot,
+      `${documentationRoot}/spec.md`,
+      "# Initial specification\n",
+    );
+    writeFixtureFile(
+      fixtureRoot,
+      `${documentationRoot}/projection.json`,
+      '{"human_only":true}\n',
+    );
+    writeFixtureFile(fixtureRoot, "README.md", "# Initial guidance\n");
+    writeFixtureFile(fixtureRoot, "packages/example/GUIDE.markdown", "# Package guidance\n");
+    symlinkSync(
+      "missing-specification-target",
+      path.join(fixtureRoot, documentationRoot, "missing.json"),
+    );
+    assert.equal(
+      spawnSync("git", ["add", "."], {
+        cwd: fixtureRoot,
+        encoding: "utf8",
+      }).status,
+      0,
+    );
+    const beforeDocumentationChange = buildSourceSnapshot(fixtureRoot, {
+      restrictedRoots: [documentationRoot],
+    });
+
+    rmSync(path.join(fixtureRoot, documentationRoot, "spec.md"));
+    writeFixtureFile(
+      fixtureRoot,
+      `${documentationRoot}/rearranged/specification.md`,
+      "# Rearranged specification\n",
+    );
+    writeFixtureFile(
+      fixtureRoot,
+      `${documentationRoot}/projection.json`,
+      '{"human_only":false}\n',
+    );
+    writeFixtureFile(fixtureRoot, "README.md", "# Revised guidance\n");
+    writeFixtureFile(fixtureRoot, "packages/example/GUIDE.markdown", "# Revised package guidance\n");
+    const afterDocumentationChange = buildSourceSnapshot(fixtureRoot, {
+      restrictedRoots: [documentationRoot],
+    });
+
+    assert.equal(beforeDocumentationChange.file_count, 1);
+    assert.equal(afterDocumentationChange.file_count, 1);
+    assert.equal(
+      afterDocumentationChange.digest,
+      beforeDocumentationChange.digest,
+    );
+
+    writeFixtureFile(fixtureRoot, "internal/runtime.js", "export const value = 2;\n");
+    assert.notEqual(
+      buildSourceSnapshot(fixtureRoot, {
+        restrictedRoots: [documentationRoot],
+      }).digest,
+      beforeDocumentationChange.digest,
+    );
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
@@ -1090,7 +1173,8 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
       mkdirSync(ownerDir, { recursive: true });
       const identity = loadOwnerAccountingSelection(repoRoot, { ownerID, rowIDs });
       writeJSONFile(path.join(ownerDir, "test-evidence-accounting.json"), {
-        schema_id: "cartulary.test_evidence_accounting.v1",
+        schema_id: "cartulary.test_evidence_accounting.v2",
+        evidence_epoch: catalog.summary.evidence_epoch,
         command_id: targetID === "test-slice"
           ? "cartulary.harness.command.test_slice.v1"
           : "cartulary.harness.command.fixture_target.v1",
@@ -1099,8 +1183,8 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
         owner_id: ownerID,
         selected_rows: rowIDs,
         source_snapshot_digest: source.digest,
-        catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-        verification_semantic_digest: catalog.summary.verification_semantic_digest,
+        test_catalog_digest: catalog.summary.test_catalog_digest,
+        verification_routing_digest: catalog.summary.verification_routing_digest,
         runtime_profile_digest: identity.runtime_profile_digest,
         resource_profile_digest: identity.resource_profile_digest,
         fixture_profile_digest: identity.fixture_profile_digest,
@@ -1178,6 +1262,46 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
     assert.equal(sliceSummary.counts.required_target_partitions, 1);
     assert.deepEqual(sliceSummary.accepted_artifacts[0].row_ids, sliceRows);
 
+    const sliceArtifactFile = path.join(
+      sliceRunRoot,
+      "test-slice",
+      "owners",
+      ownerID,
+      "test-evidence-accounting.json",
+    );
+    const currentSliceArtifact = JSON.parse(
+      readFileSync(sliceArtifactFile, "utf8"),
+    );
+    const preCutoverArtifact = structuredClone(currentSliceArtifact);
+    preCutoverArtifact.schema_id = "cartulary.test_evidence_accounting.v1";
+    delete preCutoverArtifact.evidence_epoch;
+    writeJSONFile(sliceArtifactFile, preCutoverArtifact);
+    const preCutoverRejected = auditOwnerEvidence(repoRoot, {
+      ownerID,
+      manifestPath: path.relative(repoRoot, sliceManifestFile),
+      timestamp: "2026-07-18T00:00:00.000Z",
+    });
+    assert.equal(preCutoverRejected.status, "fail");
+    assert.deepEqual(
+      preCutoverRejected.rejected_artifacts[0].reasons,
+      ["schema_validation_failed"],
+    );
+
+    const wrongEpochArtifact = structuredClone(currentSliceArtifact);
+    wrongEpochArtifact.evidence_epoch = "cartulary.test_evidence.legacy.v1";
+    writeJSONFile(sliceArtifactFile, wrongEpochArtifact);
+    const wrongEpochRejected = auditOwnerEvidence(repoRoot, {
+      ownerID,
+      manifestPath: path.relative(repoRoot, sliceManifestFile),
+      timestamp: "2026-07-18T00:00:00.000Z",
+    });
+    assert.equal(wrongEpochRejected.status, "fail");
+    assert.deepEqual(
+      wrongEpochRejected.rejected_artifacts[0].reasons,
+      ["schema_validation_failed"],
+    );
+    writeJSONFile(sliceArtifactFile, currentSliceArtifact);
+
     const cliResults = path.join(resultRoot, "cli-results");
     const cli = spawnSync(
       process.execPath,
@@ -1205,7 +1329,7 @@ test("owner evidence audit accepts exact target partitions and rejects duplicate
         "utf8",
       ),
     );
-    assert.equal(retainedAudit.schema_id, "cartulary.test_evidence_audit_summary.v1");
+    assert.equal(retainedAudit.schema_id, "cartulary.test_evidence_audit_summary.v2");
     assert.equal(retainedAudit.status, "pass");
     assert.ok(retainedAudit.duration_ms > 0);
     assert.equal(
@@ -1347,7 +1471,7 @@ test("owner diagnostic CLI emits one JSON object and retains no artifacts", () =
     );
     assert.equal(explanation.status, 0, explanation.stderr);
     assert.equal(explanation.stdout.split("\n").filter(Boolean).length, 1);
-    assert.equal(JSON.parse(explanation.stdout).schema_id, "cartulary.test_owner_explanation.v1");
+    assert.equal(JSON.parse(explanation.stdout).schema_id, "cartulary.test_owner_explanation.v2");
 
     const guide = spawnSync(
       process.execPath,
@@ -1369,7 +1493,7 @@ test("owner diagnostic CLI emits one JSON object and retains no artifacts", () =
     );
     assert.equal(guide.status, 0, guide.stderr);
     assert.equal(guide.stdout.split("\n").filter(Boolean).length, 1);
-    assert.equal(JSON.parse(guide.stdout).schema_id, "cartulary.task_guide_summary.v2");
+    assert.equal(JSON.parse(guide.stdout).schema_id, "cartulary.task_guide_summary.v3");
 
     for (const fixture of [
       {
@@ -1498,56 +1622,34 @@ test("runner selector resolvers preserve exact closed shapes across all runners"
 test("owner catalog rejects structural, reference, selector, and path ambiguity", () => {
   const cases = [
     {
-      name: "duplicate requirement ID",
-      mutate: ({ requirementCatalog }) => {
-        requirementCatalog.requirements.push(
-          structuredClone(requirementCatalog.requirements[0]),
-        );
+      name: "verification registry status provenance",
+      mutate: ({ verificationRegistry }) => {
+        verificationRegistry.owners[0].status = "active";
       },
-      pattern: /must not contain duplicates|duplicate requirement_id/iu,
+      pattern: /must NOT have additional properties/iu,
     },
     {
-      name: "unknown verification requirement",
+      name: "verification requirement provenance",
       mutate: ({ verificationContract }) => {
         verificationContract.verifications[0].requirement_ids = [
-          "module.fixture.requirement.missing",
+          "module.fixture.requirement.behavior",
         ];
       },
-      pattern: /requirement_ids references unknown/iu,
+      pattern: /must NOT have additional properties/iu,
     },
     {
-      name: "planned requirement claimed as evidence",
-      mutate: ({ requirementCatalog, verificationContract }) => {
-        requirementCatalog.requirements.push({
-          requirement_id: "module.fixture.requirement.planned",
-          statement: "Incomplete fixture behavior remains explicitly planned.",
-          status: "planned",
-        });
-        verificationContract.verifications[0].requirement_ids = [
-          "module.fixture.requirement.planned",
-        ];
+      name: "verification trace provenance",
+      mutate: ({ verificationContract }) => {
+        verificationContract.verifications[0].spec_trace_ids = ["TEST-REQ-001"];
       },
-      pattern: /requirement_ids references planned/iu,
+      pattern: /must NOT have additional properties/iu,
     },
     {
-      name: "active requirement missing verification",
-      mutate: ({ requirementCatalog }) => {
-        requirementCatalog.requirements.push({
-          requirement_id: "module.fixture.requirement.uncovered",
-          statement: "Active fixture behavior requires executable evidence.",
-          status: "active",
-        });
+      name: "verification status provenance",
+      mutate: ({ verificationContract }) => {
+        verificationContract.verifications[0].status = "active";
       },
-      pattern: /active requirement .* has no verification/iu,
-    },
-    {
-      name: "undeclared machine contract",
-      mutate: ({ contractFamilyRegistry }) => {
-        contractFamilyRegistry.families[0].owner_contract_ids = [
-          "cartulary.fixture.undeclared.v1",
-        ];
-      },
-      pattern: /owner_contract_ids references undeclared/iu,
+      pattern: /must NOT have additional properties/iu,
     },
     {
       name: "zero-row owner",
@@ -1856,6 +1958,15 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   }
 
   const sourceContent = "src_ip,dst_ip\n10.0.0.1,10.0.0.2\n";
+  const scenarioContent = `${JSON.stringify(
+    {
+      schema_id: "cartulary.network_flow_fixture_scenario.v2",
+      fixture_id: "NF-FIX-001-cisco-sna-minimal",
+      summary: "minimal executable fixture",
+    },
+    null,
+    2,
+  )}\n`;
   const expectedContent = "{\"rows\":[]}\n";
   const transcriptContent = "{\"status\":\"pass\"}\n";
   const sourceFile = {
@@ -1864,6 +1975,14 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
     size_bytes: Buffer.byteLength(sourceContent),
     sha256: sha256(sourceContent),
     role: "input",
+    newline_policy: "lf_required",
+  };
+  const scenarioFile = {
+    logical_path: "source/cisco-sna-minimal.scenario.json",
+    media_type: "application/json",
+    size_bytes: Buffer.byteLength(scenarioContent),
+    sha256: sha256(scenarioContent),
+    role: "support",
     newline_policy: "lf_required",
   };
   const expectedFile = {
@@ -1881,8 +2000,8 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
     transcript_kind: "apply",
   };
   const manifest = {
-    schema_id: "cartulary.network_flow_fixture_manifest.v1",
-    manifest_version: 1,
+    schema_id: "cartulary.network_flow_fixture_manifest.v2",
+    manifest_version: 2,
     fixture_id: "NF-FIX-001-cisco-sna-minimal",
     profile_id: "network_flow_activity",
     freeze: {
@@ -1890,22 +2009,28 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
       revision: 1,
       change_policy: "new_fixture_revision_required",
     },
-    verification_ids: [
-      "module.networkflow.verification.contract_accounting",
-    ],
-    source_files: [sourceFile],
+    source_files: [sourceFile, scenarioFile],
     expected_artifacts: [expectedFile],
     transcript_files: [transcriptFile],
-    acceptance_ids: ["NF-AC-052"],
-    execution_selectors: ["network-flow/acceptance/NF-AC-052"],
-    source_bundle_sha256: bundleHash([sourceFile]),
+    source_bundle_sha256: bundleHash([sourceFile, scenarioFile]),
     expected_bundle_sha256: bundleHash([expectedFile, transcriptFile]),
   };
 
-  await validateSchema("cartulary.network_flow_fixture_manifest.v1", manifest);
+  await validateSchema("cartulary.network_flow_fixture_manifest.v2", manifest);
+  await validateSchema(
+    "cartulary.network_flow_fixture_scenario.v2",
+    JSON.parse(scenarioContent),
+  );
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_fixture_scenario.v2", {
+      ...JSON.parse(scenarioContent),
+      acceptance_ids: ["NF-AC-052"],
+    }),
+    /must NOT have additional properties/u,
+  );
 
   await assert.rejects(
-    validateSchema("cartulary.network_flow_fixture_manifest.v1", {
+    validateSchema("cartulary.network_flow_fixture_manifest.v2", {
       ...manifest,
       unexpected: true,
     }),
@@ -1915,14 +2040,22 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   const invalidDigest = structuredClone(manifest);
   invalidDigest.source_files[0].sha256 = "ABC";
   await assert.rejects(
-    validateSchema("cartulary.network_flow_fixture_manifest.v1", invalidDigest),
+    validateSchema("cartulary.network_flow_fixture_manifest.v2", invalidDigest),
     /must match pattern/u,
+  );
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_fixture_manifest.v2", {
+      ...manifest,
+      acceptance_ids: ["NF-AC-052"],
+    }),
+    /must NOT have additional properties/u,
   );
 
   const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-fixture."));
   try {
     const fixtureDir = path.join(root, manifest.fixture_id);
     writeFixtureFile(fixtureDir, sourceFile.logical_path, sourceContent);
+    writeFixtureFile(fixtureDir, scenarioFile.logical_path, scenarioContent);
     writeFixtureFile(fixtureDir, expectedFile.logical_path, expectedContent);
     writeFixtureFile(fixtureDir, transcriptFile.logical_path, transcriptContent);
     const manifestPath = path.join(fixtureDir, "manifest.json");
@@ -1968,10 +2101,10 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
 test("contract family registry schema is closed and restricts planned families", async () => {
   const registry = readJSON("contracts/index.json");
 
-  await validateSchema("cartulary.contract_family_registry.v2", registry);
+  await validateSchema("cartulary.contract_family_registry.v3", registry);
 
   await assert.rejects(
-    validateSchema("cartulary.contract_family_registry.v2", {
+    validateSchema("cartulary.contract_family_registry.v3", {
       ...registry,
       unexpected: true,
     }),
@@ -1985,7 +2118,7 @@ test("contract family registry schema is closed and restricts planned families",
       : family,
   );
   await validateSchema(
-    "cartulary.contract_family_registry.v2",
+    "cartulary.contract_family_registry.v3",
     activatedNetworkFlow,
   );
 
@@ -2041,183 +2174,13 @@ test("contract family registry schema is closed and restricts planned families",
   }
 });
 
-test("network flow activity accounting is closed and fails drift gaps", async () => {
-  const accounting = readJSON("tools/network_flow_activity_accounting.json");
-
-  await validateSchema("cartulary.network_flow_activity_accounting.v2", accounting);
-
-  await assert.rejects(
-    validateSchema("cartulary.network_flow_activity_accounting.v2", {
-      ...accounting,
-      unexpected: true,
-    }),
-    /must NOT have additional properties/u,
-  );
-  const fixtureOnly = structuredClone(accounting);
-  fixtureOnly.acceptance_accounting.rows[0].exact_selectors = [];
-  await assert.rejects(
-    validateSchema("cartulary.network_flow_activity_accounting.v2", fixtureOnly),
-    /must NOT have fewer than 1 items/u,
-  );
-
-  const checker = path.join(
-    repoRoot,
-    "tools/harness/generated-artifacts/check-json-shapes.mjs",
-  );
-  const artifactPath = path.join(
-    repoRoot,
-    "tools/network_flow_activity_accounting.json",
-  );
-  const pass = spawnSync(
-    process.execPath,
-    [checker, "--kind", "network-flow-activity-accounting", "--file", artifactPath],
-    { encoding: "utf8" },
-  );
-  assert.equal(pass.status, 0, pass.stderr);
-
-  const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-accounting."));
-  try {
-    const unresolvedSelector = structuredClone(accounting);
-    unresolvedSelector.acceptance_accounting.rows[0].exact_selectors[0].title =
-      "missing Network Flow browser selector";
-    const unresolvedSelectorFile = path.join(root, "unresolved-selector.json");
-    writeFileSync(
-      unresolvedSelectorFile,
-      `${JSON.stringify(unresolvedSelector, null, 2)}\n`,
-    );
-    const unresolvedSelectorResult = spawnSync(
-      process.execPath,
-      [checker, "--kind", "network-flow-activity-accounting", "--file", unresolvedSelectorFile],
-      { encoding: "utf8" },
-    );
-    assert.notEqual(unresolvedSelectorResult.status, 0);
-    assert.match(unresolvedSelectorResult.stderr, /does not resolve/u);
-
-    const missingCopyPath = structuredClone(accounting);
-    missingCopyPath.drift_accounting.required_copy_paths = [
-      ...missingCopyPath.drift_accounting.required_copy_paths,
-      "tools/missing-network-flow-accounting-input.json",
-    ];
-    const missingCopyPathFile = path.join(root, "missing-copy-path.json");
-    writeFileSync(
-      missingCopyPathFile,
-      `${JSON.stringify(missingCopyPath, null, 2)}\n`,
-    );
-    const missingCopyPathResult = spawnSync(
-      process.execPath,
-      [
-        checker,
-        "--kind",
-        "network-flow-activity-accounting",
-        "--file",
-        missingCopyPathFile,
-      ],
-      { encoding: "utf8" },
-    );
-    assert.notEqual(missingCopyPathResult.status, 0);
-    assert.match(
-      missingCopyPathResult.stderr,
-      /copy_paths must include tools\/missing-network-flow-accounting-input\.json/u,
-    );
-
-    const plannedRegistry = readJSON("contracts/index.json");
-    plannedRegistry.families = plannedRegistry.families.map((family) =>
-      family.family_id === "network-flow"
-        ? {
-            ...family,
-            generation_status: "planned",
-            activation_dependency_ids:
-              accounting.contract_registry.planned_activation_dependency_ids,
-          }
-        : family,
-    );
-    const plannedRegistryFile = path.join(root, "contracts-index.json");
-    writeFileSync(
-      plannedRegistryFile,
-      `${JSON.stringify(plannedRegistry, null, 2)}\n`,
-    );
-    const stalePlannedRegistry = structuredClone(accounting);
-    stalePlannedRegistry.contract_registry.path = path
-      .relative(repoRoot, plannedRegistryFile)
-      .split(path.sep)
-      .join(path.posix.sep);
-    const stalePlannedRegistryFile = path.join(root, "stale-planned-registry.json");
-    writeFileSync(
-      stalePlannedRegistryFile,
-      `${JSON.stringify(stalePlannedRegistry, null, 2)}\n`,
-    );
-    const stalePlannedRegistryResult = spawnSync(
-      process.execPath,
-      [
-        checker,
-        "--kind",
-        "network-flow-activity-accounting",
-        "--file",
-        stalePlannedRegistryFile,
-      ],
-      { encoding: "utf8" },
-    );
-    assert.notEqual(stalePlannedRegistryResult.status, 0);
-    assert.match(
-      stalePlannedRegistryResult.stderr,
-      /planned but generated outputs contain Network Flow markers/u,
-    );
-
-    const activeWithDependencies = readJSON("contracts/index.json");
-    activeWithDependencies.families = activeWithDependencies.families.map((family) =>
-      family.family_id === "network-flow"
-        ? { ...family, activation_dependency_ids: ["NFA-GEN-004"] }
-        : family,
-    );
-    const activeWithDependenciesFile = path.join(
-      root,
-      "active-with-dependencies.json",
-    );
-    writeFileSync(
-      activeWithDependenciesFile,
-      `${JSON.stringify(activeWithDependencies, null, 2)}\n`,
-    );
-    const activeWithDependenciesAccounting = structuredClone(accounting);
-    activeWithDependenciesAccounting.contract_registry.path = path
-      .relative(repoRoot, activeWithDependenciesFile)
-      .split(path.sep)
-      .join(path.posix.sep);
-    const activeWithDependenciesAccountingFile = path.join(
-      root,
-      "active-with-dependencies-accounting.json",
-    );
-    writeFileSync(
-      activeWithDependenciesAccountingFile,
-      `${JSON.stringify(activeWithDependenciesAccounting, null, 2)}\n`,
-    );
-    const activeWithDependenciesResult = spawnSync(
-      process.execPath,
-      [
-        checker,
-        "--kind",
-        "network-flow-activity-accounting",
-        "--file",
-        activeWithDependenciesAccountingFile,
-      ],
-      { encoding: "utf8" },
-    );
-    assert.notEqual(activeWithDependenciesResult.status, 0);
-    assert.match(
-      activeWithDependenciesResult.stderr,
-      /active but activation dependencies remain/u,
-    );
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
 test("network flow authored contracts are closed and index-owned", async () => {
   const contractIndex = readJSON("contracts/network-flow/index.json");
 
-  await validateSchema("cartulary.network_flow_contract_index.v1", contractIndex);
+  await validateSchema("cartulary.network_flow_contract_index.v2", contractIndex);
 
   await assert.rejects(
-    validateSchema("cartulary.network_flow_contract_index.v1", {
+    validateSchema("cartulary.network_flow_contract_index.v2", {
       ...contractIndex,
       unexpected: true,
     }),
@@ -2326,12 +2289,12 @@ test("network flow timezone provenance schema is closed and immutable-source sco
   );
 
   await validateSchema(
-    "cartulary.network_flow_timezone_ruleset_provenance.v1",
+    "cartulary.network_flow_timezone_ruleset_provenance.v2",
     provenance,
   );
 
   await assert.rejects(
-    validateSchema("cartulary.network_flow_timezone_ruleset_provenance.v1", {
+    validateSchema("cartulary.network_flow_timezone_ruleset_provenance.v2", {
       ...provenance,
       unexpected: true,
     }),
@@ -2343,7 +2306,7 @@ test("network flow timezone provenance schema is closed and immutable-source sco
     "https://data.iana.org/time-zones/repository/tzdata-latest.tar.gz";
   await assert.rejects(
     validateSchema(
-      "cartulary.network_flow_timezone_ruleset_provenance.v1",
+      "cartulary.network_flow_timezone_ruleset_provenance.v2",
       mutableSource,
     ),
     /must be equal to constant/u,
@@ -2353,7 +2316,7 @@ test("network flow timezone provenance schema is closed and immutable-source sco
   hostAuthoritative.conformance_policy.host_timezone_database_authoritative = true;
   await assert.rejects(
     validateSchema(
-      "cartulary.network_flow_timezone_ruleset_provenance.v1",
+      "cartulary.network_flow_timezone_ruleset_provenance.v2",
       hostAuthoritative,
     ),
     /must be equal to constant/u,

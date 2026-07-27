@@ -11,13 +11,14 @@ import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const successfulTerminalStates = new Set(["passed", "skipped_authorized"]);
 const partitionIdentityFields = [
+  "evidence_epoch",
   "command_id",
   "run_id",
   "owner_id",
   "selected_rows",
   "source_snapshot_digest",
-  "catalog_semantic_digest",
-  "verification_semantic_digest",
+  "test_catalog_digest",
+  "verification_routing_digest",
   "runtime_profile_digest",
   "resource_profile_digest",
   "fixture_profile_digest",
@@ -47,9 +48,10 @@ export function createRetainedRunPreflight({
 }) {
   const catalog = loadTestCatalog(repoRoot);
   const currentIdentity = {
+    evidence_epoch: catalog.summary.evidence_epoch,
     source_snapshot_digest: buildSourceSnapshot(repoRoot).digest,
-    catalog_semantic_digest: catalog.summary.catalog_semantic_digest,
-    verification_semantic_digest: catalog.summary.verification_semantic_digest,
+    test_catalog_digest: catalog.summary.test_catalog_digest,
+    verification_routing_digest: catalog.summary.verification_routing_digest,
   };
 
   function sameValue(left, right) {
@@ -98,8 +100,8 @@ export function createRetainedRunPreflight({
       const accounting = readJSON(accountingFile);
       const ownerSummary = readJSON(ownerSummaryFile);
       try {
-        validateSchemaSync("cartulary.test_evidence_accounting.v1", accounting);
-        validateSchemaSync("cartulary.test_owner_summary.v1", ownerSummary);
+        validateSchemaSync("cartulary.test_evidence_accounting.v2", accounting);
+        validateSchemaSync("cartulary.test_owner_summary.v2", ownerSummary);
       } catch (error) {
         return {
           ok: false,

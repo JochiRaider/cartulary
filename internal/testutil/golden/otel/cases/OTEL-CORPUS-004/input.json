@@ -1,1 +1,41 @@
-{"schema_id":"cartulary.otel_corpus_input.v1","case_id":"OTEL-CORPUS-004","title":"Hostile environment","status":"adopted_conformant","owner_requirement":"Every environment family in the hazard registry is set to a hostile value and no hostile value alters effective telemetry behavior.","hostile_environment_assertions":{"hazard_matrix":"contracts/otel/config_hazard_fixture_matrix.v1.json","fixture_ids":["OTEL-ENV-001","OTEL-ENV-002","OTEL-ENV-003","OTEL-ENV-004","OTEL-ENV-005","OTEL-ENV-006","OTEL-ENV-007","OTEL-ENV-008","OTEL-ENV-009","OTEL-ENV-010","OTEL-ENV-011","OTEL-ENV-012","OTEL-ENV-013","OTEL-ENV-014","OTEL-ENV-015","OTEL-ENV-016","OTEL-ENV-017","OTEL-ENV-018","OTEL-ENV-019"],"exporter_kind":"none","network_export_enabled":false,"default_localhost_endpoint_contacted":false,"resource_schema_url":"","remote_context_accepted":false,"exemplars_enabled":false,"log_bridge_enabled":false,"declarative_config_component_active":false,"evidence":["internal/platform/config/config_otel_test.go::TestOpenTelemetryEnvironmentBindingParser","internal/platform/telemetry/bootstrap_test.go::TestBootstrapIgnoresHostileOTelEnvironment"]}}
+{
+  "schema_id": "cartulary.otel_corpus_input.v2",
+  "case_id": "OTEL-CORPUS-004",
+  "title": "Hostile environment",
+  "hostile_environment_assertions": {
+    "hazard_matrix": "contracts/otel/config_hazard_fixture_matrix.v2.json",
+    "fixture_ids": [
+      "OTEL-ENV-001",
+      "OTEL-ENV-002",
+      "OTEL-ENV-003",
+      "OTEL-ENV-004",
+      "OTEL-ENV-005",
+      "OTEL-ENV-006",
+      "OTEL-ENV-007",
+      "OTEL-ENV-008",
+      "OTEL-ENV-009",
+      "OTEL-ENV-010",
+      "OTEL-ENV-011",
+      "OTEL-ENV-012",
+      "OTEL-ENV-013",
+      "OTEL-ENV-014",
+      "OTEL-ENV-015",
+      "OTEL-ENV-016",
+      "OTEL-ENV-017",
+      "OTEL-ENV-018",
+      "OTEL-ENV-019"
+    ],
+    "exporter_kind": "none",
+    "network_export_enabled": false,
+    "default_localhost_endpoint_contacted": false,
+    "resource_schema_url": "",
+    "remote_context_accepted": false,
+    "exemplars_enabled": false,
+    "log_bridge_enabled": false,
+    "declarative_config_component_active": false,
+    "evidence": [
+      "internal/platform/config/config_otel_test.go::TestOpenTelemetryEnvironmentBindingParser",
+      "internal/platform/telemetry/bootstrap_test.go::TestBootstrapIgnoresHostileOTelEnvironment"
+    ]
+  }
+}

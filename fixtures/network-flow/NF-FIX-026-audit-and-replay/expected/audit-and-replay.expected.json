@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-026-audit-and-replay",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "audit and replay fixture freezes created/reused bindings, digest key IDs, graph-success audit, and no second audit on replay",
   "table_resource": {
     "network_flow_table_id": "nft_c5af90510d0fc7a1ea45ff715b505690",

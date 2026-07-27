@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-019-canonical-json-unicode",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "canonical JSON and transform vectors freeze escapes, scalar ordering, whitespace, NFC, null framing, and surrogate rejection",
   "table_resource": {
     "network_flow_table_id": "nft_03d5b60421908a667d7ab398fe392498",

@@ -2,11 +2,12 @@
 
 ## Authority
 
-- Executable requirement authority lives in `contracts/requirements/registry.json` and the owner catalogs under `contracts/requirements/owners/`. Typed limits, enums, schemas, mappings, and algorithms live under `contracts/<subsystem>/**`.
-- Verification routing is owned by `contracts/verification/**`, `tools/test_catalog_owner.json`, and `tools/test_families/**`. Active requirements need executable coverage; planned requirements cannot count as passing evidence.
-- Harness mechanics are owned by machine-readable inputs under `tools/`, including the authored task surface, execution topology, schemas, and policy registries.
-- Files under `docs/`, plus README and other Markdown guidance, are human-facing explanation. Tests, generators, runtime metadata, conformance, and release evidence must not read, stat, hash, or otherwise depend on them.
-- `docs/domain.md` and `docs/design.md` remain useful vocabulary and design-direction references for people, but machine contracts own testable behavior and values.
+- Adopted subsystem NLSpecs and normative Core owner sections define required behavior for their named scopes. When an adopted specification and a downstream artifact disagree, repair the projection or implementation.
+- Typed limits, enums, schemas, mappings, algorithms, and fixtures under `contracts/<subsystem>/**` are versioned machine projections of their adopted owners. They contain executable facts but do not supersede those owners.
+- Verification routing is owned by `contracts/verification/**`, `tools/test_catalog_owner.json`, and `tools/test_families/**`. Routing and execution evidence do not define requirements or prove specification completeness.
+- Harness mechanics are specified by the adopted Testing Harness NLSpec and projected through machine-readable inputs under `tools/`, including the authored task surface, execution topology, schemas, and policy registries.
+- Tests, generators, runtime metadata, conformance, and release evidence must not read, stat, hash, or otherwise depend on files under `docs/`, README, or other Markdown. Human review establishes that typed projections faithfully implement their adopted owners.
+- `docs/domain.md` owns vocabulary and owner navigation within its stated boundary; `docs/design.md` supplies design direction within its stated boundary.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 
 ## Repository Boundaries
@@ -18,7 +19,7 @@
 - Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed. The server runtime closes only resources it creates, in reverse acquisition order, and `Runtime.Close` is idempotent.
 - `internal/platform/*` owns transport, runtime plumbing, configuration, storage adapters, auth primitives, and job shells.
 - `internal/modules/*` owns domain and application logic inside the modular monolith.
-- `contracts/*` is the repo-local machine authority for requirements and production contracts and is upstream of generated code.
+- `contracts/*` contains versioned machine projections and production contracts downstream of adopted specifications and upstream of generated code.
 - `db/migrations` and `db/queries` are authored SQL inputs.
 - `apps/web` is the top-level web app in the pnpm workspace.
 - `packages/*` contains shared TypeScript packages.

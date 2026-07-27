@@ -1,11 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-021-preview-boundaries",
-  "summary": "preview consumes exactly 50 complete logical records and row limit reports limit plus one without full scan",
-  "acceptance_ids": [
-    "NF-AC-065",
-    "NF-AC-083",
-    "NF-AC-084",
-    "NF-AC-088"
-  ]
+  "summary": "preview consumes exactly 50 complete logical records and row limit reports limit plus one without full scan"
 }

@@ -1,44 +1,13 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "module.reportcomposition",
   "verifications": [
     {
-      "verification_id": "module.reportcomposition.verification.fixture_corpus",
+      "verification_id": "module.reportcomposition.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "extension.snapshot_reporting",
       "evidence_kinds": [
-        "go_test",
-        "static_check"
-      ],
-      "status": "active",
-      "requirement_ids": [
-        "RC-FIX-001",
-        "RC-FIX-002",
-        "RC-FIX-003",
-        "RC-FIX-004",
-        "RC-FIX-005",
-        "RC-FIX-006",
-        "RC-FIX-007",
-        "RC-FIX-008",
-        "RC-FIX-009",
-        "RC-FIX-010",
-        "RC-FIX-011",
-        "RC-FIX-012",
-        "RC-FIX-013",
-        "RC-FIX-014",
-        "RC-FIX-015",
-        "RC-FIX-016",
-        "RC-FIX-017",
-        "RC-FIX-018",
-        "RC-FIX-019",
-        "RC-FIX-020",
-        "RC-FIX-021",
-        "RC-FIX-022",
-        "RC-FIX-023",
-        "RC-FIX-024",
-        "RC-FIX-025",
-        "RC-FIX-026",
-        "module.reportcomposition.requirement.fixture_corpus"
+        "go_test"
       ]
     }
   ]

@@ -16,7 +16,7 @@ import (
 
 const (
 	releaseRegistrySchemaID = "cartulary.openapi_release_registry.v1"
-	changeSetSchemaID       = "cartulary.openapi_release_change_set.v1"
+	changeSetSchemaID       = "cartulary.openapi_release_change_set.v2"
 	reportSchemaID          = "cartulary.openapi_compatibility_report.v1"
 )
 
@@ -73,7 +73,6 @@ type approvedChangeRef struct {
 	Fingerprint    string         `json:"fingerprint"`
 	Classification Classification `json:"classification"`
 	OwnerID        string         `json:"owner_id"`
-	RequirementID  string         `json:"requirement_id"`
 	Rationale      string         `json:"rationale"`
 }
 
@@ -390,9 +389,8 @@ func validateChangeSet(report Report, approved changeSet) error {
 	for _, change := range approved.Changes {
 		if change.Fingerprint == "" ||
 			change.OwnerID == "" ||
-			change.RequirementID == "" ||
 			strings.TrimSpace(change.Rationale) == "" {
-			return errors.New("release change-set entries require fingerprint, owner, requirement, and rationale")
+			return errors.New("release change-set entries require fingerprint, owner, and rationale")
 		}
 		if _, duplicate := seen[change.Fingerprint]; duplicate {
 			return fmt.Errorf("duplicate release change-set fingerprint %q", change.Fingerprint)

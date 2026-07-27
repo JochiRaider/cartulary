@@ -2,10 +2,12 @@
 
 Appendix I is non-normative. It records current evidence for the projection authority, ownership, descriptor, restore-rebuild, query-characterization, and import-boundary decisions owned by Core 00, Core 01, and Core 04.
 
-Executable ownership and verification live in the machine catalogs under
-`contracts/requirements`, `contracts/verification`, and `tools/test_families`.
-This appendix explains those decisions for people and is not consumed by product,
-conformance, generation, or release checks.
+Behavioral ownership lives in the applicable normative Core sections and
+adopted subsystem NLSpecs. Versioned machine projections and verification
+routing live under `contracts/` and `tools/test_families`; they implement and
+exercise those owners without replacing them. This appendix explains the
+decisions for people and is not consumed by product, conformance, generation,
+or release checks.
 
 ## I.1 Authority Posture
 

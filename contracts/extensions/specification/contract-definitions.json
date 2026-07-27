@@ -1,6 +1,5 @@
 {
-  "schema_id": "cartulary.extension_contract_definition_set.v2",
-  "owner_requirement_id": "EXT-REQ-164",
+  "schema_id": "cartulary.extension_contract_definition_set.v3",
   "canonical_limits": {
     "maximum_nesting_depth": 32,
     "maximum_object_members": 4096,
@@ -50,32 +49,17 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_backup_binding_codec.v2",
+      "schema_id": "cartulary.extension_backup_binding_codec.v3",
       "artifact_class": "state_contract",
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_conformance_manifest_index.v1",
-      "artifact_class": "accounting_contract",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_conformance_manifest.v1",
-      "artifact_class": "accounting_contract",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_contract_closure_catalog.v1",
-      "artifact_class": "accounting_contract",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_dependency_declaration_set.v2",
+      "schema_id": "cartulary.extension_dependency_declaration_set.v3",
       "artifact_class": "owner_input",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_dependency_snapshot.v1",
+      "schema_id": "cartulary.extension_dependency_snapshot.v3",
       "artifact_class": "generated_input",
       "owner_id": "extensions"
     },
@@ -85,7 +69,7 @@
       "owner_id": "core04"
     },
     {
-      "schema_id": "cartulary.extension_generated_schema_source_set.v2",
+      "schema_id": "cartulary.extension_generated_schema_source_set.v3",
       "artifact_class": "specification_input",
       "owner_id": "extensions"
     },
@@ -135,22 +119,17 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_owner_contract_manifest.v2",
-      "artifact_class": "owner_input",
-      "owner_id": "extensions"
-    },
-    {
       "schema_id": "cartulary.extension_owner_fact_identity.v1",
       "artifact_class": "generated_input",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_owner_fragment.v2",
+      "schema_id": "cartulary.extension_owner_fragment.v3",
       "artifact_class": "owner_input",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_owner_input_registry.v1",
+      "schema_id": "cartulary.extension_owner_input_registry.v2",
       "artifact_class": "generated_input",
       "owner_id": "extensions"
     },
@@ -175,7 +154,7 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_participant_specialization.v2",
+      "schema_id": "cartulary.extension_participant_specialization.v3",
       "artifact_class": "runtime_protocol",
       "owner_id": "extensions"
     },
@@ -190,12 +169,12 @@
       "owner_id": "core04"
     },
     {
-      "schema_id": "cartulary.extension_profile_configuration_contract.v2",
+      "schema_id": "cartulary.extension_profile_configuration_contract.v3",
       "artifact_class": "owner_input",
       "owner_id": "core04"
     },
     {
-      "schema_id": "cartulary.extension_profile_descriptor.v1",
+      "schema_id": "cartulary.extension_profile_descriptor.v3",
       "artifact_class": "generated_runtime",
       "owner_id": "extensions"
     },
@@ -210,22 +189,12 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_registry_accounting.v1",
-      "artifact_class": "accounting_contract",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_registry_integrity.v1",
+      "schema_id": "cartulary.extension_registry_integrity.v2",
       "artifact_class": "generated_runtime",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_requirement_mapping_source.v2",
-      "artifact_class": "traceability_input",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_shared_protocol_contract_set.v2",
+      "schema_id": "cartulary.extension_shared_protocol_contract_set.v3",
       "artifact_class": "owner_input",
       "owner_id": "extensions"
     },
@@ -285,12 +254,12 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_validation_condition_registry.v1",
+      "schema_id": "cartulary.extension_validation_condition_registry.v2",
       "artifact_class": "generated_runtime",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v2",
+      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
       "artifact_class": "validation_input",
       "owner_id": "extensions"
     },

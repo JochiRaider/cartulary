@@ -61,7 +61,6 @@
     "tools/networkflow-unicode17",
     "tools/generate_drift_scratch_inputs.json",
     "tools/harness_redaction_manifest.json",
-    "tools/network_flow_activity_accounting.json",
     "tools/schemas",
     "contracts",
     "db/migrations",

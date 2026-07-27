@@ -30,8 +30,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_owner_index.v1",
-      "path": "tools/schemas/cartulary.browser_owner_index.v1.schema.json",
+      "schema_id": "cartulary.browser_owner_index.v2",
+      "path": "tools/schemas/cartulary.browser_owner_index.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence finalizer",
       "validation": "json-shape-check"
@@ -72,8 +72,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.contract_family_registry.v2",
-      "path": "tools/schemas/cartulary.contract_family_registry.v2.schema.json",
+      "schema_id": "cartulary.contract_family_registry.v3",
+      "path": "tools/schemas/cartulary.contract_family_registry.v3.schema.json",
       "classification": "owner_input",
       "producer": "contract family owner",
       "validation": "json-shape-check"
@@ -149,15 +149,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.graph_projection_conformance_matrix.v2",
-      "path": "tools/schemas/cartulary.graph_projection_conformance_matrix.v2.schema.json",
-      "classification": "owner_input",
-      "producer": "graph projection owner",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.graph_projection_fixture_manifest.v2",
-      "path": "tools/schemas/cartulary.graph_projection_fixture_manifest.v2.schema.json",
+      "schema_id": "cartulary.graph_projection_fixture_manifest.v3",
+      "path": "tools/schemas/cartulary.graph_projection_fixture_manifest.v3.schema.json",
       "classification": "owner_input",
       "producer": "graph projection fixtures",
       "validation": "json-shape-check"
@@ -282,36 +275,36 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_activity_accounting.v2",
-      "path": "tools/schemas/cartulary.network_flow_activity_accounting.v2.schema.json",
+      "schema_id": "cartulary.network_flow_contract_index.v2",
+      "path": "tools/schemas/cartulary.network_flow_contract_index.v2.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_contract_index.v1",
-      "path": "tools/schemas/cartulary.network_flow_contract_index.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "Network Flow owner",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-      "path": "tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json",
+      "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+      "path": "tools/schemas/cartulary.network_flow_fixture_manifest.v2.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow fixtures",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_frontend_entrypoints.v2",
-      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v2.schema.json",
+      "schema_id": "cartulary.network_flow_fixture_scenario.v2",
+      "path": "tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "Network Flow fixtures",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.network_flow_frontend_entrypoints.v3",
+      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v3.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow frontend contract owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v1",
-      "path": "tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v1.schema.json",
+      "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v2",
+      "path": "tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v2.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow timezone owner",
       "validation": "json-shape-check"
@@ -331,8 +324,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.openapi_release_change_set.v1",
-      "path": "tools/schemas/cartulary.openapi_release_change_set.v1.schema.json",
+      "schema_id": "cartulary.openapi_release_change_set.v2",
+      "path": "tools/schemas/cartulary.openapi_release_change_set.v2.schema.json",
       "classification": "owner_input",
       "producer": "OpenAPI release compatibility owner",
       "validation": "json-shape-check"
@@ -345,8 +338,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.openapi_source_manifest.v2",
-      "path": "tools/schemas/cartulary.openapi_source_manifest.v2.schema.json",
+      "schema_id": "cartulary.openapi_source_manifest.v3",
+      "path": "tools/schemas/cartulary.openapi_source_manifest.v3.schema.json",
       "classification": "owner_input",
       "producer": "OpenAPI aggregation owner",
       "validation": "json-shape-check"
@@ -384,20 +377,6 @@
       "path": "tools/schemas/cartulary.release_readiness_evidence.v2.schema.json",
       "classification": "public_contract",
       "producer": "release readiness",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.requirement_catalog.v1",
-      "path": "tools/schemas/cartulary.requirement_catalog.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "requirement catalog owner",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.requirement_registry.v1",
-      "path": "tools/schemas/cartulary.requirement_registry.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "requirement registry owner",
       "validation": "json-shape-check"
     },
     {
@@ -457,8 +436,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.task_guide_summary.v2",
-      "path": "tools/schemas/cartulary.task_guide_summary.v2.schema.json",
+      "schema_id": "cartulary.task_guide_summary.v3",
+      "path": "tools/schemas/cartulary.task_guide_summary.v3.schema.json",
       "classification": "public_contract",
       "producer": "owner task guidance",
       "validation": "json-shape-check"
@@ -527,22 +506,22 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_catalog_check_summary.v1",
-      "path": "tools/schemas/cartulary.test_catalog_check_summary.v1.schema.json",
+      "schema_id": "cartulary.test_catalog_check_summary.v2",
+      "path": "tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "test catalog validator",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_evidence_accounting.v1",
-      "path": "tools/schemas/cartulary.test_evidence_accounting.v1.schema.json",
+      "schema_id": "cartulary.test_evidence_accounting.v2",
+      "path": "tools/schemas/cartulary.test_evidence_accounting.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner evidence accounting",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_evidence_audit_summary.v1",
-      "path": "tools/schemas/cartulary.test_evidence_audit_summary.v1.schema.json",
+      "schema_id": "cartulary.test_evidence_audit_summary.v2",
+      "path": "tools/schemas/cartulary.test_evidence_audit_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner evidence audit",
       "validation": "json-shape-check"
@@ -562,8 +541,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_owner_explanation.v1",
-      "path": "tools/schemas/cartulary.test_owner_explanation.v1.schema.json",
+      "schema_id": "cartulary.test_owner_explanation.v2",
+      "path": "tools/schemas/cartulary.test_owner_explanation.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner diagnostics",
       "validation": "json-shape-check"
@@ -576,8 +555,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_owner_summary.v1",
-      "path": "tools/schemas/cartulary.test_owner_summary.v1.schema.json",
+      "schema_id": "cartulary.test_owner_summary.v2",
+      "path": "tools/schemas/cartulary.test_owner_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner evidence accounting",
       "validation": "json-shape-check"
@@ -618,15 +597,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_slice_plan.v2",
-      "path": "tools/schemas/cartulary.test_slice_plan.v2.schema.json",
+      "schema_id": "cartulary.test_slice_plan.v3",
+      "path": "tools/schemas/cartulary.test_slice_plan.v3.schema.json",
       "classification": "public_contract",
       "producer": "owner-slice planner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_slice_scheduler_summary.v1",
-      "path": "tools/schemas/cartulary.test_slice_scheduler_summary.v1.schema.json",
+      "schema_id": "cartulary.test_slice_scheduler_summary.v2",
+      "path": "tools/schemas/cartulary.test_slice_scheduler_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "owner-slice scheduler",
       "validation": "json-shape-check"
@@ -660,15 +639,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.verification_contract.v2",
-      "path": "tools/schemas/cartulary.verification_contract.v2.schema.json",
+      "schema_id": "cartulary.verification_contract.v3",
+      "path": "tools/schemas/cartulary.verification_contract.v3.schema.json",
       "classification": "owner_input",
       "producer": "verification contract owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.verification_registry.v2",
-      "path": "tools/schemas/cartulary.verification_registry.v2.schema.json",
+      "schema_id": "cartulary.verification_registry.v3",
+      "path": "tools/schemas/cartulary.verification_registry.v3.schema.json",
       "classification": "owner_input",
       "producer": "verification registry owner",
       "validation": "json-shape-check"

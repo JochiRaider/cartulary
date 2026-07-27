@@ -3,6 +3,7 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
+document_version: 1.1.0
 ---
 
 ## 1. Status, scope, and authority
@@ -2597,11 +2598,17 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-068` | Nested admission classification is total. | Every condition in the §4.0.2 table produces the specified pre-admission or admitted-run outcome, and digest transcript comparison proves admitted malformed-scalar cases use deterministic normalized bytes. |
 | `GP-AC-069` | Lifecycle operation admissibility is total. | Every operation by graph-view state cell resolves per §10.0.2, refresh-from-invalidated failure returns to `invalidated`, and in-flight completion after graph-view invalidation is never consumable. |
 
-## 14. Conformance fixture registry
+## 14. Behavioral verification scenarios
 
-A conformance fixture MUST define its input JSON or operation request, normalized input after defaults when applicable, expected operation response or query response, expected retained state, expected validation summary when a run is admitted, and expected canonical bytes or digest bytes when bytes are under test.
+The scenarios in this section identify high-value observable behavior. They do
+not require one fixture per scenario, a stable fixture count, an
+acceptance-to-fixture map, or a machine completeness matrix. A test may cover
+several scenarios, and several tests may cover one scenario. Current behavior
+is complete only when the relevant production-facing test executes Graph
+Projection and compares the applicable response, retained state, validation
+summary, canonical bytes, or digest bytes.
 
-| Fixture ID | Required coverage |
+| Scenario label | Observable behavior |
 | --- | --- |
 | `GP-FIX-001` | Malformed JSON pre-admission rejection. |
 | `GP-FIX-002` | Duplicate object member pre-admission rejection. |
@@ -2640,9 +2647,23 @@ A conformance fixture MUST define its input JSON or operation request, normalize
 | `GP-FIX-035` | Cursor validation precedence chooses `cursor_token_too_long` for a token that is simultaneously oversized, malformed, and expired. |
 | `GP-FIX-036` | `distinct_sorted_array` with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order. |
 
-Every fixture MUST be deterministic. Fixture IDs are stable. A fixture may add explanatory examples, but the expected operation response, retained state, validation summary, and canonical bytes are the normative comparison artifacts for that fixture.
+The `GP-FIX-*` labels are human navigation labels for the current scenario
+inventory. They do not create executable identities or require a corpus
+registry. The checked-in fixtures that implement these scenarios remain
+deterministic behavioral inputs, and their expected operation responses,
+retained states, validation summaries, and canonical bytes remain exact
+comparison artifacts.
 
-Every fixture manifest MUST declare a nonempty set of GP-AC identifiers, one `comparison.scope` of `run_specific` or `run_independent`, whether run-independent validation may exclude issue IDs, one `comparison.mode`, and one expected retained-state effect. Every executable step other than clock advancement MUST name an input or setup artifact when its operation consumes one and MUST name an expected artifact. A no-retained-state fixture MUST explicitly declare `no_retained_state_change`; a retained lifecycle fixture MUST declare `retained_state_change` and compare the affected view, run, graph, idempotency, and retention records that are applicable to the operation.
+Every executable fixture manifest MUST declare one `comparison.scope` of
+`run_specific` or `run_independent`, whether run-independent validation may
+exclude issue IDs, one `comparison.mode`, and one expected retained-state
+effect. It MUST NOT carry requirement or acceptance identifiers. Every
+executable step other than clock advancement MUST name an input or setup
+artifact when its operation consumes one and MUST name an expected artifact. A
+no-retained-state fixture MUST explicitly declare
+`no_retained_state_change`; a retained lifecycle fixture MUST declare
+`retained_state_change` and compare the affected view, run, graph,
+idempotency, and retention records that are applicable to the operation.
 
 `comparison.mode=exact_artifacts` compares raw expected bytes for transcripts and malformed inputs and compares JSON artifacts after parsing while still enforcing closed member sets and array order. Run-independent comparison may exclude only the fields permitted by §12.2 and must declare `run_independent_validation=true` before excluding validation issue IDs. Candidate artifacts are non-normative diagnostics, MUST be written outside `contracts/`, MUST NOT be consumed by verification targets, and MUST NOT update a fixture manifest, reviewed artifact, or conformance status.
 

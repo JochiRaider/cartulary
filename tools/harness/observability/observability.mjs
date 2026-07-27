@@ -68,7 +68,7 @@ export function executionProfileDigests() {
   return {
     host: sha256(JSON.stringify(host)),
     capacity: sha256(readFileSync(path.join(repoRoot, "tools", "scheduler_resource_registry.json"))),
-    workload: sha256(`${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}`),
+    workload: sha256(`${catalog.test_catalog_digest}\u0000${catalog.verification.routing_digest}`),
     toolchain: sha256(readFileSync(path.join(repoRoot, "tools", "toolchain_pins.json"))),
   };
 }
@@ -471,7 +471,7 @@ function measurementContract(target, catalog, manifest, executionTopology) {
       ? {}
       : { allowed_policy_transition: binding.allowed_policy_transition ?? profile.allowed_policy_transition }),
     workload_evidence_profile_sha256: sha256(
-      `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
+      `${catalog.test_catalog_digest}\u0000${catalog.verification.routing_digest}\u0000${targetEntry.command_id}\u0000${canonicalJSON(canonicalInputs)}`,
     ),
     execution_policy: targetExecutionPolicy,
     execution_policy_sha256: semanticJSONSHA256(targetExecutionPolicy),
@@ -635,7 +635,7 @@ export function captureExecutionContext(runDir, metadata = {}) {
     available_capacity: capacity,
     capacity_profile_sha256: sha256(canonicalJSON(capacity)),
     workload_evidence_profile_sha256: sha256(
-      `${catalog.semantic_digest}\u0000${catalog.verification.semantic_digest}\u0000${rootContract.command_id}\u0000${canonicalJSON(invocationInputs)}`,
+      `${catalog.test_catalog_digest}\u0000${catalog.verification.routing_digest}\u0000${rootContract.command_id}\u0000${canonicalJSON(invocationInputs)}`,
     ),
     execution_policy: executionPolicy,
     execution_policy_sha256: semanticJSONSHA256(executionPolicy),

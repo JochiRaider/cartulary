@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-018-resource-limits",
-  "freeze_revision": 1,
+  "freeze_revision": 2,
   "summary": "resource limits enforce parser/import, diagnostic truncation, graph, counter digit, and invalid deployment config boundaries",
   "table_resource": {
     "network_flow_table_id": "nft_403f1f5800b5037803dbb40b4d3a24c6",

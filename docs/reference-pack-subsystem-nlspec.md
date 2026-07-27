@@ -2,7 +2,7 @@
 title: Cartulary Reference Pack Subsystem NLSpec
 status: draft
 document_class: nlspec
-document_version: 0.1.0
+document_version: 0.1.1
 contract_major: 1
 profile_id: reference_pack
 schema_id: cartulary.reference_pack_subsystem_nlspec.v1
@@ -838,7 +838,7 @@ A verification issue MUST conform to closed `reference_pack_issue.v1`:
 | `entry_id` | string or null | Exact content entry ID when attributable. |
 | `safe_details` | object | Closed object defined below. |
 
-`safe_details` MUST contain exactly `requirement_id`, `limit_id`, `expected_token`, `actual_token`, `related_pack_key`, and `related_pack_version`. Each member is a string or `null`; values not applicable to the issue are `null`. Every non-null string is limited to 256 Unicode scalar values, MUST satisfy RP-REQ-034, and MUST contain no payload-derived value. `requirement_id`, when non-null, MUST be one exact `RP-REQ-*` identifier. `related_pack_key` and `related_pack_version` MUST satisfy RP-REQ-022 and RP-REQ-023. Count and byte-limit tokens MUST use unsigned base-10 with no leading zero except `0`. A canonical JSON diagnostic path starts at `$`, uses `.member` for an ASCII identifier member, `[<zero-based integer>]` for an array index, and `[` plus an RFC 8785 JSON string plus `]` for any other member name; `path` is limited to 4096 UTF-8 bytes.
+`safe_details` MUST contain exactly `limit_id`, `expected_token`, `actual_token`, `related_pack_key`, and `related_pack_version`. Each member is a string or `null`; values not applicable to the issue are `null`. Every non-null string is limited to 256 Unicode scalar values, MUST satisfy RP-REQ-034, and MUST contain no payload-derived value. `related_pack_key` and `related_pack_version` MUST satisfy RP-REQ-022 and RP-REQ-023. Count and byte-limit tokens MUST use unsigned base-10 with no leading zero except `0`. A canonical JSON diagnostic path starts at `$`, uses `.member` for an ASCII identifier member, `[<zero-based integer>]` for an array index, and `[` plus an RFC 8785 JSON string plus `]` for any other member name; `path` is limited to 4096 UTF-8 bytes. Validation issues MUST NOT expose specification requirement identifiers.
 
 Severity `fatal` or `error` makes verification fail. Severity `warning` or `info` does not make verification fail by itself.
 

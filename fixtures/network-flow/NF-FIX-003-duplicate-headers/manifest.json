@@ -1,11 +1,11 @@
 {
-  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
-  "manifest_version": 1,
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
   "fixture_id": "NF-FIX-003-duplicate-headers",
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 1,
+    "revision": 2,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,8 +28,8 @@
     {
       "logical_path": "source/duplicate-headers.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 290,
-      "sha256": "a9b59e1de744bac0ddc3ef4b21de4db4e44f224666d4a25ad9598c2106251a23",
+      "size_bytes": 230,
+      "sha256": "fb9a70900eb550d8428f06d7aa3a7b1bf0bc1ce6f42d17c6f55ccc7cef24796e",
       "role": "support",
       "newline_policy": "lf_required"
     }
@@ -39,7 +39,7 @@
       "logical_path": "expected/duplicate-headers.expected.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 1041,
-      "sha256": "61c456de84311b5c42d2e1ee3b98b148cac219e6fe0b75fe83cc97b2abddec47",
+      "sha256": "5b7d6f112f26ab8cbde340478728ef31378a18494e52e84fcc09c98fc11e9b55",
       "role": "expected_response"
     }
   ],
@@ -48,20 +48,10 @@
       "logical_path": "transcripts/duplicate-headers.transcript.json",
       "media_type": "application/json; charset=utf-8",
       "size_bytes": 591,
-      "sha256": "86ca0e67249d4f6b28d0ac48ab5cedc5760b0de8aad376f36c8517f3249a0b59",
+      "sha256": "abf5017af779eccff79770e5c7f951af965719f32a41e3344dcad14757544376",
       "transcript_kind": "preview"
     }
   ],
-  "acceptance_ids": [
-    "NF-AC-009",
-    "NF-AC-089"
-  ],
-  "execution_selectors": [
-    "phase12/network-flow/NF-FIX-003-duplicate-headers"
-  ],
-  "source_bundle_sha256": "d0ecd247b193ef6a889c89eb8de61d89aa30b16b208f1e8e8ce8ae42080206b5",
-  "expected_bundle_sha256": "6363196520cc491faeeb5afa02f012df9dafdd1d4a5b364c2fa5087bce892583",
-  "verification_ids": [
-    "module.networkflow.verification.contract_accounting"
-  ]
+  "source_bundle_sha256": "f02d80ac3e2f1a08ab479317ce69916e9964d49f235465ed3ebf054c3763b8fd",
+  "expected_bundle_sha256": "98a41f2dfdafcdea61ec6cb4de3f64bbb4c0c8b8fd416613f4cb6f3b02a0f717"
 }

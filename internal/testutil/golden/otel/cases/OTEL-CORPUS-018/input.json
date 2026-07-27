@@ -1,1 +1,124 @@
-{"schema_id":"cartulary.otel_corpus_input.v1","case_id":"OTEL-CORPUS-018","title":"Redaction","status":"adopted_conformant","owner_requirement":"Owner-listed forbidden literals from every family are absent from spans, metrics, logs, resource attributes, self-diagnostics, retained artifacts, and exporter attempts.","forbidden_value_action_matrix":[{"family":"incident_authored_content","owner_literal_fixture":"timeline summary","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"incident_authored_content","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"evidence_identity","owner_literal_fixture":"filename_hint","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"evidence_identity","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"stable_identifier","owner_literal_fixture":"incident_id","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"stable_identifier","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"security_material","owner_literal_fixture":"exporter header value","default_treatment":"omit","replacement_allowed":false,"diagnostic_family":"security_material","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"request_content","owner_literal_fixture":"raw query string","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"request_content","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"database_content","owner_literal_fixture":"sql text","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"database_content","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"infrastructure_identity","owner_literal_fixture":"client ip","default_treatment":"omit","replacement_allowed":true,"diagnostic_family":"infrastructure_identity","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"exception_detail","owner_literal_fixture":"exception.stacktrace","default_treatment":"replace_with_closed_class","replacement_allowed":true,"diagnostic_family":"exception_detail","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}},{"family":"baggage_trace_state","owner_literal_fixture":"tracestate","default_treatment":"omit","replacement_allowed":false,"diagnostic_family":"baggage_trace_state","drop_metric":{"name":"cartulary.telemetry.item.dropped","drop_reason":"redaction_rejected","records_when_non_recursive":true,"records_when_recursive":false}}]}
+{
+  "schema_id": "cartulary.otel_corpus_input.v2",
+  "case_id": "OTEL-CORPUS-018",
+  "title": "Redaction",
+  "forbidden_value_action_matrix": [
+    {
+      "family": "incident_authored_content",
+      "owner_literal_fixture": "timeline summary",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "incident_authored_content",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "evidence_identity",
+      "owner_literal_fixture": "filename_hint",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "evidence_identity",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "stable_identifier",
+      "owner_literal_fixture": "incident_id",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "stable_identifier",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "security_material",
+      "owner_literal_fixture": "exporter header value",
+      "default_treatment": "omit",
+      "replacement_allowed": false,
+      "diagnostic_family": "security_material",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "request_content",
+      "owner_literal_fixture": "raw query string",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "request_content",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "database_content",
+      "owner_literal_fixture": "sql text",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "database_content",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "infrastructure_identity",
+      "owner_literal_fixture": "client ip",
+      "default_treatment": "omit",
+      "replacement_allowed": true,
+      "diagnostic_family": "infrastructure_identity",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "exception_detail",
+      "owner_literal_fixture": "exception.stacktrace",
+      "default_treatment": "replace_with_closed_class",
+      "replacement_allowed": true,
+      "diagnostic_family": "exception_detail",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    {
+      "family": "baggage_trace_state",
+      "owner_literal_fixture": "tracestate",
+      "default_treatment": "omit",
+      "replacement_allowed": false,
+      "diagnostic_family": "baggage_trace_state",
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "redaction_rejected",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    }
+  ]
+}

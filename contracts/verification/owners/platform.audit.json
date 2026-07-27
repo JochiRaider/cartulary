@@ -1,25 +1,21 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.audit",
   "verifications": [
     {
       "verification_id": "platform.audit.verification.contract_and_safe_projection",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.audit.requirement.contract_and_safe_projection"
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {
       "verification_id": "platform.audit.verification.transactional_immutable_persistence",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "status": "active",
-      "requirement_ids": [
-        "platform.audit.requirement.transactional_immutable_persistence"
+      "evidence_kinds": [
+        "go_test"
       ]
     }
   ]

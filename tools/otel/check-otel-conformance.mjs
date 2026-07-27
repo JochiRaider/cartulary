@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,12 +15,11 @@ import {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";
-const conformanceStatusPath = "contracts/otel/conformance_status.json";
 const generatedConstantsManifestPath = "contracts/otel/generated_constants_manifest.json";
 const importBoundaryPath = "contracts/otel/import_boundary.json";
 const errorClassRegistryPath = "contracts/otel/error_class_registry.json";
-const telemetryConfigSchemaPath = "contracts/otel/telemetry_config_schema.v1.json";
-const configHazardMatrixPath = "contracts/otel/config_hazard_fixture_matrix.v1.json";
+const telemetryConfigSchemaPath = "contracts/otel/telemetry_config_schema.v2.json";
+const configHazardMatrixPath = "contracts/otel/config_hazard_fixture_matrix.v2.json";
 const corpusManifestPath = "internal/testutil/golden/otel/corpus_manifest.json";
 const dependencyClassificationPath = "internal/testutil/golden/otel/dependency_update_classification.json";
 const verificationContractPath = "contracts/verification/owners/platform.telemetry.json";
@@ -242,9 +242,9 @@ const expectedNullOmissionSignalFamilies = [
 ];
 
 const normalizedSignalSchemas = {
-  normalized_traces: "cartulary.otel_normalized_traces.v1",
-  normalized_metrics: "cartulary.otel_normalized_metrics.v1",
-  normalized_logs: "cartulary.otel_normalized_logs.v1",
+  normalized_traces: "cartulary.otel_normalized_traces.v2",
+  normalized_metrics: "cartulary.otel_normalized_metrics.v2",
+  normalized_logs: "cartulary.otel_normalized_logs.v2",
 };
 
 const expectedTelemetryConfigKeys = [
@@ -495,7 +495,7 @@ function validateSnapshot(snapshot, checks) {
 
 function validateGeneratedConstantsManifest(manifest, checks) {
   assert(
-    manifest.schema_id === "cartulary.otel_generated_constants_manifest.v1",
+    manifest.schema_id === "cartulary.otel_generated_constants_manifest.v2",
     "generated constants manifest uses the adopted schema",
     checks,
     "constants_manifest.schema_id",
@@ -508,12 +508,11 @@ function validateGeneratedConstantsManifest(manifest, checks) {
 
 function validateTelemetryConfigSchema(schema, checks) {
   assert(
-    schema.schema_id === "cartulary.otel_telemetry_config_schema.v1",
+    schema.schema_id === "cartulary.otel_telemetry_config_schema.v2",
     "telemetry config schema uses the adopted schema identifier",
     checks,
     "telemetry_config.schema_id",
   );
-  assert(schema.status === "adopted_conformant", "telemetry config schema is adopted_conformant with the subsystem", checks, "telemetry_config.status");
   assert(
     schema.source_owner === "platform.telemetry.verification.current_conformance",
     "telemetry config schema names its machine verification owner",
@@ -593,12 +592,11 @@ function validateTelemetryConfigSchema(schema, checks) {
 
 function validateConfigHazardMatrix(matrix, checks) {
   assert(
-    matrix.schema_id === "cartulary.otel_config_hazard_fixture_matrix.v1",
+    matrix.schema_id === "cartulary.otel_config_hazard_fixture_matrix.v2",
     "config/hazard matrix uses the adopted schema identifier",
     checks,
     "config_hazard.schema_id",
   );
-  assert(matrix.status === "adopted_conformant", "config/hazard matrix is adopted_conformant with the subsystem", checks, "config_hazard.status");
   assert(
     matrix.source_owner === "platform.telemetry.verification.current_conformance",
     "config/hazard matrix names its machine verification owner",
@@ -662,38 +660,6 @@ function validateConfigHazardMatrix(matrix, checks) {
     checks,
     "config_hazard.declarative_env_names",
   );
-}
-
-function validateConformanceStatus(status, checks) {
-  assert(status.schema_id === "cartulary.otel_conformance_status.v1", "conformance status manifest uses the adopted schema", checks, "status.schema_id");
-  assert(
-    ["pre_adoption", "experimental_non_conformant", "adopted_incomplete", "adopted_conformant"].includes(status.mode),
-    "conformance status mode is one of the closed modes",
-    checks,
-    "status.mode_closed",
-  );
-  assert(status.mode === "adopted_conformant", "current telemetry implementation is adopted_conformant after all criteria pass", checks, "status.mode_current");
-  assert(status.network_export_default === "disabled", "network export default remains disabled", checks, "status.network_export_default");
-  assert(status.claim_allowed === true, "conformance claim is allowed only after adopted_conformant criteria pass", checks, "status.claim_allowed");
-
-  const blockingDecisions = (status.decision_registry ?? []).filter((row) =>
-    ["repo_materialization_required", "owner_closure_required", "owner_drift_conflict"].includes(row.closure_state),
-  );
-  assert(
-    blockingDecisions.length === 0,
-    `no blocking decision rows remain${blockingDecisions.length ? `; blocking ${blockingDecisions.map((row) => row.id).join(", ")}` : ""}`,
-    checks,
-    "status.decision_registry_closed",
-  );
-
-  const incompleteAcceptance = (status.acceptance_status ?? []).filter((row) => row.status !== "pass");
-  assert(
-    incompleteAcceptance.length === 0,
-    `all OIP acceptance rows pass${incompleteAcceptance.length ? `; incomplete ${incompleteAcceptance.map((row) => row.id).join(", ")}` : ""}`,
-    checks,
-    "status.acceptance_complete",
-  );
-  assert(status.release_state === "otel_release_ready", "release state is otel_release_ready", checks, "status.release_ready");
 }
 
 let repositoryFileIndex = null;
@@ -989,7 +955,7 @@ function validateImportBoundary(boundary, checks) {
 function validateVerificationOwner(checks) {
   const contract = readJSON(verificationContractPath);
   assert(
-    contract.schema_id === "cartulary.verification_contract.v2" &&
+    contract.schema_id === "cartulary.verification_contract.v3" &&
       contract.owner_id === "platform.telemetry",
     "telemetry verification contract has the current machine owner identity",
     checks,
@@ -1001,10 +967,9 @@ function validateVerificationOwner(checks) {
       "platform.telemetry.verification.current_conformance",
   );
   assert(
-    verification?.status === "active" &&
-      verification?.profile === "support" &&
+    verification?.profile === "support" &&
       (verification?.evidence_kinds ?? []).includes("static_check"),
-    "telemetry conformance has an active support-profile machine verification",
+    "telemetry conformance has a current support-profile machine verification",
     checks,
     "verification.current_conformance",
   );
@@ -1043,7 +1008,6 @@ function normalizeRawCapture(raw, schemaID) {
   return {
     schema_id: schemaID,
     case_id: raw.case_id,
-    status: raw.normalized_status,
     [payloadField]: raw.payload,
   };
 }
@@ -1074,7 +1038,7 @@ function emitAndCompareCorpusCaptures(manifest, cases, checks) {
       }
 
       const raw = {
-        schema_id: "cartulary.otel_raw_capture.v1",
+        schema_id: "cartulary.otel_raw_capture.v2",
         corpus_revision: manifest.corpus_revision,
         case_id: row.case_id,
         signal_kind: signalKind(field),
@@ -1091,7 +1055,6 @@ function emitAndCompareCorpusCaptures(manifest, cases, checks) {
           schema_url: "",
           attributes: {},
         },
-        normalized_status: signal.status,
         payload_field: payloadField,
         payload: signal[payloadField],
       };
@@ -1157,12 +1120,11 @@ function emitAndCompareCorpusCaptures(manifest, cases, checks) {
 
 function validateGoldenCorpus(manifest, classification, checks) {
   assert(
-    manifest.schema_id === "cartulary.otel_corpus_manifest.v1",
+    manifest.schema_id === "cartulary.otel_corpus_manifest.v2",
     "golden corpus manifest uses the adopted schema",
     checks,
     "golden.corpus.schema_id",
   );
-  assert(manifest.status === "adopted_conformant", "golden corpus is adopted_conformant after emitted captures are compared", checks, "golden.corpus.status");
   assert(
     manifest.normalized_golden_root === "internal/testutil/golden/otel",
     "golden corpus root is the adopted normalized root",
@@ -1248,21 +1210,13 @@ function validateGoldenCorpus(manifest, classification, checks) {
       continue;
     }
     assert(row.title === title, `${caseID} title matches the adopted corpus title`, checks, `golden.corpus.${caseID}.title`);
-    assert(
-      row.status === "adopted_conformant",
-      `${caseID} is adopted_conformant after emitted captures are compared`,
-      checks,
-      `golden.corpus.${caseID}.status`,
-    );
-
     const expectedInput = `cases/${caseID}/input.json`;
     assert(row.input === expectedInput, `${caseID} input path is canonical`, checks, `golden.corpus.${caseID}.input_path`);
     const inputPath = `${manifest.normalized_golden_root}/${expectedInput}`;
     if (assert(fileExists(inputPath), `${caseID} input fixture exists`, checks, `golden.corpus.${caseID}.input_exists`)) {
       const input = readJSON(inputPath);
-      assert(input.schema_id === "cartulary.otel_corpus_input.v1", `${caseID} input schema is adopted`, checks, `golden.corpus.${caseID}.input_schema`);
+      assert(input.schema_id === "cartulary.otel_corpus_input.v2", `${caseID} input schema is current`, checks, `golden.corpus.${caseID}.input_schema`);
       assert(input.case_id === caseID, `${caseID} input fixture is bound to the case ID`, checks, `golden.corpus.${caseID}.input_case_id`);
-      assert(input.status === "adopted_conformant", `${caseID} input status is adopted_conformant`, checks, `golden.corpus.${caseID}.input_status`);
       assert(input.title === title, `${caseID} input title matches the manifest`, checks, `golden.corpus.${caseID}.input_title`);
       if (caseID === "OTEL-CORPUS-001") {
         const noSDK = input.no_sdk_assertions ?? {};
@@ -1772,7 +1726,6 @@ function validateGoldenCorpus(manifest, classification, checks) {
         const signal = readJSON(signalPath);
         assert(signal.schema_id === schemaID, `${caseID} ${field} schema is adopted`, checks, `golden.corpus.${caseID}.${field}_schema`);
         assert(signal.case_id === caseID, `${caseID} ${field} is bound to the case ID`, checks, `golden.corpus.${caseID}.${field}_case_id`);
-        assert(signal.status === "adopted_conformant", `${caseID} ${field} status is adopted_conformant`, checks, `golden.corpus.${caseID}.${field}_status`);
         const payloadField = field === "normalized_traces" ? "spans" : field === "normalized_metrics" ? "metrics" : "logs";
         assert(Array.isArray(signal[payloadField]), `${caseID} ${field} payload is an array`, checks, `golden.corpus.${caseID}.${field}_payload`);
         if (caseID === "OTEL-CORPUS-001") {
@@ -1790,16 +1743,10 @@ function validateGoldenCorpus(manifest, classification, checks) {
   emitAndCompareCorpusCaptures(manifest, cases, checks);
 
   assert(
-    classification.schema_id === "cartulary.otel_dependency_update_classification.v1",
+    classification.schema_id === "cartulary.otel_dependency_update_classification.v2",
     "dependency-update classification manifest uses the adopted schema",
     checks,
     "golden.dependency.schema_id",
-  );
-  assert(
-    classification.status === "adopted_conformant",
-    "dependency-update classification is adopted_conformant after corpus comparisons execute",
-    checks,
-    "golden.dependency.status",
   );
   assert(
     classification.corpus_manifest === corpusManifestPath,
@@ -1852,7 +1799,6 @@ function validateGoldenCorpus(manifest, classification, checks) {
 function validateNoRepoAdoptionTODOs(checks) {
   const visibleFiles = [
     snapshotPath,
-    conformanceStatusPath,
     generatedConstantsManifestPath,
     importBoundaryPath,
     errorClassRegistryPath,
@@ -1981,14 +1927,48 @@ function validateHarnessTelemetryBoundary(checks) {
   );
 }
 
+function validateRuntimeBehavior(checks) {
+  const makeCommand = process.env.MAKE || "make";
+  const childEnvironment = {
+    ...process.env,
+    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+    CARTULARY_TEST_TARGET: "test-slice",
+  };
+  const result = spawnSync(
+    makeCommand,
+    [
+      "--silent",
+      "--no-print-directory",
+      "test-slice",
+      "OWNER=platform.telemetry",
+    ],
+    {
+      cwd: repoRoot,
+      env: childEnvironment,
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    },
+  );
+  const detail = [result.error?.message, result.stderr, result.stdout]
+    .filter((value) => typeof value === "string" && value.trim() !== "")
+    .join("\n")
+    .trim();
+  assert(
+    result.status === 0,
+    `current platform.telemetry runtime, privacy, exporter-failure, retry, queue, and shutdown tests pass${detail === "" ? "" : `; ${detail.slice(0, 2_000)}`}`,
+    checks,
+    "runtime.current_behavior",
+  );
+}
+
 function main() {
   const checks = [];
   try {
+    validateRuntimeBehavior(checks);
     validateSnapshot(readJSON(snapshotPath), checks);
     validateGeneratedConstantsManifest(readJSON(generatedConstantsManifestPath), checks);
     validateTelemetryConfigSchema(readJSON(telemetryConfigSchemaPath), checks);
     validateConfigHazardMatrix(readJSON(configHazardMatrixPath), checks);
-    validateConformanceStatus(readJSON(conformanceStatusPath), checks);
     validateImportBoundary(readJSON(importBoundaryPath), checks);
     validateHarnessTelemetryBoundary(checks);
     validateVerificationOwner(checks);

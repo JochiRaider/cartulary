@@ -1,10 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-012-sys-uptime-timestamps",
-  "summary": "sys-uptime timestamps derive event times from export time and exporter uptime with wrap-ambiguous rejection",
-  "acceptance_ids": [
-    "NF-AC-018",
-    "NF-AC-060",
-    "NF-AC-087"
-  ]
+  "summary": "sys-uptime timestamps derive event times from export time and exporter uptime with wrap-ambiguous rejection"
 }

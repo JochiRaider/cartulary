@@ -432,19 +432,25 @@ The path tree below is an intended baseline shape, not an independently verified
 
 ### 4.1 Derivation model
 
-The contract layer is the repo-local typed machine authority alongside the requirement registry and owner catalogs. Generated code and aggregate documents are downstream artifacts.
+The contract layer contains repo-local typed machine projections of adopted
+Core and subsystem NLSpecs. Generated code and aggregate documents are
+downstream artifacts; neither the projections nor their generated outputs
+replace the adopted behavioral owners.
 
 The required derivation chain is:
 
-`contracts/requirements/registry.json` and owner catalogs + typed `/contracts/*` owner inputs → aggregate contracts → generated Go and TypeScript code → runtime consumers
+adopted Core/NLSpec owner → typed `/contracts/*` projection → aggregate contracts → generated Go and TypeScript code → runtime consumers
 
-Human Core and NLSpec documents may explain intent and vocabulary, but generators, tests, runtime metadata, conformance, and release evidence MUST consume the machine-owned inputs. Generated roots and aggregate contracts MUST be changed through their owner inputs and official generation.
+Core and adopted NLSpecs define behavior but are not executable inputs.
+Generators, tests, runtime metadata, conformance, and release evidence consume
+the typed projections. Generated roots and aggregate contracts MUST be changed
+through their owner inputs and official generation.
 
 ### 4.2 Contract family owner map
 
 | Contract family                             | Primary owner                                                                                                      | Repo-local artifact                         | Generated or runtime consumers                                           | Edit rule                                          |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
-| HTTP route surface                          | Machine requirement and semantic route owner                                                                       | `/contracts/openapi-source/owners/<owner_id>/openapi.json`, assembled as `/contracts/openapi/cartulary.openapi.yaml` | Go operation catalog, route binder, handler tests, TypeScript operation bindings | Change the owner unit, then run generation |
+| HTTP route surface                          | Core or adopted subsystem route owner                                                                               | `/contracts/openapi-source/owners/<owner_id>/openapi.json`, assembled as `/contracts/openapi/cartulary.openapi.yaml` | Go operation catalog, route binder, handler tests, TypeScript operation bindings | Change the specification, then the owner unit, then run generation |
 | WebSocket messages                          | Core 01 collaboration transport plus Core 03 collaboration behavior                                                | `/contracts/ws/*.schema.json`               | Go WebSocket transport, TypeScript message types, protocol tests         | Change owner contract first, then WS schemas       |
 | View schemas and write-back contracts       | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json`            | Grid wrapper, filter builders, write routing, saved-view normalization   | Change owner contract first, then view schemas     |
 | Error registries and reason-code registries | Core 01 error-envelope owner sections                                                                              | `/contracts/errors/*.json`                  | Go error helpers, TypeScript enums, test fixtures                        | Change owner contract first, then error registries |

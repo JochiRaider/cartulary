@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.network_flow_frontend_entrypoints.v3",
+  "profile_id": "network_flow_activity",
+  "contract_major": 2,
+  "network_flow": {
+    "contract_index_path": "contracts/network-flow/index.json",
+    "mapping_registry_path": "contracts/network-flow/mapping-registry.v2.json",
+    "presentation_path": "contracts/network-flow/presentation.v2.json",
+    "schema_bundle_path": "contracts/network-flow/schemas.v1.json"
+  }
+}

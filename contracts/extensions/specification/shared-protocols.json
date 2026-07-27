@@ -1,6 +1,5 @@
 {
-  "schema_id": "cartulary.extension_shared_protocol_contract_set.v2",
-  "owner_requirement_id": "EXT-REQ-232",
+  "schema_id": "cartulary.extension_shared_protocol_contract_set.v3",
   "portability": {
     "export_result_schema_id": "cartulary.incident_portability_extension_export_result.v1",
     "import_result_schema_id": "cartulary.incident_portability_extension_import_result.v1",

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.verification_contract.v2",
+  "schema_id": "cartulary.verification_contract.v3",
   "owner_id": "platform.telemetry",
   "verifications": [
     {
@@ -7,13 +7,10 @@
       "behavior_class": "architecture",
       "profile": "support",
       "evidence_kinds": [
+        "go_test",
         "static_check"
       ],
-      "public_target": "otel-conformance",
-      "status": "active",
-      "requirement_ids": [
-        "platform.telemetry.requirement.current_conformance"
-      ]
+      "public_target": "otel-conformance"
     }
   ]
 }

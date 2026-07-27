@@ -1,10 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-020-atomic-import-commit",
-  "summary": "final-commit fault points prove no ghost table, partial rows, diagnostics, bindings, or domain audit",
-  "acceptance_ids": [
-    "NF-AC-081",
-    "NF-AC-082",
-    "NF-AC-107"
-  ]
+  "summary": "final-commit fault points prove no ghost table, partial rows, diagnostics, bindings, or domain audit"
 }

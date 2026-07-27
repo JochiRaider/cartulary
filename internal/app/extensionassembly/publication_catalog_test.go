@@ -80,7 +80,7 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		t.Fatal("Snapshot/Reporting contribution is absent")
 	}
 	if participant, present := catalog.Participant("snapshot_reporting.render_export_v1"); !present ||
-		participant.ContractKind != "cartulary.extension_participant_specialization.v2" {
+		participant.ContractKind != "cartulary.extension_participant_specialization.v3" {
 		t.Fatalf("Snapshot/Reporting participant = %#v/%t", participant, present)
 	}
 }

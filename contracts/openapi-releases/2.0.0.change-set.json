@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.openapi_release_change_set.v1",
+  "schema_id": "cartulary.openapi_release_change_set.v2",
   "baseline_version": "1.0.0",
   "target_version": "2.0.0",
   "changes": [
@@ -7,455 +7,390 @@
       "fingerprint": "c6503f75e50cabe482dbe4b681a5e14ee3ee411d64a315bbea0b25985ecbf0d0",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the closed deployment-user create request schema already enforced by the runtime."
     },
     {
       "fingerprint": "09206e04adbcb5753fe74c07d87891c0b6f347a688ab07151141e72a3bbbc0c4",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the closed administrative password-reset request schema already enforced by the runtime."
     },
     {
       "fingerprint": "75a24d8d7ca00e3d715d68225be79780dfe00bd71b8ef440fa81859fd527fd40",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the closed deployment-user patch request schema already enforced by the runtime."
     },
     {
       "fingerprint": "a65c2659d82158993075ca655b9ccecd81d70396773610306c23e50e7de95f54",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the closed session-revocation request schema already enforced by the runtime."
     },
     {
       "fingerprint": "5b054621089002f81eba9ec1a2f2d23c97873a4ff9d57e2bbf0a1225fac17ff0",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the closed administrative TOTP-reset request schema already enforced by the runtime."
     },
     {
       "fingerprint": "74a44e9b7b5e950c65acda75f0f20f01d0526177635f96fb48066b510a5e9aea",
       "classification": "breaking",
       "owner_id": "module.evidence",
-      "requirement_id": "module.evidence.requirement.behavior_contract",
       "rationale": "Replace an unsatisfiable closed-schema composition so an attachment response can contain both the shared mutation fields and its required object-blob identifier."
     },
     {
       "fingerprint": "ee6dcc135b3d463abb24ff17f34c47aca14b47aa2d2662e1b79aad4b0122e9df",
       "classification": "additive",
       "owner_id": "module.evidence",
-      "requirement_id": "module.evidence.requirement.behavior_contract",
       "rationale": "Close the final evidence-attachment response after evaluating its shared and operation-specific fields."
     },
     {
       "fingerprint": "14809f0f96e6f9e8b7f9f7c0f9e061133763eaef7b7ba104e91bcd793b8ea631",
       "classification": "additive",
       "owner_id": "module.evidence",
-      "requirement_id": "module.evidence.requirement.behavior_contract",
       "rationale": "Declare the final composed evidence-attachment response as an object for strict validator compatibility."
     },
     {
       "fingerprint": "5cb36224f9b5334b07e066f075fb462704ec3117e6831d655a43d9e62f7e5e50",
       "classification": "breaking",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Move closure from the reusable mutation-field definition to each complete response schema so strict composition remains extensible."
     },
     {
       "fingerprint": "feb447afe1c52fb528a0bc943afe3edc08adf65162eb209bb32e9d6ffe1e083c",
       "classification": "additive",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Compose the ordinary view-mutation response from its single shared field definition."
     },
     {
       "fingerprint": "e2ca61ff97b75fbad52f1e13d96ecd4e470a66c0b1fdc9191ed57936c12bdc12",
       "classification": "breaking",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Move the unchanged view-mutation properties into the reusable mutation-field definition."
     },
     {
       "fingerprint": "525a55ea0d84125f130bdd9814b971ac78f684feb1d6631b4d70f53bec752bc2",
       "classification": "breaking",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Move the unchanged required view-mutation members into the reusable mutation-field definition."
     },
     {
       "fingerprint": "0c1ff8af93f061ddea5f7ac398a31b96976dc1b578446cbd5e9098136587aea7",
       "classification": "additive",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Keep the complete ordinary view-mutation response closed after shared-field evaluation."
     },
     {
       "fingerprint": "7f09e6b018e2046b3331f70ac6971481efa89400db15bbd2aec570e9baed03bd",
       "classification": "additive",
       "owner_id": "module.workbook",
-      "requirement_id": "module.workbook.requirement.behavior_contract",
       "rationale": "Introduce one reusable field definition for strict view-mutation response families."
     },
     {
       "fingerprint": "5da6d865aad51954a7a1996c947ea21dc50162da18bc6d2e558cdd53f1441cb5",
       "classification": "breaking",
       "owner_id": "platform.audit",
-      "requirement_id": "platform.audit.requirement.contract_and_safe_projection",
       "rationale": "Remove the migration-only legacy administrative-event value from the closed deployment audit query vocabulary."
     },
     {
       "fingerprint": "04cd5a827800cec6a42b2fa345f7b0d5a6a5dbef867224e2090f3fbb9035e425",
       "classification": "breaking",
       "owner_id": "platform.audit",
-      "requirement_id": "platform.audit.requirement.contract_and_safe_projection",
       "rationale": "Remove the migration-only legacy administrative-event value from the closed incident membership-audit query vocabulary."
     },
     {
       "fingerprint": "c59ca15645f8275dff57aa5e9553d4657126876a21d220667eaa358b2737ef66",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Bind the documented deployment-user create request schema to its public operation."
     },
     {
       "fingerprint": "cf43580592530084b3d76b51e727ee35fda335412f6cd55cfee5dfe580bcaa55",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Bind the documented deployment-user patch request schema to its public operation."
     },
     {
       "fingerprint": "c94875729816b324978757016ff3f66fc09126eab1283d2837282d65796ab3bd",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Bind the documented administrative TOTP-reset request schema to its public operation."
     },
     {
       "fingerprint": "e0c59daa32038c31d01d4f433ae1c2d94dd5e41341c85c2cf6f2faad0f3a65e7",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Bind the documented administrative password-reset request schema to its public operation."
     },
     {
       "fingerprint": "2e57cab5977976bf4a7177ecad3aca48063439fc4b32dc0b2af8541aae373175",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Bind the documented session-revocation request schema to its public operation."
     },
     {
       "fingerprint": "95de923ff4bd5d45636eff418c69ccd6237ad0645f19c6733cbf66dfb2ae022f",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "579971d94d9e1e86faeb88fbdea21f96d2e51600feee5ae97f05a080efca3048",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "b7498b04d56d5fe580f0728571b5ed9f871e730c2f9d64ee7fa24af9ad0da71a",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "7e8d5e8045a6adf5b98629afbac36b9f66adcfdcd2f9feda9a914c833f6eb74e",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "e3358c8eb5a9e1a7a6fb1f9645ce03fe63da404bbc34d168926ff4e584248b38",
       "classification": "additive",
       "owner_id": "module.auth",
-      "requirement_id": "module.auth.requirement.openapi_and_administrative_audit_alignment",
       "rationale": "Publish the existing SAML browser-completion route as an explicit enterprise-profile operation instead of relying on prefix dispatch."
     },
     {
       "fingerprint": "982a27297e6474794f5d83df4cd7a3d51ef00a66e019f1832c9cca053e7017bf",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "5a6668b9cbabe2f37595bd10958767bad0a0197a3e549d64028f6d4ed94238bb",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "77ac8fffc9cf3b1fad2e38d0e97cda94eaca1ea41be05ed3936fcfd8dd29c367",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "85d8c801586fa50a4ea5db8be9cb34ecbccd15c5df5ec0e1a3d32b85f0d4047f",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "2e470cfb9531b25e4105e6e41b0bfc0d9dcf61c8c35b00cb68aa48057047c4f9",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "e1af6333f795dc42257c523c1c42e6f161dbc19d154e888899b06890e240ef49",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "7f63afaa375bc657257ddf1e598daffd0ad309891918ec023b3a302bb1802b17",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "71981592bd55f1f128193777e0a2a30102d542d8204f468e0645c9693df2551c",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "1035f3243091eb482953356f07b058d585be22ff13653c6f70bbebf3af0822af",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "ca5f40e8f40e52174afcc99bb5c14dde35a594f02006265d43c5d070a842e466",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "d8065cef99f992fb58c39870a5d8eef8474d69a9054ba02496a3765bd4d55aab",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "7e3b19b392137c5af68b831eba34bf69969ebc60d826234fefae0253436e1ed0",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "b751ca8a9adc1d2bba4de6f94aa67e3b04542beda5d3688c6af4fb275310dd52",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "aba0d6beb3f8f46557324d531fe064ce53ef1528e181b3c31d73b2aa1983f590",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "50f42061007077d691e62b845a982ce6bc5691df8b72ae02374d7d649711d3c5",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "7ccfe52215e9bcc41bf32fb6551b651933f82c69d794186636e1b36485597d0a",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "00573071a3218bf4ae899a0f3a16d106c5bbbcf5463cb76cb1414ced3a0d0439",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "75092164cd23050e4ea142a29538053406eb8f78f6d06f81e484446b152e5855",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "43444fa148adf3f3802f310d018c2db846fcfb96a44cbc1d4f920507ae0124ae",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "b425b1832f19c18a9e2c8012de8a50b8d3f63d547e7d99dcb4048493168a0665",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "cc60674349a7819b005c51221252d9cac72d9b0f8cb670364aec346074430369",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "bef2308c6fd5e05f54d7ac5706bd0b61554e35d4f10f37253b34abf88d9161b7",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "25b79bcccd942291b9ffba6a033c736bdc191b994561578f0f58b4c80aa37728",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "453a534aad2c651122c6e7b6d606e68c5a69e0a632dbd146bb4f9f8d7a52952f",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "4e8fc5fbf2525c18a1ae2b47d15c251c2c3c1fdf0f7b043bae2f469350d9968c",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "3d39026b502eda8270e0c024011b3064739c3320519ff931b3351778f83c561f",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "f54db6bd560a4ad0df0c22c7c9a5017f5e71aaecfb23a35908747a219f7aa034",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "51faf070b8c78ab4fb5401df51574d2d9a36d2de756cbc2ca2f5f4ee13170c00",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "c24e3f133b8d2899a6380444e681b5aeee3e9dd98ec4491697a4e4f4d0755fcf",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "c4aff7672592c848026113d1ab7bd6a3a7d1b326b103d5cc1d03a5a5f4c57b84",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "c958c8bad74bbe29e12fcd9217573975bec1646eca38433a9e5a10b5f238c6b3",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "55589aa7c6dc1b2a88d0ea763f62a5ec858fbb39abd9c643d94299cb803e75bf",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "169382d63d4a70d4a1849137a4ed2c7d6a485ab8c9c21865b8be88e7227c2351",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "c9531048476aaea8909d26a92fee3bbe204bf809026757e3fef98387383a35ca",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "455ed931eb571010131a6593be2aa3f924360b9fa751055d78af3fccf491c72f",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "8a0d007ae8b5de2f114221324f2f04ddb5dbaa5384f7a5943948d8769b7ed9c5",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "b6fb6009b5364fb3b2d973b0dcddb9b9aaa3f11add5408e3a1031128e08f63bc",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "cb04b1fc68b2d55b53279e877175d9ca64ad4560352d3ba92c172380207a2232",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     },
     {
       "fingerprint": "6d2e6e73d04bb8bdaae192108ad3cb3d9546ecf8367bbbc5a447fdf69948ea06",
       "classification": "non_behavioral",
       "owner_id": "platform.openapi",
-      "requirement_id": "platform.openapi.requirement.runtime_profile_parity",
       "rationale": "Record existing conditional route availability as generated runtime metadata without changing the public wire contract."
     }
   ]

@@ -1,6 +1,6 @@
 {
-  "schema_id": "cartulary.graph_projection_fixture_manifest.v2",
-  "fixture_version": 2,
+  "schema_id": "cartulary.graph_projection_fixture_manifest.v3",
+  "fixture_version": 3,
   "fixture_id": "GP-FIX-008",
   "execution_layer": "backend_unit",
   "test_symbol": "TestGPFIX008Remediation",
@@ -39,9 +39,5 @@
   },
   "state_effects": {
     "mode": "no_retained_state_change"
-  },
-  "requirement_ids": [
-    "GP-AC-014",
-    "GP-AC-044"
-  ]
+  }
 }
