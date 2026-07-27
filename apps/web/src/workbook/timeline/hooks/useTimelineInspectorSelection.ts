@@ -14,6 +14,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useInspectorLifecycleReset } from "../../hooks/useInspectorLifecycleReset";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type {
@@ -469,10 +470,7 @@ export function useTimelineInspectorLifecycle({
     setSelectedResolveTargetId,
   ]);
 
-  useEffect(() => {
-    if (inspectorResetKey === undefined) {
-      return;
-    }
+  useInspectorLifecycleReset(inspectorResetKey, () => {
     setIsInspectorOpen(false);
     setSelectedRowId(null);
     setSelectedMentionRef(null);
@@ -480,16 +478,7 @@ export function useTimelineInspectorLifecycle({
     setInspectorMessage(null);
     cancelCreateRelatedWorkflow();
     clearRowHistory();
-  }, [
-    cancelCreateRelatedWorkflow,
-    clearRowHistory,
-    inspectorResetKey,
-    setInspectorMessage,
-    setIsInspectorOpen,
-    setSelectedMentionRef,
-    setSelectedResolveTargetId,
-    setSelectedRowId,
-  ]);
+  });
 }
 
 export function useTimelineInspectorEscape({

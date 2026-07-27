@@ -27,6 +27,7 @@ import {
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
   entityInspectButtonTestId,
+  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMentionResolutionStatuses,
   entityMentionResolutionStatusTestId,
@@ -805,6 +806,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "inspect-host-host-1",
     );
     expect(entityInspectorTestId("identity")).toBe("identity-inspector");
+    expect(entityInspectorSubjectTestId("identity", "identity-1")).toBe(
+      "identity-inspector-subject-identity-1",
+    );
     expect(evidencePreviewButtonTestId("evidence-1")).toBe(
       "evidence-preview-evidence-1",
     );

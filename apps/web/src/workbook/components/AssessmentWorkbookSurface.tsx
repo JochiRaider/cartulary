@@ -28,6 +28,7 @@ import {
 } from "../../services/workbookApi";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useAssessmentSupportRows } from "../hooks/useAssessmentSupportRows";
+import { useInspectorLifecycleReset } from "../hooks/useInspectorLifecycleReset";
 import {
   assessmentColumnWidth,
   initialAssessmentDraft,
@@ -245,14 +246,11 @@ export function AssessmentWorkbookSurface({
     }),
   );
 
-  useEffect(() => {
-    if (inspectorResetKey === "") {
-      return;
-    }
+  useInspectorLifecycleReset(inspectorResetKey, () => {
     setIsInspectorOpen(false);
     setDraft(initialAssessmentDraft(assessmentsContract));
     setMessage(null);
-  }, [inspectorResetKey]);
+  });
 
   useEffect(() => {
     setDraft((current) => {

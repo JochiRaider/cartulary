@@ -130,7 +130,7 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
 **REQ-03-291**
 Workbook inspector behavior MUST be derived from the active immutable `view_schema_id` inspector config. A saved view inherits inspector behavior from its immutable `view_schema_id`; switching between saved views over the same `view_schema_id` MUST NOT change inspector configuration, and switching to a saved view over another `view_schema_id` MUST select that other schema's config.
 
-The inspector MUST be closed by default on workbook open, surface switch, saved-view switch, and hard refresh. Opening the inspector MUST be an explicit user action and MUST NOT be required for ordinary row creation, inline editing, paste, correction, or rough capture.
+The inspector MUST be closed by default on workbook open, surface switch, saved-view switch, and hard refresh. This default-closed state MUST be established before the newly active surface becomes interactive and MUST NOT be replayed asynchronously after a later explicit open action in the same surface lifecycle. Opening the inspector MUST be an explicit user action and MUST NOT be required for ordinary row creation, inline editing, paste, correction, or rough capture.
 
 When the inspector is open and no saved row is selected, it MUST render the exact no-row state token `no_row_selected` and MUST NOT display details, confirmations, previews, merge plans, rollback plans, local forms, or workflow state from a prior row.
 
@@ -151,6 +151,7 @@ Algorithm: `open_inspector(origin, selected_record_id)`.
 2. If no saved row is selected, open the inspector in `no_row_selected` state.
 3. If a saved row is selected, bind the inspector subject to `(view_schema_id, record_id, row_version)`.
 4. Opening the inspector MUST never be required before ordinary row creation, inline edit, paste, correction, or rough capture.
+5. Once the invoking control for the current surface lifecycle is actionable, one activation MUST mount the matching inspector subject and MUST NOT be superseded by initialization, reset work, or query completion from an older lifecycle.
 
 Algorithm: `retarget_inspector(next_record_id, next_row_version)`.
 

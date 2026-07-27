@@ -2,6 +2,7 @@ import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   entityInspectButtonTestId,
+  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMergePreconditionDetailsTestId,
   entityReusableIdentifierItemTestId,
@@ -74,8 +75,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
+  flushWorkbookAsync,
   successEnvelope,
+  waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
@@ -276,94 +280,186 @@ function requireField(
   return field;
 }
 
-describe("WorkbookShell surface selection", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-  let evidenceRows: Array<{
-    record_id: string;
-    row_version: number;
-    cells: Record<string, { value: unknown }>;
-  }>;
-  let timelineRows: Array<{
-    record_id: string;
-    row_version: number;
-    cells: Record<string, { value: unknown }>;
-  }>;
-  let genericRowsByView: Record<
-    string,
-    Array<{
-      record_id: string;
-      row_version: number;
-      cells: Record<string, { value: unknown }>;
-    }>
-  >;
-  let savedViews: TestSavedViewResource[];
-  let workbookDefaultSheetRef: {
-    kind: "saved_view" | "view_schema";
-    id: string;
-  } | null;
-  let workbookHomeSheetRef: {
-    kind: "saved_view" | "view_schema";
-    id: string;
-  } | null;
-  let queryResponseOverride:
-    | ((
-        viewSchemaId: string,
-        init: RequestInit | undefined,
-      ) => Promise<Response> | Response | null)
-    | null;
-  let startupResponseOverride:
-    | (() => Promise<Response> | Response | null)
-    | null;
-  let recordPatchResponseOverride:
-    | ((
-        recordId: string,
-        init: RequestInit | undefined,
-      ) => Promise<Response> | Response | null)
-    | null;
-  let mergeResponseOverride:
+type SurfaceTestRow = {
+  record_id: string;
+  row_version: number;
+  cells: Record<string, { value: unknown }>;
+};
+
+type SurfaceStartupSelection = {
+  selected_sheet_ref: { kind: "saved_view" | "view_schema"; id: string };
+  selected_view_schema_id: string;
+  selected_saved_view: unknown | null;
+  source: "default" | "explicit" | "home" | "timeline";
+};
+
+type SurfaceQueryResponseOverride = (
+  viewSchemaId: string,
+  init: RequestInit | undefined,
+) => Promise<Response> | Response | null;
+
+type SurfaceTestScenario = {
+  attachErrorByRecordID: Record<string, Response>;
+  evidenceRows: SurfaceTestRow[];
+  genericRowsByView: Record<string, SurfaceTestRow[]>;
+  handleErrorByRecordID: Record<string, Response>;
+  handleHrefByRecordID: Record<string, { download?: string; preview?: string }>;
+  incidentStatus: "active" | "closed";
+  mergeResponseOverride:
     | ((
         survivorRecordId: string,
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
-  let attachErrorByRecordID: Record<string, Response>;
-  let handleErrorByRecordID: Record<string, Response>;
-  let handleHrefByRecordID: Record<
-    string,
-    { download?: string; preview?: string }
-  >;
-  let startupSelection: {
-    selected_sheet_ref: { kind: "saved_view" | "view_schema"; id: string };
-    selected_view_schema_id: string;
-    selected_saved_view: unknown | null;
-    source: "default" | "explicit" | "home" | "timeline";
+  pendingQueryCount: number;
+  pendingDeferredQueryIds: Set<string>;
+  queryResponseOverride: SurfaceQueryResponseOverride | null;
+  queryTrace: string[];
+  recordPatchResponseOverride:
+    | ((
+        recordId: string,
+        init: RequestInit | undefined,
+      ) => Promise<Response> | Response | null)
+    | null;
+  savedViews: TestSavedViewResource[];
+  startupResponseOverride: (() => Promise<Response> | Response | null) | null;
+  startupSelection: SurfaceStartupSelection;
+  timelineRows: SurfaceTestRow[];
+  uploadShouldFail: boolean;
+  workbookDefaultSheetRef: {
+    kind: "saved_view" | "view_schema";
+    id: string;
+  } | null;
+  workbookHomeSheetRef: {
+    kind: "saved_view" | "view_schema";
+    id: string;
+  } | null;
+  deferQuery: (viewSchemaId: string) => {
+    abort: () => void;
+    reject: (reason?: unknown) => void;
+    resolve: (response: Response) => void;
   };
-  let uploadShouldFail: boolean;
-  let incidentStatus: "active" | "closed";
+};
 
-  beforeEach(() => {
-    window.history.replaceState({}, "", "/");
-    evidenceRows = [];
-    timelineRows = [];
-    genericRowsByView = {};
-    savedViews = [];
-    workbookDefaultSheetRef = null;
-    workbookHomeSheetRef = null;
-    queryResponseOverride = null;
-    startupResponseOverride = null;
-    recordPatchResponseOverride = null;
-    mergeResponseOverride = null;
-    attachErrorByRecordID = {};
-    handleErrorByRecordID = {};
-    handleHrefByRecordID = {};
-    startupSelection = {
+function appendSurfaceQueryTrace(
+  scenario: SurfaceTestScenario,
+  entry: string,
+): void {
+  scenario.queryTrace.push(entry);
+  if (scenario.queryTrace.length > 64) {
+    scenario.queryTrace.shift();
+  }
+}
+
+function createSurfaceTestScenario(): SurfaceTestScenario {
+  const scenario: SurfaceTestScenario = {
+    attachErrorByRecordID: {},
+    evidenceRows: [],
+    genericRowsByView: {},
+    handleErrorByRecordID: {},
+    handleHrefByRecordID: {},
+    incidentStatus: "active",
+    mergeResponseOverride: null,
+    pendingQueryCount: 0,
+    pendingDeferredQueryIds: new Set(),
+    queryResponseOverride: null,
+    queryTrace: [],
+    recordPatchResponseOverride: null,
+    savedViews: [],
+    startupResponseOverride: null,
+    startupSelection: {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
       selected_view_schema_id: timelineViewSchemaId,
       selected_saved_view: null,
       source: "timeline",
+    },
+    timelineRows: [],
+    uploadShouldFail: false,
+    workbookDefaultSheetRef: null,
+    workbookHomeSheetRef: null,
+    deferQuery: () => {
+      throw new Error("Surface query deferral is not initialized.");
+    },
+  };
+  scenario.deferQuery = (viewSchemaId) => {
+    if (scenario.pendingDeferredQueryIds.has(viewSchemaId)) {
+      throw new Error(`Query ${viewSchemaId} is already deferred.`);
+    }
+    const pending = deferred<Response>();
+    const previousOverride = scenario.queryResponseOverride;
+    let settled = false;
+    let removeAbortListener = () => {};
+    scenario.pendingDeferredQueryIds.add(viewSchemaId);
+    const settle = (
+      complete: () => void,
+      alreadySettledMessage: string,
+    ): void => {
+      if (settled) {
+        throw new Error(alreadySettledMessage);
+      }
+      settled = true;
+      removeAbortListener();
+      scenario.pendingDeferredQueryIds.delete(viewSchemaId);
+      complete();
     };
-    uploadShouldFail = false;
-    incidentStatus = "active";
+    scenario.queryResponseOverride = (candidateViewSchemaId, init) => {
+      if (candidateViewSchemaId === viewSchemaId) {
+        scenario.queryResponseOverride = previousOverride;
+        const signal = init?.signal;
+        if (signal) {
+          const abort = () => {
+            if (settled) {
+              return;
+            }
+            settle(
+              () => pending.reject(new DOMException("Aborted", "AbortError")),
+              `Deferred query ${viewSchemaId} already settled.`,
+            );
+          };
+          signal.addEventListener("abort", abort, { once: true });
+          removeAbortListener = () => {
+            signal.removeEventListener("abort", abort);
+          };
+          if (signal.aborted) {
+            abort();
+          }
+        }
+        return pending.promise;
+      }
+      return previousOverride?.(candidateViewSchemaId, init) ?? null;
+    };
+    return {
+      abort: () => {
+        settle(
+          () => pending.reject(new DOMException("Aborted", "AbortError")),
+          `Deferred query ${viewSchemaId} already settled.`,
+        );
+      },
+      reject: (reason?: unknown) => {
+        settle(
+          () => pending.reject(reason),
+          `Deferred query ${viewSchemaId} already settled.`,
+        );
+      },
+      resolve: (response: Response) => {
+        settle(
+          () => pending.resolve(response),
+          `Deferred query ${viewSchemaId} already settled.`,
+        );
+      },
+    };
+  };
+  return scenario;
+}
+
+describe("WorkbookShell surface selection", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let scenario: SurfaceTestScenario;
+
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+    const currentScenario = createSurfaceTestScenario();
+    scenario = currentScenario;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
@@ -384,7 +480,7 @@ describe("WorkbookShell surface selection", () => {
           current_phase: null,
           primary_external_case_ref: null,
           incident_version: 1,
-          status: incidentStatus,
+          status: currentScenario.incidentStatus,
         });
       }
       if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
@@ -406,24 +502,24 @@ describe("WorkbookShell surface selection", () => {
         )
       ) {
         return successEnvelope({
-          default_sheet_ref: workbookDefaultSheetRef,
+          default_sheet_ref: currentScenario.workbookDefaultSheetRef,
         });
       }
       if (
         url.endsWith("/api/v1/incidents/incident-1/workbook-preferences/me")
       ) {
         return successEnvelope({
-          home_sheet_ref: workbookHomeSheetRef,
+          home_sheet_ref: currentScenario.workbookHomeSheetRef,
         });
       }
       if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
-        const override = startupResponseOverride?.();
+        const override = await currentScenario.startupResponseOverride?.();
         if (override) {
           return override;
         }
         return successEnvelope({
           incident_id: "incident-1",
-          ...startupSelection,
+          ...currentScenario.startupSelection,
           extension_workspace_availability: {
             schema_id: "cartulary.extension_workspace_availability.v1",
             incident_id: "incident-1",
@@ -455,8 +551,8 @@ describe("WorkbookShell surface selection", () => {
           layout_json: body.layout_json ?? {},
           saved_view_version: 1,
         });
-        savedViews = [
-          ...savedViews.filter(
+        currentScenario.savedViews = [
+          ...currentScenario.savedViews.filter(
             (savedView) => savedView.saved_view_id !== created.saved_view_id,
           ),
           created,
@@ -468,7 +564,7 @@ describe("WorkbookShell surface selection", () => {
       );
       if (savedViewMutationMatch && method === "PATCH") {
         const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
-        const existing = savedViews.find(
+        const existing = currentScenario.savedViews.find(
           (savedView) => savedView.saved_view_id === savedViewID,
         );
         if (!existing) {
@@ -486,14 +582,15 @@ describe("WorkbookShell surface selection", () => {
           layout_json: body.layout_json ?? existing.layout_json,
           saved_view_version: existing.saved_view_version + 1,
         };
-        savedViews = savedViews.map((savedView) =>
-          savedView.saved_view_id === savedViewID ? updated : savedView,
+        currentScenario.savedViews = currentScenario.savedViews.map(
+          (savedView) =>
+            savedView.saved_view_id === savedViewID ? updated : savedView,
         );
         return successEnvelope(updated);
       }
       if (savedViewMutationMatch && method === "DELETE") {
         const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
-        savedViews = savedViews.filter(
+        currentScenario.savedViews = currentScenario.savedViews.filter(
           (savedView) => savedView.saved_view_id !== savedViewID,
         );
         return successEnvelope({ saved_view_id: savedViewID });
@@ -503,7 +600,7 @@ describe("WorkbookShell surface selection", () => {
         url.includes("/api/v1/incidents/incident-1/saved-views")
       ) {
         return successEnvelope({
-          saved_views: savedViews,
+          saved_views: currentScenario.savedViews,
         });
       }
       const evidenceHandleMatch = url.match(
@@ -512,12 +609,12 @@ describe("WorkbookShell surface selection", () => {
       if (evidenceHandleMatch) {
         const recordId = decodeURIComponent(evidenceHandleMatch[1] ?? "");
         const kind = evidenceHandleMatch[2] as "download" | "preview";
-        const error = handleErrorByRecordID[recordId];
+        const error = currentScenario.handleErrorByRecordID[recordId];
         if (error) {
           return error;
         }
         const href =
-          handleHrefByRecordID[recordId]?.[kind] ??
+          currentScenario.handleHrefByRecordID[recordId]?.[kind] ??
           `/api/v1/evidence-handles/${kind}-token`;
         return successEnvelope({
           incident_id: "00000000-0000-4000-8000-000000001001",
@@ -589,7 +686,9 @@ describe("WorkbookShell surface selection", () => {
         method === "PUT" &&
         url.endsWith("/api/v1/object-uploads/test-token")
       ) {
-        return new Response(null, { status: uploadShouldFail ? 500 : 200 });
+        return new Response(null, {
+          status: currentScenario.uploadShouldFail ? 500 : 200,
+        });
       }
       if (
         method === "POST" &&
@@ -613,7 +712,7 @@ describe("WorkbookShell surface selection", () => {
       );
       if (method === "POST" && attachMatch) {
         const recordId = decodeURIComponent(attachMatch[1] ?? "");
-        const error = attachErrorByRecordID[recordId];
+        const error = currentScenario.attachErrorByRecordID[recordId];
         if (error) {
           return error;
         }
@@ -621,9 +720,9 @@ describe("WorkbookShell surface selection", () => {
           lifecycleState: "available",
           uploadState: "available",
         });
-        evidenceRows = [
+        currentScenario.evidenceRows = [
           row,
-          ...evidenceRows.filter(
+          ...currentScenario.evidenceRows.filter(
             (candidate) => candidate.record_id !== recordId,
           ),
         ];
@@ -639,7 +738,7 @@ describe("WorkbookShell surface selection", () => {
           /\/api\/v1\/records\/([^/?]+)(?:\?.*)?$/,
         );
         if (recordPatchMatch) {
-          const override = recordPatchResponseOverride?.(
+          const override = await currentScenario.recordPatchResponseOverride?.(
             recordPatchMatch[1] ?? "",
             init,
           );
@@ -662,10 +761,10 @@ describe("WorkbookShell surface selection", () => {
           };
           const nextRows = applyEntityClipboardPaste(
             viewSchemaId,
-            genericRowsByView[viewSchemaId] ?? [],
+            currentScenario.genericRowsByView[viewSchemaId] ?? [],
             typeof body.clipboard_text === "string" ? body.clipboard_text : "",
           );
-          genericRowsByView[viewSchemaId] = nextRows.allRows;
+          currentScenario.genericRowsByView[viewSchemaId] = nextRows.allRows;
           return successEnvelope({
             view_schema_id: viewSchemaId,
             change_set_id: "change-entity-paste",
@@ -677,7 +776,10 @@ describe("WorkbookShell surface selection", () => {
       const mergeMatch = url.match(/\/api\/v1\/records\/([^/]+)\/merge$/);
       if (method === "POST" && mergeMatch) {
         const survivorRecordId = decodeURIComponent(mergeMatch[1] ?? "");
-        const override = mergeResponseOverride?.(survivorRecordId, init);
+        const override = await currentScenario.mergeResponseOverride?.(
+          survivorRecordId,
+          init,
+        );
         if (override) {
           return override;
         }
@@ -688,13 +790,13 @@ describe("WorkbookShell surface selection", () => {
           typeof body.loser_record_id === "string" ? body.loser_record_id : "";
         const viewSchemaId =
           [hostsViewSchemaId, identitiesViewSchemaId].find((candidate) =>
-            (genericRowsByView[candidate] ?? []).some(
+            (currentScenario.genericRowsByView[candidate] ?? []).some(
               (row) => row.record_id === survivorRecordId,
             ),
           ) ?? hostsViewSchemaId;
-        const rows = genericRowsByView[viewSchemaId] ?? [];
+        const rows = currentScenario.genericRowsByView[viewSchemaId] ?? [];
         const survivor = rows.find((row) => row.record_id === survivorRecordId);
-        genericRowsByView[viewSchemaId] = rows
+        currentScenario.genericRowsByView[viewSchemaId] = rows
           .filter((row) => row.record_id !== loserRecordId)
           .map((row) =>
             row.record_id === survivorRecordId
@@ -728,7 +830,7 @@ describe("WorkbookShell surface selection", () => {
       }
       if (method === "PATCH" && url.endsWith("/api/v1/records/timeline-1")) {
         const row = timelineRow("timeline-1", 2, "Selected row", 1);
-        timelineRows = [row];
+        currentScenario.timelineRows = [row];
         return successEnvelope({
           view_schema_id: timelineViewSchemaId,
           change_set_id: "change-timeline",
@@ -740,20 +842,37 @@ describe("WorkbookShell surface selection", () => {
       );
       if (viewQueryMatch) {
         const viewSchemaId = decodeURIComponent(viewQueryMatch[1] ?? "");
-        const override = queryResponseOverride?.(viewSchemaId, init);
-        if (override) {
-          return override;
+        appendSurfaceQueryTrace(currentScenario, `requested:${viewSchemaId}`);
+        currentScenario.pendingQueryCount += 1;
+        try {
+          const override = currentScenario.queryResponseOverride?.(
+            viewSchemaId,
+            init,
+          );
+          const response =
+            override ??
+            successEnvelope({
+              incident_id: "incident-1",
+              view_schema_id: viewSchemaId,
+              rows:
+                viewSchemaId === evidenceViewSchemaId
+                  ? currentScenario.evidenceRows
+                  : viewSchemaId === timelineViewSchemaId
+                    ? currentScenario.timelineRows
+                    : (currentScenario.genericRowsByView[viewSchemaId] ?? []),
+            });
+          const resolvedResponse = await response;
+          appendSurfaceQueryTrace(currentScenario, `resolved:${viewSchemaId}`);
+          return resolvedResponse;
+        } catch (error) {
+          appendSurfaceQueryTrace(
+            currentScenario,
+            `${error instanceof DOMException && error.name === "AbortError" ? "aborted" : "rejected"}:${viewSchemaId}`,
+          );
+          throw error;
+        } finally {
+          currentScenario.pendingQueryCount -= 1;
         }
-        return successEnvelope({
-          incident_id: "incident-1",
-          view_schema_id: viewSchemaId,
-          rows:
-            viewSchemaId === evidenceViewSchemaId
-              ? evidenceRows
-              : viewSchemaId === timelineViewSchemaId
-                ? timelineRows
-                : (genericRowsByView[viewSchemaId] ?? []),
-        });
       }
       return successEnvelope({});
     });
@@ -768,14 +887,70 @@ describe("WorkbookShell surface selection", () => {
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    await Promise.resolve();
+    await Promise.resolve();
+    const pendingQueryError =
+      scenario.pendingQueryCount === 0 &&
+      scenario.pendingDeferredQueryIds.size === 0
+        ? null
+        : new Error(
+            `Surface test left ${scenario.pendingQueryCount} query response(s) and deferred view_schema_ids=${
+              [...scenario.pendingDeferredQueryIds].join(",") || "(none)"
+            } pending. Trace: ${scenario.queryTrace.join(" ") || "(empty)"}`,
+          );
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    if (pendingQueryError) {
+      throw pendingQueryError;
+    }
+  });
+
+  it("keeps late surface fixture requests bound to the originating test scenario", async () => {
+    const originatingScenario = scenario;
+    originatingScenario.genericRowsByView[hostsViewSchemaId] = [
+      hostRow({
+        displayName: "Origin host",
+        hostname: "origin.example.test",
+        recordId: "host-origin",
+        rowVersion: 1,
+      }),
+    ];
+    const lateRequest = Promise.resolve().then(() =>
+      fetch(`/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/query`),
+    );
+    const replacementScenario = createSurfaceTestScenario();
+    replacementScenario.genericRowsByView[hostsViewSchemaId] = [
+      hostRow({
+        displayName: "Replacement host",
+        hostname: "replacement.example.test",
+        recordId: "host-replacement",
+        rowVersion: 1,
+      }),
+    ];
+    scenario = replacementScenario;
+
+    try {
+      const response = await lateRequest;
+      const envelope = (await response.json()) as {
+        data: { rows: SurfaceTestRow[] };
+      };
+      expect(envelope.data.rows.map((row) => row.record_id)).toEqual([
+        "host-origin",
+      ]);
+      expect(originatingScenario.queryTrace).toEqual([
+        `requested:${hostsViewSchemaId}`,
+        `resolved:${hostsViewSchemaId}`,
+      ]);
+      expect(replacementScenario.queryTrace).toEqual([]);
+    } finally {
+      scenario = originatingScenario;
+    }
   });
 
   it("keeps closed incidents readable while disabling grid mutation entry points", async () => {
-    incidentStatus = "closed";
+    scenario.incidentStatus = "closed";
 
     render(<WorkbookShell incidentId="incident-1" />);
 
@@ -792,11 +967,11 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
-    workbookDefaultSheetRef = {
+    scenario.workbookDefaultSheetRef = {
       kind: "view_schema",
       id: timelineViewSchemaId,
     };
-    workbookHomeSheetRef = {
+    scenario.workbookHomeSheetRef = {
       kind: "saved_view",
       id: savedViewId,
     };
@@ -941,7 +1116,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
-    genericRowsByView[indicatorsViewSchemaId] = [
+    scenario.genericRowsByView[indicatorsViewSchemaId] = [
       indicatorRow("indicator-1", 1, "ipv4_addr", "203.0.113.42"),
     ];
 
@@ -1220,7 +1395,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("uses backend startup selection for the initial workbook grid surface", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
       selected_view_schema_id: evidenceViewSchemaId,
       selected_saved_view: null,
@@ -1246,7 +1421,7 @@ describe("WorkbookShell surface selection", () => {
 
   it("keeps a user-selected system view when a delayed startup response resolves", async () => {
     const delayedStartup = deferred<Response>();
-    startupResponseOverride = () => delayedStartup.promise;
+    scenario.startupResponseOverride = () => delayedStartup.promise;
 
     render(<WorkbookShell incidentId="incident-1" />);
 
@@ -1307,13 +1482,13 @@ describe("WorkbookShell surface selection", () => {
       "",
       `/?view_schema_id=${encodeURIComponent(statusReviewViewSchemaId)}`,
     );
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: statusReviewViewSchemaId },
       selected_view_schema_id: statusReviewViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[statusReviewViewSchemaId] = [
+    scenario.genericRowsByView[statusReviewViewSchemaId] = [
       statusReviewRow(
         "status-review-1",
         1,
@@ -1342,13 +1517,13 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("rejects generic query envelopes from a different view_schema_id", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: statusReviewViewSchemaId },
       selected_view_schema_id: statusReviewViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    queryResponseOverride = (viewSchemaId) => {
+    scenario.queryResponseOverride = (viewSchemaId) => {
       if (viewSchemaId !== statusReviewViewSchemaId) {
         return null;
       }
@@ -1380,7 +1555,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("keeps a selected saved-view sheet ref distinct from its base view_schema", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "saved_view", id: savedViewId },
       selected_view_schema_id: evidenceViewSchemaId,
       selected_saved_view: testSavedViewResource({
@@ -1405,7 +1580,7 @@ describe("WorkbookShell surface selection", () => {
 
   it("renders saved views only in the active surface selector and preserves selected saved-view identity", async () => {
     const evidenceSavedViewId = "22222222-2222-4222-8222-222222222222";
-    savedViews = [
+    scenario.savedViews = [
       testSavedViewResource({
         saved_view_id: savedViewId,
         view_schema_id: timelineViewSchemaId,
@@ -1492,8 +1667,8 @@ describe("WorkbookShell surface selection", () => {
 
   it("Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async () => {
     const systemSavedViewId = "22222222-2222-4222-8222-222222222222";
-    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
-    savedViews = [
+    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.savedViews = [
       testSavedViewResource({
         saved_view_id: savedViewId,
         view_schema_id: timelineViewSchemaId,
@@ -1778,7 +1953,7 @@ describe("WorkbookShell surface selection", () => {
       "",
       "/?view_schema_id=cartulary.view.unknown.v1",
     );
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
       selected_view_schema_id: timelineViewSchemaId,
       selected_saved_view: null,
@@ -1805,8 +1980,8 @@ describe("WorkbookShell surface selection", () => {
   it("ignores superseded generic surface query responses after rapid filters", async () => {
     const staleEvidenceQuery = deferred<Response>();
     let staleEvidenceQueryStarted = false;
-    evidenceRows = [evidenceRow("evidence-initial", 1, "initial")];
-    queryResponseOverride = (viewSchemaId, init) => {
+    scenario.evidenceRows = [evidenceRow("evidence-initial", 1, "initial")];
+    scenario.queryResponseOverride = (viewSchemaId, init) => {
       if (viewSchemaId !== evidenceViewSchemaId) {
         return null;
       }
@@ -1852,8 +2027,8 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("retains accepted generic rows and marks them stale when refresh fails", async () => {
-    evidenceRows = [evidenceRow("evidence-retained", 3, "retained")];
-    queryResponseOverride = (viewSchemaId, init) => {
+    scenario.evidenceRows = [evidenceRow("evidence-retained", 3, "retained")];
+    scenario.queryResponseOverride = (viewSchemaId, init) => {
       if (viewSchemaId !== evidenceViewSchemaId) return null;
       return stringFilterValue(parseRequestBody(init)) === "failure"
         ? errorEnvelope("projection_failed", 500)
@@ -1880,14 +2055,14 @@ describe("WorkbookShell surface selection", () => {
 
   it("keeps generic surface access loss routed through the shell access-lost callback", async () => {
     const onIncidentAccessLost = vi.fn();
-    evidenceRows = [evidenceRow("evidence-protected", 2, "protected")];
-    startupSelection = {
+    scenario.evidenceRows = [evidenceRow("evidence-protected", 2, "protected")];
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
       selected_view_schema_id: evidenceViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    queryResponseOverride = (viewSchemaId, init) =>
+    scenario.queryResponseOverride = (viewSchemaId, init) =>
       viewSchemaId === evidenceViewSchemaId &&
       stringFilterValue(parseRequestBody(init)) === "denied"
         ? errorEnvelope("authorization_denied", 403)
@@ -1912,13 +2087,13 @@ describe("WorkbookShell surface selection", () => {
 
   it("keeps entity surface access loss routed through the shell access-lost callback", async () => {
     const onIncidentAccessLost = vi.fn();
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    queryResponseOverride = (viewSchemaId) =>
+    scenario.queryResponseOverride = (viewSchemaId) =>
       viewSchemaId === hostsViewSchemaId
         ? errorEnvelope("authorization_denied", 403)
         : null;
@@ -1938,13 +2113,13 @@ describe("WorkbookShell surface selection", () => {
 
   it("keeps assessment surface access loss routed through the shell access-lost callback", async () => {
     const onIncidentAccessLost = vi.fn();
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: assessmentsViewSchemaId },
       selected_view_schema_id: assessmentsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    queryResponseOverride = (viewSchemaId) =>
+    scenario.queryResponseOverride = (viewSchemaId) =>
       viewSchemaId === assessmentsViewSchemaId
         ? errorEnvelope("authorization_denied", 403)
         : null;
@@ -1963,13 +2138,13 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("dispatches entity-origin paste through create targets while preserving exact-match reuse results", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[hostsViewSchemaId] = [
+    scenario.genericRowsByView[hostsViewSchemaId] = [
       hostRow({
         displayName: "Reusable host",
         hostname: "reuse.example.test",
@@ -2043,13 +2218,13 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[hostsViewSchemaId] = [
+    scenario.genericRowsByView[hostsViewSchemaId] = [
       hostRow({
         aliases: ["survivor-alias", "shared-alias"],
         displayName: "Survivor host",
@@ -2089,7 +2264,7 @@ describe("WorkbookShell surface selection", () => {
         rowVersion: 1,
       }),
     ];
-    timelineRows = [
+    scenario.timelineRows = [
       timelineRow("timeline-dependent", 5, "Dependent row", 0, {
         hostRefs: [
           timelineEntityRef("host-survivor", "Survivor host", "host-ref-1"),
@@ -2196,14 +2371,70 @@ describe("WorkbookShell surface selection", () => {
     });
   });
 
-  it("submits physical alias add/remove actions and restores inspector focus after authoritative refresh", async () => {
-    startupSelection = {
+  it("mounts the matching entity inspector subject after deferred query hydration", async () => {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[hostsViewSchemaId] = [
+    const host = hostRow({
+      displayName: "Deferred host",
+      hostname: "deferred.example.test",
+      recordId: "host-deferred",
+      rowVersion: 7,
+    });
+    scenario.genericRowsByView[hostsViewSchemaId] = [host];
+    const deferredHostQuery = scenario.deferQuery(hostsViewSchemaId);
+    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(scenario.queryTrace).toContain(`requested:${hostsViewSchemaId}`);
+    });
+    deferredHostQuery.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: hostsViewSchemaId,
+        rows: [host],
+      }),
+    );
+    await waitForWorkbookRows({
+      container,
+      expectedRecordIds: ["host-deferred"],
+      surface: hostsViewSchemaId,
+    });
+
+    fireEvent.click(
+      screen.getByTestId(entityInspectButtonTestId("host", "host-deferred")),
+    );
+    await waitForEntityInspectorReady(container, {
+      entityType: "host",
+      recordId: "host-deferred",
+      rowVersion: 7,
+      viewSchemaId: hostsViewSchemaId,
+    });
+    await flushWorkbookAsync();
+    await flushWorkbookAsync();
+
+    expect(
+      screen.getByTestId(entityInspectorSubjectTestId("host", "host-deferred")),
+    ).toBeTruthy();
+    await waitForEntityInspectorReady(container, {
+      entityType: "host",
+      recordId: "host-deferred",
+      rowVersion: 7,
+      viewSchemaId: hostsViewSchemaId,
+    });
+  });
+
+  it("submits physical alias add/remove actions and restores inspector focus after authoritative refresh", async () => {
+    scenario.startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
+      selected_view_schema_id: hostsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    scenario.genericRowsByView[hostsViewSchemaId] = [
       hostRow({
         aliases: ["Existing alias"],
         displayName: "Alias host",
@@ -2213,7 +2444,7 @@ describe("WorkbookShell surface selection", () => {
       }),
     ];
     const submittedActions: Array<Record<string, unknown>> = [];
-    recordPatchResponseOverride = (recordId, init) => {
+    scenario.recordPatchResponseOverride = (recordId, init) => {
       if (recordId !== "host-alias") {
         return null;
       }
@@ -2235,7 +2466,7 @@ describe("WorkbookShell surface selection", () => {
         recordId: "host-alias",
         rowVersion: submittedActions.length + 1,
       });
-      genericRowsByView[hostsViewSchemaId] = [row];
+      scenario.genericRowsByView[hostsViewSchemaId] = [row];
       return successEnvelope({
         view_schema_id: hostsViewSchemaId,
         change_set_id: `change-alias-${submittedActions.length}`,
@@ -2243,13 +2474,21 @@ describe("WorkbookShell surface selection", () => {
       });
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+    await waitForWorkbookRows({
+      container,
+      expectedRecordIds: ["host-alias"],
+      surface: hostsViewSchemaId,
+    });
     fireEvent.click(
-      await screen.findByTestId(
-        entityInspectButtonTestId("host", "host-alias"),
-      ),
+      screen.getByTestId(entityInspectButtonTestId("host", "host-alias")),
     );
-    await screen.findByTestId(entityInspectorTestId("host"));
+    await waitForEntityInspectorReady(container, {
+      entityType: "host",
+      recordId: "host-alias",
+      rowVersion: 1,
+      viewSchemaId: hostsViewSchemaId,
+    });
     const aliasInput = screen.getByRole("textbox", { name: "Alias text" });
     fireEvent.change(aliasInput, { target: { value: "Added alias" } });
     fireEvent.click(screen.getByRole("button", { name: "Add alias" }));
@@ -2266,6 +2505,12 @@ describe("WorkbookShell surface selection", () => {
     expect(submittedActions[0]).toEqual({
       op: "add_alias",
       alias_text: "Added alias",
+    });
+    await waitForEntityInspectorReady(container, {
+      entityType: "host",
+      recordId: "host-alias",
+      rowVersion: 2,
+      viewSchemaId: hostsViewSchemaId,
     });
 
     fireEvent.click(
@@ -2284,16 +2529,22 @@ describe("WorkbookShell surface selection", () => {
       op: "remove_alias",
       item_ref: "entity_alias:00000000-0000-0000-0000-000000000001",
     });
+    await waitForEntityInspectorReady(container, {
+      entityType: "host",
+      recordId: "host-alias",
+      rowVersion: 3,
+      viewSchemaId: hostsViewSchemaId,
+    });
   });
 
   it("surfaces entity merge precondition failures without submitting a second plan", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: identitiesViewSchemaId },
       selected_view_schema_id: identitiesViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[identitiesViewSchemaId] = [
+    scenario.genericRowsByView[identitiesViewSchemaId] = [
       identityRow({
         displayName: "Survivor identity",
         recordId: "identity-survivor",
@@ -2315,8 +2566,10 @@ describe("WorkbookShell surface selection", () => {
         upn: "loser@example.test",
       }),
     ];
-    mergeResponseOverride = () =>
-      new Response(
+    let mergeSubmissions = 0;
+    scenario.mergeResponseOverride = () => {
+      mergeSubmissions += 1;
+      return new Response(
         JSON.stringify({
           error: {
             status: 409,
@@ -2334,23 +2587,33 @@ describe("WorkbookShell surface selection", () => {
         }),
         { status: 409, headers: { "Content-Type": "application/json" } },
       );
+    };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+    await waitForWorkbookRows({
+      container,
+      expectedRecordIds: ["identity-survivor", "identity-loser"],
+      surface: identitiesViewSchemaId,
+    });
 
     fireEvent.click(
-      await screen.findByTestId(
+      screen.getByTestId(
         entityInspectButtonTestId("identity", "identity-survivor"),
       ),
     );
+    await waitForEntityInspectorReady(container, {
+      entityType: "identity",
+      recordId: "identity-survivor",
+      rowVersion: 11,
+      viewSchemaId: identitiesViewSchemaId,
+    });
     expect(
-      (
-        await screen.findByTestId(
-          entityReusableIdentifierItemTestId(
-            "identity",
-            "identity-survivor",
-            "entity_preserved_identifier:survivor-legacy-email",
-          ),
-        )
+      screen.getByTestId(
+        entityReusableIdentifierItemTestId(
+          "identity",
+          "identity-survivor",
+          "entity_preserved_identifier:survivor-legacy-email",
+        ),
       ).textContent,
     ).toBe("Email: legacy@example.test");
     fireEvent.change(await screen.findByTestId("merge-loser-record"), {
@@ -2377,6 +2640,7 @@ describe("WorkbookShell surface selection", () => {
       "identity-survivor",
       "identity-loser",
     ]);
+    expect(mergeSubmissions).toBe(1);
   });
 
   it("keeps party-link mutations syncing until workbook and references refresh", async () => {
@@ -2394,14 +2658,14 @@ describe("WorkbookShell surface selection", () => {
       "Requester raw",
       null,
     );
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: taskRequestsViewSchemaId },
       selected_view_schema_id: taskRequestsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[taskRequestsViewSchemaId] = [linkedTask];
-    genericRowsByView[partiesViewSchemaId] = [
+    scenario.genericRowsByView[taskRequestsViewSchemaId] = [linkedTask];
+    scenario.genericRowsByView[partiesViewSchemaId] = [
       partyRow("party-1", "Requester Party"),
     ];
     const patchResponse = deferred<Response>();
@@ -2409,7 +2673,7 @@ describe("WorkbookShell surface selection", () => {
     let patchAccepted = false;
     let refreshStarted = false;
     let clearPatchBody: Record<string, unknown> | null = null;
-    recordPatchResponseOverride = (recordId, init) => {
+    scenario.recordPatchResponseOverride = (recordId, init) => {
       if (recordId !== "task-1") {
         return null;
       }
@@ -2419,7 +2683,7 @@ describe("WorkbookShell surface selection", () => {
       >;
       return patchResponse.promise;
     };
-    queryResponseOverride = (viewSchemaId) => {
+    scenario.queryResponseOverride = (viewSchemaId) => {
       if (
         viewSchemaId === taskRequestsViewSchemaId &&
         patchAccepted &&
@@ -2459,7 +2723,7 @@ describe("WorkbookShell surface selection", () => {
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
 
     patchAccepted = true;
-    genericRowsByView[taskRequestsViewSchemaId] = [clearedTask];
+    scenario.genericRowsByView[taskRequestsViewSchemaId] = [clearedTask];
     patchResponse.resolve(
       successEnvelope({
         view_schema_id: taskRequestsViewSchemaId,
@@ -2489,13 +2753,13 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("keeps failed generic party-link mutations in Conflict", async () => {
-    startupSelection = {
+    scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: taskRequestsViewSchemaId },
       selected_view_schema_id: taskRequestsViewSchemaId,
       selected_saved_view: null,
       source: "explicit",
     };
-    genericRowsByView[taskRequestsViewSchemaId] = [
+    scenario.genericRowsByView[taskRequestsViewSchemaId] = [
       taskRequestRow(
         "task-1",
         4,
@@ -2505,7 +2769,7 @@ describe("WorkbookShell surface selection", () => {
       ),
     ];
     let clearPatchBody: Record<string, unknown> | null = null;
-    recordPatchResponseOverride = (recordId, init) => {
+    scenario.recordPatchResponseOverride = (recordId, init) => {
       if (recordId !== "task-1") {
         return null;
       }
@@ -2545,7 +2809,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("issues opaque evidence preview and download handles from the evidence surface", async () => {
-    evidenceRows = [
+    scenario.evidenceRows = [
       {
         record_id: "00000000-0000-4000-8000-000000004002",
         row_version: 4,
@@ -2610,7 +2874,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.", async () => {
-    evidenceRows = [
+    scenario.evidenceRows = [
       evidenceStateRow(
         "00000000-0000-4000-8000-000000004010",
         4,
@@ -2666,13 +2930,13 @@ describe("WorkbookShell surface selection", () => {
         },
       ),
     ];
-    handleHrefByRecordID["00000000-0000-4000-8000-000000004014"] = {
+    scenario.handleHrefByRecordID["00000000-0000-4000-8000-000000004014"] = {
       preview:
         "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
     };
-    handleErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
+    scenario.handleErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
       rawStorageErrorEnvelope();
-    attachErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
+    scenario.attachErrorByRecordID["00000000-0000-4000-8000-000000004015"] =
       rawStorageErrorEnvelope();
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -2868,7 +3132,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("orchestrates selected Timeline evidence attachment inline", async () => {
-    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
 
     render(<WorkbookShell incidentId="incident-1" />);
 
@@ -2925,8 +3189,8 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("surfaces upload failures inline without issuing Timeline patches", async () => {
-    uploadShouldFail = true;
-    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.uploadShouldFail = true;
+    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
 
     render(<WorkbookShell incidentId="incident-1" />);
 

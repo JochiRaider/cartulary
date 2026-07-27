@@ -51,6 +51,7 @@ import {
   useGenericSurfaceMutationController,
   type GenericViewMutationEnvelope as ViewMutationEnvelope,
 } from "../hooks/useGenericSurfaceMutationController";
+import { useInspectorLifecycleReset } from "../hooks/useInspectorLifecycleReset";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import {
   buildGenericCreatePayload,
@@ -212,10 +213,7 @@ export function ContractWorkbookSurface({
     [contract],
   );
 
-  useEffect(() => {
-    if (inspectorResetKey === "") {
-      return;
-    }
+  useInspectorLifecycleReset(inspectorResetKey, () => {
     setIsInspectorOpen(false);
     setEditRecordId("");
     setEditFieldKey("");
@@ -224,7 +222,7 @@ export function ContractWorkbookSurface({
     setEditCollectionMode("add");
     setPartyLinkExistingPartyId("");
     clearMutationError();
-  }, [clearMutationError, inspectorResetKey]);
+  });
 
   useEffect(() => {
     setCreateDraft((current) => {

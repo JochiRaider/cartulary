@@ -15,6 +15,7 @@ import {
 import {
   dataTestIdSelector,
   entityInspectButtonTestId,
+  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMergePreconditionDetailsTestId,
   entityReusableIdentifierItemTestId,
@@ -52,6 +53,7 @@ import {
 } from "../../services/workbookApi";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
+import { useInspectorLifecycleReset } from "../hooks/useInspectorLifecycleReset";
 import {
   buildMergePlan,
   type EntityRow,
@@ -739,10 +741,7 @@ export function EntityWorkbookSurface({
       rows,
     });
 
-  useEffect(() => {
-    if (inspectorResetKey === "") {
-      return;
-    }
+  useInspectorLifecycleReset(inspectorResetKey, () => {
     setIsInspectorOpen(false);
     setMergeCandidateId("");
     setMergeMessage(null);
@@ -752,7 +751,7 @@ export function EntityWorkbookSurface({
     setEditValue("");
     setAliasDraft("");
     setCreateDraft(initialGenericCreateDraft(contract, null));
-  }, [contract, inspectorResetKey]);
+  });
 
   useEffect(() => {
     if (selectedEntityPlanInvalidationKey === "") {
@@ -943,7 +942,13 @@ export function EntityWorkbookSurface({
       inspector={
         isInspectorOpen ? (
           <aside
+            data-inspector-state={
+              selectedEntity === undefined ? "no_row_selected" : "ready"
+            }
+            data-record-id={selectedEntity?.recordId}
+            data-row-version={selectedEntity?.rowVersion}
             data-testid={entityInspectorTestId(entityType)}
+            data-view-schema-id={contract.viewSchemaId}
             style={inspectorShellStyle}
           >
             <div style={inspectorHeaderStyle}>
@@ -976,6 +981,16 @@ export function EntityWorkbookSurface({
                 panelId={panel.panelId}
               />
             ))}
+            {selectedEntity ? (
+              <span
+                aria-hidden="true"
+                data-testid={entityInspectorSubjectTestId(
+                  entityType,
+                  selectedEntity.recordId,
+                )}
+                style={{ display: "none" }}
+              />
+            ) : null}
             {showDetailsPanel &&
             editableEntityFields.length > 0 &&
             rows.length > 0 ? (
