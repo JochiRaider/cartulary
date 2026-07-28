@@ -8,7 +8,7 @@
 - **Target label:** `imports`
 - **Output path:** `docs/handoffs/imports-module-refactor-tracker.md`
 - **Status:** Active remediation control artifact.
-- **Current control point:** `CP-00`; only `RS-00` becomes eligible after this checkpoint passes.
+- **Current control point:** `RS-00` checkpoint complete; only `RS-01` is eligible.
 - **Allowed change in this control point:** This tracker file only. Later changes MUST remain inside
   the separately recorded `RS-00` through `RS-11` workstream boundaries.
 - **Non-goals:** No unsequenced production refactor, generated-root hand edit, dependency-lock edit,
@@ -374,7 +374,7 @@ condition, not a design choice left to an implementer.
 
 | Gate | Required action | Status | Exit condition | Blocks |
 | --- | --- | --- | --- | --- |
-| GATE-01 Characterization | Add route, target, state, owner-effect, security, boundary, and frontend characterization from registry-driven inputs. | TODO | Current behavior is frozen; known non-conformance is labeled; required narrow baseline is green. | All structural slices |
+| GATE-01 Characterization | Add route, target, state, owner-effect, security, boundary, and frontend characterization from registry-driven inputs. | PASS | Current behavior is frozen; known non-conformance is labeled; required narrow baseline is green. | All structural slices |
 | GATE-02 Coordinated owner repair | Adopt the IRT-REQ-003 through IRT-REQ-006 ownership split in Core 00, Core 01, Network Flow, and governed schemas as one logical change. | TODO | No exact payload has two owners; unit commit and session finalization are coherent. | Analytical facade and transaction changes |
 | GATE-03 Correction authorization | Adopt one Imports Conformance Corrections Authorization row per observable correction. | TODO | Each correction has owner requirements, compatibility class, tests, migration posture, rollback boundary, approver, and adopted status. | RS-06 through RS-10 |
 | GATE-04 Registry projection | Adopt and generate `cartulary.import_target_registry.v1`. | TODO | Backend, frontend, adapter, verification, and integrity outputs validate and share one source digest. | Registry injection and frontend cleanup |
@@ -567,7 +567,7 @@ active and MUST be recorded in the checkpoint.
 | IMP-004 | Resolve conformance behavior decisions in the tracker | WF-02 | DONE | IMP-002 | §4.6/4.7; RB-002 | Every correction has exact behavior, default, and compatibility class. |
 | IMP-005 | Define complete characterization and harness posture | WF-03 | DONE | IMP-002 | §8; RB-003 | All 18 targets and cross-cutting invariants have binary evidence obligations. |
 | IMP-006 | Define one generated target registry | WF-04 | DONE | IMP-002 | §8.3; RB-004 | Fields, outputs, failures, and frontend rules are decision-complete. |
-| IMP-007 | Complete characterization baseline | WF-03 | TODO | IMP-005; GATE-01 | RS-00 | Required narrow suites pass with known non-conformance labeled. |
+| IMP-007 | Complete characterization baseline | WF-03 | DONE | IMP-005; GATE-01 | RS-00; `1ba06c97` | Required narrow suites pass with known non-conformance labeled. |
 | IMP-008 | Adopt coordinated owner repair | WF-02 | TODO | IMP-003; GATE-02 | RS-01 | Core/Network Flow/machine owners are coherent and adopted together. |
 | IMP-009 | Adopt and generate target registry | WF-04 | TODO | IMP-006, IMP-008; GATE-04 | RS-02 | All projections share one source digest. |
 | IMP-010 | Inject owner registry and remove ownership leakage | WF-05 | TODO | IMP-007 through IMP-009; GATE-05 | RS-03/04 | Exactly one owner selected; no concrete peer stores or cross-owner SQL in imports. |
@@ -587,6 +587,7 @@ active and MUST be recorded in the checkpoint.
 | Time | Slice | Baseline and result | Substantive changes | Validation evidence | Compatibility, migration, rollback, and residual risk | Next eligible slice |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-28 18:53 EDT | CP-00 | Baseline `ee848b80cb21cb3fb94aff4dcdef4cf6f73cb672`; checkpoint commit pending | Activated this tracker; recorded the active baseline and narrow run; added the separate checkpoint protocol; assigned the additive operator-region route to RS-09; replaced same-session re-import with fresh-session re-import | `make lint-markdown` passed at `.cartulary/test-results/20260728T225321Z-p1298103`; final diff/status checks run before commit | Documentation-only; no migration or product compatibility effect; rollback is this tracker activation; all implementation risks remain gated | RS-00 only |
+| 2026-07-28 19:00 EDT | RS-00 | Baseline `8a1e0fbb`; substantive result `1ba06c97` | Added executable characterization for the current route parser, exact 18-target inventory, raw internal-error echo, hidden-sheet omission, and `use_null` mismatch; retained existing integration, owner-effect, boundary, coordinator, and browser characterization | `make format` passed at `.cartulary/test-results/20260728T225642Z-p1302587`; `make test-fast` passed 891 tests and 2/2 work units at `.cartulary/test-results/20260728T225657Z-p1305602`; `make frontend-unit` passed at `.cartulary/test-results/20260728T225919Z-p1357390`; Imports `test-slice` and `service-backed-test-slice` each passed five tests and 3/3 work units at `.cartulary/test-results/20260728T225919Z-p1357250` and `.cartulary/test-results/20260728T225919Z-p1357264` | Test-only; no migration or product compatibility effect; rollback is the two characterization files; temporary known-nonconformance tests MUST be replaced in RS-08/09, while transaction/auth and state correction probes remain assigned to RS-06/07 | RS-01 only |
 
 ### Scope and authority
 
