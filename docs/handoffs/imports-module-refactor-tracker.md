@@ -7,12 +7,16 @@
 - **Target path:** `internal/modules/imports`
 - **Target label:** `imports`
 - **Output path:** `docs/handoffs/imports-module-refactor-tracker.md`
-- **Status:** Planning and documentation only.
-- **Allowed change in this revision:** This tracker file only.
-- **Non-goals:** No production refactor; no changes to tests, adopted owners, contracts,
-  generated artifacts, package configuration, migrations, harness inputs, or dependency locks.
-- **Implementation authorization:** Every production, test, owner, contract, generator, migration,
-  or harness change described below requires a later explicitly authorized task.
+- **Status:** Active remediation control artifact.
+- **Current control point:** `CP-00`; only `RS-00` becomes eligible after this checkpoint passes.
+- **Allowed change in this control point:** This tracker file only. Later changes MUST remain inside
+  the separately recorded `RS-00` through `RS-11` workstream boundaries.
+- **Non-goals:** No unsequenced production refactor, generated-root hand edit, dependency-lock edit,
+  whole-session rollback, generic callback bus, import-specific WebSocket surface, or legacy target
+  fallback.
+- **Implementation authorization:** The 2026-07-28 implementation request authorizes the complete
+  remediation sequence in §7. Each slice remains blocked by its listed owner, characterization,
+  generation, migration, and verification gates.
 - **Behavior posture:** A structural slice MUST preserve current observable behavior. A
   conformance correction MUST be isolated, authorized, migrated when necessary, and verified
   against its adopted owner.
@@ -79,8 +83,29 @@ Repository evidence:
   browser tests.
 - Verification-owner, test-family, test-catalog, and module-boundary mappings.
 
-The inspected repository baseline is clean `main` at
-`effce7c1fb34e7e6eabe7c2e80017d38c539f123`, apart from this staged tracker.
+The implementation baseline is clean `main` at
+`ee848b80cb21cb3fb94aff4dcdef4cf6f73cb672`. The prior inspection baseline
+`effce7c1fb34e7e6eabe7c2e80017d38c539f123` remains useful because the intervening commit added
+only this tracker. The active narrow baseline is
+`make test-slice OWNER=module.imports`: five routed tests and three work units passed at
+`.cartulary/test-results/20260728T224329Z-p1276405`.
+
+### 1.4 Mandatory workstream checkpoint
+
+Each `RS-*` workstream is a separate implementation or specification change. The final action in
+each workstream MUST update this tracker before the next workstream begins. The checkpoint MUST
+record:
+
+- completed slice, gate, and `IMP-*` state;
+- baseline and resulting commit identifiers;
+- exact substantive files and contracts changed;
+- validation commands, outcomes, work-unit counts, and retained run roots;
+- failures and whether they are related;
+- compatibility, migration, rollback, generated-artifact, and residual-risk notes;
+- the single next eligible workstream.
+
+The tracker checkpoint MUST pass `make lint-markdown` and be committed separately from the
+substantive change. A failed exit criterion leaves the current slice open.
 
 ## 2. Current-State Repository Inventory
 
@@ -120,7 +145,7 @@ the package.
 | --- | --- | --- | --- | --- | --- |
 | Import session, unit, mapping, source-stream, warning, and journal state | `api.go`, `store.go`, `source_streams.go` | imports | keep | Core 01/03 and imports migrations | Imports MUST retain this state behind its facade. |
 | CSV and XLSX source adaptation and bounded discovery | `routes.go`, `xlsx.go`, shared tabular ingest | imports using owner-neutral tabular-ingest primitives | split | Core 01/03 and live call graph | Parsing/discovery MUST separate from HTTP and jobs without changing source semantics. |
-| HTTP request parsing and response/error mapping | `routes.go` | imports transport adapter | split | Authored OpenAPI and route registration | All ten route shapes and envelopes MUST remain stable. |
+| HTTP request parsing and response/error mapping | `routes.go` | imports transport adapter | split | Authored OpenAPI and route registration | The existing ten route shapes and envelopes MUST remain stable; RS-09 adds one compatible operator-region operation. |
 | Job registration, recovery, execution, and terminal publication | `routes.go`, `job_finalization.go` | imports coordinator plus platform job shell | split | Core job rules and extension assembly | Finalization MUST follow the two-level model in IRT-REQ-005 and IRT-REQ-006. |
 | Admission and apply-time authorization | `routes.go`, transaction paths | imports service using platform auth | split | Core 04 | Transaction-current authorization MUST be added only through an authorized correction. |
 | Generic view-schema target dispatch | `targets.go`, `owner_apply.go` | imports dispatcher | keep | Core 01 dispatcher requirements | Dispatcher MUST select exactly one owner facade and MUST NOT know owner internals. |
@@ -147,7 +172,7 @@ shallower; it MUST NOT delete or rename the boundary merely because its internal
 | ID | Requirement | Current owner or required owner repair |
 | --- | --- | --- |
 | IRT-REQ-001 | The refactor MUST preserve the authority hierarchy in §1.2 and MUST NOT implement a proposed owner repair before coordinated adoption. | Repository procedure and Core 00 |
-| IRT-REQ-002 | Structural slices MUST preserve all ten public import operations, operation IDs, request and response envelopes, WebSocket non-surface, and existing generated public types. | Core 01 and authored imports OpenAPI |
+| IRT-REQ-002 | Structural slices MUST preserve the existing ten public import operations, operation IDs, request and response envelopes, WebSocket non-surface, and existing generated public types. RS-09 MUST add the compatible operator-region operation specified in §4.2 without narrowing an existing operation. | Core 01 and authored imports OpenAPI |
 | IRT-REQ-003 | Core MUST own analytical dispatch, target selection, lifecycle, Core-issued capabilities, authorization, idempotency, cancellation, unit/session outcomes, and job publication. Each target NLSpec MUST exclusively own exact target request/result members, mapping, diagnostics, target errors, and owner resource mutation. | Proposed coordinated Core 00/Core 01/target-owner repair |
 | IRT-REQ-004 | Every analytical target MUST register one `cartulary.imports.analytical_facade_binding.v1`; the binding MUST resolve each referenced schema exactly once and convey the semantic slots in §4.4. | Proposed Core 01 repair and machine projection |
 | IRT-REQ-005 | One import-unit commit MUST atomically contain the selected owner effects, owner-required audit/revision/projection effect or durable obligation, unit outcome, apply journal, idempotency success, immutable owner result, transaction participants, and a recoverable completion fact. | Proposed clarification of Core 01 REQ-01-620c with Core 03 unit atomicity |
@@ -179,6 +204,7 @@ shallower; it MUST NOT delete or rename the boundary merely because its internal
 | `POST .../select` | Existing client transaction | Existing session/selection/unit result | Backend overlap and reselection are authorized corrections, not structural side effects. |
 | `POST .../skip` | Existing client transaction and optional reason | Existing session/selection/unit result | Skip/reselect correction MUST preserve the envelope. |
 | `POST /api/v1/import-sessions/{import_session_id}/apply` | Existing client transaction and optional selected IDs | Common job; terminal import session and owner resource references | Unit/finalizer repair MUST preserve the public request and operation ID. |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | Additive `client_txn_id` plus one-based inclusive `source_rect`; the base unit MUST be the worksheet used-range unit | Created or exactly replayed durable `operator_region` import unit | RS-09 owns this eleventh operation; it MUST remain additive and pass OpenAPI compatibility. |
 
 No import-specific WebSocket route or event exists. The refactor MUST NOT invent one. Source-owner
 collaboration or projection effects remain owner-specific postconditions behind owner facades.
@@ -394,11 +420,11 @@ The conformance authorization artifact required by GATE-03 MUST contain:
 | RS-03 | RS-00 through RS-02 | Inject one application-composed owner registry; remove concrete peer-store construction and cross-owner SQL from imports. | `owner_apply.go`, ownerfacade, application assembly, peer facades | Owner order, validation, defaults, revisions, projection effects | Owner matrix, missing/duplicate bindings, rollback | Imports owner slice; backend boundary check | Revert registry injection as one slice; complete when exactly one owner is selected and imports has no concrete stores. |
 | RS-04 | RS-03 | Route Timeline through the same owner-create registry. | Imports apply path, Timeline facade, application composition | Timeline defaults, event/revision order | Existing Timeline case plus rollback/replay/projection/effect cases | Service-backed imports and Timeline owner slices | Restore Timeline registration and adapter together; complete on effect parity. |
 | RS-05 | RS-03 | Split HTTP handlers, service, job coordination, discovery/mapping, apply coordination, and Store by file responsibility inside the public imports package. | Primarily routes, store, XLSX, API, job/facade files | Accidental route, error, transaction, or parser change | Entire RS-00 suite | Imports slice and boundary checks | Revert each extraction independently; complete when public symbols and behavior are unchanged. |
-| RS-06 | RS-01, RS-03, RS-05; GATE-03 | Add transaction-current authorization and two-level unit/finalizer commit — **requires later authorization**. | Imports service/Store/jobs, auth port, revisions, target participants | Observable auth, transaction, and terminal-state changes | Role/membership/close/claim races, failure injection, replay | Service-backed owner slices and `make test-fast` | Revert complete auth/transaction slice; complete when IRT-REQ-005 through 008 pass. |
-| RS-07 | RS-00, RS-05; GATE-03 | Enforce backend overlap and skipped-unit reselection — **requires later authorization**. | Store/service state machine and frontend tests | Observable state/error changes | Raw HTTP overlap, concurrent select, skip/reselect, mapping retention | Service-backed imports and frontend unit | Revert state-machine slice; complete when IRT-REQ-009/010 pass. |
-| RS-08 | RS-00, RS-05; GATE-03 | Replace internal `use_null`, implement registered error translation, and preserve canonical fingerprints — **requires later authorization**. | API, ownerfacade, route error translation, owner binding | Stored mapping and client error compatibility | Empty policies, retained-data preflight, every translation row, unknown owner error | Imports slice; compatibility/generation checks if contract changes | Revert implementation and any migration together; complete when IRT-REQ-011/012 pass. |
-| RS-09 | RS-00, RS-05; GATE-03 | Add required XLSX locator kinds and presentation neutrality — **requires later authorization**. | XLSX adapter, owner-neutral tabular-ingest primitives if needed, fixtures | Discovery order, locator, warnings, source bounds | Used range, table, named range variants, region, hidden state, formula cache, limits | Service-backed imports slice | Revert by locator kind while retaining bounded reader; complete when IRT-REQ-013 passes. |
-| RS-10 | RS-02, RS-08; GATE-03/04 | Replace frontend hardcoded target IDs with generated semantic catalog — **requires later authorization**. | Generated UI contracts, Import Assistant, coordinator/tests | Target visibility and claimed/unclaimed workflow | 18-row disposition, selector stability, no fallback, server revalidation | Frontend unit/typecheck/boundary/browser checks | Revert authored projection and consumer together; complete when IRT-REQ-014/015 pass. |
+| RS-06 | RS-01, RS-03, RS-05; GATE-03 | Add the next authored migration, transaction-current authorization, durable unit outcomes, and two-level unit/finalizer commit. | Imports service/Store/jobs, auth port, revisions, target participants, migration | Observable auth, transaction, recovery, and terminal-state changes | Role/membership/close/claim races, failure injection, crash recovery, cancellation, replay | Service-backed owner slices, migration drift, and `make test-fast` | Revert the migration and complete auth/transaction slice together; complete when IRT-REQ-005 through 008 pass. |
+| RS-07 | RS-00, RS-05; GATE-03 | Enforce backend overlap and skipped-unit reselection; require a fresh session for intentional re-import. | Store/service state machine and frontend tests | Observable state/error changes | Raw HTTP overlap, concurrent select, skip/reselect, mapping retention, fresh-session duplicate source | Service-backed imports and frontend unit | Revert state-machine slice; complete when IRT-REQ-009/010 pass. |
+| RS-08 | RS-00, RS-05; GATE-03 | Replace internal `use_null`, implement typed registered error translation, and preserve canonical fingerprints. | API, ownerfacade, route error translation, owner binding | Stored mapping and client error compatibility | Empty policies, retained-data preflight, every translation row, unknown owner error | Imports slice; compatibility/generation checks if contract changes | Revert implementation and any migration together; complete when IRT-REQ-011/012 pass. |
+| RS-09 | RS-00, RS-05; GATE-03 | Add required XLSX locator kinds, presentation neutrality, bounded workbook indexing, and the additive operator-region operation. | XLSX adapter, HTTP/OpenAPI, owner-neutral tabular-ingest primitives if needed, fixtures | Discovery order, locator, warnings, source bounds, public compatibility | Used range, table, named range variants, region/replay, hidden state, formula cache, limits | Service-backed imports slice and OpenAPI compatibility | Revert the authored API and locator implementation together; complete when IRT-REQ-013 passes. |
+| RS-10 | RS-02, RS-08, RS-09; GATE-03/04 | Replace frontend hardcoded target IDs with generated semantic catalog and add the operator-region flow. | Generated UI contracts, Import Assistant, coordinator/tests | Target visibility, claimed/unclaimed workflow, and region selectors | 18-row disposition, selector stability, region creation, no fallback, server revalidation | Frontend unit/typecheck/boundary/browser checks | Revert authored projection and consumer together; complete when IRT-REQ-014/015 pass. |
 | RS-11 | All applicable slices | Add exact harness rows, regenerate topology, finalize, and run risk-appropriate broad checks. | Authored verification/test-family/catalog inputs and generated topology | Missing/duplicate accounting and hand-edit risk | Every active test mapped exactly once | Owner slices, generate drift, `make agent-finalize`, `make check` | Revert authored inputs and regenerate; complete when GATE-07 and IRT-REQ-016 pass. |
 
 ## 8. Validation and Evidence Plan
@@ -433,11 +459,13 @@ different defaults or projections requires target-specific assertions.
 
 ### 8.2 Route, state, security, and owner-effect coverage
 
-The ten operations in §4.2 require exact success, malformed request, authorization, visibility,
-state-conflict, and owner-failure coverage. The state suite MUST cover every legal and illegal
+The existing ten operations and the RS-09 operator-region operation in §4.2 require exact success,
+malformed request, authorization, visibility, state-conflict, and owner-failure coverage. The
+state suite MUST cover every legal and illegal
 session/unit transition, idempotent select/skip, skip/reselection, mapping retention, overlap at
 selection/apply, concurrent selection, frozen selected set, deterministic order, duplicate apply,
-explicit re-import, and all four terminal session outcomes.
+fresh-session intentional re-import, exact committed replay, and all four terminal session
+outcomes.
 
 Security coverage MUST include role revocation, membership removal, incident close race, claim
 removal, facade loss, cross-incident actor context, cross-session/unit source capability, target
@@ -494,7 +522,7 @@ extension claims. The server MUST independently revalidate all target and author
 
 | Family | Scope |
 | --- | --- |
-| `imports.http_contract` | Ten public route contracts and errors |
+| `imports.http_contract` | Eleven public route contracts and errors after RS-09 |
 | `imports.state_machine` | Session and unit transitions |
 | `imports.discovery` | CSV/XLSX discovery, ordering, limits, and neutrality |
 | `imports.owner_dispatch` | Registry selection and owner facade routing |
@@ -511,12 +539,12 @@ conformance.
 
 ### 8.5 Make-owned validation
 
-Only Markdown validation is appropriate for this tracker-only revision. Implementation commands are
-recorded for later authorized work and MUST NOT be claimed as passing here.
+CP-00 is tracker-only. Later implementation commands are required when their owning workstream is
+active and MUST be recorded in the checkpoint.
 
 | Layer | Command | Required phase |
 | --- | --- | --- |
-| Tracker documentation | `make lint-markdown` | This revision |
+| Tracker documentation | `make lint-markdown` | Every checkpoint |
 | Fast baseline | `make test-fast`; `make frontend-unit` | GATE-01 |
 | Imports owner slice | `make test-slice OWNER=module.imports` | GATE-01 and every backend slice |
 | Service-backed owner slice | `make service-backed-test-slice OWNER=module.imports` | GATE-01 and persistence/transaction slices |
@@ -550,8 +578,15 @@ recorded for later authorized work and MUST NOT be claimed as passing here.
 | IMP-015 | Replace frontend hardcoded registry | WF-06 | TODO | IMP-009, IMP-012; GATE-06 | RS-10 | IRT-REQ-014/015 pass with selector parity. |
 | IMP-016 | Complete harness accounting and final evidence | WF-07 | TODO | Applicable implementation rows; GATE-07 | RS-11 | Every active test is accounted for once; required checks are recorded. |
 | IMP-017 | Validate this NLSpec-style tracker revision | WF-00 | DONE | IMP-001 through IMP-006 | `make lint-markdown` | Markdown and structural checks passed with only this file changed. |
+| IMP-018 | Activate the tracker as the remediation control artifact | WF-00 | DONE | IMP-017 | CP-00; §1.4 | Current baseline, API posture, authorization, and checkpoint protocol are accurate; only RS-00 is eligible. |
 
 ## 10. Session Handoff Log
+
+### Workstream checkpoints
+
+| Time | Slice | Baseline and result | Substantive changes | Validation evidence | Compatibility, migration, rollback, and residual risk | Next eligible slice |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-28 18:53 EDT | CP-00 | Baseline `ee848b80cb21cb3fb94aff4dcdef4cf6f73cb672`; checkpoint commit pending | Activated this tracker; recorded the active baseline and narrow run; added the separate checkpoint protocol; assigned the additive operator-region route to RS-09; replaced same-session re-import with fresh-session re-import | `make lint-markdown` passed at `.cartulary/test-results/20260728T225321Z-p1298103`; final diff/status checks run before commit | Documentation-only; no migration or product compatibility effect; rollback is this tracker activation; all implementation risks remain gated | RS-00 only |
 
 ### Scope and authority
 
@@ -614,9 +649,9 @@ former RB items are closed at the planning layer as follows:
 | RB-003 | The 18-target matrix, cross-cutting suites, boundary rules, harness families, and exact accounting define a complete evidence baseline. | RESOLVED_IN_TRACKER | Tests and harness rows do not yet exist or pass. | GATE-01 and GATE-07 |
 | RB-004 | One Core-backed deterministic registry supplies backend, frontend, adapter, verification, and integrity projections; no public field is required for same-release deployment. | RESOLVED_IN_TRACKER | The authored registry and generated outputs do not yet exist. | GATE-04 |
 
-An implementation agent MUST treat any unmet gate in §6.1 as a hard dependency. It MUST NOT reinterpret
-`RESOLVED_IN_TRACKER` as permission to edit an owner, production code, contracts, migrations,
-generated files, tests, or harness inputs.
+An implementation agent MUST treat any unmet gate in §6.1 as a hard dependency. The active
+implementation request authorizes the sequence, but `RESOLVED_IN_TRACKER` alone does not permit a
+later slice to start before its dependencies and the preceding tracker checkpoint pass.
 
 ## 12. Binary Completion Criteria
 
@@ -625,7 +660,7 @@ generated files, tests, or harness inputs.
 | Acceptance ID | Requirements | Pass condition |
 | --- | --- | --- |
 | IRT-AC-001 | IRT-REQ-001, IRT-REQ-018 | No production slice begins before its owner, characterization, and authorization gates; structural and correction changes remain separate. |
-| IRT-AC-002 | IRT-REQ-002 | All ten HTTP operation IDs, paths, requests, responses, errors, and generated public types are unchanged by structural slices; no imports WebSocket event is added. |
+| IRT-AC-002 | IRT-REQ-002 | The existing ten HTTP operations remain compatible through all structural slices; RS-09 adds exactly one compatible operator-region operation; no imports WebSocket event is added. |
 | IRT-AC-003 | IRT-REQ-003, IRT-REQ-004 | Core and target ownership are adopted without duplicated exact payload authority; every analytical binding and referenced schema resolves exactly once. |
 | IRT-AC-004 | IRT-REQ-005, IRT-REQ-006 | Precommit failure/cancellation leaves no authoritative unit effects; postcommit crash recovers one result; finalization creates no owner resource. |
 | IRT-AC-005 | IRT-REQ-007, IRT-REQ-008 | Role/membership/claim/lifecycle removal before commit prevents mutation; a mutation committed first is observed by the administrative change. |
@@ -644,7 +679,8 @@ generated files, tests, or harness inputs.
 
 - [x] Every tracked file in `internal/modules/imports` is inventoried; the empty untracked directory
   is explicitly explained.
-- [x] All ten public HTTP operations and every discovered cross-boundary contract are frozen.
+- [x] The existing ten public HTTP operations are frozen and the additive eleventh
+  operator-region contract is assigned exclusively to RS-09.
 - [x] Core-versus-target analytical ownership and the binding interface are exact.
 - [x] Unit commit and session/job finalization are specified separately.
 - [x] Authorization, race, overlap, reselection, null, errors, XLSX, cancellation, replay, and
@@ -656,6 +692,5 @@ generated files, tests, or harness inputs.
 - [x] Former RB items are `RESOLVED_IN_TRACKER`; unmet adoption/execution work is represented by
   binary gates without false completion claims.
 - [x] Prior session history is preserved and the current revision session is appended.
-- [x] Implementation remains a later authorized task.
-- [x] `make lint-markdown`, `git diff --check`, structural checks, and the one-file status check pass
-  for this revision.
+- [x] The complete remediation sequence is authorized subject to the binary workstream gates.
+- [x] CP-00 `make lint-markdown`, `git diff --check`, and one-file status check pass.
