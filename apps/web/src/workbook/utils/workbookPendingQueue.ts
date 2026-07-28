@@ -2,7 +2,7 @@ import {
   publicErrorCode,
   publicErrorStatusText,
 } from "../../shared/publicError";
-import { parseSameFieldConflictFields } from "../timeline/models/timelineConflictModel";
+import { parseSameFieldConflictFields } from "../runtime/workbookConflictModel";
 
 export const pendingReplayCapacity = 64;
 

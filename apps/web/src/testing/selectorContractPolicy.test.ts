@@ -534,7 +534,7 @@ describe("selector contract policy", () => {
       );
     });
 
-    expect(violations).toEqual([]);
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 
   it("classifies authentication cross-boundary selector families as shared-builder owned", () => {
@@ -577,7 +577,7 @@ describe("selector contract policy", () => {
       violations.push(...collectSelectorPolicyViolations(file, content));
     }
 
-    expect(violations).toEqual([]);
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 
   it("rejects raw authentication selector literals at helper-level selector sinks", () => {

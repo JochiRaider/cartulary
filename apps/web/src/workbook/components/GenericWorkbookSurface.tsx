@@ -40,11 +40,7 @@ import {
   useState,
 } from "react";
 import { apiPath, clientTxnID } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../services/workbookApi";
+import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
 import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
 import {
@@ -86,8 +82,14 @@ import {
   type WorkbookResolvedLayoutState,
 } from "../models/workbookLayout";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
+import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import { partiesViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { useWorkbookCollaborationProjection } from "../runtime/useWorkbookCollaborationProjection";
+import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
+import type { WorkbookCollaborationProjection } from "../runtime/WorkbookCollaborationProjection";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import {
@@ -100,24 +102,31 @@ import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
-import { WorkbookSheetToolbar } from "./WorkbookSheetToolbar";
+import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
   workbookSurfaceInspectorPanelStyle,
 } from "./WorkbookSurfaceFrame";
+import { WorkbookViewBar } from "./WorkbookViewBar";
 
 export type ContractWorkbookSurfaceProps = {
   readonly apiBase?: string | undefined;
   readonly authorizationEpoch: string;
+  readonly chromeMode: WorkbookChromeMode;
   readonly contract: ViewContract;
   readonly currentUserId: string | null;
   readonly density: GridDensity;
   readonly inspectorResetKey: string;
+  readonly queryControls?: ReactNode | undefined;
   readonly savedViewSelector?: ReactNode | undefined;
+  readonly showStatusPresence: boolean;
   readonly incidentId: string;
   readonly loadState: WorkbookQueryLoadState;
+  readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly collaborationProjection: WorkbookCollaborationProjection;
+  readonly sheetRef: WorkbookSheetRef;
   readonly interactionMode: GridInteractionMode;
   readonly onClearFilters: () => void;
   readonly onRefresh: () => Promise<void> | void;
@@ -135,13 +144,19 @@ export type ContractWorkbookSurfaceProps = {
 export function ContractWorkbookSurface({
   apiBase,
   authorizationEpoch,
+  chromeMode,
   contract,
   currentUserId,
   density,
   inspectorResetKey,
+  queryControls,
   savedViewSelector,
+  showStatusPresence,
   incidentId,
   loadState,
+  mutationRuntime,
+  collaborationProjection,
+  sheetRef: _sheetRef,
   interactionMode,
   onClearFilters,
   layoutState,
@@ -204,9 +219,17 @@ export function ContractWorkbookSurface({
     submitPatchMutation,
   } = useGenericSurfaceMutationController({
     apiBase,
+    mutationRuntime,
     onRefresh,
     refreshReferenceOptions,
+    surfaceLabel: contract.title,
   });
+  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime);
+  const collaboration = useWorkbookCollaborationProjection(
+    collaborationProjection,
+  );
+  const presentedMutationState =
+    mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
   const isNotesSurface = ownerBindings.includes("linked_note_create");
   const partyLinkPairs = useMemo(
     () => partyLinkPairsForContract(contract),
@@ -339,40 +362,20 @@ export function ContractWorkbookSurface({
             "Enter a valid value, or clear only a field that permits null.",
         };
       }
-      beginMutation();
-      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${target.recordId}`),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            view_schema_id: contract.viewSchemaId,
-            base_row_version: target.baseRowVersion,
-            client_txn_id: clientTxnID(`grid-edit-${contract.viewSchemaId}`),
-            changes: [change],
-          }),
-        },
-      );
-      if (!result.ok) {
-        rejectMutationPayload(result.payload);
-        const message = parseErrorMessage(result.payload);
-        if (result.status === 409) return { kind: "conflict", message };
-        if (result.status === 404) return { kind: "stale_target", message };
-        if (result.status === 400) {
-          return { kind: "validation_error", message };
-        }
-        return { kind: "rejected_mutation", message };
-      }
-      await completeGenericMutation<ViewMutationEnvelope>(result.payload);
-      return { kind: "accepted" };
+      return mutationRuntime.enqueuePatch({
+        apiBase,
+        baseRowVersion: target.baseRowVersion,
+        changes: [change],
+        fieldKey,
+        focusKey: `${target.recordId}:${fieldKey}`,
+        localValue: draftValue,
+        recordId: target.recordId,
+        rowLabel: genericRowLabel(contract, current),
+        surfaceLabel: contract.title,
+        viewSchemaId: contract.viewSchemaId,
+      });
     },
-    [
-      apiBase,
-      beginMutation,
-      completeGenericMutation,
-      contract,
-      rejectMutationPayload,
-      rows,
-    ],
+    [apiBase, contract, mutationRuntime, rows],
   );
   const visibleAnchorColumns = useMemo(
     () => applyWorkbookLayoutToColumns(contract, anchorColumns, layoutState),
@@ -490,6 +493,52 @@ export function ContractWorkbookSurface({
     gridHandleRef,
     surface,
   });
+  useEffect(
+    () =>
+      mutationRuntime.registerSurface(
+        contract.viewSchemaId,
+        onRefresh,
+        async (_payload, conflict) => {
+          await onRefresh();
+          window.setTimeout(() => {
+            gridHandleRef.current?.focusAnchor({
+              fieldKey: conflict.conflict.field_key,
+              rowIdentity: {
+                kind: "core_record",
+                recordId: conflict.conflict.record_id,
+              },
+              surface: {
+                kind: "view_schema",
+                viewSchemaId: contract.viewSchemaId,
+              },
+            });
+          }, 0);
+        },
+        (conflict) => {
+          window.setTimeout(() => {
+            const anchor = {
+              fieldKey: conflict.conflict.field_key,
+              rowIdentity: {
+                kind: "core_record" as const,
+                recordId: conflict.conflict.record_id,
+              },
+              surface: {
+                kind: "view_schema" as const,
+                viewSchemaId: contract.viewSchemaId,
+              },
+            };
+            if (
+              !gridHandleRef.current?.activateEdit(anchor, {
+                value: conflict.localValue,
+              })
+            ) {
+              gridHandleRef.current?.focusAnchor(anchor);
+            }
+          }, 0);
+        },
+      ),
+    [contract.viewSchemaId, mutationRuntime, onRefresh],
+  );
   const columns: readonly GridColumn<EntityApiRow>[] = visibleAnchorColumns.map(
     (column) => {
       const field = contract.fieldMap[column.fieldKey];
@@ -497,7 +546,12 @@ export function ContractWorkbookSurface({
         ...column,
         contractWritable: field?.gridEditable === true,
         getClipboardValue: (row: EntityApiRow) => {
-          const value = row.cells[column.fieldKey]?.value;
+          const value =
+            mutationRuntime.visibleEdit(
+              contract.viewSchemaId,
+              row.record_id,
+              column.fieldKey,
+            ) ?? row.cells[column.fieldKey]?.value;
           return field?.readKind === "collection"
             ? genericCellLabelForField(surface, column.fieldKey, value)
             : value;
@@ -515,7 +569,11 @@ export function ContractWorkbookSurface({
                   }),
                 field,
                 readValue: (row: EntityApiRow) =>
-                  row.cells[field.fieldKey]?.value,
+                  mutationRuntime.visibleEdit(
+                    contract.viewSchemaId,
+                    row.record_id,
+                    field.fieldKey,
+                  ) ?? row.cells[field.fieldKey]?.value,
                 referenceOptions,
               })
             : undefined,
@@ -554,8 +612,21 @@ export function ContractWorkbookSurface({
               {genericCellLabelForField(
                 surface,
                 column.fieldKey,
-                row.cells[column.fieldKey]?.value,
+                mutationRuntime.visibleEdit(
+                  contract.viewSchemaId,
+                  row.record_id,
+                  column.fieldKey,
+                ) ?? row.cells[column.fieldKey]?.value,
               )}
+              <WorkbookCellPresenceMarker
+                fieldKey={column.fieldKey}
+                fieldLabel={field?.label ?? column.fieldKey}
+                presences={collaborationProjection.editingPresenceForCell(
+                  row.record_id,
+                  column.fieldKey,
+                )}
+                recordId={row.record_id}
+              />
             </FocusableWorkbookCell>
           );
         },
@@ -829,6 +900,7 @@ export function ContractWorkbookSurface({
 
   return (
     <WorkbookSurfaceFrame
+      chromeMode={chromeMode}
       inspector={
         isInspectorOpen && writableFields.length > 0 ? (
           <section style={genericMutationPanelStyle}>
@@ -1131,6 +1203,9 @@ export function ContractWorkbookSurface({
           </section>
         ) : undefined
       }
+      onRequestInspectorClose={() => {
+        setIsInspectorOpen(false);
+      }}
       primaryGrid={
         <GridViewport
           blockSizing="fill"
@@ -1147,14 +1222,18 @@ export function ContractWorkbookSurface({
             draftRow={gridDraftRow}
             grouping={grouping}
             interactionMode={interactionMode}
-            onActiveCellChange={(anchor) =>
-              genericFocus.update(
+            onActiveCellChange={(anchor) => {
+              const recordId =
                 anchor?.rowIdentity.kind === "core_record"
                   ? anchor.rowIdentity.recordId
-                  : null,
-                anchor?.fieldKey ?? "",
-              )
-            }
+                  : null;
+              genericFocus.update(recordId, anchor?.fieldKey ?? "");
+              collaborationProjection.publishPresence({
+                fieldKey: null,
+                mode: recordId === null ? "idle" : "viewing",
+                recordId,
+              });
+            }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
             clipboardPaste={clipboardPaste}
@@ -1167,17 +1246,20 @@ export function ContractWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          mutationError={mutationError}
-          mutationState={mutationState}
+          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          mutationError={mutationError ?? sharedMutation.secondaryMessage}
+          mutationState={presentedMutationState}
+          showPresence={showStatusPresence}
           workbookFocusAnchor={genericFocus.anchor}
         />
       }
       viewBar={
-        <WorkbookSheetToolbar
+        <WorkbookViewBar
           addRowDisabled={
             writableFields.length === 0 || interactionMode.kind === "read_only"
           }
-          leading={savedViewSelector}
+          queryControls={queryControls}
+          savedViewControls={savedViewSelector}
           onAddRow={focusDraftRow}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);

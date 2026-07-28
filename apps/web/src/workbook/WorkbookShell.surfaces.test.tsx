@@ -55,7 +55,7 @@ import {
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -1153,26 +1153,36 @@ describe("WorkbookShell surface selection", () => {
       topBar?.querySelector(
         dataTestIdSelector(gridGroupingSelectTestId(timelineViewSchemaId)),
       ),
-    ).toBeInstanceOf(HTMLElement);
+    ).toBeNull();
     expect(
       topBar?.querySelector(
         dataTestIdSelector(
           workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
         ),
       ),
-    ).toBeInstanceOf(HTMLElement);
-    const topBarQueryControls = screen.getByTestId(
-      workbookTopBarQueryControlsTestId(timelineViewSchemaId),
+    ).toBeNull();
+    const viewBarQueryControls = screen.getByTestId(
+      workbookViewBarQueryControlsTestId(timelineViewSchemaId),
     );
-    expect(topBarQueryControls.style.overflow).toBe("visible");
-    const topBarQuerySlot = topBarQueryControls.parentElement;
-    expect(topBarQuerySlot).toBeInstanceOf(HTMLElement);
-    expect((topBarQuerySlot as HTMLElement).style.overflow).toBe("visible");
+    expect(viewBarQueryControls.style.overflow).toBe("visible");
 
     const viewBar = await screen.findByTestId(
       workbookShellSlotTestId("view-bar"),
     );
     expect(viewBar).toBeInstanceOf(HTMLElement);
+    expect(viewBar.contains(viewBarQueryControls)).toBe(true);
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(gridGroupingSelectTestId(timelineViewSchemaId)),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(
+          workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+        ),
+      ),
+    ).toBeInstanceOf(HTMLElement);
     expect(
       viewBar.querySelector(
         dataTestIdSelector(gridFilterFieldTestId(timelineViewSchemaId)),

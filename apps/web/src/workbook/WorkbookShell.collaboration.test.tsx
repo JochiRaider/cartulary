@@ -1,13 +1,17 @@
 import {
   cellPresenceMarkerTestId,
   gridShellTestId,
-  pendingQueueDiscardButtonTestId,
-  pendingQueueRecoveryPanelTestId,
-  pendingQueueRetryButtonTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
+  workbookConflictSummaryTestId,
+  workbookEditRecoveryDiscardButtonTestId,
+  workbookEditRecoveryRetryButtonTestId,
+  workbookEditRecoveryTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +38,7 @@ import {
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
+import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 
 vi.mock(
@@ -289,32 +294,33 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Unsaved local value");
     fireEvent.blur(input);
 
-    expect(await screen.findByTestId("conflict-resolver")).toBeTruthy();
+    expect(
+      await screen.findByTestId(workbookConflictResolverTestId()),
+    ).toBeTruthy();
     expect(
       screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeTruthy();
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
-    expect(screen.getByTestId("conflict-field-key")).toHaveProperty(
-      "value",
-      "timeline.activity_synopsis_text",
-    );
-    expect(screen.getByTestId("conflict-server-value")).toHaveProperty(
-      "value",
-      "Server value",
-    );
-    expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-      "value",
-      "Unsaved local value",
-    );
+    expect(
+      screen
+        .getByTestId(workbookConflictResolverTestId())
+        .getAttribute("data-conflict-field-key"),
+    ).toBe("timeline.activity_synopsis_text");
+    expect(
+      screen.getByTestId(workbookConflictSavedValueTestId()),
+    ).toHaveProperty("value", "Server value");
+    expect(
+      screen.getByTestId(workbookConflictLocalValueTestId()),
+    ).toHaveProperty("value", "Unsaved local value");
 
-    fireEvent.keyDown(screen.getByTestId("conflict-resolver-summary"), {
+    fireEvent.keyDown(screen.getByTestId(workbookConflictSummaryTestId()), {
       key: "Enter",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
@@ -377,12 +383,12 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Local");
     fireEvent.blur(input);
-    await screen.findByTestId("conflict-resolver");
+    await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.click(screen.getByTestId("conflict-keep-saved"));
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
@@ -448,12 +454,12 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Use local");
     fireEvent.blur(input);
-    await screen.findByTestId("conflict-resolver");
+    await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.click(screen.getByTestId("conflict-use-unsaved"));
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
@@ -520,10 +526,10 @@ describe("workbook collaboration coverage", () => {
     fireEvent.focus(input);
     await changeInputValue(input, "Merge local");
     fireEvent.blur(input);
-    await screen.findByTestId("conflict-resolver");
+    await screen.findByTestId(workbookConflictResolverTestId());
     expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
       "value",
-      "Merge server\nMerge local",
+      "Merge server",
     );
     fireEvent.change(screen.getByTestId("conflict-merged-value"), {
       target: { value: "Merge final" },
@@ -532,7 +538,7 @@ describe("workbook collaboration coverage", () => {
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
@@ -636,151 +642,49 @@ describe("workbook collaboration coverage", () => {
     });
   });
 
-  it("does not coalesce non-contiguous same-record pending patches", async () => {
-    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
-    routedFetch.mockAuthSessionOnce(successEnvelope({ user_id: "user-1" }));
-    routedFetch.mockRowQueryOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 1,
-            summary: "A base",
-            captureState: "rough",
-          }),
-          timelineRow({
-            recordId: "record-2",
-            rowVersion: 1,
-            summary: "B base",
-            captureState: "rough",
-          }),
-        ],
-      }),
-    );
-    routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-a1",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "A1 queued",
-          captureState: "rough",
-        }),
-      }),
-    );
-    routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-b1",
-        row: timelineRow({
-          recordId: "record-2",
-          rowVersion: 2,
-          summary: "B1 queued",
-          captureState: "rough",
-        }),
-      }),
-    );
-    routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-a2",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 3,
-          summary: "A2 queued",
-          captureState: "rough",
-        }),
-      }),
-    );
-
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
-    const firstInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-1",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-    await waitFor(() => {
-      expect(latestTimelineWebSocket()).not.toBeNull();
+  it("does not coalesce non-contiguous same-record pending patches", () => {
+    const runtime = new WorkbookMutationRuntime({
+      clientInstanceId: "client-non-contiguous",
+      incidentId: "incident-1",
     });
-    latestTimelineWebSocket()?.emit({
-      type: "session_revoked",
-      payload: { reason_code: "session_revoked" },
-    });
-
-    fireEvent.blur(await changeQueuedCellValue(firstInput, "A1 queued"));
-    const secondInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-2",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-    fireEvent.blur(await changeQueuedCellValue(secondInput, "B1 queued"));
-    await waitFor(() => {
+    runtime.pauseForAuthRecovery();
+    for (const [recordId, value, version] of [
+      ["record-1", "A1 queued", 1],
+      ["record-2", "B1 queued", 1],
+      ["record-1", "A2 queued", 2],
+    ] as const) {
       expect(
-        screen.queryByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: "record-2",
-            surface: "grid",
-          }),
-        ),
-      ).toBeNull();
-    });
-    const firstInputAgain = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "record-1",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
-    fireEvent.blur(await changeQueuedCellValue(firstInputAgain, "A2 queued"));
-
-    await waitForPendingQueueState({
-      expectedPendingUnits: 3,
-      expectedSaveState: "Syncing",
-      noticeIncludes: "Authentication is required",
-    });
-    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
-
-    await waitForTimelineRecordPatchCalls(fetchMock, 3);
-    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
-      "/api/v1/records/record-1",
-      "/api/v1/records/record-2",
-      "/api/v1/records/record-1",
-    ]);
-    await waitFor(() => {
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
-    expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
-      {
-        field_key: "timeline.activity_synopsis_text",
-        value: "A1 queued",
-      },
-    ]);
-    expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
-      {
-        field_key: "timeline.activity_synopsis_text",
-        value: "B1 queued",
-      },
-    ]);
-    expect(extractTimelineRecordPatchBody(fetchMock, 2).changes).toEqual([
-      {
-        field_key: "timeline.activity_synopsis_text",
-        value: "A2 queued",
-      },
-    ]);
+        runtime.enqueuePatch({
+          baseRowVersion: version,
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value,
+            },
+          ],
+          fieldKey: "timeline.activity_synopsis_text",
+          localValue: value,
+          recordId,
+          rowLabel: recordId,
+          surfaceLabel: "Timeline",
+          viewSchemaId: timelineViewSchemaId,
+        }),
+      ).toEqual({ kind: "accepted" });
+    }
+    expect(
+      runtime
+        .pending()
+        .model.snapshot()
+        .units.map((unit) => unit.recordId),
+    ).toEqual(["record-1", "record-2", "record-1"]);
   });
 
   it("exposes the browser-runtime pending queue capacity as exactly 64 replay units", () => {
     expect(pendingReplayCapacity).toBe(64);
   });
 
-  it("preserves queued work through session revocation and resumes after re-authentication", async () => {
+  it("clears protected rows and blocks new edits after session revocation", async () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
-    routedFetch.mockAuthSessionOnce(successEnvelope({ user_id: "user-1" }));
     routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -795,19 +699,6 @@ describe("workbook collaboration coverage", () => {
         ],
       }),
     );
-    routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-auth",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Auth replay",
-          captureState: "rough",
-        }),
-      }),
-    );
-
     render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
     const input = (await findWorkbookCell(
       document.body,
@@ -823,25 +714,19 @@ describe("workbook collaboration coverage", () => {
       payload: { reason_code: "session_revoked" },
     });
 
-    fireEvent.blur(await changeQueuedCellValue(input, "Auth replay"));
-    await waitForPendingQueueState({
-      expectedPendingUnits: 1,
-      expectedSaveState: "Syncing",
-      noticeIncludes: "Authentication is required",
+    await waitFor(() => {
+      expect(input.isConnected).toBe(false);
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
-    expect(input.value).toBe("Auth replay");
-
-    await waitForTimelineRecordPatchCalls(fetchMock, 1);
-    expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
-      {
-        field_key: "timeline.activity_synopsis_text",
-        value: "Auth replay",
-      },
-    ]);
-    await waitFor(() => {
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
+    expect(
+      screen.queryByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: "record-1",
+          surface: "grid",
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("moves a blocking same-field conflict out of the pending queue and retains its editor", async () => {
@@ -897,7 +782,7 @@ describe("workbook collaboration coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(screen.getByTestId("conflict-resolver")).toBeTruthy();
+      expect(screen.getByTestId(workbookConflictResolverTestId())).toBeTruthy();
       expect(firstInput.value).toBe("Conflict local");
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
@@ -1105,14 +990,14 @@ describe("workbook collaboration coverage", () => {
     fireEvent.blur(await changeQueuedCellValue(input, "Retry local"));
 
     const recoveryPanel = await screen.findByTestId(
-      pendingQueueRecoveryPanelTestId(),
+      workbookEditRecoveryTestId(),
     );
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(
       screen.getByRole("button", { name: "Retry with a new request ID" }),
-    ).toBe(screen.getByTestId(pendingQueueRetryButtonTestId()));
+    ).toBe(screen.getByTestId(workbookEditRecoveryRetryButtonTestId()));
     expect(screen.getByRole("button", { name: "Discard blocked edit" })).toBe(
-      screen.getByTestId(pendingQueueDiscardButtonTestId()),
+      screen.getByTestId(workbookEditRecoveryDiscardButtonTestId()),
     );
     expect(recoveryPanel.textContent).not.toContain("timeline-client-");
 
@@ -1120,7 +1005,9 @@ describe("workbook collaboration coverage", () => {
     expect(document.activeElement).toBe(
       screen.getByTestId("pending-queue-notice"),
     );
-    fireEvent.click(screen.getByTestId(pendingQueueRetryButtonTestId()));
+    fireEvent.click(
+      screen.getByTestId(workbookEditRecoveryRetryButtonTestId()),
+    );
     await waitForTimelineRecordPatchCalls(fetchMock, 2);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
@@ -1133,7 +1020,7 @@ describe("workbook collaboration coverage", () => {
       typeof extractTimelineRecordPatchBody
     > & { client_txn_id: string };
     expect(first.client_txn_id).toMatch(/^timeline-client-[0-9a-f-]{36}$/u);
-    expect(retried.client_txn_id).toMatch(/^timeline-client-[0-9a-f-]{36}$/u);
+    expect(retried.client_txn_id).toMatch(/^workbook-recovery-[0-9a-f-]{36}$/u);
     expect(retried.client_txn_id).not.toBe(first.client_txn_id);
     expect(retried.base_row_version).toBe(1);
     expect(retried.changes).toEqual(first.changes);
@@ -1178,15 +1065,27 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Resolver local"));
-    fireEvent.click(await screen.findByTestId(pendingQueueRetryButtonTestId()));
+    fireEvent.click(
+      await screen.findByTestId(workbookEditRecoveryRetryButtonTestId()),
+    );
 
-    expect(await screen.findByTestId("conflict-resolver")).toBeTruthy();
-    expect(screen.queryByTestId(pendingQueueRecoveryPanelTestId())).toBeNull();
     expect(
-      (screen.getByTestId("conflict-local-value") as HTMLInputElement).value,
+      await screen.findByTestId(workbookConflictResolverTestId()),
+    ).toBeTruthy();
+    expect(screen.queryByTestId(workbookEditRecoveryTestId())).toBeNull();
+    expect(
+      (
+        screen.getByTestId(
+          workbookConflictLocalValueTestId(),
+        ) as HTMLInputElement
+      ).value,
     ).toBe("Resolver local");
     expect(
-      (screen.getByTestId("conflict-server-value") as HTMLInputElement).value,
+      (
+        screen.getByTestId(
+          workbookConflictSavedValueTestId(),
+        ) as HTMLInputElement
+      ).value,
     ).toBe("Resolver saved");
   });
 
@@ -1217,7 +1116,7 @@ describe("workbook collaboration coverage", () => {
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Discard local"));
     fireEvent.click(
-      await screen.findByTestId(pendingQueueDiscardButtonTestId()),
+      await screen.findByTestId(workbookEditRecoveryDiscardButtonTestId()),
     );
 
     await waitFor(() => {

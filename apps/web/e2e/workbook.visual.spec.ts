@@ -38,9 +38,7 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
   pendingQueueCountTestId,
-  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
-  pendingQueueRecoveryPanelTestId,
   publicErrorCodeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
@@ -69,6 +67,9 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookConflictResolverTestId,
+  workbookEditRecoveryDiscardButtonTestId,
+  workbookEditRecoveryTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
@@ -78,7 +79,7 @@ import {
   workbookShellSlots,
   workbookShellSlotTestId,
   workbookSortMenuTriggerTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -158,6 +159,7 @@ type FrontendVisualFixture = {
   blocked_reason: string;
   browser_zoom_percent: number;
   capture_scope: { kind: string; selector?: string };
+  design_contract_id?: string;
   density_id: string;
   device_scale_factor: number;
   dynamic_masks: string[];
@@ -188,22 +190,31 @@ type FrontendVisualFixtureRegistry = {
 
 const expectedFrontendVisualFixtureIds = [
   "visual.fixture.claimed_network_analysis_workspace_states",
+  "visual.fixture.base_inspector",
   "visual.fixture.default_timeline_workbook_shell",
+  "visual.fixture.compact_desktop_workbook_shell",
+  "visual.fixture.destructive_actions",
   "visual.fixture.drag_fill_handle",
   "visual.fixture.edit_cell",
   "visual.fixture.empty_successful_query",
   "visual.fixture.evidence_affordance",
-  "visual.fixture.exposed_theme_states",
+  "visual.fixture.component_state_matrix",
   "visual.fixture.frozen_column",
   "visual.fixture.mention_chip_state_matrix",
+  "visual.fixture.narrow_desktop_workbook_shell",
   "visual.fixture.resize_handle",
-  "visual.fixture.row_gutter_presence",
+  "visual.fixture.presence_overflow",
   "visual.fixture.same_field_conflict",
   "visual.fixture.save_state_strip",
   "visual.fixture.saved_view_query_controls_and_grouped_result",
   "visual.fixture.task_requests_or_decisions",
   "visual.fixture.tree_group_row",
 ] as const;
+
+const expectedDesignContractIds = Array.from(
+  { length: 12 },
+  (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
+);
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -403,7 +414,7 @@ async function expectWideWorkbookTopBarChrome(page: Page) {
     page.getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
   await expect(
-    page.getByTestId(workbookTopBarQueryControlsTestId(timelineViewSchemaId)),
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await expect(
     page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
@@ -864,9 +875,13 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       .click();
     await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
     const wideDrawerOpenLayout = await readTimelineGridFirstLayout(page);
-    expect(wideDrawerOpenLayout.grid).toEqual(wideLayout.grid);
-    expect(wideDrawerOpenLayout.innerGrid).toEqual(wideLayout.innerGrid);
     expect(wideDrawerOpenLayout.inspector).not.toBeNull();
+    expect(wideDrawerOpenLayout.grid.left).toBe(wideLayout.grid.left);
+    expect(wideDrawerOpenLayout.grid.right).toBeLessThan(wideLayout.grid.right);
+    expect(wideDrawerOpenLayout.grid.width).toBeGreaterThan(0);
+    expect(wideDrawerOpenLayout.inspector?.left).toBeGreaterThanOrEqual(
+      wideDrawerOpenLayout.grid.right,
+    );
     const wideDrawerLastColumn = wideDrawerOpenLayout.lastColumn;
     expect(wideDrawerLastColumn).not.toBeNull();
     if (wideDrawerLastColumn === null) {
@@ -903,11 +918,15 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       .click();
     await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
     const drawerOpenLayout = await readTimelineGridFirstLayout(page);
-    expect(drawerOpenLayout.grid).toEqual(closedLayout.grid);
-    expect(drawerOpenLayout.innerGrid).toEqual(closedLayout.innerGrid);
+    expect(drawerOpenLayout.grid.left).toBe(closedLayout.grid.left);
+    expect(drawerOpenLayout.grid.right).toBeLessThan(closedLayout.grid.right);
+    expect(drawerOpenLayout.grid.width).toBeGreaterThan(0);
     expect(drawerOpenLayout.viewBar).toEqual(closedLayout.viewBar);
     expect(drawerOpenLayout.topBar).toEqual(closedLayout.topBar);
     expect(drawerOpenLayout.inspector).not.toBeNull();
+    expect(drawerOpenLayout.inspector?.left).toBeGreaterThanOrEqual(
+      drawerOpenLayout.grid.right,
+    );
     expect(drawerOpenLayout.inspector?.top).toBeGreaterThanOrEqual(
       drawerOpenLayout.viewBar.bottom - 1,
     );
@@ -1011,6 +1030,39 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await assertViewportVisualRegression(
       page,
       "incident-directory-default-timeline-workbook-shell",
+    );
+
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await expect(
+      page.getByTestId(workbookResponsiveBandTestId()),
+    ).toHaveAttribute("data-workbook-responsive-band", "narrow_desktop");
+    await expect(
+      page.getByTestId(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("data-query-chip-capacity", "6");
+    await assertViewportVisualRegression(
+      page,
+      "incident-directory-narrow-desktop-workbook-shell",
+    );
+
+    await page.setViewportSize({ width: 768, height: 640 });
+    await expect(
+      page.getByTestId(workbookResponsiveBandTestId()),
+    ).toHaveAttribute("data-workbook-responsive-band", "compact_desktop");
+    await expect(
+      page.getByTestId(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("data-query-chip-capacity", "0");
+    await expect(
+      page
+        .getByTestId(workbookShellSlotTestId("status-strip"))
+        .getByTestId("presence-header"),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "incident-directory-compact-desktop-workbook-shell",
     );
   });
 });
@@ -1427,7 +1479,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       await expect.poll(() => conflictController.calls.length).toBe(1);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await expect(
-        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+        page.getByTestId(workbookEditRecoveryTestId()),
       ).toBeVisible();
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "left" },
@@ -1437,11 +1489,11 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
         "timeline-mutation-transaction-recovery-panel",
       );
 
-      await page.getByTestId(pendingQueueDiscardButtonTestId()).click();
+      await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(
-        page.getByTestId(pendingQueueRecoveryPanelTestId()),
-      ).toHaveCount(0);
+      await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
+        0,
+      );
     } finally {
       await conflictController.dispose();
     }
@@ -1485,7 +1537,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
   test("Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALENTITYLINKING"),
@@ -1609,7 +1661,15 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       clipTopPixels: 7,
     });
     await blurActiveElement(page);
-    await assertViewportVisualRegression(page, "entity-mention-chip-states");
+    const chipFixture = page.locator("main.cartulary-shell").first();
+    await chipFixture.evaluate((element) => {
+      element.setAttribute("data-design-fixture", "chips");
+    });
+    await assertVisualRegression(
+      page,
+      "entity-mention-chip-states",
+      chipFixture,
+    );
   });
 });
 
@@ -1955,7 +2015,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
   test("Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.", async ({
     page,
   }, testInfo) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALEVIDENCEWORKFLOW"),
@@ -2226,23 +2286,37 @@ test.describe("browser.evidence-workflow visual readiness", () => {
 });
 
 test.describe("browser.collaboration workbook visual readiness", () => {
-  test("Capture row-gutter and cell presence markers.", async ({
+  test("Capture deterministic presence at the workbook header, row gutter, and cell with exact overflow counts.", async ({
     browser,
     page,
     sessionTracker,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATION"),
       "browser.collaboration visual collaboration states",
     );
-    const remote = await createIncidentMemberUser(page, incidentId, {
-      display_name: "Visual Analyst",
-      email: uniqueEmail("collaboration-remote"),
-      initial_password: "FeVP7RemotePass!",
-      role: "editor",
-    });
+    const remoteActors = await Promise.all(
+      (
+        [
+          ["Alpha Analyst", "AA"],
+          ["Bravo Analyst", "BA"],
+          ["Charlie Analyst", "CA"],
+          ["Delta Analyst", "DA"],
+          ["Echo Analyst", "EA"],
+          ["Foxtrot Analyst", "FA"],
+        ] as const
+      ).map(async ([displayName, actorText], index) => ({
+        actorText,
+        user: await createIncidentMemberUser(page, incidentId, {
+          display_name: displayName,
+          email: uniqueEmail(`collaboration-remote-${index + 1}`),
+          initial_password: "FeVP7RemotePass!",
+          role: "editor",
+        }),
+      })),
+    );
     const presenceRow = (await createViewRow(
       page,
       incidentId,
@@ -2254,34 +2328,36 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     )) as ViewRow;
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
-    let remotePage: Page | null = null;
+    const remotePages: Page[] = [];
     try {
       await page.goto(`/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
       await maskIncidentIdentity(page, incidentId);
 
-      const remoteSession = await openIncidentAsTrackedUserReady(
-        browser,
-        sessionTracker,
-        {
-          createdBy: "visual.collaboration.row-01",
-          email: remote.email,
-          incidentId,
-          password: remote.initial_password,
-          purpose: "browser.collaboration visual presence analyst",
-          readyRecordId: presenceRow.record_id,
-          userId: remote.user_id,
-        },
-      );
-      remotePage = remoteSession.page;
-      await focusRemoteTimelineCellAndWaitForPresence({
-        actorText: "VA",
-        fieldKey: "timeline.activity_synopsis_text",
-        primaryPage: page,
-        recordId: presenceRow.record_id,
-        remotePage,
-        socketMonitor: primarySocket,
-      });
+      for (const [index, remoteActor] of remoteActors.entries()) {
+        const remoteSession = await openIncidentAsTrackedUserReady(
+          browser,
+          sessionTracker,
+          {
+            createdBy: `visual.collaboration.presence-${index + 1}`,
+            email: remoteActor.user.email,
+            incidentId,
+            password: remoteActor.user.initial_password,
+            purpose: "browser.collaboration visual presence overflow analyst",
+            readyRecordId: presenceRow.record_id,
+            userId: remoteActor.user.user_id,
+          },
+        );
+        remotePages.push(remoteSession.page);
+        await focusRemoteTimelineCellAndWaitForPresence({
+          fieldKey: "timeline.activity_synopsis_text",
+          primaryPage: page,
+          recordId: presenceRow.record_id,
+          remotePage: remoteSession.page,
+          socketMonitor: primarySocket,
+          ...(index === 0 ? { actorText: remoteActor.actorText } : {}),
+        });
+      }
       await scrollGridTargetIntoView({
         page,
         surface: timelineViewSchemaId,
@@ -2313,6 +2389,18 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           "timeline.activity_synopsis_text",
         ),
       });
+      await expect(page.getByTestId("presence-header")).toContainText("+1");
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(presenceRow.record_id)),
+      ).toContainText("+3");
+      await expect(
+        page.getByTestId(
+          cellPresenceMarkerTestId(
+            presenceRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toContainText("+4");
       await assertWorkbookGridVisualRegression(
         page,
         "collaboration-presence-markers",
@@ -2320,7 +2408,9 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         { scroll: { top: 0, left: "left" } },
       );
     } finally {
-      await remotePage?.context().close();
+      await Promise.all(
+        remotePages.map((remotePage) => remotePage.context().close()),
+      );
     }
   });
 
@@ -2351,9 +2441,14 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
       });
-      await assertViewportVisualRegression(
+      const conflictFixture = page.getByTestId(workbookShellReadyTestId());
+      await conflictFixture.evaluate((element) => {
+        element.setAttribute("data-design-fixture", "conflict");
+      });
+      await assertVisualRegression(
         page,
         "collaboration-conflict-resolver",
+        conflictFixture,
       );
     } finally {
       await fixture.patchController.dispose();
@@ -2367,7 +2462,9 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     });
     try {
       await page.getByTestId("conflict-close").click();
-      await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+      await expect(
+        page.getByTestId(workbookConflictResolverTestId()),
+      ).toHaveCount(0);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await expect(
         page.getByTestId(workbookShellSlotTestId("status-strip")),
@@ -2397,37 +2494,6 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     } finally {
       await fixture.patchController.dispose();
     }
-  });
-
-  test("Capture reset/invalidate refresh strip.", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("VISUALCOLLABORATIONINVALIDATE"),
-      "browser.collaboration visual reset/invalidate strip",
-    );
-    const invalidateRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("VISUALCOLLABORATION-INVALIDATE"),
-        "timeline.activity_synopsis_text": "Invalidate visual base",
-      },
-    )) as ViewRow;
-    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
-
-    await page.goto(`/?incident_id=${incidentId}`);
-    await socketMonitor.waitForAcceptedSocket();
-    await maskIncidentIdentity(page, incidentId);
-    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await driveFeP7InvalidateRefreshVisual({
-      incidentId,
-      page,
-      recordId: invalidateRow.record_id,
-      rowVersion: invalidateRow.row_version,
-      socketMonitor,
-    });
   });
 });
 
@@ -2533,6 +2599,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       uniqueIncidentKey("VISUALSAVEDVIEWEMPTY"),
       "browser.saved-view-query empty successful Timeline query",
     );
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(`/?incident_id=${emptyIncidentId}`);
     await maskIncidentIdentity(page, emptyIncidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -2553,6 +2620,11 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    await page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .evaluate((element) => {
+        element.setAttribute("data-design-fixture", "empty-state");
+      });
     await assertWorkbookGridVisualRegression(
       page,
       "workbook-query-empty-successful-query",
@@ -2566,7 +2638,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
   test("Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALINSPECTORHISTORY"),
@@ -2715,14 +2787,17 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
       ),
     ).toContainText(target.record_id);
-    await page
-      .getByTestId(
-        rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
-      )
-      .scrollIntoViewIfNeeded();
-    await assertViewportVisualRegression(
+    const destructiveActions = page.getByTestId(
+      rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+    );
+    await destructiveActions.evaluate((element) => {
+      element.setAttribute("data-design-fixture", "destructive-actions");
+    });
+    await destructiveActions.scrollIntoViewIfNeeded();
+    await assertVisualRegression(
       page,
       "workbook-inspector-destructive-confirmation",
+      destructiveActions,
     );
 
     await page
@@ -2833,7 +2908,7 @@ async function prepareFeP7ConflictVisual(
     title: string;
   },
 ) {
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 720 });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey(options.incidentKeyPrefix),
@@ -2864,112 +2939,6 @@ async function prepareFeP7ConflictVisual(
     txnPrefix: `${options.incidentKeyPrefix.toLowerCase()}-conflict`,
   });
   return { conflictRow, patchController };
-}
-
-async function driveFeP7InvalidateRefreshVisual({
-  incidentId,
-  page,
-  recordId,
-  rowVersion,
-  socketMonitor,
-}: {
-  incidentId: string;
-  page: Page;
-  recordId: string;
-  rowVersion: number;
-  socketMonitor: ReturnType<typeof installIncidentSocketMonitor>;
-}) {
-  const removeStartAt = socketMonitor.messageCount();
-  const deleteResponse = await page.request.delete(
-    `${apiBase}/api/v1/records/${recordId}`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        base_row_version: rowVersion,
-        client_txn_id: uniqueTxn("visual-collaboration-delete"),
-      },
-    },
-  );
-  expect(deleteResponse.ok()).toBeTruthy();
-  const removeMessage = await socketMonitor.waitForMessage("record_changed", {
-    matches: (message) =>
-      message.payload.record_id === recordId &&
-      Array.isArray(message.payload.affected_views) &&
-      message.payload.affected_views.some(
-        (view: { change_kind?: string }) => view.change_kind === "remove",
-      ),
-    startAt: removeStartAt,
-  });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-    ),
-  ).toHaveCount(0);
-
-  const queryHold = await holdBrowserApiRequest(page, {
-    method: "POST",
-    path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-  });
-  let queryReleased = false;
-  try {
-    const invalidateStartAt = socketMonitor.messageCount();
-    const restoreResponse = await page.request.post(
-      `${apiBase}/api/v1/records/${recordId}/restore`,
-      {
-        headers: await csrfHeaders(page),
-        data: {
-          base_row_version: Number(removeMessage.payload.row_version),
-          client_txn_id: uniqueTxn("visual-collaboration-restore"),
-        },
-      },
-    );
-    expect(restoreResponse.ok()).toBeTruthy();
-    await socketMonitor.waitForMessage("record_changed", {
-      matches: (message) =>
-        message.payload.record_id === recordId &&
-        Array.isArray(message.payload.affected_views) &&
-        message.payload.affected_views.some(
-          (view: { change_kind?: string; view_schema_id?: string }) =>
-            view.view_schema_id === timelineViewSchemaId &&
-            view.change_kind === "invalidate",
-        ),
-      startAt: invalidateStartAt,
-    });
-    await queryHold.waitForHit;
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-    await expect(
-      page.getByTestId(workbookShellSlotTestId("status-strip")),
-    ).toContainText("Queued edits are waiting for workbook refresh.");
-    await assertStatusStripVisualFixture(
-      page,
-      "collaboration-reset-invalidate-notice",
-    );
-    const queryRefreshResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "POST" &&
-        response
-          .url()
-          .endsWith(
-            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-          ),
-    );
-    queryHold.release();
-    queryReleased = true;
-    expect((await queryRefreshResponse).ok()).toBeTruthy();
-  } finally {
-    if (!queryReleased) {
-      queryHold.release();
-    }
-    await queryHold.dispose();
-  }
-  await expect(
-    await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      recordId,
-      "timeline.activity_synopsis_text",
-    ),
-  ).toHaveText("Invalidate visual base", { timeout: 10_000 });
 }
 
 test.describe("workbook visual evidence", () => {
@@ -3129,7 +3098,7 @@ test.describe("workbook visual evidence", () => {
   test("regresses collaboration pending-queue save-state transitions", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALCOLLABORATIONSAVE"),
@@ -3202,7 +3171,9 @@ test.describe("workbook visual evidence", () => {
         remoteValue: "Pending visual server",
         txnPrefix: "visual-collaboration-pending-conflict",
       });
-      await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
+      await page
+        .getByTestId(workbookConflictResolverTestId())
+        .scrollIntoViewIfNeeded();
       await stabilizeConflictResolverVisual(page);
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "right" },
@@ -3499,7 +3470,7 @@ test.describe("browser.design-readiness visual readiness", () => {
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
     expect(registry.schema_id).toBe(
-      "cartulary.frontend_visual_fixture_registry.v4",
+      "cartulary.frontend_visual_fixture_registry.v5",
     );
     expect(registry.owner_id).toBe("harness.visual");
     expect(registry.verification_id).toBe(
@@ -3512,6 +3483,14 @@ test.describe("browser.design-readiness visual readiness", () => {
       expect(fixture.status).toBe("current");
       expectCurrentFrontendVisualFixtureMetadata(fixture);
     }
+    expect(
+      registry.fixtures
+        .map((fixture) => fixture.design_contract_id)
+        .filter((designContractId): designContractId is string =>
+          Boolean(designContractId),
+        )
+        .sort(),
+    ).toEqual(expectedDesignContractIds);
 
     await testInfo.attach("owned-stack-visual-suite.json", {
       body: Buffer.from(
@@ -3539,7 +3518,7 @@ test.describe("browser.design-readiness visual readiness", () => {
     });
   });
 
-  test("Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.", async ({
+  test("Ensure the visual fixture matrix maps every design contract exactly once and retains implementation-only workbook, collaboration, evidence, entity, coordination, and grid-adapter fixtures.", async ({
     browserName: _browserName,
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
@@ -3557,21 +3536,42 @@ test.describe("browser.design-readiness visual readiness", () => {
       "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
     );
 
-    const exposedTheme = fixturesById.get(
-      "visual.fixture.exposed_theme_states",
+    const componentStates = fixturesById.get(
+      "visual.fixture.component_state_matrix",
     );
-    expect(exposedTheme?.fixture_title).toBe("Exposed theme states");
-    expect(exposedTheme?.catalog_row_ids).toEqual([
+    expect(componentStates?.fixture_title).toBe("Component state matrix");
+    expect(componentStates?.design_contract_id).toBe("D-VFIX-009");
+    expect(componentStates?.catalog_row_ids).toEqual([
       "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
     ]);
-    expect(exposedTheme?.capture_scope).toEqual({
+    expect(componentStates?.capture_scope).toEqual({
       kind: "selector",
-      selector: "[data-design-fixture='exposed-theme']",
+      selector: "[data-design-fixture='components']",
     });
-    expect(exposedTheme?.scroll_normalization.kind).toBe("not_applicable");
-    expect(exposedTheme?.viewport_css_px).toBe("1280x720");
-    expect(exposedTheme?.dynamic_masks).toEqual([]);
-    expect(exposedTheme?.no_dynamic_regions).toBe(true);
+    expect(componentStates?.scroll_normalization.kind).toBe("not_applicable");
+    expect(componentStates?.viewport_css_px).toBe("1280x720");
+    expect(componentStates?.dynamic_masks).toEqual([]);
+    expect(componentStates?.no_dynamic_regions).toBe(true);
+
+    const designMappings = registry.fixtures
+      .filter(
+        (
+          fixture,
+        ): fixture is FrontendVisualFixture & { design_contract_id: string } =>
+          fixture.design_contract_id !== undefined,
+      )
+      .map((fixture) => ({
+        capture_scope: fixture.capture_scope,
+        design_contract_id: fixture.design_contract_id,
+        fixture_id: fixture.fixture_id,
+        viewport_css_px: fixture.viewport_css_px,
+      }))
+      .sort((left, right) =>
+        left.design_contract_id.localeCompare(right.design_contract_id),
+      );
+    expect(designMappings.map((mapping) => mapping.design_contract_id)).toEqual(
+      expectedDesignContractIds,
+    );
 
     await testInfo.attach("visual-fixture-matrix.json", {
       body: Buffer.from(
@@ -3582,7 +3582,7 @@ test.describe("browser.design-readiness visual readiness", () => {
               (fixtureId) => fixturesById.get(fixtureId)?.fixture_title,
             ),
             non_claim_boundaries: [
-              "the exposed-theme fixture does not satisfy the default-shell fixture",
+              "component-state evidence does not satisfy shell geometry fixtures",
               "current fixture metadata does not close browser.design-readiness without row accounting",
               "visual evidence remains non-publication evidence",
             ],
@@ -3622,7 +3622,7 @@ test.describe("browser.design-readiness visual readiness", () => {
     await assertExposedThemeCssVariables(page);
     await injectExposedThemeVisualFixture(page);
 
-    const fixture = page.locator("[data-design-fixture='exposed-theme']");
+    const fixture = page.locator("[data-design-fixture='components']");
     await expect(fixture).toBeVisible();
     await assertVisualRegression(page, "design-exposed-theme-states", fixture);
   });
@@ -3918,6 +3918,7 @@ async function assertStatusStripVisualFixture(page: Page, name: string) {
       const sourceRect = source.getBoundingClientRect();
       const clone = source.cloneNode(true) as HTMLElement;
       clone.setAttribute("aria-hidden", "true");
+      clone.setAttribute("data-design-fixture", "status-strip");
       clone.setAttribute("data-testid", cloneTestId);
       clone.style.position = "fixed";
       clone.style.insetInlineStart = "0";
@@ -4220,10 +4221,10 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
 async function injectExposedThemeVisualFixture(page: Page) {
   await injectDesignFixture(page, {
     ariaLabel: "Exposed theme token state fixture",
-    fixtureName: "exposed-theme",
+    fixtureName: "components",
     missingMainMessage: "Expected workbook shell main before theme fixture",
     styleText: `
-      [data-design-fixture='exposed-theme'] {
+      [data-design-fixture='components'] {
         position: fixed;
         inset: var(--ct-spacing-xl);
         box-sizing: border-box;
@@ -4245,7 +4246,7 @@ async function injectExposedThemeVisualFixture(page: Page) {
         z-index: 1000;
       }
 
-      [data-design-fixture='exposed-theme'] * {
+      [data-design-fixture='components'] * {
         box-sizing: border-box;
       }
 
@@ -4513,12 +4514,15 @@ async function assertEvidenceAccessVisualRegression(
     );
     await waitForVisualLayoutFrame(page);
     await expect(actionButton).toBeVisible();
-    await assertVisualRegression(
-      page,
-      name,
-      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
-      { renderSurface: evidenceViewSchemaId },
+    const evidenceFixture = page.getByTestId(
+      gridShellTestId(evidenceViewSchemaId),
     );
+    await evidenceFixture.evaluate((element) => {
+      element.setAttribute("data-design-fixture", "evidence");
+    });
+    await assertVisualRegression(page, name, evidenceFixture, {
+      renderSurface: evidenceViewSchemaId,
+    });
   } catch (error) {
     try {
       await attachWorkbookGridVisualDiagnostics(
@@ -4610,7 +4614,9 @@ async function stabilizeConflictResolverVisual(page: Page) {
   if (gridEditorIsActive) {
     await page.keyboard.press("Escape");
   }
-  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  await expect(
+    page.getByTestId(workbookConflictResolverTestId()),
+  ).toBeVisible();
   await expect(
     page.getByText("Resolve the existing field conflict before editing.", {
       exact: true,

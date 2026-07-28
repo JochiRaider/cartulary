@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
   buildWorkbookPresenceInput,
   buildWorkbookPresenceUpdateMessage,
@@ -7,7 +7,12 @@ import {
 
 describe("workbook collaboration presence messages", () => {
   it("builds default timeline presence payloads for WebSocket session establishment", () => {
-    expect(buildWorkbookPresenceInput()).toEqual({
+    expect(
+      buildWorkbookPresenceInput(
+        { fieldKey: null, mode: "viewing", recordId: null },
+        { kind: "view_schema", id: timelineViewSchemaId },
+      ),
+    ).toEqual({
       sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
       mode: "viewing",
     });

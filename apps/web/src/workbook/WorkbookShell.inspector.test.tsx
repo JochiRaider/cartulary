@@ -19,6 +19,7 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
+  timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorFeatureGroupTestId,
@@ -110,7 +111,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ]),
     );
 
-    const { container } = render(
+    const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
     );
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
@@ -170,18 +171,65 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     });
     const inspectorSlot = screen.getByTestId(timelineInspectorTestId())
       .parentElement as HTMLElement;
-    expect(inspectorSlot.style.position).toBe("absolute");
-    expect(["0", "0px"]).toContain(
-      inspectorSlot.style.getPropertyValue("inset-block"),
-    );
-    expect(["0", "0px"]).toContain(
-      inspectorSlot.style.getPropertyValue("inset-inline-end"),
-    );
+    expect(inspectorSlot.style.position).toBe("relative");
     expect(inspectorSlot.style.zIndex).toBe("8");
-    expect(inspectorSlot.style.inlineSize).toBe(
-      "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
-    );
+    expect(inspectorSlot.style.inlineSize).toBe("420px");
     expect(inspectorSlot.style.overflow).toBe("hidden");
+    expect((workArea as HTMLElement).style.gridTemplateColumns).toBe(
+      "minmax(0, 1fr) 420px",
+    );
+    const resizeSeparator = screen.getByRole("separator", {
+      name: "Resize inspector",
+    });
+    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("420");
+    fireEvent.keyDown(resizeSeparator, { key: "ArrowLeft" });
+    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("436");
+    fireEvent.keyDown(resizeSeparator, { key: "Home" });
+    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("360");
+    fireEvent.keyDown(resizeSeparator, { key: "End" });
+    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("560");
+
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        chromeMode="narrow_desktop"
+        incidentId="incident-1"
+      />,
+    );
+    expect(inspectorSlot.style.position).toBe("absolute");
+    expect(primaryGridSlot.hasAttribute("inert")).toBe(true);
+    expect(
+      screen
+        .getByTestId(timelineMutationSubstrateReadyTestId())
+        .getAttribute("data-inspector-layout"),
+    ).toBe("right_overlay");
+    expect(
+      screen.queryByRole("separator", { name: "Resize inspector" }),
+    ).toBeNull();
+
+    rerender(
+      <TimelineWorkbookRuntimeFixture
+        chromeMode="compact_desktop"
+        incidentId="incident-1"
+      />,
+    );
+    expect(inspectorSlot.style.inlineSize).toBe("100%");
+    expect(
+      screen
+        .getByTestId(timelineMutationSubstrateReadyTestId())
+        .getAttribute("data-inspector-layout"),
+    ).toBe("full_overlay");
+
+    const inspectorToggle = screen.getByTestId(
+      workbookInspectorToggleTestId(timelineViewSchemaId),
+    );
+    inspectorToggle.focus();
+    fireEvent.keyDown(screen.getByTestId(timelineInspectorTestId()), {
+      key: "Escape",
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
+      expect(document.activeElement).toBe(inspectorToggle);
+    });
     expect((workArea as HTMLElement).style.gridTemplateRows).toBe(
       "minmax(0, 1fr)",
     );

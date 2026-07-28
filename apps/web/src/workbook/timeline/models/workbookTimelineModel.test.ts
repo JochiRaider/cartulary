@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import {
-  buildTimelineConflictResolutionPayload,
   buildTimelineDeleteRestorePayload,
   buildTimelineRecordActionPayload,
   buildTimelineRollbackPayload,
@@ -355,22 +354,6 @@ describe("workbookTimelineModel", () => {
       reason: "Rollback from workbook history",
       target: { kind: "change_set", change_set_id: "change-1" },
     });
-    expect(
-      buildTimelineConflictResolutionPayload({
-        clientTxnId: "txn-conflict",
-        conflictResolutionClass: "text_compare_merge",
-        conflictToken: "conflict-1",
-        localValue: "local",
-        mergedDraft: "merged",
-        resolutionKind: "merged_value",
-      }),
-    ).toEqual({
-      conflict_token: "conflict-1",
-      resolution_kind: "merged_value",
-      client_txn_id: "txn-conflict",
-      resolved_value: "merged",
-    });
-
     const patchUnit = {
       kind: "patch",
       payloadIntent: { changes: [] },

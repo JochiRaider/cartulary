@@ -7,9 +7,9 @@ import {
   displayInitials,
   type PresenceRecord,
   visiblePresence,
-} from "../../utils/workbookPresence";
+} from "../utils/workbookPresence";
 
-export function TimelineCellPresenceMarker({
+export function WorkbookCellPresenceMarker({
   fieldKey,
   fieldLabel,
   presences,
@@ -20,10 +20,8 @@ export function TimelineCellPresenceMarker({
   readonly presences: readonly PresenceRecord[];
   readonly recordId: string | null;
 }) {
-  if (presences.length < 1) {
-    return null;
-  }
-  const visible = visiblePresence(presences, 1);
+  if (presences.length < 1) return null;
+  const visible = visiblePresence(presences, 2);
   return (
     <span
       aria-label={`${presences
@@ -33,13 +31,28 @@ export function TimelineCellPresenceMarker({
       role="img"
       style={cellPresenceStyle}
     >
-      {visible.shown.map((presence) => displayInitials(presence.display_name))}
-      {visible.overflow > 0 ? ` +${visible.overflow}` : ""}
+      {visible.shown.map((presence, index) => (
+        <span
+          aria-hidden="true"
+          key={presence.connection_id}
+          style={{
+            ...presenceMarkerAvatarStyle,
+            marginInlineStart: index === 0 ? 0 : "-0.2rem",
+          }}
+        >
+          {displayInitials(presence.display_name)}
+        </span>
+      ))}
+      {visible.overflow > 0 ? (
+        <span aria-hidden="true" style={presenceMarkerOverflowStyle}>
+          +{visible.overflow}
+        </span>
+      ) : null}
     </span>
   );
 }
 
-export function TimelineRowGutterContent({
+export function WorkbookRowGutterContent({
   ordinal,
   presences,
   recordId,
@@ -50,23 +63,23 @@ export function TimelineRowGutterContent({
 }) {
   return (
     <span style={rowGutterContentStyle}>
-      <span aria-hidden="true">{ordinal}</span>
-      <TimelineRowPresenceMarker presences={presences} recordId={recordId} />
+      {presences.length === 0 ? (
+        <span aria-hidden="true">{ordinal}</span>
+      ) : null}
+      <WorkbookRowPresenceMarker presences={presences} recordId={recordId} />
     </span>
   );
 }
 
-function TimelineRowPresenceMarker({
+export function WorkbookRowPresenceMarker({
   presences,
   recordId,
 }: {
   readonly presences: readonly PresenceRecord[];
   readonly recordId: string | null;
 }) {
-  if (presences.length < 1) {
-    return null;
-  }
-  const visible = visiblePresence(presences, 2);
+  if (presences.length < 1) return null;
+  const visible = visiblePresence(presences, 3);
   return (
     <span
       aria-label={`${presences
@@ -76,10 +89,23 @@ function TimelineRowPresenceMarker({
       role="img"
       style={rowGutterPresenceStyle}
     >
-      {visible.shown
-        .map((presence) => displayInitials(presence.display_name))
-        .join("")}
-      {visible.overflow > 0 ? `+${visible.overflow}` : ""}
+      {visible.shown.map((presence, index) => (
+        <span
+          aria-hidden="true"
+          key={presence.connection_id}
+          style={{
+            ...presenceMarkerAvatarStyle,
+            marginInlineStart: index === 0 ? 0 : "-0.2rem",
+          }}
+        >
+          {displayInitials(presence.display_name)}
+        </span>
+      ))}
+      {visible.overflow > 0 ? (
+        <span aria-hidden="true" style={presenceMarkerOverflowStyle}>
+          +{visible.overflow}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -123,5 +149,24 @@ const rowGutterPresenceStyle = {
   border: "var(--ct-border-hairline)",
   color: "var(--ct-colors-semantic-presence-other)",
   fontSize: "0.62rem",
+  lineHeight: 1,
+} satisfies CSSProperties;
+
+const presenceMarkerAvatarStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  inlineSize: "0.7rem",
+  blockSize: "0.8rem",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  fontSize: "0.42rem",
+  lineHeight: 1,
+} satisfies CSSProperties;
+
+const presenceMarkerOverflowStyle = {
+  marginInlineStart: "0.1rem",
+  fontSize: "0.58rem",
   lineHeight: 1,
 } satisfies CSSProperties;

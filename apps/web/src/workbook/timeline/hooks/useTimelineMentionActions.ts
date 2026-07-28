@@ -9,6 +9,10 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
+import {
+  buildMentionActionPayload,
+  type MentionResolutionAction,
+} from "../../runtime/workbookCollaborationMessages";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordRequirement,
@@ -18,10 +22,6 @@ import type {
   InspectorMention,
 } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import {
-  buildMentionActionPayload,
-  type MentionResolutionAction,
-} from "../services/workbookCollaborationMessages";
 
 type MentionActionEnvelope = {
   data: {

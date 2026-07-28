@@ -27,6 +27,37 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "web.collaboration.regression.workbookcollaborationprojection_suite_514be174a8",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookCollaborationProjection.test.ts",
+        "titles": [
+          "WorkbookCollaborationProjection clears protected rows and pauses replay on authorization loss and closure",
+          "WorkbookCollaborationProjection keeps base and saved-view presence exact, keyed, sorted, and self-free",
+          "WorkbookCollaborationProjection refreshes invalidations and resets before releasing replay",
+          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.assessments.v1 renderer port",
+          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.hosts.v1 renderer port",
+          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.notes.v1 renderer port",
+          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.timeline.v2 renderer port"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }

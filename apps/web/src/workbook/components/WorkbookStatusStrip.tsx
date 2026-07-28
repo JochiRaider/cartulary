@@ -31,6 +31,7 @@ export function WorkbookStatusStrip({
   queuedCount,
   saveState,
   saveStateSecondaryMessage,
+  showPresence = true,
   onActivateConflict,
   workbookFocusAnchor,
 }: {
@@ -39,10 +40,10 @@ export function WorkbookStatusStrip({
   readonly queuedCount: number;
   readonly saveState: WorkbookStatusSaveState;
   readonly saveStateSecondaryMessage: string | null;
+  readonly showPresence?: boolean | undefined;
   readonly onActivateConflict?: (() => void) | undefined;
   readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
 }) {
-  const headerPresence = visiblePresence(activeSheetPresenceRecords, 5);
   return (
     <>
       <span style={statusStripItemStyle}>
@@ -88,42 +89,25 @@ export function WorkbookStatusStrip({
           {queuedCount + inFlightCount}
         </span>
       </span>
-      <div
-        aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
-        data-testid="presence-header"
-        role="status"
-        style={statusStripPresenceStyle}
-      >
-        <span>Presence</span>
-        {headerPresence.shown.length === 0 ? (
-          <span style={presenceEmptyStyle}>0</span>
-        ) : (
-          headerPresence.shown.map((presence) => (
-            <span
-              key={presence.connection_id}
-              title={presence.display_name}
-              style={presenceAvatarStyle}
-            >
-              {displayInitials(presence.display_name)}
-            </span>
-          ))
-        )}
-        {headerPresence.overflow > 0 ? (
-          <span style={presenceOverflowStyle}>+{headerPresence.overflow}</span>
-        ) : null}
-      </div>
+      {showPresence ? (
+        <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
+      ) : null}
       <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
 }
 
 export function WorkbookSurfaceStatusStrip({
+  activeSheetPresenceRecords = [],
   mutationError = null,
   mutationState,
+  showPresence = true,
   workbookFocusAnchor,
 }: {
+  readonly activeSheetPresenceRecords?: readonly PresenceRecord[] | undefined;
   readonly mutationError?: string | null | undefined;
   readonly mutationState: WorkbookStatusSaveState;
+  readonly showPresence?: boolean | undefined;
   readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
 }) {
   return (
@@ -150,8 +134,51 @@ export function WorkbookSurfaceStatusStrip({
           {mutationError}
         </span>
       ) : null}
+      {showPresence ? (
+        <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
+      ) : null}
       <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
     </>
+  );
+}
+
+export function WorkbookPresenceSummary({
+  records,
+}: {
+  readonly records: readonly PresenceRecord[];
+}) {
+  const visible = visiblePresence(records, 5);
+  return (
+    <div
+      aria-label={`${records.length} collaborators present on this sheet`}
+      data-testid="presence-header"
+      role="status"
+      style={statusStripPresenceStyle}
+    >
+      <span>Presence</span>
+      {visible.shown.length === 0 ? (
+        <span style={presenceEmptyStyle}>0</span>
+      ) : (
+        visible.shown.map((presence) => (
+          <span
+            key={presence.connection_id}
+            title={presence.display_name}
+            style={presenceAvatarStyle}
+          >
+            {displayInitials(presence.display_name)}
+          </span>
+        ))
+      )}
+      {visible.overflow > 0 ? (
+        <span
+          aria-label={`${visible.overflow} additional collaborators`}
+          role="img"
+          style={presenceOverflowStyle}
+        >
+          +{visible.overflow}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

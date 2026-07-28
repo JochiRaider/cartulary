@@ -8,7 +8,7 @@ import {
   saveStateTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type {
   ViewContract,
@@ -24,7 +24,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
-import type { RecordChangedPayload } from "../workbook/timeline/services/workbookCollaborationMessages";
+import type { RecordChangedPayload } from "../workbook/runtime/workbookCollaborationMessages";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
 
 type WebSocketLike = {
@@ -681,7 +681,7 @@ export async function waitForWorkbookRows({
     timeout: workbookAsyncTimeoutMs,
   });
   await screen.findByTestId(
-    workbookTopBarQueryControlsTestId(surface),
+    workbookViewBarQueryControlsTestId(surface),
     undefined,
     {
       timeout: workbookAsyncTimeoutMs,

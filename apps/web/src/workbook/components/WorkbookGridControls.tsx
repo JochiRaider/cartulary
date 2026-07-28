@@ -10,15 +10,18 @@ import {
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
   workbookSortOptionTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
 import {
   type ChangeEvent,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
@@ -29,9 +32,14 @@ import {
   filterInputMode,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import {
+  type WorkbookChromeMode,
+  workbookQueryChipCapacity,
+} from "../models/workbookResponsiveLayout";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 
 type WorkbookGridControlsProps = {
+  readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly contract: ViewContract;
   readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
@@ -52,7 +60,67 @@ type WorkbookGridControlsProps = {
   readonly surface: WorkbookSurface;
 };
 
+type QueryChip = {
+  readonly key: string;
+  readonly label: string;
+  readonly remove: () => void;
+  readonly testId?: string | undefined;
+};
+
+function focusFirstMenuItem(menuId: string) {
+  window.requestAnimationFrame(() => {
+    document
+      .getElementById(menuId)
+      ?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')
+      ?.focus({ preventScroll: true });
+  });
+}
+
+function handleMenuKeyboard(
+  event: ReactKeyboardEvent<HTMLDivElement>,
+  triggerRef: RefObject<HTMLButtonElement | null>,
+  close: () => void,
+) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    triggerRef.current?.focus({ preventScroll: true });
+    return;
+  }
+  if (
+    event.key !== "ArrowDown" &&
+    event.key !== "ArrowUp" &&
+    event.key !== "Home" &&
+    event.key !== "End"
+  ) {
+    return;
+  }
+  const items = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(
+      '[role^="menuitem"]:not(:disabled)',
+    ),
+  );
+  if (items.length === 0) return;
+  const activeIndex =
+    document.activeElement instanceof HTMLElement
+      ? items.indexOf(document.activeElement)
+      : -1;
+  let nextIndex = 0;
+  if (event.key === "End") {
+    nextIndex = items.length - 1;
+  } else if (event.key === "ArrowUp") {
+    nextIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+  } else if (event.key === "ArrowDown") {
+    nextIndex =
+      activeIndex < 0 || activeIndex === items.length - 1 ? 0 : activeIndex + 1;
+  }
+  event.preventDefault();
+  items[nextIndex]?.focus({ preventScroll: true });
+}
+
 export function WorkbookGridControls({
+  chromeMode = "base",
   contract,
   defaultFilterPopoverOpen = false,
   filterDraft,
@@ -75,6 +143,10 @@ export function WorkbookGridControls({
     defaultFilterPopoverOpen,
   );
   const [draft, setDraft] = useState(filterDraft);
+  const mountedSurfaceRef = useRef(surface);
+  const sortMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const columnsMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterPopoverTriggerRef = useRef<HTMLButtonElement>(null);
   const inputMode = filterInputMode(draft.fieldKey);
   const activeSort = queryState.sort[0] ?? null;
   const hiddenFieldKeys = useMemo(
@@ -106,12 +178,50 @@ export function WorkbookGridControls({
     inputMode === "boolean"
       ? draft.booleanValue === ""
       : draft.value.trim() === "";
+  const activeQueryChips: QueryChip[] = [
+    ...(queryState.groupBy && groupChipLabel
+      ? [
+          {
+            key: `group:${queryState.groupBy}`,
+            label: groupChipLabel,
+            remove: () => onGroupByChange(null),
+          },
+        ]
+      : []),
+    ...queryState.sort.map((sort) => ({
+      key: `sort:${sort.fieldKey}`,
+      label: `Sort: ${sortLabel(contract, sort.fieldKey)} ${sort.direction}`,
+      remove: () => {
+        onSortChange(
+          queryState.sort.filter((entry) => entry.fieldKey !== sort.fieldKey),
+        );
+      },
+    })),
+    ...queryState.filters.map((filter) => ({
+      key: `filter:${filter.fieldKey}`,
+      label: filterChipLabel(contract, filter),
+      remove: () => onRemoveFilter(filter.fieldKey),
+      testId: gridFilterChipTestId(surface, filter.fieldKey),
+    })),
+  ];
+  const visibleChipCapacity = workbookQueryChipCapacity(chromeMode);
+  const visibleQueryChips = activeQueryChips.slice(0, visibleChipCapacity);
+  const hiddenQueryChips = activeQueryChips.slice(visibleChipCapacity);
 
   useEffect(() => {
     if (!isFilterPopoverOpen) {
       setDraft(filterDraft);
     }
   }, [filterDraft, isFilterPopoverOpen]);
+
+  useEffect(() => {
+    if (mountedSurfaceRef.current === surface) return;
+    mountedSurfaceRef.current = surface;
+    setDraft(filterDraft);
+    setIsColumnsMenuOpen(false);
+    setIsFilterPopoverOpen(false);
+    setIsSortMenuOpen(false);
+  }, [filterDraft, surface]);
 
   const closeFilterPopover = () => {
     setDraft(filterDraft);
@@ -126,9 +236,38 @@ export function WorkbookGridControls({
   };
 
   return (
-    <div
-      data-testid={workbookTopBarQueryControlsTestId(surface)}
-      style={queryControlsStyle}
+    <fieldset
+      aria-label="Workbook query controls"
+      data-hidden-query-chip-count={hiddenQueryChips.length}
+      data-query-chip-capacity={visibleChipCapacity}
+      data-testid={workbookViewBarQueryControlsTestId(surface)}
+      style={{
+        ...queryControlsStyle,
+        ...(visibleChipCapacity === 0 ? compactQueryControlsStyle : null),
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        if (isFilterPopoverOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeFilterPopover();
+          filterPopoverTriggerRef.current?.focus({ preventScroll: true });
+          return;
+        }
+        if (isColumnsMenuOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsColumnsMenuOpen(false);
+          columnsMenuTriggerRef.current?.focus({ preventScroll: true });
+          return;
+        }
+        if (isSortMenuOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsSortMenuOpen(false);
+          sortMenuTriggerRef.current?.focus({ preventScroll: true });
+        }
+      }}
     >
       <div style={menuFrameStyle}>
         <button
@@ -138,10 +277,17 @@ export function WorkbookGridControls({
           aria-expanded={isSortMenuOpen}
           aria-haspopup="menu"
           data-testid={workbookSortMenuTriggerTestId(surface)}
+          ref={sortMenuTriggerRef}
           style={controlButtonStyle}
           type="button"
           onClick={() => {
             setIsSortMenuOpen((current) => !current);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowDown") return;
+            event.preventDefault();
+            setIsSortMenuOpen(true);
+            focusFirstMenuItem(workbookSortMenuTestId(surface));
           }}
         >
           Sort
@@ -153,6 +299,11 @@ export function WorkbookGridControls({
             id={workbookSortMenuTestId(surface)}
             role="menu"
             style={menuStyle}
+            onKeyDown={(event) => {
+              handleMenuKeyboard(event, sortMenuTriggerRef, () =>
+                setIsSortMenuOpen(false),
+              );
+            }}
           >
             {visibleSortFields.map((fieldKey) => {
               const priority = queryState.sort.findIndex(
@@ -194,72 +345,6 @@ export function WorkbookGridControls({
         ) : null}
       </div>
 
-      <div style={menuFrameStyle}>
-        <button
-          aria-expanded={isColumnsMenuOpen}
-          aria-haspopup="menu"
-          style={controlButtonStyle}
-          type="button"
-          onClick={() => {
-            setIsColumnsMenuOpen((current) => !current);
-          }}
-        >
-          Columns
-        </button>
-        {isColumnsMenuOpen ? (
-          <div aria-label="Column controls" role="menu" style={menuStyle}>
-            {layoutState.columnOrder.map((fieldKey, index) => {
-              const field = contract.fieldMap[fieldKey];
-              if (field === undefined) return null;
-              const hidden = hiddenFieldKeys.has(fieldKey);
-              return (
-                <div key={fieldKey} role="none" style={columnMenuRowStyle}>
-                  <button
-                    aria-checked={!hidden}
-                    role="menuitemcheckbox"
-                    style={menuItemStyle}
-                    type="button"
-                    onClick={() => {
-                      onColumnHiddenChange(fieldKey, !hidden);
-                    }}
-                  >
-                    {field.label}
-                  </button>
-                  <button
-                    aria-label={`Move ${field.label} earlier`}
-                    disabled={index === 0}
-                    type="button"
-                    onClick={() => {
-                      onColumnMove(fieldKey, "earlier");
-                    }}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    aria-label={`Move ${field.label} later`}
-                    disabled={index === layoutState.columnOrder.length - 1}
-                    type="button"
-                    onClick={() => {
-                      onColumnMove(fieldKey, "later");
-                    }}
-                  >
-                    ↓
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              role="menuitem"
-              style={menuItemStyle}
-              type="button"
-              onClick={onResetColumns}
-            >
-              Reset columns
-            </button>
-          </div>
-        ) : null}
-      </div>
-
       <label style={inlineLabelStyle}>
         Group:
         <select
@@ -284,6 +369,11 @@ export function WorkbookGridControls({
 
       <div style={menuFrameStyle}>
         <button
+          aria-label={
+            hiddenQueryChips.length > 0
+              ? `Filters, ${queryState.filters.length} active filters, ${hiddenQueryChips.length} active query chips hidden`
+              : `Filters, ${queryState.filters.length} active filters`
+          }
           aria-controls={
             isFilterPopoverOpen
               ? workbookFilterPopoverTestId(surface)
@@ -292,6 +382,7 @@ export function WorkbookGridControls({
           aria-expanded={isFilterPopoverOpen}
           aria-haspopup="dialog"
           data-testid={workbookFilterPopoverTriggerTestId(surface)}
+          ref={filterPopoverTriggerRef}
           style={controlButtonStyle}
           type="button"
           onClick={() => {
@@ -313,7 +404,11 @@ export function WorkbookGridControls({
             onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => {
               if (event.key === "Escape") {
                 event.preventDefault();
+                event.stopPropagation();
                 closeFilterPopover();
+                filterPopoverTriggerRef.current?.focus({
+                  preventScroll: true,
+                });
               }
             }}
           >
@@ -384,6 +479,39 @@ export function WorkbookGridControls({
               </p>
             ) : null}
 
+            {activeQueryChips.length > 0 ? (
+              <section
+                aria-label="Active query overflow"
+                style={queryListStyle}
+              >
+                <strong>Active query</strong>
+                {activeQueryChips.map((chip, index) => (
+                  <button
+                    key={chip.key}
+                    aria-label={`Remove ${chip.label}${
+                      index >= visibleChipCapacity
+                        ? ", hidden from the view bar"
+                        : ""
+                    }`}
+                    style={queryListButtonStyle}
+                    type="button"
+                    onClick={chip.remove}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+                {activeQueryChipCount > 1 ? (
+                  <button
+                    style={clearButtonStyle}
+                    type="button"
+                    onClick={() => onClearAll?.()}
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </section>
+            ) : null}
+
             <div style={popoverActionsStyle}>
               <button
                 style={secondaryButtonStyle}
@@ -406,59 +534,110 @@ export function WorkbookGridControls({
         ) : null}
       </div>
 
-      <div aria-label="Active query chips" role="toolbar" style={chipRailStyle}>
-        <span style={visuallyHiddenStyle}>Active query chips</span>
-        {queryState.groupBy && groupChipLabel ? (
-          <button
-            style={chipButtonStyle}
-            title={groupChipLabel}
-            type="button"
-            onClick={() => {
-              onGroupByChange(null);
+      <div style={menuFrameStyle}>
+        <button
+          aria-expanded={isColumnsMenuOpen}
+          aria-haspopup="menu"
+          ref={columnsMenuTriggerRef}
+          style={controlButtonStyle}
+          type="button"
+          onClick={() => {
+            setIsColumnsMenuOpen((current) => !current);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowDown") return;
+            event.preventDefault();
+            setIsColumnsMenuOpen(true);
+            focusFirstMenuItem(`${surface}-column-menu`);
+          }}
+        >
+          Columns
+        </button>
+        {isColumnsMenuOpen ? (
+          <div
+            aria-label="Column controls"
+            id={`${surface}-column-menu`}
+            role="menu"
+            style={menuStyle}
+            onKeyDown={(event) => {
+              handleMenuKeyboard(event, columnsMenuTriggerRef, () =>
+                setIsColumnsMenuOpen(false),
+              );
             }}
           >
-            <span style={chipLabelStyle}>{groupChipLabel}</span>
-          </button>
+            {layoutState.columnOrder.map((fieldKey, index) => {
+              const field = contract.fieldMap[fieldKey];
+              if (field === undefined) return null;
+              const hidden = hiddenFieldKeys.has(fieldKey);
+              return (
+                <div key={fieldKey} role="none" style={columnMenuRowStyle}>
+                  <button
+                    aria-checked={!hidden}
+                    role="menuitemcheckbox"
+                    style={menuItemStyle}
+                    type="button"
+                    onClick={() => {
+                      onColumnHiddenChange(fieldKey, !hidden);
+                    }}
+                  >
+                    {field.label}
+                  </button>
+                  <button
+                    aria-label={`Move ${field.label} earlier`}
+                    disabled={index === 0}
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      onColumnMove(fieldKey, "earlier");
+                    }}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Move ${field.label} later`}
+                    disabled={index === layoutState.columnOrder.length - 1}
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      onColumnMove(fieldKey, "later");
+                    }}
+                  >
+                    ↓
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              role="menuitem"
+              style={menuItemStyle}
+              type="button"
+              onClick={onResetColumns}
+            >
+              Reset columns
+            </button>
+          </div>
         ) : null}
-        {queryState.sort.map((sort) => {
-          const label = `Sort: ${sortLabel(contract, sort.fieldKey)} ${
-            sort.direction
-          }`;
-          return (
-            <button
-              key={sort.fieldKey}
-              style={chipButtonStyle}
-              title={label}
-              type="button"
-              onClick={() => {
-                onSortChange(
-                  queryState.sort.filter(
-                    (entry) => entry.fieldKey !== sort.fieldKey,
-                  ),
-                );
-              }}
-            >
-              <span style={chipLabelStyle}>{label}</span>
-            </button>
-          );
-        })}
-        {queryState.filters.map((filter) => {
-          const label = filterChipLabel(contract, filter);
-          return (
-            <button
-              key={filter.fieldKey}
-              data-testid={gridFilterChipTestId(surface, filter.fieldKey)}
-              style={chipButtonStyle}
-              title={label}
-              type="button"
-              onClick={() => {
-                onRemoveFilter(filter.fieldKey);
-              }}
-            >
-              <span style={chipLabelStyle}>{label}</span>
-            </button>
-          );
-        })}
+      </div>
+
+      <div
+        aria-label="Active query chips"
+        hidden={visibleChipCapacity === 0}
+        role="toolbar"
+        style={chipRailStyle}
+      >
+        <span style={visuallyHiddenStyle}>Active query chips</span>
+        {visibleQueryChips.map((chip) => (
+          <button
+            key={chip.key}
+            data-testid={chip.testId}
+            style={chipButtonStyle}
+            title={chip.label}
+            type="button"
+            onClick={chip.remove}
+          >
+            <span style={chipLabelStyle}>{chip.label}</span>
+          </button>
+        ))}
         {hasActiveQuery && activeQueryChipCount > 1 ? (
           <button
             style={clearButtonStyle}
@@ -471,7 +650,7 @@ export function WorkbookGridControls({
           </button>
         ) : null}
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -506,13 +685,21 @@ const queryControlsStyle = {
     "max-content max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
   alignItems: "center",
   gap: "0.35rem",
-  inlineSize: "100%",
+  inlineSize: "auto",
   maxInlineSize: "100%",
   boxSizing: "border-box" as const,
+  border: 0,
+  margin: 0,
   minWidth: 0,
   minInlineSize: 0,
-  flex: "1 1 auto",
+  padding: 0,
+  flex: "1 1 0",
   overflow: "visible",
+};
+
+const compactQueryControlsStyle = {
+  gridTemplateColumns:
+    "max-content minmax(0, max-content) max-content max-content 0",
 };
 
 const menuFrameStyle = {
@@ -629,6 +816,20 @@ const filterValidationStyle = {
   fontSize: "0.8rem",
   fontWeight: 700,
 };
+
+const queryListStyle = {
+  display: "grid",
+  gap: "0.25rem",
+  borderBlockStart: "var(--ct-border-hairline)",
+  paddingBlockStart: "0.45rem",
+} satisfies CSSProperties;
+
+const queryListButtonStyle = {
+  ...menuItemStyle,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+} satisfies CSSProperties;
 
 const popoverActionsStyle = {
   display: "flex",

@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import {
+  beginWorkbookPendingRefreshBlock,
+  finishWorkbookPendingRefreshBlock,
+  type WorkbookPendingQueueRuntime,
+  type WorkbookPendingQueueSnapshot,
+  type WorkbookPendingRefreshBlockScope,
+  type WorkbookPendingSavesRefs,
+  workbookPendingQueueSnapshot,
+} from "../../runtime/workbookPendingReplayRuntime";
 import {
   deriveWorkbookSaveState,
   type WorkbookSaveStateConflictAnchor,
 } from "../../utils/workbookPendingQueue";
 import type { TimelineMutableRef } from "../models/timelineControllerPorts";
-import {
-  beginTimelinePendingRefreshBlock,
-  finishTimelinePendingRefreshBlock,
-  type TimelinePendingQueueRuntime,
-  type TimelinePendingQueueSnapshot,
-  type TimelinePendingRefreshBlockScope,
-  type TimelinePendingSavesRefs,
-  timelinePendingQueueSnapshot,
-} from "../models/timelinePendingReplayModel";
 import type { LocalConflictState } from "../models/workbookTimelineModel";
 
 export type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
@@ -28,27 +29,25 @@ function saveStateConflictAnchorsFromLocalConflicts(
 export function useTimelineSaveStatePresentation<TMeta>({
   conflictQueue,
   conflictQueueRef,
+  mutationRuntime,
   pendingQueueSnapshot,
   pendingSavesRefsRef,
   setPendingQueueSnapshot,
-  setSaveState,
-  setSaveStateSecondaryMessage,
 }: {
   readonly conflictQueue: Record<string, LocalConflictState>;
   readonly conflictQueueRef: TimelineMutableRef<
     Record<string, LocalConflictState>
   >;
-  readonly pendingQueueSnapshot: TimelinePendingQueueSnapshot;
+  readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
   readonly pendingSavesRefsRef: TimelineMutableRef<
-    TimelinePendingSavesRefs<TMeta>
+    WorkbookPendingSavesRefs<TMeta>
   >;
-  readonly setPendingQueueSnapshot: TimelineSetState<TimelinePendingQueueSnapshot>;
-  readonly setSaveState: TimelineSetState<TimelineSaveStateLabel>;
-  readonly setSaveStateSecondaryMessage: TimelineSetState<string | null>;
+  readonly setPendingQueueSnapshot: TimelineSetState<WorkbookPendingQueueSnapshot>;
 }) {
   const computeSaveStatePresentation = useCallback(
     (
-      pending: TimelinePendingQueueRuntime<TMeta>,
+      pending: WorkbookPendingQueueRuntime<TMeta>,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ) => {
       const snapshot = pending.model.snapshot();
@@ -70,47 +69,50 @@ export function useTimelineSaveStatePresentation<TMeta>({
 
   const publishSaveStatePresentation = useCallback(
     (
-      pending: TimelinePendingQueueRuntime<TMeta>,
+      pending: WorkbookPendingQueueRuntime<TMeta>,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ) => {
       const presentation = computeSaveStatePresentation(pending, conflicts);
-      setSaveState(presentation.primaryLabel);
-      setSaveStateSecondaryMessage(presentation.secondaryMessage);
+      mutationRuntime.projectSurfaceSaveState("cartulary.view.timeline.v2", {
+        primaryLabel: presentation.primaryLabel,
+        secondaryMessage: presentation.secondaryMessage,
+      });
       return presentation;
     },
-    [
-      computeSaveStatePresentation,
-      conflictQueueRef,
-      setSaveState,
-      setSaveStateSecondaryMessage,
-    ],
+    [computeSaveStatePresentation, conflictQueueRef, mutationRuntime],
   );
 
-  const publishPendingQueueState = useCallback(() => {
-    const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-    setPendingQueueSnapshot(timelinePendingQueueSnapshot(pending));
-    publishSaveStatePresentation(pending);
-  }, [
-    pendingSavesRefsRef,
-    publishSaveStatePresentation,
-    setPendingQueueSnapshot,
-  ]);
+  const publishPendingQueueState = useCallback(
+    (
+      conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
+    ) => {
+      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
+      setPendingQueueSnapshot(workbookPendingQueueSnapshot(pending));
+      publishSaveStatePresentation(pending, conflicts);
+    },
+    [
+      conflictQueueRef,
+      pendingSavesRefsRef,
+      publishSaveStatePresentation,
+      setPendingQueueSnapshot,
+    ],
+  );
   const publishPendingQueueStateRef = useRef(publishPendingQueueState);
   publishPendingQueueStateRef.current = publishPendingQueueState;
 
   const beginRefreshInFlight = useCallback(
-    (scope: TimelinePendingRefreshBlockScope) => {
+    (scope: WorkbookPendingRefreshBlockScope) => {
       const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-      beginTimelinePendingRefreshBlock(pending, scope);
+      beginWorkbookPendingRefreshBlock(pending, scope);
       publishPendingQueueState();
     },
     [pendingSavesRefsRef, publishPendingQueueState],
   );
 
   const finishRefreshInFlight = useCallback(
-    (scope: TimelinePendingRefreshBlockScope) => {
+    (scope: WorkbookPendingRefreshBlockScope) => {
       const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-      finishTimelinePendingRefreshBlock(pending, scope);
+      finishWorkbookPendingRefreshBlock(pending, scope);
       publishPendingQueueState();
       pendingSavesRefsRef.current.schedulePendingReplayRef.current();
     },
@@ -135,20 +137,24 @@ export function useTimelineSaveStatePresentation<TMeta>({
         pendingSavesRefsRef.current.pendingOpsRef.current - 1,
       );
       if (nextState === "Conflict") {
-        setSaveState("Conflict");
-        setSaveStateSecondaryMessage("Conflict requires review.");
+        mutationRuntime.projectSurfaceSaveState("cartulary.view.timeline.v2", {
+          primaryLabel: "Conflict",
+          secondaryMessage: "Conflict requires review.",
+        });
         return;
       }
       publishSaveStatePresentation(
         pendingSavesRefsRef.current.pendingQueueRef.current,
       );
     },
-    [
-      pendingSavesRefsRef,
-      publishSaveStatePresentation,
-      setSaveState,
-      setSaveStateSecondaryMessage,
-    ],
+    [mutationRuntime, pendingSavesRefsRef, publishSaveStatePresentation],
+  );
+
+  useEffect(
+    () => () => {
+      mutationRuntime.clearSurfaceSaveState("cartulary.view.timeline.v2");
+    },
+    [mutationRuntime],
   );
 
   useEffect(() => {

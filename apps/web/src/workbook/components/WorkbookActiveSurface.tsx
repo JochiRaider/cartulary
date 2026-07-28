@@ -16,8 +16,11 @@ import {
   replaceWorkbookSort,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
 import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
+import type { WorkbookCollaborationProjection } from "../runtime/WorkbookCollaborationProjection";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { AssessmentWorkbookSurface } from "./AssessmentWorkbookSurface";
@@ -31,6 +34,7 @@ export type WorkbookActiveSurfaceProps = {
   readonly assessmentQueryState: WorkbookQueryState;
   readonly assessmentRows: EntityApiRow[];
   readonly authorizationEpoch: string;
+  readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly currentUserId: string | null;
   readonly density: GridDensity;
@@ -46,6 +50,9 @@ export type WorkbookActiveSurfaceProps = {
   readonly interactionMode: GridInteractionMode;
   readonly inspectorResetKey: string;
   readonly layoutState: WorkbookResolvedLayoutState;
+  readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly queryControls?: ReactNode | undefined;
+  readonly collaborationProjection: WorkbookCollaborationProjection;
   readonly loadAssessmentSurface: () => Promise<void>;
   readonly loadEntities: () => Promise<void>;
   readonly loadGenericSurface: () => Promise<void>;
@@ -63,6 +70,7 @@ export type WorkbookActiveSurfaceProps = {
   readonly onResetColumns: () => void;
   readonly onColumnWidthChange: (fieldKey: string, width: number) => void;
   readonly savedViewSelector?: ReactNode | undefined;
+  readonly showStatusPresence: boolean;
   readonly setAssessmentQueryState: Dispatch<
     SetStateAction<WorkbookQueryState>
   >;
@@ -83,6 +91,7 @@ export function WorkbookActiveSurface({
   assessmentQueryState,
   assessmentRows,
   authorizationEpoch,
+  chromeMode,
   currentIncidentRole,
   currentUserId,
   density,
@@ -98,6 +107,9 @@ export function WorkbookActiveSurface({
   interactionMode,
   inspectorResetKey,
   layoutState,
+  mutationRuntime,
+  queryControls,
+  collaborationProjection,
   loadAssessmentSurface,
   loadEntities,
   loadGenericSurface,
@@ -109,6 +121,7 @@ export function WorkbookActiveSurface({
   onColumnWidthChange,
   onResetColumns,
   savedViewSelector,
+  showStatusPresence,
   setAssessmentQueryState,
   setGenericQueryState,
   setHostQueryState,
@@ -129,6 +142,9 @@ export function WorkbookActiveSurface({
     return (
       <TimelineWorkbook
         runtime={{
+          attachCollaborationSession: false,
+          collaborationProjection,
+          mutationRuntime,
           incident: {
             id: incidentId,
             apiBase,
@@ -145,6 +161,7 @@ export function WorkbookActiveSurface({
             setFilterDraft: setTimelineFilterDraft,
             renderInlineControls: false,
             savedViewSelector,
+            viewBarQueryControls: queryControls,
           },
           entities: {
             hosts: hostRows,
@@ -153,6 +170,7 @@ export function WorkbookActiveSurface({
             refresh: loadEntities,
           },
           layout: {
+            chromeMode,
             density,
             interactionMode,
             state: layoutState,
@@ -161,6 +179,7 @@ export function WorkbookActiveSurface({
             reorderColumn: onColumnReorder,
             setColumnWidth: onColumnWidthChange,
             resetColumns: onResetColumns,
+            showStatusPresence,
           },
           onIncidentAccessLost,
         }}
@@ -176,6 +195,7 @@ export function WorkbookActiveSurface({
     return (
       <EntityWorkbookSurface
         apiBase={apiBase}
+        chromeMode={chromeMode}
         currentIncidentRole={currentIncidentRole}
         density={density}
         entityIndex={entityIndex}
@@ -184,6 +204,8 @@ export function WorkbookActiveSurface({
         interactionMode={interactionMode}
         inspectorResetKey={inspectorResetKey}
         layoutState={layoutState}
+        mutationRuntime={mutationRuntime}
+        collaborationProjection={collaborationProjection}
         loadState={entityLoadState}
         onRefreshEntities={loadEntities}
         onColumnReorder={onColumnReorder}
@@ -204,8 +226,10 @@ export function WorkbookActiveSurface({
           );
         }}
         queryState={isHosts ? hostQueryState : identityQueryState}
+        queryControls={queryControls}
         rows={isHosts ? hostRows : identityRows}
         savedViewSelector={savedViewSelector}
+        showStatusPresence={showStatusPresence}
       />
     );
   }
@@ -214,6 +238,7 @@ export function WorkbookActiveSurface({
     return (
       <AssessmentWorkbookSurface
         apiBase={apiBase}
+        chromeMode={chromeMode}
         assessmentRows={assessmentRows}
         currentIncidentRole={currentIncidentRole}
         density={density}
@@ -222,6 +247,8 @@ export function WorkbookActiveSurface({
         incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
         layoutState={layoutState}
+        mutationRuntime={mutationRuntime}
+        collaborationProjection={collaborationProjection}
         loadState={assessmentLoadState}
         interactionMode={interactionMode}
         onRefreshAssessmentRows={loadAssessmentSurface}
@@ -236,7 +263,9 @@ export function WorkbookActiveSurface({
           );
         }}
         queryState={assessmentQueryState}
+        queryControls={queryControls}
         savedViewSelector={savedViewSelector}
+        showStatusPresence={showStatusPresence}
       />
     );
   }
@@ -246,6 +275,7 @@ export function WorkbookActiveSurface({
       key={activeContract.viewSchemaId}
       apiBase={apiBase}
       authorizationEpoch={authorizationEpoch}
+      chromeMode={chromeMode}
       contract={activeContract}
       currentUserId={currentUserId}
       density={density}
@@ -254,6 +284,9 @@ export function WorkbookActiveSurface({
       loadState={genericLoadState}
       interactionMode={interactionMode}
       layoutState={layoutState}
+      mutationRuntime={mutationRuntime}
+      collaborationProjection={collaborationProjection}
+      sheetRef={sheetRef}
       onColumnReorder={onColumnReorder}
       onColumnWidthChange={onColumnWidthChange}
       onClearFilters={() => {
@@ -266,8 +299,10 @@ export function WorkbookActiveSurface({
         );
       }}
       queryState={genericQueryState}
+      queryControls={queryControls}
       rows={genericRows}
       savedViewSelector={savedViewSelector}
+      showStatusPresence={showStatusPresence}
     />
   );
 }

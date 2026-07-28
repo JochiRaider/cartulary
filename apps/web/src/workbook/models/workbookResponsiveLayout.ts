@@ -47,3 +47,11 @@ export function selectWorkbookBlockMode(
   }
   return "short_height";
 }
+
+export function workbookQueryChipCapacity(
+  chromeMode: WorkbookChromeMode,
+): number {
+  if (chromeMode === "base") return 8;
+  if (chromeMode === "narrow_desktop") return 6;
+  return 0;
+}

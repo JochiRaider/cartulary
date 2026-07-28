@@ -63,7 +63,7 @@ type IncidentCollaborationListener = (
   event: IncidentCollaborationEvent,
 ) => void;
 
-type IncidentCollaborationSessionValue = {
+export type IncidentCollaborationSessionValue = {
   readonly clientInstanceId: string;
   readonly completeReset: (generation: number) => boolean;
   readonly connectionId: string | null;

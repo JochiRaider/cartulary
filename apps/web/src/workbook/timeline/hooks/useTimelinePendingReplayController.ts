@@ -6,17 +6,18 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../../../services/workbookApi";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import {
+  refreshBlocksWorkbookPendingUnit,
+  type WorkbookPendingReplayAdmissionRequest,
+  type WorkbookPendingSavesRefs,
+} from "../../runtime/workbookPendingReplayRuntime";
 import {
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
   parsePendingReplayPublicError,
 } from "../../utils/workbookPendingQueue";
 import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
-import {
-  refreshBlocksTimelinePendingUnit,
-  type TimelinePendingReplayAdmissionRequest,
-  type TimelinePendingSavesRefs,
-} from "../models/timelinePendingReplayModel";
 import {
   type FocusFieldKey,
   materializePendingReplayPayload,
@@ -45,7 +46,7 @@ type TimelineMutableRef<T> = {
 };
 
 type TimelinePendingReplayControllerAdmission =
-  TimelinePendingReplayAdmissionRequest<PendingReplayRuntimeMeta>;
+  WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>;
 
 function isCollectionDraftKey(
   focusField: FocusFieldKey,
@@ -66,6 +67,7 @@ export function useTimelinePendingReplayController({
   handleMutationConflict,
   latestCommittedTimelineRow,
   loadRowsRef,
+  mutationRuntime,
   pendingSavesRefsRef,
   postMutationQueryRefreshRequired,
   publishPendingQueueState,
@@ -106,8 +108,9 @@ export function useTimelinePendingReplayController({
   readonly loadRowsRef: TimelineMutableRef<
     (options: { readonly showLoading: boolean }) => Promise<void>
   >;
+  readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingSavesRefsRef: TimelineMutableRef<
-    TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
+    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
   >;
   readonly postMutationQueryRefreshRequired: boolean;
   readonly publishPendingQueueState: () => void;
@@ -249,7 +252,7 @@ export function useTimelinePendingReplayController({
         snapshot.halted === null &&
         snapshot.sameFieldConflicts.length === 0 &&
         candidate !== null &&
-        !refreshBlocksTimelinePendingUnit(pending, candidate.unit) &&
+        !refreshBlocksWorkbookPendingUnit(pending, candidate.unit) &&
         Object.keys(conflictQueueRef.current).length === 0 &&
         snapshot.inFlightCount === 0 &&
         snapshot.queuedCount > 0;
@@ -453,12 +456,17 @@ export function useTimelinePendingReplayController({
       return;
     }
     const unit = candidate.unit;
-    if (refreshBlocksTimelinePendingUnit(pending, unit)) {
+    if (refreshBlocksWorkbookPendingUnit(pending, unit)) {
       publishPendingQueueState();
       return;
     }
     const meta = pending.metaByUnitId.get(unit.id);
     if (meta === undefined) {
+      if (mutationRuntime.ownsManagedUnit(unit.id)) {
+        mutationRuntime.requestDrain();
+        publishPendingQueueState();
+        return;
+      }
       const dispatch = pending.model.markDispatched(unit.id);
       if (dispatch !== null) {
         const settlement = pending.model.settleDispatched({
@@ -547,6 +555,7 @@ export function useTimelinePendingReplayController({
       }
 
       if (settlement.outcome === "same_field_conflict") {
+        clearViewportContinuity(meta.viewportContinuityToken);
         const message =
           publicError.message ?? parseErrorMessage(result.payload);
         settleCompletionCallbacks(dispatchedUnit.id, {

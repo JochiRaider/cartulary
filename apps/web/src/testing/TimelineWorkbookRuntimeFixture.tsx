@@ -7,6 +7,7 @@ import {
   useCallback,
   useState,
 } from "react";
+import { WorkbookConflictResolver } from "../workbook/components/WorkbookConflictResolver";
 import {
   defaultWorkbookLayoutState,
   moveWorkbookColumn,
@@ -21,8 +22,11 @@ import {
   type FilterDraft,
   type WorkbookQueryState,
 } from "../workbook/models/workbookQuery";
+import type { WorkbookChromeMode } from "../workbook/models/workbookResponsiveLayout";
 import type { WorkbookSheetRef } from "../workbook/models/workbookStartup";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
+import { WorkbookCollaborationProjection } from "../workbook/runtime/WorkbookCollaborationProjection";
+import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import type {
   TimelineWorkbookEntityRow,
@@ -39,7 +43,9 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly inspectorResetKey?: string | undefined;
   readonly reloadToken?: number | undefined;
   readonly renderInlineQueryControls?: boolean | undefined;
+  readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly savedViewSelector?: ReactNode | undefined;
+  readonly showStatusPresence?: boolean | undefined;
   readonly filterDraft?: FilterDraft | undefined;
   readonly onFilterDraftChange?:
     | Dispatch<SetStateAction<FilterDraft>>
@@ -86,7 +92,9 @@ export function TimelineWorkbookRuntimeFixture({
   inspectorResetKey = timelineViewSchemaId,
   reloadToken = 0,
   renderInlineQueryControls = true,
+  chromeMode = "base",
   savedViewSelector,
+  showStatusPresence = true,
   filterDraft: providedFilterDraft,
   onFilterDraftChange,
   onQueryStateChange,
@@ -149,45 +157,73 @@ export function TimelineWorkbookRuntimeFixture({
   const resetColumns = useCallback(() => {
     setLayoutState(defaultWorkbookLayoutState(timelineContract));
   }, []);
+  const [mutationRuntime] = useState(
+    () =>
+      new WorkbookMutationRuntime({
+        clientInstanceId: "timeline-runtime-fixture",
+        incidentId,
+      }),
+  );
+  const [collaborationProjection] = useState(
+    () =>
+      new WorkbookCollaborationProjection({
+        apiBase,
+        initialSheetRef: sheetRef,
+        mutationRuntime,
+      }),
+  );
 
   return (
-    <TimelineWorkbook
-      runtime={{
-        incident: {
-          id: incidentId,
-          apiBase,
-          currentUserId,
-          currentRole: currentIncidentRole,
-          sheetRef,
-          inspectorResetKey,
-          reloadToken,
-        },
-        query: {
-          state: providedQueryState ?? queryState,
-          setState: onQueryStateChange ?? setQueryState,
-          filterDraft: providedFilterDraft ?? filterDraft,
-          setFilterDraft: onFilterDraftChange ?? setFilterDraft,
-          renderInlineControls: renderInlineQueryControls,
-          savedViewSelector,
-        },
-        entities: {
-          hosts: hostEntities,
-          identities: identityEntities,
-          index: entityIndex,
-          refresh: onRefreshEntities,
-        },
-        layout: {
-          density,
-          interactionMode,
-          state: providedLayoutState ?? layoutState,
-          setColumnHidden: onColumnHiddenChange ?? setColumnHidden,
-          moveColumn: onColumnMove ?? moveColumn,
-          reorderColumn: onColumnReorder ?? reorderColumn,
-          setColumnWidth: onColumnWidthChange ?? setColumnWidth,
-          resetColumns: onResetColumns ?? resetColumns,
-        },
-        onIncidentAccessLost,
-      }}
-    />
+    <div style={{ position: "relative", blockSize: "100%" }}>
+      <TimelineWorkbook
+        runtime={{
+          attachCollaborationSession: true,
+          collaborationProjection,
+          mutationRuntime,
+          incident: {
+            id: incidentId,
+            apiBase,
+            currentUserId,
+            currentRole: currentIncidentRole,
+            sheetRef,
+            inspectorResetKey,
+            reloadToken,
+          },
+          query: {
+            state: providedQueryState ?? queryState,
+            setState: onQueryStateChange ?? setQueryState,
+            filterDraft: providedFilterDraft ?? filterDraft,
+            setFilterDraft: onFilterDraftChange ?? setFilterDraft,
+            renderInlineControls: renderInlineQueryControls,
+            savedViewSelector,
+            viewBarQueryControls: undefined,
+          },
+          entities: {
+            hosts: hostEntities,
+            identities: identityEntities,
+            index: entityIndex,
+            refresh: onRefreshEntities,
+          },
+          layout: {
+            chromeMode,
+            density,
+            interactionMode,
+            state: providedLayoutState ?? layoutState,
+            setColumnHidden: onColumnHiddenChange ?? setColumnHidden,
+            moveColumn: onColumnMove ?? moveColumn,
+            reorderColumn: onColumnReorder ?? reorderColumn,
+            setColumnWidth: onColumnWidthChange ?? setColumnWidth,
+            resetColumns: onResetColumns ?? resetColumns,
+            showStatusPresence,
+          },
+          onIncidentAccessLost,
+        }}
+      />
+      <WorkbookConflictResolver
+        apiBase={apiBase}
+        mutationRuntime={mutationRuntime}
+        onActivateOrigin={() => undefined}
+      />
+    </div>
   );
 }

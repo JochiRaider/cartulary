@@ -1,7 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiPath } from "../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import { parseMutationError } from "../models/genericWorkbookModel";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 
 export type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
@@ -41,35 +43,48 @@ export type GenericSurfaceMutationController = {
 
 export function useGenericSurfaceMutationController({
   apiBase,
+  mutationRuntime,
   onRefresh,
   refreshReferenceOptions,
+  surfaceLabel,
 }: {
   readonly apiBase: string | undefined;
+  readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onRefresh: () => Promise<void> | void;
   readonly refreshReferenceOptions: () => Promise<void> | void;
+  readonly surfaceLabel: string;
 }): GenericSurfaceMutationController {
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] =
     useState<GenericMutationSaveState>("Saved");
+  const finishExplicitMutationRef = useRef<(() => void) | null>(null);
 
   const beginMutation = useCallback(() => {
+    finishExplicitMutationRef.current?.();
+    finishExplicitMutationRef.current = mutationRuntime.beginExplicitMutation();
     setMutationState("Syncing");
     setMutationError(null);
-  }, []);
+  }, [mutationRuntime]);
 
   const clearMutationError = useCallback(() => {
     setMutationError(null);
   }, []);
 
   const markMutationSaved = useCallback(() => {
+    finishExplicitMutationRef.current?.();
+    finishExplicitMutationRef.current = null;
     setMutationState("Saved");
   }, []);
 
   const markMutationConflict = useCallback(() => {
+    finishExplicitMutationRef.current?.();
+    finishExplicitMutationRef.current = null;
     setMutationState("Conflict");
   }, []);
 
   const rejectMutationPayload = useCallback((payload: unknown) => {
+    finishExplicitMutationRef.current?.();
+    finishExplicitMutationRef.current = null;
     setMutationState("Conflict");
     setMutationError(parseMutationError(payload));
   }, []);
@@ -85,12 +100,16 @@ export function useGenericSurfaceMutationController({
         await onRefresh();
         await refreshReferenceOptions();
       } catch (error) {
+        finishExplicitMutationRef.current?.();
+        finishExplicitMutationRef.current = null;
         setMutationState("Conflict");
         setMutationError(
           error instanceof Error ? error.message : "Workbook refresh failed.",
         );
         return envelope;
       }
+      finishExplicitMutationRef.current?.();
+      finishExplicitMutationRef.current = null;
       setMutationState("Saved");
       return envelope;
     },
@@ -119,12 +138,28 @@ export function useGenericSurfaceMutationController({
         },
       );
       if (!result.ok) {
+        const conflict = parseSameFieldConflict(result.payload);
+        if (conflict !== null) {
+          mutationRuntime.registerConflict({
+            conflict,
+            focusKey: `${recordId}:${conflict.field_key}`,
+            rowLabel: recordId,
+            surfaceLabel,
+            viewSchemaId,
+          });
+        }
         rejectMutationPayload(result.payload);
         return null;
       }
       return result.payload;
     },
-    [apiBase, beginMutation, rejectMutationPayload],
+    [
+      apiBase,
+      beginMutation,
+      mutationRuntime,
+      rejectMutationPayload,
+      surfaceLabel,
+    ],
   );
 
   return {

@@ -23,10 +23,6 @@ export type TimelineWorkbookTimingRecorder = (
 
 export type TimelineRecordActionName = "mark-reviewed" | "supersede";
 export type TimelineDeleteRestoreOperation = "delete" | "restore";
-export type TimelineConflictResolutionKind =
-  | "keep_saved"
-  | "use_unsaved"
-  | "merged_value";
 
 export function buildTimelineRecordActionPayload({
   action,
@@ -88,37 +84,6 @@ export function buildTimelineRollbackPayload({
     reason: "Rollback from workbook history",
     target,
   };
-}
-
-export function buildTimelineConflictResolutionPayload({
-  clientTxnId,
-  conflictResolutionClass,
-  conflictToken,
-  localValue,
-  mergedDraft,
-  resolutionKind,
-}: {
-  readonly clientTxnId: string;
-  readonly conflictResolutionClass: string;
-  readonly conflictToken: string;
-  readonly localValue: unknown;
-  readonly mergedDraft: unknown;
-  readonly resolutionKind: TimelineConflictResolutionKind;
-}): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    conflict_token: conflictToken,
-    resolution_kind: resolutionKind,
-    client_txn_id: clientTxnId,
-  };
-  if (resolutionKind === "use_unsaved") {
-    body.resolved_value = localValue;
-  } else if (resolutionKind === "merged_value") {
-    body.resolved_value =
-      conflictResolutionClass === "collection_review"
-        ? localValue
-        : mergedDraft;
-  }
-  return body;
 }
 
 export async function dispatchTimelinePendingReplayMutation({

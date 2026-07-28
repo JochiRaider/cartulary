@@ -47,6 +47,7 @@ export async function submitWorkbookPatchMutation({
   baseRowVersion,
   changes,
   clientTxnId,
+  onConflict,
   recordId,
   setMutationError,
   setMutationState,
@@ -56,6 +57,7 @@ export async function submitWorkbookPatchMutation({
   readonly baseRowVersion: number;
   readonly changes: readonly Record<string, unknown>[];
   readonly clientTxnId: string;
+  readonly onConflict?: ((payload: unknown) => void) | undefined;
   readonly recordId: string;
   readonly setMutationError: (message: string | null) => void;
   readonly setMutationState: (state: WorkbookMutationSaveState) => void;
@@ -72,6 +74,7 @@ export async function submitWorkbookPatchMutation({
     viewSchemaId,
   });
   if (!result.ok) {
+    if (result.status === 409) onConflict?.(result.payload);
     setMutationState("Conflict");
     setMutationError(parseMutationError(result.payload));
     return null;

@@ -425,10 +425,8 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     const hostInspector = screen.getByTestId(entityInspectorTestId("host"));
     const hostInspectorSlot = hostInspector.parentElement as HTMLElement;
-    expect(hostInspectorSlot.style.position).toBe("absolute");
-    expect(["0", "0px"]).toContain(
-      hostInspectorSlot.style.getPropertyValue("inset-block"),
-    );
+    expect(hostInspectorSlot.style.position).toBe("relative");
+    expect(hostInspectorSlot.style.gridArea).toBe("1 / 2");
     expect(hostInspector.style.blockSize).toBe("100%");
     expect(hostInspector.style.overflow).toBe("auto");
     fireEvent.change(

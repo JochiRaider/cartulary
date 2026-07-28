@@ -211,9 +211,11 @@ workflow logic.
 | `workbook/components/IncidentControlsDrawer.tsx` | Shell-level incident controls drawer presentation and focus boundary. |
 | `workbook/components/SystemViewSwitcher.tsx` | System-view switcher UI and grouped surface navigation. |
 | `workbook/components/WorkbookActiveSurface.tsx` | Registration-driven renderer/facade dispatcher for the active `view_schema_id`. |
+| `workbook/components/WorkbookConflictResolver.tsx` | Common typed conflict resolver and recovery presentation for every writable Base renderer. |
 | `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
 | `workbook/components/WorkbookInspectorFeatureGroups.tsx` | Inspector feature-group renderer and disabled-state presentation helpers. |
-| `workbook/components/WorkbookSheetToolbar.tsx` | Workbook sheet toolbar composition. |
+| `workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
+| `workbook/components/WorkbookViewBar.tsx` | Shared saved-view, query, inspector, and create control composition. |
 | `workbook/components/WorkbookShellSlots.tsx` | Stable shell slot IDs, labels, and layout slot helpers. |
 | `workbook/components/WorkbookShellStyles.ts` | Workbook shell chrome and responsive layout style constants. |
 | `workbook/components/WorkbookStatusStrip.tsx` | Status strip presentation for save/load/selection state. |
@@ -342,13 +344,11 @@ models, or services below.
 | File | Responsibility |
 | --- | --- |
 | `workbook/timeline/components/TimelineCellEditors.tsx` | Timeline scalar editors, draft-row create button, and relationship chip presentation. |
-| `workbook/timeline/components/TimelineConflictResolver.tsx` | Same-field conflict resolver presentation. |
 | `workbook/timeline/components/TimelineEvidencePanel.test.tsx` | Tests for Timeline evidence panel behavior. |
 | `workbook/timeline/components/TimelineEvidencePanel.tsx` | Timeline inspector evidence panel and evidence actions UI. |
 | `workbook/timeline/components/TimelineGridSurface.tsx` | Timeline grid surface wrapper around the grid adapter boundary. |
 | `workbook/timeline/components/TimelineHistoryPanel.tsx` | Timeline row history, rollback, delete, restore, and history action presentation. |
 | `workbook/timeline/components/TimelineMentionsPanel.tsx` | Timeline mention-resolution inspector panel. |
-| `workbook/timeline/components/TimelinePresenceMarkers.tsx` | Timeline row/cell presence marker presentation. |
 | `workbook/timeline/components/TimelineRowActions.tsx` | Timeline row action/context-menu presentation. |
 | `workbook/timeline/components/TimelineWorkbook.tsx` | Timeline composition root. Wires runtime state, focused controllers, grid, inspector, notices, and shell callbacks while leaving feature-specific logic in local hooks/components. |
 | `workbook/timeline/components/TimelineWorkbookGrid.tsx` | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |
@@ -364,7 +364,6 @@ models, or services below.
 | --- | --- |
 | `workbook/timeline/hooks/useTimelineClipboardPasteController.ts` | Coordinates Timeline clipboard paste dispatch, payload construction, conflict registration, scalar fallback, and post-paste focus/viewport restoration. |
 | `workbook/timeline/hooks/useTimelineCommittedRows.ts` | Derives committed Timeline row collections from row/runtime state. |
-| `workbook/timeline/hooks/useTimelineConflictResolverCoordinator.ts` | Coordinates same-field conflict resolver state, choices, reloads, and conflict resolution actions. |
 | `workbook/timeline/hooks/useTimelineConflicts.ts` | Coordinates Timeline same-field conflict state. |
 | `workbook/timeline/hooks/useTimelineCreateRelatedWorkflow.ts` | Coordinates Timeline inspector related-row create workflow state, draft values, and payload submission. |
 | `workbook/timeline/hooks/useTimelineEvidenceActions.ts` | Coordinates Timeline evidence attach/preview/download action state. |
@@ -374,8 +373,6 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineHistoryActions.ts` | Coordinates Timeline history rollback, delete, restore, preview, and confirmation actions. |
 | `workbook/timeline/hooks/useTimelineHistoryState.ts` | Coordinates Timeline history panel and row-history state. |
 | `workbook/timeline/hooks/useTimelineInspectorSelection.ts` | Coordinates selected Timeline row and inspector selection state. |
-| `workbook/timeline/hooks/useTimelineLiveUpdateController.ts` | Applies Timeline live-update effects to row state, pending replay, conflicts, session state, and mention notices. |
-| `workbook/timeline/hooks/useTimelineLiveUpdates.ts` | Coordinates Timeline-local collaboration projection state and presence callbacks over the shared incident session. |
 | `workbook/timeline/hooks/useTimelineMentionActions.ts` | Coordinates Timeline mention resolution, undo/review actions, and related inspector selection updates. |
 | `workbook/timeline/hooks/useTimelineMentions.ts` | Coordinates Timeline mention-resolution state and actions. |
 | `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar and relationship mutation commands, pending-save admission, and save lifecycle callbacks. |
@@ -393,15 +390,12 @@ models, or services below.
 | File | Responsibility |
 | --- | --- |
 | `workbook/timeline/models/timelineControllerPorts.ts` | Neutral capability-port contracts shared by isolated Timeline controllers. |
-| `workbook/timeline/models/timelineConflictModel.ts` | Same-field conflict parsing and model helpers. |
 | `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
-| `workbook/timeline/models/timelinePendingReplayModel.ts` | Pending-replay runtime state, admission contracts, refresh barriers, and tab-stable client identity. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
 | `workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts` | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |
 | `workbook/timeline/models/workbookTimelineModel.ts` | Timeline row model, field bindings, payload builders, normalization, patch intents, freshness decisions, and display helpers. |
-| `workbook/timeline/models/timelineConflictModel.test.ts` | Tests for Timeline conflict model helpers. |
 | `workbook/timeline/models/timelineRowsModel.test.ts` | Tests for Timeline row model helpers. |
 | `workbook/timeline/models/timelineWorkbookRuntime.test.ts` | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | `workbook/timeline/models/timelineViewportContinuityModel.test.ts` | Tests for viewport continuity and refresh barrier helpers. |
@@ -416,10 +410,23 @@ owners.
 | File | Responsibility |
 | --- | --- |
 | `workbook/timeline/services/timelineMutationRequests.ts` | Timeline pending-replay HTTP dispatch and timing event helper. |
-| `workbook/timeline/services/workbookCollaborationMessages.ts` | Timeline collaboration message, presence payload, self-origin filtering, and mention action payload helpers. |
-| `workbook/timeline/services/timelineCollaborationEffects.ts` | Timeline-owned collaboration row, replay, and authorization effect planner with no transport state. |
-| `workbook/timeline/services/workbookCollaborationMessages.test.ts` | Tests for collaboration/presence/session message helper output. |
-| `workbook/timeline/services/timelineCollaborationEffects.test.ts` | Tests for Timeline collaboration effects and the transport-state exclusion boundary. |
+
+### `workbook/runtime/`
+
+Workbook runtime modules contain shell-lifetime mutation state and
+renderer-neutral conflict, collaboration, lifecycle, and active-surface
+contracts. Runtime modules MUST NOT import Timeline implementation.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/runtime/WorkbookCollaborationProjection.ts` | Sole shell-lifetime interpreter for incident collaboration events, exact sheet presence, authorization cleanup, and active-surface reconciliation. |
+| `workbook/runtime/WorkbookMutationRuntime.ts` | Owns the incident/client-scoped pending queue across Base surface mounts. |
+| `workbook/runtime/workbookPendingReplayRuntime.ts` | Pending-replay runtime state, admission contracts, and refresh barriers. |
+| `workbook/runtime/workbookConflictModel.ts` | Same-field conflict parsing and common envelope types. |
+| `workbook/runtime/workbookCollaborationMessages.ts` | Workbook presence, live-row message, self-origin filtering, and mention-action payload helpers. |
+| `workbook/runtime/workbookLifecycleModel.ts` | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
+| `workbook/runtime/workbookSurfacePort.ts` | Active-surface identity and live-row reconciliation capabilities. |
+| `workbook/runtime/*.test.ts` | Common runtime model and message contract tests. |
 
 ### `workbook/utils/`
 

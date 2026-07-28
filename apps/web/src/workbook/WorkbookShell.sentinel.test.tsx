@@ -10,6 +10,8 @@ import {
   gridShellTestId,
   rowCellTestId,
   saveStateTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
 } from "@cartulary/ui-contracts";
 import {
   createEvent,
@@ -1039,10 +1041,9 @@ describe("keyboard and grid anchor coverage", () => {
       expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
         "1 of 2",
       );
-      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-        "value",
-        "Client first",
-      );
+      expect(
+        screen.getByTestId(workbookConflictLocalValueTestId()),
+      ).toHaveProperty("value", "Client first");
     }, pasteConflictWait);
 
     fireEvent.click(screen.getByTestId("paste-conflict-next"));
@@ -1050,15 +1051,14 @@ describe("keyboard and grid anchor coverage", () => {
       expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
         "2 of 2",
       );
-      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-        "value",
-        "Client second",
-      );
+      expect(
+        screen.getByTestId(workbookConflictLocalValueTestId()),
+      ).toHaveProperty("value", "Client second");
     }, pasteConflictWait);
 
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );

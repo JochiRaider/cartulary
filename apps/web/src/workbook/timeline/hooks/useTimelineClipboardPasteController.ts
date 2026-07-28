@@ -7,6 +7,7 @@ import { type ClipboardEvent as ReactClipboardEvent, useCallback } from "react";
 import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookPendingSavesRefs } from "../../runtime/workbookPendingReplayRuntime";
 import { decodeWorkbookClipboardInput } from "../../utils/workbookClipboard";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
 import type {
@@ -15,7 +16,6 @@ import type {
   TimelinePasteTargetResolution,
   TimelineScalarSaveOptions,
 } from "../models/timelineControllerPorts";
-import type { TimelinePendingSavesRefs } from "../models/timelinePendingReplayModel";
 import {
   inputFocusKey,
   type RowValues,
@@ -87,7 +87,7 @@ export function useTimelineClipboardPasteController({
   readonly loadRowsRef: TimelineMutableRef<TimelineLoadRowsForPaste>;
   readonly nextClientTxnId: () => string;
   readonly pendingSavesRefsRef: TimelineMutableRef<
-    TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
+    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
   >;
   readonly queueScalarSave: TimelineQueueScalarSave;
   readonly registerSameFieldConflict: (

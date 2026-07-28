@@ -653,10 +653,10 @@ export function workbookSurfacesMenuOptionTestId(
   );
 }
 
-export function workbookTopBarQueryControlsTestId(
+export function workbookViewBarQueryControlsTestId(
   viewSchemaId: WorkbookSurface,
 ): StableTestId {
-  return stableTestId(viewFirstTestId(viewSchemaId, "top-bar-query"));
+  return stableTestId(viewFirstTestId(viewSchemaId, "view-bar-query"));
 }
 
 export function workbookSortMenuTriggerTestId(
@@ -1088,6 +1088,34 @@ export function conflictMarkerTestId(
   return recordFieldTestId("conflict-marker", recordId, fieldKey);
 }
 
+export function workbookConflictResolverTestId(): string {
+  return "workbook-conflict-resolver";
+}
+
+export function workbookConflictSummaryTestId(): string {
+  return "workbook-conflict-summary";
+}
+
+export function workbookConflictSavedValueTestId(): string {
+  return "workbook-conflict-saved-value";
+}
+
+export function workbookConflictLocalValueTestId(): string {
+  return "workbook-conflict-local-value";
+}
+
+export function workbookEditRecoveryTestId(): string {
+  return "workbook-edit-recovery";
+}
+
+export function workbookEditRecoveryRetryButtonTestId(): string {
+  return "workbook-edit-recovery-retry";
+}
+
+export function workbookEditRecoveryDiscardButtonTestId(): string {
+  return "workbook-edit-recovery-discard";
+}
+
 export function rowPresenceMarkerTestId(recordId: string): string {
   return `presence-row-${requireRecordId(recordId)}`;
 }
@@ -1117,18 +1145,6 @@ export function pendingQueueNoticeTestId(): string {
 
 export function pendingQueueCountTestId(): string {
   return "pending-queue-count";
-}
-
-export function pendingQueueRecoveryPanelTestId(): string {
-  return "pending-queue-recovery-panel";
-}
-
-export function pendingQueueRetryButtonTestId(): string {
-  return "pending-queue-retry-new-request-id";
-}
-
-export function pendingQueueDiscardButtonTestId(): string {
-  return "pending-queue-discard-blocked-edit";
 }
 
 export function referencePackAdminPanelTestId(): string {

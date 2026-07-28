@@ -210,6 +210,10 @@ function collectCatalogFrontendViolations(root) {
 
 function collectFixtureViolations(root) {
   const violations = [];
+  const designContractIDs = Array.from(
+    { length: 12 },
+    (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
+  );
   for (const relativePath of walk(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots")) {
     if (!/\/(?:fe-v-p\d+|v-\d+-grid-\d+)-/iu.test(relativePath)) continue;
     violations.push({
@@ -231,6 +235,9 @@ function collectFixtureViolations(root) {
   const registryPath = path.join(root, "tools/frontend_visual_fixture_registry.json");
   if (existsSync(registryPath)) {
     const registry = readJSON(registryPath);
+    const designContractCounts = new Map(
+      designContractIDs.map((designContractID) => [designContractID, 0]),
+    );
     for (const fixture of registry.fixtures ?? []) {
       if (!/^visual\.fixture\.[a-z][a-z0-9_]*$/u.test(fixture.fixture_id ?? "")) {
         violations.push({
@@ -256,6 +263,12 @@ function collectFixtureViolations(root) {
           reason: "missing, retired, and placeholder fixtures must not remain active migration inputs",
         });
       }
+      if (fixture.design_contract_id !== undefined) {
+        designContractCounts.set(
+          fixture.design_contract_id,
+          (designContractCounts.get(fixture.design_contract_id) ?? 0) + 1,
+        );
+      }
       for (const golden of [fixture.golden_filename, ...(fixture.golden_artifacts ?? [])]) {
         if (!/(?:fe-v-p\d+|v-\d+-grid-\d+)-/iu.test(golden ?? "")) continue;
         violations.push({
@@ -265,6 +278,16 @@ function collectFixtureViolations(root) {
           reason: "visual fixture metadata references a delivery-shaped golden path",
         });
       }
+    }
+    for (const designContractID of designContractIDs) {
+      const count = designContractCounts.get(designContractID) ?? 0;
+      if (count === 1) continue;
+      violations.push({
+        location: "tools/frontend_visual_fixture_registry.json",
+        locator_kind: "fixture_id",
+        locator: designContractID,
+        reason: `design visual fixture contract must resolve exactly once; found ${count}`,
+      });
     }
   }
   return violations;

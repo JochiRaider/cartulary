@@ -174,17 +174,6 @@ export const activeSystemViewTitleStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-export const topBarQuerySlotStyle = {
-  display: "flex",
-  alignItems: "center",
-  flex: "1 1 14rem",
-  boxSizing: "border-box" as const,
-  minWidth: 0,
-  minInlineSize: 0,
-  overflow: "visible",
-  order: 4,
-};
-
 export const surfacesMenuFrameStyle = {
   position: "relative" as const,
   display: "inline-flex",

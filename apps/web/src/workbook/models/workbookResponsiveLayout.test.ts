@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   selectWorkbookBlockMode,
   selectWorkbookChromeMode,
+  workbookQueryChipCapacity,
 } from "./workbookResponsiveLayout";
 
 describe("workbook responsive layout model", () => {
@@ -35,5 +36,14 @@ describe("workbook responsive layout model", () => {
   ] as const)("keeps wide chrome in base mode across short heights at %s CSS px", (widthCssPx) => {
     expect(selectWorkbookChromeMode(widthCssPx)).toBe("base");
     expect(selectWorkbookBlockMode(560)).toBe("short_height");
+  });
+
+  it.each([
+    ["base", 8],
+    ["narrow_desktop", 6],
+    ["compact_desktop", 0],
+    ["below_supported_minimum", 0],
+  ] as const)("caps visible query chips in %s mode at %i", (chromeMode, expectedCapacity) => {
+    expect(workbookQueryChipCapacity(chromeMode)).toBe(expectedCapacity);
   });
 });

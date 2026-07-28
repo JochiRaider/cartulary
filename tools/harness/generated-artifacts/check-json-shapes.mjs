@@ -90,7 +90,13 @@ const networkFlowContractIndexSchemaID =
 const networkFlowTimezoneRulesetProvenanceSchemaID =
   "cartulary.network_flow_timezone_ruleset_provenance.v2";
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v4";
+  "cartulary.frontend_visual_fixture_registry.v5";
+const frontendVisualDesignContractIDs = Object.freeze(
+  Array.from(
+    { length: 12 },
+    (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
+  ),
+);
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
 const schedulerSummaryCommonSchemaIDs = new Set([schedulerSummaryCommonSchemaID]);
 
@@ -3325,7 +3331,26 @@ function validateAll(root) {
     frontendVisualFixtureRegistrySchemaID,
     visualFixtureRegistry,
   );
+  const fixtureIDs = new Set();
+  const designFixtureCounts = new Map(
+    frontendVisualDesignContractIDs.map((designContractID) => [
+      designContractID,
+      0,
+    ]),
+  );
   for (const fixture of visualFixtureRegistry.fixtures) {
+    if (fixtureIDs.has(fixture.fixture_id)) {
+      throw new Error(
+        `frontend visual fixture registry duplicates fixture_id ${fixture.fixture_id}`,
+      );
+    }
+    fixtureIDs.add(fixture.fixture_id);
+    if (fixture.design_contract_id !== undefined) {
+      designFixtureCounts.set(
+        fixture.design_contract_id,
+        (designFixtureCounts.get(fixture.design_contract_id) ?? 0) + 1,
+      );
+    }
     for (const rowID of fixture.catalog_row_ids) {
       const row = testCatalog.rowByID.get(rowID);
       if (!row || row.runner !== "playwright" || row.evidence_class !== "visual") {
@@ -3333,6 +3358,14 @@ function validateAll(root) {
           `visual fixture ${fixture.fixture_id} references non-visual catalog row ${rowID}`,
         );
       }
+    }
+  }
+  for (const designContractID of frontendVisualDesignContractIDs) {
+    const count = designFixtureCounts.get(designContractID) ?? 0;
+    if (count !== 1) {
+      throw new Error(
+        `frontend visual fixture registry must project ${designContractID} exactly once; found ${count}`,
+      );
     }
   }
 

@@ -43,7 +43,14 @@ export async function holdBrowserRequest(
       resolveHit?.();
     }
     await hold;
-    await route.continue();
+    try {
+      await route.continue();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("Route is already handled")) {
+        throw error;
+      }
+    }
   };
 
   await page.route(routePattern, routeHandler);

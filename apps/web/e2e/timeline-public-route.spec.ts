@@ -8,16 +8,18 @@ import {
   conflictMarkerTestId,
   draftCellTestId,
   gridShellTestId,
-  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
-  pendingQueueRecoveryPanelTestId,
-  pendingQueueRetryButtonTestId,
   rowCellTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictSavedValueTestId,
+  workbookEditRecoveryDiscardButtonTestId,
+  workbookEditRecoveryRetryButtonTestId,
+  workbookEditRecoveryTestId,
 } from "@cartulary/ui-contracts";
 import type { APIResponse, Page, Response, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -1031,16 +1033,16 @@ test(
         await expect(
           stalePage.getByTestId("paste-conflict-position"),
         ).toHaveText("1 of 2");
-        await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          staleStartText,
-        );
+        await expect(
+          stalePage.getByTestId(workbookConflictLocalValueTestId()),
+        ).toHaveValue(staleStartText);
         await stalePage.getByTestId("paste-conflict-next").click();
         await expect(
           stalePage.getByTestId("paste-conflict-position"),
         ).toHaveText("2 of 2");
-        await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          staleNextText,
-        );
+        await expect(
+          stalePage.getByTestId(workbookConflictLocalValueTestId()),
+        ).toHaveValue(staleNextText);
       } finally {
         await staleContext.close();
       }
@@ -1291,7 +1293,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(blockedCall?.status).toBe(409);
       const blockedClientTxnId = String(blockedCall?.body.client_txn_id);
 
-      const recoveryPanel = page.getByTestId(pendingQueueRecoveryPanelTestId());
+      const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
       await expect(recoveryPanel).toBeVisible();
       expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
         ["Retry with a new request ID", "Discard blocked edit"],
@@ -1325,7 +1327,9 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeFocused();
-      const retryButton = page.getByTestId(pendingQueueRetryButtonTestId());
+      const retryButton = page.getByTestId(
+        workbookEditRecoveryRetryButtonTestId(),
+      );
       await retryButton.focus();
       await retryButton.press("Enter");
       await expect.poll(() => patchController.calls.length).toBe(4);
@@ -1351,15 +1355,17 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       );
       await expect.poll(() => patchController.calls.length).toBe(5);
       await expect(
-        page.getByTestId(pendingQueueRecoveryPanelTestId()),
+        page.getByTestId(workbookEditRecoveryTestId()),
       ).toBeVisible();
-      const discardButton = page.getByTestId(pendingQueueDiscardButtonTestId());
+      const discardButton = page.getByTestId(
+        workbookEditRecoveryDiscardButtonTestId(),
+      );
       await discardButton.focus();
       await discardButton.press("Space");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(
-        page.getByTestId(pendingQueueRecoveryPanelTestId()),
-      ).toHaveCount(0);
+      await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
+        0,
+      );
       await expect(
         page.getByTestId(
           rowCellTestId(
@@ -1412,7 +1418,9 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         );
         expect(serverPatch.ok()).toBeTruthy();
 
-        await stalePage.getByTestId(pendingQueueRetryButtonTestId()).click();
+        await stalePage
+          .getByTestId(workbookEditRecoveryRetryButtonTestId())
+          .click();
         await expect.poll(() => stalePatchController.calls.length).toBe(2);
         const retriedCall = stalePatchController.calls[1];
         expect(retriedCall?.status).toBe(409);
@@ -1422,14 +1430,14 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         expect(retriedCall?.body.base_row_version).toBe(
           sameFieldRow.row_version,
         );
-        await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          "end-to-end.mutation-lifecycle.row-01 resolver local",
-        );
         await expect(
-          stalePage.getByTestId("conflict-server-value"),
+          stalePage.getByTestId(workbookConflictLocalValueTestId()),
+        ).toHaveValue("end-to-end.mutation-lifecycle.row-01 resolver local");
+        await expect(
+          stalePage.getByTestId(workbookConflictSavedValueTestId()),
         ).toHaveValue("end-to-end.mutation-lifecycle.row-01 resolver server");
         await expect(
-          stalePage.getByTestId(pendingQueueRecoveryPanelTestId()),
+          stalePage.getByTestId(workbookEditRecoveryTestId()),
         ).toHaveCount(0);
       } finally {
         await stalePatchController.dispose();

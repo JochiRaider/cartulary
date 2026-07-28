@@ -13,6 +13,7 @@ import {
   draftCellTestId,
   gridGroupRowTestId,
   timelineMutationSubstrateReadyTestId,
+  workbookConflictSummaryTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -36,12 +37,14 @@ import { apiPath, clientTxnID } from "../../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
+  readEnvelope,
   workbookLoadFailureIsAccessLoss,
 } from "../../../services/workbookApi";
 import { WorkbookGridControls } from "../../components/WorkbookGridControls";
-import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
+import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
 import { WorkbookSurfaceFrame } from "../../components/WorkbookSurfaceFrame";
+import { WorkbookViewBar } from "../../components/WorkbookViewBar";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
 import {
   type WorkbookQueryLoadState,
@@ -67,6 +70,12 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
+import {
+  useWorkbookCollaborationProjection,
+  useWorkbookCollaborationProjectionSession,
+} from "../../runtime/useWorkbookCollaborationProjection";
+import { useWorkbookMutationRuntime } from "../../runtime/useWorkbookMutationRuntime";
+import { refreshBlocksWorkbookPendingRecord } from "../../runtime/workbookPendingReplayRuntime";
 import { workbookClipboardPasteContract } from "../../utils/workbookClipboard";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import {
@@ -78,7 +87,7 @@ import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { useTimelineClipboardPasteController } from "../hooks/useTimelineClipboardPasteController";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
-import { useTimelineConflictResolverCoordinator } from "../hooks/useTimelineConflictResolverCoordinator";
+import { useTimelineConflictProjectionAdapter } from "../hooks/useTimelineConflictProjectionAdapter";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceActions } from "../hooks/useTimelineEvidenceActions";
@@ -96,14 +105,11 @@ import {
   useTimelineInspectorRowInteractions,
   useTimelineInspectorSelection,
 } from "../hooks/useTimelineInspectorSelection";
-import { useTimelineLiveUpdateController } from "../hooks/useTimelineLiveUpdateController";
-import { useTimelineLiveUpdates } from "../hooks/useTimelineLiveUpdates";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
 import { useTimelinePendingReplayController } from "../hooks/useTimelinePendingReplayController";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
-import { useTimelinePresenceProjection } from "../hooks/useTimelinePresenceProjection";
 import { useTimelineRows } from "../hooks/useTimelineRows";
 import {
   type LoadRowsOptions,
@@ -116,14 +122,7 @@ import {
   type TimelineViewportContinuityTarget as ViewportContinuityTarget,
 } from "../hooks/useTimelineViewportContinuityController";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
-import type {
-  PendingReplayRuntimeMeta,
-  TimelineLiveUpdateRefs,
-} from "../models/timelineControllerPorts";
-import {
-  createTimelinePendingQueueRuntime,
-  refreshBlocksTimelinePendingRecord,
-} from "../models/timelinePendingReplayModel";
+import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import {
@@ -170,23 +169,16 @@ function isCollectionDraftKey(
   return field === "hostRefs" || field === "identityRefs" || field === "tags";
 }
 
-import {
-  createTimelineCollaborationState,
-  type TimelineCollaborationAction,
-  type TimelineCollaborationEffect,
-} from "../services/timelineCollaborationEffects";
-import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 import type {
   RecordChangedPayload,
-  TimelinePresenceDraft,
-} from "../services/workbookCollaborationMessages";
+  WorkbookPresenceDraft,
+} from "../../runtime/workbookCollaborationMessages";
+import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 import {
   DraftRowCreateButton,
   mentionChipStateForItem,
 } from "./TimelineCellEditors";
-import { TimelineConflictResolver } from "./TimelineConflictResolver";
 import { TimelineGridSurface } from "./TimelineGridSurface";
-import { TimelineRowGutterContent } from "./TimelinePresenceMarkers";
 import { TimelineRowContextMenu } from "./TimelineRowActions";
 import { TimelineWorkbookInspector } from "./TimelineWorkbookInspector";
 import { useTimelineWorkbookInspectorSections } from "./TimelineWorkbookInspectorSections";
@@ -315,6 +307,8 @@ function rowWithMaterializedScalarDrafts(
 }
 
 function TimelineWorkbookContent({
+  collaborationProjection,
+  mutationRuntime,
   incident,
   query,
   entities,
@@ -337,6 +331,7 @@ function TimelineWorkbookContent({
     setState: setShellQueryState,
     renderInlineControls: renderInlineQueryControls,
     savedViewSelector,
+    viewBarQueryControls,
   } = query;
   const {
     hosts: hostEntities,
@@ -345,6 +340,7 @@ function TimelineWorkbookContent({
     refresh: onRefreshEntities,
   } = entities;
   const {
+    chromeMode,
     density,
     interactionMode,
     state: layoutState,
@@ -353,8 +349,12 @@ function TimelineWorkbookContent({
     reorderColumn: handleColumnReorder,
     setColumnWidth: handleColumnWidthChange,
     resetColumns: handleResetColumns,
+    showStatusPresence,
   } = layout;
-  const { clientInstanceId, connectionId } = useIncidentCollaborationSession();
+  const collaborationSnapshot = useWorkbookCollaborationProjection(
+    collaborationProjection,
+  );
+  const clientInstanceId = mutationRuntime.scope.clientInstanceId;
   const timelineRuntime = useTimelineWorkbookRuntime({
     filterDraft: shellFilterDraft,
     queryState: shellQueryState,
@@ -366,14 +366,10 @@ function TimelineWorkbookContent({
     isRefreshing,
     loadError,
     refreshError,
-    saveState,
-    saveStateSecondaryMessage,
     setIsInitialLoading,
     setIsRefreshing,
     setLoadError,
     setRefreshError,
-    setSaveState,
-    setSaveStateSecondaryMessage,
   } = timelineRuntime.lifecycle;
   const {
     applyQueryFilter,
@@ -425,10 +421,29 @@ function TimelineWorkbookContent({
   }, [canBulkTag, rows]);
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const timelineConflicts = useTimelineConflicts({ conflictQueueRef });
-  const { activeConflictKey, conflictQueue, pasteConflictGroup } =
-    timelineConflicts.snapshot;
+  const commonMutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
+  const { activeConflictKey, conflictQueue } = timelineConflicts.snapshot;
   const { setActiveConflictKey, setConflictQueueState, setPasteConflictGroup } =
     timelineConflicts.commands;
+  useEffect(() => {
+    const commonKeys = new Set(
+      commonMutationSnapshot.conflicts
+        .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
+        .map((entry) => entry.key),
+    );
+    setConflictQueueState((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([key]) => commonKeys.has(key)),
+      ),
+    );
+    setActiveConflictKey((current) =>
+      current !== null && commonKeys.has(current) ? current : null,
+    );
+  }, [
+    commonMutationSnapshot.conflicts,
+    setActiveConflictKey,
+    setConflictQueueState,
+  ]);
   const conflictCellKeys = useMemo(
     () =>
       new Set(
@@ -472,36 +487,25 @@ function TimelineWorkbookContent({
   const timelineEvidenceActions = useTimelineEvidenceActions();
   const { inspectorMessage } = timelineEvidenceActions.snapshot;
   const { setInspectorMessage } = timelineEvidenceActions.commands;
-  const collaborationStateRef = useRef(createTimelineCollaborationState());
-  const presenceUpdateTimerRef = useRef<number | null>(null);
-  const currentPresenceRef = useRef<TimelinePresenceDraft>({
+  const [currentPresence, setCurrentPresence] = useState<WorkbookPresenceDraft>(
+    {
+      fieldKey: null,
+      mode: "viewing",
+      recordId: null,
+    },
+  );
+  const currentPresenceRef = useRef<WorkbookPresenceDraft>({
     fieldKey: null,
     mode: "viewing",
     recordId: null,
   });
-  const socketReconnectAfterAuthRef = useRef<(() => void) | null>(null);
-  const dispatchCollaborationRef = useRef<
-    (
-      action: TimelineCollaborationAction,
-    ) => readonly TimelineCollaborationEffect[]
-  >(() => []);
-  const timelineLiveUpdateRefs: TimelineLiveUpdateRefs = {
-    collaborationStateRef,
-    currentPresenceRef,
-    dispatchCollaborationRef,
-    presenceUpdateTimerRef,
-    socketReconnectAfterAuthRef,
-  };
-  const timelineLiveUpdates = useTimelineLiveUpdates({
-    refs: timelineLiveUpdateRefs,
+  currentPresenceRef.current = currentPresence;
+  const socketReconnectAfterAuthRef = useRef<(() => void) | null>(() => {
+    collaborationProjection.reconnect();
   });
-  const { currentPresence, presenceRecords } = timelineLiveUpdates.snapshot;
-  const { setCurrentPresence, setPresenceRecords } =
-    timelineLiveUpdates.commands;
   const timelinePendingSaves =
     useTimelinePendingSaves<PendingReplayRuntimeMeta>({
-      clientInstanceId,
-      incidentId,
+      mutationRuntime,
     });
   const { pendingQueueSnapshot } = timelinePendingSaves.snapshot;
   const { setPendingQueueSnapshot } = timelinePendingSaves.commands;
@@ -518,6 +522,9 @@ function TimelineWorkbookContent({
   const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
+  const discardBlockedEditRef = useRef<(unitId: string) => boolean>(
+    () => false,
+  );
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
@@ -694,9 +701,6 @@ function TimelineWorkbookContent({
     () => sheetRef ?? { kind: "view_schema", id: timelineViewSchemaId },
     [sheetRef],
   );
-  const activeSheetRuntimeRef = useRef(activeSheetRef);
-  activeSheetRuntimeRef.current = activeSheetRef;
-
   const updateTimelineSurfaceFocusAnchor = useCallback(
     (recordId: string | null, fieldKey: string) => {
       updateTimelineFocusAnchor(recordId, fieldKey, timelineViewSchemaId);
@@ -708,11 +712,10 @@ function TimelineWorkbookContent({
     useTimelineSaveStatePresentation<PendingReplayRuntimeMeta>({
       conflictQueue,
       conflictQueueRef,
+      mutationRuntime,
       pendingQueueSnapshot,
       pendingSavesRefsRef,
       setPendingQueueSnapshot,
-      setSaveState,
-      setSaveStateSecondaryMessage,
     });
   const {
     beginRefreshInFlight,
@@ -722,30 +725,9 @@ function TimelineWorkbookContent({
     publishPendingQueueState,
     publishSaveStatePresentation,
   } = timelineSaveStatePresentation.commands;
-  const {
-    beginRefreshInFlightRef,
-    finishRefreshInFlightRef,
-    publishPendingQueueStateRef,
-  } = timelineSaveStatePresentation.refs;
-
   useEffect(() => {
-    const scope =
-      pendingSavesRefsRef.current.pendingQueueRef.current.model.scope;
-    if (
-      scope.incidentId === incidentId &&
-      scope.clientInstanceId === clientInstanceId
-    ) {
-      return;
-    }
-    pendingSavesRefsRef.current.pendingQueueRef.current =
-      createTimelinePendingQueueRuntime({
-        incidentId,
-        clientInstanceId,
-      });
-    collaborationStateRef.current = createTimelineCollaborationState();
-    pendingSavesRefsRef.current.pendingSignaturesRef.current.clear();
-    publishPendingQueueState();
-  }, [clientInstanceId, incidentId, publishPendingQueueState]);
+    publishPendingQueueState(conflictQueue);
+  }, [conflictQueue, publishPendingQueueState]);
 
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -781,9 +763,21 @@ function TimelineWorkbookContent({
     resolveInputElement,
     settleViewportContinuityFollowUp,
   } = timelineViewportContinuity.commands;
-  const { advanceViewportContinuityRef, beginViewportContinuityRef } =
-    timelineViewportContinuity.refs;
-
+  useEffect(() => {
+    if (
+      viewportContinuityRequest === null ||
+      !commonMutationSnapshot.conflicts.some(
+        (entry) => entry.origin.viewSchemaId === timelineViewSchemaId,
+      )
+    ) {
+      return;
+    }
+    clearViewportContinuity(viewportContinuityRequest.token);
+  }, [
+    clearViewportContinuity,
+    commonMutationSnapshot.conflicts,
+    viewportContinuityRequest,
+  ]);
   const trackPendingSocketTxn = useCallback((clientTxnId: string) => {
     const existingTimeout =
       pendingSavesRefsRef.current.pendingSocketTxnTimeoutsRef.current.get(
@@ -825,8 +819,13 @@ function TimelineWorkbookContent({
     },
     [],
   );
-  const resolvePendingSocketTxnRef = useRef(resolvePendingSocketTxn);
-  resolvePendingSocketTxnRef.current = resolvePendingSocketTxn;
+  useEffect(
+    () =>
+      collaborationProjection.registerClientTxnResolver(
+        resolvePendingSocketTxn,
+      ),
+    [collaborationProjection, resolvePendingSocketTxn],
+  );
 
   const {
     currentTimelineAnchorFor,
@@ -1032,7 +1031,7 @@ function TimelineWorkbookContent({
         }
         if (
           !hasPendingRecordWork &&
-          !refreshBlocksTimelinePendingRecord(pending, recordId)
+          !refreshBlocksWorkbookPendingRecord(pending, recordId)
         ) {
           const row = latestCommittedTimelineRow(recordId);
           const rowVersion =
@@ -1089,6 +1088,84 @@ function TimelineWorkbookContent({
     setRows,
     timelineContract,
   });
+  useEffect(
+    () =>
+      mutationRuntime.registerSurface(
+        timelineViewSchemaId,
+        () => loadRows({ showLoading: false }),
+        (payload, conflict) => {
+          const recordId = conflict.conflict.record_id;
+          const binding = timelineScalarBindingForField(
+            conflict.conflict.field_key,
+          );
+          if (binding !== null) {
+            for (const surface of timelineScalarEditorSurfaces) {
+              scalarDraftValuesRef.current.delete(
+                inputFocusKey(recordId, binding.key, surface),
+              );
+            }
+            timelineGridHandleRef.current?.cancelEdit({
+              fieldKey: binding.fieldKey,
+              rowIdentity: {
+                kind: "core_record",
+                recordId,
+              },
+              surface: {
+                kind: "view_schema",
+                viewSchemaId: timelineViewSchemaId,
+              },
+            });
+          }
+          applyRowMutation(
+            recordId,
+            readEnvelope<TimelineMutationEnvelope>(payload),
+          );
+          if (binding !== null) {
+            window.setTimeout(() => {
+              timelineGridHandleRef.current?.focusAnchor({
+                fieldKey: binding.fieldKey,
+                rowIdentity: {
+                  kind: "core_record",
+                  recordId,
+                },
+                surface: {
+                  kind: "view_schema",
+                  viewSchemaId: timelineViewSchemaId,
+                },
+              });
+            }, 0);
+          }
+        },
+        (conflict) => {
+          window.setTimeout(() => {
+            const existingEditor =
+              conflict.focusKey === null
+                ? null
+                : (rowInputRefs.current.get(conflict.focusKey) ?? null);
+            if (existingEditor !== null) {
+              existingEditor.focus({ preventScroll: true });
+              return;
+            }
+            timelineGridHandleRef.current?.activateEdit(
+              {
+                fieldKey: conflict.conflict.field_key,
+                rowIdentity: {
+                  kind: "core_record",
+                  recordId: conflict.conflict.record_id,
+                },
+                surface: {
+                  kind: "view_schema",
+                  viewSchemaId: timelineViewSchemaId,
+                },
+              },
+              { value: conflict.localValue },
+            );
+          }, 0);
+        },
+        (unitId) => discardBlockedEditRef.current(unitId),
+      ),
+    [applyRowMutation, loadRows, mutationRuntime],
+  );
 
   const {
     beginWorkflow: beginCreateRelatedWorkflow,
@@ -1187,8 +1264,34 @@ function TimelineWorkbookContent({
       setRows,
     ],
   );
-  const applyRecordChangedPatchRef = useRef(applyRecordChangedPatch);
-  applyRecordChangedPatchRef.current = applyRecordChangedPatch;
+  const collaborationSurfacePort = useMemo(
+    () => ({
+      identity: {
+        sheetRef: activeSheetRef,
+        viewSchemaId: timelineViewSchemaId,
+      },
+      applyRecordChanged: (payload: RecordChangedPayload) =>
+        applyRecordChangedPatch(payload)
+          ? ({ kind: "applied" } as const)
+          : ({ kind: "refresh_required" } as const),
+      clearAuthorizedRows: () => {
+        const localDrafts = rowsRef.current.filter(
+          (row) => row.recordId === null,
+        );
+        rowsRef.current = localDrafts;
+        setRows(localDrafts);
+      },
+      refresh: async () => {
+        await loadRowsRef.current({ showLoading: false });
+      },
+    }),
+    [activeSheetRef, applyRecordChangedPatch, setRows],
+  );
+  useEffect(
+    () =>
+      collaborationProjection.registerActiveSurface(collaborationSurfacePort),
+    [collaborationProjection, collaborationSurfacePort],
+  );
 
   useEffect(() => {
     // Keep saved-view reselection and shell-level refreshes observable here even
@@ -1312,62 +1415,19 @@ function TimelineWorkbookContent({
   ]);
 
   const schedulePendingReplayRuntimeRef = useRef<() => void>(() => undefined);
-  const timelineConflictResolverCoordinator =
-    useTimelineConflictResolverCoordinator({
-      activeConflictKey,
-      activateGridEditor: (recordId, fieldKey, draftValue) =>
-        timelineGridHandleRef.current?.activateEdit(
-          {
-            fieldKey,
-            rowIdentity: { kind: "core_record", recordId },
-            surface: {
-              kind: "view_schema",
-              viewSchemaId: timelineViewSchemaId,
-            },
-          },
-          { value: draftValue },
-        ) ?? false,
-      apiBase,
-      applyRowMutation,
-      beginViewportContinuity,
-      cancelGridEditor: (recordId, fieldKey) =>
-        timelineGridHandleRef.current?.cancelEdit({
-          fieldKey,
-          rowIdentity: { kind: "core_record", recordId },
-          surface: {
-            kind: "view_schema",
-            viewSchemaId: timelineViewSchemaId,
-          },
-        }) ?? false,
-      conflictQueue,
-      nextClientTxnId,
-      pasteConflictGroup,
-      pendingSavesRefsRef,
-      publishSaveStatePresentation,
-      resolveInputElement,
-      rowsRef,
-      scalarDraftValuesRef,
-      schedulePendingReplayRef: schedulePendingReplayRuntimeRef,
-      setActiveConflictKey,
-      setConflictQueueState,
-      setPasteConflictGroup,
-      setRows,
-      setSaveState,
-      setSaveStateSecondaryMessage,
-    });
-  const {
-    activeConflict,
-    activePasteConflictIndex,
-    activePasteConflictKeys,
-    showPasteConflictNavigator,
-  } = timelineConflictResolverCoordinator.snapshot;
-  const {
-    closeConflictResolver,
-    handleConflictMergedDraftChange,
-    handleMutationConflict,
-    registerSameFieldConflict,
-    submitConflictResolution,
-  } = timelineConflictResolverCoordinator.commands;
+  const timelineConflictProjection = useTimelineConflictProjectionAdapter({
+    activeConflictKey,
+    conflictQueue,
+    mutationRuntime,
+    rowsRef,
+    scalarDraftValuesRef,
+    setActiveConflictKey,
+    setConflictQueueState,
+    setRows,
+  });
+  const { activeConflict } = timelineConflictProjection.snapshot;
+  const { handleMutationConflict, registerSameFieldConflict } =
+    timelineConflictProjection.commands;
 
   const setScalarEditorDraftValue = useCallback(
     (
@@ -1612,8 +1672,6 @@ function TimelineWorkbookContent({
   const {
     discardBlockedEdit,
     enqueuePendingReplayUnit,
-    retryBlockedEdit,
-    scheduleAuthRecoveryProbeRef,
     schedulePendingReplay,
   } = useTimelinePendingReplayController({
     apiBase,
@@ -1624,6 +1682,7 @@ function TimelineWorkbookContent({
     handleMutationConflict,
     latestCommittedTimelineRow,
     loadRowsRef,
+    mutationRuntime,
     pendingSavesRefsRef,
     postMutationQueryRefreshRequired:
       queryState.filters.length > 0 ||
@@ -1639,41 +1698,58 @@ function TimelineWorkbookContent({
     setRows,
     trackPendingSocketTxn,
   });
+  discardBlockedEditRef.current = discardBlockedEdit;
   schedulePendingReplayRuntimeRef.current = schedulePendingReplay;
 
-  const { sendPresenceUpdate } = useTimelineLiveUpdateController({
-    activeSheetRuntimeRef,
-    advanceViewportContinuityRef,
-    apiBase,
-    applyRecordChangedPatchRef,
-    beginRefreshInFlightRef,
-    beginViewportContinuityRef,
-    currentPresence,
-    finishRefreshInFlightRef,
-    incidentId,
-    liveUpdateRefs: timelineLiveUpdateRefs,
-    loadRowsRef,
-    pendingSavesRefsRef,
-    publishPendingQueueStateRef,
-    resolvePendingSocketTxnRef,
-    scheduleAuthRecoveryProbeRef,
-    setPresenceRecords,
-    setRefreshError,
-  });
+  useEffect(
+    () => mutationRuntime.registerDrainer(schedulePendingReplay),
+    [mutationRuntime, schedulePendingReplay],
+  );
 
-  const {
-    activeSheetPresenceRecords,
-    editingPresenceForCell,
-    handleEditModePresence,
-    presenceForRow,
-  } = useTimelinePresenceProjection({
-    activeSheetRef,
-    connectionId,
-    currentPresenceRef,
-    presenceRecords,
-    sendPresenceUpdate,
-    setCurrentPresence,
-  });
+  const sendPresenceUpdate = useCallback(
+    (presence: WorkbookPresenceDraft) => {
+      collaborationProjection.publishPresence(presence);
+    },
+    [collaborationProjection],
+  );
+  const activeSheetPresenceRecords =
+    collaborationSnapshot.activeSheetPresenceRecords;
+  const presenceForRow = useCallback(
+    (recordId: string | null) =>
+      recordId === null
+        ? []
+        : activeSheetPresenceRecords.filter(
+            (presence) => presence.record_id === recordId,
+          ),
+    [activeSheetPresenceRecords],
+  );
+  const editingPresenceForCell = useCallback(
+    (recordId: string | null, fieldKey: string) =>
+      recordId === null
+        ? []
+        : activeSheetPresenceRecords.filter(
+            (presence) =>
+              presence.record_id === recordId &&
+              presence.field_key === fieldKey &&
+              presence.mode === "editing",
+          ),
+    [activeSheetPresenceRecords],
+  );
+  const handleEditModePresence = useCallback(
+    (recordId: string | null, fieldKey: string, editing: boolean) => {
+      const next = editing
+        ? { fieldKey, mode: "editing" as const, recordId }
+        : {
+            fieldKey: null,
+            mode: "viewing" as const,
+            recordId: recordId ?? currentPresenceRef.current.recordId,
+          };
+      currentPresenceRef.current = next;
+      setCurrentPresence(next);
+      sendPresenceUpdate(next);
+    },
+    [sendPresenceUpdate],
+  );
 
   const timelineInspectorRowInteractions = useTimelineInspectorRowInteractions({
     currentPresenceRef,
@@ -2348,7 +2424,6 @@ function TimelineWorkbookContent({
   const {
     renderTimelineCollectionInput,
     renderTimelineInspectorEditor,
-    timelineBindingLabel,
     timelineColumns,
   } = useTimelineWorkbookRenderers({
     activeCollectionInputKey,
@@ -2408,7 +2483,7 @@ function TimelineWorkbookContent({
           />
         ),
         renderSavedGutterContent: ({ ordinal, presences, recordId }) => (
-          <TimelineRowGutterContent
+          <WorkbookRowGutterContent
             ordinal={ordinal}
             presences={presences}
             recordId={recordId}
@@ -2508,15 +2583,17 @@ function TimelineWorkbookContent({
     if (firstConflictKey === undefined) {
       return;
     }
+    mutationRuntime.activateConflict();
     setActiveConflictKey(firstConflictKey);
     window.requestAnimationFrame(() => {
       const summary = document.querySelector<HTMLElement>(
-        '[data-testid="conflict-resolver-summary"]',
+        dataTestIdSelector(workbookConflictSummaryTestId()),
       );
       summary?.focus();
     });
   }, [
     conflictQueue,
+    mutationRuntime,
     pendingQueueSnapshot.blockedEdit,
     pendingQueueSnapshot.overflowMessage,
     setActiveConflictKey,
@@ -2555,6 +2632,7 @@ function TimelineWorkbookContent({
 
   return (
     <WorkbookSurfaceFrame
+      chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
           <TimelineWorkbookInspector
@@ -2592,6 +2670,11 @@ function TimelineWorkbookContent({
           />
         ) : undefined
       }
+      onRequestInspectorClose={() => {
+        setIsInspectorOpen(false);
+        clearRowHistory();
+        cancelCreateRelatedWorkflow();
+      }}
       primaryGrid={
         <TimelineGridSurface
           activeRecordId={selectedRowId}
@@ -2633,8 +2716,9 @@ function TimelineWorkbookContent({
           activeSheetPresenceRecords={activeSheetPresenceRecords}
           inFlightCount={pendingQueueSnapshot.inFlightCount}
           queuedCount={pendingQueueSnapshot.queuedCount}
-          saveState={saveState}
-          saveStateSecondaryMessage={saveStateSecondaryMessage}
+          saveState={commonMutationSnapshot.primaryLabel}
+          saveStateSecondaryMessage={commonMutationSnapshot.secondaryMessage}
+          showPresence={showStatusPresence}
           onActivateConflict={
             conflictStatusIsActionable ? activateConflictStatus : undefined
           }
@@ -2643,11 +2727,42 @@ function TimelineWorkbookContent({
       }
       testId={timelineMutationSubstrateReadyTestId()}
       viewBar={
-        <WorkbookSheetToolbar
+        <WorkbookViewBar
           addRowDisabled={interactionMode.kind === "read_only"}
-          leading={
-            <>
-              {savedViewSelector}
+          queryControls={
+            renderInlineQueryControls ? (
+              <WorkbookGridControls
+                chromeMode={chromeMode}
+                contract={timelineContract}
+                defaultFilterPopoverOpen
+                filterDraft={filterDraft}
+                layoutState={layoutState}
+                onApplyFilter={applyQueryFilter}
+                onClearAll={() => {
+                  setQueryState(emptyWorkbookQueryState());
+                  setFilterDraft(defaultFilterDraft(timelineContract));
+                }}
+                onFilterDraftChange={setFilterDraft}
+                onGroupByChange={handleQueryGroupByChange}
+                onColumnHiddenChange={handleColumnHiddenChange}
+                onColumnMove={handleColumnMove}
+                onResetColumns={handleResetColumns}
+                onRemoveFilter={(fieldKey) => {
+                  setQueryState((current) =>
+                    removeFilterField(current, fieldKey),
+                  );
+                }}
+                onSortChange={handleQuerySortChange}
+                queryState={queryState}
+                surface={timelineViewSchemaId}
+              />
+            ) : (
+              viewBarQueryControls
+            )
+          }
+          savedViewControls={savedViewSelector}
+          supplementalControls={
+            selectedTimelineRecordIds.size === 0 ? undefined : (
               <fieldset style={bulkActionFieldsetStyle}>
                 <legend style={visuallyHiddenStyle}>
                   Timeline bulk record actions
@@ -2691,33 +2806,7 @@ function TimelineWorkbookContent({
                   </span>
                 )}
               </fieldset>
-              {renderInlineQueryControls ? (
-                <WorkbookGridControls
-                  contract={timelineContract}
-                  defaultFilterPopoverOpen
-                  filterDraft={filterDraft}
-                  layoutState={layoutState}
-                  onApplyFilter={applyQueryFilter}
-                  onClearAll={() => {
-                    setQueryState(emptyWorkbookQueryState());
-                    setFilterDraft(defaultFilterDraft(timelineContract));
-                  }}
-                  onFilterDraftChange={setFilterDraft}
-                  onGroupByChange={handleQueryGroupByChange}
-                  onColumnHiddenChange={handleColumnHiddenChange}
-                  onColumnMove={handleColumnMove}
-                  onResetColumns={handleResetColumns}
-                  onRemoveFilter={(fieldKey) => {
-                    setQueryState((current) =>
-                      removeFilterField(current, fieldKey),
-                    );
-                  }}
-                  onSortChange={handleQuerySortChange}
-                  queryState={queryState}
-                  surface={timelineViewSchemaId}
-                />
-              ) : null}
-            </>
+            )
           }
           onAddRow={focusDraftRow}
           onInspectorToggle={() => {
@@ -2734,9 +2823,7 @@ function TimelineWorkbookContent({
             autoResolutionNotices={autoResolutionNotices}
             entityIndex={entityIndex}
             inspectorOpen={isInspectorOpen}
-            onDiscardBlockedEdit={discardBlockedEdit}
             onReviewAutoResolution={handleSelectMention}
-            onRetryBlockedEdit={retryBlockedEdit}
             onUndoAutoResolution={handleUndoAutoResolutionNotice}
             pendingQueueSnapshot={pendingQueueSnapshot}
             recoveryPanelRef={recoveryPanelRef}
@@ -2767,23 +2854,6 @@ function TimelineWorkbookContent({
               }}
             />
           )}
-          {activeConflict ? (
-            <TimelineConflictResolver
-              activeConflict={activeConflict}
-              activeConflictKey={activeConflictKey}
-              activePasteConflictIndex={activePasteConflictIndex}
-              activePasteConflictKeys={activePasteConflictKeys}
-              conflictQueue={conflictQueue}
-              getFieldLabel={timelineBindingLabel}
-              onClose={closeConflictResolver}
-              onMergedDraftChange={handleConflictMergedDraftChange}
-              onSelectConflictKey={(conflictKey) => {
-                setActiveConflictKey(conflictKey);
-              }}
-              onSubmit={submitConflictResolution}
-              showPasteConflictNavigator={showPasteConflictNavigator}
-            />
-          ) : null}
         </>
       }
       onWorkAreaContextMenu={handleTimelineGridContextMenu}
@@ -2803,7 +2873,25 @@ export function TimelineWorkbook(props: TimelineWorkbookProps) {
         mode: "viewing",
       }}
     >
-      <TimelineWorkbookContent {...runtime} key={runtime.incident.id} />
+      {runtime.attachCollaborationSession ? (
+        <TimelineWorkbookProjectionAttachment runtime={runtime} />
+      ) : (
+        <TimelineWorkbookContent {...runtime} key={runtime.incident.id} />
+      )}
     </IncidentCollaborationBoundary>
   );
+}
+
+function TimelineWorkbookProjectionAttachment({
+  runtime,
+}: {
+  readonly runtime: TimelineWorkbookSurfaceRuntime;
+}) {
+  const session = useIncidentCollaborationSession();
+  useWorkbookCollaborationProjectionSession({
+    projection: runtime.collaborationProjection,
+    session,
+    sheetRef: runtime.incident.sheetRef,
+  });
+  return <TimelineWorkbookContent {...runtime} key={runtime.incident.id} />;
 }

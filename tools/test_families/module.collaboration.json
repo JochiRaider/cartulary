@@ -265,11 +265,11 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
+          "clears protected rows and blocks new edits after session revocation",
           "does not coalesce non-contiguous same-record pending patches",
           "exposes the browser-runtime pending queue capacity as exactly 64 replay units",
           "keeps save-state labels and pending queue replay bounded and explicit",
-          "moves a blocking same-field conflict out of the pending queue and retains its editor",
-          "preserves queued work through session revocation and resumes after re-authentication"
+          "moves a blocking same-field conflict out of the pending queue and retains its editor"
         ]
       },
       "evidence_class": "unit",
@@ -423,38 +423,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/services/workbookCollaborationMessages.test.ts",
+        "file": "apps/web/src/workbook/runtime/workbookCollaborationMessages.test.ts",
         "titles": [
           "builds default timeline presence payloads for WebSocket session establishment",
           "builds presence_update messages without changing event names",
           "includes field_key only for editing presence payloads",
           "transmits extension workspace presence without record or field anchors"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": false,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_4f4949391b",
-      "owner_id": "module.collaboration",
-      "family_id": "module.collaboration.frontend_unit",
-      "collaborator_ids": [
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.collaboration.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/timeline/services/timelineCollaborationEffects.test.ts",
-        "titles": [
-          "applies row updates and requests stale-row requery without transport state",
-          "pauses feature replay on access loss and resumes only after session establishment"
         ]
       },
       "evidence_class": "unit",
@@ -815,14 +789,12 @@
           "scenario_17057218b346",
           "scenario_5ce84d0e223d",
           "scenario_773c6f3a0557",
-          "scenario_cf84e01ddcab",
           "scenario_f710780a7d03"
         ],
         "titles": [
           "Capture conflict save-state strip.",
+          "Capture deterministic presence at the workbook header, row gutter, and cell with exact overflow counts.",
           "Capture recovered saved-state strip.",
-          "Capture reset/invalidate refresh strip.",
-          "Capture row-gutter and cell presence markers.",
           "Capture same-field conflict resolver."
         ]
       },

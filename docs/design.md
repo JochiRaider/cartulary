@@ -493,7 +493,7 @@ Design contract. This revision uses a bounded substitution profile instead of na
 
 Design contract. Icons MAY support labels. Omission behavior: when a semantic registry row declares `label_required`, the label MUST render; when a row declares `label_optional`, omission of the label is conformant only if the icon has the declared accessible name; when a row declares `icon_only_allowed`, omission of visible label is conformant only with visible focus and accessible name.
 
-Design contract. Icons MUST NOT replace labels for destructive actions, conflict resolution, evidence preview, evidence download, rollback, merge initiation, party link/unlink, inspector close, inspector pin, or system-view switching.
+Design contract. Icons MUST NOT replace labels for destructive actions, conflict resolution, evidence preview, evidence download, rollback, merge initiation, party link/unlink, inspector close, or system-view switching.
 
 ### 3.11 Semantic icon registry
 
@@ -508,10 +508,8 @@ Design contract. Every icon rendered for a registered meaning MUST use one seman
 | `group` | View bar | `label_optional` | `Group` | Text `Group` | Icon omission conformant. | `D-VFIX-001` |
 | `filter` | View bar | `label_optional` | `Filter` | Text `Filter` | Icon omission conformant. | `D-VFIX-001` |
 | `filter_overflow` | View bar | `label_required` | `Filters, <N> hidden` | Text `Filters` | Icon omission conformant when label and hidden count remain. | `D-VFIX-010`, `D-VFIX-011` |
-| `inspector_open` | Grid or row action | `label_optional` | `Open inspector` | Text `Inspect` | Icon omission conformant. | `D-VFIX-001` |
+| `inspector_open` | View bar or row action | `label_optional` | `Open inspector` | Text `Inspect` | Icon omission conformant. | `D-VFIX-001` |
 | `inspector_close` | Inspector | `label_required` | `Close inspector` | Text `Close inspector` | Icon omission conformant when label remains. | `D-VFIX-002` |
-| `inspector_pin` | Inspector | `label_required` | `Pin inspector` | Text `Pin inspector` | Icon omission conformant when label remains. | `D-VFIX-002` |
-| `inspector_unpin` | Inspector | `label_required` | `Unpin inspector` | Text `Unpin inspector` | Icon omission conformant when label remains. | `D-VFIX-002` |
 | `evidence_preview` | Evidence row, inspector | `label_required` | `Preview evidence` | Text `Preview evidence` | Icon omission conformant when label remains. | `D-VFIX-006` |
 | `evidence_download` | Evidence row, inspector | `label_required` | `Download evidence` | Text `Download evidence` | Icon omission conformant when label remains. | `D-VFIX-006` |
 | `evidence_attach` | Row or inspector | `label_required` | `Attach evidence` | Text `Attach evidence` | Icon omission conformant when label remains. | `D-VFIX-006` |
@@ -787,13 +785,20 @@ Design contract. The inspector MUST use the following default and bounds.
 | Default width | `{layout.inspectorDefaultWidth}`. |
 | Minimum width | `{layout.inspectorMinWidth}`. |
 | Maximum width | `{layout.inspectorMaxWidth}`. |
-| Resize | User resizes within min/max bounds. Omission of resize persistence is conformant. |
-| Pinning | Client-local only; MUST NOT persist in saved views. |
+| Resize | In `base` mode, the user resizes within min/max bounds through the separator contract below. Narrower modes do not expose resizing. |
 | Section order | Follow the active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, the order is Details, Relationships, Evidence, History, Workflow. |
 | Workflow section | Contains only explicit feature-group actions declared by the active `view_schema_id`. It must not become a dashboard, ticket queue, release-control module, or detached workflow editor. |
 | Grid visibility | At base viewport, grid remains visible whenever inspector is open. |
 | Close affordance | Visible control with accessible name `Close inspector`. |
-| Pin affordance | Visible control with accessible name `Pin inspector` or `Unpin inspector`. |
+
+Design contract. The `base` inspector edge MUST expose an accessible separator
+with value text reporting the current inspector width. Pointer dragging and
+keyboard resizing MUST clamp to `{layout.inspectorMinWidth}` and
+`{layout.inspectorMaxWidth}`. `ArrowLeft` increases and `ArrowRight` decreases
+the right-side inspector width by 16 CSS px per activation; `Home` selects the
+minimum and `End` selects the maximum. Inspector width is client-local,
+non-persistent state and MUST NOT be written to saved views, preferences, or
+browser storage.
 
 Design contract. Inspector height is the work-area height defined in §7.1, not the rendered grid-body height. Long inspector content MUST scroll inside the inspector panel without changing the inspector slot boundaries, grid height, or status-strip position.
 
@@ -806,7 +811,7 @@ Design contract. Inspector action groups MUST render from declared `feature_grou
 Design contract. Shell chrome mode selection MUST be driven only by inline-size
 capacity. Block-size pressure MAY affect work-area sizing, internal scrolling,
 and diagnostics, but it MUST NOT demote top-bar controls, switch built-in tabs to
-`Surfaces`, hide active-surface query controls, or move the account/application
+`Surfaces`, hide the View-bar query-control entry path, or move the account/application
 menu.
 
 ```pseudocode
@@ -839,9 +844,9 @@ Design contract. Each shell chrome mode MUST render according to this table.
 
 | Shell chrome mode | Inline-size condition | Top bar | View bar | Grid | Inspector | Status strip | Design conformance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `base` | Selected by `select_shell_chrome_mode`. | Incident identity, built-in primary tabs, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary and visible while inspector is open. | Adjacent right panel. | Visible primary save label and secondary message. | Claimed. |
-| `narrow_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
-| `compact_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and collapsed active-surface query access when capacity allows. | Saved-view and row-action controls remain reachable. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
+| `base` | Selected by `select_shell_chrome_mode`. | Incident identity, built-in primary tabs, `System views`, current surface title, and presence/account summary. | Saved-view, query, inspector, and row-create controls in §8.3 order. | Primary and visible while inspector is open. | Adjacent resizable right panel. | Visible primary save label and secondary message. | Claimed. |
+| `narrow_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and presence/account summary. | Saved-view, query, inspector, and row-create controls in §8.3 order. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
+| `compact_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and account summary. | Saved-view, collapsed query, inspector, and row-create controls remain reachable in §8.3 order. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
 | `below_supported_minimum` | Selected by `select_shell_chrome_mode`. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
@@ -860,10 +865,13 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Current surface title | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar if active surface is shown |
 | Presence summary | Top bar | Top bar | Status strip | Status strip only if space remains after save label |
 | Saved-view selector | View bar | View bar | View bar | Not required |
-| Sort control | Top bar query rail | Top bar query rail | Top bar query rail or `Filters` popover when capacity requires | Not required |
-| Group control | Top bar query rail | Top bar query rail | Top bar query rail or `Filters` popover when capacity requires | Not required |
-| Filter control | Top bar query rail as a `Filters` draft-popover trigger | Top bar query rail as a `Filters` draft-popover trigger | Top bar query rail as a `Filters` draft-popover trigger when capacity allows | Not required |
-| Active group/sort/filter chips | Top bar query rail after sort/group/filter controls, with overflow kept inside the query rail | Top bar query rail, then `Filters` overflow if capacity is exceeded | Inside the `Filters` popover when capacity requires | Not required |
+| Sort control | View bar after saved-view actions | View bar after saved-view actions | View bar after saved-view actions | Not required |
+| Group control | View bar after Sort | View bar after Sort | View bar after Sort | Not required |
+| Filter control | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | View bar after Group as a `Filters` draft-popover trigger | Not required |
+| Columns control | View bar after Filters | View bar after Filters | View bar after Filters | Not required |
+| Active group/sort/filter chips | View bar after Columns; overflow remains in `Filters` | View bar after Columns; overflow remains in `Filters` | Inside the `Filters` popover | Not required |
+| Inspector opener | View bar after active chips or their overflow path | View bar after active chips or their overflow path | View bar after the `Filters` entry path | Safe conflict access required |
+| Row-create action | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | View bar after the inspector opener when allowed | Not required |
 | Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
 | Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
 | Secondary status message | Status strip | Status strip with truncation rule | Accessible-only summary after primary label | Not required |
@@ -875,17 +883,13 @@ place_active_chips(band, chips):
   ordered = [group chips by applied order] + [sort chips by applied order] + [filter chips by normalized query order]
   if band == base:
     inline_capacity = 8
-    inline_rows = 1
   else if band == narrow_desktop:
     inline_capacity = 6
-    inline_rows = 2
   else if band == compact_desktop:
     inline_capacity = 0
-    inline_rows = 0
   else:
     inline_capacity = 0
-    inline_rows = 0
-  inline_count = min(length(ordered), inline_capacity * inline_rows)
+  inline_count = min(length(ordered), inline_capacity)
   inline_chips = first inline_count chips
   overflow_chips = remaining chips
   if overflow_chips is empty: overflow_control = absent
@@ -923,15 +927,24 @@ Design contract. `invalidate_or_refresh_required` is row-block state, not a cell
 
 ### 8.3 View-bar query and saved-view controls
 
-Design contract. Sort, filter, and group controls live in the View bar immediately after saved-view actions and apply to the active surface only. Saved-view controls live in the View bar and apply to the active surface only. The active surface title is omitted from the query controls when the selected built-in tab or system-view switcher already provides the same visible title.
+Design contract. Saved-view and query controls apply to the active surface only
+and MUST render in this exact View-bar order: saved-view selector and actions,
+Sort, Group, Filters, Columns, ordered active chips or their `Filters` overflow
+path, inspector opener, and create action when creation is allowed. The active
+surface title belongs to the top bar when the selected built-in tab or
+system-view switcher does not already provide the same visible title; it is not
+part of the query-control sequence.
 
 | Control | Default state | Active state | Invalid state | Clear behavior | Ordering |
 | --- | --- | --- | --- | --- | ---: |
-| Active surface title | Current `view_schema_id` display label when not duplicated by the selected built-in tab. | Same. | Surface unavailable error. | Not clearable. | 1 |
+| Saved-view selector and actions | `Unsaved view` when no saved view is active. | Saved view display name and permitted actions. | Fall back to base surface and show inline message. | Clears saved-view selection only, not active query unless the user selects reset. | 1 |
 | Sort control | No user sort override. | Sort chips shown. | Invalid sort field blocked before persistence. | Clears all user sort overrides. | 2 |
 | Group control | `Group: None`. | One group chip. | Unsupported group disabled with explanation. | Sets grouping inactive. | 3 |
-| Filter control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |
-| Saved-view selector | `Unsaved view` when no saved view is active. | Saved view display name. | Fall back to base surface and show inline message. | Clears saved-view selection only, not active query unless the user selects reset. | 5 |
+| Filters control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |
+| Columns control | Declared default visible columns and order. | Current visible columns and semantic order. | Unknown field blocked before persistence. | Resets the declared layout. | 5 |
+| Active chips | Absent. | Ordered as declared below and limited by §7.5. | Invalid chip remains marked and excluded from query submission. | Removes the selected chip. | 6 |
+| Inspector opener | Closed state. | Open state reflects the active row context. | Disabled with an explanation when no inspectable context exists. | Closes the inspector. | 7 |
+| Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 8 |
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
 
@@ -1582,7 +1595,7 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `D-VFIX-001` | Default Timeline workbook shell with view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible in the first viewport, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
+| `D-VFIX-001` | Default Timeline workbook shell with the inspector closed, view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All required default shell regions are visible in the first viewport, the inspector is closed, admin/control content is absent unless explicitly opened, and token pairs pass §14.3. |
 | `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections follow active config order including Workflow when declared. |
 | `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
 | `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
@@ -1594,6 +1607,13 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 | `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
 | `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
 | `D-VFIX-012` | Successful empty query. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='empty-state']` | Empty state distinguishes filtered empty and successful empty. |
+
+Design contract. The authored machine projection of this registry MUST use
+schema version `cartulary.frontend_visual_fixture_registry.v5`. A current
+implementation fixture MAY declare one optional `design_contract_id`. Each
+`D-VFIX-001` through `D-VFIX-012` value MUST occur on exactly one current
+fixture, and no other `design_contract_id` is valid. Implementation-support
+fixtures that do not claim one of these design rows MUST omit the field.
 
 ### 15.3 Coding-agent and developer guidance
 
@@ -1765,7 +1785,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-061` | §15.1 | Visual fixture metadata | Dynamic fixture data is seeded or masked. | Actor names, timestamps, IDs, cursor positions, or local browser defaults are unmasked. |
 | `D-AC-062` | §15.1 | Evidence-class audit | Fixture evidence is classified as design evidence, not claim-bearing benchmark evidence. | Fixture evidence is represented as Core 05 claim evidence without Core 05 compliance. |
 | `D-AC-063` | §15.2 | Visual fixture registry | Every fixture row has exact viewport dimensions, not band-only declarations. | Fixture viewport is open-ended. |
-| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with view-bar query controls after saved-view actions, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required workbook shell region. |
+| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with the inspector closed, view-bar query controls in §8.3 order, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, explicit inspector opener, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture opens the inspector by default, captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required default shell region. |
 
 ### 18.8 Boundary criteria
 

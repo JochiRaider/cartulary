@@ -3,12 +3,6 @@ import type {
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
 import type {
-  createTimelineCollaborationState,
-  TimelineCollaborationAction,
-  TimelineCollaborationEffect,
-} from "../services/timelineCollaborationEffects";
-import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
-import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
   WorkbookRow,
@@ -39,18 +33,4 @@ export type PendingReplayRuntimeMeta = {
   detectAutoResolution: boolean;
   promoteToCommittedRowInspect: boolean;
   viewportContinuityToken: number;
-};
-
-type DispatchCollaborationAction = (
-  action: TimelineCollaborationAction,
-) => readonly TimelineCollaborationEffect[];
-
-export type TimelineLiveUpdateRefs = {
-  readonly currentPresenceRef: TimelineMutableRef<TimelinePresenceDraft>;
-  readonly dispatchCollaborationRef: TimelineMutableRef<DispatchCollaborationAction>;
-  readonly presenceUpdateTimerRef: TimelineMutableRef<number | null>;
-  readonly collaborationStateRef: TimelineMutableRef<
-    ReturnType<typeof createTimelineCollaborationState>
-  >;
-  readonly socketReconnectAfterAuthRef: TimelineMutableRef<(() => void) | null>;
 };

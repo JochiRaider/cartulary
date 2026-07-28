@@ -16,6 +16,7 @@ import {
 } from "react";
 import { useInspectorLifecycleReset } from "../../hooks/useInspectorLifecycleReset";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookPresenceDraft } from "../../runtime/workbookCollaborationMessages";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type {
   RecordHistoryState,
@@ -29,7 +30,6 @@ import type {
   LocalConflictState,
   WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 
 type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];
@@ -121,12 +121,12 @@ export function useTimelineInspectorRowInteractions({
   setSelectedMentionRef,
   setSelectedRowId,
 }: {
-  readonly currentPresenceRef: MutableRefObject<TimelinePresenceDraft>;
+  readonly currentPresenceRef: MutableRefObject<WorkbookPresenceDraft>;
   readonly rows: readonly WorkbookRow[];
   readonly rowsRef: TimelineRowsRef;
   readonly selectedRowId: string | null;
-  readonly sendPresenceUpdate: (presence: TimelinePresenceDraft) => void;
-  readonly setCurrentPresence: Dispatch<SetStateAction<TimelinePresenceDraft>>;
+  readonly sendPresenceUpdate: (presence: WorkbookPresenceDraft) => void;
+  readonly setCurrentPresence: Dispatch<SetStateAction<WorkbookPresenceDraft>>;
   readonly setInspectorMessage: (message: string | null) => void;
   readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;

@@ -19,6 +19,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
 import {
   canMutateSavedView,
   type SavedViewResource,
@@ -27,6 +28,7 @@ import type { WorkbookSheetRef } from "../models/workbookStartup";
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
+  chromeMode,
   currentIncidentRole,
   currentUserId,
   isModified = false,
@@ -43,6 +45,7 @@ export function ActiveSurfaceSavedViewSelector({
   onUpdateSavedView,
 }: {
   readonly activeViewSchemaId: string;
+  readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: string | null;
   readonly currentUserId: string | null;
   readonly isModified?: boolean | undefined;
@@ -69,6 +72,9 @@ export function ActiveSurfaceSavedViewSelector({
     },
   ) => Promise<SavedViewResource>;
 }) {
+  const compactControls =
+    chromeMode === "compact_desktop" ||
+    chromeMode === "below_supported_minimum";
   const [displayName, setDisplayName] = useState("Saved view");
   const [scope, setScope] = useState<"private" | "shared">("private");
   const [status, setStatus] = useState("");
@@ -140,7 +146,9 @@ export function ActiveSurfaceSavedViewSelector({
   return (
     <div style={savedViewControlGroupStyle}>
       <label style={savedViewSelectorFrameStyle}>
-        <span style={savedViewSelectorLabelStyle}>View:</span>
+        {compactControls ? null : (
+          <span style={savedViewSelectorLabelStyle}>View:</span>
+        )}
         <select
           aria-label="Saved view"
           data-active-view-schema-id={activeViewSchemaId}
@@ -149,7 +157,10 @@ export function ActiveSurfaceSavedViewSelector({
             selectedSavedViewId === "" ? "view_schema" : "saved_view"
           }
           data-testid={savedViewSelectorTestId(activeViewSchemaId)}
-          style={savedViewSelectStyle}
+          style={{
+            ...savedViewSelectStyle,
+            ...(compactControls ? compactSavedViewSelectStyle : null),
+          }}
           value={selectedSavedViewId}
           onChange={(event) => {
             const nextSavedViewId = event.currentTarget.value;
@@ -474,7 +485,7 @@ const savedViewControlGroupStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
-  flex: "1 1 auto",
+  flex: "0 1 auto",
   minWidth: 0,
   overflow: "visible",
 };
@@ -512,6 +523,12 @@ const savedViewSelectStyle = {
   appearance: "auto" as const,
   inlineSize: "min(18rem, 36vw)",
   minInlineSize: "10rem",
+};
+
+const compactSavedViewSelectStyle = {
+  inlineSize: "8rem",
+  minInlineSize: "6.5rem",
+  maxInlineSize: "8rem",
 };
 
 const modifiedBadgeStyle = {

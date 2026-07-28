@@ -1,9 +1,8 @@
-import type { WorkbookSheetRef } from "../../models/workbookStartup";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookSheetRef } from "../models/workbookStartup";
 import type {
   WorkbookPresenceInput,
   WorkbookPresenceMode,
-} from "../../utils/workbookPresence";
+} from "../utils/workbookPresence";
 
 export type RecordChangedPayload = {
   record_id: string;
@@ -29,7 +28,7 @@ type CollaborationMessage = {
   payload?: unknown;
 };
 
-export type TimelinePresenceDraft = {
+export type WorkbookPresenceDraft = {
   readonly fieldKey: string | null;
   readonly mode: WorkbookPresenceMode;
   readonly recordId: string | null;
@@ -52,15 +51,8 @@ export type MentionResolutionAction =
   | "revert_to_unresolved";
 
 export function buildWorkbookPresenceInput(
-  presence: TimelinePresenceDraft = {
-    fieldKey: null,
-    mode: "viewing",
-    recordId: null,
-  },
-  sheetRef: WorkbookSheetRef = {
-    kind: "view_schema",
-    id: timelineViewSchemaId,
-  },
+  presence: WorkbookPresenceDraft,
+  sheetRef: WorkbookSheetRef,
 ): WorkbookPresenceInput {
   const input: WorkbookPresenceInput = {
     sheet_ref: { ...sheetRef },
@@ -80,7 +72,7 @@ export function buildWorkbookPresenceInput(
 }
 
 export function buildWorkbookPresenceUpdateMessage(
-  presence: TimelinePresenceDraft,
+  presence: WorkbookPresenceDraft,
   sheetRef: WorkbookSheetRef,
 ): WorkbookPresenceUpdateMessage {
   return {

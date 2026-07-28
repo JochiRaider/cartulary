@@ -46,12 +46,12 @@ import {
   timelineRowsEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
+import { buildMentionActionPayload } from "./runtime/workbookCollaborationMessages";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
   readCollectionItems,
 } from "./timeline/models/workbookMentionChips";
-import { buildMentionActionPayload } from "./timeline/services/workbookCollaborationMessages";
 
 vi.mock(
   "@cartulary/grid-adapter",

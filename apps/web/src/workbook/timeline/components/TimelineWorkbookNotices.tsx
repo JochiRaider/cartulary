@@ -3,20 +3,14 @@ import {
   autoResolutionReviewButtonTestId,
   autoResolutionUndoButtonTestId,
   pendingQueueCountTestId,
-  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
-  pendingQueueRecoveryPanelTestId,
-  pendingQueueRetryButtonTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, type RefObject, useState } from "react";
-import type {
-  TimelineBlockedEditRecovery,
-  TimelinePendingQueueSnapshot,
-} from "../models/timelinePendingReplayModel";
+import type { CSSProperties, RefObject } from "react";
+import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 
 export function timelinePendingQueueMessage(
-  pendingQueueSnapshot: TimelinePendingQueueSnapshot,
+  pendingQueueSnapshot: WorkbookPendingQueueSnapshot,
 ): string | null {
   if (pendingQueueSnapshot.overflowMessage !== null) {
     return pendingQueueSnapshot.overflowMessage;
@@ -45,8 +39,6 @@ export function TimelineWorkbookNotices({
   inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
-  onDiscardBlockedEdit,
-  onRetryBlockedEdit,
   pendingQueueSnapshot,
   recoveryPanelRef,
 }: {
@@ -58,9 +50,7 @@ export function TimelineWorkbookNotices({
     itemRef: string,
   ) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
-  readonly onDiscardBlockedEdit: (unitId: string) => boolean;
-  readonly onRetryBlockedEdit: (unitId: string) => boolean;
-  readonly pendingQueueSnapshot: TimelinePendingQueueSnapshot;
+  readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
   readonly recoveryPanelRef: RefObject<HTMLDivElement | null>;
 }) {
   const blockedEdit = pendingQueueSnapshot.blockedEdit;
@@ -153,67 +143,9 @@ export function TimelineWorkbookNotices({
           <span data-testid={pendingQueueCountTestId()} style={queueCountStyle}>
             Pending {pendingQueueCount}
           </span>
-          {blockedEdit === null ? null : (
-            <BlockedEditRecoveryActions
-              blockedEdit={blockedEdit}
-              key={blockedEdit.unitId}
-              onDiscardBlockedEdit={onDiscardBlockedEdit}
-              onRetryBlockedEdit={onRetryBlockedEdit}
-            />
-          )}
         </div>
       ) : null}
     </aside>
-  );
-}
-
-function BlockedEditRecoveryActions({
-  blockedEdit,
-  onDiscardBlockedEdit,
-  onRetryBlockedEdit,
-}: {
-  readonly blockedEdit: TimelineBlockedEditRecovery;
-  readonly onDiscardBlockedEdit: (unitId: string) => boolean;
-  readonly onRetryBlockedEdit: (unitId: string) => boolean;
-}) {
-  const [recoveryActionPending, setRecoveryActionPending] = useState(false);
-  return (
-    <section
-      aria-labelledby="pending-queue-recovery-title"
-      data-testid={pendingQueueRecoveryPanelTestId()}
-      style={recoveryActionsStyle}
-    >
-      {blockedEdit.canRetryWithNewClientTxnId ? (
-        <button
-          data-testid={pendingQueueRetryButtonTestId()}
-          disabled={recoveryActionPending}
-          style={secondaryActionButtonStyle}
-          type="button"
-          onClick={() => {
-            setRecoveryActionPending(true);
-            if (!onRetryBlockedEdit(blockedEdit.unitId)) {
-              setRecoveryActionPending(false);
-            }
-          }}
-        >
-          Retry with a new request ID
-        </button>
-      ) : null}
-      <button
-        data-testid={pendingQueueDiscardButtonTestId()}
-        disabled={recoveryActionPending}
-        style={destructiveActionButtonStyle}
-        type="button"
-        onClick={() => {
-          setRecoveryActionPending(true);
-          if (!onDiscardBlockedEdit(blockedEdit.unitId)) {
-            setRecoveryActionPending(false);
-          }
-        }}
-      >
-        Discard blocked edit
-      </button>
-    </section>
   );
 }
 
@@ -252,13 +184,6 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "var(--ct-colors-surface-3)",
-  pointerEvents: "auto",
-} satisfies CSSProperties;
-
-const destructiveActionButtonStyle = {
-  ...actionButtonStyle,
-  borderColor: "var(--ct-colors-semantic-destructive)",
-  color: "var(--ct-colors-semantic-destructive)",
   pointerEvents: "auto",
 } satisfies CSSProperties;
 
@@ -321,13 +246,6 @@ const pendingQueueRecoveryCardStyle = {
   alignItems: "start",
   display: "grid",
   overflow: "visible",
-  pointerEvents: "auto",
-} satisfies CSSProperties;
-
-const recoveryActionsStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "0.5rem",
   pointerEvents: "auto",
 } satisfies CSSProperties;
 

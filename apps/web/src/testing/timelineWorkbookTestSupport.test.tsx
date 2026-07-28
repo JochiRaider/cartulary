@@ -1,6 +1,6 @@
 import {
   gridShellTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { useEffect, useState } from "react";
@@ -26,7 +26,7 @@ function DelayedWorkbookRows() {
   return (
     <section>
       <div
-        data-testid={workbookTopBarQueryControlsTestId(timelineViewSchemaId)}
+        data-testid={workbookViewBarQueryControlsTestId(timelineViewSchemaId)}
       />
       <table data-testid={gridShellTestId(timelineViewSchemaId)}>
         <tbody>

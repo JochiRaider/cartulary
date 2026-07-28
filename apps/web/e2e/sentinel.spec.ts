@@ -32,13 +32,15 @@ import {
   timelineMutationSubstrateReadyTestId,
   type WorkbookSurface,
   workbookAddRowButtonTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Request } from "@playwright/test";
 
@@ -464,18 +466,20 @@ test("groups paste conflicts and preserves selection continuity", async ({
   await expect(page.getByTestId("paste-conflict-position")).toHaveText(
     "1 of 2",
   );
-  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    pasteStartText,
-  );
+  await expect(
+    page.getByTestId(workbookConflictLocalValueTestId()),
+  ).toHaveValue(pasteStartText);
   await page.getByTestId("paste-conflict-next").click();
   await expect(page.getByTestId("paste-conflict-position")).toHaveText(
     "2 of 2",
   );
-  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    pasteNextText,
-  );
+  await expect(
+    page.getByTestId(workbookConflictLocalValueTestId()),
+  ).toHaveValue(pasteNextText);
   await page.getByTestId("conflict-close").click();
-  await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+  await expect(page.getByTestId(workbookConflictResolverTestId())).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
 });
 
@@ -2617,7 +2621,7 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
     ).toHaveCount(1);
     await expect(
       topBar.getByTestId(
-        workbookTopBarQueryControlsTestId(surface.viewSchemaId),
+        workbookViewBarQueryControlsTestId(surface.viewSchemaId),
       ),
     ).toBeVisible();
     await expect(

@@ -133,11 +133,6 @@ export type PasteConflictGroupState = {
   keys: string[];
 };
 
-export type TimelineConflictResolution =
-  | "keep_saved"
-  | "use_unsaved"
-  | "merged_value";
-
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
 export type TimelineScalarBinding = {

@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
+import type { WorkbookPresenceDraft } from "../../runtime/workbookCollaborationMessages";
 import {
   type PresenceRecord,
   presenceMatchesSheet,
 } from "../../utils/workbookPresence";
-import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -20,10 +20,10 @@ export function useTimelinePresenceProjection({
 }: {
   readonly activeSheetRef: WorkbookSheetRef;
   readonly connectionId: string | null;
-  readonly currentPresenceRef: TimelineMutableRef<TimelinePresenceDraft>;
+  readonly currentPresenceRef: TimelineMutableRef<WorkbookPresenceDraft>;
   readonly presenceRecords: readonly PresenceRecord[];
-  readonly sendPresenceUpdate: (presence: TimelinePresenceDraft) => void;
-  readonly setCurrentPresence: (presence: TimelinePresenceDraft) => void;
+  readonly sendPresenceUpdate: (presence: WorkbookPresenceDraft) => void;
+  readonly setCurrentPresence: (presence: WorkbookPresenceDraft) => void;
 }) {
   const activeSheetPresenceRecords = useMemo(
     () =>

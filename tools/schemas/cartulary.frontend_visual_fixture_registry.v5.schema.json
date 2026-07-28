@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.frontend_visual_fixture_registry.v4",
+  "$id": "cartulary.frontend_visual_fixture_registry.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.frontend_visual_fixture_registry.v4"
+      "const": "cartulary.frontend_visual_fixture_registry.v5"
     },
     "owner_id": {
       "const": "harness.visual"
@@ -126,6 +126,23 @@
         "fixture_title": {
           "type": "string",
           "minLength": 1
+        },
+        "design_contract_id": {
+          "type": "string",
+          "enum": [
+            "D-VFIX-001",
+            "D-VFIX-002",
+            "D-VFIX-003",
+            "D-VFIX-004",
+            "D-VFIX-005",
+            "D-VFIX-006",
+            "D-VFIX-007",
+            "D-VFIX-008",
+            "D-VFIX-009",
+            "D-VFIX-010",
+            "D-VFIX-011",
+            "D-VFIX-012"
+          ]
         },
         "status": {
           "const": "current"

@@ -721,3 +721,240 @@ intentional, non-blocking frontend deferral.
 | Exact intended changes are recorded | PASS | Section 8 contains the final `M`/`D`/`A` working-tree manifest from baseline commit `7930242b7310994a888a8a0feb6a72ec331dbb76` |
 | No transitional runtime authority remains | PASS | Absence checks and final backend boundaries prohibit the retired query store/options/conflict path, old Timeline admission, mutable discovery, Workbook storage construction, and source-owner Workbook imports |
 | Selected full validation and build pass | PASS | `make check` passed 173/173 work units and 706 tests; `make build` passed; direct browser infrastructure diagnostics are paired with equivalent passing isolated evidence |
+
+## 13. Post-Refactor Frontend Remediation Cycle
+
+### 13.1 Authority, baseline, and scope
+
+This cycle preserves Sections 1 through 12 as historical evidence and reopens
+the tracker for the frontend work formerly deferred as S-07. The historical
+S-07 row is superseded by S-09 through S-15 below; it is not retroactively
+changed from `DEFERRED`.
+
+| Item | Current posture |
+| --- | --- |
+| Repository baseline | Clean `main` at `cd8fa720b0708c01243f27623e453285996b9e34` on `2026-07-28` |
+| Live backend inventory | 47 files under `internal/modules/workbook`; the 56-file inventory in Section 2 remains the historical pre-refactor inventory |
+| Active implementation scope | Workbook frontend specification, shell runtime, Base surface adapters, responsive presentation, tests, authored verification inputs, generated harness outputs produced through Make, and this tracker |
+| Preserved backend result | Thin Workbook facade, immutable Contribution Catalog, source-owner authority, route ownership, and application assembly from the completed S-00 through S-08 cycle |
+| Public compatibility boundary | No HTTP route, OpenAPI resource, WebSocket message, `view_schema_id`, `sheet_ref`, field-key, saved-view, backend contribution, DDL, or stored-data change |
+| Internal compatibility posture | Retired Timeline-specific wrappers and top-bar query selectors receive no alias or fallback after in-repository consumers migrate |
+| Checkpoint rule | Each slice updates this tracker and passes `make lint-markdown` before the next slice begins; a failed slice remains `IN_PROGRESS` with its evidence and next action recorded |
+| Domain posture | `docs/domain.md` requires no semantic change because its vocabulary and owner allocation already agree with Core 01 through Core 04 |
+
+### 13.2 Active gap register
+
+| Gap | Finding | Required closure | Primary risk if unresolved |
+| --- | --- | --- | --- |
+| G-01 | The controlling tracker records only the completed historical backend cycle | Preserve the history and control S-09 through S-15 from this section | False completion claims and untraceable work |
+| G-02 | Query-control placement, default inspector state, pinning, and inspector resizing conflict or are underspecified in `docs/design.md` | Put active query controls in the View bar, keep the default inspector closed, remove pinning, and define non-persistent accessible resizing | Mutually exclusive conformance interpretations |
+| G-03 | Autosave recovery and save state are effectively Timeline-specific | One shell-lifetime mutation runtime for all autosave-capable Base surfaces | Lost drafts, inconsistent replay, and surface-local save state |
+| G-04 | Conflict handling is incomplete and not shared | One typed three-class conflict model, queue, resolver, and surface-return path | Stranded conflicts and corrupted collection presentation |
+| G-05 | Presence and live-row reconciliation are effectively Timeline-specific | One shell collaboration projection with exact `sheet_ref` matching and safe sparse reconciliation | Stale or retained unauthorized data |
+| G-06 | Responsive shell, View bar, and inspector behavior are incomplete | Shared chrome, deterministic chip capacity, adjacent/overlay inspector modes, inertness, keyboard behavior, and focus restoration | Obscured grids and inaccessible background controls |
+| G-07 | Test titles overclaim shared behavior and visual evidence is not linked one-to-one to accepted fixtures | Honest cross-renderer rows and a v5 visual-fixture registry with unique optional `design_contract_id` | Green tests that do not cover the claimed contract |
+
+### 13.3 Sequential implementation slices
+
+| Slice | Status | Depends on | Required outcome | Exit gate |
+| --- | --- | --- | --- | --- |
+| S-09 | DONE | none | Restart this tracker and close the design contradictions without changing production behavior | Design decisions are unambiguous; design, shape, drift, and Markdown checks pass |
+| S-10 | DONE | S-09 | Extract common mutation, conflict, save-state, collaboration-effect, and active-surface foundations; adapt Timeline through them | Timeline equivalence passes and common runtime code has no Timeline import |
+| S-11 | DONE | S-10 | Route every Base autosave hot path and conflict class through common runtime and UI | All current autosave-capable surfaces satisfy queue, recovery, and conflict behavior |
+| S-12 | DONE | S-11 | Centralize presence and `record_changed` interpretation at shell lifetime | One subscription and projection serve every Base renderer with exact scope and authorization cleanup |
+| S-13 | DONE | S-12 | Implement the shared View bar, responsive surface frame, inspector geometry, overflow, inertness, and keyboard rules | Declared viewport and block-size matrices pass across renderers |
+| S-14 | DONE | S-13 | Correct verification scope, add exact design fixture mappings, generate outputs, and independently verify goldens | Every accepted fixture and test claim is accounted for exactly once |
+| S-15 | DONE | S-14 | Remove superseded paths, run final narrow and broad gates, and complete the handoff | All gaps and slices are complete with exact evidence and no residual compatibility authority |
+
+### 13.4 Remediation checkpoints
+
+| Time | Slice | State | Files changed | Commands and evidence | Result, failures, and skips | Next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-28T09:02:01-04:00 | S-09 | DONE | `docs/handoffs/workbook-module-refactor-tracker.md`; `docs/design.md` | `make lint-markdown` passed at `.cartulary/test-results/20260728T130107Z-p2537839`; `make test-slice OWNER=web.design` passed 4 tests at `.cartulary/test-results/20260728T130107Z-p2537647`; `make json-shape-check` passed at `.cartulary/test-results/20260728T130107Z-p2537596`; `make generate-drift` passed at `.cartulary/test-results/20260728T130107Z-p2537593`; contradiction absence scan | Established the exact View-bar order; default/open inspector fixture separation; accessible non-persistent base resizing; 8/6/0 single-row chip capacity; removal of undefined pinning; and the v5 fixture-projection decision. `docs/domain.md` remains unchanged. No failure or skip | Pass checkpoint Markdown lint, then begin S-10 shared runtime foundations |
+| 2026-07-28T09:12:59-04:00 | S-10 | DONE | `apps/web/src/workbook/runtime/**`; Timeline runtime imports/hooks/components; `WorkbookShell.tsx`; `WorkbookActiveSurface.tsx`; Timeline test fixture/support; `apps/web/src/README.md`; `tools/frontend_import_boundaries.json`; affected authored test families and Make-generated topology; tracker | `make format` passed at `.cartulary/test-results/20260728T131054Z-p2574607`; `make generate` passed at `.cartulary/test-results/20260728T131128Z-p2578169`; `make test-slice OWNER=web.workbook` passed 98 rows at `.cartulary/test-results/20260728T131143Z-p2580631`; `make test-slice OWNER=web.collaboration` passed at `.cartulary/test-results/20260728T131143Z-p2580618`; `make frontend-typecheck` passed at `.cartulary/test-results/20260728T131143Z-p2580797`; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260728T131143Z-p2580826`; old-path and common-runtime Timeline-import absence checks | Added one shell-lifetime `WorkbookMutationRuntime`, common pending/conflict/lifecycle/collaboration models, an active-surface reconciliation port, and fail-closed boundaries; Timeline now consumes the common authority without observable change. Initial `make format` failed at `.cartulary/test-results/20260728T130928Z-p2566578` on one corrected effect dependency; initial typecheck and shape runs at `.cartulary/test-results/20260728T131005Z-p2572827` and `.cartulary/test-results/20260728T131005Z-p2572683` exposed the corrected fixture/prop typing and required generation. No skip remains | Pass checkpoint Markdown lint, then begin S-11 non-Timeline autosave and common conflict conformance |
+| 2026-07-28T10:01:36-04:00 | S-11 | DONE | `apps/web/src/workbook/runtime/**`; common conflict resolver; Base surface mutation controllers/components; Timeline conflict projection and pending dispatcher; deleted Timeline resolver/model/payload wrappers; Workbook unit/test support; affected browser specifications; authored `web.workbook` rows; Make-generated topology; tracker | `make format` passed at `.cartulary/test-results/20260728T135709Z-p2668475`; `make test-slice OWNER=web.workbook` passed 103 rows at `.cartulary/test-results/20260728T134927Z-p2639154`; `make frontend-typecheck` passed at `.cartulary/test-results/20260728T135713Z-p2671371`; frontend boundaries passed at `.cartulary/test-results/20260728T135723Z-p2671967`; exact stateful Workbook and Collaboration rows passed at `.cartulary/test-results/20260728T135736Z-p2672503` and `.cartulary/test-results/20260728T135827Z-p2690406`; full `make browser-e2e-stateful` passed at `.cartulary/test-results/20260728T135913Z-p2707304`; generation, drift, and shape passed at `.cartulary/test-results/20260728T140152Z-p2729971`, `.cartulary/test-results/20260728T140159Z-p2732165`, and `.cartulary/test-results/20260728T140210Z-p2735965` | One shell FIFO now owns autosave admission across Timeline, entity, and contract-backed renderers; drafts and refresh debt survive surface switches; explicit changes share in-flight state; one typed resolver handles atomic, text, and collection classes with saved-first merge, opt-in suggestions, destructive discard, typed collection actions, navigation, and surface return. The first broad browser run at `.cartulary/test-results/20260728T135032Z-p2643085` exposed and then verified correction of retired selectors and missing common conflict navigation; the first frontend format attempt at `.cartulary/test-results/20260728T134342Z-p2620132` exposed corrected Biome diagnostics. No public contract change or remaining skip | Pass checkpoint Markdown lint, then continue S-12 with the shell collaboration projection |
+| 2026-07-28T10:43:26-04:00 | S-12 | DONE | Added `WorkbookCollaborationProjection`, its hook and registry-derived tests, common presence markers, and active-surface ports; changed the shell, collaboration session type surface, Base loaders/renderers/status projection, Timeline live-update integration, common mutation lifecycle/focus restoration, collaboration unit/browser evidence, authored `web.collaboration` and `module.collaboration` rows, generated topology, and this tracker; deleted the Timeline-only presence marker wrapper | `make test-slice OWNER=web.workbook` passed 103 rows at `.cartulary/test-results/20260728T143509Z-p2821564`; `make test-slice OWNER=web.collaboration` passed at `.cartulary/test-results/20260728T143616Z-p2827613`; focused module queue and conflict rows passed at `.cartulary/test-results/20260728T143031Z-p2805845` and `.cartulary/test-results/20260728T143441Z-p2821041`; exact two-analyst browser presence and stateful reconciliation rows passed at `.cartulary/test-results/20260728T143727Z-p2832233` and `.cartulary/test-results/20260728T144230Z-p2896600`; exact service-backed Collaboration and Workbook sparse-patch rows passed at `.cartulary/test-results/20260728T143643Z-p2829261` and `.cartulary/test-results/20260728T143659Z-p2830588`; frontend typecheck and boundaries passed at `.cartulary/test-results/20260728T143621Z-p2828113` and `.cartulary/test-results/20260728T143632Z-p2828720`; `make generate` passed at `.cartulary/test-results/20260728T143609Z-p2825405` | The incident session is the sole socket owner and one shell projection now owns exact Base/saved/extension sheet identity, keyed presence, sequence/reset outcomes, authorization/closure cleanup, replay resume, self-transaction suppression, and active-surface routing. Timeline and generic, entity, and assessment renderers share deterministic presence and safe sparse patch or requery behavior while local drafts remain projected. The first broad module owner attempt at `.cartulary/test-results/20260728T142114Z-p2760870` exposed stale revocation evidence, retired resolver assumptions, and presence row-gutter memoization; all affected focused rows now pass. Visual-only rows remain assigned to S-14 and were not used as S-12 exit evidence | Pass checkpoint Markdown lint, then implement S-13 View-bar and responsive shell behavior |
+| 2026-07-28T11:55:26-04:00 | S-13 | DONE | Added `WorkbookViewBar`; changed the shell, all Base renderer frames, query controls, status/presence projection, responsive model, common conflict focus scope, Timeline continuity adapter, Workbook unit and browser evidence, UI-contract selectors, authored `web.workbook` and `web.design` rows, generated scheduler/topology outputs, README, and this tracker; deleted `WorkbookSheetToolbar` and the top-bar query selector API | `make format` passed at `.cartulary/test-results/20260728T154927Z-p3419325`; `make test-slice OWNER=web.workbook` passed 103 rows at `.cartulary/test-results/20260728T155214Z-p3476099`; full `make browser-e2e-a11y` passed at `.cartulary/test-results/20260728T155120Z-p3472818`; exact conflict and coordination accessibility rows passed at `.cartulary/test-results/20260728T154931Z-p3422172` and `.cartulary/test-results/20260728T155009Z-p3439872`; the responsive webserver-backed row passed at `.cartulary/test-results/20260728T151700Z-p3029784` and again within the four passing rows of `.cartulary/test-results/20260728T155310Z-p3479984`; frontend typecheck and boundaries passed at `.cartulary/test-results/20260728T155442Z-p3501074` and `.cartulary/test-results/20260728T155452Z-p3501653`; `make generate` passed at `.cartulary/test-results/20260728T150824Z-p2962278` | One View bar now orders saved-view controls, Sort, Group, Filters, Columns, chips, inspector, and create action for every renderer; capacities are 8/6/0; base uses adjacent resizable columns and narrow/compact use inert overlays; width-only chrome, menu navigation, Escape priority, focus return, and responsive presence placement are shared. Browser and accessibility runs exposed and verified corrections for frame-level Escape scope, filter-popover ownership, common conflict initial focus, stale hidden-input/action evidence, and the destructive button token. The full `web.design` attempt passed four of five rows; only the exposed-theme golden differed by one pixel, recorded at `.cartulary/test-results/20260728T155310Z-p3479984` for the S-14 registry/golden workflow. No public or persisted compatibility surface changed | Pass checkpoint Markdown lint, then complete the v5 fixture registry, honest verification accounting, generated outputs, and independent golden validation in S-14 |
+| 2026-07-28T12:29:05-04:00 | S-14 | DONE | Advanced the authored visual registry and schema to v5; added exact `D-VFIX-001` through `D-VFIX-012` mappings; split base-inspector and destructive evidence from the default shell; added narrow, compact, presence-overflow, and component-state fixtures; changed exact selector crops, visual scenarios, presence capacities, semantic/shape validators, harness schema attachment and NLSpec, authored visual rows, catalog-total tests, Make-generated scheduler/topology outputs, goldens, and this tracker | `make generate` passed at `.cartulary/test-results/20260728T161819Z-p3583210`; `make semantic-identity-check` passed at `.cartulary/test-results/20260728T162438Z-p3654962`; `make json-shape-check` passed at `.cartulary/test-results/20260728T162438Z-p3654032`; `make generate-drift` passed at `.cartulary/test-results/20260728T162438Z-p3653942`; generated policy passed at `.cartulary/test-results/20260728T162438Z-p3654057`; `make harness-contract` passed at `.cartulary/test-results/20260728T162654Z-p3664415`; `make browser-e2e-visual-update` passed at `.cartulary/test-results/20260728T162058Z-p3611073`; independent visual verification passed at `.cartulary/test-results/20260728T162254Z-p3632790`; accessibility passed at `.cartulary/test-results/20260728T162727Z-p3665770`; frontend typecheck and boundaries passed at `.cartulary/test-results/20260728T162438Z-p3654537` and `.cartulary/test-results/20260728T162438Z-p3654601` | The v5 schema permits only the twelve accepted optional design IDs, and shape, semantic, and Playwright checks require each exactly once while implementation-only fixtures omit the field. Real captures now use the declared full viewport or exact selector; registry claims no longer bundle inspector/destructive states into the default shell. Three failed visual-update attempts at `.cartulary/test-results/20260728T160947Z-p3526364`, `.cartulary/test-results/20260728T161346Z-p3552297`, and `.cartulary/test-results/20260728T161829Z-p3585505` exposed and verified correction of stale overlay geometry, missing responsive goldens, under-capacity/overflowing presence markers, and a misleading reset-strip visual. Harness accounting is current at 60 owners, 202 families, 902 rows, and 1,680 exact selectors. No public contract or production generated root changed | Pass checkpoint Markdown lint, then begin S-15 cleanup, broad validation, and final handoff |
+| 2026-07-28T13:47:57-04:00 | S-15 | DONE | Removed the remaining Timeline-only conflict, presence, live-update, collaboration-effect, pending-model, and recovery authorities; made the common recovery panel the sole retry/discard UI; routed Timeline discard reconciliation through the shell mutation runtime; corrected shared View-bar stacking and responsive control geometry; refreshed visual evidence; completed the exact 149-file baseline manifest in Section 13.5 | Exact mutation/recovery service-backed row passed at `.cartulary/test-results/20260728T173948Z-p124422`; `make generate` passed at `.cartulary/test-results/20260728T174034Z-p141244`; focused Workbook, Collaboration, and Design owners passed 103/103, 2/2, and 5/5 at `.cartulary/test-results/20260728T174101Z-p143737`, `.cartulary/test-results/20260728T174101Z-p143753`, and `.cartulary/test-results/20260728T174101Z-p143728`; typecheck passed at `.cartulary/test-results/20260728T174101Z-p143921`; visual update, independent visual verification, and accessibility passed at `.cartulary/test-results/20260728T173359Z-p61280`, `.cartulary/test-results/20260728T173554Z-p83109`, and `.cartulary/test-results/20260728T173735Z-p104233`; semantic identity, JSON shape, generation drift, generated policy, harness contract, frontend/backend boundaries, OpenAPI compatibility, and OTel conformance passed at the S-15 roots recorded in Section 13.6; `make agent-finalize` passed at `.cartulary/test-results/20260728T174318Z-p180267`; final `make check` passed 174/174 work units and 747 tests at `.cartulary/test-results/20260728T174341Z-p186409`; `make build` passed at `.cartulary/test-results/20260728T174622Z-p285302`; final checkpoint Markdown lint passed at `.cartulary/test-results/20260728T175038Z-p309162` | The first broad run at `.cartulary/test-results/20260728T163627Z-p3740486` exposed corrected frontend-unit assumptions, virtualized conflict-draft continuity, and browser collaboration/keyboard regressions; its missing child summaries were secondary to early abort. The second broad run at `.cartulary/test-results/20260728T170737Z-p4000222` exposed corrected saved-view/query-control overlap. Visual verification at `.cartulary/test-results/20260728T171846Z-p4192432` identified the intended new chrome goldens; the first update at `.cartulary/test-results/20260728T172123Z-p20104` exposed and verified removal of duplicate Timeline recovery actions. No infrastructure-only failure or unresolved failure remains. `RESULTS_DIR` was intentionally unset for `make agent-finalize`, so retained full-run maintenance was skipped and recorded by that target | Remediation cycle complete; hand off the final manifest and evidence |
+
+### 13.5 Exact changed-file manifest
+
+This is the final working-tree manifest relative to clean baseline
+`cd8fa720b0708c01243f27623e453285996b9e34`: 149 files total, comprising 20
+added, 114 modified, and 15 deleted files.
+
+```text
+M apps/web/e2e/collaboration.spec.ts
+M apps/web/e2e/keyboard.spec.ts
+M apps/web/e2e/sentinel.spec.ts
+M apps/web/e2e/support/collaboration/replay.ts
+M apps/web/e2e/support/transport/requestInterception.ts
+M apps/web/e2e/timeline-public-route.spec.ts
+M apps/web/e2e/workbook.a11y.spec.ts
+M apps/web/e2e/workbook.visual.spec.ts
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png
+D apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-reset-invalidate-notice-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png
+A apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png
+A apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png
+M apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png
+M apps/web/src/README.md
+M apps/web/src/collaboration/IncidentCollaborationSession.tsx
+M apps/web/src/services/clientTransactionIdPolicy.test.ts
+M apps/web/src/testing/TimelineWorkbookRuntimeFixture.tsx
+M apps/web/src/testing/selectorContractPolicy.test.ts
+M apps/web/src/testing/timelineWorkbookTestSupport.test.tsx
+M apps/web/src/testing/timelineWorkbookTestSupport.ts
+M apps/web/src/workbook/WorkbookShell.collaboration.test.tsx
+M apps/web/src/workbook/WorkbookShell.gridProvenance.test.tsx
+M apps/web/src/workbook/WorkbookShell.history.test.tsx
+M apps/web/src/workbook/WorkbookShell.inspector.test.tsx
+M apps/web/src/workbook/WorkbookShell.query.test.tsx
+M apps/web/src/workbook/WorkbookShell.saveState.test.tsx
+M apps/web/src/workbook/WorkbookShell.sentinel.test.tsx
+M apps/web/src/workbook/WorkbookShell.support.test.tsx
+M apps/web/src/workbook/WorkbookShell.surfaces.test.tsx
+M apps/web/src/workbook/WorkbookShell.tsx
+M apps/web/src/workbook/components/ActiveSurfaceSavedViewSelector.tsx
+M apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx
+M apps/web/src/workbook/components/EntityWorkbookSurface.tsx
+M apps/web/src/workbook/components/GenericWorkbookSurface.tsx
+M apps/web/src/workbook/components/WorkbookActiveSurface.tsx
+A apps/web/src/workbook/components/WorkbookConflictResolver.tsx
+M apps/web/src/workbook/components/WorkbookGridControls.tsx
+A apps/web/src/workbook/components/WorkbookPresenceMarkers.tsx
+D apps/web/src/workbook/components/WorkbookSheetToolbar.tsx
+M apps/web/src/workbook/components/WorkbookShellSlots.tsx
+M apps/web/src/workbook/components/WorkbookShellStyles.ts
+M apps/web/src/workbook/components/WorkbookStatusStrip.tsx
+M apps/web/src/workbook/components/WorkbookSurfaceFrame.tsx
+A apps/web/src/workbook/components/WorkbookViewBar.tsx
+M apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts
+M apps/web/src/workbook/hooks/useWorkbookSurfaceLoaders.ts
+M apps/web/src/workbook/models/workbookMutations.ts
+M apps/web/src/workbook/models/workbookResponsiveLayout.test.ts
+M apps/web/src/workbook/models/workbookResponsiveLayout.ts
+A apps/web/src/workbook/runtime/WorkbookCollaborationProjection.test.ts
+A apps/web/src/workbook/runtime/WorkbookCollaborationProjection.ts
+A apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts
+A apps/web/src/workbook/runtime/WorkbookMutationRuntime.ts
+A apps/web/src/workbook/runtime/useWorkbookCollaborationProjection.ts
+A apps/web/src/workbook/runtime/useWorkbookMutationRuntime.ts
+A apps/web/src/workbook/runtime/workbookCollaborationMessages.test.ts
+A apps/web/src/workbook/runtime/workbookCollaborationMessages.ts
+A apps/web/src/workbook/runtime/workbookConflictModel.test.ts
+A apps/web/src/workbook/runtime/workbookConflictModel.ts
+A apps/web/src/workbook/runtime/workbookLifecycleModel.ts
+A apps/web/src/workbook/runtime/workbookPendingReplayRuntime.ts
+A apps/web/src/workbook/runtime/workbookSurfacePort.ts
+D apps/web/src/workbook/timeline/components/TimelineConflictResolver.tsx
+M apps/web/src/workbook/timeline/components/TimelineMentionsPanel.tsx
+D apps/web/src/workbook/timeline/components/TimelinePresenceMarkers.tsx
+M apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx
+M apps/web/src/workbook/timeline/components/TimelineWorkbookInspector.tsx
+M apps/web/src/workbook/timeline/components/TimelineWorkbookNotices.tsx
+M apps/web/src/workbook/timeline/components/TimelineWorkbookRenderers.tsx
+M apps/web/src/workbook/timeline/hooks/useTimelineClipboardPasteController.ts
+A apps/web/src/workbook/timeline/hooks/useTimelineConflictProjectionAdapter.ts
+D apps/web/src/workbook/timeline/hooks/useTimelineConflictResolverCoordinator.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineInspectorSelection.ts
+D apps/web/src/workbook/timeline/hooks/useTimelineLiveUpdateController.ts
+D apps/web/src/workbook/timeline/hooks/useTimelineLiveUpdates.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineMentionActions.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineMutationCommands.ts
+M apps/web/src/workbook/timeline/hooks/useTimelinePendingReplayController.ts
+M apps/web/src/workbook/timeline/hooks/useTimelinePendingSaves.ts
+M apps/web/src/workbook/timeline/hooks/useTimelinePresenceProjection.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineRowsLoader.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineSaveStatePresentation.ts
+M apps/web/src/workbook/timeline/hooks/useTimelineWorkbookRuntime.ts
+D apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts
+D apps/web/src/workbook/timeline/models/timelineConflictModel.ts
+M apps/web/src/workbook/timeline/models/timelineControllerPorts.ts
+D apps/web/src/workbook/timeline/models/timelinePendingReplayModel.ts
+M apps/web/src/workbook/timeline/models/timelineWorkbookRuntime.test.ts
+M apps/web/src/workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts
+M apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts
+M apps/web/src/workbook/timeline/models/workbookTimelineModel.ts
+D apps/web/src/workbook/timeline/services/timelineCollaborationEffects.test.ts
+D apps/web/src/workbook/timeline/services/timelineCollaborationEffects.ts
+M apps/web/src/workbook/timeline/services/timelineMutationRequests.ts
+D apps/web/src/workbook/timeline/services/workbookCollaborationMessages.test.ts
+D apps/web/src/workbook/timeline/services/workbookCollaborationMessages.ts
+M apps/web/src/workbook/utils/workbookPendingQueue.ts
+M docs/design.md
+M docs/handoffs/workbook-module-refactor-tracker.md
+M docs/testing-harness-nlspec.md
+M packages/ui-contracts/src/index.test.ts
+M packages/ui-contracts/src/index.ts
+M tools/browser_e2e_batch_manifest.json
+M tools/execution_topology_render_index.json
+M tools/frontend_import_boundaries.json
+M tools/frontend_visual_fixture_registry.json
+M tools/harness/generated-artifacts/check-json-shapes.mjs
+M tools/harness/test-catalog/semantic-identity-check-cli.mjs
+M tools/harness/tests/test-harness-contracts.mjs
+M tools/harness_schema_attachments.json
+M tools/scheduler_manifest.json
+D tools/schemas/cartulary.frontend_visual_fixture_registry.v4.schema.json
+A tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json
+M tools/test_families/module.collaboration.json
+M tools/test_families/web.collaboration.json
+M tools/test_families/web.design.json
+M tools/test_families/web.workbook.json
+```
+
+The compatibility audit found no baseline-relative change under `cmd`,
+`internal`, `contracts`, `db/migrations`, `db/queries`,
+`packages/protocol-ts/src/generated`, or
+`packages/ui-contracts/src/generated`. The only production Workbook socket
+subscription is in `WorkbookCollaborationProjection`; absence searches found no
+retired Timeline recovery selectors, Timeline conflict/live-update wrappers,
+top-bar query selector, direct autosave transport, or second subscription.
+
+### 13.6 Remediation binary completion criteria
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| G-01: the active tracker cycle is complete and independently resumable | PASS | S-09 through S-15 are `DONE`; each checkpoint records changed scope, commands, retained roots, failures or skips, and the next action |
+| G-02: design authority has one query-control, inspector, and resize model | PASS | `docs/design.md` assigns ordered controls to the View bar, distinguishes closed/default and open inspector fixtures, removes pinning, and defines bounded accessible non-persistent resizing; `docs/domain.md` is unchanged |
+| G-03: one shell mutation runtime owns Base autosave queue, recovery, and save state | PASS | Common runtime and registry-derived tests cover all current autosave-capable renderers; exact stateful recovery passed at `.cartulary/test-results/20260728T173948Z-p124422` |
+| G-04: one typed resolver and conflict queue serve writable Base surfaces | PASS | Atomic, text compare/merge, typed collection review, stale-token replay, discard, focus return, and originating-surface routing are common; retired Timeline resolver/model files are deleted |
+| G-05: one collaboration projection serves all Base surfaces | PASS | The sole Workbook subscription owns exact sheet identity, replay high-water state, authorization/reset/closure cleanup, presence, sparse reconciliation, invalidation, and active-surface routing |
+| G-06: one responsive View bar, surface frame, inspector, and status strip serve all renderers | PASS | Width boundaries, height independence, 8/6/0 chip capacity, adjacent/overlay geometry, inertness, resizing, menus, Escape, and focus return pass focused, accessibility, and final broad verification |
+| G-07: fixture and verification claims are machine-accountable | PASS | Registry/schema v5 maps `D-VFIX-001` through `D-VFIX-012` exactly once; semantic identity passed at `.cartulary/test-results/20260728T174221Z-p169813`, JSON shape at `.cartulary/test-results/20260728T174220Z-p169248`, harness contract at `.cartulary/test-results/20260728T174239Z-p174646`, and independent visual verification at `.cartulary/test-results/20260728T173554Z-p83109` |
+| Generated and architectural boundaries are clean | PASS | Generation drift passed at `.cartulary/test-results/20260728T174220Z-p169287`, generated policy at `.cartulary/test-results/20260728T174220Z-p169225`, frontend boundary at `.cartulary/test-results/20260728T174239Z-p174623`, backend boundary at `.cartulary/test-results/20260728T174239Z-p174652`, OpenAPI compatibility at `.cartulary/test-results/20260728T174239Z-p174405`, and OTel conformance at `.cartulary/test-results/20260728T174239Z-p174254` |
+| Final broad validation and build pass | PASS | `make check` passed 174/174 work units and 747 tests at `.cartulary/test-results/20260728T174341Z-p186409`; `make build` passed at `.cartulary/test-results/20260728T174622Z-p285302` |
+| No unresolved compatibility authority or migration remains | PASS | Public HTTP, OpenAPI, WebSocket, `view_schema_id`, `sheet_ref`, saved-view, database, backend contribution, and production generated roots are unchanged; no DDL, persisted preference, saved-view layout, or user-data migration is required |

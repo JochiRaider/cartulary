@@ -34,6 +34,37 @@
       "status": "active"
     },
     {
+      "row_id": "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/keyboard.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_workbook_responsive_shell"
+        ],
+        "titles": [
+          "keeps the incident workbook inside the browser viewport and delegates overflow to workbook panels"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
       "owner_id": "web.design",
       "family_id": "web.design.visual",
@@ -86,7 +117,7 @@
           "scenario_5fea7ee59303"
         ],
         "titles": [
-          "Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
+          "Ensure the visual fixture matrix maps every design contract exactly once and retains implementation-only workbook, collaboration, evidence, entity, coordination, and grid-adapter fixtures."
         ]
       },
       "evidence_class": "visual",

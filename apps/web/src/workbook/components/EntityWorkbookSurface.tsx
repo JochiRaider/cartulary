@@ -95,10 +95,16 @@ import {
 } from "../models/workbookMutations";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
+import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { useWorkbookCollaborationProjection } from "../runtime/useWorkbookCollaborationProjection";
+import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
+import type { WorkbookCollaborationProjection } from "../runtime/WorkbookCollaborationProjection";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
@@ -112,13 +118,14 @@ import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
-import { WorkbookSheetToolbar } from "./WorkbookSheetToolbar";
+import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
   workbookSurfaceInspectorPanelStyle,
 } from "./WorkbookSurfaceFrame";
+import { WorkbookViewBar } from "./WorkbookViewBar";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -171,12 +178,15 @@ type MergePreconditionDetailLine = {
 };
 
 export type EntityWorkbookSurfaceProps = {
+  chromeMode: WorkbookChromeMode;
   incidentId: string;
   apiBase?: string | undefined;
   density: GridDensity;
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
+  queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
+  showStatusPresence: boolean;
   layoutState: WorkbookResolvedLayoutState;
   onColumnReorder: (sourceFieldKey: string, targetFieldKey: string) => void;
   onColumnWidthChange: (fieldKey: string, width: number) => void;
@@ -188,6 +198,8 @@ export type EntityWorkbookSurfaceProps = {
   onRefreshEntities: () => Promise<void>;
   interactionMode: GridInteractionMode;
   loadState: WorkbookQueryLoadState;
+  mutationRuntime: WorkbookMutationRuntime;
+  collaborationProjection: WorkbookCollaborationProjection;
   onClearFilters: () => void;
 };
 
@@ -274,12 +286,15 @@ function entityCellContent(
 }
 
 export function EntityWorkbookSurface({
+  chromeMode,
   incidentId,
   apiBase,
   density,
   entityType,
   inspectorResetKey,
+  queryControls,
   savedViewSelector,
+  showStatusPresence,
   layoutState,
   rows,
   queryState,
@@ -291,6 +306,8 @@ export function EntityWorkbookSurface({
   onRefreshEntities,
   interactionMode,
   loadState,
+  mutationRuntime,
+  collaborationProjection,
   onClearFilters,
 }: EntityWorkbookSurfaceProps) {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
@@ -315,6 +332,12 @@ export function EntityWorkbookSurface({
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] =
     useState<WorkbookMutationSaveState>("Saved");
+  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime);
+  const collaboration = useWorkbookCollaborationProjection(
+    collaborationProjection,
+  );
+  const presentedMutationState =
+    mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
   const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
     useEntityTimelinePreview({
       apiBase,
@@ -468,6 +491,52 @@ export function EntityWorkbookSurface({
     rowCount: entityGridRows.length,
     surfaceLabel: contract.title,
   });
+  useEffect(
+    () =>
+      mutationRuntime.registerSurface(
+        contract.viewSchemaId,
+        onRefreshEntities,
+        async (_payload, conflict) => {
+          await onRefreshEntities();
+          window.setTimeout(() => {
+            gridHandleRef.current?.focusAnchor({
+              fieldKey: conflict.conflict.field_key,
+              rowIdentity: {
+                kind: "core_record",
+                recordId: conflict.conflict.record_id,
+              },
+              surface: {
+                kind: "view_schema",
+                viewSchemaId: contract.viewSchemaId,
+              },
+            });
+          }, 0);
+        },
+        (conflict) => {
+          window.setTimeout(() => {
+            const anchor = {
+              fieldKey: conflict.conflict.field_key,
+              rowIdentity: {
+                kind: "core_record" as const,
+                recordId: conflict.conflict.record_id,
+              },
+              surface: {
+                kind: "view_schema" as const,
+                viewSchemaId: contract.viewSchemaId,
+              },
+            };
+            if (
+              !gridHandleRef.current?.activateEdit(anchor, {
+                value: conflict.localValue,
+              })
+            ) {
+              gridHandleRef.current?.focusAnchor(anchor);
+            }
+          }, 0);
+        },
+      ),
+    [contract.viewSchemaId, mutationRuntime, onRefreshEntities],
+  );
   const commitGridEdit = useCallback(
     async (
       fieldKey: string,
@@ -502,37 +571,27 @@ export function EntityWorkbookSurface({
             "Enter a valid value, or clear only a field that permits null.",
         };
       }
-      setMutationState("Syncing");
       setMutationError(null);
-      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${target.recordId}`),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            view_schema_id: contract.viewSchemaId,
-            base_row_version: target.baseRowVersion,
-            client_txn_id: clientTxnID(`grid-edit-${contract.viewSchemaId}`),
-            changes: [change],
-          }),
-        },
-      );
-      if (!result.ok) {
-        const message = parseErrorMessage(result.payload);
-        setMutationState("Conflict");
-        setMutationError(message);
-        if (result.status === 409) return { kind: "conflict", message };
-        if (result.status === 404) return { kind: "stale_target", message };
-        if (result.status === 400) {
-          return { kind: "validation_error", message };
-        }
-        return { kind: "rejected_mutation", message };
+      const outcome = mutationRuntime.enqueuePatch({
+        apiBase,
+        baseRowVersion: target.baseRowVersion,
+        changes: [change],
+        fieldKey,
+        focusKey: `${target.recordId}:${fieldKey}`,
+        localValue: draftValue,
+        recordId: target.recordId,
+        rowLabel: genericRowLabel(contract, current.rawRow),
+        surfaceLabel: contract.title,
+        viewSchemaId: contract.viewSchemaId,
+      });
+      if (outcome.kind !== "accepted") {
+        setMutationError(outcome.message);
+      } else {
+        setSelectedRecordId(target.recordId);
       }
-      await onRefreshEntities();
-      setSelectedRecordId(target.recordId);
-      setMutationState("Saved");
-      return { kind: "accepted" };
+      return outcome;
     },
-    [apiBase, contract, onRefreshEntities, rows],
+    [apiBase, contract, mutationRuntime, rows],
   );
   const handleEntityPaste = useCallback(
     async (intent: GridCellPasteIntent) => {
@@ -633,7 +692,12 @@ export function EntityWorkbookSurface({
         ...column,
         contractWritable: field?.gridEditable === true,
         getClipboardValue: (row: EntityRow) => {
-          const value = row.rawRow.cells[column.fieldKey]?.value;
+          const value =
+            mutationRuntime.visibleEdit(
+              contract.viewSchemaId,
+              row.recordId,
+              column.fieldKey,
+            ) ?? row.rawRow.cells[column.fieldKey]?.value;
           return field?.readKind === "collection"
             ? genericCellLabel(value)
             : value;
@@ -651,7 +715,11 @@ export function EntityWorkbookSurface({
                   }),
                 field,
                 readValue: (row: EntityRow) =>
-                  row.rawRow.cells[field.fieldKey]?.value,
+                  mutationRuntime.visibleEdit(
+                    contract.viewSchemaId,
+                    row.recordId,
+                    field.fieldKey,
+                  ) ?? row.rawRow.cells[field.fieldKey]?.value,
                 referenceOptions: entityReferenceOptions,
               })
             : undefined,
@@ -681,13 +749,29 @@ export function EntityWorkbookSurface({
           );
         },
         renderCell: ({ row }) => {
+          const visibleEdit = mutationRuntime.visibleEdit(
+            contract.viewSchemaId,
+            row.recordId,
+            column.fieldKey,
+          );
           return (
             <FocusableWorkbookCell
               fieldKey={column.fieldKey}
               focus={entityFocus}
               recordId={row.recordId}
             >
-              {entityCellContent(entityType, row, column.fieldKey)}
+              {visibleEdit === undefined
+                ? entityCellContent(entityType, row, column.fieldKey)
+                : genericCellLabel(visibleEdit)}
+              <WorkbookCellPresenceMarker
+                fieldKey={column.fieldKey}
+                fieldLabel={field?.label ?? column.fieldKey}
+                presences={collaborationProjection.editingPresenceForCell(
+                  row.recordId,
+                  column.fieldKey,
+                )}
+                recordId={row.recordId}
+              />
             </FocusableWorkbookCell>
           );
         },
@@ -814,22 +898,39 @@ export function EntityWorkbookSurface({
       );
       return;
     }
-    const payload = await submitWorkbookPatchMutation({
-      apiBase,
-      baseRowVersion: selectedEditRow.rowVersion,
-      changes: [change],
-      clientTxnId: clientTxnID(`entity-patch-${contract.viewSchemaId}`),
-      recordId: selectedEditRow.recordId,
-      setMutationError,
-      setMutationState,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return;
+    const finishMutation = mutationRuntime.beginExplicitMutation();
+    try {
+      const payload = await submitWorkbookPatchMutation({
+        apiBase,
+        baseRowVersion: selectedEditRow.rowVersion,
+        changes: [change],
+        clientTxnId: clientTxnID(`entity-patch-${contract.viewSchemaId}`),
+        recordId: selectedEditRow.recordId,
+        onConflict: (conflictPayload) => {
+          const conflict = parseSameFieldConflict(conflictPayload);
+          if (conflict !== null) {
+            mutationRuntime.registerConflict({
+              conflict,
+              focusKey: `${selectedEditRow.recordId}:${selectedEditField.fieldKey}`,
+              rowLabel: selectedEditRow.label,
+              surfaceLabel: contract.title,
+              viewSchemaId: contract.viewSchemaId,
+            });
+          }
+        },
+        setMutationError,
+        setMutationState,
+        viewSchemaId: contract.viewSchemaId,
+      });
+      if (payload === null) {
+        return;
+      }
+      await onRefreshEntities();
+      setSelectedRecordId(selectedEditRow.recordId);
+      setMutationState("Saved");
+    } finally {
+      finishMutation();
     }
-    await onRefreshEntities();
-    setSelectedRecordId(selectedEditRow.recordId);
-    setMutationState("Saved");
   }
 
   async function submitAliasActions(
@@ -844,29 +945,46 @@ export function EntityWorkbookSurface({
     }
     const aliasFieldKey =
       entityType === "host" ? "host.aliases" : "identity.aliases";
-    const payload = await submitWorkbookPatchMutation({
-      apiBase,
-      baseRowVersion: selectedEntity.rowVersion,
-      changes: [
-        {
-          field_key: aliasFieldKey,
-          action_payload: { kind: "collection_actions_v1", actions },
+    const finishMutation = mutationRuntime.beginExplicitMutation();
+    try {
+      const payload = await submitWorkbookPatchMutation({
+        apiBase,
+        baseRowVersion: selectedEntity.rowVersion,
+        changes: [
+          {
+            field_key: aliasFieldKey,
+            action_payload: { kind: "collection_actions_v1", actions },
+          },
+        ],
+        clientTxnId: clientTxnID(`entity-alias-${selectedEntity.recordId}`),
+        recordId: selectedEntity.recordId,
+        onConflict: (conflictPayload) => {
+          const conflict = parseSameFieldConflict(conflictPayload);
+          if (conflict !== null) {
+            mutationRuntime.registerConflict({
+              conflict,
+              focusKey: `${selectedEntity.recordId}:${aliasFieldKey}`,
+              rowLabel: selectedEntity.label,
+              surfaceLabel: contract.title,
+              viewSchemaId: contract.viewSchemaId,
+            });
+          }
         },
-      ],
-      clientTxnId: clientTxnID(`entity-alias-${selectedEntity.recordId}`),
-      recordId: selectedEntity.recordId,
-      setMutationError,
-      setMutationState,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return;
+        setMutationError,
+        setMutationState,
+        viewSchemaId: contract.viewSchemaId,
+      });
+      if (payload === null) {
+        return;
+      }
+      setAliasDraft("");
+      await onRefreshEntities();
+      setSelectedRecordId(selectedEntity.recordId);
+      setMutationState("Saved");
+      requestAnimationFrame(() => aliasInputRef.current?.focus());
+    } finally {
+      finishMutation();
     }
-    setAliasDraft("");
-    await onRefreshEntities();
-    setSelectedRecordId(selectedEntity.recordId);
-    setMutationState("Saved");
-    requestAnimationFrame(() => aliasInputRef.current?.focus());
   }
 
   async function submitEntityCreate() {
@@ -882,23 +1000,28 @@ export function EntityWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
-    const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
-      ),
-      { method: "POST", body: JSON.stringify(payload) },
-    );
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
-      return;
+    const finishMutation = mutationRuntime.beginExplicitMutation();
+    try {
+      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
+        ),
+        { method: "POST", body: JSON.stringify(payload) },
+      );
+      if (!result.ok) {
+        setMutationState("Conflict");
+        setMutationError(parseMutationError(result.payload));
+        return;
+      }
+      const envelope = readEnvelope<ViewMutationEnvelope>(result.payload);
+      setCreateDraft(initialGenericCreateDraft(contract, null));
+      await onRefreshEntities();
+      setSelectedRecordId(envelope.data.row.record_id);
+      setMutationState("Saved");
+    } finally {
+      finishMutation();
     }
-    const envelope = readEnvelope<ViewMutationEnvelope>(result.payload);
-    setCreateDraft(initialGenericCreateDraft(contract, null));
-    await onRefreshEntities();
-    setSelectedRecordId(envelope.data.row.record_id);
-    setMutationState("Saved");
   }
 
   async function confirmMerge() {
@@ -939,6 +1062,7 @@ export function EntityWorkbookSurface({
 
   return (
     <WorkbookSurfaceFrame
+      chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
           <aside
@@ -1333,6 +1457,9 @@ export function EntityWorkbookSurface({
           </aside>
         ) : undefined
       }
+      onRequestInspectorClose={() => {
+        setIsInspectorOpen(false);
+      }}
       primaryGrid={
         <GridViewport
           blockSizing="fill"
@@ -1355,14 +1482,18 @@ export function EntityWorkbookSurface({
             draftRow={entityDraftRow}
             grouping={grouping}
             interactionMode={interactionMode}
-            onActiveCellChange={(anchor) =>
-              entityFocus.update(
+            onActiveCellChange={(anchor) => {
+              const recordId =
                 anchor?.rowIdentity.kind === "core_record"
                   ? anchor.rowIdentity.recordId
-                  : null,
-                anchor?.fieldKey ?? "",
-              )
-            }
+                  : null;
+              entityFocus.update(recordId, anchor?.fieldKey ?? "");
+              collaborationProjection.publishPresence({
+                fieldKey: null,
+                mode: recordId === null ? "idle" : "viewing",
+                recordId,
+              });
+            }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
             clipboardPaste={clipboardPaste}
@@ -1375,17 +1506,20 @@ export function EntityWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          mutationError={mutationError}
-          mutationState={mutationState}
+          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          mutationError={mutationError ?? sharedMutation.secondaryMessage}
+          mutationState={presentedMutationState}
+          showPresence={showStatusPresence}
           workbookFocusAnchor={entityFocus.anchor}
         />
       }
       viewBar={
-        <WorkbookSheetToolbar
+        <WorkbookViewBar
           addRowDisabled={
             writableFields.length === 0 || interactionMode.kind === "read_only"
           }
-          leading={savedViewSelector}
+          queryControls={queryControls}
+          savedViewControls={savedViewSelector}
           onAddRow={focusEntityDraft}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);

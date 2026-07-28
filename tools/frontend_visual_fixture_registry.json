@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_visual_fixture_registry.v4",
+  "schema_id": "cartulary.frontend_visual_fixture_registry.v5",
   "owner_id": "harness.visual",
   "verification_id": "harness.visual.verification.stable_fixture_identity",
   "fixtures": [
@@ -52,18 +52,64 @@
       ]
     },
     {
+      "fixture_id": "visual.fixture.base_inspector",
+      "fixture_title": "Base inspector open adjacent",
+      "design_contract_id": "D-VFIX-002",
+      "status": "current",
+      "playwright_scenario_title": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png"
+      ],
+      "seed_id": "visual.seed.base_inspector",
+      "viewport_css_px": "1280x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "cell",
+        "anchor": "selected-timeline-summary-cell"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The selected Timeline row remains the active inspector subject."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No grid editor is active while inspector sections and history states are captured."
+      },
+      "inspector_state": {
+        "kind": "open_adjacent",
+        "description": "The base-mode inspector is adjacent to a still-visible Timeline grid."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+      ]
+    },
+    {
       "fixture_id": "visual.fixture.default_timeline_workbook_shell",
       "fixture_title": "Default Timeline workbook shell",
+      "design_contract_id": "D-VFIX-001",
       "status": "current",
       "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png"
       ],
       "seed_id": "visual.seed.default_timeline_workbook_shell",
       "viewport_css_px": "1440x900",
@@ -100,6 +146,99 @@
       "replacement_fixture_id": "",
       "catalog_row_ids": [
         "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.compact_desktop_workbook_shell",
+      "fixture_title": "Compact desktop workbook shell",
+      "design_contract_id": "D-VFIX-011",
+      "status": "current",
+      "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png"
+      ],
+      "seed_id": "visual.seed.compact_desktop_workbook_shell",
+      "viewport_css_px": "768x640",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-shell-root-and-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The selected Timeline cell remains anchored while compact chrome replaces built-in tabs."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No unsaved mutation is staged."
+      },
+      "inspector_state": {
+        "kind": "closed",
+        "description": "The compact shell capture keeps the full-screen inspector closed."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.destructive_actions",
+      "fixture_title": "Destructive inspector actions",
+      "design_contract_id": "D-VFIX-008",
+      "status": "current",
+      "playwright_scenario_title": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png"
+      ],
+      "seed_id": "visual.seed.destructive_actions",
+      "viewport_css_px": "1280x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "cell",
+        "anchor": "selected-timeline-history-cell"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-design-fixture='destructive-actions']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Initial focus remains on the non-destructive cancel action."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No grid editor is active."
+      },
+      "inspector_state": {
+        "kind": "open_adjacent",
+        "description": "History destructive confirmation is visible in the adjacent inspector."
+      },
+      "dynamic_masks": [
+        "generated record identifiers"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
       ]
     },
     {
@@ -199,16 +338,15 @@
     {
       "fixture_id": "visual.fixture.empty_successful_query",
       "fixture_title": "Empty successful query",
+      "design_contract_id": "D-VFIX-012",
       "status": "current",
       "playwright_scenario_title": "Capture save-state, pending replay, transaction recovery, inline edit, and empty Timeline fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png"
       ],
       "seed_id": "visual.seed.empty_successful_query",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -218,7 +356,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-design-fixture='empty-state']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -247,15 +386,15 @@
     {
       "fixture_id": "visual.fixture.evidence_affordance",
       "fixture_title": "Evidence affordance",
+      "design_contract_id": "D-VFIX-006",
       "status": "current",
       "playwright_scenario_title": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png"
       ],
       "seed_id": "visual.seed.evidence_affordance",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -265,7 +404,8 @@
         "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the selected row anchor with the inspector evidence section open."
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-design-fixture='evidence']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -292,15 +432,16 @@
       ]
     },
     {
-      "fixture_id": "visual.fixture.exposed_theme_states",
-      "fixture_title": "Exposed theme states",
+      "fixture_id": "visual.fixture.component_state_matrix",
+      "fixture_title": "Component state matrix",
+      "design_contract_id": "D-VFIX-009",
       "status": "current",
       "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png"
       ],
-      "seed_id": "visual.seed.exposed_theme_states",
+      "seed_id": "visual.seed.component_state_matrix",
       "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -308,11 +449,11 @@
       "density_id": "default",
       "scroll_normalization": {
         "kind": "not_applicable",
-        "reason": "selector-only exposed-theme specimen; no workbook-grid scroll state"
+        "reason": "selector-only component-state specimen; no workbook-grid scroll state"
       },
       "capture_scope": {
         "kind": "selector",
-        "selector": "[data-design-fixture='exposed-theme']"
+        "selector": "[data-design-fixture='components']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -383,6 +524,7 @@
     {
       "fixture_id": "visual.fixture.mention_chip_state_matrix",
       "fixture_title": "Mention chip state matrix",
+      "design_contract_id": "D-VFIX-004",
       "status": "current",
       "playwright_scenario_title": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
@@ -390,7 +532,7 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png"
       ],
       "seed_id": "visual.seed.mention_chip_state_matrix",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -400,7 +542,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-design-fixture='chips']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -424,6 +567,53 @@
       "replacement_fixture_id": "",
       "catalog_row_ids": [
         "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.narrow_desktop_workbook_shell",
+      "fixture_title": "Narrow desktop workbook shell",
+      "design_contract_id": "D-VFIX-010",
+      "status": "current",
+      "playwright_scenario_title": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png"
+      ],
+      "seed_id": "visual.seed.narrow_desktop_workbook_shell",
+      "viewport_css_px": "1024x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-shell-root-and-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The selected Timeline cell remains anchored while the Surfaces menu replaces built-in tabs."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No unsaved mutation is staged."
+      },
+      "inspector_state": {
+        "kind": "closed",
+        "description": "The narrow right-overlay inspector is closed for the shell capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0"
       ]
     },
     {
@@ -473,17 +663,17 @@
       ]
     },
     {
-      "fixture_id": "visual.fixture.row_gutter_presence",
-      "fixture_title": "Row-gutter presence",
+      "fixture_id": "visual.fixture.presence_overflow",
+      "fixture_title": "Presence header, row, and cell overflow",
+      "design_contract_id": "D-VFIX-005",
       "status": "current",
-      "playwright_scenario_title": "Capture row-gutter and cell presence markers.",
+      "playwright_scenario_title": "Capture deterministic presence at the workbook header, row gutter, and cell with exact overflow counts.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png"
       ],
-      "seed_id": "visual.seed.row_gutter_presence",
-      "viewport_css_px": "1440x900",
+      "seed_id": "visual.seed.presence_overflow",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -522,17 +712,15 @@
     {
       "fixture_id": "visual.fixture.same_field_conflict",
       "fixture_title": "Same-field conflict",
+      "design_contract_id": "D-VFIX-003",
       "status": "current",
       "playwright_scenario_title": "Capture same-field conflict resolver.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png"
       ],
       "seed_id": "visual.seed.same_field_conflict",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -542,7 +730,8 @@
         "description": "The focused conflict-resolver scenarios declare their workbook-grid position before capture; full conflict views normalize to the right edge while status-strip crops retain their scenario-owned anchor."
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-design-fixture='conflict']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -571,25 +760,17 @@
     {
       "fixture_id": "visual.fixture.save_state_strip",
       "fixture_title": "Save-state strip",
+      "design_contract_id": "D-VFIX-007",
       "status": "current",
       "playwright_scenario_title": "Capture conflict save-state strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-reset-invalidate-notice-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png"
       ],
       "seed_id": "visual.seed.save_state_strip",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
@@ -599,7 +780,8 @@
         "anchor": "workbook-grid"
       },
       "capture_scope": {
-        "kind": "full_viewport"
+        "kind": "selector",
+        "selector": "[data-design-fixture='status-strip']"
       },
       "focus_state": {
         "kind": "fixture_specific",

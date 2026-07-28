@@ -98,10 +98,7 @@ import {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
   pendingQueueCountTestId,
-  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
-  pendingQueueRecoveryPanelTestId,
-  pendingQueueRetryButtonTestId,
   publicErrorCodeTestId,
   publicErrorSummaryTestIds,
   referencePackAdminPanelTestId,
@@ -182,6 +179,13 @@ import {
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
   workbookAddRowButtonTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
+  workbookConflictSummaryTestId,
+  workbookEditRecoveryDiscardButtonTestId,
+  workbookEditRecoveryRetryButtonTestId,
+  workbookEditRecoveryTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookImportAssistantTestId,
@@ -206,7 +210,7 @@ import {
   workbookSurfacesMenuOptionTestId,
   workbookSurfacesMenuTestId,
   workbookSurfacesMenuTriggerTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "./index";
 
 const requireFixtureValue = <T>(value: T | undefined, label: string): T => {
@@ -643,6 +647,21 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(
       conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
     ).toBe("conflict-marker-record-1-timeline.activity_synopsis_text");
+    expect(workbookConflictResolverTestId()).toBe("workbook-conflict-resolver");
+    expect(workbookConflictSummaryTestId()).toBe("workbook-conflict-summary");
+    expect(workbookConflictSavedValueTestId()).toBe(
+      "workbook-conflict-saved-value",
+    );
+    expect(workbookConflictLocalValueTestId()).toBe(
+      "workbook-conflict-local-value",
+    );
+    expect(workbookEditRecoveryTestId()).toBe("workbook-edit-recovery");
+    expect(workbookEditRecoveryRetryButtonTestId()).toBe(
+      "workbook-edit-recovery-retry",
+    );
+    expect(workbookEditRecoveryDiscardButtonTestId()).toBe(
+      "workbook-edit-recovery-discard",
+    );
     expect(rowPresenceMarkerTestId("record-1")).toBe("presence-row-record-1");
     expect(
       cellPresenceMarkerTestId("record-1", "timeline.activity_synopsis_text"),
@@ -671,15 +690,6 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
-    expect(pendingQueueRecoveryPanelTestId()).toBe(
-      "pending-queue-recovery-panel",
-    );
-    expect(pendingQueueRetryButtonTestId()).toBe(
-      "pending-queue-retry-new-request-id",
-    );
-    expect(pendingQueueDiscardButtonTestId()).toBe(
-      "pending-queue-discard-blocked-edit",
-    );
     expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');
     expect(savedViewSelectorTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-selector-cartulary.view.hosts.v1",
@@ -983,8 +993,8 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "workbook-surfaces-menu-option-cartulary.view.timeline.v2",
     );
     expect(
-      workbookTopBarQueryControlsTestId("cartulary.view.timeline.v2"),
-    ).toBe("cartulary.view.timeline.v2-top-bar-query");
+      workbookViewBarQueryControlsTestId("cartulary.view.timeline.v2"),
+    ).toBe("cartulary.view.timeline.v2-view-bar-query");
     expect(workbookSortMenuTriggerTestId("cartulary.view.timeline.v2")).toBe(
       "cartulary.view.timeline.v2-sort-menu-trigger",
     );

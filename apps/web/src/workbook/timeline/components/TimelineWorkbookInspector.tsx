@@ -15,9 +15,9 @@ import {
 } from "../../components/WorkbookInspectorFeatureGroups";
 import { inspectorNoRowState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { MentionResolutionAction } from "../../runtime/workbookCollaborationMessages";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import type { MentionResolutionAction } from "../services/workbookCollaborationMessages";
 import {
   type MentionEntityOption,
   TimelineMentionsPanel,

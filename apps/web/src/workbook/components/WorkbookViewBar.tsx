@@ -3,33 +3,47 @@ import {
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import { Plus, SlidersHorizontal } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
-type WorkbookSheetToolbarProps = {
+type WorkbookViewBarProps = {
   readonly addRowDisabled?: boolean | undefined;
   readonly addRowLabel?: string | undefined;
-  readonly leading?: ReactNode | undefined;
+  readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
+  readonly queryControls?: ReactNode | undefined;
+  readonly savedViewControls?: ReactNode | undefined;
+  readonly supplementalControls?: ReactNode | undefined;
   readonly surface: string;
 };
 
-export function WorkbookSheetToolbar({
+export function WorkbookViewBar({
   addRowDisabled = false,
   addRowLabel = "Add row",
-  leading,
+  inspectorButtonRef,
   onAddRow,
   onInspectorToggle,
+  queryControls,
+  savedViewControls,
+  supplementalControls,
   surface,
-}: WorkbookSheetToolbarProps) {
+}: WorkbookViewBarProps) {
   return (
-    <div style={toolbarStyle}>
-      <div style={leftRailStyle}>{leading}</div>
+    <section
+      aria-label="Workbook query and action controls"
+      style={viewBarStyle}
+    >
+      <div style={controlRailStyle}>
+        {savedViewControls}
+        {queryControls}
+        {supplementalControls}
+      </div>
       <div style={rightRailStyle}>
         {onInspectorToggle ? (
           <button
             aria-label="Open inspector"
             data-testid={workbookInspectorToggleTestId(surface)}
+            ref={inspectorButtonRef}
             style={toolbarButtonStyle}
             type="button"
             onClick={onInspectorToggle}
@@ -51,7 +65,7 @@ export function WorkbookSheetToolbar({
           </button>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -83,7 +97,7 @@ const primaryToolbarButtonStyle = {
   fontWeight: 700,
 } satisfies CSSProperties;
 
-const toolbarStyle = {
+const viewBarStyle = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) auto",
   alignItems: "center",
@@ -96,7 +110,7 @@ const toolbarStyle = {
   overflow: "visible",
 } satisfies CSSProperties;
 
-const leftRailStyle = {
+const controlRailStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.45rem",

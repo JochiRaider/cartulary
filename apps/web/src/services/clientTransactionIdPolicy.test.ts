@@ -35,6 +35,6 @@ describe("client transaction identifier source policy", () => {
         violations.push(path.relative(sourceRoot, file));
       }
     }
-    expect(violations).toEqual([]);
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 });

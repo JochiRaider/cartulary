@@ -55,7 +55,12 @@ import {
 } from "../models/workbookLayout";
 import type { ViewMutationEnvelope } from "../models/workbookMutations";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { useWorkbookCollaborationProjection } from "../runtime/useWorkbookCollaborationProjection";
+import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
+import type { WorkbookCollaborationProjection } from "../runtime/WorkbookCollaborationProjection";
+import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import {
   type AssessmentCreateDraft,
   buildAssessmentCreatePayload,
@@ -69,28 +74,34 @@ import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
-import { WorkbookSheetToolbar } from "./WorkbookSheetToolbar";
+import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
   workbookSurfaceInspectorPanelStyle,
 } from "./WorkbookSurfaceFrame";
+import { WorkbookViewBar } from "./WorkbookViewBar";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
 export type AssessmentWorkbookSurfaceProps = {
+  chromeMode: WorkbookChromeMode;
   apiBase?: string | undefined;
   assessmentRows: EntityApiRow[];
   currentIncidentRole: WorkbookIncidentRole | null;
   density: GridDensity;
   inspectorResetKey: string;
+  queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
+  showStatusPresence: boolean;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
   incidentId: string;
   layoutState: WorkbookResolvedLayoutState;
   loadState: WorkbookQueryLoadState;
+  mutationRuntime: WorkbookMutationRuntime;
+  collaborationProjection: WorkbookCollaborationProjection;
   interactionMode: GridInteractionMode;
   onClearFilters: () => void;
   onRefreshAssessmentRows: () => Promise<void>;
@@ -101,17 +112,22 @@ export type AssessmentWorkbookSurfaceProps = {
 };
 
 export function AssessmentWorkbookSurface({
+  chromeMode,
   apiBase,
   assessmentRows,
   currentIncidentRole,
   density,
   inspectorResetKey,
+  queryControls,
   savedViewSelector,
+  showStatusPresence,
   hostRows,
   identityRows,
   incidentId,
   layoutState,
   loadState,
+  mutationRuntime,
+  collaborationProjection,
   interactionMode,
   onClearFilters,
   onRefreshAssessmentRows,
@@ -120,6 +136,10 @@ export function AssessmentWorkbookSurface({
   onSortChange,
   queryState,
 }: AssessmentWorkbookSurfaceProps) {
+  const mutation = useWorkbookMutationRuntime(mutationRuntime);
+  const collaboration = useWorkbookCollaborationProjection(
+    collaborationProjection,
+  );
   const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
     initialAssessmentDraft(assessmentsContract),
   );
@@ -241,6 +261,15 @@ export function AssessmentWorkbookSurface({
           recordId={row.record_id}
         >
           {genericCellLabel(row.cells[field.fieldKey]?.value)}
+          <WorkbookCellPresenceMarker
+            fieldKey={field.fieldKey}
+            fieldLabel={field.label}
+            presences={collaborationProjection.editingPresenceForCell(
+              row.record_id,
+              field.fieldKey,
+            )}
+            recordId={row.record_id}
+          />
         </FocusableWorkbookCell>
       ),
     }),
@@ -267,6 +296,15 @@ export function AssessmentWorkbookSurface({
     });
   }, [subjectRows]);
 
+  useEffect(
+    () =>
+      mutationRuntime.registerSurface(
+        assessmentsViewSchemaId,
+        onRefreshAssessmentRows,
+      ),
+    [mutationRuntime, onRefreshAssessmentRows],
+  );
+
   async function submitAssessment() {
     if (!canCreate) return;
     const payload = buildAssessmentCreatePayload(
@@ -280,6 +318,7 @@ export function AssessmentWorkbookSurface({
 
     setIsSubmitting(true);
     setMessage(null);
+    const finishMutation = mutationRuntime.beginExplicitMutation();
     try {
       const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
         apiPath(
@@ -303,12 +342,14 @@ export function AssessmentWorkbookSurface({
       }));
       setMessage("Assessment created.");
     } finally {
+      finishMutation();
       setIsSubmitting(false);
     }
   }
 
   return (
     <WorkbookSurfaceFrame
+      chromeMode={chromeMode}
       inspector={
         isInspectorOpen && showWorkflowPanel ? (
           <aside
@@ -523,6 +564,9 @@ export function AssessmentWorkbookSurface({
           </aside>
         ) : undefined
       }
+      onRequestInspectorClose={() => {
+        setIsInspectorOpen(false);
+      }}
       primaryGrid={
         <GridViewport
           blockSizing="fill"
@@ -537,14 +581,18 @@ export function AssessmentWorkbookSurface({
             density={density}
             grouping={grouping}
             interactionMode={interactionMode}
-            onActiveCellChange={(anchor) =>
-              assessmentFocus.update(
+            onActiveCellChange={(anchor) => {
+              const recordId =
                 anchor?.rowIdentity.kind === "core_record"
                   ? anchor.rowIdentity.recordId
-                  : null,
-                anchor?.fieldKey ?? "",
-              )
-            }
+                  : null;
+              assessmentFocus.update(recordId, anchor?.fieldKey ?? "");
+              collaborationProjection.publishPresence({
+                fieldKey: null,
+                mode: recordId === null ? "idle" : "viewing",
+                recordId,
+              });
+            }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
             onSortChange={onSortChange}
@@ -559,14 +607,18 @@ export function AssessmentWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          mutationState="Saved"
+          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          mutationError={mutation.secondaryMessage}
+          mutationState={mutation.primaryLabel}
+          showPresence={showStatusPresence}
           workbookFocusAnchor={assessmentFocus.anchor}
         />
       }
       viewBar={
-        <WorkbookSheetToolbar
+        <WorkbookViewBar
           addRowDisabled={!canCreate}
-          leading={savedViewSelector}
+          queryControls={queryControls}
+          savedViewControls={savedViewSelector}
           onAddRow={() => {
             setIsInspectorOpen(true);
           }}

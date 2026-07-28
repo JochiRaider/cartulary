@@ -29,6 +29,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { WorkbookCellPresenceMarker } from "../../components/WorkbookPresenceMarkers";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { PresenceRecord } from "../../utils/workbookPresence";
@@ -57,7 +58,6 @@ import {
   relationshipItemLabel,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
-import { TimelineCellPresenceMarker } from "./TimelinePresenceMarkers";
 
 type EntityIndex = Record<string, { label: string }>;
 
@@ -389,7 +389,7 @@ export function useTimelineWorkbookRenderers({
               Conflict
             </button>
           )}
-          <TimelineCellPresenceMarker
+          <WorkbookCellPresenceMarker
             fieldKey={binding.fieldKey}
             fieldLabel={timelineBindingLabel(binding.fieldKey)}
             presences={presences}
@@ -781,7 +781,9 @@ export function useTimelineWorkbookRenderers({
                       String(intent.draftValue ?? ""),
                     ),
                   initialDraftValue: (row) =>
-                    readTimelineCellValue(row.rawRow, binding.fieldKey),
+                    scalarDraftValuesRef.current?.get(
+                      inputFocusKey(row.key, binding.key, "grid"),
+                    ) ?? readTimelineCellValue(row.rawRow, binding.fieldKey),
                   renderEditor: (context) =>
                     renderTimelineGridEditor(
                       context.row,
@@ -807,6 +809,7 @@ export function useTimelineWorkbookRenderers({
       renderTimelineGridEditor,
       renderTimelineScalarCell,
       commitScalarGridEdit,
+      scalarDraftValuesRef,
       timelineBindingLabel,
       timelineColumnWidths,
       timelineContract,

@@ -14,16 +14,16 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type {
+  WorkbookPendingQueueRuntime,
+  WorkbookPendingRefreshBlockScope,
+  WorkbookPendingSavesRefs,
+} from "../../runtime/workbookPendingReplayRuntime";
 import { reconcileWorkbookRecordRows } from "../../utils/workbookRowReconciliation";
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
 } from "../models/timelineControllerPorts";
-import type {
-  TimelinePendingQueueRuntime,
-  TimelinePendingRefreshBlockScope,
-  TimelinePendingSavesRefs,
-} from "../models/timelinePendingReplayModel";
 import type {
   TimelineSourceRecordEvidence,
   TimelineSourceRecordRequirement,
@@ -100,7 +100,7 @@ export function useTimelineRowsLoader({
   ) => void;
   readonly apiBase?: string | undefined;
   readonly beginRefreshInFlight: (
-    scope: TimelinePendingRefreshBlockScope,
+    scope: WorkbookPendingRefreshBlockScope,
   ) => void;
   readonly beginTimelineRowsLoad: () => {
     readonly queryStartEpoch: number;
@@ -111,7 +111,7 @@ export function useTimelineRowsLoader({
     recordId: string,
   ) => WorkbookRow | null;
   readonly finishRefreshInFlight: (
-    scope: TimelinePendingRefreshBlockScope,
+    scope: WorkbookPendingRefreshBlockScope,
   ) => void;
   readonly failViewportContinuity: (token: number) => void;
   readonly hasLoadedRows: () => boolean;
@@ -127,7 +127,7 @@ export function useTimelineRowsLoader({
   readonly nextDraftIndex: () => number;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly pendingSavesRefsRef: TimelineMutableRef<
-    TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
+    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
   >;
   readonly pruneAutoResolutionNoticesForRows: (
     rows: readonly WorkbookRow[],
@@ -137,7 +137,7 @@ export function useTimelineRowsLoader({
     row: WorkbookRow,
   ) => Record<string, DismissedMention[]>;
   readonly publishSaveStatePresentation: (
-    pending: TimelinePendingQueueRuntime<PendingReplayRuntimeMeta>,
+    pending: WorkbookPendingQueueRuntime<PendingReplayRuntimeMeta>,
   ) => void;
   readonly queryState: WorkbookQueryState;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
@@ -175,7 +175,7 @@ export function useTimelineRowsLoader({
         return false;
       }
 
-      const refreshScope: TimelinePendingRefreshBlockScope = { kind: "all" };
+      const refreshScope: WorkbookPendingRefreshBlockScope = { kind: "all" };
       beginRefreshInFlight(refreshScope);
       try {
         const retryOptions: LoadRowsOptions = {

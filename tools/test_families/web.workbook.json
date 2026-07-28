@@ -14,7 +14,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineWorkbookRuntime.test.ts",
         "titles": [
-          "Timeline workbook runtime reduces load, refresh, save, conflict, and recovery transitions deterministically"
+          "Timeline workbook runtime reduces load and refresh transitions without owning shell save state"
         ]
       },
       "evidence_class": "unit",
@@ -429,9 +429,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
-          "timelineConflictModel parses same-field conflict envelopes without optional metadata loss"
+          "workbookConflictModel parses same-field conflict envelopes without optional metadata loss"
         ]
       },
       "evidence_class": "unit",
@@ -452,9 +452,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
-          "timelineConflictModel rejects empty string identity fields for pending queue admission"
+          "workbookConflictModel rejects empty string identity fields for pending queue admission"
         ]
       },
       "evidence_class": "unit",
@@ -475,9 +475,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
-          "timelineConflictModel rejects missing, malformed, and incomplete conflict envelopes"
+          "workbookConflictModel rejects missing, malformed, and incomplete conflict envelopes"
         ]
       },
       "evidence_class": "unit",
@@ -930,6 +930,10 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookResponsiveLayout.test.ts",
         "titles": [
+          "workbook responsive layout model caps visible query chips in base mode at 8",
+          "workbook responsive layout model caps visible query chips in below_supported_minimum mode at 0",
+          "workbook responsive layout model caps visible query chips in compact_desktop mode at 0",
+          "workbook responsive layout model caps visible query chips in narrow_desktop mode at 6",
           "workbook responsive layout model keeps wide chrome in base mode across short heights at 1280 CSS px",
           "workbook responsive layout model keeps wide chrome in base mode across short heights at 1440 CSS px",
           "workbook responsive layout model selects block mode from height 639",
@@ -2312,6 +2316,121 @@
         "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
         "titles": [
           "workbookValueFormat.stringifyGridValue preserves primitive display strings from duplicate grid helpers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_conflict_saved_merge_start_8bb0ee5972",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
+        "titles": [
+          "workbookConflictModel starts text merge from the saved value and never the suggestion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_conflict_typed_collection_actions_16d0ff6b08",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
+        "titles": [
+          "workbookConflictModel preserves typed collection items and derives actions against saved"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_conflict_unknown_class_atomic_60e26b5ba2",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
+        "titles": [
+          "workbookConflictModel falls unknown classes back to atomic replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_common_coalescing_ba2a71e53d",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
+        "titles": [
+          "WorkbookMutationRuntime coalesces current-surface autosaves through one shell queue"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_surface_continuity_97808fe8ae",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
+        "titles": [
+          "WorkbookMutationRuntime retains queued drafts and refresh debt across surface unmounts"
         ]
       },
       "evidence_class": "unit",

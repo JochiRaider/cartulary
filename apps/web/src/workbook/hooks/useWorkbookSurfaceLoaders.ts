@@ -1,4 +1,5 @@
 import {
+  normalizeViewRowPatchV1,
   requireViewContract,
   type ViewContract,
 } from "@cartulary/view-contracts";
@@ -33,12 +34,33 @@ import {
   notesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import type { RecordChangedPayload } from "../runtime/workbookCollaborationMessages";
+import type { WorkbookSurfaceRecordChangeResult } from "../runtime/workbookSurfacePort";
 import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
+
+function applyNormalizedPatch(
+  row: EntityApiRow,
+  patch: ReturnType<typeof normalizeViewRowPatchV1>,
+): EntityApiRow {
+  return {
+    ...row,
+    row_version: patch.rowVersion,
+    cells: { ...row.cells, ...patch.cells },
+    ...(patch.groupValues === undefined
+      ? {}
+      : {
+          group_values: {
+            ...(row.group_values ?? {}),
+            ...patch.groupValues,
+          },
+        }),
+  };
+}
 
 type ViewQueryEnvelope = {
   data: {
@@ -84,6 +106,14 @@ export function useWorkbookSurfaceLoaders({
   const entityAcceptedRowCountRef = useRef(0);
   const assessmentAcceptedRowCountRef = useRef(0);
   const genericAcceptedRowCountRef = useRef(0);
+  const hostRowsRef = useRef(hostRows);
+  const identityRowsRef = useRef(identityRows);
+  const assessmentRowsRef = useRef(assessmentRows);
+  const genericRowsRef = useRef(genericRows);
+  hostRowsRef.current = hostRows;
+  identityRowsRef.current = identityRows;
+  assessmentRowsRef.current = assessmentRows;
+  genericRowsRef.current = genericRows;
   const genericSurfaceRef = useRef(surface);
   const entityQueryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
@@ -360,6 +390,102 @@ export function useWorkbookSurfaceLoaders({
     surface,
   ]);
 
+  const applyRecordChanged = useCallback(
+    (
+      payload: RecordChangedPayload,
+      viewSchemaId: string,
+    ): WorkbookSurfaceRecordChangeResult => {
+      const affected = payload.affected_views.find(
+        (view) => view.view_schema_id === viewSchemaId,
+      );
+      if (
+        affected?.change_kind !== "patch" ||
+        affected.patch_cells === undefined
+      ) {
+        return { kind: "refresh_required" };
+      }
+      const contract =
+        viewSchemaId === hostsViewSchemaId
+          ? hostsContract
+          : viewSchemaId === identitiesViewSchemaId
+            ? identitiesContract
+            : viewSchemaId === assessmentsViewSchemaId
+              ? assessmentsContract
+              : activeContract;
+      let patch: ReturnType<typeof normalizeViewRowPatchV1>;
+      try {
+        patch = normalizeViewRowPatchV1(
+          contract,
+          affected.patch_cells,
+          "record_changed patch_cells",
+        );
+      } catch {
+        return { kind: "refresh_required" };
+      }
+      if (patch.recordId !== payload.record_id) {
+        return { kind: "refresh_required" };
+      }
+
+      if (
+        viewSchemaId === hostsViewSchemaId ||
+        viewSchemaId === identitiesViewSchemaId
+      ) {
+        const entityType =
+          viewSchemaId === hostsViewSchemaId ? "host" : "identity";
+        const rowsRef = entityType === "host" ? hostRowsRef : identityRowsRef;
+        const current = rowsRef.current;
+        const existing = current.find((row) => row.recordId === patch.recordId);
+        if (existing === undefined) return { kind: "refresh_required" };
+        if (existing.rowVersion >= patch.rowVersion) return { kind: "stale" };
+        const next = current.map((row) =>
+          row.recordId === patch.recordId
+            ? entityRowFromApi(
+                applyNormalizedPatch(row.rawRow, patch),
+                entityType,
+              )
+            : row,
+        );
+        rowsRef.current = next;
+        if (entityType === "host") setHostRows(next);
+        else setIdentityRows(next);
+        return { kind: "applied" };
+      }
+
+      const rowsRef =
+        viewSchemaId === assessmentsViewSchemaId
+          ? assessmentRowsRef
+          : genericRowsRef;
+      const current = rowsRef.current;
+      const existing = current.find((row) => row.record_id === patch.recordId);
+      if (existing === undefined) return { kind: "refresh_required" };
+      if (existing.row_version >= patch.rowVersion) return { kind: "stale" };
+      const next = current.map((row) =>
+        row.record_id === patch.recordId
+          ? applyNormalizedPatch(row, patch)
+          : row,
+      );
+      rowsRef.current = next;
+      if (viewSchemaId === assessmentsViewSchemaId) setAssessmentRows(next);
+      else setGenericRows(next);
+      return { kind: "applied" };
+    },
+    [activeContract],
+  );
+
+  const clearAuthorizedRows = useCallback(() => {
+    hostRowsRef.current = [];
+    identityRowsRef.current = [];
+    assessmentRowsRef.current = [];
+    genericRowsRef.current = [];
+    entityAcceptedRowCountRef.current = 0;
+    assessmentAcceptedRowCountRef.current = 0;
+    genericAcceptedRowCountRef.current = 0;
+    setHostRows([]);
+    setIdentityRows([]);
+    setAssessmentRows([]);
+    setGenericRows([]);
+  }, []);
+
   useEffect(
     () => () => {
       abortLatestQuery(entityQueryRuntimeRef);
@@ -378,6 +504,8 @@ export function useWorkbookSurfaceLoaders({
     genericRows,
     hostRows,
     identityRows,
+    applyRecordChanged,
+    clearAuthorizedRows,
     loadAssessmentSurface,
     loadEntities,
     loadGenericSurface,

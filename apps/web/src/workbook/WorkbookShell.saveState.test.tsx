@@ -7,6 +7,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deferred } from "../testing/fetchMockTestSupport";
 import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   cleanupTimelineWorkbookTestGlobals,
@@ -50,18 +51,8 @@ describe("WorkbookShell save-state status strip", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-auth",
-        row: timelineRow({
-          recordId: "record-auth",
-          rowVersion: 2,
-          summary: "Auth queued",
-          captureState: "rough",
-        }),
-      }),
-    );
+    const pendingPatch = deferred<Response>();
+    fetchMock.mockReturnValueOnce(pendingPatch.promise);
 
     renderTimelineWorkbook();
     const input = (await findWorkbookCell(
@@ -149,16 +140,19 @@ describe("WorkbookShell save-state status strip", () => {
       "Saved",
     );
 
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "Auth queued" } });
+    fireEvent.blur(input);
+    await waitFor(() => {
+      expect(
+        within(statusStrip).getByTestId(saveStateTestId()).textContent,
+      ).toBe("Syncing");
+    });
+
     socket?.emit({
       type: "session_revoked",
       payload: { reason_code: "session_revoked" },
     });
-    await waitFor(() => {
-      expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
-    });
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "Auth queued" } });
-    fireEvent.blur(input);
 
     await waitFor(() => {
       expect(
@@ -188,9 +182,21 @@ describe("WorkbookShell save-state status strip", () => {
     expect(pendingNotice.parentElement?.style.maxBlockSize).toBe(
       "min(14rem, 32vh)",
     );
+    pendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auth",
+        row: timelineRow({
+          recordId: "record-auth",
+          rowVersion: 2,
+          summary: "Auth queued",
+          captureState: "rough",
+        }),
+      }),
+    );
     expect(pendingNotice.parentElement?.style.overflowY).toBe("auto");
     expect(pendingNotice.parentElement?.style.pointerEvents).toBe("none");
     expect(pendingNotice.style.pointerEvents).toBe("none");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

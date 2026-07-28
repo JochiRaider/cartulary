@@ -150,6 +150,28 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/collaboration"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/runtime"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-common-runtime-no-timeline",
+      "level": "error",
+      "message": "Common Workbook runtime must not import Timeline implementation.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/runtime/**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline"
         }
       ]
     },

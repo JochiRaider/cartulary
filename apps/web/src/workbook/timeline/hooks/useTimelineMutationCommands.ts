@@ -8,6 +8,10 @@ import {
 import { apiPath } from "../../../services/browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type {
+  WorkbookPendingReplayAdmissionRequest,
+  WorkbookPendingSavesRefs,
+} from "../../runtime/workbookPendingReplayRuntime";
 import {
   buildStableMutationSignature,
   type PendingReplayUnitInput,
@@ -17,10 +21,6 @@ import type {
   TimelineMutableRef,
   TimelineScalarSaveOptions,
 } from "../models/timelineControllerPorts";
-import type {
-  TimelinePendingReplayAdmissionRequest,
-  TimelinePendingSavesRefs,
-} from "../models/timelinePendingReplayModel";
 import {
   buildCollectionPatchIntent,
   buildCreatePayload,
@@ -109,7 +109,7 @@ export function useTimelineMutationCommands({
     Record<string, LocalConflictState>
   >;
   readonly enqueuePendingReplayUnit: (
-    unit: TimelinePendingReplayAdmissionRequest<PendingReplayRuntimeMeta>,
+    unit: WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
   ) => void;
   readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
@@ -118,7 +118,7 @@ export function useTimelineMutationCommands({
   readonly loadRowsRef: TimelineMutableRef<LoadRowsForMutation>;
   readonly nextClientTxnId: () => string;
   readonly pendingSavesRefsRef: TimelineMutableRef<
-    TimelinePendingSavesRefs<PendingReplayRuntimeMeta>
+    WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
   >;
   readonly replacementDrafts: Record<string, string>;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;

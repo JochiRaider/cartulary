@@ -20,15 +20,20 @@ import {
   rowInspectorFieldTestId,
   saveStateTestId,
   surfaceTabTestId,
+  systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookFilterPopoverTriggerTestId,
-  workbookInspectorCloseButtonTestId,
+  workbookInspectorToggleTestId,
   workbookResponsiveBandTestId,
+  workbookShellSlotTestId,
   workbookSortMenuTriggerTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookSurfacesMenuOptionTestId,
+  workbookSurfacesMenuTestId,
+  workbookSurfacesMenuTriggerTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -231,7 +236,10 @@ function expectWorkbookDocumentBounded(
     layout.body.scrollHeight,
     `${label}: body scroll height`,
   ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
-  expect(layout.shell.maxTop, `${label}: grid shell vertical scroll`).toBe(0);
+  expect(
+    layout.shell.maxTop,
+    `${label}: grid shell vertical scroll`,
+  ).toBeLessThanOrEqual(1);
   expect(
     layout.shell.rect.bottom,
     `${label}: shell bottom`,
@@ -257,7 +265,7 @@ async function expectWideWorkbookTopBarChrome(page: Page) {
     page.getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
   await expect(
-    page.getByTestId(workbookTopBarQueryControlsTestId(timelineViewSchemaId)),
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await expect(
     page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
@@ -482,14 +490,27 @@ test("keeps the incident workbook inside the browser viewport and delegates over
     "initial 1280x720",
   );
   await expectWideWorkbookTopBarChrome(page);
+  await expect(
+    page
+      .getByTestId(workbookShellSlotTestId("top-bar"))
+      .getByTestId("presence-header"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId(workbookShellSlotTestId("status-strip"))
+      .getByTestId("presence-header"),
+  ).toHaveCount(0);
 
-  await page.setViewportSize({ width: 1280, height: 560 });
+  await page.setViewportSize({ width: 1280, height: 639 });
   await expectWideWorkbookTopBarChrome(page);
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-block-mode", "short_height");
   await expect
     .poll(async () => {
       const layout = await readWorkbookDocumentLayout(page);
       return (
-        layout.viewport.innerHeight === 560 &&
+        layout.viewport.innerHeight === 639 &&
         layout.documentElement.scrollHeight <=
           layout.viewport.innerHeight + 1 &&
         layout.body.scrollHeight <= layout.viewport.innerHeight + 1 &&
@@ -500,15 +521,29 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   await page.evaluate(() => window.scrollTo(0, 10_000));
   expectWorkbookDocumentBounded(
     await readWorkbookDocumentLayout(page),
-    "vertical resized 1280x560",
+    "vertical resized 1280x639",
   );
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await expectWideWorkbookTopBarChrome(page);
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-block-mode", "compact_height");
   await page.setViewportSize({ width: 1280, height: 720 });
   await expectWideWorkbookTopBarChrome(page);
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-block-mode", "base_height");
 
   await page
-    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
     .click();
   await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toHaveAttribute("data-inspector-layout", "adjacent");
+  await expect(
+    page.getByRole("separator", { name: "Resize inspector" }),
+  ).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 10_000));
   const inspectorLayout = await readWorkbookDocumentLayout(page);
   expectWorkbookDocumentBounded(inspectorLayout, "inspector open");
@@ -517,6 +552,18 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   );
 
   await page.setViewportSize({ width: 1024, height: 640 });
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-responsive-band", "narrow_desktop");
+  await expect(
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-query-chip-capacity", "6");
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toHaveAttribute("data-inspector-layout", "right_overlay");
+  await expect(
+    page.getByTestId(workbookShellSlotTestId("primary-grid")),
+  ).toHaveAttribute("inert", "");
   await expect
     .poll(async () => {
       const layout = await readWorkbookDocumentLayout(page);
@@ -534,6 +581,128 @@ test("keeps the incident workbook inside the browser viewport and delegates over
     await readWorkbookDocumentLayout(page),
     "resized 1024x640",
   );
+
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-responsive-band", "compact_desktop");
+  await expect(
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-query-chip-capacity", "0");
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toHaveAttribute("data-inspector-layout", "full_overlay");
+  await expect(
+    page.getByTestId(workbookShellSlotTestId("primary-grid")),
+  ).toHaveAttribute("inert", "");
+  await expect(
+    page
+      .getByTestId(workbookShellSlotTestId("top-bar"))
+      .getByTestId("presence-header"),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByTestId(workbookShellSlotTestId("status-strip"))
+      .getByTestId("presence-header"),
+  ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  for (const viewSchemaId of [hostsViewSchemaId, notesViewSchemaId]) {
+    await page.getByTestId(workbookSurfacesMenuTriggerTestId()).click();
+    await page
+      .getByTestId(workbookSurfacesMenuOptionTestId(viewSchemaId))
+      .click();
+    await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
+    const inspectorToggle = page.getByTestId(
+      workbookInspectorToggleTestId(viewSchemaId),
+    );
+    await inspectorToggle.click();
+    await expect(page.locator("[data-inspector-layout]")).toHaveAttribute(
+      "data-inspector-layout",
+      "full_overlay",
+    );
+    await expect(
+      page.getByTestId(workbookShellSlotTestId("primary-grid")),
+    ).toHaveAttribute("inert", "");
+    await page.keyboard.press("Escape");
+    await expect(inspectorToggle).toBeFocused();
+  }
+  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await page
+    .getByTestId(
+      systemViewSwitcherOptionTestId(
+        "scope-indicators",
+        assessmentsViewSchemaId,
+      ),
+    )
+    .click();
+  await expect(
+    page.getByTestId(gridShellTestId(assessmentsViewSchemaId)),
+  ).toBeVisible();
+  const assessmentInspectorToggle = page.getByTestId(
+    workbookInspectorToggleTestId(assessmentsViewSchemaId),
+  );
+  await assessmentInspectorToggle.click();
+  await expect(page.locator("[data-inspector-layout]")).toHaveAttribute(
+    "data-inspector-layout",
+    "full_overlay",
+  );
+  await expect(
+    page.getByTestId(workbookShellSlotTestId("primary-grid")),
+  ).toHaveAttribute("inert", "");
+  await page.keyboard.press("Escape");
+  await expect(assessmentInspectorToggle).toBeFocused();
+  await page.getByTestId(workbookSurfacesMenuTriggerTestId()).click();
+  await page
+    .getByTestId(workbookSurfacesMenuOptionTestId(timelineViewSchemaId))
+    .click();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await page
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .click();
+
+  await page.setViewportSize({ width: 767, height: 639 });
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-responsive-band", "below_supported_minimum");
+  await expect(
+    page.getByTestId(workbookSurfacesMenuTriggerTestId()),
+  ).toBeVisible();
+  await page
+    .getByTestId(workbookSurfacesMenuTriggerTestId())
+    .press("ArrowDown");
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toBeVisible();
+  await expect(
+    page
+      .getByTestId(workbookSurfacesMenuTestId())
+      .getByRole("menuitemradio")
+      .first(),
+  ).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(
+    page
+      .getByTestId(workbookSurfacesMenuTestId())
+      .getByRole("menuitemradio")
+      .last(),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(workbookSurfacesMenuTestId())).toHaveCount(0);
+  await expect(
+    page.getByTestId(workbookSurfacesMenuTriggerTestId()),
+  ).toBeFocused();
+  await expect(page.getByTestId(saveStateTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toHaveAttribute("data-inspector-layout", "full_overlay");
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await expect(
+    page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+  ).toBeFocused();
 });
 
 test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exact-range fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({

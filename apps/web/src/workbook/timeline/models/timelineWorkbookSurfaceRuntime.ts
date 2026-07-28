@@ -5,7 +5,10 @@ import type {
   FilterDraft,
   WorkbookQueryState,
 } from "../../models/workbookQuery";
+import type { WorkbookChromeMode } from "../../models/workbookResponsiveLayout";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
+import type { WorkbookCollaborationProjection } from "../../runtime/WorkbookCollaborationProjection";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { EntityApiRow } from "./workbookTimelineModel";
 
 export type TimelineWorkbookIncidentRole =
@@ -33,6 +36,9 @@ export type TimelineWorkbookEntityRow = {
 };
 
 export type TimelineWorkbookSurfaceRuntime = {
+  readonly attachCollaborationSession: boolean;
+  readonly collaborationProjection: WorkbookCollaborationProjection;
+  readonly mutationRuntime: WorkbookMutationRuntime;
   readonly incident: {
     readonly id: string;
     readonly apiBase: string | undefined;
@@ -49,6 +55,7 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly setFilterDraft: Dispatch<SetStateAction<FilterDraft>>;
     readonly renderInlineControls: boolean;
     readonly savedViewSelector: ReactNode | undefined;
+    readonly viewBarQueryControls: ReactNode | undefined;
   };
   readonly entities: {
     readonly hosts: readonly TimelineWorkbookEntityRow[];
@@ -58,6 +65,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   };
   readonly layout: {
     readonly density: GridDensity;
+    readonly chromeMode: WorkbookChromeMode;
     readonly interactionMode: GridInteractionMode;
     readonly state: WorkbookResolvedLayoutState;
     readonly setColumnHidden: (fieldKey: string, hidden: boolean) => void;
@@ -71,6 +79,7 @@ export type TimelineWorkbookSurfaceRuntime = {
     ) => void;
     readonly setColumnWidth: (fieldKey: string, width: number) => void;
     readonly resetColumns: () => void;
+    readonly showStatusPresence: boolean;
   };
   readonly onIncidentAccessLost: (() => void) | undefined;
 };

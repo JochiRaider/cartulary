@@ -21,6 +21,9 @@ import {
   saveStateTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -193,12 +196,12 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
     expect(staleEnvelope.error.conflict.server_value).toBe(
       "integration.collaboration newer saved",
     );
-    await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-      "integration.collaboration newer saved",
-    );
-    await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-      "integration.collaboration stale merged draft",
-    );
+    await expect(
+      page.getByTestId(workbookConflictSavedValueTestId()),
+    ).toHaveValue("integration.collaboration newer saved");
+    await expect(
+      page.getByTestId(workbookConflictLocalValueTestId()),
+    ).toHaveValue("integration.collaboration stale merged draft");
 
     await page
       .getByTestId("conflict-merged-value")
@@ -224,7 +227,9 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
       resolution_kind: "merged_value",
       resolved_value: "integration.collaboration final merged",
     });
-    await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+    await expect(
+      page.getByTestId(workbookConflictResolverTestId()),
+    ).toHaveCount(0);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, conflictId, {
       "timeline.activity_synopsis_text":
@@ -1297,13 +1302,15 @@ test("replays queued unsent writes after re-authentication without silent reload
         await expect(page.getByTestId(saveStateTestId())).toHaveText(
           "Conflict",
         );
-        await expect(page.getByTestId("conflict-resolver")).toBeVisible();
-        await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-          "collaboration-conflict halt A remote",
-        );
-        await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-          "collaboration-conflict halt A local",
-        );
+        await expect(
+          page.getByTestId(workbookConflictResolverTestId()),
+        ).toBeVisible();
+        await expect(
+          page.getByTestId(workbookConflictSavedValueTestId()),
+        ).toHaveValue("collaboration-conflict halt A remote");
+        await expect(
+          page.getByTestId(workbookConflictLocalValueTestId()),
+        ).toHaveValue("collaboration-conflict halt A local");
         await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
           "2",
         );

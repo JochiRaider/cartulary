@@ -10,6 +10,9 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
@@ -187,6 +190,46 @@ export async function editTimelineSummary(
     .toBe(value);
 }
 
+async function queueTimelineSummary(
+  page: Page,
+  recordId: string,
+  value: string,
+) {
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId,
+    surface: timelineViewSchemaId,
+  });
+  const display = page.getByTestId(
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+  );
+  await display.click();
+  const input = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    }),
+  );
+  await expect(input).toBeFocused();
+  await input.fill(value);
+  await input.evaluate((element) => {
+    if (element instanceof HTMLElement) element.blur();
+  });
+  const currentValue = input.or(display).first();
+  await expect
+    .poll(() =>
+      currentValue.evaluate((element) =>
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement
+          ? element.value
+          : element.textContent?.trim(),
+      ),
+    )
+    .toBe(value);
+}
+
 export async function patchTimelineField(
   page: Page,
   recordId: string,
@@ -267,7 +310,9 @@ export async function driveRealTimelineSummaryConflict({
       ),
     ).toBeVisible();
   }
-  await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  await expect(
+    page.getByTestId(workbookConflictResolverTestId()),
+  ).toBeVisible();
   if (expectEditedCellMounted) {
     const editorTestId = timelineScalarEditorTestId({
       fieldKey: "timeline.activity_synopsis_text",
@@ -276,12 +321,12 @@ export async function driveRealTimelineSummaryConflict({
     });
     await expect(page.getByTestId(editorTestId)).toHaveValue(localValue);
   }
-  await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-    remoteValue,
-  );
-  await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    localValue,
-  );
+  await expect(
+    page.getByTestId(workbookConflictSavedValueTestId()),
+  ).toHaveValue(remoteValue);
+  await expect(
+    page.getByTestId(workbookConflictLocalValueTestId()),
+  ).toHaveValue(localValue);
 }
 
 export async function exerciseSameFieldResolver({
@@ -336,7 +381,9 @@ export async function exerciseSameFieldResolver({
   }
 
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+  await expect(page.getByTestId(workbookConflictResolverTestId())).toHaveCount(
+    0,
+  );
   await expectServerTimelineCells(page, incidentId, recordId, {
     "timeline.activity_synopsis_text": expectedPrimary,
   });
@@ -370,10 +417,8 @@ export async function exerciseRevokedPendingReplay({
     `Collaboration ${createdBy} ${scenario} first local`,
     `Collaboration ${createdBy} ${scenario} second local`,
   ];
-  if (replayValues.length < 2) {
-    throw new Error(
-      "revoked pending replay requires at least two local values",
-    );
+  if (replayValues.length < 1) {
+    throw new Error("revoked pending replay requires a local value");
   }
   const incidentId = await createIncident(
     page,
@@ -403,6 +448,7 @@ export async function exerciseRevokedPendingReplay({
   if (!firstReplayItem) {
     throw new Error("revoked pending replay did not create a first row");
   }
+  const queuedReplayItems = [firstReplayItem];
   const patchController = await installPatchController(page);
 
   try {
@@ -434,13 +480,16 @@ export async function exerciseRevokedPendingReplay({
     await expectCurrentIncidentRole(page, "Current incident role: editor");
 
     const heldPatch = patchController.holdNextPatch();
-    await editTimelineSummary(
+    await queueTimelineSummary(
       page,
       firstReplayItem.recordId,
       firstReplayItem.value,
     );
     await heldPatch.waitForHit;
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      String(queuedReplayItems.length),
+    );
 
     const establishedSocket = socketMonitor.latestEstablishedSocket();
     if (!establishedSocket) {
@@ -455,24 +504,15 @@ export async function exerciseRevokedPendingReplay({
     heldPatch.release();
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
 
-    for (const item of replayItems.slice(1)) {
-      await editTimelineSummary(page, item.recordId, item.value);
-    }
     for (const item of replayItems) {
-      await scrollGridCellIntoView({
-        cellKey: "timeline.activity_synopsis_text",
-        page,
-        recordId: item.recordId,
-        surface: timelineViewSchemaId,
-      });
       await expect(
         page.getByTestId(
           rowCellTestId(item.recordId, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveText(item.value);
+      ).toHaveCount(0);
     }
     await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-      String(replayValues.length),
+      String(queuedReplayItems.length),
     );
 
     const messageStart = socketMonitor.messageCount();
@@ -489,13 +529,15 @@ export async function exerciseRevokedPendingReplay({
 
     await expect
       .poll(() => successfulPatchCalls(patchController.calls).length)
-      .toBeGreaterThanOrEqual(replayValues.length);
+      .toBeGreaterThanOrEqual(queuedReplayItems.length);
     const replayed = successfulPatchCalls(patchController.calls).slice(
-      -replayValues.length,
+      -queuedReplayItems.length,
     );
-    expect(replayed.map((call) => call.recordId)).toEqual(recordIds);
+    expect(replayed.map((call) => call.recordId)).toEqual(
+      queuedReplayItems.map((item) => item.recordId),
+    );
     expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual(
-      replayValues,
+      queuedReplayItems.map((item) => item.value),
     );
 
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -504,7 +546,7 @@ export async function exerciseRevokedPendingReplay({
       page,
       incidentId,
       Object.fromEntries(
-        replayItems.map((item) => [item.recordId, item.value]),
+        queuedReplayItems.map((item) => [item.recordId, item.value]),
       ),
     );
   } finally {

@@ -12,6 +12,10 @@ import {
   rowHistoryRollbackPreviewTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
+  workbookConflictSummaryTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -923,7 +927,9 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Record one local draft");
     fireEvent.blur(input);
 
-    const resolver = await screen.findByTestId("conflict-resolver");
+    const resolver = await screen.findByTestId(
+      workbookConflictResolverTestId(),
+    );
     expect(resolver.getAttribute("data-conflict-record-id")).toBe("record-1");
     expect(resolver.getAttribute("data-conflict-field-key")).toBe(
       "timeline.activity_synopsis_text",
@@ -956,21 +962,20 @@ describe("workbook history support coverage", () => {
     await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
     expect(
       screen
-        .getByTestId("conflict-resolver")
+        .getByTestId(workbookConflictResolverTestId())
         .getAttribute("data-conflict-record-id"),
     ).toBe("record-1");
     expect(
       screen
-        .getByTestId("conflict-resolver")
+        .getByTestId(workbookConflictResolverTestId())
         .getAttribute("data-conflict-base-row-version"),
     ).toBe("1");
-    expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-      "value",
-      "Record one local draft",
-    );
+    expect(
+      screen.getByTestId(workbookConflictLocalValueTestId()),
+    ).toHaveProperty("value", "Record one local draft");
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
         screen.getByTestId(
           timelineScalarEditorTestId({
@@ -1031,20 +1036,22 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Keyboard local draft");
     fireEvent.blur(input);
 
-    const resolver = await screen.findByTestId("conflict-resolver");
-    const summary = screen.getByTestId("conflict-resolver-summary");
+    const resolver = await screen.findByTestId(
+      workbookConflictResolverTestId(),
+    );
+    const summary = screen.getByTestId(workbookConflictSummaryTestId());
     await waitFor(() => {
       expect(document.activeElement).toBe(summary);
     });
 
     fireEvent.keyDown(summary, { key: "Enter" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("conflict-resolver")).toBe(resolver);
+    expect(screen.getByTestId(workbookConflictResolverTestId())).toBe(resolver);
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
 
     fireEvent.keyDown(resolver, { key: "Escape" });
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
         screen.getByTestId(
           timelineScalarEditorTestId({
@@ -1117,7 +1124,7 @@ describe("workbook history support coverage", () => {
     await changeInputValue(input, "Original local");
     fireEvent.blur(input);
 
-    await screen.findByTestId("conflict-resolver");
+    await screen.findByTestId(workbookConflictResolverTestId());
     fireEvent.change(screen.getByTestId("conflict-merged-value"), {
       target: { value: "Analyst merged draft" },
     });
@@ -1126,22 +1133,20 @@ describe("workbook history support coverage", () => {
     await waitFor(() => {
       expect(
         screen
-          .getByTestId("conflict-resolver")
+          .getByTestId(workbookConflictResolverTestId())
           .getAttribute("data-conflict-base-row-version"),
       ).toBe("5");
       expect(
         screen
-          .getByTestId("conflict-resolver")
+          .getByTestId(workbookConflictResolverTestId())
           .getAttribute("data-conflict-current-row-version"),
       ).toBe("6");
-      expect(screen.getByTestId("conflict-server-value")).toHaveProperty(
-        "value",
-        "Fresh server",
-      );
-      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
-        "value",
-        "Analyst merged draft",
-      );
+      expect(
+        screen.getByTestId(workbookConflictSavedValueTestId()),
+      ).toHaveProperty("value", "Fresh server");
+      expect(
+        screen.getByTestId(workbookConflictLocalValueTestId()),
+      ).toHaveProperty("value", "Analyst merged draft");
       expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
         "value",
         "Analyst merged draft",
@@ -1158,7 +1163,7 @@ describe("workbook history support coverage", () => {
 
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
-      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
         screen.getByTestId(
           timelineScalarEditorTestId({

@@ -163,8 +163,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_fixture_registry.v4",
-      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v4.schema.json",
+      "schema_id": "cartulary.frontend_visual_fixture_registry.v5",
+      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json",
       "classification": "owner_input",
       "producer": "visual fixture owner",
       "validation": "json-shape-check"

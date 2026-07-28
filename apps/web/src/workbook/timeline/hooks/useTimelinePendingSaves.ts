@@ -1,39 +1,38 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
-  createTimelinePendingQueueRuntime,
-  type TimelinePendingQueueRuntime,
-  type TimelinePendingQueueSnapshot,
-} from "../models/timelinePendingReplayModel";
+  type WorkbookPendingQueueRuntime,
+  type WorkbookPendingQueueSnapshot,
+  workbookPendingQueueSnapshot,
+} from "../../runtime/workbookPendingReplayRuntime";
 
 export function useTimelinePendingSaves<TMeta>({
-  clientInstanceId,
-  incidentId,
+  mutationRuntime,
 }: {
-  readonly clientInstanceId: string;
-  readonly incidentId: string;
+  readonly mutationRuntime: WorkbookMutationRuntime;
 }) {
   const pendingOpsRef = useRef(0);
   const pendingSignaturesRef = useRef(new Map<string, string>());
   const collectionKeyboardCommitRef = useRef(new Map<string, string>());
   const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
   const saveQueueRef = useRef(Promise.resolve());
-  const pendingQueueRef = useRef<TimelinePendingQueueRuntime<TMeta>>(
-    createTimelinePendingQueueRuntime({ incidentId, clientInstanceId }),
-  );
+  const sharedPendingRuntime = mutationRuntime.pending<TMeta>();
+  const pendingQueueRef =
+    useRef<WorkbookPendingQueueRuntime<TMeta>>(sharedPendingRuntime);
+  if (pendingQueueRef.current !== sharedPendingRuntime) {
+    pendingQueueRef.current = sharedPendingRuntime;
+  }
   const pendingReplayOrderRef = useRef(1);
   const pendingReplayTimerRef = useRef<number | null>(null);
   const pendingReplayAuthRetryRef = useRef<number | null>(null);
   const schedulePendingReplayRef = useRef<() => void>(() => undefined);
   const [pendingQueueSnapshot, setPendingQueueSnapshot] =
-    useState<TimelinePendingQueueSnapshot>({
-      queuedCount: 0,
-      inFlightCount: 0,
-      haltedMessage: null,
-      blockedEdit: null,
-      authPaused: false,
-      overflowMessage: null,
-      resetRefreshInFlight: false,
-    });
+    useState<WorkbookPendingQueueSnapshot>(() =>
+      workbookPendingQueueSnapshot(sharedPendingRuntime),
+    );
+  useEffect(() => {
+    setPendingQueueSnapshot(workbookPendingQueueSnapshot(sharedPendingRuntime));
+  }, [sharedPendingRuntime]);
 
   return {
     commands: {

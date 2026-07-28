@@ -10,11 +10,13 @@ export const workbookShellId = workbookShellReadyTestId();
 
 export function WorkbookShellSlotRegion({
   children,
+  inert,
   slot,
   style,
   viewSchemaId,
 }: {
   readonly children: ReactNode;
+  readonly inert?: boolean | undefined;
   readonly slot: WorkbookShellSlot;
   readonly style?: CSSProperties | undefined;
   readonly viewSchemaId?: string | undefined;
@@ -25,6 +27,7 @@ export function WorkbookShellSlotRegion({
       data-testid={workbookShellSlotTestId(slot)}
       data-view-schema-id={viewSchemaId}
       data-workbook-shell-id={workbookShellId}
+      inert={inert || undefined}
       style={style}
     >
       {children}

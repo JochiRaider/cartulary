@@ -8688,7 +8688,8 @@
               "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
               "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
               "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
-              "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2"
+              "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
+              "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3"
             ],
             "browser_session_group": "browser-e2e-webserver-backed-default",
             "priority": 36000,
@@ -8701,7 +8702,7 @@
           },
           "env": {
             "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59,module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d,module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9,module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59,module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d,module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9,module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2,web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
             "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services",
             "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-webserver-backed-default",
             "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "45",

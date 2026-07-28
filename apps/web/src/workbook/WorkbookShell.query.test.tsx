@@ -13,7 +13,7 @@ import {
   workbookFilterPopoverTriggerTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
-  workbookTopBarQueryControlsTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
   listViewContracts,
@@ -391,7 +391,18 @@ describe("workbook query controls", () => {
     const onRemoveFilter = vi.fn();
     const onSortChange = vi.fn();
 
-    render(
+    const queryState = {
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          fieldKey: "timeline.capture_state",
+          op: "eq" as const,
+        },
+      ],
+      groupBy: "timeline.date_entered_sort_day",
+      sort: [],
+    };
+    const { rerender } = render(
       <WorkbookGridControls
         contract={contract}
         filterDraft={defaultFilterDraft(contract)}
@@ -404,25 +415,19 @@ describe("workbook query controls", () => {
         onResetColumns={vi.fn()}
         onRemoveFilter={onRemoveFilter}
         onSortChange={onSortChange}
-        queryState={{
-          filters: [
-            {
-              arg: { value: "reviewed" },
-              fieldKey: "timeline.capture_state",
-              op: "eq",
-            },
-          ],
-          groupBy: "timeline.date_entered_sort_day",
-          sort: [],
-        }}
+        queryState={queryState}
         surface={timelineViewSchemaId}
       />,
     );
 
     const queryControls = screen.getByTestId(
-      workbookTopBarQueryControlsTestId(timelineViewSchemaId),
+      workbookViewBarQueryControlsTestId(timelineViewSchemaId),
     );
     expect(queryControls.style.overflow).toBe("visible");
+    expect(queryControls.getAttribute("data-query-chip-capacity")).toBe("8");
+    expect(queryControls.getAttribute("data-hidden-query-chip-count")).toBe(
+      "0",
+    );
 
     const grouping = screen.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
@@ -440,15 +445,34 @@ describe("workbook query controls", () => {
     fireEvent.click(
       screen.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
     );
+    const sortMenu = screen.getByTestId(
+      workbookSortMenuTestId(timelineViewSchemaId),
+    );
+    expect(sortMenu).toBeInstanceOf(HTMLElement);
+    fireEvent.keyDown(sortMenu, { key: "End" });
+    expect(document.activeElement).toBe(
+      sortMenu.querySelectorAll('[role^="menuitem"]')[
+        sortMenu.querySelectorAll('[role^="menuitem"]').length - 1
+      ],
+    );
+    fireEvent.keyDown(sortMenu, { key: "Escape" });
     expect(
-      screen.getByTestId(workbookSortMenuTestId(timelineViewSchemaId)),
-    ).toBeInstanceOf(HTMLElement);
+      screen.queryByTestId(workbookSortMenuTestId(timelineViewSchemaId)),
+    ).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+    );
 
     fireEvent.click(
       screen.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       ),
     );
+    expect(
+      screen
+        .getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId))
+        .getAttribute("aria-label"),
+    ).toBe("Filters, 1 active filters");
     expect(
       screen.getByTestId(workbookFilterPopoverTestId(timelineViewSchemaId)),
     ).toBeInstanceOf(HTMLElement);
@@ -472,6 +496,63 @@ describe("workbook query controls", () => {
     expect(groupChipLabel).toBeInstanceOf(HTMLElement);
     expect((groupChipLabel as HTMLElement).style.textOverflow).toBe("ellipsis");
     expect((groupChipLabel as HTMLElement).style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(
+      screen.getByTestId(workbookFilterPopoverTestId(timelineViewSchemaId)),
+      { key: "Escape" },
+    );
+    expect(
+      screen.queryByTestId(workbookFilterPopoverTestId(timelineViewSchemaId)),
+    ).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    );
+
+    rerender(
+      <WorkbookGridControls
+        chromeMode="compact_desktop"
+        contract={contract}
+        filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
+        onApplyFilter={vi.fn()}
+        onFilterDraftChange={onFilterDraftChange}
+        onGroupByChange={onGroupByChange}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onResetColumns={vi.fn()}
+        onRemoveFilter={onRemoveFilter}
+        onSortChange={onSortChange}
+        queryState={queryState}
+        surface={timelineViewSchemaId}
+      />,
+    );
+    const compactQueryControls = screen.getByTestId(
+      workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+    );
+    expect(compactQueryControls.getAttribute("data-query-chip-capacity")).toBe(
+      "0",
+    );
+    expect(
+      compactQueryControls.getAttribute("data-hidden-query-chip-count"),
+    ).toBe("2");
+    expect(
+      screen
+        .getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId))
+        .getAttribute("aria-label"),
+    ).toBe("Filters, 1 active filters, 2 active query chips hidden");
+    expect(screen.queryByTitle("Group: Date Entered Sort Day")).toBeNull();
+    fireEvent.click(
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    );
+    expect(
+      screen.getAllByRole("button", {
+        name: /hidden from the view bar/,
+      }),
+    ).toHaveLength(2);
   });
 
   it("drops non-discovery keys before building query request bodies", () => {

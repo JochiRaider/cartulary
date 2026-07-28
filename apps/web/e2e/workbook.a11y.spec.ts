@@ -40,10 +40,7 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   networkAnalysisTestId,
   pendingQueueCountTestId,
-  pendingQueueDiscardButtonTestId,
   pendingQueueNoticeTestId,
-  pendingQueueRecoveryPanelTestId,
-  pendingQueueRetryButtonTestId,
   publicErrorCodeTestId,
   publicErrorSummaryTestIds,
   relationshipChipTestId,
@@ -82,6 +79,14 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookConflictSavedValueTestId,
+  workbookConflictSummaryTestId,
+  workbookEditRecoveryDiscardButtonTestId,
+  workbookEditRecoveryRetryButtonTestId,
+  workbookEditRecoveryTestId,
+  workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
@@ -1905,11 +1910,17 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await blockedSummary.press("Enter");
       await expect.poll(() => recoveryController.calls.length).toBe(1);
 
-      const recoveryPanel = page.getByTestId(pendingQueueRecoveryPanelTestId());
-      const retryButton = page.getByTestId(pendingQueueRetryButtonTestId());
-      const discardButton = page.getByTestId(pendingQueueDiscardButtonTestId());
-      await expect(recoveryPanel).toHaveRole("region");
-      await expect(recoveryPanel).toHaveAccessibleName("Queued edits");
+      const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
+      const retryButton = page.getByTestId(
+        workbookEditRecoveryRetryButtonTestId(),
+      );
+      const discardButton = page.getByTestId(
+        workbookEditRecoveryDiscardButtonTestId(),
+      );
+      await expect(recoveryPanel).toHaveRole("complementary");
+      await expect(recoveryPanel).toHaveAccessibleName(
+        "Workbook edit recovery",
+      );
       await expect(recoveryPanel).not.toBeFocused();
       await expect(retryButton).toHaveAccessibleName(
         "Retry with a new request ID",
@@ -1947,8 +1958,8 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
         rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
         pendingQueueNoticeTestId(),
-        pendingQueueRetryButtonTestId(),
-        pendingQueueDiscardButtonTestId(),
+        workbookEditRecoveryRetryButtonTestId(),
+        workbookEditRecoveryDiscardButtonTestId(),
         saveStateTestId(),
       ]);
 
@@ -2460,25 +2471,26 @@ test.describe("browser.collaboration accessibility readiness", () => {
           remoteValue: "a11y.collaboration saved value",
           txnPrefix: "fea11yp7-conflict",
         });
-        const resolver = page.getByTestId("conflict-resolver");
+        const resolver = page.getByTestId(workbookConflictResolverTestId());
         await expect(resolver).toHaveAttribute(
           "aria-label",
-          "Same-field conflict resolver",
+          "Workbook conflict recovery",
         );
-        const summary = page.getByTestId("conflict-resolver-summary");
+        const summary = page.getByTestId(workbookConflictSummaryTestId());
         await expect(summary).toBeFocused();
-        await expect(page.getByTestId("conflict-field-key")).toHaveValue(
+        await expect(resolver).toHaveAttribute(
+          "data-conflict-field-key",
           "timeline.activity_synopsis_text",
         );
-        await expect(page.getByTestId("conflict-server-value")).toHaveValue(
-          "a11y.collaboration saved value",
-        );
-        await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-          "a11y.collaboration local draft",
-        );
+        await expect(
+          page.getByTestId(workbookConflictSavedValueTestId()),
+        ).toHaveValue("a11y.collaboration saved value");
+        await expect(
+          page.getByTestId(workbookConflictLocalValueTestId()),
+        ).toHaveValue("a11y.collaboration local draft");
         await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
         await expect(
-          page.getByRole("button", { name: "Keep saved value" }),
+          page.getByRole("button", { name: "Discard local draft" }),
         ).toBeVisible();
         await expect(
           page.getByRole("button", { name: "Use my unsaved value" }),
@@ -2499,11 +2511,14 @@ test.describe("browser.collaboration accessibility readiness", () => {
             surface: "grid",
           }),
         );
-        await expect(
-          semanticGridCell(retainedConflictEditor).getByRole("img", {
-            name: "Conflict on Activity Synopsis",
-          }),
-        ).toBeVisible();
+        const retainedConflictMarker = semanticGridCell(
+          retainedConflictEditor,
+        ).locator('[data-grid-state-marker="conflicted"]');
+        await expect(retainedConflictMarker).toBeVisible();
+        await expect(retainedConflictMarker).toHaveAttribute(
+          "aria-label",
+          "Conflict on Activity Synopsis",
+        );
         await expectAllInteractiveControlsNamed(page);
         await expectNoFocusTrap(page);
         await expectAndRecordContrast(page, [
@@ -3185,6 +3200,10 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         await expect(
           page.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
         ).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(
+          page.getByTestId(workbookFilterPopoverTestId(surface.viewSchemaId)),
+        ).toHaveCount(0);
 
         const sortHeader = await mountedGridTarget(
           page,
