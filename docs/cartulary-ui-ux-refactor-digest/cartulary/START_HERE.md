@@ -2,42 +2,98 @@
 
 ## Purpose
 
-Use this package to improve Cartulary's UI/UX without accessing the upstream
-repository and without weakening Cartulary's contracts. The external material is
-most useful as an audit workflow, searchable checklist, and source of
-stack-specific implementation questions. It is not a visual-design authority.
+This repository-local overlay prepares a future Cartulary UI/UX refactor. It
+does not authorize implementation, behavior changes, a re-theme, or a product
+redesign. The bundled upstream material is useful as an offline audit workflow,
+searchable checklist, and source of review questions. It is not Cartulary
+authority.
+
+All paths and commands in this overlay are relative to the Cartulary repository
+root. Use
+`docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv` as the compact
+current-repository inventory rather than repeating discovery.
 
 ## Authority order
 
-Apply this order before every decision:
+Apply this order before every later design or implementation decision:
 
-1. Adopted subsystem NLSpecs for their named subsystem.
-2. Core 00 through Core 04 for current implementation-conformance behavior.
-3. Core 05 only for claim-bearing timed or fixture-sensitive publication.
+1. Adopted subsystem NLSpecs for their named scope, using the exact current
+   paths and statuses in `REPO_MAP.tsv`.
+2. `docs/spec/00_document_set_status_and_precedence.md` through
+   `docs/spec/04_security_deployment_and_conformance.md` for current
+   implementation-conformance behavior.
+3. `docs/spec/05_claim_publication_and_benchmark_reproducibility.md` only for
+   claim-bearing timed or fixture-sensitive publication.
 4. `docs/design.md` for observable design behavior inside its declared scope.
-5. `domain.md`, developer guidance, and owner-approved implementation support.
-6. Current code and tests as evidence of current state.
-7. This Cartulary overlay.
-8. Bundled upstream material as advisory evidence only.
+5. `docs/domain.md` for repository vocabulary and owner navigation inside its
+   declared scope.
+6. `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and
+   implementation guides as subordinate planning or implementation support.
+7. Current code and tests as evidence of current state.
+8. This localized overlay.
+9. Bundled upstream material as advisory evidence only.
 
 If owner documents conflict, stop with `BLOCKED: owner contradiction`; do not
-choose silently. Existing code is not automatically required behavior. Separate
-an authorized normative correction from behavior-preserving structural movement.
+choose silently. Existing code is not automatically required behavior.
+Separate an authorized normative correction from behavior-preserving structural
+movement.
+
+No executable test, generator, conformance check, or release artifact may read,
+stat, hash, or otherwise depend on documentation text. Typed projections and
+test routing remain owned outside `docs/` as described by `AGENTS.md`.
+
+## Verified repository boundaries
+
+The current frontend is a pnpm workspace with `apps/web` as the top-level Vite
+and React application:
+
+- `apps/web/src/app` plus verification owner `web.application` contains
+  application-shell routing, authentication, incident-directory, account, and
+  administration state.
+- `apps/web/src/workbook` plus verification owner `web.workbook` contains the
+  workbook shell, surface controllers, browser state, mutation recovery,
+  collaboration projection, and continuity behavior.
+- `packages/grid-adapter` is the sole direct `react-data-grid` adapter and maps
+  vendor coordinates and lifecycle into Cartulary identities.
+- `contracts/view-schemas` contains authored machine projections of adopted
+  view owners. `packages/protocol-ts/src/generated` is generated from contract
+  inputs. `packages/view-contracts` is an authored TypeScript adapter over the
+  generated contract facade.
+- `packages/ui-contracts` contains authored stable selector/test-ID builders and
+  consumes generated design tokens.
+- `packages/test-utils` contains reusable semantic test helpers. Product-specific
+  browser choreography and fixtures remain under `apps/web/e2e` and
+  `apps/web/e2e/support`.
+- `contracts/design/tokens.v1.json` is the authored token/theme/density
+  projection. `packages/ui-contracts/src/generated/design-tokens.ts` is
+  generated through `make generate`.
+
+The owner ID `package.ui` does not imply that `packages/ui` is a functional
+package; that directory currently contains only `.gitkeep`. `docs/design.md`
+§3.11 contains the design-owned semantic icon registry, but no standalone
+implementation icon registry is present. Current components import
+`lucide-react` directly where needed.
+
+`harness.visual` owns the visual-fixture registry contract but is not an active
+owner accepted by `make task-guide`. Use `make browser-e2e-visual` for the
+public visual entry point and select product/package owners through
+`REPO_MAP.tsv`.
 
 ## Product constraints
 
-Cartulary is a workbook-native incident workspace. Preserve spreadsheet speed at
-the view layer while retaining disciplined relational, authorization, history,
-and evidence behavior underneath.
+Cartulary is a workbook-native incident workspace. Preserve spreadsheet speed
+at the view layer while retaining disciplined relational, authorization,
+history, and evidence behavior underneath.
 
 - The grid is the protagonist.
-- Capture remains grid-first, compact, direct, keyboard-complete, and tolerant of
-  incomplete facts.
+- Capture remains grid-first, compact, direct, keyboard-complete, and tolerant
+  of incomplete facts.
 - Conflict, evidence, validation, save, and recovery feedback appears where it
   changes the user's action.
 - The inspector augments the grid; it does not replace it or become a detached
   form workflow.
-- The visual language is dense graphite, calm, precise, inspectable, and durable.
+- The visual language is dense graphite, calm, precise, inspectable, and
+  durable.
 - Warm accent is scarce and semantic.
 - State never relies on color alone.
 - Required system views stay reachable inside the workbook shell.
@@ -46,119 +102,142 @@ and evidence behavior underneath.
 
 ## Classification rule
 
-Classify every upstream recommendation before use:
+Classify every material upstream recommendation before use:
 
 - `ADOPT`: compatible principle that can be applied without changing a
   Cartulary-owned contract.
-- `ADAPT`: useful concern whose upstream prescription must be translated through
+- `ADAPT`: useful concern whose prescription must be translated through
   Cartulary's desktop workbook, token, interaction, or owner contracts.
-- `REJECT`: conflicts with current authority, scope, density, behavior, or visual
-  direction.
+- `REJECT`: conflicts with current authority, scope, density, behavior, or
+  visual direction.
 
-Record the classification in the change notes when it materially affects a
-decision. The compact baseline is in `rules.tsv`.
+Do not weaken or bypass this classification. Record it in later change notes
+when it materially affects a decision. The baseline matrix is
+`docs/cartulary-ui-ux-refactor-digest/cartulary/rules.tsv`.
 
-## Priority implementation targets
+## Candidate concerns for later verification
 
-These are known UI concerns, not permission to invent behavior. Verify each
-against the current repository and owner clauses before editing.
+The portable digest identified the following review hypotheses. Their presence,
+priority, and desired correction must be verified against current code and
+owner clauses before any implementation. This list is not a defect report or
+authorization to edit product behavior.
 
 1. **Density propagation**
-   - Make the selector observably alter row height, cell padding, typography,
-     editor geometry, and gutter rhythm through shared compact/default/
-     comfortable tokens.
-   - Preserve `Use surface default` as the clear/null owner-defined state.
-   - Do not create per-surface density systems, custom row heights, or a theme
-     selector.
+   - Check whether compact/default/comfortable selection reaches row height,
+     cell padding, typography, editor geometry, and gutter rhythm through
+     shared tokens.
+   - Preserve the owner-defined clear/null surface-default state.
 
 2. **Row creation**
-   - Restore an adjacent grid/view-bar creation affordance for Hosts and
-     Identities when the active immutable view-schema contract permits creation.
-   - Keep create in the workbook surface; do not introduce modal, wizard, or
-     form-first capture.
+   - Check Hosts and Identities creation against the active immutable
+     view-schema capabilities.
+   - If an owner-backed defect exists, keep creation workbook-adjacent rather
+     than introducing a form-first flow.
 
 3. **Responsive shell**
-   - Choose shell chrome from inline size only.
-   - Treat block-size state independently.
-   - Vertical-only resizing must not hide or relocate top navigation, tabs,
-     `System views`, account/application menu, or active query controls.
-   - Grid and inspector scroll within the shell-owned work area; keep the status
-     strip anchored and safe navigation reachable.
+   - Check that chrome selection derives only from inline size and block-size
+     state remains independent.
+   - Verify vertical-only resizing does not hide or relocate required shell and
+     query controls.
 
 4. **Inspector configuration**
-   - Derive sections and actions from active immutable `view_schema_id` and
+   - Check that sections and actions derive from active `view_schema_id` and
      `inspector_config_v1`.
-   - Keep the inspector closed by default unless an owner says otherwise.
-   - Preserve grid visibility at the base viewport and maintain row, scroll,
-     selection, and focus continuity.
-   - Invalidate stale row-bound state after view or row changes.
+   - Verify default-open behavior, grid visibility, continuity, and stale-state
+     invalidation against the active owner contract.
 
 5. **Client transaction recovery**
-   - Generate each new `client_txn_id` with Web Crypto randomness.
-   - Reuse an ID only for uncertain replay of the same logical mutation.
-   - Expose a non-modal queued-edits recovery surface with
-     `Retry with a new request ID` and `Discard blocked edit`.
-   - Do not silently drop, duplicate, or overwrite pending work.
+   - Check new `client_txn_id` generation, uncertain replay reuse, and the
+     shell-lifetime pending recovery surface.
+   - Verify blocked-edit retry/discard behavior without assuming a defect.
 
 6. **Editing and conflict behavior**
-   - Preserve single-click committed-cell editing, complete keyboard operation,
-     paste, local draft retention, deterministic Escape handling, and field-local
-     validation/conflict feedback.
-   - Show the saved value and retained local draft separately.
-   - Do not use a toast as the only unresolved-state location.
+   - Check single-click committed-cell editing, keyboard operation, paste,
+     draft retention, Escape handling, and field-local validation/conflict
+     feedback.
+   - Keep saved values and retained local drafts distinct where the owner
+     requires it.
 
-## Refactor workflow
+## Refactor workflow for a future authorized slice
 
 ### 1. Bootstrap
 
-- Read `AGENTS.md` when present.
-- Record branch, commit, dirty-tree state, allowed edit scope, and target seam.
-- Identify the owner sections likely to govern the slice.
+- Read `AGENTS.md`; no nested `AGENTS.md` currently applies.
+- Record branch, commit, dirty state, allowed edit scope, and target seam.
+- Revalidate `REPO_MAP.tsv` if the repository commit differs from
+  `meta/localization.json`.
+- Identify the exact owner sections likely to govern the slice.
 
 ### 2. Inspect current state
 
-- Detect the actual stack from repository manifests and source; never assume
-  React, Tailwind, shadcn, or a grid vendor.
-- Inventory shell/work-area ownership, grid adapter, virtualization, token use,
-  density flow, inspector configuration, creation capabilities, focus/edit/paste
-  behavior, transaction IDs, pending recovery, and current tests.
-- Separate authored from generated files.
-- Keep direct grid-vendor imports inside the grid-adapter owner.
+- Detect the stack from `package.json`, `pnpm-workspace.yaml`, package
+  manifests, and source; do not rely only on this localization snapshot.
+- Inventory the relevant shell/work area, grid adapter, token use, density
+  flow, view contracts, inspector configuration, focus/edit/paste behavior,
+  transaction recovery, and current tests.
+- Separate authored from generated files using
+  `tools/generated_artifact_policy.json`.
+- Keep direct grid-vendor imports inside `packages/grid-adapter`.
 
 ### 3. Freeze contracts
 
-- Map each observable behavior that could drift to its owner.
-- Characterize risky existing behavior before moving code.
-- Mark owner contradictions and missing authority explicitly.
-- Do not promote visible labels or implementation structure into contracts.
+- Map each observable behavior that could drift to `OWNER_MAP.tsv` and the
+  exact owner document.
+- Characterize risky existing behavior before structural movement.
+- Mark contradictions and missing authority explicitly.
+- Do not promote labels, DOM structure, or current package layout into
+  normative authority.
 
 ### 4. Choose one slice
 
 Use one coherent seam per slice: one package boundary, state family, component
-family, or interaction defect. Do not mix a re-theme, schema change, route
-change, harness redesign, and structural refactor in one slice.
+family, or verified interaction defect. Do not mix re-theming, schema changes,
+route changes, harness redesign, and structural movement.
 
 ### 5. Apply advisory guidance
 
-- Query only the relevant upstream domain or detected stack.
-- Translate each result through `rules.tsv`.
-- Reuse Cartulary tokens, semantic icons, selectors, and fixture identities.
-- Do not run `--design-system`, `--persist`, or `--force` against Cartulary.
+- Query only the relevant upstream domain or verified React stack using
+  `docs/cartulary-ui-ux-refactor-digest/cartulary/QUERY_RECIPES.md`.
+- Translate every material result through `rules.tsv`.
+- Reuse Cartulary tokens, selectors, and fixture identities.
+- Do not use upstream `--design-system`, `--persist`, or `--force`.
 
 ### 6. Validate
 
-Run the cheapest sufficient owner-aligned checks after each risky checkpoint:
+Select the owner-specific loop first:
 
-- unit/state-machine tests for deterministic state selection;
-- component tests for declared variants and compound states;
-- keyboard/focus/paste tests for workbook interaction;
-- accessibility checks for names, focus, live regions, contrast, non-color cues,
-  and reduced motion;
-- exact `D-VFIX-*` viewports for visual evidence;
-- broader repository gates only after the slice-local checks pass.
+```bash
+make task-guide ROLE=module-author OWNER=web.application
+make task-guide ROLE=module-author OWNER=web.workbook
+make task-guide ROLE=module-author OWNER=package.grid_adapter
+make task-guide ROLE=module-author OWNER=package.view_contracts
+make task-guide ROLE=module-author OWNER=package.ui
+make task-guide ROLE=module-author OWNER=package.test_utils
+make task-guide ROLE=module-author OWNER=web.design
+make task-guide ROLE=module-author OWNER=harness.browser
+```
 
-Visual/accessibility evidence remains evidence of those qualities unless an owner
-explicitly makes it implementation-conformance or publication evidence.
+Run the recommended `make test-slice OWNER=<verified-owner-id>` or
+`make service-backed-test-slice OWNER=<verified-owner-id>` only for the selected
+owner. Use public readiness targets when the slice requires them:
+
+```bash
+make frontend-typecheck
+make frontend-unit
+make frontend-import-boundary-check
+make browser-e2e-webserver-backed
+make browser-e2e-a11y
+make browser-e2e-visual
+make generate-drift
+make generated-artifact-policy-check
+```
+
+Do not run every listed target mechanically. `make help`, `make help-all`, and
+the applicable `make task-guide` output determine the current runnable surface.
+
+Visual and accessibility results remain quality/readiness evidence unless an
+owner explicitly makes them implementation-conformance or Core 05 publication
+evidence.
 
 ### 7. Handoff
 
@@ -167,7 +246,7 @@ For each changed behavior, record:
 - governing owner clause or requirement;
 - implementation location;
 - verification command and artifact;
-- upstream rule classification when material;
+- upstream classification when material;
 - known limitation or intentionally deferred issue;
 - next smallest safe slice.
 
@@ -176,11 +255,11 @@ For each changed behavior, record:
 Do:
 
 - preserve `dark_graphite`, compact hairlines, neutral surfaces, stable row
-  rhythm, semantic icons, and scarce warm accent;
-- make focus, selection, conflict, evidence, status, and disabled/read-only
-  states distinct with non-color cues;
+  rhythm, semantic identity, and scarce warm accent;
+- distinguish focus, selection, conflict, evidence, status, disabled, and
+  read-only states with non-color cues;
 - reserve space for async content and preserve authorized prior rows during
-  background refresh;
+  background refresh when the owner requires it;
 - distinguish loading, refreshing, successful empty, filtered empty,
   unauthorized, unavailable, stale, closed/read-only, conflict, and replay
   recovery states.
@@ -188,37 +267,23 @@ Do:
 Do not:
 
 - use cyberpunk, Matrix green, neon, glow, cinematic gradients, decorative
-  heatmaps, theatrical threat maps, alert animation, or dashboard-card
-  dominance;
+  heatmaps, threat maps, alert animation, or dashboard-card dominance;
 - turn routine creation into a modal, wizard, approval, or full-page flow;
-- generate a second design-system master or raw component-local tokens;
+- generate a second design-system master or raw component-local token registry;
 - add skeleton records that could be mistaken for authoritative workbook rows;
 - treat horizontal workbook-grid scrolling as shell overflow;
 - apply mobile touch-size, mobile-first, or 16px-body guidance unconditionally
-  to the current dense desktop profile;
-- animate merely to satisfy a generic timing recommendation.
+  to the dense desktop profile;
+- animate merely to satisfy generic timing advice.
 
 ## Stable verification identifiers
 
-Prefer:
-
-- design fixture ID;
-- `view_schema_id`;
-- `record_id`;
-- `field_key`;
-- semantic icon ID;
-- owner-defined capability or state enum.
-
-Do not assert against:
-
-- literal specification text, line numbers, hashes, formatting, or file layout;
-- visible row number;
-- incidental DOM hierarchy;
-- CSS class or component implementation name;
-- SQL/projection table name;
-- grid-vendor coordinate;
-- package-specific icon name.
+Prefer owner-defined fixture IDs, `view_schema_id`, `record_id`, `field_key`,
+semantic icon IDs, and owner-defined capability/state enums. Do not assert
+against literal specification text, line numbers, hashes, formatting, document
+layout, visible row numbers, incidental DOM hierarchy, CSS classes, component
+names, SQL/projection names, vendor coordinates, or package-specific icon
+names.
 
 Machine-testable facts derived from specifications belong in versioned,
 owner-governed machine-readable artifacts outside documentation directories.
-

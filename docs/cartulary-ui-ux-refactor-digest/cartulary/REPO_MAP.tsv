@@ -1,0 +1,75 @@
+concept	actual_path	artifact_type	authority_or_role	status	evidence
+repository root	.	repository root	Cartulary repository root	VERIFIED	git rev-parse --show-toplevel
+digest root	docs/cartulary-ui-ux-refactor-digest	vendored advisory package	localized UI/UX refactor preparation package	VERIFIED	tracked directory containing README.md, cartulary/, meta/, and upstream/
+root agent instructions	AGENTS.md	agent instruction	only applicable repository instruction file	VERIFIED	find . -name AGENTS.md -print
+nested agent instructions	NOT PRESENT	agent instruction	no nested AGENTS.md applies	NOT PRESENT	find . -name AGENTS.md -print returns only AGENTS.md
+Core 00	docs/spec/00_document_set_status_and_precedence.md	normative Core owner	document-set status and precedence	VERIFIED	file exists and is named by AGENTS.md authority rules
+Core 01	docs/spec/01_architecture_storage_and_view_contracts.md	normative Core owner	architecture, storage, and view contracts	VERIFIED	file exists and is indexed by docs/spec
+Core 02	docs/spec/02_domain_model_schema_and_history.md	normative Core owner	domain model, schema, and history	VERIFIED	file exists and is indexed by docs/spec
+Core 03	docs/spec/03_workbook_interaction_collaboration_and_workflows.md	normative Core owner	workbook interaction, collaboration, and workflows	VERIFIED	file exists and is indexed by docs/spec
+Core 04	docs/spec/04_security_deployment_and_conformance.md	normative Core owner	security, deployment, and conformance	VERIFIED	file exists and is indexed by docs/spec
+Core 05	docs/spec/05_claim_publication_and_benchmark_reproducibility.md	normative Core owner	claim publication and benchmark reproducibility	VERIFIED	file exists and is indexed by docs/spec
+Extensions subsystem NLSpec	docs/extension-subsystem-nlspec.md	adopted subsystem NLSpec	Extensions behavior authority within its scope	VERIFIED	front matter status is adopted/current
+Graph Projection subsystem NLSpec	docs/graph_projection_nlspec.md	adopted subsystem NLSpec	Graph Projection behavior authority within its scope	VERIFIED	front matter status is adopted/current
+Network Flow subsystem NLSpec	docs/network-flow-activity-nlspec.md	adopted subsystem NLSpec	Network Flow behavior authority within its scope	VERIFIED	front matter status is adopted/current
+OpenTelemetry subsystem NLSpec	docs/opentelemetry-instrumentation-nlspec.md	adopted subsystem NLSpec	OpenTelemetry behavior authority within its scope	VERIFIED	front matter status is adopted/current
+Report Composition subsystem NLSpec	docs/report-composition-nlspec.md	adopted subsystem NLSpec	Report Composition behavior authority within its scope; version is not inferred	VERIFIED	front matter status is adopted/current and contains duplicate document_version keys 1.1.0 and 1.1.1
+Reporting subsystem NLSpec	docs/reporting-subsystem-nlspec.md	adopted subsystem NLSpec	Reporting behavior authority within its scope	VERIFIED	front matter status is adopted/current
+Testing Harness subsystem NLSpec	docs/testing-harness-nlspec.md	adopted subsystem NLSpec	Testing Harness behavior authority within its scope	VERIFIED	front matter status is adopted/current
+Reference Pack subsystem NLSpec	docs/reference-pack-subsystem-nlspec.md	draft subsystem NLSpec	present but draft and non-authoritative	VERIFIED	front matter status is draft
+design contract	docs/design.md	design owner	design direction within its stated boundary	VERIFIED	AGENTS.md declares this design direction
+domain contract	docs/domain.md	domain owner	vocabulary and owner navigation within its stated boundary	VERIFIED	AGENTS.md declares this ownership
+modular-refactor planning framework	docs/handoffs/cartulary_modular_refactor_planning_framework.md	planning framework	later modular-refactor planning procedure	VERIFIED	file exists under docs/handoffs
+workspace definition	pnpm-workspace.yaml	workspace manifest	pnpm workspace layout	VERIFIED	packages include apps/* and packages/*
+frontend application root	apps/web	application package	top-level web application	VERIFIED	AGENTS.md repository boundary and apps/web/package.json
+frontend application shell	apps/web/src/app	authored implementation	web.application shell and application state	VERIFIED	tools/test_catalog_owner.json maps web.application to an active family and source imports originate here
+web.application verification owner	contracts/verification/owners/web.application.json	authored verification contract	web.application verification routing	VERIFIED	contracts/verification/registry.json maps owner_id web.application to this contract
+workbook shell and work area	apps/web/src/workbook	authored implementation	web.workbook shell, runtime state, and work area	VERIFIED	tools/test_catalog_owner.json maps web.workbook to an active family and WorkbookShell.tsx is here
+web.workbook verification owner	contracts/verification/owners/web.workbook.json	authored verification contract	web.workbook verification routing	VERIFIED	contracts/verification/registry.json maps owner_id web.workbook to this contract
+grid adapter	packages/grid-adapter	authored package	sole react-data-grid integration boundary	VERIFIED	package manifest depends on react-data-grid and repository source search finds vendor imports only in this package
+view schema projections	contracts/view-schemas	authored machine projections	versioned view-schema contract inputs downstream of adopted owners	VERIFIED	contracts/index.json and JSON artifacts under this directory
+generated protocol contracts	packages/protocol-ts/src/generated	generated package root	generated TypeScript protocol projections	GENERATED	tools/generated_artifact_policy.json declares this generated root
+view-contract adapter	packages/view-contracts	authored package	authored adapter over protocol and view-schema contracts	VERIFIED	package manifest and src/index.ts imports generated protocol types
+UI contract package	packages/ui-contracts	authored package	stable UI contracts and generated design-token consumer	VERIFIED	package manifest and authored src/index.ts
+stable selector and test-ID owner	packages/ui-contracts/src/index.ts	authored source	stable semantic selector and test-ID builders	VERIFIED	exports selector and test-ID helper functions
+reusable semantic test helpers	packages/test-utils	authored package	reusable semantic unit and browser helper contracts	VERIFIED	package manifest and src exports
+application browser choreography	apps/web/e2e	authored tests	application-specific Playwright flows and fixtures	VERIFIED	apps/web/playwright.config.ts testDir points here
+application browser support	apps/web/e2e/support	authored test support	application-specific browser choreography helpers	VERIFIED	imports from workbook browser and visual tests
+token registry	contracts/design/tokens.v1.json	authored machine projection	package.ui token registry downstream of design owners	VERIFIED	tools/test_families/package.ui.json exercises this input through generated token output
+theme registry	contracts/design/tokens.v1.json	authored machine projection	theme values in the shared design-token registry	VERIFIED	JSON registry defines theme tokens
+density registry	contracts/design/tokens.v1.json	authored machine projection	density values in the shared design-token registry	VERIFIED	JSON registry defines density tokens
+generated design-token output	packages/ui-contracts/src/generated/design-tokens.ts	generated source	generated TypeScript projection consumed by UI contracts	GENERATED	tools/generated_artifact_policy.json declares its parent generated root and make generate invokes the design-token generator
+semantic icon registry authority	docs/design.md	design owner	section 3.11 owns semantic icon identifiers	VERIFIED	design document section 3.11 declares semantic icon IDs
+standalone semantic icon implementation registry	NOT PRESENT	implementation registry	no standalone registry was found	NOT PRESENT	source search finds direct lucide-react imports but no independent semantic icon registry
+placeholder UI package	packages/ui	placeholder directory	not a functional implementation package	VERIFIED	directory contains only .gitkeep; owner ID package.ui must not be equated to this path
+visual fixture registry	tools/frontend_visual_fixture_registry.json	authored harness contract	harness.visual fixture definitions	VERIFIED	contracts/verification/owners/harness.visual.json names browser-e2e-visual as its public target
+harness.visual verification owner	contracts/verification/owners/harness.visual.json	authored verification contract	fixture contract owner; not an active task-guide owner	VERIFIED	owner exists in contracts/verification/registry.json but is absent from tools/test_catalog_owner.json
+visual fixture support	apps/web/e2e/support/visual	authored test support	Playwright visual fixture implementation	VERIFIED	directory is imported by workbook.visual.spec.ts
+unit tests	apps/web/src	authored tests	application unit tests colocated as *.test.ts and *.test.tsx	VERIFIED	apps/web/vite.config.ts includes src/**/*.test.ts and src/**/*.test.tsx
+shared-package unit tests	packages	authored tests	workspace package unit tests colocated under package src roots	VERIFIED	apps/web/vite.config.ts includes ../../packages/*/src/**/*.test.ts and *.test.tsx
+component tests	apps/web/src	authored tests	React component tests with Vitest, Testing Library, and jsdom	VERIFIED	apps/web/vite.config.ts uses jsdom and React tests are colocated under src
+accessibility browser tests	apps/web/e2e/workbook.a11y.spec.ts	authored tests	Playwright accessibility coverage	VERIFIED	public Make target browser-e2e-a11y routes to this suite
+browser tests	apps/web/e2e	authored tests	Playwright browser test root	VERIFIED	apps/web/playwright.config.ts testDir resolves to this directory
+visual browser tests	apps/web/e2e/workbook.visual.spec.ts	authored tests	Playwright visual coverage	VERIFIED	public Make target browser-e2e-visual routes to this suite
+visual golden snapshots	apps/web/e2e/workbook.visual.spec.ts-snapshots	authored test artifacts	reviewed Playwright visual goldens	VERIFIED	directory contains workbook.visual.spec.ts snapshot PNG files
+root task entry point	Makefile	authored task entry point	run public repository commands from repository root	VERIFIED	AGENTS.md commands rule and Makefile includes generated task surfaces
+frontend typecheck entry point	Makefile	authored task entry point	make frontend-typecheck	VERIFIED	make help-all lists frontend-typecheck
+frontend unit entry point	Makefile	authored task entry point	make frontend-unit	VERIFIED	make help-all lists frontend-unit
+accessibility entry point	Makefile	authored task entry point	make browser-e2e-a11y	VERIFIED	make help-all lists browser-e2e-a11y
+browser entry point	Makefile	authored task entry point	make browser-e2e	VERIFIED	make help-all lists browser-e2e
+visual entry point	Makefile	authored task entry point	make browser-e2e-visual; do not pass harness.visual to task-guide	VERIFIED	contracts/verification/owners/harness.visual.json names browser-e2e-visual and harness.visual is absent from active test catalog
+generated-artifact policy	tools/generated_artifact_policy.json	authored policy	declares every generated root and generated file	VERIFIED	JSON generated_roots and generated_files arrays
+generated backend root	internal/gen	generated root	generated Go outputs with heterogeneous authored inputs	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/index.json lists contract-generated outputs
+generated protocol TypeScript root	packages/protocol-ts/src/generated	generated root	generated TypeScript protocol outputs	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/index.json lists generated outputs
+generated UI-contract root	packages/ui-contracts/src/generated	generated root	generated TypeScript design-token output	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/design/tokens.v1.json is the authored token input
+generated OpenAPI document	contracts/openapi/cartulary.openapi.yaml	generated file	assembled OpenAPI output	GENERATED	tools/generated_artifact_policy.json declares this file; contracts/openapi-source/manifest.json declares it as target
+generated task surface	tools/task_surface.generated.mk	generated file	generated public Make task definitions	GENERATED	tools/generated_artifact_policy.json and tools/execution_topology_manifest.json declare this output
+generated runtime task surface	tools/task_surface.runtime.generated.mk	generated file	generated runtime Make task definitions	GENERATED	tools/generated_artifact_policy.json and tools/execution_topology_manifest.json declare this output
+contract generation owner index	contracts/index.json	authored machine projection	maps contract inputs to generated Go and TypeScript outputs	VERIFIED	generated_outputs entries name internal/gen and packages/protocol-ts paths
+OpenAPI generation owner input	contracts/openapi-source/manifest.json	authored machine projection	declares contracts/openapi/cartulary.openapi.yaml as its target	VERIFIED	target field names generated OpenAPI document
+design-token generation owner input	contracts/design/tokens.v1.json	authored machine projection	input for packages/ui-contracts/src/generated/design-tokens.ts	VERIFIED	design-token generator defaults name this registry
+task-surface generation owner input	tools/execution_topology_manifest.json	authored topology manifest	declares generated task-surface outputs	VERIFIED	task_surface_make and task_surface_runtime_make fields name generated files
+generation implementation	tools/harness/generated-artifacts/generate-artifacts.sh	authored tool	implementation invoked by make generate	VERIFIED	tools/task_surface.generated.mk generate-artifacts recipe invokes this script
+generation command	Makefile	authored task entry point	make generate from repository root	VERIFIED	generated task surface defines generate and Makefile includes it
+generation drift command	Makefile	authored task entry point	make generate-drift from repository root	VERIFIED	make help-all lists generate-drift
+generated policy command	Makefile	authored task entry point	make generated-artifact-policy-check from repository root	VERIFIED	make help-all lists generated-artifact-policy-check

@@ -23,6 +23,10 @@ tmp/
 *.tsbuildinfo
 next-env.d.ts
 
+# Python tooling
+__pycache__/
+*.py[cod]
+
 # Misc / Logs
 .DS_Store
 .eslintcache

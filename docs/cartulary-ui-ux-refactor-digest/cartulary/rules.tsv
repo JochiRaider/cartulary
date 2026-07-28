@@ -9,8 +9,8 @@ R007	ADOPT	Feedback: explicit loading/error/empty	Distinguish loading, refresh, 
 R008	ADOPT	Feedback: recovery path	Every actionable failure exposes an owner-permitted retry, edit, discard, or help path.	Recovery test
 R009	ADOPT	Performance: virtualize long lists	Keep workbook rows virtualized at all result sizes; preserve stable row identity and focus.	Performance and continuity test
 R010	ADOPT	Performance: reserve async space	Avoid shell/grid layout jumps and keep prior authorized rows during background refresh.	Refresh fixture and layout-shift observation
-R011	ADOPT	Consistency: one design system	Use docs/design.md token, theme, density, icon, and component registries only.	Token/component audit
-R012	ADOPT	Stack detection	Inspect manifests/source; never assume React, Tailwind, shadcn, or another stack.	Inventory notes
+R011	ADOPT	Consistency: one design system	Use docs/design.md and the authored contracts/design/tokens.v1.json projection; never create a parallel registry.	make test-slice OWNER=package.ui; make generate-drift
+R012	ADOPT	Stack detection	Inspect package.json, pnpm-workspace.yaml, apps/web/package.json, and source imports; revalidate the localized React/Vite stack before each later slice.	docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv
 R013	ADOPT	Semantic controls	Use semantic elements/roles and disabled/read-only semantics rather than inert styled containers.	A11y tree and interaction test
 R014	ADOPT	Stable navigation	Preserve shell navigation, current-state cues, scroll/filter/input state, and safe account menu access.	Responsive/navigation fixtures
 R015	ADOPT	Final checklist	Translate applicable review checks into owner-aligned behavior, accessibility, and visual evidence.	Handoff evidence map
@@ -21,13 +21,13 @@ R019	ADAPT	Minimum 16px body text	Apply to supported mobile/touch profiles; curr
 R020	ADAPT	Skeleton loading	Use neutral non-record loading structure only where unambiguous; never render fake authoritative workbook rows.	Loading-state fixture
 R021	ADAPT	150-300ms transitions	Use Cartulary motion tokens only when motion conveys meaning; preserve reduced-motion and interruptibility.	Motion fixture
 R022	ADAPT	One primary CTA	Apply at a local decision locus; do not distort workbook hot paths into screen-level conversion flows.	Component hierarchy review
-R023	ADAPT	Consistent icon family	Map package icons behind Cartulary semantic icon IDs; package names never become product or test concepts.	Icon registry audit
+R023	ADAPT	Consistent icon family	Use docs/design.md §3.11 semantic icon IDs; no standalone implementation registry currently exists, so do not invent one or promote lucide-react names into product/test concepts.	Design-owner and implementation-import audit
 R024	ADAPT	Errors below fields	In grid/editor contexts place feedback at the affected locus without forcing form layout.	Cell/editor fixture
 R025	ADAPT	Confirm destructive action	Follow Core-owned rollback/destructive semantics and inspector workflow; avoid generic modal ceremony.	Destructive action fixture
 R026	REJECT	Cybersecurity Platform: Cyberpunk UI	Preserve dense graphite forensic workspace; no cyberpunk visual identity.	Visual review
 R027	REJECT	Cybersecurity Platform: Matrix green/deep black	Preserve Cartulary color/token registry and scarce warm accent.	Token audit
 R028	REJECT	Cybersecurity Platform: threat display/alert animation	Do not invent threat maps, decorative heatmaps, real-time alert theater, or motion.	Surface and motion audit
-R029	REJECT	Generated product palette/typography/style	Do not replace design.md or persist generated MASTER.md/pages overrides.	Repository diff and authority audit
+R029	REJECT	Generated product palette/typography/style	Do not replace docs/design.md or persist generated MASTER.md/pages overrides.	Repository diff and authority audit
 R030	REJECT	Landing/conversion/hero/social-proof patterns	Do not apply marketing information architecture to the workbook shell.	Surface composition review
 R031	REJECT	Dashboard-card dominance	Keep active workbook grid above administrative or dashboard-card layouts.	D-VFIX-001
 R032	REJECT	Decorative animation/parallax/glow	No cinematic gradients, glow, parallax, or decorative motion in the live workbook shell.	Reduced-motion and visual review

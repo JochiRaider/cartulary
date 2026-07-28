@@ -1,16 +1,15 @@
 concern	primary_owner	secondary_owner	use
-Authority and precedence	Core 00 §§1-5	design.md §1	Resolve governing artifact before design or implementation decisions.
-Design tokens/theme/density/icons	design.md §3	Core 01 view contracts	Use declared registries; reject parallel design systems.
-Workbook thesis and visual direction	design.md §§4-6	Core 03 §§1-2	Keep grid-first capture and dense graphite direction.
-Shell and responsive composition	design.md §7	Core 01 browser/surface contracts	Use inline-size chrome algorithm and independent block-size state.
-Grid identity and keyboard behavior	design.md §8	Core 03 §13	Use stable record/field identity and the declared keyboard/Escape state machines.
-Chips and progressive structure	design.md §9	Core 02 domain model	Preserve rough capture and distinct resolution states.
-Save/presence/conflict/recovery	design.md §10	Core 03 §§3-4	Keep feedback local and transaction/pending semantics deterministic.
-Evidence presentation	design.md §11	Core 03 §8; Core 04 authorization/trust boundaries	Do not imply access or object authority from visual state.
-Component variants/states	design.md §12	Owner behavior sections	Implement closed variants and deterministic compound-state precedence.
-Per-surface composition	design.md §13	Core 01 field/view contracts; Core 03 §16	Do not redefine field membership or write capabilities.
-Accessibility	design.md §14	Core 03 keyboard/interaction owners	Verify non-color cues, names, focus, live regions, contrast, and reduced motion.
-Visual fixtures and selectors	design.md §15	Core 05 only when publication claims apply	Use exact fixture parameters and stable semantic identifiers.
-Do/do-not and acceptance	design.md §§17-18	Applicable Core acceptance criteria	Treat as completion checklist inside design scope.
-Refactor slicing and handoff	cartulary_modular_refactor_planning_framework.md §§2-11	Current repository state	Inspect, freeze contracts, characterize, slice, validate, and hand off.
-
+Authority and precedence	docs/spec/00_document_set_status_and_precedence.md §§1-5	AGENTS.md Authority	Resolve the governing artifact before design or implementation decisions.
+Design tokens/theme/density/icons	docs/design.md §3	contracts/design/tokens.v1.json; contracts/verification/owners/package.ui.json	Use the adopted design registries and authored machine projection; do not infer a functional packages/ui implementation.
+Workbook thesis and visual direction	docs/design.md §§4-6	docs/spec/03_workbook_interaction_collaboration_and_workflows.md §§1-2	Keep grid-first capture and dense graphite direction within owner behavior.
+Shell and responsive composition	docs/design.md §7	docs/spec/01_architecture_storage_and_view_contracts.md §§3.1,6-7; docs/spec/03_workbook_interaction_collaboration_and_workflows.md §2	Use the design-owned layout algorithms without redefining surface behavior.
+Grid identity and keyboard behavior	docs/design.md §8	docs/spec/03_workbook_interaction_collaboration_and_workflows.md §§13-14	Use stable record/field identity and the declared keyboard, editing, and grouping contracts.
+Chips and progressive structure	docs/design.md §9	docs/spec/02_domain_model_schema_and_history.md §§5-8	Preserve rough capture and distinct mention/entity resolution states.
+Save/presence/conflict/recovery	docs/design.md §10	docs/spec/03_workbook_interaction_collaboration_and_workflows.md §§3-4	Keep local feedback subordinate to transaction, conflict, and pending-queue behavior.
+Evidence presentation	docs/design.md §11	docs/spec/03_workbook_interaction_collaboration_and_workflows.md §8; docs/spec/04_security_deployment_and_conformance.md §§2,4	Do not imply access, custody, or object authority from visual state.
+Component variants/states	docs/design.md §12	Applicable Core or adopted subsystem behavior owner	Implement only design-declared variants that preserve owner behavior.
+Per-surface composition	docs/design.md §13	docs/spec/01_architecture_storage_and_view_contracts.md §§6-7; docs/spec/03_workbook_interaction_collaboration_and_workflows.md §16	Do not redefine field membership, surface identity, or write capabilities.
+Accessibility	docs/design.md §14	docs/spec/03_workbook_interaction_collaboration_and_workflows.md §13	Verify non-color cues, names, focus, live regions, contrast, and reduced motion.
+Visual fixtures and selectors	docs/design.md §15	docs/testing-harness-nlspec.md; docs/spec/05_claim_publication_and_benchmark_reproducibility.md only when claim publication applies	Use exact fixture parameters and stable semantic identifiers without promoting readiness evidence to product authority.
+Do/do-not and acceptance	docs/design.md §§17-18	Applicable Core or adopted subsystem acceptance owner	Treat these as design-scope completion checks only.
+Refactor slicing and handoff	docs/handoffs/cartulary_modular_refactor_planning_framework.md §§2-11	Current repository state; docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv	Inspect, freeze contracts, characterize, slice, validate, and hand off without treating framework path examples as code truth.

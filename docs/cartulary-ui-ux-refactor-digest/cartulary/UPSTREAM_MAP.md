@@ -1,46 +1,54 @@
 # Bundled Upstream Material
 
-All files under `upstream/ui-ux-pro-max/` are exact copies from the pinned
-upstream commit. They are included for offline use and source traceability.
+All files under
+`docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/` are exact copies
+from pinned upstream commit
+`4857a2c5ef989794751a0f66b8545a4a49566286`. They are offline advisory
+material, not Cartulary authority.
+
+The original upstream `SKILL.md` contains commands for its native plugin
+location and includes design-system generation/persistence examples. Those
+commands are preserved for provenance and are not Cartulary repository
+commands. Use the repository-root commands in
+`docs/cartulary-ui-ux-refactor-digest/cartulary/QUERY_RECIPES.md`.
 
 ## Default-load files
 
 | File | Use | Cartulary caveat |
-|---|---|---|
-| `SKILL.md` | Workflow, stack detection, domain routing, zero-result behavior. | Its design-system generation is not authoritative for Cartulary. |
-| `references/quick-reference.md` | Scannable index of accessibility, interaction, performance, layout, forms, navigation, and data rules. | Translate mobile/general rules through Cartulary's desktop workbook profile. |
-| `data/ux-guidelines.csv` | Searchable source rows for general UX rules. | Examples may name Tailwind classes; concepts, not classes, are transferable. |
-| `data/stacks/<stack>.csv` | Stack-specific questions and examples. | Query only after detecting the real stack. |
+| --- | --- | --- |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/SKILL.md` | Upstream workflow, domain routing, and zero-result behavior. | Design-system generation is forbidden for Cartulary. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/references/quick-reference.md` | Accessibility, interaction, performance, layout, forms, and navigation index. | Translate mobile/general rules through Cartulary's desktop workbook owners. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/ux-guidelines.csv` | Searchable general UX rows. | Tailwind examples are illustrative only. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/stacks/react.csv` | React-specific advisory rows for the verified stack. | React advice does not override Cartulary package or state ownership. |
 
 ## On-demand files
 
-| File/family | Use | Cartulary caveat |
-|---|---|---|
-| `scripts/search.py`, `core.py` | Standard-library BM25 search over bundled data. | Use explicit domains; no persistence. |
-| `scripts/design_system.py` | Required import for the upstream CLI. | Do not invoke its generation/persistence paths against Cartulary. |
-| `data/react-performance.csv` | React/Next performance review if applicable. | Ignore if the repository is not React/Next. |
-| `data/app-interface.csv` | Native/mobile app concerns. | Only semantic controls, feedback, a11y, contrast, and reduced motion transfer generally. |
-| `data/icons.csv` | Candidate icon concepts. | Map behind Cartulary semantic icon IDs. |
-| `references/pro-rules.md` | Native/mobile polish checklist. | Touch targets, safe areas, mobile viewport, and theme-pair assumptions do not apply 1:1. |
-| Other domain data | Source completeness and optional comparative review. | Do not use product/style/color/landing recommendations as Cartulary authority. |
+| File or family | Use | Cartulary caveat |
+| --- | --- | --- |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py` and `core.py` | Standard-library BM25 search. | Use explicit domains or `--stack react`; do not persist output. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/design_system.py` | Required import for the upstream CLI. | Do not invoke its generation or persistence paths. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/react-performance.csv` | React performance review questions. | Treat as advisory measurement prompts. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/app-interface.csv` | Native/mobile concerns. | Only generally transferable semantic and accessibility concerns apply. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/icons.csv` | Candidate icon concepts. | `docs/design.md` §3.11 owns semantic icon IDs; no standalone implementation registry exists. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/references/pro-rules.md` | Native/mobile polish checklist. | Touch, safe-area, and mobile viewport assumptions do not apply directly. |
+| Other bundled data | Source completeness and optional comparison. | Product, style, color, and landing recommendations remain advisory. |
 
-## Known contradictory upstream defaults
+## Known contradictory defaults
 
-The exact upstream records are:
+The preserved contradictory records are:
 
-- `data/ui-reasoning.csv`, product row `80`, `Cybersecurity Platform`:
-  recommends `Cyberpunk UI + Dark Mode (OLED)`, Matrix green/deep black,
-  threat visualization, and alert animations.
-- `data/colors.csv`, product row `80`, `Cybersecurity Platform`: defines
-  Matrix green and alert red around black/dark surfaces.
+- `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/ui-reasoning.csv`,
+  product row 80, `Cybersecurity Platform`;
+- `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/colors.csv`,
+  product row 80, `Cybersecurity Platform`.
 
-These rows are preserved for provenance and must be classified `REJECT`.
+They recommend Cyberpunk UI, Matrix green/deep black, threat visualization, or
+alert animation and remain classified `REJECT`.
 
-## Why the full skill is included
+## Integrity boundary
 
-The default Cartulary digest remains compact, while the complete search corpus
-lets a local agent retrieve a few relevant rows without network access or
-loading whole catalogs into context. Duplicate CLI distribution assets,
-marketing pages, screenshots, examples, and unrelated premium design skills are
-not included.
-
+`docs/cartulary-ui-ux-refactor-digest/upstream/`,
+`docs/cartulary-ui-ux-refactor-digest/upstream/LICENSE.ui-ux-pro-max.txt`, and
+`docs/cartulary-ui-ux-refactor-digest/meta/source.json` must remain
+byte-for-byte unchanged. Localization belongs only in the Cartulary overlay,
+`meta/localization.json`, the package manifest, and repository guidance.

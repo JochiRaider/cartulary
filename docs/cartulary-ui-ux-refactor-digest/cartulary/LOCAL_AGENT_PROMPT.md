@@ -1,146 +1,171 @@
 # Local Agent Prompt
 
-Refactor Cartulary's UI/UX as a contract-preserving remediation, not a re-theme
-or product redesign.
+Perform a future Cartulary UI/UX refactor only when the user separately
+authorizes implementation. Treat it as contract-preserving remediation, not a
+re-theme or product redesign.
 
-Use the portable digest beside this prompt. Read `cartulary/START_HERE.md` first,
-then load only relevant rows from `cartulary/rules.tsv` and
-`cartulary/acceptance.tsv`. The bundled `upstream/` material is advisory and
-offline-searchable; do not treat it as authority.
+Work from the Cartulary repository root. Read, in order:
 
-## Authority and scope
+1. `AGENTS.md` (the only currently applicable agent-instruction file);
+2. `docs/cartulary-ui-ux-refactor-digest/cartulary/START_HERE.md`;
+3. `docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv`;
+4. relevant rows from
+   `docs/cartulary-ui-ux-refactor-digest/cartulary/OWNER_MAP.tsv`,
+   `rules.tsv`, and `acceptance.tsv`.
 
-1. Treat adopted subsystem NLSpecs and Core 00 through Core 04 as the authorities
-   for current product behavior.
-2. Treat Core 05 as authority only for claim-bearing timed or fixture-sensitive
-   publication.
-3. Treat `docs/design.md` as the authority for observable design behavior inside
-   its declared scope.
-4. Treat the current repository as code truth, not automatic product authority.
-5. If owner documents conflict, report `BLOCKED: owner contradiction`.
-6. Do not create routes, schemas, authorization rules, lifecycle transitions,
-   field membership, write behavior, or compatibility policy from generic UI
-   advice.
-7. Do not generate or persist a second design-system master. Preserve
-   Cartulary's token registry, `dark_graphite` theme, density registry, semantic
-   icon registry, surface contracts, and visual-fixture registry.
-8. Do not infer behavior from labels, DOM hierarchy, CSS classes, component
-   names, grid-vendor coordinates, SQL/projection names, or package icon names.
+The bundled files under
+`docs/cartulary-ui-ux-refactor-digest/upstream/` are immutable offline advisory
+material. Do not treat their original plugin-context commands as Cartulary
+commands.
+
+## Authority
+
+Adopted subsystem authority applies only within each named scope:
+`docs/extension-subsystem-nlspec.md`, `docs/graph_projection_nlspec.md`,
+`docs/network-flow-activity-nlspec.md`,
+`docs/opentelemetry-instrumentation-nlspec.md`,
+`docs/report-composition-nlspec.md`, `docs/reporting-subsystem-nlspec.md`, and
+`docs/testing-harness-nlspec.md`. The draft
+`docs/reference-pack-subsystem-nlspec.md` is not adopted authority.
+
+The exact Core paths are:
+
+1. `docs/spec/00_document_set_status_and_precedence.md`;
+2. `docs/spec/01_architecture_storage_and_view_contracts.md`;
+3. `docs/spec/02_domain_model_schema_and_history.md`;
+4. `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`;
+5. `docs/spec/04_security_deployment_and_conformance.md`;
+6. `docs/spec/05_claim_publication_and_benchmark_reproducibility.md`.
+
+Core 05 applies only to claim-bearing timed or fixture-sensitive publication.
+`docs/design.md` governs observable design behavior inside its scope, and
+`docs/domain.md` governs vocabulary and owner navigation inside its scope.
+`docs/handoffs/cartulary_modular_refactor_planning_framework.md` is
+subordinate planning support; its path examples are not code truth.
+Current code/tests are implementation evidence, not automatic authority.
+
+If owner documents conflict, report `BLOCKED: owner contradiction`. Do not
+create routes, schemas, authorization rules, lifecycle transitions, field
+membership, write behavior, compatibility policy, or a second design system
+from generic UI advice.
+
+## Repository boundaries
+
+Use `REPO_MAP.tsv` as the detailed map. The verified headline boundaries are:
+
+- `apps/web/src/app` / `web.application`: application shell and route state;
+- `apps/web/src/workbook` / `web.workbook`: workbook shell and browser runtime;
+- `packages/grid-adapter` / `package.grid_adapter`: sole direct
+  `react-data-grid` integration;
+- `contracts/view-schemas`: authored view-schema projections;
+- `packages/protocol-ts/src/generated`: generated protocol/view-schema output;
+- `packages/view-contracts` / `package.view_contracts`: authored view adapter;
+- `packages/ui-contracts` / `package.ui`: authored stable selectors and token
+  facade;
+- `packages/test-utils` / `package.test_utils`: reusable semantic test helpers;
+- `apps/web/e2e` and `apps/web/e2e/support`: application-specific browser
+  suites, fixtures, and choreography;
+- `contracts/design/tokens.v1.json`: authored token/theme/density projection;
+- `packages/ui-contracts/src/generated/design-tokens.ts`: generated token
+  output.
+
+Do not infer a functional package from owner ID `package.ui`;
+`packages/ui` currently contains only `.gitkeep`. `docs/design.md` §3.11 owns
+semantic icon IDs, but a standalone implementation icon registry is not
+present. Preserve that conditional boundary rather than inventing one.
+
+Before editing, inspect `tools/generated_artifact_policy.json`. Do not hand-edit
+`internal/gen`, `packages/protocol-ts/src/generated`,
+`packages/ui-contracts/src/generated`, or generated harness/task files. Update
+authored owner inputs and use:
+
+```bash
+make generate
+make generate-drift
+make generated-artifact-policy-check
+```
 
 ## First inspection
 
-Read `AGENTS.md` if present. Record branch, commit, dirty state, scope, and
-whether implementation changes are authorized. Detect the real frontend stack
-from manifests and source. Inventory:
+Record branch, commit, dirty state, allowed scope, and whether behavior changes
+are authorized. Revalidate the stack from `package.json`,
+`pnpm-workspace.yaml`, `apps/web/package.json`, and package imports. The
+localization snapshot found TypeScript/React/Vite, Vitest/Testing Library/jsdom,
+Playwright, Biome, Lucide, and `react-data-grid`; it found no Tailwind or shadcn
+dependency.
 
-- shell and work-area ownership;
-- grid adapter, direct vendor imports, and virtualization;
-- token, semantic icon, and component usage;
-- density selection and propagation;
-- active `view_schema_id` and inspector configuration;
-- row-creation capabilities and affordances;
-- focus, keyboard, paste, commit, cancel, and conflict behavior;
-- `client_txn_id` generation and pending-queue recovery;
-- accessibility, component-state, browser, and visual-fixture coverage;
-- authored versus generated artifacts.
+Inventory only the proposed seam: shell/work-area ownership, grid adapter,
+tokens/density, active view and inspector contracts, creation capability,
+focus/keyboard/paste/edit/conflict behavior, transaction/pending recovery,
+tests, and authored/generated boundaries.
 
-Do not assume React, Tailwind, shadcn, or any grid implementation. Search by
-symbols and contracts, then inspect every file proposed for editing.
+Treat the six concerns in `START_HERE.md` as review hypotheses. Verify current
+behavior and exact owner clauses before calling any concern a defect.
 
-## Work one coherent slice at a time
+## Work one coherent slice
 
-Map public behavior to owner clauses and characterize risky behavior before
-movement. Choose the smallest coherent UI/package seam with a clear stop
-condition. Separate normative corrections from behavior-preserving refactors.
-Keep `/apps/web` responsible for workbook shell/application state, direct grid
-vendor semantics inside `/packages/grid-adapter`, generated view adaptation in
-`/packages/view-contracts`, stable selectors in `/packages/ui-contracts`, and
-browser choreography in `/packages/test-utils`, unless current adopted owners
-define a different boundary.
+Map observable behavior to an exact owner and characterize risky behavior
+before movement. Separate normative corrections from behavior-preserving
+refactors. Keep vendor semantics in `packages/grid-adapter`, app/workbook state
+under its verified `apps/web/src` owner, generated contract output read-only,
+stable selectors in `packages/ui-contracts`, reusable semantic helpers in
+`packages/test-utils`, and application browser choreography in
+`apps/web/e2e/support`.
 
-Prioritize verified instances of these defects:
-
-1. Make density observably change row height, cell padding, typography, editor
-   geometry, and gutter rhythm through shared compact/default/comfortable
-   tokens. Preserve the owner-defined surface-default clear/null state.
-2. Restore row creation for Hosts and Identities only when the active immutable
-   view schema permits it. Keep creation in the grid or view bar.
-3. Correct shell sizing so vertical-only resizing never hides or relocates top
-   navigation, tabs, `System views`, account/application menu, or active query
-   controls. Select chrome from inline size only; manage block size separately.
-4. Derive inspector sections/actions from the active `view_schema_id` and
-   `inspector_config_v1`; keep the inspector default-closed, grid-preserving, and
-   continuity-safe.
-5. Generate new `client_txn_id` values with Web Crypto randomness. Reuse an ID
-   only for uncertain replay of the same logical mutation. Add non-modal queued
-   edit recovery with `Retry with a new request ID` and
-   `Discard blocked edit`.
-6. Preserve single-click committed-cell editing, full keyboard operation, paste,
-   local drafts, deterministic Escape behavior, and field-local validation and
-   conflict feedback.
-
-## Upstream advisory use
-
-Classify every material upstream recommendation as `ADOPT`, `ADAPT`, or
-`REJECT`. Use the bundled search tool only for a targeted concern:
+Classify every material upstream recommendation `ADOPT`, `ADAPT`, or `REJECT`.
+Query only a targeted concern:
 
 ```bash
-python3 upstream/ui-ux-pro-max/scripts/search.py \
+python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "keyboard focus color only error feedback" --domain ux --json
+
+python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+  "virtualized grid rerender focus async state" --stack react -n 8 --json
 ```
 
-If the actual stack is supported, query it explicitly. Do not use
-`--design-system`, `--persist`, or `--force` for Cartulary. Reject the upstream
-Cybersecurity Platform visual defaults: Cyberpunk UI, Matrix green, deep black,
-threat-display, and alert animation.
+Never use upstream `--design-system`, `--persist`, or `--force`. Reject the
+bundled Cybersecurity Platform visual defaults.
 
-## Visual direction
+## Verification
 
-- Keep the grid as the protagonist.
-- Preserve a dense graphite, calm, precise, inspectable workspace.
-- Use warm accent sparingly for focus, selection, primary affirmative action,
-  active grid handles, and limited brand emphasis.
-- Use semantic state colors only with text, shape, marker, or accessible name.
-- Use compact hairlines, neutral surfaces, stable rhythm, semantic icon IDs, and
-  local feedback.
-- Reject neon, glow, cinematic gradients, decorative threat maps, risk
-  heatmaps, card-dashboard dominance, and decorative animation.
-- Do not apply mobile-first layout, 44x44 touch targets, 16px body minimum, or
-  no-horizontal-scroll guidance as unconditional desktop-grid rules.
-- Do not create fake skeleton records inside the authoritative workbook grid.
+Choose an exact owner ID from `REPO_MAP.tsv`, then run its current guidance:
 
-## Quality gates
+```bash
+make task-guide ROLE=module-author OWNER=web.application
+make task-guide ROLE=module-author OWNER=web.workbook
+make task-guide ROLE=module-author OWNER=package.grid_adapter
+make task-guide ROLE=module-author OWNER=package.view_contracts
+make task-guide ROLE=module-author OWNER=package.ui
+make task-guide ROLE=module-author OWNER=package.test_utils
+make task-guide ROLE=module-author OWNER=web.design
+make task-guide ROLE=module-author OWNER=harness.browser
+```
 
-- Exercise every declared component state and compound-state precedence.
-- Verify pointer and keyboard parity, visible focus, deterministic restoration,
-  accessible names, live-region behavior, contrast, non-color cues, and reduced
-  motion.
-- Verify loading, refreshing, successful empty, filtered empty, unauthorized,
-  unavailable, stale refresh, closed/read-only, conflict, replay recovery, and
-  evidence lifecycle states.
-- Preserve previous authorized rows during background refresh and show status
-  separately.
-- Run exact declared `D-VFIX-*` viewports and retain expected, actual, diff, and
-  metadata when required.
-- Use selectors based on fixture ID, `view_schema_id`, `record_id`, `field_key`,
-  and semantic icon ID.
-- Do not test literal specification prose, line positions, document hashes,
-  formatting, or documentation structure. Use versioned owner-governed
-  machine-readable artifacts for derived machine-testable facts.
+Use the returned focused slice command. Add only the public readiness targets
+required by the seam:
+
+```bash
+make frontend-typecheck
+make frontend-unit
+make frontend-import-boundary-check
+make browser-e2e-webserver-backed
+make browser-e2e-a11y
+make browser-e2e-visual
+```
+
+`harness.visual` is a verification/fixture owner but is not accepted by
+`make task-guide`; its public entry point is `make browser-e2e-visual`.
+
+Test stable semantic identities and production-relevant outcomes. Never bind
+tests to literal specification prose, documentation paths, line positions,
+hashes, formatting, DOM hierarchy, CSS classes, vendor coordinates, or package
+icon names.
 
 ## Required handoff
 
-For every changed behavior, report:
-
-- owner clause/requirement;
-- before/after behavior;
-- implementation paths;
-- validation commands and results;
-- evidence artifact;
-- upstream classification if it affected the decision;
-- intentionally deferred issue and next safe slice.
-
-Do not claim completion until every applicable row in
-`cartulary/acceptance.tsv` is `PASS`, `N/A` with rationale, or explicitly
-`BLOCKED`.
-
+For every changed behavior, report the exact owner clause, before/after
+behavior, implementation paths, validation commands/results, retained evidence,
+material upstream classification, deferred issues, and next safe slice. Do not
+claim completion until every applicable
+`docs/cartulary-ui-ux-refactor-digest/cartulary/acceptance.tsv` row is `PASS`,
+`N/A` with rationale, or explicitly `BLOCKED`.

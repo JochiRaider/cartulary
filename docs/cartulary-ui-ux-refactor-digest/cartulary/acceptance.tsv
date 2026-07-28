@@ -1,7 +1,7 @@
 id	scope	pass_condition	required_evidence
 A001	Authority	Every observable behavior change maps to an adopted owner; no advisory source became authority.	Owner-to-change map
 A002	Scope	One coherent seam is changed; behavior corrections are separated from structural refactors.	Scope and diff review
-A003	Repository state	Actual stack, owners, generated paths, direct grid imports, tests, and dirty state were inspected.	Inventory
+A003	Repository state	Actual stack, owners, generated paths, direct grid imports, tests, and dirty state were inspected and any localization drift was recorded.	docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv plus git status
 A004	Tokens	No component-local design literal or second token/theme/density registry was introduced.	Token audit
 A005	Theme	Only current owner-supported dark_graphite behavior is exposed; no generated cybersecurity palette appears.	Theme fixture and diff
 A006	Density	Selector changes row height, cell padding, typography, editor geometry, and gutters through shared tokens.	Density fixtures
@@ -17,12 +17,12 @@ A015	Conflict	Affected cell is primary locus; saved value and local draft remain
 A016	Async states	Loading, refresh, success-empty, filtered-empty, unauthorized, unavailable, stale, and error are distinct.	State matrix
 A017	Refresh	Prior authorized rows remain visible during background refresh and failure unless owner requires removal.	Refresh fixture
 A018	Evidence	Required evidence lifecycle/overlay/preview combinations remain distinct and non-color encoded.	Evidence matrix fixture
-A019	Accessibility	Keyboard parity, visible focus, names, live regions, contrast, non-color cues, and reduced motion pass.	A11y report and fixtures
+A019	Accessibility	Keyboard parity, visible focus, names, live regions, contrast, non-color cues, and reduced motion pass.	make browser-e2e-a11y plus owner slice
 A020	Components	Every declared component variant and compound-state precedence renders deterministically.	Component matrix fixture
 A021	Virtualization	All result sizes use stable virtualized workbook rows without focus, identity, or scroll corruption.	Performance/continuity evidence
-A022	Visual fixtures	Applicable D-VFIX cases run at exact viewport, theme, density, scroll, mask, and crop settings.	Expected/actual/diff/metadata
-A023	Selectors	Tests use fixture ID, view_schema_id, record_id, field_key, semantic icon ID, or owner state/capability.	Selector audit
+A022	Visual fixtures	Applicable D-VFIX cases run at exact viewport, theme, density, scroll, mask, and crop settings.	tools/frontend_visual_fixture_registry.json; make browser-e2e-visual
+A023	Selectors	Tests use fixture ID, view_schema_id, record_id, field_key, semantic icon ID, or owner state/capability.	packages/ui-contracts/src/index.ts and make test-slice OWNER=package.ui
 A024	Test authority	No test binds conformance to literal spec prose, paths, line numbers, hashes, formatting, or documentation structure.	Test audit
-A025	Generated artifacts	Generated files are changed only through their owner generator and drift checks pass.	Generator command and drift result
+A025	Generated artifacts	Generated files are changed only through authored owner inputs and the repository generator; policy and drift checks pass.	make generate; make generate-drift; make generated-artifact-policy-check
 A026	Boundary	No route, schema, field, write, auth, lifecycle, storage, evidence, or compatibility behavior was invented.	Owner boundary review
 A027	Handoff	Changed behavior, owner, paths, commands, results, evidence, deferrals, and next slice are recorded.	Handoff record

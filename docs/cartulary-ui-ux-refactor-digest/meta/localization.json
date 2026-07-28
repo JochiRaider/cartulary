@@ -1,0 +1,118 @@
+{
+  "localization_date": "2026-07-28",
+  "repository_relative_digest_location": "docs/cartulary-ui-ux-refactor-digest",
+  "repository_commit": "b3fe76c69390456910c14d69e98ef59656b6fcf1",
+  "branch": "main",
+  "dirty_state_summary": {
+    "before_localization": "clean",
+    "after_localization": "Exactly the 12 paths in files_changed_during_localization are modified or untracked; there are no product, generated-product, dependency, lockfile, upstream, provenance, or unrelated changes.",
+    "unrelated_user_changes_preserved": true
+  },
+  "frontend_stack": {
+    "language": {
+      "name": "TypeScript",
+      "version": "6.0.2"
+    },
+    "framework": {
+      "name": "React",
+      "version": "19.2.5"
+    },
+    "bundler": {
+      "name": "Vite",
+      "version": "8.0.8"
+    },
+    "unit_and_component_tests": {
+      "runner": "Vitest 4.1.4",
+      "libraries": [
+        "@testing-library/dom 10.4.1",
+        "@testing-library/react 16.3.2",
+        "@testing-library/user-event 14.6.1",
+        "jsdom 26.1.0"
+      ]
+    },
+    "browser_tests": {
+      "runner": "Playwright",
+      "version": "1.59.1"
+    },
+    "formatter_and_linter": {
+      "name": "Biome",
+      "version": "2.4.12"
+    },
+    "grid": {
+      "vendor": "react-data-grid",
+      "version": "7.0.0-beta.59",
+      "integration_boundary": "packages/grid-adapter",
+      "workspace_package": "@cartulary/grid-adapter"
+    },
+    "icons": {
+      "library": "lucide-react",
+      "declared_version": "^1.18.0",
+      "semantic_authority": "docs/design.md section 3.11",
+      "standalone_implementation_registry": "NOT PRESENT"
+    },
+    "tailwind_dependency_present": false,
+    "shadcn_dependency_present": false
+  },
+  "package_manager": {
+    "name": "pnpm",
+    "version": "10.33.0",
+    "declaration": "package.json packageManager"
+  },
+  "workspace_tool": {
+    "name": "pnpm workspaces",
+    "manifest": "pnpm-workspace.yaml",
+    "package_patterns": [
+      "apps/web",
+      "packages/*"
+    ],
+    "store_directory": ".pnpm-store",
+    "separate_task_orchestration_tool": "NOT PRESENT",
+    "public_command_surface": "Makefile"
+  },
+  "files_changed_during_localization": [
+    ".gitignore",
+    "docs/cartulary-ui-ux-refactor-digest/MANIFEST.sha256",
+    "docs/cartulary-ui-ux-refactor-digest/README.md",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/LOCAL_AGENT_PROMPT.md",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/OWNER_MAP.tsv",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/QUERY_RECIPES.md",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/START_HERE.md",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/UPSTREAM_MAP.md",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/acceptance.tsv",
+    "docs/cartulary-ui-ux-refactor-digest/cartulary/rules.tsv",
+    "docs/cartulary-ui-ux-refactor-digest/meta/localization.json"
+  ],
+  "unresolved_mappings": [
+    {
+      "concept": "standalone semantic icon implementation registry",
+      "status": "NOT PRESENT",
+      "qualification": "docs/design.md section 3.11 owns semantic icon identifiers, while implementation files import lucide-react directly."
+    },
+    {
+      "concept": "harness.visual task-guide owner",
+      "status": "NOT PRESENT",
+      "qualification": "contracts/verification/owners/harness.visual.json owns the fixture contract, but tools/test_catalog_owner.json does not list harness.visual as an active task-guide owner; use make browser-e2e-visual."
+    },
+    {
+      "concept": "functional packages/ui implementation",
+      "status": "NOT PRESENT",
+      "qualification": "packages/ui contains only .gitkeep; the active owner ID package.ui routes packages/ui-contracts tests for selectors and the generated design-token projection and must not be treated as this directory."
+    }
+  ],
+  "contradictions_and_qualifications": [
+    {
+      "artifact": "docs/report-composition-nlspec.md",
+      "issue": "The front matter contains duplicate document_version keys with values 1.1.0 and 1.1.1.",
+      "localization_treatment": "Record the adopted document path and status without guessing a version."
+    },
+    {
+      "artifact": "docs/reference-pack-subsystem-nlspec.md",
+      "issue": "The document is present but its front matter status is Draft.",
+      "localization_treatment": "Do not list it among adopted subsystem authorities."
+    }
+  ],
+  "original_upstream_commit": "4857a2c5ef989794751a0f66b8545a4a49566286",
+  "bundled_upstream_modified": false,
+  "source_provenance_modified": false
+}
