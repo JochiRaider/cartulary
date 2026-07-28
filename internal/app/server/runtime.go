@@ -703,7 +703,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	incidentRoutes := incidents.RegisterRoutes(incidents.RouteOptions{
 		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
 	})
-	incidentBundleImportFinalizer := incidents.NewStore(postgresHandle)
+	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer()
 	timelineBundle := timelineassembly.NewBundle(
 		postgresHandle,
 		conflicttokens.NewConflictTokenCodec(keys),

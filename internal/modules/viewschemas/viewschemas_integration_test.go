@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestViewSchemasDiscoveryHTTP(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "view-schemas-discovery")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "view-schemas-discovery")
 	login, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	t.Run("allows any active authenticated deployment user", func(t *testing.T) {

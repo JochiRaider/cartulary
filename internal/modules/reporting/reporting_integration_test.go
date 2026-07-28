@@ -15,13 +15,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reporting-provenance")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-provenance")
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -282,8 +283,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 }
 
 func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reporting-lifecycle")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-lifecycle")
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
@@ -426,8 +427,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 }
 
 func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reporting-idempotency")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-idempotency")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -611,8 +612,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 }
 
 func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reporting-shape-auth")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-shape-auth")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
@@ -1340,7 +1341,7 @@ SELECT source_boundary_json
 	}
 }
 
-func createWorkbookNote(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) {
+func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t,
@@ -1357,7 +1358,7 @@ func createWorkbookNote(t testing.TB, harness *scenariotest.ServerHarness, login
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)
 }
 
-func queryLiveWorkbookRowsJSON(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string) string {
+func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string) string {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t,
@@ -1587,7 +1588,7 @@ func contentClassForExportPath(path string) string {
 	}
 }
 
-func requireSucceededJobResourceID(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantKind string) string {
+func requireSucceededJobResourceID(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantKind string) string {
 	t.Helper()
 	jobID := job["job_id"].(string)
 	finalJob := requireJobStatus(t, harness, actor, jobID, "succeeded")
@@ -1606,7 +1607,7 @@ func requireSucceededJobResourceID(t testing.TB, harness *scenariotest.ServerHar
 	return ref["id"].(string)
 }
 
-func requireFailedReleaseJob(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantReason string) string {
+func requireFailedReleaseJob(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantReason string) string {
 	t.Helper()
 	finalJob := requireJobStatus(t, harness, actor, job["job_id"].(string), "failed")
 	summary := finalJob["error_summary"].(map[string]any)
@@ -1620,7 +1621,7 @@ func requireFailedReleaseJob(t testing.TB, harness *scenariotest.ServerHarness, 
 	return details["release_id"].(string)
 }
 
-func requireJobStatus(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
+func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var last map[string]any
@@ -1648,7 +1649,7 @@ func requireJobStatus(t testing.TB, harness *scenariotest.ServerHarness, actor f
 	return nil
 }
 
-func requireSnapshot(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, snapshotID string) map[string]any {
+func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, snapshotID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t,
@@ -1662,7 +1663,7 @@ func requireSnapshot(t testing.TB, harness *scenariotest.ServerHarness, actor fl
 	return resource
 }
 
-func requireRelease(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, releaseID string) map[string]any {
+func requireRelease(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, releaseID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t,

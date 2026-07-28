@@ -16,13 +16,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbookPreferencePointers_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "saved_view_query-workbook-prefs-u-8-05")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-prefs-u-8-05")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-05-incident",
@@ -105,18 +106,23 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 }
 
 func TestWorkbookStartupFallback_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	deps := httpapi.DependencySet{
 		ModuleOverrides: map[string]any{
 			networkflow.KeyRingsOverrideKey: NetworkFlowHarnessKeyRings(t),
 		},
 	}
-	harness := runtime.StartServerWithDependenciesAndEnv(t, "saved_view_query-workbook-startup-i-8-02", deps, map[string]string{
-		"CARTULARY__IMPORT__CLAIMED":                               "true",
-		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
-		"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
-		"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-		"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:       "saved_view_query-workbook-startup-i-8-02",
+		Dependencies: deps,
+		Env: map[string]string{
+			"CARTULARY__IMPORT__CLAIMED":                               "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -260,8 +266,8 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 }
 
 func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-02-base-incident",

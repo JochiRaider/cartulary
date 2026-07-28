@@ -11,12 +11,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-jobapi-incident-auth")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-incident",
@@ -75,8 +76,8 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 }
 
 func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-jobapi-deployment-auth")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-deployment-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	submitterPassword := "SubmitterPassphrase11!"
 	otherPassword := "OtherPassphrase11!"
@@ -113,8 +114,8 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 }
 
 func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-jobapi-incident-admin-member-auth")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-admin-member-auth")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-admin-member-incident",

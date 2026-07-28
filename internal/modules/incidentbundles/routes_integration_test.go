@@ -31,12 +31,13 @@ import (
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
-	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-export")
+	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
@@ -108,7 +109,7 @@ func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 }
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
-	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-export-auth")
+	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export-auth")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
@@ -200,8 +201,8 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 }
 
 func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-source")
+	runtime := appsupport.StartRuntime(t)
+	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
@@ -492,8 +493,8 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 }
 
 func TestIncidentBundleV1TranslationIsLossless_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "incident-bundle-v1-translation-source")
+	runtime := appsupport.StartRuntime(t)
+	sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-v1-translation-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-v1-translation-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
@@ -591,8 +592,8 @@ SELECT encode(source_identity_hash, 'hex'), source_row_ordinal,
 }
 
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-finalize-source")
+	runtime := appsupport.StartRuntime(t)
+	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-finalize-source")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-finalize-source",
@@ -679,8 +680,8 @@ func recoverIncidentBundleJobsThroughGate(t testing.TB, server *httptestx.Server
 }
 
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-supersede-source")
+	runtime := appsupport.StartRuntime(t)
+	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-supersede-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-supersede-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
@@ -732,8 +733,8 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 }
 
 func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	sourceHarness := runtime.StartServer(t, "extension_profile-incident-bundle-failure-source")
+	runtime := appsupport.StartRuntime(t)
+	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-failure-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
@@ -917,7 +918,7 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
-	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-network-flow-block")
+	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-network-flow-block")
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-network-flow-block",
@@ -951,7 +952,7 @@ UPDATE network_flow_tables
 }
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
-	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-descriptor-canonical")
+	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-descriptor-canonical")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-descriptor-canonical",
@@ -1066,7 +1067,7 @@ INSERT INTO network_flow_tables (
 }
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
-	harness := scenariotest.StartRuntime(t).StartServer(t, "extension_profile-incident-bundle-envelope-failures")
+	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-envelope-failures")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
 	cases := []struct {
@@ -1213,7 +1214,7 @@ type seededIncidentBundlePortableState struct {
 	NonReversibleChangeSetID string
 }
 
-func seedIncidentBundlePortableState(t testing.TB, harness *scenariotest.ServerHarness, incidentID string, timelineRecordID string, actorUserID string) seededIncidentBundlePortableState {
+func seedIncidentBundlePortableState(t testing.TB, harness *appsupport.ServerHarness, incidentID string, timelineRecordID string, actorUserID string) seededIncidentBundlePortableState {
 	t.Helper()
 	ctx := context.Background()
 	incidentUUID := uuid.MustParse(incidentID)
@@ -2185,12 +2186,12 @@ SELECT count(*)
 	}
 }
 
-func startIsolatedIncidentBundleServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) *scenariotest.ServerHarness {
+func startIsolatedIncidentBundleServer(t testing.TB, runtime *appsupport.Runtime, prefix string) *appsupport.ServerHarness {
 	t.Helper()
 	return startIsolatedIncidentBundleServerWithEnv(t, runtime, prefix, nil)
 }
 
-func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, extraEnv map[string]string) *scenariotest.ServerHarness {
+func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.Runtime, prefix string, extraEnv map[string]string) *appsupport.ServerHarness {
 	t.Helper()
 	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
 	bucket, err := runtime.S3.BootstrapBucket(context.Background(), prefix)
@@ -2213,7 +2214,7 @@ func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *scenariotes
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
-	return &scenariotest.ServerHarness{Server: server, DB: db}
+	return &appsupport.ServerHarness{Server: server, DB: db}
 }
 
 func compareSourceTargetCount(t testing.TB, source *sql.DB, target *sql.DB, query string, incidentID string, label string) {
@@ -2267,7 +2268,7 @@ func jsonRaw(t testing.TB, value any) []byte {
 	return payload
 }
 
-func exportBundleBytes(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) []byte {
+func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) []byte {
 	t.Helper()
 	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, login, map[string]any{
 		"incident_id":   incidentID,
@@ -2361,7 +2362,7 @@ func timelineCellValue(t testing.TB, row map[string]any, fieldKey string) any {
 	return cell["value"]
 }
 
-func assertImportFailureLeavesState(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) {
+func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) {
 	t.Helper()
 	before := snapshotImportFailureState(t, harness, incidentID)
 	resp := postImport(t, harness.Server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
@@ -2422,7 +2423,7 @@ func (s importFailureState) equal(other importFailureState) bool {
 		slices.Equal(s.ImportedObjectKeys, other.ImportedObjectKeys)
 }
 
-func snapshotImportFailureState(t testing.TB, harness *scenariotest.ServerHarness, incidentID string) importFailureState {
+func snapshotImportFailureState(t testing.TB, harness *appsupport.ServerHarness, incidentID string) importFailureState {
 	t.Helper()
 	return importFailureState{
 		IncidentRows:            countRows(t, harness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID),
@@ -2449,7 +2450,7 @@ func objectKeysWithPrefix(t testing.TB, store objectstore.Store, prefix string) 
 	return keys
 }
 
-func seedMissingIncidentBundleBlob(t testing.TB, harness *scenariotest.ServerHarness, incidentID string, actorUserID string) {
+func seedMissingIncidentBundleBlob(t testing.TB, harness *appsupport.ServerHarness, incidentID string, actorUserID string) {
 	t.Helper()
 	missingBytes := []byte("incident-bundle missing blob fixture")
 	sha := hashHexBytes(missingBytes)

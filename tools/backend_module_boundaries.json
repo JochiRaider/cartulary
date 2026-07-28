@@ -279,6 +279,16 @@
       "production_only": true
     },
     {
+      "id": "incidents-no-workbook-startup-or-platform-ws",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/workbook/startup",
+        "github.com/JochiRaider/cartulary/internal/platform/ws"
+      ],
+      "scan_paths": ["internal/modules/incidents/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "timeline-no-tabular-parser-implementations",
       "imports": [
         "archive/zip",
@@ -587,6 +597,18 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "retired-incidents-store-api",
+      "tokens": [
+        "type Store struct",
+        "func NewStore(",
+        "func NewStoreWithOptions(",
+        "type StoreOptions struct"
+      ],
+      "scan_paths": ["internal/modules/incidents/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
     {
       "id": "root-capability-consumers-no-raw-filesystem-mutation",
       "tokens": [

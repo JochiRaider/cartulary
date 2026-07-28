@@ -20,27 +20,23 @@ type Access interface {
 }
 
 type AccessService struct {
-	store *Store
+	repository *repository
 }
 
 func NewAccess(db postgres.DB) *AccessService {
-	return &AccessService{store: NewStore(db)}
-}
-
-func AccessFromStore(store *Store) *AccessService {
-	return &AccessService{store: store}
+	return &AccessService{repository: newRepository(db)}
 }
 
 func (s *AccessService) GetVisibleIncident(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (IncidentRecord, error) {
-	return s.store.GetVisibleIncident(ctx, incidentID, userID)
+	return s.repository.getVisibleIncident(ctx, incidentID, userID)
 }
 
 func (s *AccessService) GetIncidentMembershipForUser(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, error) {
-	return s.store.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	return s.repository.getMembership(ctx, incidentID, userID)
 }
 
 func (s *AccessService) EnsureOpenTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return ensureIncidentOpenTx(ctx, tx, incidentID)
+	return newRepository(tx).ensureOpen(ctx, incidentID)
 }
 
 func (s *AccessService) IsIncidentClosed(err error) bool {

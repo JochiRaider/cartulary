@@ -11,13 +11,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-membership-replay")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-membership-replay")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
@@ -108,8 +109,8 @@ SELECT COUNT(*)
 }
 
 func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-incident-audit")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-incident-audit")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -164,8 +165,8 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 }
 
 func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-membership-audit")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-membership-audit")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)

@@ -319,3 +319,12 @@ SELECT COUNT(*)
 FROM incident_memberships
 WHERE incident_id = $1
   AND role = 'admin';
+
+-- name: GetIncidentBundleInitialAdminForUpdate :one
+SELECT
+    display_name,
+    is_active,
+    is_deployment_admin
+FROM users
+WHERE id = $1
+FOR UPDATE;

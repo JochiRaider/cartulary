@@ -17,13 +17,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "network-flow-routes-unclaimed")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "network-flow-routes-unclaimed")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-unclaimed-incident",
@@ -41,7 +42,7 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 }
 
 func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-query", claimedNetworkFlowDependenciesForRouteTest(t))
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
@@ -298,7 +299,7 @@ func requireNoNetworkFlowResourceChange(t testing.TB, messages <-chan platformws
 }
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", claimedNetworkFlowDependenciesForRouteTest(t))
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)

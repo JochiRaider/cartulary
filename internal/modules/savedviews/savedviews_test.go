@@ -32,8 +32,8 @@ import (
 )
 
 func TestSavedViewCreateDefaults_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "saved_view_query-savedviews-u-8-02")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-u-8-02")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-incident",
@@ -333,8 +333,8 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 }
 
 func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-layout-evolution-incident",
@@ -393,7 +393,7 @@ func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 }
 
 func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	fixtureBody := map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"display_name":   "  Harness system view  ",
@@ -401,7 +401,7 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 		"layout_json":    map[string]any{},
 	}
 
-	harness := runtime.StartServer(t, "savedviews-system-fixture-unregistered")
+	harness := runtime.StartDefaultServer(t, "savedviews-system-fixture-unregistered")
 	unregisteredResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -414,8 +414,12 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 }
 
 func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithRoutes(t, "savedviews-system-fixture", savedviews.RegisterTestRoutes())
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:           "savedviews-system-fixture",
+		AdditionalRoutes: []httpapi.RouteRegistrar{savedviews.RegisterTestRoutes()},
+		TestRouteMode:    httptestx.TestRouteModeHarnessOwned,
+	})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-savedviews-system-fixture-incident",
@@ -648,8 +652,8 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 }
 
 func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "saved_view_query-savedviews-i-8-01")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-i-8-01")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-01-incident",

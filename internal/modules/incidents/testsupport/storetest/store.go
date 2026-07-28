@@ -59,7 +59,7 @@ func PostgresReplayDatabase(db postgres.DB) ReplayDatabase {
 
 func CreateIncidentInStore(
 	t testing.TB,
-	store *incidents.Store,
+	store *incidents.Application,
 	actor authn.UserRecord,
 	request incidents.CreateIncidentRequest,
 ) incidents.CreateIncidentResult {
@@ -89,7 +89,7 @@ func CreateMembershipInStore(
 ) incidents.MembershipCreateResult {
 	t.Helper()
 
-	store := incidents.NewStore(pool)
+	store := incidents.NewApplication(pool)
 	result, err := store.CreateMembership(
 		context.Background(),
 		actor,

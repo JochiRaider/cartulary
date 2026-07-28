@@ -103,7 +103,7 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 func createMergeProtectedSetIncident(t testing.TB, db postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewStore(db)
+	store := incidents.NewApplication(db)
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,

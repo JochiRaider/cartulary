@@ -16,14 +16,15 @@ import (
 	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 func TestIncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-u-2-02")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-02")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
@@ -225,8 +226,8 @@ func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []routeinventory.
 }
 
 func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-u-2-03")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-03")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
@@ -249,8 +250,8 @@ func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) 
 }
 
 func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-u-2-04")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-04")
 
 	firstActor, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	firstCreate := httptestx.DoJSON(
@@ -320,8 +321,8 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 }
 
 func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-u-2-06")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-06")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -428,8 +429,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 }
 
 func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-u-2-07")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-07")
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

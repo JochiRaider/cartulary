@@ -28,10 +28,10 @@ import (
 )
 
 func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("persists incident membership workbook preferences and audit attribution", func(t *testing.T) {
-		harness := runtime.StartServer(t, "incident_membership-i-2-01-persist")
+		harness := runtime.StartDefaultServer(t, "incident_membership-i-2-01-persist")
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(
@@ -119,7 +119,11 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 	})
 
 	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
-		harness := runtime.StartServerWithTestDependencies(t, "incident_membership-i-2-01-rollback", appsupport.IncidentCreateCommitFaultDependencies())
+		harness := runtime.StartServer(t, appsupport.ServerOptions{
+			Prefix:        "incident_membership-i-2-01-rollback",
+			Dependencies:  appsupport.IncidentCreateCommitFaultDependencies(),
+			TestRouteMode: httptestx.TestRouteModeHarnessOwned,
+		})
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(
@@ -171,8 +175,8 @@ SELECT COUNT(*)
 }
 
 func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-i-2-02")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-i-2-02")
 	normalizedIncidentKey := "IR-\u00C9-202"
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -468,8 +472,8 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 }
 
 func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-i-2-04")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-i-2-04")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -564,8 +568,8 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 }
 
 func TestMembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-i-2-07")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-i-2-07")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-i207-target@example.test", "Incident administration I207 Target", "IncidentMembershipI207TargetPass!", false, false, true)
@@ -631,8 +635,8 @@ SELECT role, membership_version
 }
 
 func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-i-2-06")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-i-2-06")
 
 	_, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)

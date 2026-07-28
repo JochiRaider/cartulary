@@ -17,7 +17,7 @@ import (
 )
 
 type Service struct {
-	store                *Store
+	application          *Application
 	authStore            *authn.Store
 	collaborationSession CollaborationSessionPort
 	keys                 authn.MasterKeys
@@ -74,7 +74,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:                NewStore(deps.PostgresHandle()),
+		application:          NewApplication(deps.PostgresHandle()),
 		authStore:            authn.NewStore(deps.PostgresHandle()),
 		collaborationSession: options.CollaborationSession,
 		keys:                 keys,
@@ -193,7 +193,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 			return
 		}
-		records, listErr := s.store.ListVisibleIncidents(r.Context(), principal.User.ID, pageRequest)
+		records, listErr := s.application.ListVisibleIncidents(r.Context(), principal.User.ID, pageRequest)
 		if listErr != nil {
 			writeAPIError(w, r, internalAPIError(listErr))
 			return
@@ -241,7 +241,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		result, err := s.store.CreateIncident(r.Context(), principal.User, request, IncidentCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateIncident(r.Context(), principal.User, request, IncidentCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -291,7 +291,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			record, err := s.store.GetVisibleIncident(r.Context(), incidentID, principal.User.ID)
+			record, err := s.application.GetVisibleIncident(r.Context(), incidentID, principal.User.ID)
 			if errors.Is(err, ErrIncidentNotFound) {
 				writeAPIError(w, r, incidentNotFoundError())
 				return
@@ -323,7 +323,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			record, _, err := s.store.UpdateIncident(r.Context(), principal.User, incidentID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
+			record, _, err := s.application.UpdateIncident(r.Context(), principal.User, incidentID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
 			var versionConflict *IncidentVersionConflictError
 			switch {
 			case errors.Is(err, ErrIncidentNotFound):
@@ -398,7 +398,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.TransitionIncidentLifecycle(
+	result, err := s.application.TransitionIncidentLifecycle(
 		r.Context(),
 		principal.User,
 		incidentID,
@@ -459,7 +459,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		records, listErr := s.store.ListMemberships(r.Context(), incidentID)
+		records, listErr := s.application.ListMemberships(r.Context(), incidentID)
 		if listErr != nil {
 			writeAPIError(w, r, internalAPIError(listErr))
 			return
@@ -524,7 +524,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			"email":         request.Email,
 			"role":          request.Role,
 		})
-		result, err := s.store.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -564,7 +564,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		record, _, err := s.store.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
+		record, _, err := s.application.UpdateMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, ErrMembershipNotFound):
 			writeAPIError(w, r, membershipNotFoundError())
@@ -600,7 +600,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if err := s.store.DeleteMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context())); err != nil {
+		if err := s.application.DeleteMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context())); err != nil {
 			switch {
 			case errors.Is(err, ErrMembershipNotFound):
 				writeAPIError(w, r, membershipNotFoundError())
@@ -629,7 +629,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {
-	record, err := s.store.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.application.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, ErrMembershipNotFound) {
 		return MembershipRecord{}, IncidentAccessError(nil, false)
 	}

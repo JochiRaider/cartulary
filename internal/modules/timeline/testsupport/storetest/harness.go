@@ -5,13 +5,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type StoreHarness struct {
 	DB        postgres.DB
-	Incidents *incidents.Store
+	Incidents *incidents.Application
 }
 
 func StartStore(t testing.TB, prefix string) *StoreHarness {
@@ -19,5 +18,5 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.BeginRollbackDBT(t, prefix)
-	return &StoreHarness{DB: db, Incidents: appsupport.NewIncidentStore(db)}
+	return &StoreHarness{DB: db, Incidents: incidents.NewApplication(db)}
 }

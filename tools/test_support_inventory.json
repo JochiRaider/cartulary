@@ -35,7 +35,7 @@
       "runtime_scan": "excluded",
       "support_scan": "included",
       "service_starting": true,
-      "rationale": "Incident scenario, route, mutation, fault, and store helpers for incident-owned tests."
+      "rationale": "Incident HTTP scenarios, route inventories, mutation evidence, fault dependencies, and owner-local store fixtures."
     },
     {
       "path": "internal/modules/indicators/testsupport",

@@ -4928,6 +4928,129 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
   }
 });
 
+test("backend module boundary rejects Incidents production dependencies and excludes test imports", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "incidents-boundary."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/incidents/workbook_startup.go",
+      'package incidents\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/private"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/incidents/platform_ws.go",
+      'package incidents\n\nimport _ "github.com/JochiRaider/cartulary/internal/platform/ws/transport"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/incidents/boundary_test.go",
+      'package incidents\n\nimport (\n\t_ "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"\n\t_ "github.com/JochiRaider/cartulary/internal/platform/ws"\n)\n',
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(
+      result.status,
+      0,
+      `synthetic Incidents production violations unexpectedly passed: ${result.stdout}`,
+    );
+    const report = JSON.parse(result.stdout.trim());
+    assert.deepEqual(
+      report.violations
+        .filter((violation) => violation.code === "forbidden_go_import")
+        .map((violation) => [
+          violation.path,
+          violation.symbol_or_import,
+        ])
+        .sort(),
+      [
+        [
+          "internal/modules/incidents/platform_ws.go",
+          "github.com/JochiRaider/cartulary/internal/platform/ws/transport",
+        ],
+        [
+          "internal/modules/incidents/workbook_startup.go",
+          "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/private",
+        ],
+      ],
+      `Incidents production-only import violations differed: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.every(
+        (violation) => violation.path !== "internal/modules/incidents/boundary_test.go",
+      ),
+      `Incidents test import was incorrectly scanned as production: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("backend module boundary rejects the retired Incidents Store API", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "incidents-store-retirement."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/incidents/legacy_store.go",
+      [
+        "package incidents",
+        "",
+        "type Store struct{}",
+        "type StoreOptions struct{}",
+        "func NewStore() *Store { return &Store{} }",
+        "func NewStoreWithOptions(StoreOptions) *Store { return &Store{} }",
+        "",
+      ].join("\n"),
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(
+      result.status,
+      0,
+      `synthetic retired Incidents Store API unexpectedly passed: ${result.stdout}`,
+    );
+    const report = JSON.parse(result.stdout.trim());
+    assert.deepEqual(
+      report.violations
+        .filter(
+          (violation) =>
+            violation.code === "forbidden_source_token" &&
+            violation.symbol_or_import.startsWith("retired-incidents-store-api:"),
+        )
+        .map((violation) => violation.symbol_or_import)
+        .sort(),
+      [
+        "retired-incidents-store-api:func NewStore(",
+        "retired-incidents-store-api:func NewStoreWithOptions(",
+        "retired-incidents-store-api:type Store struct",
+        "retired-incidents-store-api:type StoreOptions struct",
+      ],
+      `retired Incidents Store API violations differed: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("backend module boundary consumes test support inventory scan exclusions", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary-support."));
   try {

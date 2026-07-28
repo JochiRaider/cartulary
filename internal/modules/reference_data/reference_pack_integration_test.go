@@ -28,8 +28,8 @@ import (
 )
 
 func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-import")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-import")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	bundle := referencePackBundle(t, bundleOptions{
@@ -125,8 +125,8 @@ SELECT rp.bundle_storage_ref, rpjp.bundle_staging_ref
 }
 
 func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-lifecycle")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-lifecycle")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-asset-v1")
@@ -194,8 +194,8 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 }
 
 func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-failures")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-failures")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-prior-v1")
@@ -249,8 +249,8 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 	})
 	defer restoreHook()
 
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-async-admission")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-async-admission")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-queued-import"}`, referencePackBundle(t, bundleOptions{
@@ -302,9 +302,9 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 }
 
 func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	t.Run("claimed profile seeds the exact minimum", func(t *testing.T) {
-		harness := runtime.StartServer(t, "extension_profile-reference-pack-minimum-disconnected")
+		harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-minimum-disconnected")
 		rows, err := harness.DB.Query(`
 SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verification_method,
        rpas.active_version, rp.bundle_storage_ref
@@ -345,7 +345,7 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 	})
 
 	t.Run("unclaimed profile stays quiescent", func(t *testing.T) {
-		unclaimed := runtime.Runtime.StartServer(t, appsupport.ServerOptions{
+		unclaimed := runtime.StartServer(t, appsupport.ServerOptions{
 			Prefix: "extension_profile-reference-pack-unclaimed",
 			Env: map[string]string{
 				"CARTULARY__REFERENCE_PACK__CLAIMED": "false",
@@ -361,8 +361,8 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 }
 
 func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-refresh-replay")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-refresh-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	first := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
@@ -384,8 +384,8 @@ func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 }
 
 func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-envelope-and-authz")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-envelope-and-authz")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	beforeJobs := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_job_payloads`)
@@ -424,8 +424,8 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 }
 
 func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-optional-degradation")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-optional-degradation")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	baselineViewSchemas := viewSchemaIDs(t, harness, adminLogin)
@@ -532,8 +532,8 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	})
 	defer restoreHook()
 
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-reference-pack-job-authz")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-reference-pack-job-authz")
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{
@@ -564,12 +564,12 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	}
 }
 
-func importReferencePack(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string) {
+func importReferencePack(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string) {
 	t.Helper()
 	importReferencePackWithKind(t, harness, login, packKey, "type_registry", packVersion, clientTxnID)
 }
 
-func importReferencePackWithKind(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
+func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
 	t.Helper()
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, login, `{"client_txn_id":"`+clientTxnID+`"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     packKey,
@@ -583,14 +583,14 @@ func importReferencePackWithKind(t testing.TB, harness *scenariotest.ServerHarne
 	}
 }
 
-func cancelJob(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string, clientTxnID string) *http.Response {
+func cancelJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string, clientTxnID string) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": clientTxnID,
 	}, csrfOptions(login)...)
 }
 
-func postAction(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, path string, clientTxnID string, reason string) *http.Response {
+func postAction(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, path string, clientTxnID string, reason string) *http.Response {
 	t.Helper()
 	body := map[string]any{"client_txn_id": clientTxnID}
 	if reason != "" {
@@ -606,7 +606,7 @@ func csrfOptions(login flowtest.LoginResult) []func(*http.Request) {
 	}
 }
 
-func readReferencePack(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string) map[string]any {
+func readReferencePack(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.SessionCookie))
 	return requireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -740,7 +740,7 @@ SELECT pack_kind, source_identifier, manifest_sha256, payload_sha256, pack_contr
 	}
 }
 
-func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, adminID string, suffix string) {
+func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, adminID string, suffix string) {
 	t.Helper()
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-rp-degrade-" + suffix + "-incident",
@@ -839,7 +839,7 @@ func requireResolvedCollectionItem(t testing.TB, row map[string]any, fieldKey st
 	}
 }
 
-func queryViewRow(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
+func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
 	body := requireSuccessEnvelope(t, resp, http.StatusOK)
@@ -854,7 +854,7 @@ func queryViewRow(t testing.TB, harness *scenariotest.ServerHarness, login flowt
 	return nil
 }
 
-func viewSchemaIDs(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult) []string {
+func viewSchemaIDs(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult) []string {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.SessionCookie))
 	body := requireSuccessEnvelope(t, resp, http.StatusOK)
@@ -879,7 +879,7 @@ func requireStringSlicesEqual(t testing.TB, got []string, want []string, message
 	}
 }
 
-func overwriteStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string, bundle []byte) {
+func overwriteStoredBundle(t testing.TB, harness *appsupport.ServerHarness, packKey string, packVersion string, bundle []byte) {
 	t.Helper()
 	path := storedBundlePath(t, harness, packKey, packVersion)
 	if err := os.WriteFile(path, bundle, 0o600); err != nil {
@@ -887,7 +887,7 @@ func overwriteStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, pa
 	}
 }
 
-func removeStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string) {
+func removeStoredBundle(t testing.TB, harness *appsupport.ServerHarness, packKey string, packVersion string) {
 	t.Helper()
 	path := storedBundlePath(t, harness, packKey, packVersion)
 	if err := os.Remove(path); err != nil {
@@ -895,7 +895,7 @@ func removeStoredBundle(t testing.TB, harness *scenariotest.ServerHarness, packK
 	}
 }
 
-func storedBundlePath(t testing.TB, harness *scenariotest.ServerHarness, packKey string, packVersion string) string {
+func storedBundlePath(t testing.TB, harness *appsupport.ServerHarness, packKey string, packVersion string) string {
 	t.Helper()
 	var rawReference string
 	if err := harness.DB.QueryRow(`SELECT bundle_storage_ref FROM reference_packs WHERE pack_key = $1 AND version = $2`, packKey, packVersion).Scan(&rawReference); err != nil {
@@ -911,7 +911,7 @@ func storedBundlePath(t testing.TB, harness *scenariotest.ServerHarness, packKey
 	)
 }
 
-func requireReverifyFailure(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
+func requireReverifyFailure(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
 	t.Helper()
 	resp := postAction(t, harness, login, "/api/v1/reference-packs/"+packKey+"/"+packVersion+"/reverify", clientTxnID, "")
 	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)

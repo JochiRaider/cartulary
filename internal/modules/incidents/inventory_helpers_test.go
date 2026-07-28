@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
@@ -34,7 +35,7 @@ type controlRouteExpectation struct {
 }
 
 type RouteFixture struct {
-	harness     *scenariotest.ServerHarness
+	harness     *appsupport.ServerHarness
 	adminLogin  flowtest.LoginResult
 	adminID     string
 	candidateID string
@@ -46,8 +47,8 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 	t.Helper()
 
 	slug := FixtureSlug(prefix)
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, slug)
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, slug)
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	candidateID := flowtest.SeedLocalUserFlags(

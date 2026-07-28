@@ -88,7 +88,7 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 		true,
 	)
 	bootstrapErr := errors.New("bootstrap port failed")
-	store := incidents.NewStoreWithOptions(harness.DB, incidents.StoreOptions{
+	store := incidents.NewApplicationWithOptions(harness.DB, incidents.ApplicationOptions{
 		PreferenceBootstrap: failingPreferenceBootstrap{err: bootstrapErr},
 	})
 	request := incidents.CreateIncidentRequest{
@@ -129,7 +129,7 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 
 func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize")
-	store := harness.Incidents
+	finalizer := incidents.NewIncidentBundleImportFinalizer()
 	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -150,7 +150,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	insertImportedIncidentTx(t, tx, incidentID, actor.ID, "IR-BUNDLE-FINALIZE")
-	if err := store.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+	if err := finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
 		IncidentID:        incidentID,
 		SubmittedByUserID: actor.ID,
 		PublishedAt:       publishedAt,
@@ -194,7 +194,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 
 func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-incident-bundle-finalize-missing")
-	store := harness.Incidents
+	finalizer := incidents.NewIncidentBundleImportFinalizer()
 	creator := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -213,7 +213,7 @@ func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	insertImportedIncidentTx(t, tx, incidentID, creator.ID, "IR-BUNDLE-FINALIZE-MISSING")
-	err = store.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+	err = finalizer.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
 		IncidentID:        incidentID,
 		SubmittedByUserID: uuid.New(),
 		PublishedAt:       time.Now().UTC(),
@@ -433,7 +433,7 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 
 func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-14")
-	store := incidents.NewStore(harness.DB)
+	store := incidents.NewApplication(harness.DB)
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -513,7 +513,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 
 func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-07")
-	store := incidents.NewStore(harness.DB)
+	store := incidents.NewApplication(harness.DB)
 	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,

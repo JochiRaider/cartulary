@@ -12,8 +12,20 @@
 - **Execution baseline:** clean commit
   `2bd4cc7011237ef8cd80acdcae378163ca0fadf1`; the repository had no adopting
   stable-release tag, so the retained-v1 deprecation clock remains pending.
-- **Status:** AG-001, AG-002, and AG-003 are complete. SL-00, SL-01, SL-04,
-  SL-06, and SL-07 are complete; SL-02 is the recommended next slice.
+- **Remaining-slice baseline:** clean `main` at
+  `7d910108ca5000866ee0d73ed50521e23739de57` before SL-02 began on
+  `2026-07-27`.
+- **Status:** AG-001, AG-002, AG-003, and SL-00 through SL-08 are complete.
+  No implementation or validation slice remains active.
+- **SL-03 source gate:** commit `7d910108ca5000866ee0d73ed50521e23739de57`
+  plus the completed four-file SL-02 delta recorded in Section 2; SL-02
+  closure checks passed before this slice began.
+- **SL-05 source gate:** commit `7d910108ca5000866ee0d73ed50521e23739de57`
+  plus the completed SL-02 and SL-03 deltas recorded in Section 2; SL-03
+  closure checks passed before this slice began.
+- **SL-08 source gate:** commit `7d910108ca5000866ee0d73ed50521e23739de57`
+  plus the completed SL-02, SL-03, and SL-05 deltas recorded in Section 2;
+  SL-05 closure checks passed before final validation began.
 - **Authorized change:** The `2026-07-27` adoption task authorized Core owner,
   downstream implementation, authored contract, generated projection,
   verification, fixture, and final handoff changes required by AG-001 through
@@ -21,9 +33,9 @@
 - **Non-goals:** No unrelated persistence decomposition, general cleanup,
   frontend refactor, visual change, migration, dependency change, commit,
   push, or pull request was included.
-- **Execution gate:** The authorized AG-001 through AG-003 package satisfied
-  its owner-adoption and same-source-state verification gates. Remaining
-  slices retain their own authorization and completion boundaries.
+- **Execution gate:** The authorized AG-001 through AG-003 package and every
+  remaining remediation slice satisfied their owner, implementation,
+  same-source-state validation, and handoff completion gates.
 
 The label is already normalized lowercase kebab case. It contains no spaces,
 path separators, shell metacharacters, or unsafe filename characters.
@@ -186,6 +198,30 @@ test-support adapter, or subpackage.
 | `internal/modules/incidents/unit_test.go` | Characterizes hidden-not-found/denied access and required collaboration route port. | Test functions and no-op collaboration fake. | Incident unit catalog. | Access and route composition. | This file. | Authorization precedence and composition contract. | Incidents product evidence. | high | Guards the explicit Collaboration dependency. |
 | `internal/modules/incidents/workbookpreferences/bootstrap.go` | Atomically seeds incident-wide and creator/importer workbook preferences. | `Bootstrap`, constructor, port implementation. | Incidents create and import finalization. | Generated SQL. | Incident store/conformance and bundle import tests. | Core 02 preference schema and Core 01 create/import bootstrap. | Incident Workspace preference persistence. | high | Incident-owned persistence; Workbook owns the public preference routes. |
 | `internal/modules/incidents/workbookpreferences/repository.go` | Reads, writes, locks, and conditionally repairs incident/user workbook preferences. | Records, `Repository`, `Session`, constructors and methods. | Workbook application assembly and Incidents bootstrap. | Generated SQL, Postgres, pgx. | Workbook startup/store and incident conformance tests. | Workbook preference route/startup contract. | Incident Workspace source-owner repository. | high | Conditional clear timestamps and attribution are observable. |
+
+### Remaining-slice inventory delta
+
+The historical 56-file inventory above is preserved. SL-02 changed the live
+source inventory as follows:
+
+| Slice | Change | Path | Responsibility after the slice |
+| --- | --- | --- | --- |
+| SL-02 | authored policy addition | `tools/backend_module_boundaries.json` | The repository boundary authority now forbids Incidents production imports of Workbook startup and platform WebSocket packages, including their subpackages. |
+| SL-02 | harness evidence addition | `tools/harness/tests/test-harness-contracts.mjs` | Synthetic production fixtures prove both dependency families fail, while equivalent `_test.go` imports remain outside the production-only rule. |
+| SL-02 | deletion and responsibility move | `internal/modules/incidents/boundary_guard_test.go` | The unaccounted package-local AST scanner is removed; its complete responsibility is owned by the authored machine policy and harness contract. |
+| SL-02 | controlling-record update | `docs/handoffs/incident-modules-refactor-tracker.md` | Baseline, status, source delta, validation, task, and handoff evidence are current before SL-03 begins. |
+| SL-03 | deletion and responsibility move | `internal/modules/incidents/testsupport/scenariotest/harness.go` | The owner-neutral runtime wrapper and aliases are removed without a forwarding facade; application test composition remains solely in `internal/testutil/appsupport`. |
+| SL-03 | seven Incidents test-consumer updates | `extra_integration_test.go`, `http_conformance_test.go`, `integration_test.go`, `inventory_helpers_test.go`, `lifecycle_integration_test.go`, `membership_audit_integration_test.go`, and `pagination_integration_test.go` | Runtime construction and harness types now use `appsupport`; incident create, patch, membership, mutation, and route helpers remain owner-local. |
+| SL-03 | twelve collaborator test-consumer updates | Imports, Incident Bundles, Job API, Network Flow, Reference Data, Reporting, Saved Views, View Schemas, Workbook, and extension-discovery test files | Simple servers use `StartDefaultServer`; dependency-injected servers use the shared dependency method; environment, route, and harness-control cases use explicit `ServerOptions` with their prior route modes. |
+| SL-03 | authored support-inventory correction | `tools/test_support_inventory.json` | The Incidents rationale now names incident HTTP scenarios, route inventories, mutation evidence, fault dependencies, and store fixtures. `service_starting=true` remains because the owner-local store fixture starts Postgres. |
+| SL-03 | no new facade or support file | `internal/testutil/appsupport` | The existing canonical API was sufficient and required no compatibility alias or duplicate convenience layer. Simple callers no longer open an unused auxiliary PG pool. |
+| SL-05 | cohesive application additions | `internal/modules/incidents/application.go`, `incident_application.go`, `membership_application.go`, `models.go`, and `audit.go` | `Application` owns transaction boundaries, idempotency, policy ordering, audit intent, preference bootstrap, replay/result semantics, incident lifecycle/query behavior, and membership administration without importing SQLC or PG conversion packages. |
+| SL-05 | private persistence addition | `internal/modules/incidents/repository.go` | The unexported repository alone owns Incidents SQLC calls, PG conversions, fixed persistence operations, and persistence-error translation. |
+| SL-05 | route and access responsibility move | `routes.go`, `membership_audit_handlers.go`, `access.go`, and `ports.go` | Routes depend on one `Application`; `AccessService` uses the private repository directly, preserves the narrow `Access` interface and same-transaction open lock, and no longer exposes `AccessFromStore`. |
+| SL-05 | dedicated import-finalization adapter | `import_finalization.go`, `internal/app/server/runtime.go`, `db/queries/incidents.sql`, and generated `internal/gen/sql/incidents.sql.go` | Incident-bundle finalization uses `NewIncidentBundleImportFinalizer`; the authored SQLC query locks and rechecks the active deployment-admin submitter, and `make generate` produced the SQL projection. |
+| SL-05 | retired mixed Store surface | deleted `internal/modules/incidents/store.go` and `open_guard.go` | Application coordination moved to cohesive application files; SQLC, PG conversion, and persistence-error mechanics moved to the private repository. `Store`, both Store constructors, `StoreOptions`, and the duplicate open guard are absent without aliases. |
+| SL-05 | atomic caller and fixture migration | Incidents store tests/support, Records and Timeline store support, Entities merge evidence, `appsupport/scenario_fixtures.go`, and deleted `appsupport/incident_store.go` | In-tree callers construct `Application` directly; incident-specific fixtures remain owner-local and no owner-neutral forwarding facade remains. Stable test names and verification row identities are retained. |
+| SL-05 | retirement policy and harness evidence | `tools/backend_module_boundaries.json` and `tools/harness/tests/test-harness-contracts.mjs` | A static production/test source-token rule and synthetic fixture prevent the concrete Incidents Store type, constructors, and options type from returning. |
 
 ## 3. Module Boundary Diagnosis
 
@@ -616,13 +652,13 @@ authorized task.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | SL-00 | none | Adopt the IMR-BUNDLE, IMR-JOBS, IMR-PORT, and IMR-SEC observable-behavior clauses into Core 01 and their binary acceptance criteria into Core 04. | Core 01 and Core 04 owner sections; normative appendices. | Bundle major and paths, public failure reasons, claimed-profile composition, owner validation, atomic visibility, v1 retention. | Core requirement/acceptance traceability; owner review of every mapping row and default. | `make lint-markdown`; applicable owner/document-set checks. | Revert Core amendments together if owner review rejects the package. | AG-001 and AG-002 are `DONE`, every adopted clause has an AC, and no adopted owner contradicts the disposition. | `DONE` |
 | SL-01 | SL-00 | Add exact characterization for deterministic v2 export, v1-to-v2 translation, unknown/mixed versions, Timeline provenance, nil/unconfigured runner rejection, named recovery, semantic-invalidity, duplicate identity, and every remaining atomic failure boundary. | Incident Bundle and source-owner tests; Jobs/app test support; verification owner inputs. | A test MUST derive from an adopted requirement and MUST NOT invent behavior. | Preserve all existing owner rows; add SQL-valid semantic-invalidity fixtures, special-file cases, dispatch/restart recovery, and rollback/non-visibility cases from Section 13. | Both `make test-slice` and `make service-backed-test-slice` owner commands after `make explain-test-owner`. | Revert an invalid test assumption rather than altering production away from the adopted owner; retain failing evidence for a genuine implementation gap. | Every IMR-AC row assigned to SL-01 has selected executable evidence and fails against any known nonconforming path. | `DONE` |
-| SL-02 | none | Add the two Incidents production-import rules to authored backend boundary policy, prove parity, then delete the redundant unaccounted AST scanner. | `tools/backend_module_boundaries.json`, boundary checker tests, `incidents/boundary_guard_test.go`; generated inputs only if owner manifests require them. | Losing protection against Workbook startup or platform WS imports. | Boundary checker positive/negative fixtures; existing route-port unit test. | `make backend-module-boundary-check`, `make harness-contract`, `make json-shape-check`, `make generate-drift`. | Restore the test until machine-policy parity passes. | Machine policy rejects both imports and no unaccounted duplicate scanner remains. | `TODO` |
-| SL-03 | none | Move only the owner-neutral runtime wrapper to shared application test support; retain incident actions, route inventories, mutation helpers, and Store fixtures with Incidents. | Incident `testsupport/scenariotest/harness.go`, `internal/testutil/appsupport`, cross-owner test imports, `tools/test_support_inventory.json`. | Test fixture mode, database/object-store lifecycle, route-mode guards, harness accounting. | Preserve every selected owner/collaborator row and exact fixture policy. | Affected owner slices, `make json-shape-check`, `make harness-contract`, `make test-fast`. | Retain a temporary forwarding helper for one slice only if all callers cannot move atomically; delete it before completion. | Cross-owner runtime composition imports shared appsupport directly; incident-specific helpers remain owner-local; inventory rationale matches live use. | `TODO` |
+| SL-02 | none | Add the two Incidents production-import rules to authored backend boundary policy, prove parity, then delete the redundant unaccounted AST scanner. | `tools/backend_module_boundaries.json`, boundary checker tests, `incidents/boundary_guard_test.go`; generated inputs only if owner manifests require them. | Losing protection against Workbook startup or platform WS imports. | Boundary checker positive/negative fixtures; existing route-port unit test. | `make backend-module-boundary-check`, `make harness-contract`, `make json-shape-check`, `make generate-drift`. | Restore the test until machine-policy parity passes. | Machine policy rejects both imports and no unaccounted duplicate scanner remains. | `DONE` |
+| SL-03 | SL-02 | Move only the owner-neutral runtime wrapper to shared application test support; retain incident actions, route inventories, mutation helpers, and Store fixtures with Incidents. | Incident `testsupport/scenariotest/harness.go`, `internal/testutil/appsupport`, cross-owner test imports, `tools/test_support_inventory.json`. | Test fixture mode, database/object-store lifecycle, route-mode guards, harness accounting. | Preserve every selected owner/collaborator row and exact fixture policy. | Affected owner slices, `make json-shape-check`, `make harness-contract`, `make test-fast`. | Retain a temporary forwarding helper for one slice only if all callers cannot move atomically; delete it before completion. | Cross-owner runtime composition imports shared appsupport directly; incident-specific helpers remain owner-local; inventory rationale matches live use. | `DONE` |
 | SL-04 | SL-00, SL-01 | Implement the Section 6.3 typed catalog; migrate each owner to deterministic export, non-mutating preparation, fixed transaction writes, and aggregate validation; add explicit consumers for special files; then remove the generic relation importer and central invariant prose. | Incident Bundles coordinator, Incident Portability utilities, every source-owner portability adapter, application/revision assembly, authored catalog projections. | Exact path coverage/order, source identities, attribution, history, blobs, saved views, failure details, transaction rollback, visibility. | Per-owner valid/invalid/duplicate/orphan tests; complete v1/v2 round trips; exact path accounting; special-file validation; failure injection; history/projection reconstruction. | Incident Bundle and collaborator owner slices, `make backend-module-boundary-check`, drift checks, `make test-fast`, `make check`. | Migrate one source family behind the stable port interface at a time; never leave both paths active for one import. | Every required path has exactly one consumer/validator, every owner executes fixed persistence and invariant checks, no dynamic relation SQL or generic conflict-ignore remains, and atomic publication evidence passes. | `DONE` |
-| SL-05 | none | Split Incidents application coordination from private persistence while preserving `Access`, routes, preferences, reporting provider, portability adapter, transaction participant, and import finalizer. | Incidents root package and private repository/service files; app/test composition. | Transactions, idempotency, audit, membership versions, last-admin, lifecycle, pagination, preferences, collaboration notifications. | All incident unit/store/integration/frontend/browser rows; no new public Go compatibility promise. | Both Incidents owner slices, `make backend-module-boundary-check`, `make test-fast`; browser gate if route behavior is touched. | Move one operation family at a time; keep a temporary internal facade only until repository callers migrate. | Routes depend on one cohesive application service, persistence is private, peers retain only Access/declared ports, and observable behavior is identical. | `TODO` |
+| SL-05 | SL-03 | Split Incidents application coordination from private persistence while preserving `Access`, routes, preferences, reporting provider, portability adapter, and import finalizer. | Incidents root package and private repository/service files; app/test composition. | Transactions, idempotency, audit, membership versions, last-admin, lifecycle, pagination, preferences, collaboration notifications. | All incident unit/store/integration/frontend/browser rows; no new public Go compatibility promise. | Both Incidents owner slices, `make backend-module-boundary-check`, `make test-fast`; browser gate if route behavior is touched. | Move one operation family at a time; keep a temporary internal facade only until repository callers migrate. | Routes depend on one cohesive application service, persistence is private, peers retain only Access/declared ports, and observable behavior is identical. | `DONE` |
 | SL-06 | SL-00, SL-01 | Require claimed composition to inject a configured named runner; make registration/recovery failure fatal before publication; remove every fallback; replace production test hooks with Jobs/application-test seams. | Bundle worker/routes/tests, Incidents fault tests, Jobs runner and app test support. | Authorization-race timing, rollback injection, gate activation, durable recovery, restart exact-once behavior, production test-route rejection. | Preserve final-publication auth and create rollback; add claimed/unclaimed composition, nil/unconfigured runner, named dispatch/recovery, pre-activation gate, dispatch failure, component loss, and restart cases. | Focused owner slices, `make backend-module-boundary-check`, `make test-fast`. | Never retain two fault paths or any unmanaged execution fallback. | All Incident Bundle work uses the named runner, invalid claimed composition fails before publication, durable recovery evidence passes, production modules expose no test-only override API, and prior failure/race evidence remains selected. | `DONE` |
 | SL-07 | AG-001, AG-002, and applicable implementation slices | Align authored compatibility, error, source-catalog, verification, test-support, boundary, and OpenAPI inputs with adopted owners and actual moved identities; regenerate every downstream artifact through Make. | `tools/` and `contracts/` owner inputs; generated roots only via generator. | Version/error drift, row loss/duplication, generated drift, public schema drift, support ownership. | Exact version/path/error/catalog selectors, requirement-to-row traceability, and boundary/harness contract tests. | `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, owner slices. | Revert each authored input and its regenerated projection together if validation fails. | AG-003 is `DONE`, every active row is accounted exactly once, generated artifacts match adopted owners, and no generated file was hand-edited. | `DONE` |
-| SL-08 | SL-02 through SL-07 | Run focused-to-broad validation, update tracker evidence, and close the overall refactor. | Whole affected tree and this tracker. | False completion from partial/stale evidence. | No new tests; execute the selected catalog and gates. | Owner slices, `make test-fast`, `make agent-finalize`, risk-appropriate `make check`. | Roll back only the failing slice, not unrelated completed slices; retain failure artifact/run root. | All remaining slices pass and all seven handoff tables are current. | `TODO` |
+| SL-08 | SL-02 through SL-07 | Run focused-to-broad validation, update tracker evidence, and close the overall refactor. | Whole affected tree and this tracker. | False completion from partial/stale evidence. | No new tests; execute the selected catalog and gates. | Owner slices, `make test-fast`, `make agent-finalize`, risk-appropriate `make check`. | Roll back only the failing slice, not unrelated completed slices; retain failure artifact/run root. | All remaining slices pass and all seven handoff tables are current. | `DONE` |
 
 ## 9. Validation Plan
 
@@ -636,7 +672,7 @@ final gates.
 | unit | `make test-slice OWNER=module.incidents` | 40 Incidents owner rows, including Go, Vitest, and Playwright identities selected by the owner plan. | yes | Characterization baseline before Incidents movement. |
 | integration | `make service-backed-test-slice OWNER=module.incidentbundles` | 11 service-backed Incident Bundle rows. | yes | Covers real export/import, authorization, storage, projection, and transaction behavior. |
 | integration | `make service-backed-test-slice OWNER=module.incidents` | 25 service-backed Incidents rows. | yes | Includes integration and browser-backed rows according to catalog profiles. |
-| e2e/browser | `make browser-e2e-webserver-backed` | Broader shared-stack browser behavior. | no | A dedicated run was not selected because no frontend behavior changed; browser-backed rows selected by `make check` passed. |
+| e2e/browser | `make browser-e2e-webserver-backed` | Broader shared-stack browser behavior. | no | The dedicated SL-05 run and final `make check` browser-backed work passed. |
 | generated drift | `make generate-drift` | Generated artifacts against authored owners. | no | Required for future owner/codegen changes. |
 | generated drift | `make generated-artifact-policy-check` | Generated markers and lint-scope policy. | no | Never hand-edit generated roots. |
 | generated drift | `make json-shape-check` | Authored JSON owner/schema shape. | no | Required for boundary, catalog, support-inventory, or contract input changes. |
@@ -724,10 +760,187 @@ same-state runs:
 | Initial full service-backed failures | `.cartulary/test-results/20260727T223853Z-p1156835` | Fixed Jobs transaction fixture selection and the Saved Views test signature; the clean rerun passed. |
 | Partial or contaminated duration-baseline evidence rejected | `.cartulary/test-results/20260727T223841Z-p1156466`, `.cartulary/test-results/20260727T225053Z-p1348737` | Generated the baseline only from the clean full service-backed root. |
 
+### SL-02 execution evidence
+
+The clean remaining-slice baseline was
+`7d910108ca5000866ee0d73ed50521e23739de57`. Policy parity passed before the
+package-local scanner was deleted, and the full exit sequence passed again
+after deletion.
+
+| Command | Result | Run root or evidence |
+| --- | --- | --- |
+| Pre-change `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260727T233737Z-p1805374` |
+| Pre-deletion `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260727T234404Z-p1810331` |
+| Pre-deletion `make harness-contract` | PASS | Exit status 0; this invocation emitted no run root. |
+| Final `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260727T234442Z-p1812473` |
+| Final `make harness-contract` | PASS | Exit status 0; this invocation emitted no run root. |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260727T234442Z-p1812191` |
+| `make generate-drift` | PASS | `.cartulary/test-results/20260727T234442Z-p1812200` |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260727T234442Z-p1812229` |
+| `make lint-markdown` after SL-02 tracker closure | PASS | `.cartulary/test-results/20260727T234652Z-p1818963` |
+| `git diff --check` after SL-02 tracker closure | PASS | Exit status 0 with no output. |
+
+The synthetic contract imports subpackages of both forbidden roots from
+production files and imports both roots from a test file. The checker reports
+exactly the two production violations, proving prefix matching and
+production-only exclusion. No generated output changed.
+
+### SL-03 execution evidence
+
+All focused and service-backed owner commands were run against the completed
+SL-03 source. The Workbook service-backed port collision is retained below;
+its exact rerun passed without a source change.
+
+Focused owner evidence:
+
+| Owner | Result | Run root |
+| --- | --- | --- |
+| `module.incidents` | PASS, 40 tests | `.cartulary/test-results/20260727T235145Z-p1827309` |
+| `app.server` | PASS, 30 tests | `.cartulary/test-results/20260727T235248Z-p1848808` |
+| `module.collaboration` | PASS, 28 tests | `.cartulary/test-results/20260727T235406Z-p1876872` |
+| `module.imports` | PASS, 5 tests | `.cartulary/test-results/20260727T235627Z-p1905510` |
+| `module.incidentbundles` | PASS, 23 tests | `.cartulary/test-results/20260727T235712Z-p1924544` |
+| `module.jobapi` | PASS, 3 tests | `.cartulary/test-results/20260727T235744Z-p1926653` |
+| `module.networkflow` | PASS, 55 tests | `.cartulary/test-results/20260727T235753Z-p1928012` |
+| `module.reference_data` | PASS, 19 tests | `.cartulary/test-results/20260727T235956Z-p1957094` |
+| `module.reportcomposition` | PASS, 1 test | `.cartulary/test-results/20260728T000030Z-p1974314` |
+| `module.reporting` | PASS, 11 tests | `.cartulary/test-results/20260728T000041Z-p1975974` |
+| `module.savedviews` | PASS, 11 tests | `.cartulary/test-results/20260728T000053Z-p1977364` |
+| `module.timeline` | PASS, 48 tests | `.cartulary/test-results/20260728T000337Z-p2003459` |
+| `module.workbook` | PASS, 86 tests | `.cartulary/test-results/20260728T000613Z-p2028332` |
+
+Service-backed owner evidence:
+
+| Owner | Result | Run root |
+| --- | --- | --- |
+| `app.server` | PASS, 23 tests | `.cartulary/test-results/20260728T000931Z-p2064951` |
+| `module.collaboration` | PASS, 19 tests | `.cartulary/test-results/20260728T001042Z-p2091313` |
+| `module.imports` | PASS, 5 tests | `.cartulary/test-results/20260728T001259Z-p2118057` |
+| `module.incidentbundles` | PASS, 12 tests | `.cartulary/test-results/20260728T001344Z-p2136714` |
+| `module.incidents` | PASS, 25 tests | `.cartulary/test-results/20260728T001414Z-p2138339` |
+| `module.jobapi` | PASS, 3 tests | `.cartulary/test-results/20260728T001507Z-p2157552` |
+| `module.networkflow` | PASS, 20 tests | `.cartulary/test-results/20260728T001518Z-p2158834` |
+| `module.reference_data` | PASS, 11 tests | `.cartulary/test-results/20260728T001719Z-p2186836` |
+| `module.reportcomposition` | PASS, 1 test | `.cartulary/test-results/20260728T001750Z-p2203457` |
+| `module.reporting` | PASS, 4 tests | `.cartulary/test-results/20260728T001758Z-p2204739` |
+| `module.savedviews` | PASS, 10 tests | `.cartulary/test-results/20260728T001809Z-p2206025` |
+| `module.timeline` | PASS, 33 tests | `.cartulary/test-results/20260728T001941Z-p2231562` |
+| `module.workbook` clean rerun | PASS, 56 tests | `.cartulary/test-results/20260728T002543Z-p2289658` |
+
+| Command | Result | Run root | Diagnosis and disposition |
+| --- | --- | --- | --- |
+| `make service-backed-test-slice OWNER=module.workbook` | BLOCKED after 10 of 11 work units completed | `.cartulary/test-results/20260728T002114Z-p2255304` | The Timeline inspector browser child could not start Vite because allocated port `39122` was already in use. All Go work units and the other browser units passed. The artifact-accounting failure is retained; no source change was made, and the exact rerun passed at `.cartulary/test-results/20260728T002543Z-p2289658`. |
+
+Slice-wide exit evidence:
+
+| Command or check | Result | Run root or evidence |
+| --- | --- | --- |
+| `make format` | PASS | `.cartulary/test-results/20260727T235117Z-p1824211` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260728T002856Z-p2323602` |
+| `make harness-contract` | PASS | Exit status 0; this invocation emitted no run root. |
+| `make test` | PASS, 865 tests | `.cartulary/test-results/20260728T002937Z-p2325529` |
+| `make test-fast` | PASS, 865 tests | `.cartulary/test-results/20260728T003356Z-p2407394` |
+| Removed-wrapper and import scan | PASS | The wrapper path is absent; 16 direct and 5 aliased imports retain only incident-specific helpers; 24 application-runtime consumers import `appsupport` directly. |
+| `git diff --check` before tracker closure | PASS | Exit status 0 with no output. |
+| `make lint-markdown` after SL-03 tracker closure | PASS | `.cartulary/test-results/20260728T003913Z-p2458680` |
+| `git diff --check` after SL-03 tracker closure | PASS | Exit status 0 with no output. |
+
+No migration, frontend source, visual baseline, dependency, or generated
+artifact changed in SL-03. Dedicated visual and measurement commands were not
+run; the required owner service-backed plans included their selected browser
+rows.
+
 Dedicated `make browser-e2e-visual` and
 `make browser-e2e-measurement` runs were skipped because no frontend or visual
 behavior changed. Browser-backed rows selected by `make check` still passed.
 `make migration-drift` was skipped because no migration changed.
+
+### SL-05 execution evidence
+
+The pre-change Incidents characterization baselines were the final SL-03 owner
+runs: focused 40-test PASS at
+`.cartulary/test-results/20260727T235145Z-p1827309` and service-backed 25-test
+PASS at `.cartulary/test-results/20260728T001414Z-p2138339`.
+
+Post-change focused and service-backed evidence:
+
+| Owner and command | Result | Run root |
+| --- | --- | --- |
+| `make test-slice OWNER=module.incidents` | PASS, 40 tests | `.cartulary/test-results/20260728T005236Z-p2470568` |
+| `make service-backed-test-slice OWNER=module.incidents` | PASS, 25 tests | `.cartulary/test-results/20260728T005340Z-p2492976` |
+| `make test-slice OWNER=app.server` | PASS, 30 tests | `.cartulary/test-results/20260728T005455Z-p2512558` |
+| `make test-slice OWNER=module.incidentbundles` | PASS, 23 tests | `.cartulary/test-results/20260728T005619Z-p2542492` |
+
+Slice-wide exit evidence:
+
+| Command or check | Result | Run root or evidence |
+| --- | --- | --- |
+| `make generate` | PASS; generated SQLC projection came from the authored query | `.cartulary/test-results/20260728T005212Z-p2465174` |
+| `make format` | PASS | `.cartulary/test-results/20260728T005657Z-p2546054` |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260728T005704Z-p2548944` |
+| `make harness-contract` | PASS, including the synthetic Store-retirement fixture | `.cartulary/test-results/20260728T005714Z-p2549338` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260728T005749Z-p2550668` |
+| `make generate-drift` | PASS | `.cartulary/test-results/20260728T005757Z-p2551216` |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260728T005811Z-p2555020` |
+| `make test-fast` | PASS, 865 tests | `.cartulary/test-results/20260728T005823Z-p2555506` |
+| `make browser-e2e-webserver-backed` | PASS, 2 of 2 scheduled browser work units | `.cartulary/test-results/20260728T010116Z-p2615902` |
+| Static layering and retirement scans | PASS | Application files have no SQLC, generated-SQL, `pgtype`, or `pgconn` imports; routes have one `Application`; Access uses the private repository; no retired Incidents Store symbol or forwarding helper remains. |
+| `git diff --check` before tracker closure | PASS | Exit status 0 with no output. |
+| `make lint-markdown` after SL-05 tracker closure | PASS | `.cartulary/test-results/20260728T011001Z-p2645231` |
+| `git diff --check` after SL-05 tracker closure | PASS | Exit status 0 with no output. |
+
+The retained 40 focused and 25 service-backed Incidents tests cover create and
+preference-bootstrap atomicity, idempotent replay and conflict, lifecycle
+versions and transitions, no-op patches, last-admin protection, audit
+before/after projections, pagination, collaboration effects, and import
+finalization with the final deployment-admin recheck. The app-server and
+Incident Bundles slices prove composition and finalizer compatibility. No Core
+owner, domain vocabulary, HTTP/OpenAPI schema, migration, frontend source,
+visual baseline, dependency, or lockfile changed. Dedicated visual and
+measurement suites and `make migration-drift` were skipped because their
+triggering scopes did not change.
+
+### SL-08 final validation and handoff evidence
+
+The final scope audit found only the completed SL-02, SL-03, and SL-05 source
+delta recorded in Section 2. It found no migration, lockfile, frontend source,
+frontend generated protocol, visual baseline, dependency, or unrelated
+change. The only generated delta is the Make-produced SQLC projection of the
+authored Incidents query.
+
+Same-source-state final owner evidence:
+
+| Owner and command | Result | Run root |
+| --- | --- | --- |
+| `make test-slice OWNER=module.incidents` | PASS, 40 tests | `.cartulary/test-results/20260728T011152Z-p2648754` |
+| `make service-backed-test-slice OWNER=module.incidents` | PASS, 25 tests | `.cartulary/test-results/20260728T011256Z-p2669595` |
+| `make test-slice OWNER=module.incidentbundles` | PASS, 23 tests | `.cartulary/test-results/20260728T011403Z-p2689111` |
+| `make service-backed-test-slice OWNER=module.incidentbundles` | PASS, 12 tests | `.cartulary/test-results/20260728T011447Z-p2690977` |
+
+Final policy-to-broad evidence:
+
+| Command or check | Result | Run root or evidence |
+| --- | --- | --- |
+| Final scoped-diff and retired-symbol audit | PASS | No unexpected scope; no concrete Incidents Store API or `AccessFromStore` reference remains. |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260728T011525Z-p2692653` |
+| `make harness-contract` | PASS | `.cartulary/test-results/20260728T011534Z-p2693066` |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260728T011605Z-p2694302` |
+| `make generate-drift` | PASS | `.cartulary/test-results/20260728T011612Z-p2694844` |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260728T011638Z-p2698689` |
+| `make test-fast` | PASS, 865 tests | `.cartulary/test-results/20260728T011651Z-p2699224` |
+| `make agent-finalize` | PASS | `.cartulary/test-results/20260728T011920Z-p2749574`; generated maintenance was unchanged and retained-run maintenance was skipped because `RESULTS_DIR` was unset. |
+| `make check` | PASS, 177 of 177 work units and 721 tests | `.cartulary/test-results/20260728T011950Z-p2756059` |
+| `make lint-markdown` after final tracker reconciliation | PASS | `.cartulary/test-results/20260728T012505Z-p2854890` |
+| `git diff --check`, active-status scan, and `git status --short` | PASS | No whitespace error or active slice/task status; the final status contains only the authorized accounted delta. |
+
+No final-slice validation failed, so SL-08 has no retained failure root. The
+SL-03 Workbook preview-port collision remains preserved in its historical
+evidence and passed on exact rerun without a source change. Dedicated
+`make browser-e2e-visual`, `make browser-e2e-measurement`, and
+`make migration-drift` were not run because no visual/frontend or migration
+scope changed; browser-backed functional behavior passed in SL-05 and again
+inside final `make check`. `docs/domain.md` and all adopted Core owners remain
+unchanged because execution found no vocabulary or owner contradiction.
 
 ## 10. Top-Level Work Tracker
 
@@ -742,9 +955,9 @@ and `DROPPED` are valid.
 | T-004 | Resolve the bundle v1/v2 planning disposition. | WF-02 | DONE | T-003 | RB-001 and IMR-BUNDLE; Core 01, bundle code, compatibility projection. | The tracker requires v2 current export, retained v1 import, manifest-only codec selection, exact Timeline paths, and bounded retirement. |
 | T-005 | Map characterization coverage and gaps. | WF-03 | DONE | T-002, T-003 | Owner manifests, Section 4, RB-002/RB-003, Section 13. | Existing evidence and every required missing acceptance row are explicit. |
 | T-006 | Implement the portability owner-port/catalog redesign. | WF-05 | DONE | T-005, T-016, T-017 | IMR-PORT, IMR-SEC, SL-04; typed catalog and owner-port evidence. | Ordered typed port catalog and per-owner persistence/invariant behavior pass all mapped evidence. |
-| T-007 | Plan Incidents application/persistence layering. | WF-05 | TODO | T-005 | SL-05. | Access/route behavior is stable and private persistence is separated. |
-| T-008 | Correct owner-neutral scenario runtime support placement. | WF-07 | TODO | T-005 | SL-03; support inventory and live callers. | Shared runtime composition is in appsupport and incident-specific helpers remain owner-local. |
-| T-009 | Project Incidents import rules into machine boundary policy. | WF-07 | TODO | T-005 | SL-02; boundary guard and policy input. | Both rules pass in machine policy and redundant scanner is retired. |
+| T-007 | Implement Incidents application/persistence layering. | WF-05 | DONE | T-005, T-008 | SL-05 source delta, focused/service-backed evidence, static retirement rule, and generated SQLC provenance. | Access/route behavior is stable, routes depend on `Application`, and persistence is private. |
+| T-008 | Correct owner-neutral scenario runtime support placement. | WF-07 | DONE | T-005, T-009 | SL-03 source delta, owner evidence, broad tests, and support inventory. | Shared runtime composition is in appsupport and incident-specific helpers remain owner-local. |
+| T-009 | Project Incidents import rules into machine boundary policy. | WF-07 | DONE | T-005 | SL-02; authored boundary rule, synthetic production/test fixtures, and Section 9 evidence. | Both rules pass in machine policy and redundant scanner is retired. |
 | T-010 | Characterize named-runner recovery and replace production test hooks. | WF-03/WF-05 | DONE | T-005, T-016, T-017 | IMR-JOBS and SL-06; Jobs/application-test seam evidence. | Claimed/unclaimed composition and durable recovery pass; owned Jobs/app test seams close prior evidence; production test hooks are gone. |
 | T-011 | Preserve workbook preference and reporting provider ownership. | WF-05 | DONE | T-003 | Sections 3 and 5. | Tracker records intentional boundaries and no unsupported move. |
 | T-012 | Preserve projection and collaboration dependency inversion. | WF-05 | DONE | T-003 | Sections 3–5. | Rebuild and Collaboration remain explicit ports. |
@@ -754,6 +967,7 @@ and `DROPPED` are valid.
 | T-016 | Adopt the resolved behavior in Core 01. | WF-02 | DONE | T-004 | AG-001; REQ-01-635 through REQ-01-643. | Core 01 owns every observable requirement and its normative registries. |
 | T-017 | Adopt acceptance and verification authority in Core 04. | WF-03 | DONE | T-016 | AG-002; AC-487 through AC-507 and traceability projection. | Every observable Core 01 requirement has binary Core 04 acceptance coverage and verification ownership. |
 | T-018 | Align projections, implementation, fixtures, and generated artifacts. | WF-07 | DONE | T-016, T-017, applicable implementation slices | AG-003, SL-04, SL-06, SL-07, and Section 12 evidence. | All downstream artifacts agree with adopted owners and the same-source-state verification plan passes. |
+| T-019 | Complete remaining-slice validation and final handoff. | WF-08 | DONE | T-007, T-008, T-009 | SL-08 final evidence and the current Section 9/11 handoff state. | Same-source-state focused-to-broad verification passes, all slice records agree, and the tracker is closed. |
 
 ## 11. Session Handoff Log
 
@@ -769,6 +983,10 @@ rather than copied as current evidence.
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Three existing packages form a planning seam only; planning is complete and implementation remains unauthorized. | Inspected framework, Core 00–04, adopted relevant NLSpecs, Domain, all target files; touched this tracker only. | `sed`, `rg`, `git status`, `git rev-parse`, `date`, `sha256sum`. | Authority order and clean baseline recorded; no owner-owner contradiction found. | RB-001. | Obtain owner disposition before any bundle-format task. |
 | 2026-07-27T16:32:44-04:00 | Codex decision-resolution documentation session | RB-001 through RB-003 are resolved for planning; observable changes remain gated on Core adoption and later implementation authorization. | Re-inspected NLSpec authoring guidance, Core 01/04 clauses, bundle/runner/source-port implementations, projections, tests, and R01–R09; touched this tracker only. | `sed`, `rg`, Git inspection, `make lint-markdown`, `git diff --check`, inventory/traceability scans. | Added IMR requirements, matrices, deterministic coordination, resolved dispositions, AG gates, aligned slices, and binary acceptance criteria; document checks pass. | AG-001, AG-002, AG-003. | Authorize SL-00 to adopt the behavior in Core 01/Core 04 before any gated downstream implementation. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | Core 01 and Core 04 own the adopted behavior; downstream state is aligned and verified. | Owner specifications, authored contracts, implementation, fixtures, generated projections, and this final handoff. | Owner discovery, focused owner slices, generation/policy checks, `make test-fast`, `make agent-finalize`, `make check`. | AG-001, AG-002, and AG-003 satisfy their exit conditions; no owner contradiction was found. | None for adopted gates. | Execute SL-02 next. |
+| 2026-07-27T19:45:30-04:00 | Codex SL-02 execution session | The clean `7d910108` remaining-slice baseline is recorded; SL-02 is complete without product-specification or runtime changes. | Boundary policy, harness contract, deleted Incidents scanner, and this tracker. | SL-02 policy, harness, JSON, generation-drift, artifact-policy, Markdown, and diff gates. | The authorized slice is complete and no owner contradiction was found. | None. | Execute SL-03 only. |
+| 2026-07-27T20:37:04-04:00 | Codex SL-03 execution session | Owner-neutral application test runtime composition is owned directly by `appsupport`; Incidents retains only incident-specific test support. | Twenty-one-file SL-03 source delta plus this tracker. | Thirteen focused owners, thirteen service-backed owners, format, JSON, harness, full test, fast test, stale-symbol, Markdown, and diff gates. | SL-03 is complete; the retained Workbook preview-port failure passed on exact rerun without a source change. | None. | Execute SL-05 only. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | Incidents application coordination is separated from private persistence; all prior observable behavior remains owned and selected. | Incidents application/repository split, authored SQL, generated SQLC output, app/test composition, retirement policy, and this tracker. | Focused/service-backed owners, generation/drift/policy, harness, fast tests, browser-backed functional gate, static scans. | SL-05 is complete with no owner contradiction, compatibility shim, migration, frontend, or public wire change. | None. | Run SL-05 closure lint/diff, then begin SL-08 only. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | AG-001 through AG-003 and SL-00 through SL-08 are complete on the recorded source state. | Full scoped delta and controlling tracker. | Four final owner slices, policy/drift gates, fast tests, agent finalization, and full check. | Same-source-state final validation passes; Domain and Core owners remain unchanged and no owner contradiction exists. | None. | Handoff complete; no next slice. |
 
 ### Backend module boundary
 
@@ -776,6 +994,9 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Incidents and Incident Bundles are legitimate owners with mixed internals; Incident Portability is shared support, not a third public owner. | All 56 target files, app server/workbook/reporting/projection composition; touched this tracker only. | `rg --files`, `rg` import/symbol/caller scans, `sed`, `wc -l`. | Keep/move/split/defer allocation and future slices recorded. | RB-001, RB-002, RB-003. | Start only an authorized characterization or boundary-policy slice. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | Incident Bundles consumes a typed sourceport catalog assembled by `internal/app/incidentportabilityassembly`; each source owner retains fixed persistence and invariants. | Incident Bundles, sourceport, assembly, 13 source owners, Incidents, Jobs, Reference Data, telemetry, and boundary policy. | Focused owner slices, `make backend-module-boundary-check`, `make test-fast`, `make check`. | SL-04 and SL-06 are complete; dynamic relation SQL, generic conflict-ignore, and production test hooks are removed. | SL-02, SL-03, SL-05 remain. | Project the two remaining Incidents import rules and remove the duplicate AST scanner in SL-02. |
+| 2026-07-27T19:45:30-04:00 | Codex SL-02 execution session | Incidents production code is machine-prohibited from importing Workbook startup or platform WebSocket implementations. | `tools/backend_module_boundaries.json`, harness fixtures, removed `boundary_guard_test.go`. | Two real-tree boundary passes plus synthetic harness parity. | Exact and subpackage imports fail in production; `_test.go` imports remain outside the rule; duplicate enforcement is absent. | None. | Preserve the centralized rule while moving test-runtime ownership in SL-03. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | Routes use one `Application`; private repository owns Incidents SQLC/PG mechanics; peers retain `Access` and declared ports. | Application, repository, access, routes, finalizer, deleted Store/open guard, and static policy. | Owner slices, boundary check, harness synthetic retirement fixture, targeted stale/import scans. | Store API and `AccessFromStore` are absent without aliases; application files have no persistence implementation imports. | None. | Preserve these boundaries through final validation. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | Central import policy, Store-retirement policy, private repository layering, and declared peer ports agree. | Final backend tree and authored boundary manifest. | Final boundary check, harness contract, retired-symbol and application-import scans, full check. | Real and synthetic boundary evidence passes; no duplicate or compatibility enforcement path remains. | None. | Handoff complete. |
 
 ### Frontend module boundary
 
@@ -783,6 +1004,9 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Frontend is a downstream contract consumer; no target code imports grid-vendor or shell/controller state. | Inspected IncidentAdminPanel, IncidentImportPanel, IncidentLanding, WorkbookShell, frontend owner rows; touched this tracker only. | `rg`, `sed`, `jq`. | Frontend movement deferred; HTTP/generated/UI selector risks frozen. | None for backend planning. | Run owner browser rows and broader browser gate only if later public/frontend risk is introduced. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | No frontend source or visual behavior changed; protocol TypeScript changed only through generation. | Generated protocol error artifact and broad selected browser-backed evidence. | `make generate`, `make generated-artifact-policy-check`, `make check`. | Generated consumer projection and selected browser-backed rows pass. Dedicated visual and measurement suites were out of scope. | None. | Keep frontend refactoring out of the remaining backend slices. |
+| 2026-07-27T20:37:04-04:00 | Codex SL-03 execution session | Frontend source and visual baselines remain unchanged. | No frontend file touched; selected browser owner evidence is retained in Section 9. | Service-backed owner plans, including Workbook accessibility, stateful, support, visual, and webserver-backed rows. | Selected browser evidence passes on the final Workbook rerun. | None. | Require the planned browser-backed functional gate after SL-05 route composition changes. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | No frontend source, generated frontend protocol, or visual baseline changed. | Backend Incidents route composition only. | `make browser-e2e-webserver-backed`; scoped diff inspection. | Both scheduled functional browser work units pass; dedicated visual and measurement suites remain untriggered. | None. | Reconfirm the scoped diff in SL-08. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | Frontend source, generated frontend protocol, and visual baselines are unchanged. | Scoped diff and final browser work selected by `make check`. | Scope audit and full check. | Browser-backed functional groups pass; dedicated visual/measurement suites remain correctly skipped. | None. | Handoff complete. |
 
 ### Contract and codegen
 
@@ -790,6 +1014,10 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Fourteen target-owner HTTP operations plus four Workbook preference operations are mapped; no generated edit is authorized. | OpenAPI owner fragments, compatibility projection, generated HTTP binding references, boundary policy; touched this tracker only. | `jq`, `rg`, `sed`, `git log`, `git show`. | Bundle v1/v2 mismatch isolated; authored-owner-before-generator rule recorded. | RB-001. | Resolve owner first; use `make generate` only in a later authorized owner-input task. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | Compatibility v2, source catalog, fixture manifest, traceability, errors, OpenAPI, verification owners, schemas, and generated projections agree. | Authored `contracts/incident-bundles/**`, error/OpenAPI owners, verification inputs, harness attachments/schemas; generated OpenAPI, Go, TypeScript, and topology outputs. | `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make harness-contract`. | SL-07 and generated integrity AC-505 pass; generated files were changed only by the Make generator. | None. | Preserve authored-input-first regeneration in remaining slices. |
+| 2026-07-27T19:45:30-04:00 | Codex SL-02 execution session | The boundary manifest changed as an authored harness input; product contracts and generated projections are unchanged. | Backend boundary JSON and harness test only. | `make json-shape-check`, `make generate-drift`, `make generated-artifact-policy-check`. | Authored JSON is valid and generated state remains current. | None. | No code generation is required for SL-03 unless an authored generator input changes. |
+| 2026-07-27T20:37:04-04:00 | Codex SL-03 execution session | Only the authored test-support inventory changed; product contracts and generated projections remain unchanged. | `tools/test_support_inventory.json`; no contract or generated file. | `make json-shape-check`, `make harness-contract`, `make test`, `make test-fast`. | Inventory claims match live owner-local support and all selected evidence remains accounted. | None. | Use authored SQL plus `make generate` for the planned SL-05 SQLC query. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | An authored Incidents query now supplies the final deployment-admin lock/recheck; its SQLC projection is generator-owned. | `db/queries/incidents.sql`, generated `internal/gen/sql/incidents.sql.go`, boundary policy and harness fixture. | `make generate`, drift, artifact policy, JSON shape, harness contract. | Generated state matches the authored query and no product schema/OpenAPI contract changed. | None. | Re-run drift and artifact policy in SL-08. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | Authored SQL, generated SQLC, JSON policy inputs, and harness evidence are current and provenance-safe. | Final authored/generated delta. | Final JSON, harness, generation-drift, artifact-policy, and full-check gates. | No generated drift or manual generated edit exists; no HTTP/OpenAPI or product schema changed. | None. | Handoff complete. |
 
 ### Tests and harness
 
@@ -797,6 +1025,10 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | 22 Incident Bundle rows and 40 Incidents rows are mapped; boundary-test and support-inventory mismatches are explicit. | Verification contracts, family manifests, test-support inventory, task surface, target tests; touched this tracker only. | `make task-guide`, `make explain-test-owner`, `make explain-target`, `make target-plan-json`, `make help-all`, `jq`, `rg`, `make lint-markdown`. | Command discovery is not test success; the tracker-only Markdown lint passed. | RB-002 and RB-003 affect characterization. | In a later authorized implementation task, run owner slices before changing code. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | AC-487 through AC-507 have selected verification IDs and active owner rows; a new Records owner supplies unit and service-backed portability rows. | Verification registry/owners, all affected family manifests, tests, fixtures, harness attachments, topology, and duration baseline. | Owner discovery for 19 owners, focused unit/service rows, clean full service suite, `make harness-contract`, `make test-fast`, `make check`. | Focused and broad evidence passes; final roots and resolved failures are recorded in Section 9. | None for AG-001 through AG-003. | Reuse the selected rows while executing SL-02. |
+| 2026-07-27T19:45:30-04:00 | Codex SL-02 execution session | Import-boundary evidence now runs through the accounted harness authority instead of an owner-local Go test. | Harness contract fixture and deleted package-local AST test. | Pre-deletion and final `make harness-contract`; policy and drift gates. | Positive, negative, prefix, and production-only cases pass; no duplicate scanner remains. | None. | Begin SL-03 by recording its source gate before changing test callers. |
+| 2026-07-27T20:37:04-04:00 | Codex SL-03 execution session | Cross-owner test runtime consumers use `appsupport` directly; 21 remaining Incidents scenario imports expose only incident-specific fixture actions. | Nineteen consumer tests, deleted wrapper, and support inventory. | All named focused and service-backed owner plans, full `make test`, `make test-fast`, and targeted import scans. | Runtime, cleanup, dependency, route-mode, environment, and incident-fixture semantics pass; no forwarding facade remains. | None. | Preserve these test identities while migrating Store callers in SL-05. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | Stable test names and verification rows now exercise `Application`, the private repository boundary, and the dedicated import finalizer. | Incidents tests/support, app-server composition, Incident Bundles finalization, synthetic retirement fixture. | 40 focused and 25 service-backed Incidents tests, 30 app-server tests, 23 bundle tests, 865 fast tests, browser gate. | Atomicity, replay/conflict, lifecycle, no-op, last-admin, audit, pagination, preference, collaboration, and final-admin recheck evidence passes. | None. | Re-run Incidents and Incident Bundles focused/service-backed slices in SL-08. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | All selected owner identities and broad harness plans pass on the final source state. | Incidents, Incident Bundles, harness policy, and full repository checks. | 40/25 Incidents tests, 23/12 Bundle tests, 865 fast tests, 177-unit full check with 721 tests. | No missing or failed test, unmapped work, or final-slice failure root remains. | None. | Handoff complete. |
 
 ### Security and authorization
 
@@ -804,6 +1036,8 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Live membership/deployment-admin checks, hidden-not-found precedence, path safety, actor isolation, and final-publication recheck are frozen. | Core 04, target routes/access/storage/worker/finalizer, authorization tests; touched this tracker only. | `rg`, `sed`, `jq`. | Existing transport/auth and storage port boundaries classified intentional. | RB-002 for worker recovery composition. | Preserve exact authorization order and recheck timing in every future slice. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | Authorization remains server-derived; actors are inert; source-family and unsupported-version failures are closed and redacted; v1 telemetry is attribute-free and post-commit. | Core security clauses, Incident Bundle errors/routes/worker, actor and extension consumers, Reference Data validator, telemetry registry/tests. | Safe-failure row, owner authorization/telemetry slices, service-backed rollback evidence, `make check`. | AC-499, AC-500, AC-502, and AC-507 pass without public internal-data leakage. | None. | Preserve these conditions in SL-02, SL-03, and SL-05. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | Authentication/authorization still precedes validation; hidden 404/403 behavior and same-transaction open/admin locks are preserved. | Routes, Access repository use, membership application, import finalizer and lock query. | Focused/service-backed Incidents and Bundle evidence plus browser-backed functional gate. | Authorization ordering, last-admin protection, closed-incident handling, and final submitter recheck pass with unchanged public errors. | None. | Reconfirm under the final broad gate. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | Authorization precedence, hidden denial behavior, transaction locks, and final submitter recheck remain unchanged. | Final route, application, access, repository, and import-finalizer state. | Final owner slices, policy gates, fast tests, and full check. | Security-sensitive behavior passes without public error or data-shape drift. | None. | Handoff complete. |
 
 ### Open risks and next session
 
@@ -811,6 +1045,10 @@ rather than copied as current evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-27T16:00:09-04:00 | Codex planning/documentation session | Planning is decision-complete except for three evidence/authority blockers that implementation must not guess through. | This tracker and evidence named by RB-001 through RB-003; touched this tracker only. | `rg`, `sed`, `jq`, Git inspection, Make discovery commands. | SL-00 through SL-08 have dependencies, rollback, validation, and completion criteria. | RB-001, RB-002, RB-003. | Seek an authorized blocker-resolution or characterization slice; do not begin broad refactor work. |
 | 2026-07-27T19:19:47-04:00 | Codex AG-001–AG-003 execution session | Adoption and downstream alignment are complete; the remaining refactor work is unrelated boundary/test-support/persistence cleanup. | Final source state and this handoff. | Same-source-state final verification in Section 9. | AG-001 through AG-003 and SL-00, SL-01, SL-04, SL-06, SL-07 are `DONE`. | SL-02, SL-03, SL-05, then SL-08. | Execute SL-02 next, followed by SL-03 and SL-05 before final SL-08 closure. |
+| 2026-07-27T19:45:30-04:00 | Codex SL-02 execution session | SL-02 is closed with centralized enforcement and current same-slice evidence. | Four-file SL-02 delta recorded in Section 2. | Section 9 exit commands. | No active SL-02 risk or blocker remains. | SL-03, SL-05, then SL-08 remain. | Execute SL-03 without reopening completed specifications or portability/job architecture. |
+| 2026-07-27T20:37:04-04:00 | Codex SL-03 execution session | SL-03 is closed with canonical runtime ownership and complete focused-to-broad evidence. | Source and evidence deltas in Sections 2 and 9. | Exact closure sequence in Section 9. | No active SL-03 risk remains; the transient port collision is retained and resolved. | SL-05, then SL-08 remain. | Execute SL-05 without reintroducing test-runtime or Store compatibility facades. |
+| 2026-07-27T21:07:17-04:00 | Codex SL-05 execution session | SL-05 is closed with private persistence, a cohesive application boundary, and same-slice focused-to-browser evidence. | Source and evidence deltas in Sections 2 and 9. | Exact SL-05 closure sequence in Section 9. | No active implementation slice or owner contradiction remains. | SL-08 only. | Run closure lint/diff, record the SL-08 source gate, then execute final validation. |
+| 2026-07-27T21:22:49-04:00 | Codex SL-08 completion session | The overall incident-modules remediation is complete and auditable from the controlling tracker. | All source/evidence deltas in Sections 2 and 9 and final handoff rows. | Final focused-to-broad sequence and scope/stale-status audits. | No active `TODO`, `IN_PROGRESS`, or `BLOCKED` slice/task remains; all skips are scope-justified. | None. | Handoff complete; no continuation work is required. |
 
 ## 12. Resolved Decisions and Remaining Adoption Gates
 
@@ -936,17 +1174,17 @@ The documentation revision is complete only when every row below is `PASS`.
 
 | Criterion | Status | Evidence |
 | --- | --- | --- |
-| The pre-refactor inventory remains available and post-refactor additions/deletions are accounted. | PASS | Section 2 preserves the 56-file baseline; Section 12 records the new sourceport/assembly/owner files and removed generic importer and production hooks. |
+| The pre-refactor inventory remains available and post-refactor additions/deletions are accounted. | PASS | Section 2 preserves the 56-file baseline and records every SL-02, SL-03, and SL-05 addition, deletion, and moved responsibility; Section 12 preserves the earlier sourceport/assembly alignment. |
 | Every decision that previously required implementer judgment has one resolved disposition, owner, gate, slice, and binary acceptance path. | PASS | Sections 6, 8, 10, 12, and 13. |
 | Every proposed workflow has dependencies and an exit checkpoint. | PASS | Section 7 contains WF-00 through WF-08. |
 | Validation commands are Make-owned or documentation-only commands allowed by repository procedure. | PASS | Section 9. |
 | Contradictions use `BLOCKED: owner contradiction`; no adopted owner-owner contradiction was found. | PASS | Sections 1 and 12 distinguish the resolved owner/projection mismatch from an owner-owner contradiction. |
-| Handoff history is preserved and current rows exist in every materially affected category. | PASS | Section 11 retains the initial and decision-resolution rows and adds the `2026-07-27T19:19:47-04:00` execution row to all seven categories. |
+| Handoff history is preserved and current rows exist in every materially affected category. | PASS | Section 11 preserves prior rows and adds the `2026-07-27T21:22:49-04:00` SL-08 completion row to all seven categories. |
 | AG-001, AG-002, and AG-003 satisfy their exact exit conditions. | PASS | Section 12 records adopted requirements, acceptance mappings, aligned artifacts, and same-source-state evidence. |
+| SL-02, SL-03, SL-05, and SL-08 satisfy their exact exit conditions. | PASS | Sections 2, 8, 9, 10, and 11 record each source gate, delta, validation result, task closure, and handoff state. |
 | Authored and generated artifacts agree without manual generated edits. | PASS | `make generate`, drift, artifact-policy, JSON-shape, and harness checks pass in Section 9. |
-| Markdown and diff hygiene pass after the final handoff edit. | PASS | Draft pass: `make lint-markdown` at `.cartulary/test-results/20260727T232509Z-p1796003` and clean `git diff --check`; the mandatory rerun after this last edit is reported with the final handoff. |
+| Markdown and diff hygiene pass after the final handoff edit. | PASS | Final reconciliation pass: `make lint-markdown` at `.cartulary/test-results/20260728T012505Z-p2854890`, clean `git diff --check`, clean active-status scans, and scoped `git status --short`; the post-evidence-row rerun is reported with the final handoff. |
 | Obsolete unresolved-decision language is absent from decision-bearing sections. | PASS | The final targeted scan found no active unresolved-decision language outside preserved historical/validation text. |
 
-RB-001 through RB-003 and AG-001 through AG-003 are closed. SL-02 is the next
-recommended slice, followed by SL-03 and SL-05; SL-08 remains the final overall
-closure slice.
+RB-001 through RB-003, AG-001 through AG-003, SL-00 through SL-08, and T-001
+through T-019 are closed. No continuation slice remains.

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -142,7 +142,7 @@ func postReferencePackUpload(t testing.TB, baseURL string, login flowtest.LoginR
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func requireJob(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
+func requireJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var job map[string]any
@@ -159,7 +159,7 @@ func requireJob(t testing.TB, harness *scenariotest.ServerHarness, login flowtes
 	}
 }
 
-func requireJobNow(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
+func requireJobNow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)

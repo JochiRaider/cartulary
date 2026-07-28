@@ -107,7 +107,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, admin LoginResult, b
 func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	store := incidents.NewStore(pool)
+	store := incidents.NewApplication(pool)
 	result, err := store.CreateIncident(context.Background(), actor, incidents.CreateIncidentRequest{
 		ClientTxnID: clientTxnID,
 		IncidentKey: incidentKey,

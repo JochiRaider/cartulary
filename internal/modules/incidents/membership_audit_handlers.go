@@ -67,7 +67,7 @@ func (s *Service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Req
 		writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 		return
 	}
-	records, err := s.store.ListAdministrativeAuditEvents(r.Context(), pageRequest)
+	records, err := s.application.ListAdministrativeAuditEvents(r.Context(), pageRequest)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

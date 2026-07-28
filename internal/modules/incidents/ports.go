@@ -29,7 +29,7 @@ type CollaborationSessionPort interface {
 	NotifyIncidentMembershipRevoked(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID)
 }
 
-type StoreOptions struct {
+type ApplicationOptions struct {
 	PreferenceBootstrap PreferenceBootstrapPort
 }
 

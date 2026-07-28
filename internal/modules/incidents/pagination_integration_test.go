@@ -9,12 +9,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServerWithHarnessControls(t, "incident_membership-pagination-live-first-page")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        "incident_membership-pagination-live-first-page",
+		TestRouteMode: httptestx.TestRouteModeHarnessOwned,
+	})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -56,8 +60,8 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 }
 
 func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-pagination-incidents-search-status")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents-search-status")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -115,8 +119,8 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 }
 
 func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-pagination-incidents")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -198,8 +202,8 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 }
 
 func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-pagination-revoked-membership")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-revoked-membership")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
@@ -263,8 +267,8 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 }
 
 func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "incident_membership-pagination-memberships")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-memberships")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -336,7 +340,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 
 func createMembership(
 	t testing.TB,
-	harness *scenariotest.ServerHarness,
+	harness *appsupport.ServerHarness,
 	adminLogin flowtest.LoginResult,
 	incidentID string,
 	clientTxnID string,

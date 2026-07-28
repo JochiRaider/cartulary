@@ -2,60 +2,62 @@ package incidents
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/workbookpreferences"
 )
 
-var ErrInitialAdminUnavailable = errors.New("incidents: initial admin unavailable")
+type incidentBundleImportFinalizer struct {
+	preferenceBootstrap PreferenceBootstrapPort
+}
 
-func (s *Store) FinalizeIncidentBundleImportTx(ctx context.Context, tx pgx.Tx, params IncidentBundleImportFinalizationParams) error {
+func NewIncidentBundleImportFinalizer() IncidentBundleImportFinalizer {
+	return &incidentBundleImportFinalizer{
+		preferenceBootstrap: workbookpreferences.NewBootstrap(),
+	}
+}
+
+func (f *incidentBundleImportFinalizer) FinalizeIncidentBundleImportTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	params IncidentBundleImportFinalizationParams,
+) error {
 	publishedAt := params.PublishedAt
 	if publishedAt.IsZero() {
 		publishedAt = time.Now().UTC()
 	}
 	publishedAt = publishedAt.UTC()
 
-	var displayName string
-	var isActive bool
-	var isDeploymentAdmin bool
-	err := tx.QueryRow(ctx, `
-SELECT display_name, is_active, is_deployment_admin
-  FROM users
- WHERE id = $1
- FOR UPDATE
-`, params.SubmittedByUserID).Scan(&displayName, &isActive, &isDeploymentAdmin)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrInitialAdminUnavailable
-	}
+	txRepository := newRepository(tx)
+	initialAdmin, err := txRepository.getIncidentBundleInitialAdminForUpdate(ctx, params.SubmittedByUserID)
 	if err != nil {
-		return fmt.Errorf("read incident bundle initial admin: %w", err)
+		return err
 	}
-	if !isActive || !isDeploymentAdmin {
+	if !initialAdmin.IsActive || !initialAdmin.IsDeploymentAdmin {
 		return ErrInitialAdminUnavailable
 	}
 
-	membershipRow, err := sqlc.New(tx).CreateBootstrapIncidentMembership(ctx, sqlc.CreateBootstrapIncidentMembershipParams{
-		IncidentID: pgUUID(params.IncidentID),
-		UserID:     pgUUID(params.SubmittedByUserID),
-		JoinedAt:   pgTimestamptz(publishedAt),
-		Role:       "admin",
-		Column5:    displayName,
+	membership, err := txRepository.createBootstrapMembership(ctx, createBootstrapMembershipPersistenceParams{
+		IncidentID:  params.IncidentID,
+		UserID:      params.SubmittedByUserID,
+		JoinedAt:    publishedAt,
+		Role:        "admin",
+		DisplayName: initialAdmin.DisplayName,
 	})
-	if err != nil {
-		return fmt.Errorf("insert imported incident bootstrap membership: %w", err)
-	}
-	membership, err := membershipRecordFromSQL(membershipRow)
 	if err != nil {
 		return err
 	}
 
-	if err := s.preferenceBootstrap.BootstrapIncidentPreferencesTx(ctx, tx, params.IncidentID, params.SubmittedByUserID, publishedAt); err != nil {
+	if err := f.preferenceBootstrap.BootstrapIncidentPreferencesTx(
+		ctx,
+		tx,
+		params.IncidentID,
+		params.SubmittedByUserID,
+		publishedAt,
+	); err != nil {
 		return err
 	}
 

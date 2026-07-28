@@ -276,6 +276,29 @@ func (q *Queries) EnsureIncidentOpenForUpdate(ctx context.Context, id pgtype.UUI
 	return status, err
 }
 
+const getIncidentBundleInitialAdminForUpdate = `-- name: GetIncidentBundleInitialAdminForUpdate :one
+SELECT
+    display_name,
+    is_active,
+    is_deployment_admin
+FROM users
+WHERE id = $1
+FOR UPDATE
+`
+
+type GetIncidentBundleInitialAdminForUpdateRow struct {
+	DisplayName       string `json:"display_name"`
+	IsActive          bool   `json:"is_active"`
+	IsDeploymentAdmin bool   `json:"is_deployment_admin"`
+}
+
+func (q *Queries) GetIncidentBundleInitialAdminForUpdate(ctx context.Context, id pgtype.UUID) (GetIncidentBundleInitialAdminForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getIncidentBundleInitialAdminForUpdate, id)
+	var i GetIncidentBundleInitialAdminForUpdateRow
+	err := row.Scan(&i.DisplayName, &i.IsActive, &i.IsDeploymentAdmin)
+	return i, err
+}
+
 const getIncidentForUpdate = `-- name: GetIncidentForUpdate :one
 SELECT
     id,

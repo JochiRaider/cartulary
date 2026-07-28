@@ -17,13 +17,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-early-fail")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-early-fail")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-early-fail-incident",
@@ -43,8 +44,8 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 }
 
 func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-metadata-non-object")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-metadata-non-object")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, `[]`, "host,summary\nhost-1,alpha\n", "input.csv", false)
@@ -58,8 +59,8 @@ func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 }
 
 func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-replay")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-replay-incident",
@@ -149,8 +150,8 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 }
 
 func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-xlsx-discovery")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-xlsx-discovery")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-xlsx-incident",
@@ -202,8 +203,8 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 }
 
 func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-apply")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-apply")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-apply-incident",
@@ -333,8 +334,8 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 }
 
 func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-target-registry-host")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-target-registry-host")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-target-host-incident",
@@ -423,8 +424,8 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 }
 
 func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "network-flow-import-apply")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "network-flow-import-apply")
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-import-incident",
@@ -535,8 +536,8 @@ UPDATE incident_memberships
 }
 
 func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension_profile-import-evidence-owner-facade")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-evidence-owner-facade")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-evidence-owner-incident",

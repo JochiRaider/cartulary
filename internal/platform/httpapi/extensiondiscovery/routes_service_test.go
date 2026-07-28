@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "extension-discovery-session")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension-discovery-session")
 
 	_, _ = flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	userID := flowtest.SeedLocalUserFlags(
