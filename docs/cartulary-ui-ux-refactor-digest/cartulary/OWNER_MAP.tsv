@@ -1,0 +1,16 @@
+concern	primary_owner	secondary_owner	use
+Authority and precedence	Core 00 §§1-5	design.md §1	Resolve governing artifact before design or implementation decisions.
+Design tokens/theme/density/icons	design.md §3	Core 01 view contracts	Use declared registries; reject parallel design systems.
+Workbook thesis and visual direction	design.md §§4-6	Core 03 §§1-2	Keep grid-first capture and dense graphite direction.
+Shell and responsive composition	design.md §7	Core 01 browser/surface contracts	Use inline-size chrome algorithm and independent block-size state.
+Grid identity and keyboard behavior	design.md §8	Core 03 §13	Use stable record/field identity and the declared keyboard/Escape state machines.
+Chips and progressive structure	design.md §9	Core 02 domain model	Preserve rough capture and distinct resolution states.
+Save/presence/conflict/recovery	design.md §10	Core 03 §§3-4	Keep feedback local and transaction/pending semantics deterministic.
+Evidence presentation	design.md §11	Core 03 §8; Core 04 authorization/trust boundaries	Do not imply access or object authority from visual state.
+Component variants/states	design.md §12	Owner behavior sections	Implement closed variants and deterministic compound-state precedence.
+Per-surface composition	design.md §13	Core 01 field/view contracts; Core 03 §16	Do not redefine field membership or write capabilities.
+Accessibility	design.md §14	Core 03 keyboard/interaction owners	Verify non-color cues, names, focus, live regions, contrast, and reduced motion.
+Visual fixtures and selectors	design.md §15	Core 05 only when publication claims apply	Use exact fixture parameters and stable semantic identifiers.
+Do/do-not and acceptance	design.md §§17-18	Applicable Core acceptance criteria	Treat as completion checklist inside design scope.
+Refactor slicing and handoff	cartulary_modular_refactor_planning_framework.md §§2-11	Current repository state	Inspect, freeze contracts, characterize, slice, validate, and hand off.
+

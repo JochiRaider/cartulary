@@ -1,0 +1,28 @@
+id	scope	pass_condition	required_evidence
+A001	Authority	Every observable behavior change maps to an adopted owner; no advisory source became authority.	Owner-to-change map
+A002	Scope	One coherent seam is changed; behavior corrections are separated from structural refactors.	Scope and diff review
+A003	Repository state	Actual stack, owners, generated paths, direct grid imports, tests, and dirty state were inspected.	Inventory
+A004	Tokens	No component-local design literal or second token/theme/density registry was introduced.	Token audit
+A005	Theme	Only current owner-supported dark_graphite behavior is exposed; no generated cybersecurity palette appears.	Theme fixture and diff
+A006	Density	Selector changes row height, cell padding, typography, editor geometry, and gutters through shared tokens.	Density fixtures
+A007	Creation	Hosts/Identities creation appears only when active view-schema capability permits it and stays workbook-adjacent.	Capability and browser tests
+A008	Responsive	Chrome selection depends on inline size only; vertical-only resize preserves top navigation and controls.	1024x720, 768x640, and vertical-resize fixtures
+A009	Overflow	Grid/inspector scroll inside shell ownership; status strip and safe account/application navigation remain reachable.	Overflow/navigation fixture
+A010	Inspector	Sections/actions derive from active view_schema_id and inspector_config_v1; stale state invalidates safely.	Inspector state tests
+A011	Continuity	Row, scroll, selection, and focus continuity survive inspector/view/background-refresh transitions where specified.	Browser continuity test
+A012	Transactions	New client_txn_id uses Web Crypto randomness; uncertain replay alone reuses an ID.	Unit and mutation replay tests
+A013	Queue recovery	Blocked edits offer Retry with a new request ID and Discard blocked edit without silent loss/duplication.	Recovery browser test
+A014	Editing	Single-click edit, keyboard operations, paste, draft retention, commit/cancel, and Escape ladder remain deterministic.	Keyboard/paste/state-machine tests
+A015	Conflict	Affected cell is primary locus; saved value and local draft remain distinct; toast is not sole unresolved state.	Conflict fixture
+A016	Async states	Loading, refresh, success-empty, filtered-empty, unauthorized, unavailable, stale, and error are distinct.	State matrix
+A017	Refresh	Prior authorized rows remain visible during background refresh and failure unless owner requires removal.	Refresh fixture
+A018	Evidence	Required evidence lifecycle/overlay/preview combinations remain distinct and non-color encoded.	Evidence matrix fixture
+A019	Accessibility	Keyboard parity, visible focus, names, live regions, contrast, non-color cues, and reduced motion pass.	A11y report and fixtures
+A020	Components	Every declared component variant and compound-state precedence renders deterministically.	Component matrix fixture
+A021	Virtualization	All result sizes use stable virtualized workbook rows without focus, identity, or scroll corruption.	Performance/continuity evidence
+A022	Visual fixtures	Applicable D-VFIX cases run at exact viewport, theme, density, scroll, mask, and crop settings.	Expected/actual/diff/metadata
+A023	Selectors	Tests use fixture ID, view_schema_id, record_id, field_key, semantic icon ID, or owner state/capability.	Selector audit
+A024	Test authority	No test binds conformance to literal spec prose, paths, line numbers, hashes, formatting, or documentation structure.	Test audit
+A025	Generated artifacts	Generated files are changed only through their owner generator and drift checks pass.	Generator command and drift result
+A026	Boundary	No route, schema, field, write, auth, lifecycle, storage, evidence, or compatibility behavior was invented.	Owner boundary review
+A027	Handoff	Changed behavior, owner, paths, commands, results, evidence, deferrals, and next slice are recorded.	Handoff record

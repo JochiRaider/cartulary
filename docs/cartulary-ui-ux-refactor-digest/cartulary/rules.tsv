@@ -1,0 +1,35 @@
+id	class	upstream_basis	Cartulary_instruction	evidence
+R001	ADOPT	Accessibility: keyboard navigation	Every user action has keyboard operation; preserve logical order and no traps.	Keyboard matrix and browser test
+R002	ADOPT	Accessibility: visible focus	Use Cartulary focus tokens; never remove focus without an accessible replacement.	Focus fixture and contrast result
+R003	ADOPT	Accessibility: color not only	Pair every semantic color with text, shape, marker, icon, or accessible name.	State matrix and a11y report
+R004	ADOPT	Accessibility: accessible names	Icon-only controls require stable semantic icon ID, accessible name, and visible focus.	Component audit
+R005	ADOPT	Accessibility: reduced motion	State remains understandable with motion disabled; motion never blocks input.	Reduced-motion fixture
+R006	ADOPT	Forms/feedback: local errors	Show validation and recovery at the affected cell/editor/inspector section.	Field-state test
+R007	ADOPT	Feedback: explicit loading/error/empty	Distinguish loading, refresh, successful empty, filtered empty, unavailable, unauthorized, stale, and failure.	State fixture matrix
+R008	ADOPT	Feedback: recovery path	Every actionable failure exposes an owner-permitted retry, edit, discard, or help path.	Recovery test
+R009	ADOPT	Performance: virtualize long lists	Keep workbook rows virtualized at all result sizes; preserve stable row identity and focus.	Performance and continuity test
+R010	ADOPT	Performance: reserve async space	Avoid shell/grid layout jumps and keep prior authorized rows during background refresh.	Refresh fixture and layout-shift observation
+R011	ADOPT	Consistency: one design system	Use docs/design.md token, theme, density, icon, and component registries only.	Token/component audit
+R012	ADOPT	Stack detection	Inspect manifests/source; never assume React, Tailwind, shadcn, or another stack.	Inventory notes
+R013	ADOPT	Semantic controls	Use semantic elements/roles and disabled/read-only semantics rather than inert styled containers.	A11y tree and interaction test
+R014	ADOPT	Stable navigation	Preserve shell navigation, current-state cues, scroll/filter/input state, and safe account menu access.	Responsive/navigation fixtures
+R015	ADOPT	Final checklist	Translate applicable review checks into owner-aligned behavior, accessibility, and visual evidence.	Handoff evidence map
+R016	ADAPT	Touch target minimum	Apply only to a future/current touch profile or genuinely touch-oriented controls; do not inflate dense desktop grid rows unconditionally.	Profile-specific target-size test
+R017	ADAPT	Mobile-first layout	Use Cartulary's declared desktop viewport bands and inline-size algorithm; mobile is future-profile work.	D-VFIX exact viewports
+R018	ADAPT	No horizontal scrolling	Prevent shell overflow; retain legitimate horizontal workbook-grid scrolling within its owned region.	Overflow fixture
+R019	ADAPT	Minimum 16px body text	Apply to supported mobile/touch profiles; current dense desktop typography follows Cartulary tokens and contrast/readability requirements.	Token and viewport audit
+R020	ADAPT	Skeleton loading	Use neutral non-record loading structure only where unambiguous; never render fake authoritative workbook rows.	Loading-state fixture
+R021	ADAPT	150-300ms transitions	Use Cartulary motion tokens only when motion conveys meaning; preserve reduced-motion and interruptibility.	Motion fixture
+R022	ADAPT	One primary CTA	Apply at a local decision locus; do not distort workbook hot paths into screen-level conversion flows.	Component hierarchy review
+R023	ADAPT	Consistent icon family	Map package icons behind Cartulary semantic icon IDs; package names never become product or test concepts.	Icon registry audit
+R024	ADAPT	Errors below fields	In grid/editor contexts place feedback at the affected locus without forcing form layout.	Cell/editor fixture
+R025	ADAPT	Confirm destructive action	Follow Core-owned rollback/destructive semantics and inspector workflow; avoid generic modal ceremony.	Destructive action fixture
+R026	REJECT	Cybersecurity Platform: Cyberpunk UI	Preserve dense graphite forensic workspace; no cyberpunk visual identity.	Visual review
+R027	REJECT	Cybersecurity Platform: Matrix green/deep black	Preserve Cartulary color/token registry and scarce warm accent.	Token audit
+R028	REJECT	Cybersecurity Platform: threat display/alert animation	Do not invent threat maps, decorative heatmaps, real-time alert theater, or motion.	Surface and motion audit
+R029	REJECT	Generated product palette/typography/style	Do not replace design.md or persist generated MASTER.md/pages overrides.	Repository diff and authority audit
+R030	REJECT	Landing/conversion/hero/social-proof patterns	Do not apply marketing information architecture to the workbook shell.	Surface composition review
+R031	REJECT	Dashboard-card dominance	Keep active workbook grid above administrative or dashboard-card layouts.	D-VFIX-001
+R032	REJECT	Decorative animation/parallax/glow	No cinematic gradients, glow, parallax, or decorative motion in the live workbook shell.	Reduced-motion and visual review
+R033	REJECT	Generic UI advice as behavior authority	Do not redefine routes, schemas, fields, writes, concurrency, authorization, evidence, or lifecycle.	Owner traceability audit
+R034	REJECT	Incidental selectors	Do not test DOM hierarchy, classes, component names, row numbers, vendor coordinates, SQL/projection names, or literal docs.	Selector/test audit
