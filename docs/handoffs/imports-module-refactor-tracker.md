@@ -8,11 +8,11 @@
 - **Target label:** `imports`
 - **Output path:** `docs/handoffs/imports-module-refactor-tracker.md`
 - **Status:** Active remediation control artifact.
-- **Current control point:** `RS-01` checkpoint complete; only `RS-02` is eligible.
-- **Allowed change in the next control point:** Authored import-target registry inputs, their
-  generator and validation tests, generated projections changed only through that generator, and
-  the mandatory tracker checkpoint. Later changes MUST remain inside the separately recorded
-  `RS-03` through `RS-11` workstream boundaries.
+- **Current control point:** `RS-02` checkpoint complete; only `RS-03` is eligible.
+- **Allowed change in the next control point:** Application-composed view-owner registry injection,
+  source-owner adapter construction, removal of concrete peer stores and cross-owner SQL from
+  Imports, their behavior and boundary tests, and the mandatory tracker checkpoint. Later changes
+  MUST remain inside the separately recorded `RS-04` through `RS-11` workstream boundaries.
 - **Non-goals:** No unsequenced production refactor, generated-root hand edit, dependency-lock edit,
   whole-session rollback, generic callback bus, import-specific WebSocket surface, or legacy target
   fallback.
@@ -91,8 +91,8 @@ The implementation baseline is clean `main` at
 only this tracker. The active narrow baseline is
 `make test-slice OWNER=module.imports`: five routed tests and three work units passed at
 `.cartulary/test-results/20260728T224329Z-p1276405`.
-The current workstream baseline is tracker checkpoint `a4c7c679`; the coordinated RS-01 owner
-repair is substantive commit `f05d3366`.
+The current workstream baseline is tracker checkpoint `4b43ce5c`; the generated RS-02 registry is
+substantive commit `c6c72504`.
 
 ### 1.4 Mandatory workstream checkpoint
 
@@ -381,8 +381,8 @@ condition, not a design choice left to an implementer.
 | GATE-01 Characterization | Add route, target, state, owner-effect, security, boundary, and frontend characterization from registry-driven inputs. | PASS | Current behavior is frozen; known non-conformance is labeled; required narrow baseline is green. | All structural slices |
 | GATE-02 Coordinated owner repair | Adopt the IRT-REQ-003 through IRT-REQ-006 ownership split in Core 00, Core 01, Network Flow, and governed schemas as one logical change. | PASS | No exact payload has two owners; unit commit and session finalization are coherent. | Analytical facade and transaction changes |
 | GATE-03 Correction authorization | Adopt one Imports Conformance Corrections Authorization row per observable correction. | PASS | Each correction has owner requirements, compatibility class, tests, migration posture, rollback boundary, approver, and adopted status. | RS-06 through RS-10 |
-| GATE-04 Registry projection | Adopt and generate `cartulary.import_target_registry.v1`. | TODO | Backend, frontend, adapter, verification, and integrity outputs validate and share one source digest. | Registry injection and frontend cleanup |
-| GATE-05 Structural authorization | Explicitly authorize behavior-preserving registry injection and file-level decomposition. | TODO | GATE-01, GATE-02, and GATE-04 pass; authorized files and rollback boundaries are recorded. | RS-03 through RS-05 |
+| GATE-04 Registry projection | Adopt and generate `cartulary.import_target_registry.v1`. | PASS | Backend, frontend, adapter, verification, and integrity outputs validate and share one source digest. | Registry injection and frontend cleanup |
+| GATE-05 Structural authorization | Explicitly authorize behavior-preserving registry injection and file-level decomposition. | PASS | GATE-01, GATE-02, and GATE-04 pass; authorized files and rollback boundaries are recorded. | RS-03 through RS-05 |
 | GATE-06 Correction implementation | Authorize and implement each observable correction independently. | TODO | Each selected correction's current and normative tests pass with required migration/compatibility evidence. | Final validation |
 | GATE-07 Harness closure | Add exact authored owner/family rows, regenerate topology, and run narrow-to-broad checks. | TODO | No uncovered target, duplicate selector, unowned test, or generated drift remains. | Final handoff |
 
@@ -416,6 +416,17 @@ replace those owners.
 | `imports.xlsx_locators.v1` | `REQ-01-472`, `REQ-01-620e`, `REQ-03-181..182`, `REQ-03-181a`, `AC-064`, `AC-264B` | XLSX discovery includes deterministic used ranges, tables, static named ranges, and durable operator regions independent of presentation state; a compatible eleventh operation creates regions. | `additive_contract` | RS-00 route-parser and hidden-sheet characterization plus bounded-XLSX baseline | Locator ordering/replay/overlap; hidden/filter/sort/style neutrality; cached/missing formulas; malformed/archive-limit/external-link/macro cases; OpenAPI compatibility | `regenerate_contracts` | XLSX index/decoder, operator-region migration/state, authored OpenAPI, generated protocol clients, frontend region flow, fixtures, and tests revert together | 2026-07-28 implementation request plus adopted Core owners | `adopted` |
 | `imports.frontend_registry_consumption.v1` | `REQ-01-620`, `REQ-03-181a`, `AC-264B`, `AC-464` | Generic and analytical frontend flows consume generated target semantics, preserve claim gating, and use the durable operator-region route without a manual fallback list. | `behavior_correction` | RS-00 frontend target and workflow characterization; generated RS-02 registry parity | Exact 18-row disposition; generic/analytical routing; claimed/unclaimed Network Flow; region creation; server revalidation; no-fallback source scan and browser flow | `regenerate_contracts` | Authored target catalog, regenerated TS projection, generic assistant, Network Flow workspace, region UX, and tests revert together | 2026-07-28 implementation request plus adopted Core and Network Flow owners | `adopted` |
 
+**Imports Structural Refactor Authorization**
+
+The implementation request dated 2026-07-28 authorizes these behavior-preserving structural
+boundaries now that GATE-01, GATE-02, and GATE-04 pass.
+
+| Slice | Authorized substantive scope | Required behavior boundary | Rollback boundary | Status |
+| --- | --- | --- | --- | --- |
+| RS-03 | `internal/modules/imports/owner_apply.go`, the narrow `ownerfacade` contract, source-owner adapter constructors, and application composition under `internal/app` | Preserve every characterized owner result while resolving each enabled view target exactly once from the generated registry; Imports retains no concrete peer store or peer-table SQL | Revert registry injection, source-owner adapters, assembly validation, and their tests together | `authorized` |
+| RS-04 | Timeline-owned import facade, Imports registry registration, application composition, and Timeline/import integration tests | Preserve Timeline defaults, provenance, revisions, projections, events, replay, and public shapes while moving the apply path behind the common coordinator | Revert Timeline facade, registration, composition, and effect tests together | `authorized` |
+| RS-05 | File-level extraction inside the existing public Imports package for HTTP, services, jobs, discovery/mapping, apply, persistence, and XLSX responsibilities | Preserve public symbols, route/error behavior, transactions, parser outcomes, and all RS-00 characterization; introduce no new cross-package behavior owner | Revert each extraction with its moved tests; no schema, migration, or public contract rollback is permitted in this structural slice | `authorized` |
+
 ### 6.2 Workstreams
 
 | Workflow ID | Name | Class | Required previous workflows/gates | Required subsequent workflows | Goal | Validation | Handoff checkpoint |
@@ -424,7 +435,7 @@ replace those owners.
 | WF-01 | Live target inventory | chain | WF-00 | WF-02 through WF-04 | Account for every file, caller, dependency, and test | Repository inspection | All 17 tracked files have target-specific rows. |
 | WF-02 | Contract and owner resolution | chain | WF-01 | WF-05 | Make ownership and interfaces decision-complete and adopt the coordinated owner correction before production changes | Human owner review; owner-selected documentation and shape checks | GATE-02/03 pass; exact analytical ownership, two-level completion, and correction authorization are adopted. |
 | WF-03 | Characterization and evidence design | parallel | WF-01 | WF-05, WF-07 | Define exact coverage and accounting for all 18 targets | Owner slices and frontend checks | GATE-01 plan is complete. |
-| WF-04 | Boundary and projection design | parallel | WF-01 | WF-05 | Specify owner registry, composition, and generated target projection | Boundary and generation checks | RB-003/RB-004 are resolved in tracker. |
+| WF-04 | Boundary and projection design | parallel | WF-01 | WF-05 | Specify owner registry, composition, and generated target projection | Boundary and generation checks | GATE-04 passes; all five projections share source digest `5ef5aad1fb8bcfbebc5c7078a83c560346144e279a95952506918280c0e276f7`. |
 | WF-05 | Structural sequence | chain | WF-02 through WF-04; GATE-01/02/04/05 | WF-06 | Inject facades and split responsibilities without behavior changes | Narrow owner and boundary targets | Imports is a thin coordinator with characterized behavior intact. |
 | WF-06 | Conformance corrections | chain/parallel | WF-05; GATE-03 | WF-07 | Implement independently authorized observable corrections | Per-correction tests | Each correction is implemented and verified independently. |
 | WF-07 | Harness and final handoff | chain | Applicable WF-05/06; GATE-07 | None | Complete accounting and narrow-to-broad evidence | `make agent-finalize`, owner slices, `make check` | Results, failures, run roots, and skips are recorded. |
@@ -588,7 +599,7 @@ active and MUST be recorded in the checkpoint.
 | IMP-006 | Define one generated target registry | WF-04 | DONE | IMP-002 | §8.3; RB-004 | Fields, outputs, failures, and frontend rules are decision-complete. |
 | IMP-007 | Complete characterization baseline | WF-03 | DONE | IMP-005; GATE-01 | RS-00; `1ba06c97` | Required narrow suites pass with known non-conformance labeled. |
 | IMP-008 | Adopt coordinated owner repair | WF-02 | DONE | IMP-003; GATE-02 | RS-01; `f05d3366` | Core/Network Flow/machine owners are coherent and adopted together. |
-| IMP-009 | Adopt and generate target registry | WF-04 | TODO | IMP-006, IMP-008; GATE-04 | RS-02 | All projections share one source digest. |
+| IMP-009 | Adopt and generate target registry | WF-04 | DONE | IMP-006, IMP-008; GATE-04 | RS-02; `c6c72504` | All five projections cover 18 ordered rows and share source digest `5ef5aad1fb8bcfbebc5c7078a83c560346144e279a95952506918280c0e276f7`. |
 | IMP-010 | Inject owner registry and remove ownership leakage | WF-05 | TODO | IMP-007 through IMP-009; GATE-05 | RS-03/04 | Exactly one owner selected; no concrete peer stores or cross-owner SQL in imports. |
 | IMP-011 | Split imports internal responsibilities | WF-05 | TODO | IMP-010; GATE-05 | RS-05 | Characterized public behavior is unchanged. |
 | IMP-012 | Adopt conformance correction authorization | WF-06 | DONE | IMP-004, IMP-007; GATE-03 | §6.1 Imports Conformance Corrections Authorization | Every correction row is adopted before implementation. |
@@ -608,6 +619,7 @@ active and MUST be recorded in the checkpoint.
 | 2026-07-28 18:53 EDT | CP-00 | Baseline `ee848b80cb21cb3fb94aff4dcdef4cf6f73cb672`; checkpoint commit pending | Activated this tracker; recorded the active baseline and narrow run; added the separate checkpoint protocol; assigned the additive operator-region route to RS-09; replaced same-session re-import with fresh-session re-import | `make lint-markdown` passed at `.cartulary/test-results/20260728T225321Z-p1298103`; final diff/status checks run before commit | Documentation-only; no migration or product compatibility effect; rollback is this tracker activation; all implementation risks remain gated | RS-00 only |
 | 2026-07-28 19:00 EDT | RS-00 | Baseline `8a1e0fbb`; substantive result `1ba06c97` | Added executable characterization for the current route parser, exact 18-target inventory, raw internal-error echo, hidden-sheet omission, and `use_null` mismatch; retained existing integration, owner-effect, boundary, coordinator, and browser characterization | `make format` passed at `.cartulary/test-results/20260728T225642Z-p1302587`; `make test-fast` passed 891 tests and 2/2 work units at `.cartulary/test-results/20260728T225657Z-p1305602`; `make frontend-unit` passed at `.cartulary/test-results/20260728T225919Z-p1357390`; Imports `test-slice` and `service-backed-test-slice` each passed five tests and 3/3 work units at `.cartulary/test-results/20260728T225919Z-p1357250` and `.cartulary/test-results/20260728T225919Z-p1357264` | Test-only; no migration or product compatibility effect; rollback is the two characterization files; temporary known-nonconformance tests MUST be replaced in RS-08/09, while transaction/auth and state correction probes remain assigned to RS-06/07 | RS-01 only |
 | 2026-07-28 19:15 EDT | RS-01 | Baseline `a4c7c679`; substantive result `f05d3366` | Adopted the Core/analytical-target ownership split, generated-registry semantics, typed analytical binding, common unit commit and outcome-only finalizer, transaction-current authorization, safe owner errors, fresh-session re-import, and additive operator-region contract across Domain, Core 00/01/03/04, Extensions `0.7.1`, and Network Flow `2.0.3`; recorded all correction authorizations | `make lint-markdown` passed before and after final owner edits at `.cartulary/test-results/20260728T231255Z-p1403240` and `.cartulary/test-results/20260728T231332Z-p1405532`; `make json-shape-check` passed at `.cartulary/test-results/20260728T231309Z-p1404768`; checkpoint lint passed at `.cartulary/test-results/20260728T231532Z-p1407756`; documentation/shape targets expose no work-unit count | Specification and contract only; existing ten routes remain stable and the eleventh route is additive in RS-09; no production, migration, generated artifact, or stored-data change occurred; coordinated owner files revert together; machine projection remains for RS-02 and behavior corrections remain for RS-06 through RS-10 | RS-02 only |
+| 2026-07-28 19:46 EDT | RS-02 | Baseline `4b43ce5c`; substantive result `c6c72504` | Added the Core view-target input catalog and closed schema set, Network Flow owner binding/error schema, Extension binding contribution, deterministic joined generator, exact 18-row backend Go and safe frontend TypeScript catalogs, embedded adapter/verification/integrity projections, generator failure tests, family/policy declarations, and regenerated outputs | `make format` passed at `.cartulary/test-results/20260728T233827Z-p1486846`; `make generate` passed at `.cartulary/test-results/20260728T233913Z-p1492663`; `make test-fast` passed 891 tests and 2/2 work units at `.cartulary/test-results/20260728T233459Z-p1431786`; `make json-shape-check`, `make generated-artifact-policy-check`, and `make generate-drift` passed at `.cartulary/test-results/20260728T233921Z-p1494846`, `.cartulary/test-results/20260728T233931Z-p1495412`, and `.cartulary/test-results/20260728T233938Z-p1495788`; `make frontend-typecheck`, `make frontend-unit`, and `make lint-biome` passed at `.cartulary/test-results/20260728T233952Z-p1499658`, `.cartulary/test-results/20260728T234452Z-p1586588`, and `.cartulary/test-results/20260728T234543Z-p1588641`; Imports `test-slice` and `service-backed-test-slice` each passed five tests and 3/3 work units at `.cartulary/test-results/20260728T234103Z-p1500781` and `.cartulary/test-results/20260728T234153Z-p1519991`; Extensions and Network Flow owner slices passed 26 tests in 4/4 work units and 57 tests in 1/1 work unit at `.cartulary/test-results/20260728T234243Z-p1538839` and `.cartulary/test-results/20260728T234243Z-p1538848`; checkpoint `make lint-markdown` passed at `.cartulary/test-results/20260728T234737Z-p1589948` | Additive internal contracts and generated projections only; no runtime dispatch, public route, database, or stored-data change; rollback removes the authored Imports/Network Flow/Extension inputs and generator, then regenerates all outputs; generated files were changed only by `make generate`, including the topology render index after its checker source digest changed; initial `make generate` failed at `.cartulary/test-results/20260728T233024Z-p1418204` because an internal owner error was incorrectly projected as a public schema, and two `make json-shape-check` runs failed at `.cartulary/test-results/20260728T233718Z-p1485815` and `.cartulary/test-results/20260728T233841Z-p1491912` while the new family policy/order was incomplete; all three related failures were corrected by keeping the owner error internal and closing the family policy; manual backend and frontend consumers intentionally remain until RS-03 and RS-10 | RS-03 only |
 
 ### Scope and authority
 
@@ -665,10 +677,10 @@ former RB items are closed at the planning layer as follows:
 
 | ID | Resolution | Decision status | What is not claimed | Required next gate |
 | --- | --- | --- | --- | --- |
-| RB-001 | Core owns generic orchestration and semantic obligations; the target NLSpec owns exact target payloads; the binding and two-level commit model join them. | ADOPTED | Machine projections and implementation are not yet changed. | GATE-04 and RS-03/06 |
+| RB-001 | Core owns generic orchestration and semantic obligations; the target NLSpec owns exact target payloads; the binding and two-level commit model join them. | ADOPTED | Runtime registry injection and unit-commit implementation are not yet changed. | RS-03 and RS-06 |
 | RB-002 | Authorization, races, unit/partial outcomes, overlap, reselection, nulls, errors, XLSX, cancellation, replay, and capability behavior are exact in §4. | ADOPTED | Observable corrections are authorized but not implemented. | GATE-06 |
 | RB-003 | The 18-target matrix, cross-cutting suites, boundary rules, harness families, and exact accounting define a complete evidence baseline. | RESOLVED_IN_TRACKER | Tests and harness rows do not yet exist or pass. | GATE-01 and GATE-07 |
-| RB-004 | One Core-backed deterministic registry supplies backend, frontend, adapter, verification, and integrity projections; no public field is required for same-release deployment. | RESOLVED_IN_TRACKER | The authored registry and generated outputs do not yet exist. | GATE-04 |
+| RB-004 | One Core-backed deterministic registry supplies backend, frontend, adapter, verification, and integrity projections; no public field is required for same-release deployment. | GENERATED | Runtime backend and frontend consumers still use their characterized manual registries. | RS-03 and RS-10 |
 
 An implementation agent MUST treat any unmet gate in §6.1 as a hard dependency. The active
 implementation request authorizes the sequence, but `RESOLVED_IN_TRACKER` alone does not permit a
@@ -715,5 +727,5 @@ later slice to start before its dependencies and the preceding tracker checkpoin
 - [x] Prior session history is preserved and the current revision session is appended.
 - [x] The complete remediation sequence is authorized subject to the binary workstream gates.
 - [x] CP-00 `make lint-markdown`, `git diff --check`, and one-file status check pass.
-- [x] RS-01 coordinated ownership and conformance-correction authorization pass GATE-02/03; only
-  RS-02 is eligible.
+- [x] RS-02 generated registry and structural authorization pass GATE-04/05; only RS-03 is
+  eligible.
