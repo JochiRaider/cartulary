@@ -47,6 +47,7 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/AccountAdministrationPanels.tsx` | Account-security and deployment-user administration panels. |
 | `app/AccountSettingsPanels.tsx` | Account profile and appearance settings panels. |
 | `app/api/appShellClient.ts` | App-shell client helpers for auth, account, deployment administration, and extension profile requests. |
+| `app/api/publicHttpTypes.ts` | Public app-shell HTTP request and response type exports from the generated protocol facade. |
 | `app/AuthGateway.tsx` | Authentication-state gate around app content and login/account readiness. |
 | `app/debug/DebugHarnessShell.tsx` | Shared shell for development/debug harness pages. |
 | `app/DeploymentAuditPanel.tsx` | Deployment administrative audit panel and audit-event formatting. |
@@ -87,6 +88,19 @@ Timeline and extension effects.
 | `collaboration/IncidentCollaborationSession.tsx` | Incident-scoped WebSocket provider for hello/resume, private resume state, one sequence high-water mark, reconnect, heartbeat, safe decoding, presence publication, reset, revocation, and closure events. |
 | `collaboration/IncidentCollaborationSession.test.tsx` | Tests for single-socket lifetime, surface presence changes, replay deduplication/gaps, heartbeat, and unknown-message safety. |
 
+## `extensions/`
+
+The `extensions/` directory owns client-side extension discovery and
+availability state plus stable extension workspace identities. Feature
+implementations consume this boundary but do not redefine availability.
+
+| File | Responsibility |
+| --- | --- |
+| `extensions/ExtensionAvailabilityContext.tsx` | React provider and required-consumer hook for the extension availability controller. |
+| `extensions/extensionAvailability.ts` | Strict support-registry and workspace-availability decoding plus generation-bound, fail-closed extension availability coordination. |
+| `extensions/extensionWorkspaceIdentities.ts` | Stable extension profile, route-family, workspace, and sheet-reference identities. |
+| `extensions/extensionAvailability.test.ts` | Tests for support-registry decoding, exact availability intersections, stale-response rejection, generation rollover, and fail-closed behavior. |
+
 ## `networkFlow/`
 
 Network Flow is an extension feature. It owns Network Analysis behavior and
@@ -99,26 +113,41 @@ or `view_schema` owner. Workbook composition consumes it only through
 | `networkFlow/NetworkAnalysisWorkspace.tsx` | Network Analysis presentation/composition facade over feature-specific controllers. |
 | `networkFlow/NetworkFlowGridLoadFixture.tsx` | Debug-only deterministic supported-load fixture composed from the production Network Flow grid components. |
 | `networkFlow/NetworkFlowMappingModal.tsx` | Explicit ordinal-aware Network Flow mapping, safe preview, and approval dialog. |
+| `networkFlow/NetworkFlowQueryControls.tsx` | Accepted-row and rejected-row filter, sort, time-window, and reset controls. |
+| `networkFlow/NetworkFlowSemanticGrid.tsx` | Semantic accepted-row, rejected-row, and contributor grids with layout controls, selection, focus recovery, and inspector presentation. |
 | `networkFlow/networkFlowBoundaryPolicy.test.ts` | Static enforcement for controller composition, generated-decoder ownership, and browser projection-input exclusion. |
 | `networkFlow/networkFlowClient.ts` | Network Flow route builders and decoded feature client operations. |
 | `networkFlow/networkFlowCollaborationInterpreter.ts` | Feature-local interpreter for decoded Network Flow extension invalidation/removal events. |
 | `networkFlow/networkFlowController.ts` | Pure Network Flow table selection and refresh/removal state reducer. |
 | `networkFlow/networkFlowErrors.ts` | Feature-local authorization-loss classification shared by query controllers. |
 | `networkFlow/networkFlowImportModel.ts` | Generated-registry mapping suggestions and candidate construction for discovered source ordinals. |
+| `networkFlow/networkFlowIndicatorLinkModel.ts` | Semantic grid-selection validation and immutable row-selector construction for indicator links. |
+| `networkFlow/networkFlowPresentation.tsx` | Extension-owned grid metadata, semantic row projections, value formatting, diagnostic localization, and column compilation. |
+| `networkFlow/networkFlowQueryModel.ts` | Accepted/rejected query request compilation, continuation construction, and owner-identity result reconciliation. |
 | `networkFlow/useNetworkFlowCollaborationController.ts` | Owner invalidation/removal effects over the shared collaboration session. |
 | `networkFlow/useNetworkFlowExtensionEvents.ts` | Network Flow subscription adapter over the shared incident collaboration session. |
 | `networkFlow/useNetworkFlowGraphController.ts` | Graph and contributor query state, cancellation, selection, and stale-result rejection. |
+| `networkFlow/useNetworkFlowGridLayout.ts` | Session-lifetime Network Flow column visibility, order, width, and reset state. |
 | `networkFlow/useNetworkFlowImportController.ts` | Staged Network Flow discovery, preview, fingerprint-bound approval/apply, and returned-table selection controller. |
 | `networkFlow/useNetworkFlowIndicatorLinkController.ts` | Explicit graph-edge indicator-link command controller. |
+| `networkFlow/useNetworkFlowModalFocus.ts` | Modal initial focus, focus trapping, Escape dismissal, and focus restoration hook. |
+| `networkFlow/useNetworkFlowPagedQuery.ts` | Abortable cursor paging, previous/next history, invalid-cursor recovery, and protected-state clearing hook. |
 | `networkFlow/useNetworkFlowRejectedRowsController.ts` | Rejected-row query state and cancellation controller. |
 | `networkFlow/useNetworkFlowRowsController.ts` | Accepted table-row query state and cancellation controller. |
 | `networkFlow/useNetworkFlowTableController.ts` | Table discovery, active selection, load state, and access-loss controller. |
 | `networkFlow/NetworkAnalysisWorkspace.test.tsx` | Network Analysis workspace behavior tests. |
+| `networkFlow/NetworkFlowSemanticGrid.test.tsx` | Semantic-grid accessibility tests for focus recovery and keyboard column reordering announcements. |
 | `networkFlow/networkFlowClient.test.ts` | Network Flow decoded client and request-boundary tests. |
 | `networkFlow/networkFlowCollaborationInterpreter.test.ts` | Network Flow collaboration event admission tests. |
 | `networkFlow/networkFlowController.test.ts` | Network Flow controller lifecycle tests. |
+| `networkFlow/networkFlowErrors.test.ts` | Tests for structured Network Flow error preservation, safe messages, and lifecycle/access-loss classification. |
 | `networkFlow/networkFlowImportModel.test.ts` | Ordinal identity, registry suggestion, policy-accounting, and timestamp candidate tests. |
+| `networkFlow/networkFlowIndicatorLinkModel.test.ts` | Tests for semantic IP-cell/range selection, row-ref construction, and link-admission limits. |
+| `networkFlow/networkFlowPresentation.test.tsx` | Tests for extension grid metadata, row identities, formatting, diagnostic localization, grouping, and projection reuse. |
+| `networkFlow/networkFlowQueryModel.test.ts` | Tests for exact initial and continuation queries plus owner-identity reconciliation. |
 | `networkFlow/useNetworkFlowExtensionEvents.test.tsx` | Shared-session Network Flow reconnect and sequence-deduplication tests. |
+| `networkFlow/useNetworkFlowGridLayout.test.tsx` | Tests for Network Flow session layout mutation, reset, and remount persistence. |
+| `networkFlow/useNetworkFlowPagedQuery.test.tsx` | Tests for cursor history, invalid-cursor recovery, request cancellation, and late-response rejection. |
 
 ## `services/`
 
@@ -129,11 +158,15 @@ request/response handling already owned by specs and backend contracts.
 | File | Responsibility |
 | --- | --- |
 | `services/browserApi.ts` | Browser API base/path helpers for app-local HTTP calls. |
+| `services/clientTransactionId.ts` | Secure prefixed client transaction ID generation using Web Crypto UUIDs or RFC 4122 v4 fallback formatting. |
+| `services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. |
 | `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
 | `services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. |
 | `services/workbookApi.ts` | Workbook HTTP helper utilities, envelope parsing, abort/query runtime helpers, and user-facing error extraction. |
 | `services/workbookEvidence.ts` | Evidence upload/attach client helpers and evidence public-error mapping. |
 | `services/browserApi.test.ts` | Tests for browser API base/path helpers. |
+| `services/clientTransactionId.test.ts` | Tests for platform UUID use, secure-random fallback formatting, prefixes, and unavailable-crypto failure. |
+| `services/clientTransactionIdPolicy.test.ts` | Static policy test excluding counters, clocks, and insecure randomness from browser mutation IDs. |
 | `services/workbookApi.test.ts` | Tests for workbook API envelope, abort, and error helpers. |
 | `services/workbookEvidence.test.ts` | Tests for evidence client helpers and error mapping. |
 
@@ -157,7 +190,9 @@ policy tests. Runtime application code must not import this directory.
 
 | File | Responsibility |
 | --- | --- |
+| `testing/TimelineWorkbookRuntimeFixture.tsx` | Production-composed Timeline workbook runtime fixture with configurable shell, layout, query, entity, and interaction inputs. |
 | `testing/appShellTestSupport.ts` | Shared app-shell test helpers and fixtures. |
+| `testing/extensionAvailabilityTestSupport.ts` | Deterministic ready extension-availability controller fixture for workbook and feature tests. |
 | `testing/fetchMockTestSupport.ts` | Fetch mock helpers for unit and integration-style frontend tests. |
 | `testing/selectorContractPolicy.test.ts` | Selector ownership policy test that guards raw `data-testid` literals and shared selector facade usage. |
 | `testing/transportBoundaryPolicy.test.ts` | Static same-origin transport policy; raw fetch is limited to the shared transport and server-issued Evidence upload target. |
@@ -166,6 +201,8 @@ policy tests. Runtime application code must not import this directory.
 | `testing/timelineWorkbookTestSupport.ts` | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
 | `testing/timelineWorkbookRenderTestSupport.tsx` | Shared Timeline render helpers used by component characterization tests. |
 | `testing/timelineWorkbookTestSupport.test.tsx` | Tests for Timeline workbook test-support helpers. |
+| `testing/workbookInspectorTestSupport.ts` | Entity-inspector readiness waits and diagnostics keyed by stable surface, record, and row-version identity. |
+| `testing/workbookInspectorTestSupport.test.tsx` | Tests for delayed entity-inspector readiness and safe subject diagnostics. |
 
 ## `workbook/`
 
@@ -212,6 +249,7 @@ workflow logic.
 | `workbook/components/SystemViewSwitcher.tsx` | System-view switcher UI and grouped surface navigation. |
 | `workbook/components/WorkbookActiveSurface.tsx` | Registration-driven renderer/facade dispatcher for the active `view_schema_id`. |
 | `workbook/components/WorkbookConflictResolver.tsx` | Common typed conflict resolver and recovery presentation for every writable Base renderer. |
+| `workbook/components/WorkbookGridEditorControl.tsx` | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
 | `workbook/components/WorkbookInspectorFeatureGroups.tsx` | Inspector feature-group renderer and disabled-state presentation helpers. |
 | `workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
@@ -233,8 +271,11 @@ specific surface.
 | `workbook/hooks/useEntityTimelinePreview.ts` | Loads Timeline preview rows for entity-related workbook workflows. |
 | `workbook/hooks/useGenericSurfaceMutationController.ts` | Contract-surface mutation state and refresh coordination. |
 | `workbook/hooks/useIncidentControlsDrawer.ts` | Incident controls drawer state, selection, and focus restoration. |
+| `workbook/hooks/useInspectorLifecycleReset.test.tsx` | Tests for changed-key, disabled-key, latest-callback, and Strict Mode inspector reset behavior. |
+| `workbook/hooks/useInspectorLifecycleReset.ts` | Single-shot inspector reset hook for observable lifecycle-key transitions. |
 | `workbook/hooks/useOwnerReferenceOptions.ts` | Resolves only the active bounded-context policy's reference requirements through the generic broker. |
 | `workbook/hooks/useWorkbookIncidentIdentity.ts` | Resolves incident identity/loading state for the workbook shell. |
+| `workbook/hooks/useWorkbookLayoutController.ts` | Per-schema workbook layout state, active column controls, saved-layout application, and startup resets. |
 | `workbook/hooks/useWorkbookPendingGridFocus.ts` | Restores the requested first grid target after a surface transition. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.test.tsx` | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.ts` | Initial session/entity and sheet-triggered projection refresh coordinator. |
@@ -263,8 +304,10 @@ app.
 | `workbook/models/genericWorkbookModel.ts` | Generic system-view create/edit payload, enum, validation, and row-label helpers. |
 | `workbook/models/workbookContractRows.ts` | Contract-backed row normalization and grid-column materialization helpers for workbook surfaces. |
 | `workbook/models/workbookDensity.ts` | Account density preference resolution. |
+| `workbook/models/workbookGridState.ts` | Contract-grid load-state presentation and incident-role interaction-mode helpers. |
 | `workbook/models/workbookIncidentIdentity.ts` | Incident identity normalization and loading-state model. |
 | `workbook/models/workbookInspectorModel.ts` | Workbook inspector state, reducer, panel, and feature-group helpers. |
+| `workbook/models/workbookLayout.ts` | Contract-normalized column ordering, visibility, width, movement, and materialization helpers. |
 | `workbook/models/workbookMutations.ts` | Shared contract mutation request shapes and mutation-result helpers. |
 | `workbook/models/workbookQuery.ts` | Workbook query, filter, sort, grouping, and request-building helpers. |
 | `workbook/models/workbookReferenceOptions.ts` | Reference option normalization and lookup helpers. |
@@ -298,6 +341,7 @@ identity into the Base surface registry.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. |
 | `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering, debug-fixture composition, and stable extension identity. |
 | `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession UI/transport binding. |
 | `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and attachment binding for the contract surface. |
@@ -382,6 +426,7 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineRows.ts` | Coordinates Timeline row state, draft rows, and row reconciliation. |
 | `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Coordinates Timeline row loading, query aborts, runtime status, and row reconciliation callbacks. |
 | `workbook/timeline/hooks/useTimelineSaveStatePresentation.ts` | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, replay scheduling, and beforeunload warning state. |
+| `workbook/timeline/hooks/useTimelineConflictProjectionAdapter.ts` | Timeline render-state adapter for shell-owned same-field conflict registration, projection, and resolution. |
 | `workbook/timeline/hooks/useTimelineViewportContinuityController.ts` | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
 | `workbook/timeline/hooks/useTimelineWorkbookRuntime.ts` | Reduces Timeline lifecycle state and translates shell-owned query commands into deterministic runtime transitions. |
 
@@ -426,7 +471,12 @@ contracts. Runtime modules MUST NOT import Timeline implementation.
 | `workbook/runtime/workbookCollaborationMessages.ts` | Workbook presence, live-row message, self-origin filtering, and mention-action payload helpers. |
 | `workbook/runtime/workbookLifecycleModel.ts` | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
 | `workbook/runtime/workbookSurfacePort.ts` | Active-surface identity and live-row reconciliation capabilities. |
-| `workbook/runtime/*.test.ts` | Common runtime model and message contract tests. |
+| `workbook/runtime/useWorkbookCollaborationProjection.ts` | React external-store subscription and collaboration-session lifecycle adapter for the workbook projection. |
+| `workbook/runtime/useWorkbookMutationRuntime.ts` | React external-store subscription hook for shell-owned workbook mutation state. |
+| `workbook/runtime/WorkbookCollaborationProjection.test.ts` | Tests for collaboration projection presence, invalidation, reset, access loss, and active-surface reconciliation. |
+| `workbook/runtime/WorkbookMutationRuntime.test.ts` | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
+| `workbook/runtime/workbookCollaborationMessages.test.ts` | Tests for Base, saved-view, and extension-workspace presence message construction. |
+| `workbook/runtime/workbookConflictModel.test.ts` | Tests for conflict parsing, queue entries, resolution payloads, and collection actions. |
 
 ### `workbook/utils/`
 
@@ -441,6 +491,7 @@ under `timeline/` and not broad enough for `shared/`.
 | `workbook/utils/workbookKeyboard.ts` | Workbook keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.ts` | Pending-save queue capacity, save-state, replay, conflict, and public-error helpers. |
 | `workbook/utils/workbookPresence.ts` | Presence input/type helpers and presence matching helpers. |
+| `workbook/utils/workbookRowReconciliation.ts` | Record-identity and row-version reconciliation that preserves unchanged row references. |
 | `workbook/utils/workbookStyles.ts` | Shared workbook style primitives. |
 | `workbook/utils/workbookValueFormat.ts` | Grid/workbook value formatting helpers. |
 | `workbook/utils/GridAdapter.anchor.test.ts` | Workbook interaction grid-adapter anchor behavior tests. |
@@ -448,4 +499,5 @@ under `timeline/` and not broad enough for `shared/`.
 | `workbook/utils/workbookContinuity.test.ts` | Tests for continuity helpers. |
 | `workbook/utils/workbookKeyboard.test.ts` | Tests for keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.test.ts` | Tests for pending-queue helpers. |
+| `workbook/utils/workbookRowReconciliation.test.ts` | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
 | `workbook/utils/workbookValueFormat.test.ts` | Tests for value formatting helpers. |
