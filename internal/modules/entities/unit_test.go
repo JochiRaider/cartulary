@@ -26,7 +26,24 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
+
+func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassembly.Bundle {
+	t.Helper()
+	revisionComposition := revisionsupport.MustComposition(t)
+	return timelineassembly.NewBundle(
+		pool,
+		conflicttest.NewCodec("timeline"),
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+	)
+}
+
+func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
+	t.Helper()
+	return hostidentity.NewStore(pool, revisionsupport.MustAppender(t))
+}
 
 func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
 	t.Helper()
@@ -80,7 +97,7 @@ func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
 func TestCreateFromMention_Unit(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-host-reuse")
-		mentionStore := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMentionStore
+		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships entity-storage host")
 
@@ -144,7 +161,7 @@ SELECT display_name, hostname, host_state
 
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-identity-create")
-		mentionStore := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMentionStore
+		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships entity-storage identity")
 
@@ -176,7 +193,7 @@ SELECT display_name, hostname, host_state
 // entity-storage / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-04")
-	timelineBundle := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline"))
+	timelineBundle := newEntityTestTimelineBundle(t, harness.DB)
 	mentionStore := timelineBundle.EntityMentionStore
 	timelineFacade := timelineBundle.Facade
 	timelineProjectionStore := timelineBundle.ProjectionCatalog.Query
@@ -301,7 +318,7 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 		t.Helper()
 
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-05-"+suffix)
-		store := hostidentity.NewStore(harness.DB)
+		store := newEntityTestStore(t, harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405EntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships entity-storage "+suffix)
 		return harness, store, actor, incident.ID
@@ -561,7 +578,7 @@ UPDATE identities
 func TestExplicitEntityMerge_Unit(t *testing.T) {
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host")
-		store := hostidentity.NewStore(harness.DB)
+		store := newEntityTestStore(t, harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406EntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships entity-storage")
 
@@ -580,7 +597,7 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentHostID, golden.RecordDuplicateHostRecordID, "host", "confirmed")
 		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
 
-		result, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalHostRecordID, merge.MergeRequest{
+		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalHostRecordID, merge.MergeRequest{
 			LoserRecordID:          golden.RecordDuplicateHostRecordID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -656,7 +673,7 @@ SELECT COUNT(*)
 
 	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity")
-		store := hostidentity.NewStore(harness.DB)
+		store := newEntityTestStore(t, harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships entity-storage identity")
 
@@ -669,7 +686,7 @@ SELECT COUNT(*)
 		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
 		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordIdentityMentionID)
 
-		result, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalIdentityID, merge.MergeRequest{
+		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalIdentityID, merge.MergeRequest{
 			LoserRecordID:          golden.RecordDuplicateIdentityID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -726,7 +743,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 
 	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
-		store := hostidentity.NewStore(harness.DB)
+		store := newEntityTestStore(t, harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusableEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships entity-storage host reusable rows")
 		survivorID := uuid.New()
@@ -735,7 +752,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "WS-023", "WS-023", "ws-023.current.example.test", "")
 		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Legacy WS-023", "LEGACY-WS-023", "legacy-ws-023.example.test", "")
 
-		if _, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
+		if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
@@ -770,7 +787,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 
 	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
-		store := hostidentity.NewStore(harness.DB)
+		store := newEntityTestStore(t, harness.DB)
 		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusableEntityLinkingPass1!", false, false, true)
 		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships entity-storage identity reusable rows")
 		survivorID := uuid.New()
@@ -779,7 +796,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "Alex Survivor", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
 		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Alex Analyst Legacy", "alex.legacy@example.test", "alex.legacy@example.test", "ALEXLEGACY")
 
-		if _, err := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
+		if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,

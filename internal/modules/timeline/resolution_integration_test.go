@@ -502,7 +502,7 @@ SELECT COUNT(*)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		facade := timelineFacadeWithProjectionFailure(t, harness.Server, func(mutation workbookprojection.ProjectionMutation) error {
@@ -1109,7 +1109,7 @@ UPDATE incident_memberships
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		resp := doJSON(

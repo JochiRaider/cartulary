@@ -76,15 +76,15 @@ func (e *SupersedeRowVersionConflictError) Error() string {
 	return "tasksdecisions: row version conflict"
 }
 
-func NewSupersedeFacade(pool postgres.DB) *SupersedeFacade {
+func NewSupersedeFacade(pool postgres.DB, appender *revisions.Appender) *SupersedeFacade {
 	return &SupersedeFacade{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
 		projectionRows: newTaskDecisionProjectionRows(pool),
 		recordStore:    records.NewStore(),
-		revisionStore:  newRevisionAppendAdapter(),
-		taskStore:      NewStore(),
+		revisionStore:  newRevisionAppendAdapter(appender),
+		taskStore:      NewStore(appender),
 	}
 }
 

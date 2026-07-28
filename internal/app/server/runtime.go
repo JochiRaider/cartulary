@@ -58,18 +58,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 var (
-	newJobsManager    = jobs.NewManager
-	setupPostgres     = postgres.Setup
-	ensureSchemaReady = postgres.EnsureSchemaReady
-	setupObjectStore  = objectstore.Setup
-	runBootstrap      = bootstrap.Preflight
-	newWSHub          = platformws.NewHub
-	newHTTPHandler    = httpapi.NewHandler
-	readSecureFile    = securefile.Read
+	newJobsManager      = jobs.NewManager
+	setupPostgres       = postgres.Setup
+	ensureSchemaReady   = postgres.EnsureSchemaReady
+	setupObjectStore    = objectstore.Setup
+	runBootstrap        = bootstrap.Preflight
+	newCollaborationHub = collaboration.NewHub
+	newHTTPHandler      = httpapi.NewHandler
+	readSecureFile      = securefile.Read
 )
 
 const stagedObjectJanitorAdvisoryKey int64 = 4850189438622597894
@@ -96,11 +95,13 @@ type Runtime struct {
 	Postgres                *pgxpool.Pool
 	ObjectStore             objectstore.Store
 	Jobs                    *jobs.Manager
+	JobTransactions         *jobs.TransactionService
 	JobRunner               *jobs.Runner
-	WSHub                   *platformws.Hub
-	CollaborationStore      *collaboration.Store
+	CollaborationHub        *collaboration.Hub
 	CollaborationDispatcher *collaboration.Dispatcher
+	CollaborationIntents    collaboration.IntentAppender
 	Timeline                *timelineassembly.Bundle
+	Revisions               *revisionassembly.Runtime
 	Telemetry               *telemetry.Runtime
 	ProcessLease            *processlease.Lease
 	Lifecycle               *processlifecycle.Controller
@@ -640,17 +641,24 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		defer cancel()
 		_ = jobRunner.Close(ctx)
 	})
-	hub := newWSHub()
-	runtime.WSHub = hub
-	runtime.CollaborationStore = collaboration.NewStore(postgresHandle, now)
-	runtime.CollaborationDispatcher = collaboration.NewDispatcher(runtime.CollaborationStore, hub, now)
+	hub := newCollaborationHub()
+	runtime.CollaborationHub = hub
+	intentAppender := collaboration.NewIntentAppender()
+	runtime.CollaborationIntents = intentAppender
+	runtime.CollaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
 	dispatcher := runtime.CollaborationDispatcher
 	runtime.own(func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = dispatcher.Close(closeCtx)
 	})
-	runtime.Jobs.Configure(runtime.Postgres, now)
+	intentAdapters := collaborationIntentAdapters{appender: intentAppender}
+	runtime.JobTransactions, err = jobs.NewTransactionService(intentAdapters)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)
+	}
+	runtime.Jobs.Configure(runtime.Postgres, runtime.JobTransactions, now)
 	extensionJobContracts, err := extensionassembly.JobContracts(publicationCatalog)
 	if err != nil {
 		runtime.Close()
@@ -664,6 +672,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		extensionJobFinalizer, err := extensionstore.NewOwnerFinalizer(
 			extensionStateStore,
 			runtime.Jobs,
+			runtime.JobTransactions,
 			now,
 			func(error) {
 				runtime.Lifecycle.Fatal("indeterminate_database_commit")
@@ -704,12 +713,27 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
 	})
 	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer()
+	historicalIntentPolicy := collaboration.NewHistoricalIntentPolicy()
+	revisionRuntime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: historicalIntentPolicy,
+			IntentAppender:         intentAppender,
+		},
+		revisionassembly.CurrentProviderContributions()...,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Revisions runtime: %w", err)
+	}
+	runtime.Revisions = revisionRuntime
 	timelineBundle := timelineassembly.NewBundle(
 		postgresHandle,
 		conflicttokens.NewConflictTokenCodec(keys),
+		revisionRuntime.Appender(),
+		intentAppender,
 	)
 	runtime.Timeline = timelineBundle
-	revisionCommands, err := revisionassembly.NewCommandService(
+	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
 		timelineBundle.ProjectionCoordinator,
@@ -719,17 +743,23 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
-	importStore := imports.NewStore(runtime.Postgres)
+	importStore := imports.NewStore(
+		runtime.Postgres,
+		revisionRuntime.Appender(),
+		runtime.JobTransactions,
+		intentAppender,
+	)
 	timelineFacade := timelineBundle.Facade
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
-		Postgres:      postgresHandle,
-		ImportSources: importStore,
-		KeyRings:      networkFlowKeyRings,
-		Now:           now,
-		Transactions:  postgres.NewTransactionRunner(postgresHandle),
-		IncidentLocks: incidents.NewTransactionParticipant(),
-		AuditAppender: authn.NewAdministrativeAuditAppender(),
-		Indicators:    indicators.NewStore(postgresHandle),
+		Postgres:        postgresHandle,
+		ImportSources:   importStore,
+		KeyRings:        networkFlowKeyRings,
+		Now:             now,
+		Transactions:    postgres.NewTransactionRunner(postgresHandle),
+		IncidentLocks:   incidents.NewTransactionParticipant(),
+		AuditAppender:   authn.NewAdministrativeAuditAppender(),
+		Indicators:      indicators.NewStore(postgresHandle, revisionRuntime.Appender()),
+		ResourceIntents: intentAdapters,
 	})
 	if err != nil {
 		runtime.Close()
@@ -740,6 +770,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.ObjectStore,
 		incidentBundleImportFinalizer,
 		timelineBundle.ProjectionCatalog.Rebuild,
+		historicalIntentPolicy,
 		now,
 	)
 	if err != nil {
@@ -805,11 +836,14 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 		incidentbundles.WithProjectionRebuild(timelineBundle.ProjectionCatalog.Rebuild),
 		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
+		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
 	)
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importRoutes := imports.RegisterRoutes(
 		imports.WithLimits(importOwnerLimits, importArchiveLimits),
 		imports.WithTimelineOwner(timelineFacade),
+		imports.WithRevisionAppender(revisionRuntime.Appender()),
+		imports.WithCollaborationIntents(intentAppender),
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),
@@ -840,7 +874,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	})
 	var compositionPreviewJobs reportcomposition.PreviewJobPort
 	if snapshotReportingRoutesAdmitted {
-		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.JobRunner)
+		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.JobRunner, runtime.JobTransactions)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose Report Composition preview job port: %w", err)
@@ -853,7 +887,11 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	delete(moduleOverrides, postgresDBDecoratorOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
-	authRouteOptions = append(authRouteOptions, auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin))
+	authRouteOptions = append(
+		authRouteOptions,
+		auth.WithPublicOrigin(normalizedCfg.Application.PublicOrigin),
+		auth.WithSessionRevocations(hub),
+	)
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
 	}
@@ -864,6 +902,8 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		timelineBundle.ProjectionCatalog.Query,
 		timelineFacade,
 		workbookConflictTokens,
+		revisionRuntime.Appender(),
+		intentAppender,
 	)
 	if err != nil {
 		runtime.Close()
@@ -876,7 +916,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		{id: "jobs", registrar: jobapi.RegisterRoutes()},
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
-		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg))},
+		{id: "collaboration", registrar: collaboration.RegisterRoutes(collaborationSettings(normalizedCfg, hub))},
 		{id: "entities", registrar: entities.RegisterRoutes(entities.RouteOptions{
 			MergeStore:   timelineBundle.EntityMergeStore,
 			MentionStore: timelineBundle.EntityMentionStore,
@@ -892,8 +932,9 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 				MutationStore: workbookassembly.NewMutationStore(
 					postgresHandle,
 					workbookContributionCatalog,
+					revisionRuntime.Appender(),
 				),
-				EntityOwner:         hostidentity.NewStore(postgresHandle),
+				EntityOwner:         hostidentity.NewStore(postgresHandle, revisionRuntime.Appender()),
 				ConflictTokens:      workbookConflictTokens,
 				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,
 			}),
@@ -949,8 +990,8 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		PostgresDB:          postgresHandle,
 		ObjectStore:         runtime.ObjectStore,
 		Jobs:                runtime.Jobs,
+		JobTransactions:     runtime.JobTransactions,
 		JobRunner:           runtime.JobRunner,
-		WSHub:               hub,
 		CursorCodec:         cursorCodec,
 		Readiness:           httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore, readinessProbes...),
 		Admission:           runtime.Lifecycle,

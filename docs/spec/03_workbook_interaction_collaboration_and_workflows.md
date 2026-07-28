@@ -794,11 +794,14 @@ Verified by: AC-008, AC-132, AC-231
 Implementation note: replayable `record_changed`, incident `job_progress`, and
 admitted `extension_resource_changed` messages share one Collaboration-owned,
 per-incident durable sequencer. Source owners append deterministic semantic
-intents in their authoritative transactions; the dispatcher assigns public event
-IDs and stream sequences after commit. The live hub owns delivery and presence,
-not sequence or replay history. Resume and live delivery recheck current session,
+intents in their authoritative transactions. Each participating committed live
+record revision contributes exactly one `record_changed` intent; transaction
+rollback contributes none, and historical incident-bundle import contributes
+none for imported historical revisions. The dispatcher assigns public event IDs
+and stream sequences after commit. The live hub owns delivery and presence, not
+sequence or replay history. Resume and live delivery recheck current session,
 incident, and membership authorization. These internal boundaries do not change
-the WebSocket v1 message shapes below.
+the WebSocket v1 JSON message shapes below.
 
 **REQ-03-092**
 The client MUST include its initial workbook presence in `hello` or `resume` and MUST send `presence_update` whenever any of the following changes:

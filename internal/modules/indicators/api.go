@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -45,13 +46,13 @@ type Store struct {
 	revisionsStore revisionAppendPort
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: newIncidentLifecycleAccess(pool),
 		recordStore:    records.NewStore(),
-		revisionsStore: newRevisionAppendAdapter(),
+		revisionsStore: newRevisionAppendAdapter(appender),
 	}
 }
 

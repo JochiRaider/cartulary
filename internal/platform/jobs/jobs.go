@@ -49,6 +49,7 @@ var (
 type Manager struct {
 	pool                  *pgxpool.Pool
 	now                   func() time.Time
+	transactions          *TransactionService
 	serviceVersion        string
 	activeGaugeRegistered bool
 	extensionContracts    map[string]ExtensionJobContract
@@ -195,8 +196,9 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
-func (m *Manager) Configure(pool *pgxpool.Pool, now func() time.Time) {
+func (m *Manager) Configure(pool *pgxpool.Pool, transactions *TransactionService, now func() time.Time) {
 	m.pool = pool
+	m.transactions = transactions
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
@@ -223,7 +225,7 @@ func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, er
 		return Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := CreateQueuedTx(ctx, tx, params, m.now().UTC())
+	resource, err := m.transactions.CreateQueuedTx(ctx, tx, params, m.now().UTC())
 	if err == nil {
 		err = tx.Commit(ctx)
 	}
@@ -234,7 +236,7 @@ func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, er
 	return resource, nil
 }
 
-func CreateQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, now time.Time) (Resource, error) {
+func createQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, now time.Time) (Resource, error) {
 	if err := validateScope(params.Scope); err != nil {
 		return Resource{}, err
 	}
@@ -279,9 +281,6 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		extensionOwner(params.Extension), extensionJobKind(params.Extension), extensionIdempotencyIdentity(params.Extension),
 		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension)))
 	if err != nil {
-		return Resource{}, err
-	}
-	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
 		return Resource{}, err
 	}
 	return record, nil
@@ -440,7 +439,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	if err != nil {
 		return Resource{}, err
 	}
-	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
+	if err := m.transactions.appendProgressIntentTx(ctx, tx, record); err != nil {
 		return Resource{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -467,7 +466,7 @@ func (m *Manager) CompleteCanceled(ctx context.Context, params TransitionParams)
 // CompleteSucceededTx joins terminal job-result publication to an
 // owner-controlled final transaction. Callers publish the returned resource to
 // live progress subscribers only after the enclosing commit is proven.
-func CompleteSucceededTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+func completeSucceededTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
 	if tx == nil || params.JobID == uuid.Nil || now.IsZero() {
 		return Resource{}, ErrInvalidJobDefinition
 	}
@@ -499,9 +498,6 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		return Resource{}, ErrInvalidTransition
 	}
 	if err != nil {
-		return Resource{}, err
-	}
-	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
 		return Resource{}, err
 	}
 	return record, nil
@@ -557,7 +553,7 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	if reason != "" {
 		return CancelResult{ReasonCode: reason}, ErrCancelRejected
 	}
-	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+	if err := m.transactions.appendProgressIntentTx(ctx, tx, resource); err != nil {
 		return CancelResult{}, err
 	}
 	if err := recordExtensionCancellationObservationTx(ctx, tx, key, params.JobID, resource.UpdatedAt); err != nil {
@@ -641,7 +637,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
-	if err := appendProgressIntentTx(ctx, tx, record); err != nil {
+	if err := m.transactions.appendProgressIntentTx(ctx, tx, record); err != nil {
 		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
@@ -657,7 +653,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 }
 
 func (m *Manager) ensureConfigured() error {
-	if m == nil || m.pool == nil {
+	if m == nil || m.pool == nil || m.transactions == nil {
 		return ErrNotConfigured
 	}
 	if m.now == nil {

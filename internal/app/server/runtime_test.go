@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -23,7 +24,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/securefile"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func TestFailClosedStartup_Unit(t *testing.T) {
@@ -32,7 +32,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	originalEnsureSchemaReady := ensureSchemaReady
 	originalSetupObjectStore := setupObjectStore
 	originalRunBootstrap := runBootstrap
-	originalNewWSHub := newWSHub
+	originalNewCollaborationHub := newCollaborationHub
 	originalNewHTTPHandler := newHTTPHandler
 	originalReadSecureFile := readSecureFile
 	t.Cleanup(func() {
@@ -41,7 +41,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		ensureSchemaReady = originalEnsureSchemaReady
 		setupObjectStore = originalSetupObjectStore
 		runBootstrap = originalRunBootstrap
-		newWSHub = originalNewWSHub
+		newCollaborationHub = originalNewCollaborationHub
 		newHTTPHandler = originalNewHTTPHandler
 		readSecureFile = originalReadSecureFile
 	})
@@ -69,9 +69,9 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	}
 
 	var wsHubCalls int
-	newWSHub = func() *platformws.Hub {
+	newCollaborationHub = func() *collaboration.Hub {
 		wsHubCalls++
-		return platformws.NewHub()
+		return collaboration.NewHub()
 	}
 
 	var handlerCalls int

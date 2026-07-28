@@ -36,7 +36,7 @@ type WorkbookFacade struct {
 	recordStore      *records.Store
 	projectionRows   *projections.EvidenceRows
 	revisionHistory  historyquery.Reader
-	revisionAppender revisions.Appender
+	revisionAppender *revisions.Appender
 	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
 	collaboration    collaboration.IntentAppender
@@ -113,7 +113,15 @@ func (e *SameFieldConflictError) Error() string {
 	return "evidence: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *WorkbookFacade {
+func NewWorkbookFacade(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) *WorkbookFacade {
+	if intents == nil {
+		panic("compose Evidence workbook facade: Collaboration intent appender is required")
+	}
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
@@ -121,10 +129,14 @@ func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictT
 		recordStore:      records.NewStore(),
 		projectionRows:   projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
 		revisionHistory:  historyquery.NewReader(),
-		revisionAppender: revisions.NewAppender(),
-		store:            NewStore(pool),
-		conflictTokens:   conflictTokens,
-		collaboration:    collaboration.NewStore(pool, nil),
+		revisionAppender: appender,
+		store: NewStore(
+			pool,
+			WithRevisionAppender(appender),
+			WithCollaborationIntents(intents),
+		),
+		conflictTokens: conflictTokens,
+		collaboration:  intents,
 	}
 }
 

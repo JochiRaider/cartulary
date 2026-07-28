@@ -164,6 +164,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestManagerPersistsCanonicalIncidentProgressIntents_Integration",
+          "TestManagerProgressIntentFailureRollsBackJobMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.extensions.integration.named_portability_job_recovery_f7c496c10b",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",

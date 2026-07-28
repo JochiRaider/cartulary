@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -17,14 +18,14 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 	mux := http.NewServeMux()
 	incidentID := "10000000-0000-0000-0000-000000000001"
 	mux.HandleFunc("/ws/v1/incidents/"+incidentID, func(w http.ResponseWriter, r *http.Request) {
-		conn, err := platformws.Accept(w, r, "")
+		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return
 		}
 		defer conn.CloseNow()
 
 		var hello platformws.Message
-		if err := platformws.ReadJSON(context.Background(), conn, &hello); err != nil {
+		if err := wsjson.Read(context.Background(), conn, &hello); err != nil {
 			return
 		}
 		if hello.Type != "hello" {
@@ -32,7 +33,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 			return
 		}
 		now := time.Now().UTC()
-		if err := platformws.WriteJSON(context.Background(), conn, platformws.Message{
+		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type: "hello_ack",
 			Payload: platformws.RawPayload(map[string]any{
 				"connection_id":         "20000000-0000-0000-0000-000000000001",
@@ -45,7 +46,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		}); err != nil {
 			return
 		}
-		if err := platformws.WriteJSON(context.Background(), conn, platformws.Message{
+		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "presence_snapshot",
 			Payload: platformws.RawPayload(map[string]any{"presences": []any{}}),
 		}); err != nil {
@@ -53,7 +54,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		}
 
 		var trigger platformws.Message
-		if err := platformws.ReadJSON(context.Background(), conn, &trigger); err != nil {
+		if err := wsjson.Read(context.Background(), conn, &trigger); err != nil {
 			return
 		}
 		if trigger.Type != "trigger_session_revoked" {
@@ -61,7 +62,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 			return
 		}
 
-		if err := platformws.WriteJSON(context.Background(), conn, platformws.Message{
+		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "session_revoked",
 			Payload: platformws.RawPayload(map[string]any{"reason_code": "test_reason"}),
 		}); err != nil {

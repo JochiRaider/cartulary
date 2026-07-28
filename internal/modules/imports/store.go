@@ -15,7 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -50,8 +52,11 @@ func (e *ApplyBlockedError) Unwrap() error {
 }
 
 type Store struct {
-	pool           *pgxpool.Pool
-	incidentAccess incidents.Access
+	pool             *pgxpool.Pool
+	incidentAccess   incidents.Access
+	revisionAppender *revisions.Appender
+	jobTransactions  *jobs.TransactionService
+	intents          collaboration.IntentAppender
 }
 
 type DiscoveredUnit struct {
@@ -175,8 +180,19 @@ type ApplyJournalParams struct {
 	CreatedAt            time.Time
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool, incidentAccess: incidents.NewAccess(pool)}
+func NewStore(
+	pool *pgxpool.Pool,
+	appender *revisions.Appender,
+	jobTransactions *jobs.TransactionService,
+	intents collaboration.IntentAppender,
+) *Store {
+	return &Store{
+		pool:             pool,
+		incidentAccess:   incidents.NewAccess(pool),
+		revisionAppender: appender,
+		jobTransactions:  jobTransactions,
+		intents:          intents,
+	}
 }
 
 func nullableString(value string) *string {
@@ -238,7 +254,7 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
@@ -722,7 +738,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,

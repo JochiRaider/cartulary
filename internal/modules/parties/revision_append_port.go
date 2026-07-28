@@ -15,10 +15,10 @@ type revisionAppendPort interface {
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
-type revisionAppendAdapter struct{ appender revisions.Appender }
+type revisionAppendAdapter struct{ appender *revisions.Appender }
 
-func newRevisionAppendAdapter() revisionAppendAdapter {
-	return revisionAppendAdapter{appender: revisions.NewAppender()}
+func newRevisionAppendAdapter(appender *revisions.Appender) revisionAppendAdapter {
+	return revisionAppendAdapter{appender: appender}
 }
 
 func (a revisionAppendAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params revisions.AppendChangeSetParams) (uuid.UUID, error) {

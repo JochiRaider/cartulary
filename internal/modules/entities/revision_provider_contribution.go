@@ -12,8 +12,28 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerEntities,
 		Records: []revisions.RecordProviderContribution{
-			{SourceOwnerModule: revisions.SourceOwnerEntities, RecordType: "host", DeleteRestoreProvider: entitiesdeleterestore.HostProvider(), RowRollbackProvider: entityrollback.NewHostProvider()},
-			{SourceOwnerModule: revisions.SourceOwnerEntities, RecordType: "identity", DeleteRestoreProvider: entitiesdeleterestore.IdentityProvider(), RowRollbackProvider: entityrollback.NewIdentityProvider()},
+			{
+				SourceOwnerModule:      revisions.SourceOwnerEntities,
+				RecordType:             "host",
+				DeleteRestoreProvider:  entitiesdeleterestore.HostProvider(),
+				RowRollbackProvider:    entityrollback.NewHostProvider(),
+				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
+					ContributionID: "entities.hosts",
+					ViewSchemaIDs:  []string{"cartulary.view.hosts.v1"},
+				}},
+			},
+			{
+				SourceOwnerModule:      revisions.SourceOwnerEntities,
+				RecordType:             "identity",
+				DeleteRestoreProvider:  entitiesdeleterestore.IdentityProvider(),
+				RowRollbackProvider:    entityrollback.NewIdentityProvider(),
+				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
+					ContributionID: "entities.identities",
+					ViewSchemaIDs:  []string{"cartulary.view.identities.v1"},
+				}},
+			},
 		},
 		NonRowTargets: []revisions.NonRowProviderContribution{
 			{SourceOwnerModule: revisions.SourceOwnerEntities, TargetKind: "entity_mention", RollbackProvider: mentionrollback.NewMentionProvider()},

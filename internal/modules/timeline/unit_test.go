@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
@@ -23,8 +24,8 @@ import (
 // timeline-storage / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
 func TestBindingMode_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-01")
-	timelineStore := newResolutionTimelineCommands(harness.DB)
-	entityStore := hostidentity.NewStore(harness.DB)
+	timelineStore := newResolutionTimelineCommands(t, harness.DB)
+	entityStore := hostidentity.NewStore(harness.DB, revisionsupport.MustAppender(t))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
 
@@ -166,7 +167,7 @@ func TestBindingMode_Unit(t *testing.T) {
 // timeline-storage / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
 func TestDuplicateMentionProvenance_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "entity_linking-u-4-02")
-	store := newResolutionTimelineCommands(harness.DB)
+	store := newResolutionTimelineCommands(t, harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402EntityLinkingPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-02-incident", "IR-U402", "Record relationships timeline-storage")
 
@@ -239,7 +240,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 
 func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "evidence_lifecycle-attached-evidence")
-	store := newResolutionTimelineCommands(harness.DB)
+	store := newResolutionTimelineCommands(t, harness.DB)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
 
@@ -304,8 +305,17 @@ type resolutionTimelineCommands struct {
 	facade *Facade
 }
 
-func newResolutionTimelineCommands(pool postgres.DB) *resolutionTimelineCommands {
-	return &resolutionTimelineCommands{facade: timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline")).Facade}
+func newResolutionTimelineCommands(t testing.TB, pool postgres.DB) *resolutionTimelineCommands {
+	t.Helper()
+	revisionComposition := revisionsupport.MustComposition(t)
+	return &resolutionTimelineCommands{
+		facade: timelineassembly.NewBundle(
+			pool,
+			conflicttest.NewCodec("timeline"),
+			revisionComposition.Runtime.Appender(),
+			revisionComposition.Intents,
+		).Facade,
+	}
 }
 
 func (c *resolutionTimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

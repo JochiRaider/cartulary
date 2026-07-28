@@ -1,6 +1,7 @@
 package collaboration_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -9,14 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
-
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -50,7 +49,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+				if err := conn.WriteJSON(ctx, platformws.Message{
 					Type:    messageType,
 					Payload: invalidFirstMessagePayload(messageType),
 				}); err != nil {
@@ -58,7 +57,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				}
 
 				var message platformws.Message
-				if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+				if err := conn.ReadJSON(ctx, &message); err != nil {
 					t.Fatalf("read invalid handshake error for %q: %v", messageType, err)
 				}
 				if message.Type != "error" {
@@ -67,8 +66,8 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				requireErrorCode(t, message, "invalid_websocket_handshake")
 
 				var closed platformws.Message
-				err = platformws.ReadJSON(ctx, conn, &closed)
-				wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "invalid_first_message")
+				err = conn.ReadJSON(ctx, &closed)
+				wstest.RequireClose(t, err, wstest.StatusPolicyViolation, "invalid_first_message")
 			})
 		}
 	})
@@ -113,7 +112,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 					ClientInstanceID: "collaboration-u-6-07-later-" + tc.name,
 					Presence:         timelinePresence(),
 				})
-				defer client.Close(websocket.StatusNormalClosure, "test_complete")
+				defer client.Close(wstest.StatusNormalClosure, "test_complete")
 
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
@@ -131,7 +130,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				requireErrorCode(t, message, "invalid_websocket_message")
 
 				closeErr := client.AwaitClose(5 * time.Second)
-				wstest.RequireClose(t, closeErr, websocket.StatusPolicyViolation, "invalid_message")
+				wstest.RequireClose(t, closeErr, wstest.StatusPolicyViolation, "invalid_message")
 			})
 		}
 	})
@@ -145,21 +144,21 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		token := initial.HelloAck.ResumeToken
-		initial.Close(websocket.StatusNormalClosure, "test_complete")
+		initial.Close(wstest.StatusNormalClosure, "test_complete")
 
 		mismatched := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
 			ClientInstanceID: "collaboration-u-6-07-other-client",
 			Presence:         timelinePresence(),
 		}, token, 0)
-		defer mismatched.Close(websocket.StatusNormalClosure, "test_complete")
+		defer mismatched.Close(wstest.StatusNormalClosure, "test_complete")
 		if mismatched.ResumeAck.Status != platformws.ResumeStatusResetNeeded {
 			t.Fatalf("mismatched client resume status = %q want %q", mismatched.ResumeAck.Status, platformws.ResumeStatusResetNeeded)
 		}
 		if len(mismatched.ReplayedMessages) != 0 {
 			t.Fatalf("mismatched client resume replayed messages: %#v", mismatched.ReplayedMessages)
 		}
-		mismatched.Close(websocket.StatusNormalClosure, "test_complete")
+		mismatched.Close(wstest.StatusNormalClosure, "test_complete")
 
 		fresh := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
@@ -167,21 +166,21 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		futureToken := fresh.HelloAck.ResumeToken
-		fresh.Close(websocket.StatusNormalClosure, "test_complete")
+		fresh.Close(wstest.StatusNormalClosure, "test_complete")
 
 		future := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
 			ClientInstanceID: "collaboration-u-6-07-future-source",
 			Presence:         timelinePresence(),
 		}, futureToken, 999)
-		defer future.Close(websocket.StatusNormalClosure, "test_complete")
+		defer future.Close(wstest.StatusNormalClosure, "test_complete")
 		if future.ResumeAck.Status != platformws.ResumeStatusResetNeeded {
 			t.Fatalf("future last_seen resume status = %q want %q", future.ResumeAck.Status, platformws.ResumeStatusResetNeeded)
 		}
 		if len(future.ReplayedMessages) != 0 {
 			t.Fatalf("future last_seen resume replayed messages: %#v", future.ReplayedMessages)
 		}
-		future.Close(websocket.StatusNormalClosure, "test_complete")
+		future.Close(wstest.StatusNormalClosure, "test_complete")
 
 		expiring := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
@@ -189,7 +188,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		expiredToken := expiring.HelloAck.ResumeToken
-		expiring.Close(websocket.StatusNormalClosure, "test_complete")
+		expiring.Close(wstest.StatusNormalClosure, "test_complete")
 		harness.Server.Clock.Advance(platformws.ResumeWindow + time.Second)
 
 		expired := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -197,7 +196,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			ClientInstanceID: "collaboration-u-6-07-expired-source",
 			Presence:         timelinePresence(),
 		}, expiredToken, 0)
-		defer expired.Close(websocket.StatusNormalClosure, "test_complete")
+		defer expired.Close(wstest.StatusNormalClosure, "test_complete")
 		if expired.ResumeAck.Status != platformws.ResumeStatusResetNeeded {
 			t.Fatalf("expired resume status = %q want %q", expired.ResumeAck.Status, platformws.ResumeStatusResetNeeded)
 		}
@@ -205,6 +204,167 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			t.Fatalf("expired resume replayed messages: %#v", expired.ReplayedMessages)
 		}
 	})
+}
+
+func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
+	runtime := collabscenariotest.StartRuntime(t)
+
+	for _, testCase := range []struct {
+		name        string
+		messageKind wstest.MessageType
+		payload     []byte
+		wantStatus  wstest.StatusCode
+		wantReason  string
+		wantError   string
+	}{
+		{
+			name:        "binary application frame",
+			messageKind: wstest.MessageBinary,
+			payload:     []byte(`{"type":"hello","payload":{}}`),
+			wantStatus:  wstest.StatusUnsupportedData,
+			wantReason:  "binary_message_unsupported",
+		},
+		{
+			name:        "malformed JSON",
+			messageKind: wstest.MessageText,
+			payload:     []byte(`{"type":`),
+			wantStatus:  wstest.StatusInvalidFramePayloadData,
+			wantReason:  "invalid_json",
+		},
+		{
+			name:        "oversized message",
+			messageKind: wstest.MessageText,
+			payload:     bytes.Repeat([]byte("x"), platformws.MaximumMessageBytes+1),
+			wantStatus:  wstest.StatusMessageTooBig,
+			wantReason:  "message_too_large",
+		},
+		{
+			name:        "duplicate member in first message",
+			messageKind: wstest.MessageText,
+			payload:     []byte(`{"type":"hello","type":"hello","payload":{}}`),
+			wantStatus:  wstest.StatusPolicyViolation,
+			wantReason:  "invalid_first_message",
+			wantError:   "invalid_websocket_handshake",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-frame-"+strings.ReplaceAll(testCase.name, " ", "-"))
+			conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+				SessionToken: admin.SessionCookie.Value,
+			})
+			if err != nil {
+				t.Fatalf("dial incident socket: %v", err)
+			}
+			defer conn.CloseNow()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := conn.Write(ctx, testCase.messageKind, testCase.payload); err != nil {
+				t.Fatalf("write invalid frame: %v", err)
+			}
+			if testCase.wantError != "" {
+				message := readRawCollaborationMessage(t, ctx, conn)
+				requireErrorCode(t, message, testCase.wantError)
+			}
+			_, _, err = conn.Read(ctx)
+			wstest.RequireClose(t, err, testCase.wantStatus, testCase.wantReason)
+		})
+	}
+
+	for _, testCase := range []struct {
+		name    string
+		payload []byte
+	}{
+		{
+			name:    "unknown later type",
+			payload: []byte(`{"type":"future_message","payload":{}}`),
+		},
+		{
+			name:    "invalid later payload",
+			payload: []byte(`{"type":"presence_update","payload":[]}`),
+		},
+		{
+			name:    "duplicate later payload member",
+			payload: []byte(`{"type":"presence_update","payload":{"presence":{},"presence":{}}}`),
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-later-"+strings.ReplaceAll(testCase.name, " ", "-"))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			conn := connectRawHello(t, ctx, harness.Server.HTTP.URL, incidentID, admin.SessionCookie.Value)
+			defer conn.CloseNow()
+
+			if err := conn.Write(ctx, wstest.MessageText, testCase.payload); err != nil {
+				t.Fatalf("write invalid later message: %v", err)
+			}
+			message := readRawCollaborationMessage(t, ctx, conn)
+			requireErrorCode(t, message, "invalid_websocket_message")
+			_, _, err := conn.Read(ctx)
+			wstest.RequireClose(t, err, wstest.StatusPolicyViolation, "invalid_message")
+		})
+	}
+}
+
+func connectRawHello(
+	t testing.TB,
+	ctx context.Context,
+	serverURL string,
+	incidentID string,
+	sessionToken string,
+) *wstest.Client {
+	t.Helper()
+	conn, _, err := incidentwstest.TryConnect(serverURL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken: sessionToken,
+	})
+	if err != nil {
+		t.Fatalf("dial incident socket: %v", err)
+	}
+	hello, err := json.Marshal(platformws.Message{
+		Type: "hello",
+		Payload: platformws.RawPayload(map[string]any{
+			"client_instance_id": "strict-frame-client",
+			"presence":           timelinePresence(),
+		}),
+	})
+	if err != nil {
+		t.Fatalf("marshal hello: %v", err)
+	}
+	if err := conn.Write(ctx, wstest.MessageText, hello); err != nil {
+		t.Fatalf("write hello: %v", err)
+	}
+	helloAck := readRawCollaborationMessage(t, ctx, conn)
+	if helloAck.Type != "hello_ack" {
+		t.Fatalf("first response = %q want hello_ack", helloAck.Type)
+	}
+	snapshot := readRawCollaborationMessage(t, ctx, conn)
+	if snapshot.Type != "presence_snapshot" {
+		t.Fatalf("second response = %q want presence_snapshot", snapshot.Type)
+	}
+	return conn
+}
+
+func readRawCollaborationMessage(
+	t testing.TB,
+	ctx context.Context,
+	conn *wstest.Client,
+) platformws.Message {
+	t.Helper()
+	kind, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read Collaboration message: %v", err)
+	}
+	if kind != wstest.MessageText {
+		t.Fatalf("outbound message kind = %v want text", kind)
+	}
+	if bytes.HasSuffix(payload, []byte("\n")) {
+		t.Fatalf("outbound message has trailing LF: %q", payload)
+	}
+	var message platformws.Message
+	if err := json.Unmarshal(payload, &message); err != nil {
+		t.Fatalf("decode Collaboration message: %v", err)
+	}
+	return message
 }
 
 func invalidFirstMessagePayload(messageType string) json.RawMessage {
@@ -241,7 +401,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 		ClientInstanceID: "collaboration-u-6-08-heartbeat",
 		Presence:         timelinePresence(),
 	})
-	defer client.Close(websocket.StatusNormalClosure, "test_complete")
+	defer client.Close(wstest.StatusNormalClosure, "test_complete")
 
 	harness.Server.Clock.Advance(5 * time.Minute)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -287,7 +447,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 		ClientInstanceID: "collaboration-u-6-08-presence-a-first",
 		Presence:         timelinePresence(),
 	})
-	defer firstA.Close(websocket.StatusNormalClosure, "test_complete")
+	defer firstA.Close(wstest.StatusNormalClosure, "test_complete")
 	if got := len(firstA.PresenceSnapshot); got != 1 {
 		t.Fatalf("incident A initial presence_snapshot length = %d want 1: %#v", got, firstA.PresenceSnapshot)
 	}
@@ -298,7 +458,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 		ClientInstanceID: "collaboration-u-6-08-presence-b-first",
 		Presence:         timelinePresence(),
 	})
-	defer firstB.Close(websocket.StatusNormalClosure, "test_complete")
+	defer firstB.Close(wstest.StatusNormalClosure, "test_complete")
 	if got := len(firstB.PresenceSnapshot); got != 1 {
 		t.Fatalf("incident B initial presence_snapshot length = %d want 1: %#v", got, firstB.PresenceSnapshot)
 	}
@@ -308,7 +468,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 		ClientInstanceID: "collaboration-u-6-08-presence-a-second",
 		Presence:         timelinePresence(),
 	})
-	defer secondA.Close(websocket.StatusNormalClosure, "test_complete")
+	defer secondA.Close(wstest.StatusNormalClosure, "test_complete")
 	if got := len(secondA.PresenceSnapshot); got != 2 {
 		t.Fatalf("incident A second presence_snapshot length = %d want 2: %#v", got, secondA.PresenceSnapshot)
 	}
@@ -318,19 +478,19 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	}
 	requireNoSocketMessage(t, firstB, 200*time.Millisecond, "incident B must not receive incident A presence_delta")
 
-	secondA.Close(websocket.StatusNormalClosure, "test_complete")
+	secondA.Close(wstest.StatusNormalClosure, "test_complete")
 	remove := requirePresenceDelta(t, firstA, "remove")
 	if remove.ConnectionID != secondA.HelloAck.ConnectionID {
 		t.Fatalf("incident A remove connection_id = %s want %s", remove.ConnectionID, secondA.HelloAck.ConnectionID)
 	}
 
-	firstA.Close(websocket.StatusNormalClosure, "test_complete")
+	firstA.Close(wstest.StatusNormalClosure, "test_complete")
 	resumedA := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
 		ClientInstanceID: "collaboration-u-6-08-presence-a-first",
 		Presence:         timelinePresence(),
 	}, firstAToken, 0)
-	defer resumedA.Close(websocket.StatusNormalClosure, "test_complete")
+	defer resumedA.Close(wstest.StatusNormalClosure, "test_complete")
 	if len(resumedA.ReplayedMessages) != 0 {
 		t.Fatalf("presence messages must remain ephemeral and absent from resume replay: %#v", resumedA.ReplayedMessages)
 	}

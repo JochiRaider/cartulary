@@ -13,7 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -23,7 +25,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
@@ -34,7 +35,6 @@ type Service struct {
 	jobManager               *jobs.Manager
 	jobRunner                *jobs.Runner
 	timelineStore            *timeline.Facade
-	hub                      *platformws.Hub
 	keys                     authn.MasterKeys
 	cursorCodec              *pagination.Codec
 	limits                   Limits
@@ -53,11 +53,25 @@ type routeOptions struct {
 	limits                   Limits
 	archiveLimits            ArchiveLimits
 	timelineOwner            *timeline.Facade
+	revisionAppender         *revisions.Appender
+	intents                  collaboration.IntentAppender
 }
 
 func WithTimelineOwner(owner *timeline.Facade) RouteOption {
 	return func(options *routeOptions) {
 		options.timelineOwner = owner
+	}
+}
+
+func WithRevisionAppender(appender *revisions.Appender) RouteOption {
+	return func(options *routeOptions) {
+		options.revisionAppender = appender
+	}
+}
+
+func WithCollaborationIntents(intents collaboration.IntentAppender) RouteOption {
+	return func(options *routeOptions) {
+		options.intents = intents
 	}
 }
 
@@ -124,6 +138,15 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.timelineOwner == nil {
 		return nil, fmt.Errorf("import route composition requires a Timeline owner")
 	}
+	if options.revisionAppender == nil {
+		return nil, fmt.Errorf("import route composition requires a Revisions appender")
+	}
+	if options.intents == nil {
+		return nil, fmt.Errorf("import route composition requires a Collaboration intent appender")
+	}
+	if deps.Jobs != nil && deps.JobTransactions == nil {
+		return nil, fmt.Errorf("import admitted route requires the Jobs transaction service")
+	}
 	timelineStore := options.timelineOwner
 	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
 	if err != nil {
@@ -137,13 +160,17 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		extensionProfileAdmitted = func(string) bool { return false }
 	}
 	service := &Service{
-		store:                    NewStore(deps.Postgres),
+		store: NewStore(
+			deps.Postgres,
+			options.revisionAppender,
+			deps.JobTransactions,
+			options.intents,
+		),
 		incidentAccess:           incidents.NewAccess(deps.PostgresHandle()),
 		authStore:                authn.NewStore(deps.PostgresHandle()),
 		jobManager:               deps.Jobs,
 		jobRunner:                deps.JobRunner,
 		timelineStore:            timelineStore,
-		hub:                      deps.WSHub,
 		keys:                     keys,
 		cursorCodec:              cursorCodec,
 		limits:                   options.limits,

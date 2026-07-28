@@ -60,7 +60,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	}
 	clientTxnID := fmt.Sprintf("import:%s:%s:%s", start.ImportSessionID, unit.UnitID, start.ClientTxnID)
 	requestID := "req-" + clientTxnID
-	changeSetID, err := newRevisionAppendAdapter().AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+	changeSetID, err := newRevisionAppendAdapter(s.store.revisionAppender).AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  start.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      importApplyChangeSetSource,
@@ -73,13 +73,17 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	}
 
 	stores := importOwnerStores{
-		artifacts:      artifacts.NewStore(),
-		assessments:    assessments.NewStore(s.store.pool),
-		hostidentity:   hostidentity.NewStore(s.store.pool),
-		evidence:       evidence.NewStore(s.store.pool),
-		indicators:     indicators.NewStore(s.store.pool),
-		parties:        parties.NewStore(s.store.pool),
-		tasksDecisions: tasksdecisions.NewStore(),
+		artifacts:    artifacts.NewStore(s.store.revisionAppender),
+		assessments:  assessments.NewStore(s.store.pool, s.store.revisionAppender),
+		hostidentity: hostidentity.NewStore(s.store.pool, s.store.revisionAppender),
+		evidence: evidence.NewStore(
+			s.store.pool,
+			evidence.WithRevisionAppender(s.store.revisionAppender),
+			evidence.WithCollaborationIntents(s.store.intents),
+		),
+		indicators:     indicators.NewStore(s.store.pool, s.store.revisionAppender),
+		parties:        parties.NewStore(s.store.pool, s.store.revisionAppender),
+		tasksDecisions: tasksdecisions.NewStore(s.store.revisionAppender),
 	}
 
 	for index, sourceRow := range unit.SourceRows {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -40,8 +41,8 @@ func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption
 	}
 }
 
-func NewStore(pool postgres.DB, options ...StoreOption) *Store {
-	ports := newEntityStorePorts(pool)
+func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
+	ports := newEntityStorePorts(pool, appender)
 	for _, option := range options {
 		if option != nil {
 			option(&ports)

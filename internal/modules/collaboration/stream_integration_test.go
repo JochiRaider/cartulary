@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sync"
@@ -16,12 +17,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelinemodule "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -40,7 +41,9 @@ func TestDurableIncidentStream_Integration(t *testing.T) {
 	}
 
 	pool := harness.Server.Runtime.Postgres
-	store := collaboration.NewStore(pool, nil)
+	intents := harness.Server.Runtime.CollaborationIntents
+	replay := collaboration.NewReplayStore(pool, nil)
+	recovery := collaboration.NewRecoveryService(pool)
 	atomicIncidentUUID := uuid.MustParse(atomicIncidentID)
 
 	t.Run("intent and source state commit or roll back together", func(t *testing.T) {
@@ -62,7 +65,7 @@ DELETE FROM collaboration_event_intents WHERE incident_id = $1
 			t.Fatalf("update source state: %v", err)
 		}
 		invalidIntent := requireJobIntent(t, uuid.New(), "atomic-failure", time.Now().UTC())
-		if err := store.AppendIntentTx(ctx, tx, invalidIntent); err == nil {
+		if err := intents.AppendIntentTx(ctx, tx, invalidIntent); err == nil {
 			t.Fatal("intent with missing incident must fail its source transaction")
 		}
 		if err := tx.Rollback(ctx); err != nil {
@@ -111,8 +114,8 @@ SELECT count(*)
 
 	t.Run("intent keys are immutable across exact and divergent replay", func(t *testing.T) {
 		intent := requireJobIntent(t, atomicIncidentUUID, "immutable-intent-key", time.Now().UTC())
-		appendCommittedIntent(t, pool, store, intent)
-		appendCommittedIntent(t, pool, store, intent)
+		appendCommittedIntent(t, pool, intents, intent)
+		appendCommittedIntent(t, pool, intents, intent)
 
 		divergent := intent
 		divergent.SourceIdentity = divergent.SourceIdentity + ":divergent"
@@ -120,7 +123,7 @@ SELECT count(*)
 		if err != nil {
 			t.Fatalf("begin divergent intent transaction: %v", err)
 		}
-		err = store.AppendIntentTx(ctx, tx, divergent)
+		err = intents.AppendIntentTx(ctx, tx, divergent)
 		if !errors.Is(err, collaboration.ErrIntentKeyCollision) {
 			_ = tx.Rollback(ctx)
 			t.Fatalf("divergent intent error = %v want ErrIntentKeyCollision", err)
@@ -151,7 +154,7 @@ DELETE FROM collaboration_event_intents
 	dispatchIncidentID := createDurableStreamIncident(t, harness, admin, "dispatcher")
 	dispatchIncidentUUID := uuid.MustParse(dispatchIncidentID)
 	clockNow := time.Now().UTC().Add(time.Second)
-	appendCommittedIntent(t, pool, store, requireJobIntent(t, dispatchIncidentUUID, "dispatcher-outage", clockNow))
+	appendCommittedIntent(t, pool, intents, requireJobIntent(t, dispatchIncidentUUID, "dispatcher-outage", clockNow))
 
 	t.Run("process-local tail retry and restart reuse durable event identity", func(t *testing.T) {
 		var replayCount int
@@ -165,7 +168,7 @@ SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $1
 		}
 
 		broadcaster := &recordingBroadcaster{failRemaining: 1}
-		failingDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return clockNow })
+		failingDispatcher := collaboration.NewDispatcher(pool, broadcaster, func() time.Time { return clockNow })
 		if _, err := failingDispatcher.RunOnce(ctx); err == nil {
 			t.Fatal("failing local tailer did not report injected delivery failure")
 		}
@@ -194,7 +197,7 @@ SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
 		}
 
 		clockNow = clockNow.Add(time.Millisecond)
-		restartedDispatcher := collaboration.NewDispatcher(store, broadcaster, func() time.Time { return clockNow })
+		restartedDispatcher := collaboration.NewDispatcher(pool, broadcaster, func() time.Time { return clockNow })
 		if _, err := restartedDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("run restarted dispatcher: %v", err)
 		}
@@ -207,10 +210,10 @@ SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
 		}
 
 		clockNow = clockNow.Add(time.Second)
-		appendCommittedIntent(t, pool, store, requireJobIntent(t, dispatchIncidentUUID, "no-subscribers", clockNow))
+		appendCommittedIntent(t, pool, intents, requireJobIntent(t, dispatchIncidentUUID, "no-subscribers", clockNow))
 		noSubscriberDispatcher := collaboration.NewDispatcher(
-			store,
-			harness.Server.Runtime.WSHub,
+			pool,
+			harness.Server.Runtime.CollaborationHub,
 			func() time.Time { return clockNow },
 		)
 		if _, err := noSubscriberDispatcher.RunOnce(ctx); err != nil {
@@ -233,12 +236,12 @@ SELECT dispatch_state = 'sequenced'
 		incidentID := createDurableStreamIncident(t, harness, admin, "duplicate-claim")
 		incidentUUID := uuid.MustParse(incidentID)
 		claimNow := clockNow.Add(time.Second)
-		appendCommittedIntent(t, pool, store, requireJobIntent(t, incidentUUID, "duplicate-claim", claimNow))
+		appendCommittedIntent(t, pool, intents, requireJobIntent(t, incidentUUID, "duplicate-claim", claimNow))
 
 		firstBroadcaster := &recordingBroadcaster{}
 		secondBroadcaster := &recordingBroadcaster{}
-		firstDispatcher := collaboration.NewDispatcher(store, firstBroadcaster, func() time.Time { return claimNow })
-		secondDispatcher := collaboration.NewDispatcher(store, secondBroadcaster, func() time.Time { return claimNow })
+		firstDispatcher := collaboration.NewDispatcher(pool, firstBroadcaster, func() time.Time { return claimNow })
+		secondDispatcher := collaboration.NewDispatcher(pool, secondBroadcaster, func() time.Time { return claimNow })
 		if _, err := firstDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("run first process tailer: %v", err)
 		}
@@ -259,22 +262,18 @@ SELECT dispatch_state = 'sequenced'
 		poisonIncidentID := createDurableStreamIncident(t, harness, admin, "poison")
 		poisonIncidentUUID := uuid.MustParse(poisonIncidentID)
 		quarantineNow := clockNow.Add(2 * time.Second)
-		invalidIntent, err := collaboration.NewEventIntent(
-			"record_changed:invalid-payload",
-			poisonIncidentUUID,
-			collaboration.EventFamilyRecordChanged,
-			map[string]any{"not": "a record change"},
-			"record:invalid-payload",
-			0,
-			quarantineNow,
-		)
-		if err != nil {
-			t.Fatalf("create invalid legacy intent fixture: %v", err)
+		invalidIntent := collaboration.EventIntent{
+			IntentKey:        "record_changed:invalid-payload",
+			IncidentID:       poisonIncidentUUID,
+			EventFamily:      collaboration.EventFamilyRecordChanged,
+			CanonicalPayload: json.RawMessage(`{"not":"a record change"}`),
+			SourceIdentity:   "record:invalid-payload",
+			CreatedAt:        quarantineNow,
 		}
-		appendCommittedIntent(t, pool, store, invalidIntent)
+		appendLegacyIntent(t, pool, invalidIntent)
 
 		dispatcher := collaboration.NewDispatcher(
-			store,
+			pool,
 			&recordingBroadcaster{},
 			func() time.Time { return quarantineNow },
 		)
@@ -309,7 +308,7 @@ SELECT failure_count, quarantine_reason
 
 		healthyIncidentID := createDurableStreamIncident(t, harness, admin, "healthy-beside-poison")
 		healthyIncidentUUID := uuid.MustParse(healthyIncidentID)
-		appendCommittedIntent(t, pool, store, requireJobIntent(t, healthyIncidentUUID, "healthy-beside-poison", quarantineNow))
+		appendCommittedIntent(t, pool, intents, requireJobIntent(t, healthyIncidentUUID, "healthy-beside-poison", quarantineNow))
 		if _, err := dispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("sequence healthy incident beside quarantine: %v", err)
 		}
@@ -331,8 +330,60 @@ DELETE FROM collaboration_event_intents
 `, invalidIntent.IntentKey); err != nil {
 			t.Fatalf("remove repaired invalid intent fixture: %v", err)
 		}
-		if err := store.RequeueIncident(ctx, poisonIncidentUUID, quarantineNow.Add(time.Second)); err != nil {
+		if err := recovery.RequeueIncident(ctx, poisonIncidentUUID, quarantineNow.Add(time.Second)); err != nil {
 			t.Fatalf("release repaired incident quarantine: %v", err)
+		}
+	})
+
+	t.Run("legacy invalid job and extension payloads fail semantic validation before sequencing", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			family  string
+			payload json.RawMessage
+		}{
+			{name: "job", family: collaboration.EventFamilyJobProgress, payload: json.RawMessage(`{"job_id":"legacy-invalid"}`)},
+			{name: "extension", family: collaboration.EventFamilyExtensionResourceChange, payload: json.RawMessage(`{"extension_profile_id":"network_flow_activity","resource_kind":"network_flow_table","resource_id":"nft_invalid","change_kind":"remove","reason_code":"renamed"}`)},
+		}
+		for index, testCase := range cases {
+			t.Run(testCase.name, func(t *testing.T) {
+				incidentID := createDurableStreamIncident(t, harness, admin, "invalid-"+testCase.name)
+				incidentUUID := uuid.MustParse(incidentID)
+				attemptedAt := clockNow.Add(time.Duration(20+index) * time.Second)
+				intent := collaboration.EventIntent{
+					IntentKey:        "legacy-invalid:" + testCase.name,
+					IncidentID:       incidentUUID,
+					EventFamily:      testCase.family,
+					CanonicalPayload: testCase.payload,
+					SourceIdentity:   "legacy:" + testCase.name,
+					CreatedAt:        attemptedAt,
+				}
+				appendLegacyIntent(t, pool, intent)
+				dispatcher := collaboration.NewDispatcher(pool, &recordingBroadcaster{}, func() time.Time { return attemptedAt.Add(time.Second) })
+				if _, err := dispatcher.RunOnce(ctx); err != nil {
+					t.Fatalf("attempt legacy invalid sequencing: %v", err)
+				}
+				var (
+					lastError   *string
+					replayCount int
+				)
+				if err := pool.QueryRow(ctx, `
+SELECT last_error_code,
+       (SELECT count(*) FROM collaboration_replay_events WHERE incident_id = $2)
+  FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, intent.IntentKey, incidentUUID).Scan(&lastError, &replayCount); err != nil {
+					t.Fatalf("load legacy invalid sequencing result: %v", err)
+				}
+				if lastError == nil || *lastError != "invalid_event_payload" || replayCount != 0 {
+					t.Fatalf("legacy invalid sequencing = error %v replay_count %d", lastError, replayCount)
+				}
+				if _, err := pool.Exec(ctx, `
+DELETE FROM collaboration_event_intents
+ WHERE intent_key = $1
+`, intent.IntentKey); err != nil {
+					t.Fatalf("remove legacy invalid fixture: %v", err)
+				}
+			})
 		}
 	})
 
@@ -352,7 +403,7 @@ SELECT id, session_expires_at
 			t.Fatalf("load active session: %v", err)
 		}
 		tokenNow := time.Now().UTC()
-		token, _, err := store.IssueResumeToken(
+		token, _, err := replay.IssueResumeToken(
 			ctx,
 			sessionID,
 			dispatchIncidentUUID,
@@ -378,8 +429,8 @@ SELECT token_hash
 			t.Fatalf("resume token was not stored exclusively by hash")
 		}
 
-		restartedStore := collaboration.NewStore(pool, nil)
-		replay, err := restartedStore.ReplayMessages(
+		restartedReplay := collaboration.NewReplayStore(pool, nil)
+		replay, err := restartedReplay.ReplayMessages(
 			ctx,
 			sessionID,
 			dispatchIncidentUUID,
@@ -398,7 +449,7 @@ SELECT token_hash
 			*replay.Messages[0].StreamSeq != 1 || *replay.Messages[1].StreamSeq != 2 {
 			t.Fatalf("restart replay order = %#v", replay.Messages)
 		}
-		reset, err := restartedStore.ReplayMessages(
+		reset, err := restartedReplay.ReplayMessages(
 			ctx,
 			sessionID,
 			dispatchIncidentUUID,
@@ -444,8 +495,8 @@ SELECT gen_random_uuid(),
 			t.Fatalf("seed retention events: %v", err)
 		}
 		retentionDispatcher := collaboration.NewDispatcher(
-			store,
-			harness.Server.Runtime.WSHub,
+			pool,
+			harness.Server.Runtime.CollaborationHub,
 			func() time.Time { return retentionNow },
 		)
 		if _, err := retentionDispatcher.RunOnce(ctx); err != nil {
@@ -489,7 +540,13 @@ func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, creat
 		"job_progress:"+identity,
 		incidentID,
 		collaboration.EventFamilyJobProgress,
-		map[string]any{"job_id": identity},
+		collaboration.NewIncidentJobProgressPayload(
+			identity,
+			incidentID,
+			collaboration.JobStatusQueued,
+			collaboration.JobProgress{Completed: 0},
+			createdAt,
+		),
 		"job:"+identity,
 		0,
 		createdAt,
@@ -500,14 +557,26 @@ func requireJobIntent(t testing.TB, incidentID uuid.UUID, identity string, creat
 	return intent
 }
 
-func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, store *collaboration.Store, intent collaboration.EventIntent) {
+func appendLegacyIntent(t testing.TB, pool *pgxpool.Pool, intent collaboration.EventIntent) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `
+INSERT INTO collaboration_event_intents (
+    intent_key, incident_id, event_family, canonical_payload, source_identity,
+    mutation_ordinal, next_attempt_at, created_at, updated_at
+) VALUES ($1, $2, $3, $4::jsonb, $5, 0, $6, $6, $6)
+`, intent.IntentKey, intent.IncidentID, intent.EventFamily, intent.CanonicalPayload, intent.SourceIdentity, intent.CreatedAt); err != nil {
+		t.Fatalf("append legacy intent: %v", err)
+	}
+}
+
+func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, intents collaboration.IntentAppender, intent collaboration.EventIntent) {
 	t.Helper()
 	ctx := context.Background()
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin intent transaction: %v", err)
 	}
-	if err := store.AppendIntentTx(ctx, tx, intent); err != nil {
+	if err := intents.AppendIntentTx(ctx, tx, intent); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatalf("append durable intent: %v", err)
 	}

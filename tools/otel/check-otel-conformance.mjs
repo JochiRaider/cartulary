@@ -134,7 +134,7 @@ const expectedNoSDKPathEvidence = [
   { path: "postgres", evidence: "internal/platform/postgres/telemetry_test.go::TestTelemetryDBPreservesDBBehaviorNoSDK" },
   { path: "object-store", evidence: "internal/platform/objectstore/telemetry_test.go::TestTelemetryStorePreservesStoreBehaviorNoSDK" },
   { path: "log-call", evidence: "internal/platform/telemetry/logs_test.go::TestLogCorrelationSafeFields" },
-  { path: "websocket", evidence: "internal/platform/ws/telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK" },
+  { path: "websocket", evidence: "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK" },
 ];
 
 const expectedHostileDeclarativeConfigAttempts = [
@@ -1360,16 +1360,16 @@ function validateGoldenCorpus(manifest, classification, checks) {
             JSON.stringify(websocketSignals.safe_lifecycle_operations ?? []) === JSON.stringify(["connect"]) &&
             JSON.stringify(websocketSignals.safe_results ?? []) ===
               JSON.stringify(["success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped"]) &&
-            ["record_changed", "job_progress", "presence_delta", "presence_snapshot", "hello_ack", "resume_result", "ping", "session_revoked", "error", "other"].every((entry) =>
+            ["record_changed", "extension_resource_changed", "job_progress", "presence_delta", "presence_snapshot", "hello_ack", "resume_ack", "ping", "session_revoked", "error", "other"].every((entry) =>
               (websocketSignals.safe_event_types ?? []).includes(entry),
             ) &&
             ["connection_id", "user_id", "incident_id", "payload", "record_id"].every((entry) => (websocketSignals.forbidden_values_absent ?? []).includes(entry)) &&
             evidenceOK(websocketSignals.evidence, [
               "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClassifiesPublicErrors",
               "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClosesVocabulary",
-              "internal/platform/ws/telemetry_test.go::TestWebSocketTelemetrySafeVocabulary",
-              "internal/platform/ws/telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK",
-              "internal/platform/ws/telemetry_test.go::TestActiveConnectionTelemetryGaugeNoSDK",
+              "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketTelemetrySafeVocabulary",
+              "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK",
+              "internal/modules/collaboration/hub_telemetry_test.go::TestActiveConnectionTelemetryGaugeNoSDK",
               "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
               "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed",
             ]),

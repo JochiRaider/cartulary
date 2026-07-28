@@ -58,7 +58,7 @@ func safeAttribute(attr attribute.KeyValue) bool {
 	case "cartulary.error_class":
 		return safeStringIn(attr, safeErrorClasses...)
 	case "cartulary.websocket.event_type":
-		return safeStringIn(attr, "record_changed", "job_progress", "presence_delta", "presence_snapshot", "hello_ack", "resume_result", "ping", "session_revoked", "error", "other")
+		return safeStringIn(attr, "record_changed", "extension_resource_changed", "job_progress", "presence_delta", "presence_snapshot", "hello_ack", "resume_ack", "ping", "session_revoked", "error", "other")
 	case "cartulary.job_kind":
 		return safeStringIn(attr, "incident", "deployment", "unknown")
 	case "cartulary.job_terminal_status":

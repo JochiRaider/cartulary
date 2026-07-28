@@ -35,11 +35,31 @@ type ProviderContribution struct {
 	NonRowTargets     []NonRowProviderContribution
 }
 
+type LiveRecordChangePolicy string
+
+const (
+	LiveRecordChangeRequired LiveRecordChangePolicy = "required"
+	LiveRecordChangeNone     LiveRecordChangePolicy = "none"
+)
+
+type RecordVariant struct {
+	Kind  string
+	Value string
+}
+
+type RecordViewRouteContribution struct {
+	ContributionID string
+	Variant        *RecordVariant
+	ViewSchemaIDs  []string
+}
+
 type RecordProviderContribution struct {
-	SourceOwnerModule     SourceOwnerModule
-	RecordType            string
-	DeleteRestoreProvider recorddeleterestore.SourceProvider
-	RowRollbackProvider   rollbackcontract.RowSourceProvider
+	SourceOwnerModule      SourceOwnerModule
+	RecordType             string
+	DeleteRestoreProvider  recorddeleterestore.SourceProvider
+	RowRollbackProvider    rollbackcontract.RowSourceProvider
+	LiveRecordChangePolicy LiveRecordChangePolicy
+	RecordViewRoutes       []RecordViewRouteContribution
 }
 
 type NonRowProviderContribution struct {
@@ -143,6 +163,11 @@ func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestore
 		return nil, nil, nil, fmt.Errorf("build non-row rollback provider catalog: %w", err)
 	}
 	return deleteRestoreCatalog, rowRollbackCatalog, nonRowRollbackCatalog, nil
+}
+
+func ValidateProviderContributions(contributions []ProviderContribution) error {
+	_, _, _, err := buildProviderCatalogs(contributions)
+	return err
 }
 
 func sortedProviderRequirementKeys[T ~string](requirements map[string]T) []string {

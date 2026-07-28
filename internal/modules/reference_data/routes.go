@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -27,7 +26,6 @@ type Service struct {
 	jobManager          *jobs.Manager
 	jobRunner           *jobs.Runner
 	jobSuccessFinalizer JobSuccessFinalizer
-	hub                 *platformws.Hub
 	keys                authn.MasterKeys
 	cursorCodec         *pagination.Codec
 	storage             Storage
@@ -109,16 +107,18 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if deps.Jobs != nil && deps.JobRunner == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires the shared job runner")
 	}
+	if deps.Jobs != nil && deps.JobTransactions == nil {
+		return nil, fmt.Errorf("reference pack admitted route requires the Jobs transaction service")
+	}
 	if deps.Jobs != nil && options.storage == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires storage")
 	}
 	service := &Service{
-		store:               NewStore(deps.Postgres),
+		store:               NewStore(deps.Postgres, deps.JobTransactions),
 		authStore:           authn.NewStore(deps.PostgresHandle()),
 		jobManager:          deps.Jobs,
 		jobRunner:           deps.JobRunner,
 		jobSuccessFinalizer: options.jobSuccessFinalizer,
-		hub:                 deps.WSHub,
 		keys:                keys,
 		cursorCodec:         cursorCodec,
 		storage:             options.storage,

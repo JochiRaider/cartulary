@@ -14,10 +14,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 )
 
-func collaborationSettings(cfg configassembly.Deployment) collaboration.Settings {
+func collaborationSettings(cfg configassembly.Deployment, hub *collaboration.Hub) collaboration.Settings {
 	return collaboration.Settings{
-		PublicOrigin:   cfg.Application.PublicOrigin,
-		ServiceVersion: cfg.Telemetry.Resource.ServiceVersion,
+		AcceptSocket:       acceptCollaborationSocket(cfg.Application.PublicOrigin),
+		CheckBrowserOrigin: checkCollaborationBrowserOrigin(cfg.Application.PublicOrigin),
+		Hub:                hub,
+		ServiceVersion:     cfg.Telemetry.Resource.ServiceVersion,
 	}
 }
 

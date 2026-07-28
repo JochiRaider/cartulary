@@ -2,18 +2,78 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-// appendProgressIntentTx is the Jobs-owned durable Collaboration producer.
-// It deliberately publishes only the public common-job resource and never
-// handler leases, payloads, or other worker-private state.
-func appendProgressIntentTx(ctx context.Context, tx pgx.Tx, resource Resource) error {
+// ProgressIntent is the Jobs-owned producer contract. It contains only the
+// public common-job resource needed by Collaboration; worker-private state is
+// deliberately absent.
+type ProgressIntent struct {
+	IntentKey        string
+	IncidentID       uuid.UUID
+	CanonicalPayload json.RawMessage
+	SourceIdentity   string
+	CreatedAt        time.Time
+}
+
+// ProgressIntentAppender is the narrow consumer-owned port implemented by
+// application composition. Jobs never receives Collaboration storage access.
+type ProgressIntentAppender interface {
+	AppendProgressIntentTx(context.Context, pgx.Tx, ProgressIntent) error
+}
+
+// TransactionService binds Jobs' transaction-scoped operations to its
+// configured durable intent producer.
+type TransactionService struct {
+	progressIntents ProgressIntentAppender
+}
+
+func NewTransactionService(progressIntents ProgressIntentAppender) (*TransactionService, error) {
+	if progressIntents == nil {
+		return nil, errors.New("jobs transaction service requires a progress intent appender")
+	}
+	return &TransactionService{progressIntents: progressIntents}, nil
+}
+
+func (s *TransactionService) CreateQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, now time.Time) (Resource, error) {
+	if s == nil || s.progressIntents == nil {
+		return Resource{}, ErrNotConfigured
+	}
+	resource, err := createQueuedTx(ctx, tx, params, now)
+	if err != nil {
+		return Resource{}, err
+	}
+	if err := s.appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return Resource{}, err
+	}
+	return resource, nil
+}
+
+func (s *TransactionService) CompleteSucceededTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+	if s == nil || s.progressIntents == nil {
+		return Resource{}, ErrNotConfigured
+	}
+	resource, err := completeSucceededTx(ctx, tx, params, now)
+	if err != nil {
+		return Resource{}, err
+	}
+	if err := s.appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return Resource{}, err
+	}
+	return resource, nil
+}
+
+func (s *TransactionService) appendProgressIntentTx(ctx context.Context, tx pgx.Tx, resource Resource) error {
+	if s == nil || s.progressIntents == nil {
+		return ErrNotConfigured
+	}
 	if resource.Scope.Kind != ScopeKindIncident || resource.Scope.IncidentID == nil {
 		return nil
 	}
@@ -47,49 +107,12 @@ func appendProgressIntentTx(ctx context.Context, tx pgx.Tx, resource Resource) e
 	if err != nil {
 		return fmt.Errorf("marshal job progress intent: %w", err)
 	}
-	var intentKey string
-	if err := tx.QueryRow(ctx, `
-SELECT 'job_progress:' || $1 || ':' || encode(digest(($2::jsonb)::text, 'sha256'), 'hex')
-`, resource.JobID, encoded).Scan(&intentKey); err != nil {
-		return fmt.Errorf("derive job progress intent key: %w", err)
-	}
-	tag, err := tx.Exec(ctx, `
-INSERT INTO collaboration_event_intents (
-    intent_key,
-    incident_id,
-    event_family,
-    canonical_payload,
-    source_identity,
-    mutation_ordinal,
-    next_attempt_at,
-    created_at,
-    updated_at
-) VALUES ($1, $2, 'job_progress', $3::jsonb, $4, 0, $5, $5, $5)
-ON CONFLICT (intent_key) DO NOTHING
-`, intentKey, *resource.Scope.IncidentID, encoded, "job:"+resource.JobID, resource.UpdatedAt.UTC())
-	if err != nil {
-		return fmt.Errorf("append job progress intent: %w", err)
-	}
-	if tag.RowsAffected() == 1 {
-		return nil
-	}
-	var exact bool
-	if err := tx.QueryRow(ctx, `
-SELECT incident_id = $2
-   AND event_family = 'job_progress'
-   AND canonical_payload = $3::jsonb
-   AND source_identity = $4
-   AND mutation_ordinal = 0
-  FROM collaboration_event_intents
- WHERE intent_key = $1
-`, intentKey, *resource.Scope.IncidentID, encoded, "job:"+resource.JobID).Scan(&exact); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("job progress intent %q disappeared during replay verification", intentKey)
-		}
-		return fmt.Errorf("verify job progress intent replay: %w", err)
-	}
-	if !exact {
-		return fmt.Errorf("job progress intent key collision: %s", intentKey)
-	}
-	return nil
+	digest := sha256.Sum256(encoded)
+	return s.progressIntents.AppendProgressIntentTx(ctx, tx, ProgressIntent{
+		IntentKey:        fmt.Sprintf("job_progress:v2:%s:%x", resource.JobID, digest[:]),
+		IncidentID:       *resource.Scope.IncidentID,
+		CanonicalPayload: encoded,
+		SourceIdentity:   "job:" + resource.JobID,
+		CreatedAt:        resource.UpdatedAt.UTC(),
+	})
 }

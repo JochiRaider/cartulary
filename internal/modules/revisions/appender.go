@@ -3,6 +3,7 @@ package revisions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,11 +13,39 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 )
 
-// Appender is the stateless Revisions write facade. Callers retain transaction
-// ownership and can acquire no history-query or command capabilities through it.
-type Appender struct{}
+type HistoricalIntentPolicy interface {
+	IsSuppressedTx(context.Context, pgx.Tx) (bool, error)
+}
 
-func NewAppender() Appender { return Appender{} }
+type IntentAppender interface {
+	AppendIntentTx(context.Context, pgx.Tx, collaboration.EventIntent) error
+}
+
+// Appender is the composition-scoped Revisions write facade. Callers retain
+// transaction ownership and can acquire no history-query or command
+// capabilities through it.
+type Appender struct {
+	recordViews      *RecordViewCatalog
+	historicalPolicy HistoricalIntentPolicy
+	intents          IntentAppender
+}
+
+func NewAppender(
+	recordViews *RecordViewCatalog,
+	historicalPolicy HistoricalIntentPolicy,
+	intents IntentAppender,
+) (*Appender, error) {
+	if recordViews == nil {
+		return nil, errors.New("revisions: record/view catalog is required")
+	}
+	if historicalPolicy == nil {
+		return nil, errors.New("revisions: historical intent policy is required")
+	}
+	if intents == nil {
+		return nil, errors.New("revisions: Collaboration intent appender is required")
+	}
+	return &Appender{recordViews: recordViews, historicalPolicy: historicalPolicy, intents: intents}, nil
+}
 
 type AppendChangeSetParams struct {
 	ChangeSetID *uuid.UUID
@@ -49,7 +78,7 @@ type AppendRecordRevisionParams struct {
 	AfterValue  any
 }
 
-func (Appender) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params AppendChangeSetParams) (uuid.UUID, error) {
+func (*Appender) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params AppendChangeSetParams) (uuid.UUID, error) {
 	if params.ChangeSetID != nil {
 		if _, err := tx.Exec(ctx, `
 INSERT INTO change_sets (
@@ -87,7 +116,7 @@ RETURNING change_set_id
 	return changeSetID, nil
 }
 
-func (Appender) AppendMutationTx(ctx context.Context, tx pgx.Tx, params AppendMutationParams) error {
+func (*Appender) AppendMutationTx(ctx context.Context, tx pgx.Tx, params AppendMutationParams) error {
 	if _, err := tx.Exec(ctx, `
 INSERT INTO change_set_mutations (
     change_set_id,
@@ -107,16 +136,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	return nil
 }
 
-func (Appender) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
-	if err := (Appender{}).AppendRecordRevisionOnlyTx(ctx, tx, params); err != nil {
+func (a *Appender) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
+	if err := a.AppendRecordRevisionOnlyTx(ctx, tx, params); err != nil {
 		return err
 	}
-	return appendRecordRevisionIntentTx(ctx, tx, params)
+	return a.appendRecordRevisionIntentTx(ctx, tx, params)
 }
 
 // AppendRecordRevisionOnlyTx persists history for a source owner that appends
 // its own typed Collaboration intent later in the same transaction.
-func (Appender) AppendRecordRevisionOnlyTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
+func (*Appender) AppendRecordRevisionOnlyTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
 	if _, err := tx.Exec(ctx, `
 INSERT INTO record_revisions (
     change_set_id,
@@ -132,12 +161,10 @@ VALUES ($1, $2, $3, $4, $5)
 	return nil
 }
 
-func appendRecordRevisionIntentTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
-	var suppressed bool
-	if err := tx.QueryRow(ctx, `
-SELECT COALESCE(current_setting('cartulary.collaboration.suppress_historical_intents', true), '') = 'on'
-`).Scan(&suppressed); err != nil {
-		return fmt.Errorf("read collaboration historical-intent suppression: %w", err)
+func (a *Appender) appendRecordRevisionIntentTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
+	suppressed, err := a.historicalPolicy.IsSuppressedTx(ctx, tx)
+	if err != nil {
+		return err
 	}
 	if suppressed {
 		return nil
@@ -181,7 +208,7 @@ SELECT r.incident_id, r.record_type, r.deleted_at,
 	if row == nil {
 		row = beforeRow
 	}
-	viewSchemaID, err := collaboration.RecordProducerViewSchema(recordType, row)
+	viewSchemaID, err := a.recordViews.Resolve(recordType, row)
 	if err != nil {
 		return err
 	}
@@ -224,7 +251,7 @@ SELECT GREATEST(COALESCE(min(sequence_no), 1) - 1, 0)
 	if err != nil {
 		return err
 	}
-	if err := collaboration.AppendIntentTx(ctx, tx, intent); err != nil {
+	if err := a.intents.AppendIntentTx(ctx, tx, intent); err != nil {
 		return fmt.Errorf("append record revision collaboration intent: %w", err)
 	}
 	return nil

@@ -21,6 +21,7 @@ type CommandServiceDependencies struct {
 	ImportedAttributionResolver ImportedAttributionResolver
 	Projections                 ProjectionServices
 	ProviderContributions       []ProviderContribution
+	Appender                    *Appender
 }
 
 type CommandService struct {
@@ -40,6 +41,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		{name: "database", value: dependencies.Database},
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
 		{name: "projection services", value: dependencies.Projections},
+		{name: "appender", value: dependencies.Appender},
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
@@ -52,7 +54,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 	}
 	store := &commandStore{
 		db:                          dependencies.Database,
-		appender:                    NewAppender(),
+		appender:                    dependencies.Appender,
 		incidentAccess:              incidents.NewAccess(dependencies.Database),
 		importedAttributionResolver: dependencies.ImportedAttributionResolver,
 		projections:                 dependencies.Projections,

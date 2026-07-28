@@ -272,6 +272,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.entities.integration.merge_protected_set_uses_shared_revision_appender_6b3d19f2a8",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities/merge",
+        "tests": [
+          "TestMergeAssessmentRepointRejectsUnprotectedAssessment",
+          "TestMergeProtectedRecordIDsIncludesAssessmentSubjects"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044",
       "owner_id": "module.entities",
       "family_id": "module.entities.integration",

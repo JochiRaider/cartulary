@@ -3,7 +3,7 @@
   "owner_id": "platform.ws",
   "rows": [
     {
-      "row_id": "platform.ws.support_unit.presence_replay_revocation_transport_f9129f9942",
+      "row_id": "platform.ws.support_unit.generic_transport_frame_io_and_origin_f9129f9942",
       "owner_id": "platform.ws",
       "family_id": "platform.ws.support_unit",
       "collaborator_ids": [],
@@ -14,7 +14,7 @@
       "selector": {
         "package": "./internal/platform/ws",
         "tests": [
-          "TestPresenceReplayRevocationTransport"
+          "TestConnectionFrameIOAndOrigin"
         ]
       },
       "evidence_class": "unit",

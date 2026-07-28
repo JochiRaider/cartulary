@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type rowScanner interface {

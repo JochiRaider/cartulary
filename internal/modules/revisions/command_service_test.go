@@ -44,6 +44,12 @@ func (commandServiceTestProjection) LoadRowTx(context.Context, pgx.Tx, string, u
 	return nil, pgx.ErrNoRows
 }
 
+type commandServiceTestHistoricalPolicy struct{}
+
+func (commandServiceTestHistoricalPolicy) IsSuppressedTx(context.Context, pgx.Tx) (bool, error) {
+	return false, nil
+}
+
 func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 	t.Parallel()
 	dependencies := validCommandServiceDependencies(t)
@@ -59,6 +65,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
 		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
+		{name: "appender", mutate: func(value *CommandServiceDependencies) { value.Appender = nil }},
 	}
 	for _, test := range tests {
 		test := test
@@ -80,6 +87,10 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
 		ProviderContributions:       validProviderContributions(),
+		Appender: &Appender{
+			recordViews:      &RecordViewCatalog{},
+			historicalPolicy: commandServiceTestHistoricalPolicy{},
+		},
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
@@ -28,18 +29,20 @@ var (
 )
 
 type Store struct {
-	pool           postgres.DB
-	authStore      *authn.Store
-	incidentAccess incidents.Access
-	ports          entityStorePorts
+	pool             postgres.DB
+	authStore        *authn.Store
+	incidentAccess   incidents.Access
+	revisionAppender *revisions.Appender
+	ports            entityStorePorts
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
 	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		incidentAccess: incidents.NewAccess(pool),
-		ports:          newEntityStorePorts(pool),
+		pool:             pool,
+		authStore:        authn.NewStore(pool),
+		incidentAccess:   incidents.NewAccess(pool),
+		revisionAppender: appender,
+		ports:            newEntityStorePorts(pool, appender),
 	}
 }
 

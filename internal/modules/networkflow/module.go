@@ -30,15 +30,16 @@ type importTransactionPort interface {
 }
 
 type ModuleDependencies struct {
-	Postgres      postgres.DB
-	ImportSources ImportSourcePort
-	KeyRings      *KeyRings
-	Limits        Limits
-	Now           func() time.Time
-	Transactions  postgres.TransactionRunner
-	IncidentLocks IncidentLockPort
-	AuditAppender AdministrativeAuditPort
-	Indicators    IndicatorParticipationPort
+	Postgres        postgres.DB
+	ImportSources   ImportSourcePort
+	KeyRings        *KeyRings
+	Limits          Limits
+	Now             func() time.Time
+	Transactions    postgres.TransactionRunner
+	IncidentLocks   IncidentLockPort
+	AuditAppender   AdministrativeAuditPort
+	Indicators      IndicatorParticipationPort
+	ResourceIntents ResourceIntentAppender
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -72,7 +73,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if transactions == nil {
 		transactions = postgres.NewTransactionRunner(dependencies.Postgres)
 	}
-	if dependencies.IncidentLocks == nil || dependencies.AuditAppender == nil || dependencies.Indicators == nil {
+	if dependencies.IncidentLocks == nil || dependencies.AuditAppender == nil || dependencies.Indicators == nil || dependencies.ResourceIntents == nil {
 		return nil, errors.New("network flow owner transaction participants are required")
 	}
 	var safeDigester SafeDigester
@@ -94,6 +95,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		WithOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
 		WithTransactionRunner(transactions),
 		WithSafeDigester(safeDigester),
+		WithResourceIntentAppender(dependencies.ResourceIntents),
 	)
 	module := &Module{store: store, importSources: dependencies.ImportSources, cursorProtector: cursorProtector, safeDigester: safeDigester, limits: limits, now: now}
 	if physical, ok := dependencies.ImportSources.(importTransactionPort); ok {

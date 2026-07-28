@@ -38,12 +38,13 @@ type incidentBundleWorker struct {
 	transactions      *crossownertransaction.Coordinator
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
+	historicalIntents historicalIntentPolicy
 	limits            Limits
 	deps              httpapi.DependencySet
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		jobManager:        deps.Jobs,
@@ -56,6 +57,7 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage B
 		transactions:      transactions,
 		projectionRebuild: projectionRebuild,
 		sourceCatalog:     sourceCatalog,
+		historicalIntents: historicalIntents,
 		limits:            limits,
 		deps:              deps,
 		now:               now,
@@ -207,6 +209,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 		finalizer:         w.importFinalizer,
 		projectionRebuild: w.projectionRebuild,
 		sourceCatalog:     w.sourceCatalog,
+		historicalIntents: w.historicalIntents,
 	}
 	importParams := ImportParams{
 		ActorUserID: payload.ActorUserID,

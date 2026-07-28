@@ -18,12 +18,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -602,16 +602,16 @@ func installStartupCounters(t testing.TB) *StartupCounters {
 
 	counters := &StartupCounters{}
 	originalJobsManager := newJobsManager
-	originalWSHub := newWSHub
+	originalCollaborationHub := newCollaborationHub
 	originalHTTPHandler := newHTTPHandler
 
 	newJobsManager = func() *jobs.Manager {
 		counters.jobsManager++
 		return originalJobsManager()
 	}
-	newWSHub = func() *platformws.Hub {
+	newCollaborationHub = func() *collaboration.Hub {
 		counters.wsHub++
-		return platformws.NewHub()
+		return collaboration.NewHub()
 	}
 	newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
 		counters.httpHandler++
@@ -620,7 +620,7 @@ func installStartupCounters(t testing.TB) *StartupCounters {
 
 	t.Cleanup(func() {
 		newJobsManager = originalJobsManager
-		newWSHub = originalWSHub
+		newCollaborationHub = originalCollaborationHub
 		newHTTPHandler = originalHTTPHandler
 	})
 

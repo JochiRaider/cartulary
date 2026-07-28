@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +23,6 @@ type Service struct {
 	manager        *jobs.Manager
 	authStore      *authn.Store
 	incidentAccess incidents.Access
-	hub            *platformws.Hub
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
@@ -60,7 +58,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		manager:        deps.Jobs,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		hub:            deps.WSHub,
 		keys:           keys,
 		now:            now,
 	}, nil

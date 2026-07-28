@@ -6,11 +6,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -26,6 +28,8 @@ func NewContributionCatalog(
 	projectionQuery *projections.QueryService,
 	timelineOwner *timeline.Facade,
 	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
 ) (*workbook.WorkbookContributionCatalog, error) {
 	if projectionCatalog == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: projection catalog is required")
@@ -36,14 +40,17 @@ func NewContributionCatalog(
 	if timelineOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
 	}
+	if intents == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
+	}
 
-	entityStore := hostidentity.NewStore(pool)
-	indicatorStore := indicators.NewStore(pool)
-	assessmentStore := assessments.NewStore(pool)
-	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens)
-	evidenceOwner := evidence.NewWorkbookFacade(pool, conflictTokens)
-	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens)
-	taskDecisionOwner := tasksdecisions.NewWorkbookFacade(pool, conflictTokens)
+	entityStore := hostidentity.NewStore(pool, appender)
+	indicatorStore := indicators.NewStore(pool, appender)
+	assessmentStore := assessments.NewStore(pool, appender)
+	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
+	evidenceOwner := evidence.NewWorkbookFacade(pool, conflictTokens, appender, intents)
+	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
+	taskDecisionOwner := tasksdecisions.NewWorkbookFacade(pool, conflictTokens, appender)
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(

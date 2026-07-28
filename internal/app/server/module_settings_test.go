@@ -38,10 +38,13 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 		},
 	}
 
-	if got, want := collaborationSettings(cfg), (collaboration.Settings{
-		PublicOrigin: "https://cartulary.example", ServiceVersion: "2026.7.25",
-	}); !reflect.DeepEqual(got, want) {
-		t.Fatalf("collaboration settings = %#v, want %#v", got, want)
+	hub := collaboration.NewHub()
+	collaborationConfig := collaborationSettings(cfg, hub)
+	if collaborationConfig.AcceptSocket == nil ||
+		collaborationConfig.CheckBrowserOrigin == nil ||
+		collaborationConfig.Hub != hub ||
+		collaborationConfig.ServiceVersion != "2026.7.25" {
+		t.Fatalf("collaboration settings = %#v", collaborationConfig)
 	}
 	if got, want := evidenceSettings(cfg), (evidence.Settings{
 		MaxBlobBytes: 11, PreviewMax: 61, TextPreviewMax: 62,

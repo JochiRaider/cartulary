@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type RecordChange struct {
@@ -24,6 +22,9 @@ type RecordChange struct {
 	ChangeKind       string
 	Row              map[string]any
 	PatchCells       map[string]any
+	StreamSeq        int64
+	EventID          uuid.UUID
+	EmittedAt        time.Time
 }
 
 // ChangedCellKeys returns the canonical public cell keys whose JSON values
@@ -90,9 +91,9 @@ func NewRecordChangeIntent(change RecordChange, mutationOrdinal int, createdAt t
 	changedKeys = slices.Compact(changedKeys)
 	patchCells := change.PatchCells
 	if patchCells == nil && change.Row != nil && change.ChangeKind == "" {
-		patchCells = platformws.BuildViewRowPatch(change.Row, changedKeys)
+		patchCells = BuildViewRowPatch(change.Row, changedKeys)
 	}
-	payload := platformws.RecordChangePayload(platformws.RecordChange{
+	payload := RecordChangePayload(RecordChange{
 		IncidentID:       change.IncidentID,
 		RecordID:         change.RecordID,
 		RowVersion:       change.RowVersion,

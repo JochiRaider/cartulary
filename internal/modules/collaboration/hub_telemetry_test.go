@@ -1,4 +1,4 @@
-package ws
+package collaboration
 
 import (
 	"testing"
@@ -8,11 +8,26 @@ import (
 )
 
 func TestWebSocketTelemetrySafeVocabulary(t *testing.T) {
-	if got := safeWebSocketEventType("record_changed"); got != "record_changed" {
-		t.Fatalf("unexpected event type: %q", got)
+	for _, eventType := range []string{
+		"hello_ack",
+		"resume_ack",
+		"presence_snapshot",
+		"presence_delta",
+		"record_changed",
+		"extension_resource_changed",
+		"job_progress",
+		"ping",
+		"error",
+		"session_revoked",
+	} {
+		if got := safeWebSocketEventType(eventType); got != eventType {
+			t.Fatalf("event type %q mapped to %q", eventType, got)
+		}
 	}
-	if got := safeWebSocketEventType("incident/10000000"); got != "other" {
-		t.Fatalf("unexpected unsafe event type mapping: %q", got)
+	for _, unsafe := range []string{"resume_result", "incident/10000000"} {
+		if got := safeWebSocketEventType(unsafe); got != "other" {
+			t.Fatalf("unsafe event type %q mapped to %q", unsafe, got)
+		}
 	}
 	if got := safeWebSocketResult("success"); got != "success" {
 		t.Fatalf("unexpected result: %q", got)

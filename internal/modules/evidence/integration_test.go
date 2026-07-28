@@ -15,13 +15,13 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -867,7 +867,10 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		expiredBlobID := uuid.New()
 		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "evidence_lifecycle/i-04/expired/"+expiredBlobID.String(), now)
 
-		result, err := evidence.NewStore(harness.Server.Runtime.Postgres).CleanupFailedUnattachedBlobBytes(context.Background(), harness.Server.Runtime.ObjectStore, now, 10)
+		result, err := evidence.NewStore(
+			harness.Server.Runtime.Postgres,
+			evidence.WithRevisionAppender(harness.Server.Runtime.Revisions.Appender()),
+		).CleanupFailedUnattachedBlobBytes(context.Background(), harness.Server.Runtime.ObjectStore, now, 10)
 		if err != nil {
 			t.Fatalf("cleanup failed unattached blob bytes: %v", err)
 		}

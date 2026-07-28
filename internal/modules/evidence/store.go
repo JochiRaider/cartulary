@@ -87,6 +87,12 @@ func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption
 	}
 }
 
+func WithRevisionAppender(appender *revisions.Appender) StoreOption {
+	return func(store *Store) {
+		store.revisionStore = newRevisionAppendAdapter(appender)
+	}
+}
+
 type BlobSlotParams struct {
 	ObjectBlobID      uuid.UUID
 	IncidentID        uuid.UUID
@@ -209,9 +215,7 @@ func NewStore(pool postgres.DB, options ...StoreOption) *Store {
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
-		revisionStore:  newRevisionAppendAdapter(),
 		projections:    evidenceProjectionAdapter{rows: projections.NewEvidenceRows(pool)},
-		collaboration:  collaboration.NewStore(pool, nil),
 	}
 	for _, option := range options {
 		if option != nil {

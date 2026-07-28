@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -826,17 +827,15 @@ VALUES ($1, 1, 'host', $2, 'field_update', $3, $4, $5, $6)
 `, changeSetID, recordID.String(), "host:"+recordID.String()+":1", "host:"+recordID.String()+":2", jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue)); err != nil {
 		t.Fatalf("seed rollback host mutation: %v", err)
 	}
-	if _, err := db.ExecContext(context.Background(), `
-WITH suppression AS (
-    SELECT set_config('cartulary.collaboration.suppress_historical_intents', 'on', true)
-)
-INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
-SELECT $1, $2, 2, $3, $4, $5
-  FROM suppression
-ON CONFLICT (record_id, row_version) DO NOTHING
-`, changeSetID, recordID, jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue), createdAt); err != nil {
-		t.Fatalf("seed rollback host revision: %v", err)
-	}
+	seedHistoricalRecordRevision(
+		t,
+		db,
+		changeSetID,
+		recordID,
+		jsonOrNil(t, beforeValue),
+		jsonOrNil(t, afterValue),
+		createdAt,
+	)
 	seedHostProjection(t, db, incidentID, recordID)
 }
 
@@ -880,16 +879,49 @@ UPDATE hosts
  WHERE record_id = $1 AND incident_id = $2
 `, recordID, incidentID, afterName, createdAt, actorID)
 	insertMutation(t, db, changeSetID, sequenceNo, "host", recordID.String(), "field_update", beforeValue, afterValue)
-	mustExec(t, db, `
-WITH suppression AS (
-    SELECT set_config('cartulary.collaboration.suppress_historical_intents', 'on', true)
-)
-INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
-SELECT $1, $2, 2, $3, $4, $5
-  FROM suppression
-ON CONFLICT (record_id, row_version) DO NOTHING
-`, changeSetID, recordID, jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue), createdAt)
+	seedHistoricalRecordRevision(
+		t,
+		db,
+		changeSetID,
+		recordID,
+		jsonOrNil(t, beforeValue),
+		jsonOrNil(t, afterValue),
+		createdAt,
+	)
 	seedHostProjection(t, db, incidentID, recordID)
+}
+
+func seedHistoricalRecordRevision(
+	t testing.TB,
+	db *sql.DB,
+	changeSetID uuid.UUID,
+	recordID uuid.UUID,
+	beforeValue any,
+	afterValue any,
+	createdAt time.Time,
+) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin historical revision seed: %v", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if err := collaboration.NewHistoricalIntentPolicy().SuppressSQLTx(ctx, tx); err != nil {
+		t.Fatalf("suppress seeded historical revision intent: %v", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
+VALUES ($1, $2, 2, $3, $4, $5)
+ON CONFLICT (record_id, row_version) DO NOTHING
+`, changeSetID, recordID, beforeValue, afterValue, createdAt); err != nil {
+		t.Fatalf("seed rollback host revision: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit historical revision seed: %v", err)
+	}
 }
 
 func seedRollbackPartyPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, beforeName string, afterName string) uuid.UUID {

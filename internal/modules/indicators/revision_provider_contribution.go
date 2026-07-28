@@ -11,10 +11,15 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerIndicators,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:     revisions.SourceOwnerIndicators,
-			RecordType:            "indicator",
-			DeleteRestoreProvider: deleterestore.NewProvider(),
-			RowRollbackProvider:   rollbackprovider.NewProvider(),
+			SourceOwnerModule:      revisions.SourceOwnerIndicators,
+			RecordType:             "indicator",
+			DeleteRestoreProvider:  deleterestore.NewProvider(),
+			RowRollbackProvider:    rollbackprovider.NewProvider(),
+			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
+				ContributionID: "indicators.indicators",
+				ViewSchemaIDs:  []string{ViewSchemaID},
+			}},
 		}},
 		NonRowTargets: []revisions.NonRowProviderContribution{
 			{SourceOwnerModule: revisions.SourceOwnerIndicators, TargetKind: "indicator_observation", RollbackProvider: childProvider},

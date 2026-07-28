@@ -20,17 +20,25 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "projection-query-load-row-parity")
-	projectionCatalog := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).ProjectionCatalog
+	revisionComposition := revisionsupport.MustComposition(t)
+	appender := revisionComposition.Runtime.Appender()
+	projectionCatalog := timelineassembly.NewBundle(
+		harness.DB,
+		conflicttest.NewCodec("timeline"),
+		appender,
+		revisionComposition.Intents,
+	).ProjectionCatalog
 	workbookStore := appsupport.NewWorkbookStore(
 		harness.DB,
 		conflicttest.NewCodec("workbook"),
 	)
-	assessmentStore := assessments.NewStore(harness.DB)
+	assessmentStore := assessments.NewStore(harness.DB, appender)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 

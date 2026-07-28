@@ -3996,6 +3996,17 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
+**REQ-01-271A**
+Each participating committed live record revision MUST append exactly one
+deterministic `record_changed` semantic intent in the same authoritative
+transaction as that revision. Transaction rollback MUST leave no such intent.
+Historical incident-bundle import MUST suppress live `record_changed` intent
+creation for the imported historical revisions; it MUST NOT replay those
+historical revisions as current live mutations. This suppression MUST be
+transaction-local and MUST NOT affect a later unrelated transaction.
+Profiles: base
+Verified by: AC-135, AC-231
+
 **REQ-01-272**
 The route path determines the incident subscription. `presence_update` determines only the sender's published presence scope. `record_changed`, `extension_resource_changed`, and incident-scoped `job_progress` MUST be broadcast only to subscribers currently authorized for the relevant incident and message family. Clients MUST determine active-view relevance locally using stable identifiers such as `view_schema_id`, `record_id`, `field_key`, `extension_profile_id`, `resource_kind`, `resource_id`, and the client's current query contract.
 Profiles: base, network_flow_activity
@@ -4025,6 +4036,36 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 For cookie-authenticated browser connections, the WebSocket upgrade and any session-establishment message MUST validate `Origin` against the configured application origin. The server MUST re-derive incident authorization on initial connect and on `resume`. WebSocket `ping` or `pong`, passive server push, and automatic reconnect or replay MUST NOT extend session idle expiry. If incident membership or session validity is revoked after connection establishment, or if the underlying session expires while the socket remains connected, the server MUST send `session_revoked` and close the socket. After session expiry or revocation, a later connection MUST establish a new authenticated session and use `hello`; `resume` alone is insufficient.
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
+**REQ-01-277A**
+Every client-to-server application message on `/ws/v1/` MUST be one UTF-8 JSON
+object carried in one reassembled WebSocket text message. Binary application
+messages are unsupported and MUST close with code `1003` and reason
+`binary_message_unsupported`. The server MUST impose a `32768`-byte limit on
+each reassembled application message; an over-limit message MUST close with
+code `1009` and reason `message_too_large`. Compression remains disabled and
+the protocol negotiates no subprotocol.
+
+The semantic decoder MUST reject a duplicate member in any JSON object rather
+than applying first-wins or last-wins behavior. Syntactically malformed JSON,
+including invalid UTF-8, MUST close with code `1007` and reason `invalid_json`.
+Valid JSON whose first message is not one valid `hello` or `resume`, including
+a first-message duplicate member, MUST receive an `error` envelope whose
+`payload.code` is `invalid_websocket_handshake` and then close with code `1008`
+and reason `invalid_first_message`. After establishment, an unknown message
+type, invalid payload, duplicate member, or repeated `hello` or `resume` MUST
+receive an `error` envelope whose `payload.code` is
+`invalid_websocket_message` and then close with code `1008` and reason
+`invalid_message`; such traffic MUST NOT be silently ignored. Unknown additive
+object members remain accepted as required by REQ-01-257, but unknown message
+types remain invalid.
+
+Every valid server-to-client application message MUST be emitted as exactly one
+WebSocket text message encoded by the Collaboration semantic codec. The JSON
+bytes MUST NOT contain an encoder-added trailing line feed. Field and array
+canonicalization requirements elsewhere in this section remain unchanged.
+Profiles: base
+Verified by: AC-131, AC-135, AC-231
 
 **REQ-01-592**
 When an incident `close` action commits, every currently connected `/ws/v1/incidents/{incident_id}` collaboration socket for that incident MUST receive one terminal `error` message with `payload.code = incident_closed`, `payload.retryable = false`, and then close. A new connection or resume attempt for an already closed incident MAY authenticate and authorize the member for ordinary HTTP reads, but it MUST NOT establish a writable collaboration subscription, MUST NOT emit `hello_ack` or `resume_ack` that advertises writable collaboration state, and MUST terminate with the same terminal `error` family using `code = incident_closed`.

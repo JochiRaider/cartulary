@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 

@@ -20,7 +20,10 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "history_revision-i-7-06-indicator-child-rollback")
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
-	store := indicators.NewStore(harness.Server.Runtime.Postgres)
+	store := indicators.NewStore(
+		harness.Server.Runtime.Postgres,
+		harness.Server.Runtime.Revisions.Appender(),
+	)
 	actor := authn.UserRecord{ID: actorID}
 
 	t.Run("resolved observation create reversal tombstones and invalidates every affected record", func(t *testing.T) {
@@ -66,7 +69,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatalf("release affected Indicator lock: %v", err)
 		}
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
-		changes, unsubscribe := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 8)
+		changes, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 8)
 		defer unsubscribe()
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{

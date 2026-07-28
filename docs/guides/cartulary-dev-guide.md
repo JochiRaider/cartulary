@@ -561,11 +561,19 @@ Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded
 `internal/platform/ws` owns:
 
 - WebSocket upgrade and origin validation,
-- hello and resume handshake wiring,
-- stream sequencing,
-- replay-window enforcement,
-- heartbeat handling,
-- subscriber lifecycle and cleanup.
+- bounded text/binary frame reads,
+- serialized frame writes,
+- low-level control-frame handling,
+- transport close mechanics.
+
+`internal/modules/collaboration` owns the incident WebSocket semantic lifecycle:
+the sole message registry and JSON codec, hello and resume behavior, durable
+replay/live equivalence, heartbeat semantics, presence, subscriber lifecycle,
+authorization rechecks, terminal behavior, and safe event-send telemetry.
+`internal/app/server` adapts the platform transport to the Collaboration-owned
+raw-socket port and injects the composition-scoped Collaboration Hub. Feature
+modules receive only narrow revocation or delivery capabilities; they MUST NOT
+receive a generic platform Hub.
 
 `internal/platform/postgres` owns:
 

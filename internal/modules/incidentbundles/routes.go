@@ -38,6 +38,7 @@ type routeOptions struct {
 	limits            Limits
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
+	historicalIntents historicalIntentPolicy
 }
 
 func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
@@ -80,6 +81,12 @@ func WithProjectionRebuild(rebuilder importProjectionRebuilder) RouteOption {
 func WithSourceCatalog(catalog *sourceport.Catalog) RouteOption {
 	return func(options *routeOptions) {
 		options.sourceCatalog = catalog
+	}
+}
+
+func WithHistoricalIntentPolicy(policy historicalIntentPolicy) RouteOption {
+	return func(options *routeOptions) {
+		options.historicalIntents = policy
 	}
 }
 
@@ -128,8 +135,14 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if deps.Jobs == nil || deps.JobRunner == nil {
 		return nil, fmt.Errorf("incident bundle jobs composition is required")
 	}
+	if deps.JobTransactions == nil {
+		return nil, fmt.Errorf("incident bundle Jobs transaction service is required")
+	}
 	if err := deps.JobRunner.ValidateNamedConfiguration(deps.Jobs); err != nil {
 		return nil, fmt.Errorf("incident bundle jobs composition is invalid: %w", err)
+	}
+	if options.historicalIntents == nil {
+		return nil, fmt.Errorf("incident bundle historical intent policy is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -139,8 +152,8 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	store := NewStore(deps.Postgres)
-	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.limits, now)
+	store := NewStore(deps.Postgres, deps.JobTransactions)
+	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.limits, now)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

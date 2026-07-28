@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
@@ -57,7 +58,13 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	source := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).ProjectionSource
+	revisionComposition := revisionsupport.MustComposition(t)
+	source := timelineassembly.NewBundle(
+		harness.DB,
+		conflicttest.NewCodec("timeline"),
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+	).ProjectionSource
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
 		t.Fatalf("list first projection source page: %v", err)
@@ -100,9 +107,15 @@ func (commitFailTx) Commit(context.Context) error {
 func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "projection-restore-commit-failure")
 	failingDB := commitFailDB{DB: harness.DB}
+	revisionComposition := revisionsupport.MustComposition(t)
 	rebuilder := projections.NewRestoreRebuilder(
 		failingDB,
-		timelineassembly.NewBundle(failingDB, conflicttest.NewCodec("timeline")).ProjectionCatalog.Catalog,
+		timelineassembly.NewBundle(
+			failingDB,
+			conflicttest.NewCodec("timeline"),
+			revisionComposition.Runtime.Appender(),
+			revisionComposition.Intents,
+		).ProjectionCatalog.Catalog,
 	)
 	result, err := rebuilder.RebuildRestoreProjections(context.Background(), validProjectionRebuildRequest())
 	if err == nil || !strings.Contains(err.Error(), "injected commit failure") {
@@ -128,9 +141,15 @@ func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "projection-restore-rebuild-result")
+	revisionComposition := revisionsupport.MustComposition(t)
 	rebuilder := projections.NewRestoreRebuilder(
 		harness.DB,
-		timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).ProjectionCatalog.Catalog,
+		timelineassembly.NewBundle(
+			harness.DB,
+			conflicttest.NewCodec("timeline"),
+			revisionComposition.Runtime.Appender(),
+			revisionComposition.Intents,
+		).ProjectionCatalog.Catalog,
 	)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")

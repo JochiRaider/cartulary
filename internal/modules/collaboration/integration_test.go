@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -43,7 +43,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 			ClientInstanceID: "collaboration-i-6-01-second",
 			Presence:         timelinePresence(),
 		})
-		defer second.Close(websocket.StatusNormalClosure, "test_complete")
+		defer second.Close(wstest.StatusNormalClosure, "test_complete")
 		if got := len(second.PresenceSnapshot); got != 2 {
 			t.Fatalf("second presence_snapshot length = %d want 2: %#v", got, second.PresenceSnapshot)
 		}
@@ -53,7 +53,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 			t.Fatalf("first client saw presence_delta for %s want second connection %s", delta.ConnectionID, second.HelloAck.ConnectionID)
 		}
 
-		first.Close(websocket.StatusNormalClosure, "test_complete")
+		first.Close(wstest.StatusNormalClosure, "test_complete")
 		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-a", platformws.JobStatusQueued)
 		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-b", platformws.JobStatusRunning)
 		waitForReplayEventCount(t, harness, incidentID, 2)
@@ -63,7 +63,7 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 			ClientInstanceID: "collaboration-i-6-01-first",
 			Presence:         timelinePresence(),
 		}, firstResumeToken, 0)
-		defer resumed.Close(websocket.StatusNormalClosure, "test_complete")
+		defer resumed.Close(wstest.StatusNormalClosure, "test_complete")
 		if resumed.ResumeAck.Status != platformws.ResumeStatusReplayed {
 			t.Fatalf("resume status = %q want %q", resumed.ResumeAck.Status, platformws.ResumeStatusReplayed)
 		}
@@ -117,7 +117,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		sessionID := uuid.MustParse(sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
-		harness.Server.Runtime.WSHub.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
+		harness.Server.Runtime.CollaborationHub.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
 		incidentwstest.ExpectSessionRevoked(t, concurrencySocket, authn.ConcurrencyLimitReasonCode)
 	})
 
@@ -186,7 +186,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		Presence:         timelinePresence(),
 	})
 	resumeToken := initial.HelloAck.ResumeToken
-	initial.Close(websocket.StatusNormalClosure, "test_complete")
+	initial.Close(wstest.StatusNormalClosure, "test_complete")
 
 	closeResp := httptestx.DoJSON(
 		t,
@@ -213,7 +213,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "hello",
 			Payload: platformws.RawPayload(map[string]any{
 				"client_instance_id": "collaboration-support-closed-socket-hello",
@@ -236,7 +236,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "resume",
 			Payload: platformws.RawPayload(map[string]any{
 				"client_instance_id":   "collaboration-support-closed-socket-source",
@@ -251,11 +251,11 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 	})
 }
 
-func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *websocket.Conn) {
+func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *wstest.Client) {
 	t.Helper()
 
 	var message platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+	if err := conn.ReadJSON(ctx, &message); err != nil {
 		t.Fatalf("read closed incident terminal error: %v", err)
 	}
 	if message.Type != "error" {
@@ -270,8 +270,8 @@ func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *webs
 	}
 
 	var next platformws.Message
-	err := platformws.ReadJSON(ctx, conn, &next)
-	wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "incident_closed")
+	err := conn.ReadJSON(ctx, &next)
+	wstest.RequireClose(t, err, wstest.StatusPolicyViolation, "incident_closed")
 }
 
 func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
@@ -284,14 +284,14 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 		Presence:         timelinePresence(),
 	})
 	resumeToken := source.HelloAck.ResumeToken
-	source.Close(websocket.StatusNormalClosure, "test_complete")
+	source.Close(wstest.StatusNormalClosure, "test_complete")
 
 	other := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
 		ClientInstanceID: "collaboration-i-6-02-other",
 		Presence:         timelinePresence(),
 	})
-	defer other.Close(websocket.StatusNormalClosure, "test_complete")
+	defer other.Close(wstest.StatusNormalClosure, "test_complete")
 
 	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-collaboration-i-6-02-record",
@@ -306,7 +306,7 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 		ClientInstanceID: "collaboration-i-6-02-source",
 		Presence:         timelinePresence(),
 	}, resumeToken, 0)
-	defer resumed.Close(websocket.StatusNormalClosure, "test_complete")
+	defer resumed.Close(wstest.StatusNormalClosure, "test_complete")
 
 	if resumed.ResumeAck.Status != platformws.ResumeStatusReplayed {
 		t.Fatalf("resume status = %q want %q", resumed.ResumeAck.Status, platformws.ResumeStatusReplayed)
@@ -336,7 +336,7 @@ func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
 		ClientInstanceID: "collaboration-i-6-04-authorized",
 		Presence:         timelinePresence(),
 	})
-	defer client.Close(websocket.StatusNormalClosure, "test_complete")
+	defer client.Close(wstest.StatusNormalClosure, "test_complete")
 	if got := len(client.PresenceSnapshot); got != 1 {
 		t.Fatalf("rejected origin must not subscribe before a valid client connects, snapshot len=%d snapshot=%#v", got, client.PresenceSnapshot)
 	}
@@ -378,7 +378,7 @@ SELECT user_id::text
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	incidentUUID := uuid.MustParse(incidentID)
 	actorUUID := uuid.MustParse(actorUserID)
-	if _, err := jobs.CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
+	if _, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentUUID},
 		SubmittedByUserID: actorUUID,
 		Cancelable:        true,

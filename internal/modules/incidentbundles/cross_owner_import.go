@@ -57,8 +57,8 @@ type ImportTransactionProvider struct {
 	now      func() time.Time
 }
 
-func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, now func() time.Time) (*ImportTransactionProvider, error) {
-	if pool == nil || objects == nil || finalizer == nil || projectionRebuild == nil {
+func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, now func() time.Time) (*ImportTransactionProvider, error) {
+	if pool == nil || objects == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil {
 		return nil, errors.New("incident bundle import transaction provider is incomplete")
 	}
 	if now == nil {
@@ -66,6 +66,7 @@ func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store,
 	}
 	return &ImportTransactionProvider{importer: Importer{
 		pool: pool, objectStore: objects, finalizer: finalizer, projectionRebuild: projectionRebuild,
+		historicalIntents: historicalIntents,
 	}, now: now}, nil
 }
 

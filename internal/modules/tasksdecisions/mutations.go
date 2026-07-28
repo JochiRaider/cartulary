@@ -11,11 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 type Store struct {
-	linkStore taskDecisionLinkPort
+	linkStore        taskDecisionLinkPort
+	revisionAppender *revisions.Appender
 }
 
 const TaskDecisionRecordFieldKey = "task.decision_record_id"
@@ -81,8 +83,8 @@ type DecisionMachineState struct {
 	OutgoingTargetID     sql.NullString
 }
 
-func NewStore() *Store {
-	return &Store{linkStore: links.NewStore()}
+func NewStore(appender *revisions.Appender) *Store {
+	return &Store{linkStore: links.NewStore(), revisionAppender: appender}
 }
 
 func ValidTaskKind(value string) bool {

@@ -44,8 +44,9 @@ func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption
 	}
 }
 
-func NewStore(pool postgres.DB, options ...StoreOption) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
 	ports := newStorePorts(pool)
+	ports.revisions = revisionAdapter{appender: appender}
 	for _, option := range options {
 		if option != nil {
 			option(&ports)
@@ -143,7 +144,6 @@ var errRecordLinkNotFound = links.ErrRecordLinkNotFound
 func newStorePorts(pool postgres.DB) storePorts {
 	return storePorts{
 		records:     recordAdapter{store: records.NewStore()},
-		revisions:   revisionAdapter{appender: revisions.NewAppender()},
 		links:       linkAdapter{store: links.NewStore()},
 		projections: projectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
@@ -158,7 +158,7 @@ func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID
 }
 
 type revisionAdapter struct {
-	appender revisions.Appender
+	appender *revisions.Appender
 }
 
 func (a revisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params changeSetParams) (uuid.UUID, error) {

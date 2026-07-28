@@ -19,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const (
@@ -59,16 +58,32 @@ type IntentAppender interface {
 	AppendIntentTx(context.Context, pgx.Tx, EventIntent) error
 }
 
-type Store struct {
+type intentAppender struct{}
+
+// NewIntentAppender returns the stateless Collaboration-owned intent
+// persistence capability. Application composition shares one instance with
+// every source-owner adapter whose transaction must publish Collaboration
+// work.
+func NewIntentAppender() IntentAppender {
+	return &intentAppender{}
+}
+
+func (*intentAppender) AppendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
+	return appendIntentTx(ctx, tx, intent)
+}
+
+// ReplayStore is the route-facing durable replay and resume-token capability.
+// It exposes no append, dispatch, retention, quarantine, or recovery methods.
+type ReplayStore struct {
 	db  postgres.DB
 	now func() time.Time
 }
 
-func NewStore(db postgres.DB, now func() time.Time) *Store {
+func NewReplayStore(db postgres.DB, now func() time.Time) *ReplayStore {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &Store{db: db, now: now}
+	return &ReplayStore{db: db, now: now}
 }
 
 func NewEventIntent(
@@ -99,18 +114,10 @@ func NewEventIntent(
 	return intent, nil
 }
 
-func (s *Store) AppendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
-	if s == nil || s.db == nil {
-		return errors.New("collaboration intent store is not configured")
-	}
-	return AppendIntentTx(ctx, tx, intent)
-}
-
-// AppendIntentTx persists one validated intent through the caller's
-// transaction. Source-owner producers use this operation when they already
-// own the transaction and do not need any of Store's query or worker
-// capabilities.
-func AppendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
+// appendIntentTx persists one validated intent through the caller's
+// transaction. It is reachable outside Collaboration only through the narrow
+// IntentAppender capability.
+func appendIntentTx(ctx context.Context, tx pgx.Tx, intent EventIntent) error {
 	if tx == nil {
 		return errors.New("collaboration intent transaction is not configured")
 	}
@@ -237,16 +244,52 @@ func validateEventIntent(intent EventIntent) error {
 	if len(intent.CanonicalPayload) > maxIntentPayload {
 		return fmt.Errorf("collaboration event intent payload exceeds %d bytes", maxIntentPayload)
 	}
+	return validateEventFamilyPayload(intent.IncidentID, intent.EventFamily, intent.CanonicalPayload)
+}
+
+func validateEventFamilyPayload(incidentID uuid.UUID, family string, payload json.RawMessage) error {
+	switch family {
+	case EventFamilyRecordChanged:
+		message := replayMessage(
+			uuid.MustParse("00000000-0000-4000-8000-000000000001"),
+			incidentID,
+			family,
+			1,
+			payload,
+			time.Unix(0, 0).UTC(),
+		)
+		if _, err := RecordChangeFromSequencedMessage(message); err != nil {
+			return fmt.Errorf("invalid record-change payload: %w", err)
+		}
+	case EventFamilyJobProgress:
+		var progress JobProgressPayload
+		if err := json.Unmarshal(payload, &progress); err != nil {
+			return fmt.Errorf("invalid job-progress payload: %w", err)
+		}
+		if err := ValidateIncidentJobProgressPayload(incidentID, progress); err != nil {
+			return fmt.Errorf("invalid job-progress payload: %w", err)
+		}
+	case EventFamilyExtensionResourceChange:
+		var change ExtensionResourceChangePayload
+		if err := json.Unmarshal(payload, &change); err != nil {
+			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
+		}
+		if err := ValidateExtensionResourceChangePayload(change); err != nil {
+			return fmt.Errorf("invalid extension-resource-change payload: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported collaboration event family %q", family)
+	}
 	return nil
 }
 
 type ReplayResult struct {
 	Status    string
-	Messages  []platformws.Message
+	Messages  []Message
 	HighWater int64
 }
 
-func (s *Store) CurrentHighWater(ctx context.Context, incidentID uuid.UUID) (int64, error) {
+func (s *ReplayStore) CurrentHighWater(ctx context.Context, incidentID uuid.UUID) (int64, error) {
 	if s == nil || s.db == nil || incidentID == uuid.Nil {
 		return 0, errors.New("collaboration stream store is not configured")
 	}
@@ -263,7 +306,7 @@ SELECT COALESCE((
 	return highWater, nil
 }
 
-func (s *Store) IssueResumeToken(
+func (s *ReplayStore) IssueResumeToken(
 	ctx context.Context,
 	sessionID uuid.UUID,
 	incidentID uuid.UUID,
@@ -279,7 +322,7 @@ func (s *Store) IssueResumeToken(
 		return "", time.Time{}, err
 	}
 	now = now.UTC()
-	expiresAt := now.Add(platformws.ResumeWindow)
+	expiresAt := now.Add(ResumeWindow)
 	if sessionExpiresAt.Before(expiresAt) {
 		expiresAt = sessionExpiresAt.UTC()
 	}
@@ -311,7 +354,7 @@ INSERT INTO collaboration_resume_tokens (
 	return token, expiresAt, nil
 }
 
-func (s *Store) ReplayMessages(
+func (s *ReplayStore) ReplayMessages(
 	ctx context.Context,
 	sessionID uuid.UUID,
 	incidentID uuid.UUID,
@@ -320,7 +363,7 @@ func (s *Store) ReplayMessages(
 	lastSeenStreamSeq int64,
 	now time.Time,
 ) (ReplayResult, error) {
-	result := ReplayResult{Status: platformws.ResumeStatusResetNeeded, Messages: []platformws.Message{}}
+	result := ReplayResult{Status: ResumeStatusResetNeeded, Messages: []Message{}}
 	if s == nil || s.db == nil || lastSeenStreamSeq < 0 {
 		return result, nil
 	}
@@ -398,7 +441,7 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 			replayBytes += len(payload)
 			if len(result.Messages) >= maxReplayEvents || replayBytes > maxReplayBytes {
 				rows.Close()
-				result.Messages = []platformws.Message{}
+				result.Messages = []Message{}
 				return result, nil
 			}
 			result.Messages = append(result.Messages, replayMessage(eventID, incidentID, family, streamSeq, payload, emittedAt))
@@ -412,20 +455,24 @@ SELECT event_id, event_family, stream_seq, canonical_payload, emitted_at
 			break
 		}
 	}
-	result.Status = platformws.ResumeStatusReplayed
+	result.Status = ResumeStatusReplayed
 	return result, nil
 }
 
 type replayBroadcaster interface {
-	DeliverReplayable(platformws.Message) error
+	DeliverReplayable(Message) error
 }
 
 type notificationConnectionAcquirer interface {
 	Acquire(context.Context) (*pgxpool.Conn, error)
 }
 
+type dispatcherRepository struct {
+	db postgres.DB
+}
+
 type Dispatcher struct {
-	store       *Store
+	repository  *dispatcherRepository
 	broadcaster replayBroadcaster
 	now         func() time.Time
 	interval    time.Duration
@@ -438,12 +485,12 @@ type Dispatcher struct {
 	tailInitialized bool
 }
 
-func NewDispatcher(store *Store, broadcaster replayBroadcaster, now func() time.Time) *Dispatcher {
+func NewDispatcher(db postgres.DB, broadcaster replayBroadcaster, now func() time.Time) *Dispatcher {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Dispatcher{
-		store:       store,
+		repository:  &dispatcherRepository{db: db},
 		broadcaster: broadcaster,
 		now:         now,
 		interval:    dispatchInterval,
@@ -452,7 +499,7 @@ func NewDispatcher(store *Store, broadcaster replayBroadcaster, now func() time.
 }
 
 func (d *Dispatcher) Start(parent context.Context) error {
-	if d == nil || d.store == nil || d.store.db == nil || d.broadcaster == nil {
+	if d == nil || d.repository == nil || d.repository.db == nil || d.broadcaster == nil {
 		return errors.New("collaboration dispatcher is not configured")
 	}
 	d.mu.Lock()
@@ -500,7 +547,7 @@ func (d *Dispatcher) run(ctx context.Context, done chan<- struct{}) {
 	defer close(done)
 	notifications := make(chan struct{}, 1)
 	listenerDone := make(chan struct{})
-	if acquirer, ok := d.store.db.(notificationConnectionAcquirer); ok {
+	if acquirer, ok := d.repository.db.(notificationConnectionAcquirer); ok {
 		go d.listenReplayNotifications(ctx, acquirer, notifications, listenerDone)
 	} else {
 		close(listenerDone)
@@ -562,7 +609,7 @@ func (d *Dispatcher) listenReplayNotifications(
 // resume; only events committed after process startup are fanned out as live
 // messages.
 func (d *Dispatcher) seedTailCursor(ctx context.Context) error {
-	rows, err := d.store.db.Query(ctx, `
+	rows, err := d.repository.db.Query(ctx, `
 SELECT incident_id, high_water_stream_seq
   FROM collaboration_incident_stream_cursors
 `)
@@ -587,7 +634,7 @@ SELECT incident_id, high_water_stream_seq
 }
 
 func (d *Dispatcher) RunOnce(ctx context.Context) (processed int, runErr error) {
-	if d == nil || d.store == nil || d.store.db == nil || d.broadcaster == nil {
+	if d == nil || d.repository == nil || d.repository.db == nil || d.broadcaster == nil {
 		return 0, errors.New("collaboration dispatcher is not configured")
 	}
 	d.runMu.Lock()
@@ -629,7 +676,7 @@ type pendingIntent struct {
 }
 
 func (d *Dispatcher) sequencePending(ctx context.Context, now time.Time) (int, error) {
-	tx, err := d.store.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := d.repository.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("begin collaboration intent sequencing: %w", err)
 	}
@@ -759,24 +806,11 @@ SELECT pg_notify('cartulary_collaboration_replay', $1)
 }
 
 func validateReplayPayload(intent pendingIntent) error {
-	message := replayMessage(
-		uuid.MustParse("00000000-0000-4000-8000-000000000001"),
-		intent.IncidentID,
-		intent.Family,
-		1,
-		intent.Payload,
-		time.Unix(0, 0).UTC(),
-	)
-	if intent.Family == EventFamilyRecordChanged {
-		if _, err := platformws.RecordChangeFromSequencedMessage(message); err != nil {
-			return fmt.Errorf("invalid record-change payload: %w", err)
-		}
-	}
-	return nil
+	return validateEventFamilyPayload(intent.IncidentID, intent.Family, intent.Payload)
 }
 
 func (d *Dispatcher) retrySequencingFailure(ctx context.Context, intent pendingIntent, now time.Time) error {
-	tx, err := d.store.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := d.repository.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin collaboration sequencing retry: %w", err)
 	}
@@ -842,7 +876,7 @@ func (d *Dispatcher) tailReplay(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("encode collaboration replay tail cursor: %w", err)
 	}
-	rows, err := d.store.db.Query(ctx, `
+	rows, err := d.repository.db.Query(ctx, `
 SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitted_at
   FROM collaboration_replay_events AS event
  WHERE event.stream_seq > COALESCE(
@@ -885,14 +919,14 @@ SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitt
 }
 
 func (d *Dispatcher) pruneReplay(ctx context.Context, now time.Time) error {
-	_, err := d.store.db.Exec(ctx, `
+	_, err := d.repository.db.Exec(ctx, `
 DELETE FROM collaboration_replay_events
  WHERE emitted_at < $1
 `, now.Add(-maxRetentionAge))
 	if err != nil {
 		return fmt.Errorf("prune collaboration replay maximum age: %w", err)
 	}
-	_, err = d.store.db.Exec(ctx, `
+	_, err = d.repository.db.Exec(ctx, `
 WITH ranked AS (
     SELECT
         event_id,
@@ -916,11 +950,11 @@ DELETE FROM collaboration_replay_events AS event
        ranked.recency_rank > $2
        OR ranked.retained_bytes > $3
    )
-`, now.Add(-platformws.ResumeWindow), maxRetainedEvents, maxRetainedBytes)
+`, now.Add(-ResumeWindow), maxRetainedEvents, maxRetainedBytes)
 	if err != nil {
 		return fmt.Errorf("prune collaboration replay capacity: %w", err)
 	}
-	_, err = d.store.db.Exec(ctx, `
+	_, err = d.repository.db.Exec(ctx, `
 WITH expired AS (
     SELECT intent.intent_id
       FROM collaboration_event_intents AS intent
@@ -940,7 +974,7 @@ DELETE FROM collaboration_event_intents AS intent
 	if err != nil {
 		return fmt.Errorf("prune sequenced collaboration intents: %w", err)
 	}
-	_, err = d.store.db.Exec(ctx, `
+	_, err = d.repository.db.Exec(ctx, `
 WITH expired AS (
     SELECT token_hash
       FROM collaboration_resume_tokens
@@ -958,50 +992,8 @@ DELETE FROM collaboration_resume_tokens AS token
 	return nil
 }
 
-func (s *Store) RequeueIncident(ctx context.Context, incidentID uuid.UUID, now time.Time) error {
-	if s == nil || s.db == nil || incidentID == uuid.Nil {
-		return errors.New("collaboration stream store is not configured")
-	}
-	now = now.UTC()
-	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin collaboration incident requeue: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	tag, err := tx.Exec(ctx, `
-UPDATE collaboration_incident_stream_cursors
-   SET failure_count = 0,
-       quarantined_at = NULL,
-       quarantine_reason = NULL,
-       updated_at = $2
- WHERE incident_id = $1
-   AND quarantined_at IS NOT NULL
-`, incidentID, now)
-	if err != nil {
-		return fmt.Errorf("release collaboration incident quarantine: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return errors.New("collaboration incident is not quarantined")
-	}
-	if _, err := tx.Exec(ctx, `
-UPDATE collaboration_event_intents AS intent
-   SET attempt_count = 0,
-       next_attempt_at = $2,
-       last_error_code = NULL,
-       updated_at = $2
- WHERE intent.incident_id = $1
-   AND intent.dispatch_state = 'pending'
-`, incidentID, now); err != nil {
-		return fmt.Errorf("requeue collaboration incident: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit collaboration incident requeue: %w", err)
-	}
-	return nil
-}
-
-func replayMessage(eventID uuid.UUID, incidentID uuid.UUID, family string, streamSeq int64, payload []byte, emittedAt time.Time) platformws.Message {
-	return platformws.Message{
+func replayMessage(eventID uuid.UUID, incidentID uuid.UUID, family string, streamSeq int64, payload []byte, emittedAt time.Time) Message {
+	return Message{
 		Type:       family,
 		IncidentID: incidentID.String(),
 		EventID:    eventID.String(),

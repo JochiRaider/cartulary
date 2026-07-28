@@ -34,7 +34,7 @@
       },
       {
         "path": "websocket",
-        "evidence": "internal/platform/ws/telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK"
+        "evidence": "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK"
       }
     ]
   }

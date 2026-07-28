@@ -3,6 +3,7 @@ package workbookassembly
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -14,11 +15,12 @@ import (
 func NewMutationStore(
 	pool postgres.DB,
 	contributionCatalog *workbook.WorkbookContributionCatalog,
+	appender *revisions.Appender,
 ) *workbook.Store {
 	return workbook.NewStore(workbook.StoreDependencies{
 		RecordTargets:       records.NewRouteTargetResolver(pool),
-		LinkedNoteOwner:     linkednotes.NewFacade(pool),
-		SupersedeOwner:      tasksdecisions.NewSupersedeFacade(pool),
+		LinkedNoteOwner:     linkednotes.NewFacade(pool, appender),
+		SupersedeOwner:      tasksdecisions.NewSupersedeFacade(pool, appender),
 		ContributionCatalog: contributionCatalog,
 	})
 }

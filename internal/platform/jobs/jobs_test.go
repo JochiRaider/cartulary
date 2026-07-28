@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -102,6 +105,99 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	}
 	if completed.RetainedUntil == nil || completed.FinishedAt == nil || completed.RetainedUntil.Before(completed.FinishedAt.Add(7*24*time.Hour)) {
 		t.Fatalf("terminal job retention too short: finished=%v retained=%v", completed.FinishedAt, completed.RetainedUntil)
+	}
+}
+
+func TestManagerPersistsCanonicalIncidentProgressIntents_Integration(t *testing.T) {
+	ctx := context.Background()
+	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
+		t,
+		"jobs-progress-intent",
+		func() time.Time { return time.Date(2026, 7, 27, 21, 0, 0, 123000000, time.UTC) },
+	)
+
+	resource, err := manager.Create(ctx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+	})
+	if err != nil {
+		t.Fatalf("create incident job: %v", err)
+	}
+
+	intentRecord := intenttest.LoadBySourceIdentity(t, pool, "job:"+resource.JobID)
+	if intentRecord.EventFamily != "job_progress" || intentRecord.SourceIdentity != "job:"+resource.JobID {
+		t.Fatalf("unexpected job progress identity: family=%q source=%q", intentRecord.EventFamily, intentRecord.SourceIdentity)
+	}
+	if wantPrefix := "job_progress:v2:" + resource.JobID + ":"; len(intentRecord.IntentKey) <= len(wantPrefix) || intentRecord.IntentKey[:len(wantPrefix)] != wantPrefix {
+		t.Fatalf("job progress intent key = %q, want prefix %q", intentRecord.IntentKey, wantPrefix)
+	}
+	var canonical map[string]any
+	if err := json.Unmarshal(intentRecord.CanonicalPayload, &canonical); err != nil {
+		t.Fatalf("decode job progress payload: %v", err)
+	}
+	scope, _ := canonical["scope"].(map[string]any)
+	progress, _ := canonical["progress"].(map[string]any)
+	if canonical["job_id"] != resource.JobID ||
+		canonical["status"] != jobs.StatusQueued ||
+		scope["kind"] != jobs.ScopeKindIncident ||
+		scope["incident_id"] != incidentID.String() ||
+		progress["completed"] != float64(0) {
+		t.Fatalf("unexpected canonical job progress payload: %#v", canonical)
+	}
+
+	legacyKey := "job_progress:" + resource.JobID + ":legacy-v1"
+	intenttest.InsertLegacyJobProgressV1(
+		t, pool, legacyKey, incidentID, intentRecord.CanonicalPayload, "job:"+resource.JobID, resource.UpdatedAt,
+	)
+	if _, err := manager.MarkRunning(ctx, uuid.MustParse(resource.JobID), jobs.Progress{Completed: 0}, nil); err != nil {
+		t.Fatalf("publish v2 progress beside legacy v1: %v", err)
+	}
+	legacyCount, v2Count := intenttest.CountLegacyAndV2JobProgress(
+		t, pool, legacyKey, "job_progress:v2:"+resource.JobID+":%", "job:"+resource.JobID,
+	)
+	if legacyCount != 1 || v2Count != 2 {
+		t.Fatalf("job progress intent coexistence = v1 %d v2 %d want 1/2", legacyCount, v2Count)
+	}
+}
+
+type rejectingProgressIntentAppender struct {
+	err error
+}
+
+func (a rejectingProgressIntentAppender) AppendProgressIntentTx(context.Context, pgx.Tx, jobs.ProgressIntent) error {
+	return a.err
+}
+
+func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing.T) {
+	_, actorID, incidentID, pool := newJobsHarnessWithPool(
+		t,
+		"jobs-progress-intent-rollback",
+		func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) },
+	)
+	intentFailure := errors.New("reject invalid job progress payload")
+	transactions, err := jobs.NewTransactionService(rejectingProgressIntentAppender{err: intentFailure})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := jobs.NewManager()
+	manager.Configure(pool, transactions, func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) })
+	_, err = manager.Create(context.Background(), jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+	})
+	if !errors.Is(err, intentFailure) {
+		t.Fatalf("create with rejected progress intent = %v want %v", err, intentFailure)
+	}
+	var jobCount int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs`).Scan(&jobCount); err != nil {
+		t.Fatalf("count rolled-back jobs: %v", err)
+	}
+	if jobCount != 0 {
+		t.Fatalf("rejected progress intent left %d job rows", jobCount)
 	}
 }
 
@@ -353,6 +449,15 @@ func newJobsHarness(t testing.TB, prefix string) (*jobs.Manager, uuid.UUID, uuid
 }
 
 func newJobsHarnessWithClock(t testing.TB, prefix string, now func() time.Time) (*jobs.Manager, uuid.UUID, uuid.UUID) {
+	manager, actorID, incidentID, _ := newJobsHarnessWithPool(t, prefix, now)
+	return manager, actorID, incidentID
+}
+
+func newJobsHarnessWithPool(
+	t testing.TB,
+	prefix string,
+	now func() time.Time,
+) (*jobs.Manager, uuid.UUID, uuid.UUID, *pgxpool.Pool) {
 	t.Helper()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
@@ -384,6 +489,6 @@ VALUES ($1, $2, 'admin', $2, $2)
 	}
 
 	manager := jobs.NewManager()
-	manager.Configure(pool, now)
-	return manager, actorID, incidentID
+	manager.Configure(pool, collaborationsupport.NewJobTransactions(), now)
+	return manager, actorID, incidentID, pool
 }

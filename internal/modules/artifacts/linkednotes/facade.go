@@ -99,16 +99,16 @@ func (e *MutationValidationError) Error() string {
 	return "linkednotes: invalid mutation request"
 }
 
-func NewFacade(pool postgres.DB) *Facade {
+func NewFacade(pool postgres.DB, appender *revisions.Appender) *Facade {
 	return &Facade{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
-		artifactStore:  artifacts.NewStore(),
+		artifactStore:  artifacts.NewStore(appender),
 		linkStore:      links.NewStore(),
 		projectionRows: projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
 		recordStore:    records.NewStore(),
-		revisionStore:  newRevisionAppendAdapter(),
+		revisionStore:  newRevisionAppendAdapter(appender),
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestObjectBlobCreate_Unit(t *testing.T) {
@@ -201,7 +202,12 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "evidence_lifecycle-blob-idempotency")
-	store := evidence.NewStore(harness.DB)
+	revisionComposition := revisionsupport.MustComposition(t)
+	store := evidence.NewStore(
+		harness.DB,
+		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
+		evidence.WithCollaborationIntents(revisionComposition.Intents),
+	)
 	actorA := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
 	actorB := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
 	incidentA := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")

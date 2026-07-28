@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -16,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 type partyTestAttributionResolver struct{}
@@ -327,8 +327,19 @@ func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, inci
 
 func softDeletePartyFor(t testing.TB, harness *recordstoretest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline"))
-	store, err := revisionassembly.NewCommandService(harness.DB, partyTestAttributionResolver{}, timelineBundle.ProjectionCoordinator)
+	revisionComposition := revisionsupport.MustComposition(t)
+	revisionRuntime := revisionComposition.Runtime
+	timelineBundle := timelineassembly.NewBundle(
+		harness.DB,
+		conflicttest.NewCodec("timeline"),
+		revisionRuntime.Appender(),
+		revisionComposition.Intents,
+	)
+	store, err := revisionRuntime.NewCommandService(
+		harness.DB,
+		partyTestAttributionResolver{},
+		timelineBundle.ProjectionCoordinator,
+	)
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
 	}

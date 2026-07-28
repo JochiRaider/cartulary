@@ -77,10 +77,10 @@ type entityRecordRevisionParams struct {
 	AfterValue  any
 }
 
-func newEntityStorePorts(pool postgres.DB) entityStorePorts {
+func newEntityStorePorts(pool postgres.DB, appender *revisions.Appender) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
-		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
+		revisions:   entityRevisionAdapter{appender: appender},
 		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
 }
@@ -102,7 +102,7 @@ func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, re
 }
 
 type entityRevisionAdapter struct {
-	appender revisions.Appender
+	appender *revisions.Appender
 }
 
 func (a entityRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params entityChangeSetParams) (uuid.UUID, error) {

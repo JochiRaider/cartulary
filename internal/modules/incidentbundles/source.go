@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -36,6 +35,11 @@ type Importer struct {
 	finalizer         incidents.IncidentBundleImportFinalizer
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
+	historicalIntents historicalIntentPolicy
+}
+
+type historicalIntentPolicy interface {
+	SuppressTx(context.Context, pgx.Tx) error
 }
 
 type BuiltIncidentBundle struct {
@@ -281,7 +285,10 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if tx == nil || prepared == nil || prepared.IncidentID == uuid.Nil {
 		return uuid.UUID{}, errors.New("prepared incident bundle import is required")
 	}
-	if err := collaboration.SuppressHistoricalIntentsTx(ctx, tx); err != nil {
+	if i.historicalIntents == nil {
+		return uuid.UUID{}, errors.New("incident bundle historical intent policy is required")
+	}
+	if err := i.historicalIntents.SuppressTx(ctx, tx); err != nil {
 		return uuid.UUID{}, err
 	}
 	incidentID := prepared.IncidentID

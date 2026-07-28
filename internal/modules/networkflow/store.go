@@ -19,13 +19,14 @@ import (
 )
 
 type Store struct {
-	pool           postgres.DB
-	limits         Limits
-	incidentLocks  IncidentLockPort
-	auditAppender  AdministrativeAuditPort
-	indicators     IndicatorParticipationPort
-	transactionRun postgres.TransactionRunner
-	safeDigester   SafeDigester
+	pool            postgres.DB
+	limits          Limits
+	incidentLocks   IncidentLockPort
+	auditAppender   AdministrativeAuditPort
+	indicators      IndicatorParticipationPort
+	transactionRun  postgres.TransactionRunner
+	safeDigester    SafeDigester
+	resourceIntents ResourceIntentAppender
 }
 
 type StoreOption func(*Store)
@@ -50,6 +51,10 @@ func WithTransactionRunner(runner postgres.TransactionRunner) StoreOption {
 
 func WithSafeDigester(digester SafeDigester) StoreOption {
 	return func(s *Store) { s.safeDigester = digester }
+}
+
+func WithResourceIntentAppender(appender ResourceIntentAppender) StoreOption {
+	return func(s *Store) { s.resourceIntents = appender }
 }
 
 type TableRecord struct {
@@ -358,7 +363,7 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 	if _, exists := existingNames[displayName]; exists {
 		return TableRecord{}, &InvalidDisplayNameError{ReasonCode: "duplicate_display_name"}
 	}
-	updated, err := updateTableNameTx(ctx, tx, params.IncidentID, params.TableID, displayName, now)
+	updated, err := s.updateTableNameTx(ctx, tx, params.IncidentID, params.TableID, displayName, now)
 	if err != nil {
 		return TableRecord{}, err
 	}
@@ -443,7 +448,7 @@ func (s *Store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params SoftDel
 	if table.TableVersion != params.BaseTableVersion {
 		return TableRecord{}, &TableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
 	}
-	deleted, err := updateTableSoftDeletedTx(ctx, tx, params.IncidentID, params.TableID, now)
+	deleted, err := s.updateTableSoftDeletedTx(ctx, tx, params.IncidentID, params.TableID, now)
 	if err != nil {
 		return TableRecord{}, err
 	}
@@ -627,7 +632,7 @@ RETURNING `+tableColumnList(), tableID, params.IncidentID, params.DisplayName, p
 	return table, nil
 }
 
-func updateTableNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string, now time.Time) (TableRecord, error) {
+func (s *Store) updateTableNameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, displayName string, now time.Time) (TableRecord, error) {
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_tables
    SET display_name = $3,
@@ -640,13 +645,13 @@ RETURNING `+tableColumnList(), incidentID, tableID, displayName, now)
 	if err != nil {
 		return TableRecord{}, fmt.Errorf("rename network flow table: %w", err)
 	}
-	if err := appendTableResourceIntentTx(ctx, tx, table, "invalidate", "renamed"); err != nil {
+	if err := s.appendTableResourceIntentTx(ctx, tx, table, "invalidate", "renamed"); err != nil {
 		return TableRecord{}, err
 	}
 	return table, nil
 }
 
-func updateTableSoftDeletedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) (TableRecord, error) {
+func (s *Store) updateTableSoftDeletedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) (TableRecord, error) {
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_tables
    SET table_status = 'soft_deleted',
@@ -660,7 +665,7 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	if err != nil {
 		return TableRecord{}, fmt.Errorf("soft delete network flow table: %w", err)
 	}
-	if err := appendTableResourceIntentTx(ctx, tx, table, "remove", "soft_deleted"); err != nil {
+	if err := s.appendTableResourceIntentTx(ctx, tx, table, "remove", "soft_deleted"); err != nil {
 		return TableRecord{}, err
 	}
 	return table, nil

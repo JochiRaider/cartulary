@@ -23,7 +23,8 @@ import (
 var ErrNotFound = errors.New("incident bundle: not found")
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool            *pgxpool.Pool
+	jobTransactions *jobs.TransactionService
 }
 
 type JobAcceptedResult struct {
@@ -92,8 +93,8 @@ type DescriptorRecord struct {
 	BundleStorageRef     BundleStorageRef
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
+	return &Store{pool: pool, jobTransactions: jobTransactions}
 }
 
 func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (JobAcceptedResult, error) {
@@ -119,7 +120,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 			if err != nil {
 				return jobs.Resource{}, err
 			}
-			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
@@ -166,7 +167,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 			if err != nil {
 				return jobs.Resource{}, err
 			}
-			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,

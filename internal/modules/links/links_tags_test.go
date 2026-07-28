@@ -28,6 +28,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 const TimelineView = "cartulary.view.timeline.v2"
@@ -256,7 +257,13 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
-	timelineFacade := timelineassembly.NewBundle(harness.DB, conflicttest.NewCodec("timeline")).Facade
+	revisionComposition := revisionsupport.MustComposition(t)
+	timelineFacade := timelineassembly.NewBundle(
+		harness.DB,
+		conflicttest.NewCodec("timeline"),
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+	).Facade
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {
 		baseTokens := []string{

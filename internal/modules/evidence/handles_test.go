@@ -16,6 +16,7 @@ import (
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
@@ -86,7 +87,12 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "evidence_lifecycle-handle-current-state")
-	store := evidence.NewStore(harness.DB)
+	revisionComposition := revisionsupport.MustComposition(t)
+	store := evidence.NewStore(
+		harness.DB,
+		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
+		evidence.WithCollaborationIntents(revisionComposition.Intents),
+	)
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 

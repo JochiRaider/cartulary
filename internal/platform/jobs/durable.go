@@ -114,7 +114,7 @@ UPDATE jobs
 	if err != nil {
 		return false, err
 	}
-	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+	if err := m.transactions.appendProgressIntentTx(ctx, tx, resource); err != nil {
 		return false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -181,7 +181,7 @@ UPDATE jobs
 	if err != nil {
 		return err
 	}
-	if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+	if err := m.transactions.appendProgressIntentTx(ctx, tx, resource); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -237,7 +237,7 @@ RETURNING job_id
 		if err != nil {
 			return err
 		}
-		if err := appendProgressIntentTx(ctx, tx, resource); err != nil {
+		if err := m.transactions.appendProgressIntentTx(ctx, tx, resource); err != nil {
 			return err
 		}
 	}

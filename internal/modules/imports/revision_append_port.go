@@ -13,10 +13,10 @@ type revisionAppendPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 }
 
-type revisionAppendAdapter struct{ appender revisions.Appender }
+type revisionAppendAdapter struct{ appender *revisions.Appender }
 
-func newRevisionAppendAdapter() revisionAppendPort {
-	return revisionAppendAdapter{appender: revisions.NewAppender()}
+func newRevisionAppendAdapter(appender *revisions.Appender) revisionAppendPort {
+	return revisionAppendAdapter{appender: appender}
 }
 
 func (a revisionAppendAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params revisions.AppendChangeSetParams) (uuid.UUID, error) {

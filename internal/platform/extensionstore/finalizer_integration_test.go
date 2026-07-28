@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -38,7 +39,8 @@ CREATE TABLE extension_job_finalizer_test_effects (
 	}
 	manager := jobs.NewManager()
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
-	manager.Configure(pool, func() time.Time { return now })
+	jobTransactions := collaborationsupport.NewJobTransactions()
+	manager.Configure(pool, jobTransactions, func() time.Time { return now })
 	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{{
 		OwnerProfileID: "test_profile",
 		JobKind:        "test_profile.run_v1",
@@ -54,7 +56,7 @@ CREATE TABLE extension_job_finalizer_test_effects (
 		t.Fatal(err)
 	}
 	fatalCount := 0
-	finalizer, err := NewOwnerFinalizer(store, manager, func() time.Time { return now }, func(error) { fatalCount++ })
+	finalizer, err := NewOwnerFinalizer(store, manager, jobTransactions, func() time.Time { return now }, func(error) { fatalCount++ })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +179,7 @@ func TestExtensionCancellationObservationIsAtomic_Integration(t *testing.T) {
 	defer pool.Close()
 	manager := jobs.NewManager()
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
-	manager.Configure(pool, func() time.Time { return now })
+	manager.Configure(pool, collaborationsupport.NewJobTransactions(), func() time.Time { return now })
 	jobID := enqueueExtensionFinalizerTestJob(t, pool, now, "cancel")
 	var actorID uuid.UUID
 	if err := pool.QueryRow(context.Background(), `SELECT submitted_by_user_id FROM jobs WHERE job_id = $1`, jobID).Scan(&actorID); err != nil {
@@ -230,7 +232,7 @@ VALUES ($1, $2, 'Extension Job Finalizer', 'hash', false, true, true)
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	resource, err := jobs.CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
+	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
 		Scope: jobs.Scope{Kind: jobs.ScopeKindDeployment}, SubmittedByUserID: actorID,
 		Cancelable: true, Progress: jobs.Progress{Completed: 0, Total: intPointer(1)},
 		HandlerName: "test_profile.worker_v1", Extension: admission,

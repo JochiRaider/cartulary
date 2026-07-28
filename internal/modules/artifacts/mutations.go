@@ -8,9 +8,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-type Store struct{}
+type Store struct {
+	revisionAppender *revisions.Appender
+}
 
 type FieldValue struct {
 	Text      *string
@@ -25,8 +29,8 @@ type CreateParams struct {
 	Values       map[string]FieldValue
 }
 
-func NewStore() *Store {
-	return &Store{}
+func NewStore(appender *revisions.Appender) *Store {
+	return &Store{revisionAppender: appender}
 }
 
 func (s *Store) InsertRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params CreateParams, now time.Time) error {

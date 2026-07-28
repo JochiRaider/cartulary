@@ -9,7 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -25,7 +28,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, survivorID, "Survivor host", "survivor-host")
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, loserID, "Loser host", "loser-host")
 	seedMergeProtectedSetAssessment(t, db, incident.ID, actor.ID, assessmentID, loserID, "host", "confirmed")
-	store := NewStore(db)
+	store := NewStore(db, newMergeProtectedSetAppender(t))
 
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -47,7 +50,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set-revalidate")
-	store := NewStore(db)
+	store := NewStore(db, newMergeProtectedSetAppender(t))
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
 	incident := createMergeProtectedSetIncident(t, db, actor, "txn-merge-protected-revalidate-incident", "IR-MERGE-PROTECTED-R", "Merge protected set revalidate")
 	survivorID := uuid.New()
@@ -68,6 +71,32 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	if !errors.As(err, &precondition) || precondition.ReasonCode != "protected_set_changed" {
 		t.Fatalf("expected protected_set_changed precondition, got %T %[1]v", err)
 	}
+}
+
+func newMergeProtectedSetAppender(t testing.TB) *revisions.Appender {
+	t.Helper()
+
+	recordViews, err := revisions.NewRecordViewCatalog(
+		[]revisions.ProviderContribution{assessments.RevisionProviderContribution()},
+		[]revisions.RecordViewProjectionDescriptor{{
+			Active:            true,
+			SourceRecordTypes: []string{"assessment"},
+			ViewSchemaIDs:     []string{assessments.AssessmentsViewSchemaID},
+		}},
+		[]string{assessments.AssessmentsViewSchemaID},
+	)
+	if err != nil {
+		t.Fatalf("build merge protected-set record/view catalog: %v", err)
+	}
+	appender, err := revisions.NewAppender(
+		recordViews,
+		collaboration.NewHistoricalIntentPolicy(),
+		collaboration.NewIntentAppender(),
+	)
+	if err != nil {
+		t.Fatalf("build merge protected-set Revisions appender: %v", err)
+	}
+	return appender
 }
 
 func seedMergeProtectedSetUser(t testing.TB, db postgres.DB, email string, displayName string) authn.UserRecord {

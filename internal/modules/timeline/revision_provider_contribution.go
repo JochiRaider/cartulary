@@ -10,10 +10,15 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerTimeline,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:     revisions.SourceOwnerTimeline,
-			RecordType:            "timeline_event",
-			DeleteRestoreProvider: deleterestore.NewProvider(),
-			RowRollbackProvider:   rollbackprovider.NewTimelineProvider(),
+			SourceOwnerModule:      revisions.SourceOwnerTimeline,
+			RecordType:             "timeline_event",
+			DeleteRestoreProvider:  deleterestore.NewProvider(),
+			RowRollbackProvider:    rollbackprovider.NewTimelineProvider(),
+			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
+				ContributionID: "timeline.timeline",
+				ViewSchemaIDs:  []string{TimelineViewSchemaID},
+			}},
 		}},
 	}
 }

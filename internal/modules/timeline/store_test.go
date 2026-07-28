@@ -27,6 +27,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestCreateCommitsAndAssignsIdentity_Unit(t *testing.T) {
@@ -689,7 +690,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		incident := createIncidentInStore(t, harness, actor, "txn-timeline_mutation-u-3-10-rollback-incident", "IR-U310R", "Timeline U310R")
 
 		rollbackEnabled := false
-		store := newEventTimelineCommandsWithProjectionFailure(harness.DB,
+		store := newEventTimelineCommandsWithProjectionFailure(t, harness.DB,
 			func(workbookprojection.ProjectionMutation) error {
 				if rollbackEnabled {
 					return errors.New("forced rollback")
@@ -845,7 +846,7 @@ func newStoreFixture(t testing.TB, harness *storetest.StoreHarness, suffix strin
 
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-"+suffix+"@example.test", "TimelineMutation "+suffix, "TimelineMutationPass1!", false, false, true)
 	incident := createIncidentInStore(t, harness, actor, incidentTxn, "IR-"+suffix, "Timeline "+suffix)
-	return newEventTimelineCommands(harness.DB), actor, incident.ID
+	return newEventTimelineCommands(t, harness.DB), actor, incident.ID
 }
 
 func createTimelineSummaryRow(t testing.TB, store *eventTimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, summary string, now time.Time) timeline.MutationResult {
@@ -908,17 +909,26 @@ type eventTimelineCommands struct {
 	projections *projections.QueryService
 }
 
-func newEventTimelineCommands(pool postgres.DB) *eventTimelineCommands {
-	bundle := timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline"))
+func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineCommands {
+	t.Helper()
+	bundle := newTestTimelineBundle(t, pool, conflicttest.NewCodec("timeline"))
 	return &eventTimelineCommands{
 		facade:      bundle.Facade,
 		projections: bundle.ProjectionCatalog.Query,
 	}
 }
 
-func newEventTimelineCommandsWithProjectionFailure(pool postgres.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
-	bundle := timelineassembly.NewBundle(pool, conflicttest.NewCodec("timeline-query"))
-	collaborators := timelineassembly.NewCollaborators(pool)
+func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
+	t.Helper()
+	revisionComposition := revisionsupport.MustComposition(t)
+	appender := revisionComposition.Runtime.Appender()
+	bundle := timelineassembly.NewBundle(
+		pool,
+		conflicttest.NewCodec("timeline-query"),
+		appender,
+		revisionComposition.Intents,
+	)
+	collaborators := timelineassembly.NewCollaborators(pool, appender, revisionComposition.Intents)
 	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
 		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),

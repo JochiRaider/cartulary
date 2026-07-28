@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -24,7 +25,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -46,7 +46,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 24)
+		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 24)
 		defer unsubscribe()
 
 		createResp := doJSON(
@@ -460,7 +460,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		facade := timelineFacadeWithProjectionFailure(t, server, func(workbookprojection.ProjectionMutation) error {
@@ -1210,7 +1210,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 16)
+		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 16)
 		defer unsubscribe()
 
 		reviewDenied := doJSON(
@@ -1610,7 +1610,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeIncident(mustUUID(t, incidentID), 8)
+		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 8)
 		defer unsubscribe()
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1937,7 +1937,11 @@ func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix stri
 func timelineFacadeWithProjectionFailure(t testing.TB, server *httptestx.Server, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
 	t.Helper()
 
-	collaborators := timelineassembly.NewCollaborators(server.Runtime.Postgres)
+	collaborators := timelineassembly.NewCollaborators(
+		server.Runtime.Postgres,
+		server.Runtime.Revisions.Appender(),
+		server.Runtime.CollaborationIntents,
+	)
 	collaborators.Commit.Projection = fakeports.Projection{
 		Delegate:  collaborators.Commit.Projection,
 		FailApply: fail,

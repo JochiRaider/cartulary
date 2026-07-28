@@ -22,7 +22,8 @@ import (
 var ErrNotFound = errors.New("reference_data: not found")
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool            *pgxpool.Pool
+	jobTransactions *jobs.TransactionService
 }
 
 type ImportAcceptedParams struct {
@@ -73,8 +74,8 @@ type RefreshAcceptedParams struct {
 	Now               time.Time
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
+	return &Store{pool: pool, jobTransactions: jobTransactions}
 }
 
 func (s *Store) ListVersions(ctx context.Context) ([]VersionRecord, error) {
@@ -165,7 +166,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
@@ -563,7 +564,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,

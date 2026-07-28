@@ -11,10 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -165,7 +164,7 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 	return client
 }
 
-func TryConnect(serverURL string, incidentID string, options ConnectOptions) (*websocket.Conn, *http.Response, error) {
+func TryConnect(serverURL string, incidentID string, options ConnectOptions) (*wstest.Client, *http.Response, error) {
 	return wstest.TryConnect(serverURL, incidentPath(incidentID), connectHeaders(options))
 }
 
@@ -243,7 +242,7 @@ func (c *Client) AwaitClose(timeout time.Duration) error {
 	return current.err
 }
 
-func (c *Client) Close(code websocket.StatusCode, reason string) {
+func (c *Client) Close(code wstest.StatusCode, reason string) {
 	if c == nil || c.raw == nil {
 		return
 	}
@@ -256,7 +255,7 @@ func AwaitSessionRevoked(client *Client, wantReasonCode string) error {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			return fmt.Errorf("timed out waiting for session_revoked message")
-		case websocket.CloseStatus(err) >= 0:
+		case wstest.CloseStatus(err) >= 0:
 			return fmt.Errorf("websocket closed before session_revoked message: %w", err)
 		default:
 			return fmt.Errorf("read session_revoked message: %w", err)
@@ -285,9 +284,9 @@ func AwaitSessionRevoked(client *Client, wantReasonCode string) error {
 		if errors.As(closeErr, &unexpected) {
 			return closeErr
 		}
-		closeStatus := websocket.CloseStatus(closeErr)
-		if closeStatus != websocket.StatusPolicyViolation {
-			return fmt.Errorf("unexpected websocket close status: got %d want %d: %w", closeStatus, websocket.StatusPolicyViolation, closeErr)
+		closeStatus := wstest.CloseStatus(closeErr)
+		if closeStatus != 1008 {
+			return fmt.Errorf("unexpected websocket close status: got %d want 1008: %w", closeStatus, closeErr)
 		}
 		if !strings.Contains(closeErr.Error(), "session_revoked") {
 			return fmt.Errorf("unexpected websocket close error: %v", closeErr)
@@ -310,7 +309,7 @@ func AwaitIncidentClosed(client *Client) error {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			return fmt.Errorf("timed out waiting for incident_closed terminal error")
-		case websocket.CloseStatus(err) >= 0:
+		case wstest.CloseStatus(err) >= 0:
 			return fmt.Errorf("websocket closed before incident_closed terminal error: %w", err)
 		default:
 			return fmt.Errorf("read incident_closed terminal error: %w", err)
@@ -342,9 +341,9 @@ func AwaitIncidentClosed(client *Client) error {
 		if errors.As(closeErr, &unexpected) {
 			return closeErr
 		}
-		closeStatus := websocket.CloseStatus(closeErr)
-		if closeStatus != websocket.StatusPolicyViolation {
-			return fmt.Errorf("unexpected websocket close status: got %d want %d: %w", closeStatus, websocket.StatusPolicyViolation, closeErr)
+		closeStatus := wstest.CloseStatus(closeErr)
+		if closeStatus != 1008 {
+			return fmt.Errorf("unexpected websocket close status: got %d want 1008: %w", closeStatus, closeErr)
 		}
 		if !strings.Contains(closeErr.Error(), "incident_closed") {
 			return fmt.Errorf("unexpected websocket close error: %v", closeErr)

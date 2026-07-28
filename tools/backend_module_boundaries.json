@@ -163,6 +163,18 @@
   ],
   "forbidden_go_imports": [
     {
+      "id": "jobs-and-network-flow-use-consumer-owned-collaboration-ports",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+      ],
+      "scan_paths": [
+        "internal/modules/networkflow/**",
+        "internal/platform/jobs/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "platform-adapter-construction-no-deployment-config",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/config"
@@ -210,6 +222,7 @@
       "id": "generic-platform-no-extension-profile-implementations",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/extensions",
         "github.com/JochiRaider/cartulary/internal/modules/imports",
         "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
@@ -219,6 +232,18 @@
         "github.com/JochiRaider/cartulary/internal/modules/reporting"
       ],
       "scan_paths": ["internal/platform/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "collaboration-semantics-no-platform-ws-or-third-party-transport",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/ws",
+        "github.com/coder/websocket"
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     },
@@ -343,6 +368,7 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/projectionassembly",
         "github.com/JochiRaider/cartulary/internal/modules/artifacts",
         "github.com/JochiRaider/cartulary/internal/modules/assessments",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
@@ -354,7 +380,8 @@
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
-        "github.com/JochiRaider/cartulary/internal/platform/postgres"
+        "github.com/JochiRaider/cartulary/internal/platform/postgres",
+        "github.com/JochiRaider/cartulary/internal/platform/viewschema"
       ]
     },
     {
@@ -541,7 +568,8 @@
         "change_sets",
         "record_history_entry_refs",
         "record_revisions",
-        "records"
+        "records",
+        "source"
       ],
       "scan_paths": ["internal/modules/revisions/**"]
     },
@@ -586,6 +614,30 @@
         ".InsertSupersedesTx("
       ],
       "allowed_paths": []
+    },
+    {
+      "id": "revisions-appender-construction-owned-by-assembly",
+      "symbols": [
+        "revisions.NewAppender("
+      ],
+      "allowed_paths": [
+        "internal/app/revisionassembly/revisions.go"
+      ]
+    },
+    {
+      "id": "collaboration-intent-appender-construction-owned-by-composition",
+      "symbols": [
+        "collaboration.NewIntentAppender("
+      ],
+      "allowed_paths": [
+        "internal/app/revisionassembly/revisions_test.go",
+        "internal/app/server/runtime.go",
+        "internal/modules/revisions/delete_restore_test.go",
+        "internal/testutil/appsupport/workbook.go",
+        "internal/testutil/collaborationsupport/intents.go",
+        "internal/testutil/networkflowsupport/intents.go",
+        "internal/testutil/revisionsupport/revisionsupport.go"
+      ]
     }
   ],
   "command_root_shape": {
@@ -597,6 +649,78 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "collaboration-no-broad-store-or-free-intent-writer",
+      "tokens": [
+        "type Store struct",
+        "func NewStore(",
+        "func AppendIntentTx("
+      ],
+      "scan_paths": [
+        "internal/modules/collaboration/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "platform-ws-no-collaboration-semantic-symbols",
+      "tokens": [
+        "type ExtensionResourceChangePayload struct",
+        "type Hub struct",
+        "type JobProgressPayload struct",
+        "type Message struct",
+        "type PresenceInput struct",
+        "type PresenceRecord struct",
+        "type RecordChange struct"
+      ],
+      "scan_paths": [
+        "internal/platform/ws/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "revisions-no-retired-collaboration-catalog-or-raw-historical-setting",
+      "tokens": [
+        "RecordProducerCatalog",
+        "RecordProducerViewSchema",
+        "cartulary.collaboration.suppress_historical_intents"
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/collaboration/historical_restore.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "jobs-and-network-flow-no-collaboration-table-sql",
+      "tokens": [
+        "collaboration_event_intents",
+        "collaboration_replay_events",
+        "collaboration_incident_stream_cursors",
+        "collaboration_resume_tokens"
+      ],
+      "scan_paths": [
+        "internal/modules/networkflow/**",
+        "internal/platform/jobs/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "transaction-bound-job-callers-use-configured-service",
+      "tokens": [
+        "jobs.CreateQueuedTx(",
+        "jobs.CompleteSucceededTx("
+      ],
+      "scan_paths": [
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
     {
       "id": "retired-incidents-store-api",
       "tokens": [

@@ -11,14 +11,15 @@ import (
 )
 
 type compositionPreviewJobPort struct {
-	runner *jobs.Runner
+	runner       *jobs.Runner
+	transactions *jobs.TransactionService
 }
 
-func NewCompositionPreviewJobPort(runner *jobs.Runner) (reportcomposition.PreviewJobPort, error) {
-	if runner == nil {
-		return nil, errors.New("reporting composition preview port requires job runner")
+func NewCompositionPreviewJobPort(runner *jobs.Runner, transactions *jobs.TransactionService) (reportcomposition.PreviewJobPort, error) {
+	if runner == nil || transactions == nil {
+		return nil, errors.New("reporting composition preview port requires job runner and transaction service")
 	}
-	return compositionPreviewJobPort{runner: runner}, nil
+	return compositionPreviewJobPort{runner: runner, transactions: transactions}, nil
 }
 
 func (port compositionPreviewJobPort) AdmitPreviewJob(
@@ -36,7 +37,7 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	return jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	return port.transactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             request.Scope,
 		SubmittedByUserID: request.ActorUserID,
 		Cancelable:        true,

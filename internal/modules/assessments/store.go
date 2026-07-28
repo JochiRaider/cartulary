@@ -36,12 +36,12 @@ type assessmentLinkPort interface {
 	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (links.RecordLink, bool, error)
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		recordStore:    records.NewStore(),
-		revisionsStore: newRevisionAppendAdapter(),
+		revisionsStore: newRevisionAppendAdapter(appender),
 		projectionRows: projections.NewAssessmentRows(pool, assessmentprojection.QuerySurfaces()...),
 		linkStore:      links.NewStore(),
 	}

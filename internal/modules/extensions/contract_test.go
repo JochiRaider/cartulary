@@ -656,6 +656,10 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		"module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45": {
 			"TestInactiveExtensionJobReconciliation_ServiceBacked",
 		},
+		"module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6": {
+			"TestManagerPersistsCanonicalIncidentProgressIntents_Integration",
+			"TestManagerProgressIntentFailureRollsBackJobMutation_Integration",
+		},
 		"module.extensions.integration.clean_job_cutover_migration_4917a0cdef": {
 			"TestExtensionJobCutoverMigration34FreshSchema_Integration",
 			"TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_Integration",

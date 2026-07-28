@@ -10,10 +10,15 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerEvidence,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:     revisions.SourceOwnerEvidence,
-			RecordType:            "evidence",
-			DeleteRestoreProvider: deleterestore.NewProvider(),
-			RowRollbackProvider:   rollbackprovider.NewProvider(),
+			SourceOwnerModule:      revisions.SourceOwnerEvidence,
+			RecordType:             "evidence",
+			DeleteRestoreProvider:  deleterestore.NewProvider(),
+			RowRollbackProvider:    rollbackprovider.NewProvider(),
+			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
+				ContributionID: "evidence.evidence",
+				ViewSchemaIDs:  []string{ViewSchemaID},
+			}},
 		}},
 	}
 }

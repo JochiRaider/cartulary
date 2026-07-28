@@ -55,8 +55,26 @@ type composition struct {
 	collaborators         timeline.Collaborators
 }
 
-func NewBundle(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *Bundle {
-	components := compose(pool)
+type projectionComposition struct {
+	source      *timeline.ProjectionSource
+	catalog     *projectionassembly.Bundle
+	coordinator *projections.Coordinator
+	rebuilder   restorecontract.ProjectionRebuilder
+}
+
+func NewBundle(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) *Bundle {
+	if appender == nil {
+		panic("compose Timeline bundle: Revisions appender is required")
+	}
+	if intents == nil {
+		panic("compose Timeline bundle: Collaboration intent appender is required")
+	}
+	components := compose(pool, appender, intents)
 	return &Bundle{
 		Facade:                timeline.NewFacade(pool, components.collaborators, conflictTokens),
 		ProjectionSource:      components.projectionSource,
@@ -73,82 +91,112 @@ func NewBundle(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 
 // NewCollaborators composes Timeline's typed application boundary for focused
 // facade tests that replace one collaborator without starting a server.
-func NewCollaborators(pool postgres.DB) timeline.Collaborators {
-	return compose(pool).collaborators
+func NewCollaborators(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) timeline.Collaborators {
+	if appender == nil {
+		panic("compose Timeline collaborators: Revisions appender is required")
+	}
+	if intents == nil {
+		panic("compose Timeline collaborators: Collaboration intent appender is required")
+	}
+	return compose(pool, appender, intents).collaborators
 }
 
 func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
-	return compose(pool).restoreRebuilder
+	return composeProjection(pool).rebuilder
 }
 
 func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, *projections.QueryService) {
-	components := compose(pool)
-	return components.restoreRebuilder, components.projectionCatalog.Query
+	components := composeProjection(pool)
+	return components.rebuilder, components.catalog.Query
 }
 
-func compose(pool postgres.DB) composition {
+func compose(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) composition {
+	projection := composeProjection(pool)
 	recordsPort := recordAdapter{
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(pool),
 	}
 	collectionFacts := newCollectionReadAdapter()
-	projectionSource := timeline.NewProjectionSource(recordsPort, collectionFacts)
-	projectionCatalog, err := projectionassembly.NewBundle(pool, projectionSource)
-	if err != nil {
-		panic(fmt.Sprintf("compose projection catalog: %v", err))
-	}
 	timelineWriter := timelineProjectionAdapter{
-		timeline: projectionCatalog.Timeline,
-		entities: projectionCatalog.Entities,
+		timeline: projection.catalog.Timeline,
+		entities: projection.catalog.Entities,
 	}
-	projectionCoordinator := projectionCatalog.Coordinator
-	collaborationStore := collaboration.NewStore(pool, nil)
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
 	evidenceStore := evidence.NewStore(
 		pool,
+		evidence.WithRevisionAppender(appender),
 		evidence.WithProjectionPort(evidenceProjectionAdapter{
-			rows:    projectionCatalog.Evidence,
-			rebuild: projectionCatalog.Rebuild,
+			rows:    projection.catalog.Evidence,
+			rebuild: projection.catalog.Rebuild,
 		}),
-		evidence.WithCollaborationIntents(collaborationStore),
+		evidence.WithCollaborationIntents(intents),
 	)
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
 			Idempotency: idempotencyAdapter{store: authn.NewStore(pool)},
 			Incidents:   incidentAdapter{access: incidents.NewAccess(pool)},
 			Records:     recordsPort,
-			Revisions:   revisionAdapter{appender: revisions.NewAppender(), reader: revisions.NewReader()},
+			Revisions:   revisionAdapter{appender: appender, reader: revisions.NewReader()},
 		},
 		Collections: timeline.CollectionCollaborators{
 			Links:    linkAdapter{store: links.NewStore()},
-			Mentions: mentionAdapter{store: mentions.NewStore(nil)},
-			Entities: entityAdapter{store: hostidentity.NewStore(pool)},
+			Mentions: mentionAdapter{store: mentions.NewStore(nil, appender)},
+			Entities: entityAdapter{store: hostidentity.NewStore(pool, appender)},
 			Evidence: evidenceAdapter{store: evidenceStore},
 			Facts:    collectionFacts,
 		},
 		Commit: timeline.CommitCollaborators{
 			Projection:    timelineWriter,
-			Collaboration: collaborationAdapter{store: collaborationStore},
+			Collaboration: collaborationAdapter{appender: intents},
 		},
 	}
 	return composition{
-		projectionSource: projectionSource,
+		projectionSource: projection.source,
 		mentionEffects:   mentionEffects,
 		entityMentionStore: mentions.NewStore(
 			pool,
+			appender,
 			mentions.WithTimelineEffects(mentionEffects),
-			mentions.WithCollaborationIntents(collaborationStore),
+			mentions.WithCollaborationIntents(intents),
 		),
 		entityMergeStore: merge.NewStore(
 			pool,
+			appender,
 			merge.WithTimelineEffects(mentionEffects),
-			merge.WithCollaborationIntents(collaborationStore),
+			merge.WithCollaborationIntents(intents),
 		),
 		evidenceStore:         evidenceStore,
-		projectionCatalog:     projectionCatalog,
-		projectionCoordinator: projectionCoordinator,
-		restoreRebuilder:      projectionCatalog.Rebuild.RestoreRebuilder(),
+		projectionCatalog:     projection.catalog,
+		projectionCoordinator: projection.coordinator,
+		restoreRebuilder:      projection.rebuilder,
 		collaborators:         collaborators,
+	}
+}
+
+func composeProjection(pool postgres.DB) projectionComposition {
+	recordsPort := recordAdapter{
+		store:   records.NewStore(),
+		targets: records.NewRouteTargetResolver(pool),
+	}
+	collectionFacts := newCollectionReadAdapter()
+	source := timeline.NewProjectionSource(recordsPort, collectionFacts)
+	catalog, err := projectionassembly.NewBundle(pool, source)
+	if err != nil {
+		panic(fmt.Sprintf("compose projection catalog: %v", err))
+	}
+	return projectionComposition{
+		source:      source,
+		catalog:     catalog,
+		coordinator: catalog.Coordinator,
+		rebuilder:   catalog.Rebuild.RestoreRebuilder(),
 	}
 }
 
@@ -187,7 +235,7 @@ func (a evidenceProjectionAdapter) RefreshEvidenceSupportTx(ctx context.Context,
 }
 
 type collaborationAdapter struct {
-	store *collaboration.Store
+	appender collaboration.IntentAppender
 }
 
 func (a collaborationAdapter) AppendRecordChangeIntentTx(ctx context.Context, tx pgx.Tx, params timeline.RecordChangeIntentParams) error {
@@ -207,7 +255,7 @@ func (a collaborationAdapter) AppendRecordChangeIntentTx(ctx context.Context, tx
 	if err != nil {
 		return err
 	}
-	return a.store.AppendIntentTx(ctx, tx, intent)
+	return a.appender.AppendIntentTx(ctx, tx, intent)
 }
 
 type idempotencyAdapter struct {
@@ -276,7 +324,7 @@ func (a recordAdapter) ResolveIncident(ctx context.Context, recordID uuid.UUID) 
 }
 
 type revisionAdapter struct {
-	appender revisions.Appender
+	appender *revisions.Appender
 	reader   revisions.Reader
 }
 

@@ -24,7 +24,7 @@ var ErrRecordNotFound = errors.New("revisions: record not found")
 
 type commandStore struct {
 	db                          postgres.DB
-	appender                    Appender
+	appender                    *Appender
 	incidentAccess              incidents.Access
 	importedAttributionResolver ImportedAttributionResolver
 	projections                 ProjectionServices

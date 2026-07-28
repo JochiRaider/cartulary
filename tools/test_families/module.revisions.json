@@ -522,6 +522,34 @@
       "status": "active"
     },
     {
+      "row_id": "module.revisions.support_unit.catalog_record_view_and_shared_runtime_c1d2e3f4a5",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [
+        "app.server",
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/revisionassembly",
+        "tests": [
+          "TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog",
+          "TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs",
+          "TestRevisionsRuntimeReusesAppenderForCommandService"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.support_unit",

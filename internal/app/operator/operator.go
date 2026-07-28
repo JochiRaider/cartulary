@@ -220,7 +220,7 @@ func (runner operatorRunner) runCollaborationRequeueCommand(ctx context.Context,
 		return 1
 	}
 	defer pool.Close()
-	if err := collaboration.NewStore(pool, runner.now).RequeueIncident(
+	if err := collaboration.NewRecoveryService(pool).RequeueIncident(
 		ctx,
 		parsed.incidentID,
 		runner.now(),

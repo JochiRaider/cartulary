@@ -26,16 +26,17 @@ type JobFinalizationRequest struct {
 }
 
 type OwnerFinalizer struct {
-	store     *Store
-	manager   *jobs.Manager
-	now       func() time.Time
-	fatalSink func(error)
-	commit    func(context.Context, pgx.Tx) error
+	store        *Store
+	manager      *jobs.Manager
+	transactions *jobs.TransactionService
+	now          func() time.Time
+	fatalSink    func(error)
+	commit       func(context.Context, pgx.Tx) error
 }
 
-func NewOwnerFinalizer(store *Store, manager *jobs.Manager, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
-	if store == nil || store.pool == nil || manager == nil {
-		return nil, errors.New("extension owner finalizer requires store and job manager")
+func NewOwnerFinalizer(store *Store, manager *jobs.Manager, transactions *jobs.TransactionService, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
+	if store == nil || store.pool == nil || manager == nil || transactions == nil {
+		return nil, errors.New("extension owner finalizer requires store, job manager, and job transaction service")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -44,7 +45,7 @@ func NewOwnerFinalizer(store *Store, manager *jobs.Manager, now func() time.Time
 		fatalSink = func(error) {}
 	}
 	return &OwnerFinalizer{
-		store: store, manager: manager, now: now, fatalSink: fatalSink,
+		store: store, manager: manager, transactions: transactions, now: now, fatalSink: fatalSink,
 		commit: func(ctx context.Context, tx pgx.Tx) error { return tx.Commit(ctx) },
 	}, nil
 }
@@ -95,7 +96,7 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 			return jobs.Resource{}, err
 		}
 	}
-	resource, err := jobs.CompleteSucceededTx(ctx, tx, request.Transition, committedAt.UTC())
+	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, request.Transition, committedAt.UTC())
 	if err != nil {
 		return jobs.Resource{}, err
 	}

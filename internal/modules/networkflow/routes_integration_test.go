@@ -12,13 +12,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -43,7 +43,7 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 
 func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-query", claimedNetworkFlowDependenciesForRouteTest(t))
+	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-routes-query")
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -53,7 +53,11 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 
-	store := newTestNetworkFlowStore(harness.Server.Runtime.Postgres)
+	store := newTestNetworkFlowStore(
+		t,
+		harness.Server.Runtime.Postgres,
+		harness.Server.Runtime.Revisions.Appender(),
+	)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "flows.csv")
 	first := testFlowRow(1, "1")
 	first.SrcIP = "192.0.2.10"
@@ -142,7 +146,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected rejected-row diagnostics: %#v", rejected)
 	}
 
-	invalidationMessages, unsubscribeInvalidations := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 4)
+	invalidationMessages, unsubscribeInvalidations := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 4)
 	defer unsubscribeInvalidations()
 
 	tablePath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID
@@ -300,7 +304,7 @@ func requireNoNetworkFlowResourceChange(t testing.TB, messages <-chan platformws
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", claimedNetworkFlowDependenciesForRouteTest(t))
+	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-routes-graph-link")
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -310,7 +314,11 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 
-	store := newTestNetworkFlowStore(harness.Server.Runtime.Postgres)
+	store := newTestNetworkFlowStore(
+		t,
+		harness.Server.Runtime.Postgres,
+		harness.Server.Runtime.Revisions.Appender(),
+	)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "graph-flows.csv")
 	first := testFlowRow(1, "a")
 	second := testFlowRow(2, "b")
@@ -464,7 +472,11 @@ const (
 	schemaTableQueryContinuationForTest = "cartulary.network_flow.table_query_continuation.v1"
 )
 
-func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.DependencySet {
+func claimedNetworkFlowServerForRouteTest(
+	t testing.TB,
+	runtime *appsupport.Runtime,
+	prefix string,
+) *appsupport.ServerHarness {
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	rings, err := ParseKeyRings([]byte(`{
@@ -478,10 +490,19 @@ func claimedNetworkFlowDependenciesForRouteTest(t testing.TB) httpapi.Dependency
 	if err != nil {
 		t.Fatalf("parse Network Flow route-test key rings: %v", err)
 	}
-	projections := httpapiextensions.FromGeneratedRegistry(t, ProfileID)
-	return projections.Dependencies(httpapi.DependencySet{
-		ModuleOverrides: map[string]any{KeyRingsOverrideKey: rings},
-		Now:             func() time.Time { return now },
+	return runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix: prefix,
+		Env: map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		},
+		Dependencies: httpapi.DependencySet{
+			ModuleOverrides: map[string]any{KeyRingsOverrideKey: rings},
+			Now:             func() time.Time { return now },
+		},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
 }
 

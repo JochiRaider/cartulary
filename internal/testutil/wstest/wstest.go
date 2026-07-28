@@ -8,14 +8,28 @@ import (
 	"testing"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 )
 
 type Client struct {
 	Conn     *websocket.Conn
 	Response *http.Response
 }
+
+type StatusCode = websocket.StatusCode
+type MessageType = websocket.MessageType
+
+const (
+	MessageText                   = websocket.MessageText
+	MessageBinary                 = websocket.MessageBinary
+	StatusNormalClosure           = websocket.StatusNormalClosure
+	StatusUnsupportedData         = websocket.StatusUnsupportedData
+	StatusInvalidFramePayloadData = websocket.StatusInvalidFramePayloadData
+	StatusPolicyViolation         = websocket.StatusPolicyViolation
+	StatusMessageTooBig           = websocket.StatusMessageTooBig
+)
 
 func Connect(t testing.TB, serverURL string, path string) *Client {
 	return ConnectWithHeaders(t, serverURL, path, nil)
@@ -24,14 +38,9 @@ func Connect(t testing.TB, serverURL string, path string) *Client {
 func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers http.Header) *Client {
 	t.Helper()
 
-	conn, resp, err := TryConnect(serverURL, path, headers)
+	client, _, err := TryConnect(serverURL, path, headers)
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
-	}
-
-	client := &Client{
-		Conn:     conn,
-		Response: resp,
 	}
 	t.Cleanup(func() {
 		client.Close(websocket.StatusNormalClosure, "test_cleanup")
@@ -40,23 +49,35 @@ func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers htt
 	return client
 }
 
-func TryConnect(serverURL string, path string, headers http.Header) (*websocket.Conn, *http.Response, error) {
+func TryConnect(serverURL string, path string, headers http.Header) (*Client, *http.Response, error) {
 	target, err := websocketURL(serverURL, path)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
+	conn, response, err := websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
+	if err != nil {
+		return nil, response, err
+	}
+	return &Client{Conn: conn, Response: response}, response, nil
 }
 
 func (c *Client) Send(ctx context.Context, message platformws.Message) error {
-	return platformws.WriteJSON(ctx, c.Conn, message)
+	return wsjson.Write(ctx, c.Conn, message)
 }
 
 func (c *Client) Receive(ctx context.Context) (platformws.Message, error) {
 	var message platformws.Message
-	err := platformws.ReadJSON(ctx, c.Conn, &message)
+	err := wsjson.Read(ctx, c.Conn, &message)
 	return message, err
+}
+
+func (c *Client) WriteJSON(ctx context.Context, value any) error {
+	return wsjson.Write(ctx, c.Conn, value)
+}
+
+func (c *Client) ReadJSON(ctx context.Context, value any) error {
+	return wsjson.Read(ctx, c.Conn, value)
 }
 
 func (c *Client) Handshake(ctx context.Context) (platformws.Message, error) {
@@ -74,6 +95,25 @@ func (c *Client) Close(code websocket.StatusCode, reason string) {
 		return
 	}
 	_ = c.Conn.Close(code, reason)
+}
+
+func (c *Client) CloseNow() error {
+	if c == nil || c.Conn == nil {
+		return nil
+	}
+	return c.Conn.CloseNow()
+}
+
+func (c *Client) Write(ctx context.Context, kind websocket.MessageType, payload []byte) error {
+	return c.Conn.Write(ctx, kind, payload)
+}
+
+func (c *Client) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
+	return c.Conn.Read(ctx)
+}
+
+func CloseStatus(err error) StatusCode {
+	return websocket.CloseStatus(err)
 }
 
 func RequireMessageType(t testing.TB, message platformws.Message, want string) {

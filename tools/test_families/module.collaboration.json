@@ -493,6 +493,7 @@
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.integration",
       "collaborator_ids": [
+        "app.operator",
         "app.server",
         "module.incidentbundles",
         "module.timeline",
@@ -506,6 +507,32 @@
         "package": "./internal/modules/collaboration",
         "tests": [
           "TestDurableIncidentStream_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.integration.historical_intent_suppression_transaction_scope_a1b2c3d4e5",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestHistoricalIntentSuppressionIsTransactionLocal_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -587,6 +614,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.collaboration.store.strict_frame_and_failure_contract_a3b4c5d6e7",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.store",
+      "collaborator_ids": [
+        "platform.ws"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestIncidentSocketFrameFailureContract_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.store",
@@ -628,6 +680,91 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.support_unit.lifecycle_telemetry_vocabulary_b1c2d3e4f5",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestWebSocketLifecycleTelemetryClassifiesPublicErrors",
+          "TestWebSocketLifecycleTelemetryClosesVocabulary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.support_unit.semantic_hub_and_payload_ownership_d1e2f3a4b5",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestCollaborationCodecSemanticContract",
+          "TestEventIntentValidatesEveryEventFamily_Unit",
+          "TestHubDeliverExtensionResourceChanged",
+          "TestHubDeliverJobProgress",
+          "TestHubIncidentTerminalSubscribers",
+          "TestHubSessionRevocationSubscribers",
+          "TestPresenceReplayRevocationTransport",
+          "TestValidatePresenceInputAcceptsExtensionWorkspace",
+          "TestWSContractExtensionResourceChangedPayloadShape",
+          "TestWSContractJobProgressPayloadShape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.collaboration.support_unit.semantic_telemetry_ownership_e1f2a3b4c5",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestActiveConnectionTelemetryGaugeNoSDK",
+          "TestWebSocketEventSendTelemetryNoSDK",
+          "TestWebSocketTelemetrySafeVocabulary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
       "default_check": false,
       "claim_posture": "implementation",
       "status": "active"

@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit(t *testing.T) {
@@ -35,6 +36,7 @@ func TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit(t *testing.T) {
 	facade := artifacts.NewWorkbookFacade(
 		harness.DB,
 		conflicttest.NewCodec("artifacts"),
+		revisionsupport.MustAppender(t),
 	)
 	title := "Artifact-owned note"
 	body := "Persisted by the artifact source facade"

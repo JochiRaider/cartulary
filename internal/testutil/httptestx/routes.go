@@ -5,9 +5,10 @@ import (
 	"net/http"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
+	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
@@ -29,7 +30,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 		})
 
 		mux.HandleFunc("/ws/v1/bootstrap-harness", func(w http.ResponseWriter, r *http.Request) {
-			conn, err := platformws.Accept(w, r, "")
+			conn, err := websocket.Accept(w, r, nil)
 			if err != nil {
 				return
 			}
@@ -37,12 +38,12 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 
 			ctx := context.Background()
 			var first platformws.Message
-			if err := platformws.ReadJSON(ctx, conn, &first); err != nil {
+			if err := wsjson.Read(ctx, conn, &first); err != nil {
 				_ = conn.Close(websocket.StatusPolicyViolation, "invalid_first_message")
 				return
 			}
 			if first.Type != "handshake" {
-				_ = platformws.WriteJSON(ctx, conn, platformws.Message{
+				_ = wsjson.Write(ctx, conn, platformws.Message{
 					Type:    "protocol_error",
 					Payload: platformws.RawPayload(map[string]any{"reason_code": "first_message_must_be_handshake"}),
 				})
@@ -50,7 +51,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 				return
 			}
 
-			if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+			if err := wsjson.Write(ctx, conn, platformws.Message{
 				Type:    "handshake_ack",
 				Payload: platformws.RawPayload(map[string]any{"status": "connected", "boundary": "/ws/v1/bootstrap-harness"}),
 			}); err != nil {
@@ -59,17 +60,17 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 
 			for {
 				var message platformws.Message
-				if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+				if err := wsjson.Read(ctx, conn, &message); err != nil {
 					return
 				}
 
 				switch message.Type {
 				case "echo":
-					if err := platformws.WriteJSON(ctx, conn, message); err != nil {
+					if err := wsjson.Write(ctx, conn, message); err != nil {
 						return
 					}
 				case "trigger_session_revoked":
-					_ = platformws.WriteJSON(ctx, conn, platformws.Message{
+					_ = wsjson.Write(ctx, conn, platformws.Message{
 						Type:    "session_revoked",
 						Payload: platformws.RawPayload(map[string]any{"reason_code": "bootstrap_revoked"}),
 					})
@@ -79,7 +80,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 					_ = conn.Close(websocket.StatusNormalClosure, "bootstrap_complete")
 					return
 				default:
-					if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+					if err := wsjson.Write(ctx, conn, platformws.Message{
 						Type:    "protocol_error",
 						Payload: platformws.RawPayload(map[string]any{"reason_code": "unknown_message"}),
 					}); err != nil {

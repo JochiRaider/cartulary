@@ -27,7 +27,8 @@
       "presence_delta",
       "presence_snapshot",
       "hello_ack",
-      "resume_result",
+      "resume_ack",
+      "extension_resource_changed",
       "ping",
       "session_revoked",
       "error",
@@ -52,9 +53,9 @@
     "evidence": [
       "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClassifiesPublicErrors",
       "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClosesVocabulary",
-      "internal/platform/ws/telemetry_test.go::TestWebSocketTelemetrySafeVocabulary",
-      "internal/platform/ws/telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK",
-      "internal/platform/ws/telemetry_test.go::TestActiveConnectionTelemetryGaugeNoSDK",
+      "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketTelemetrySafeVocabulary",
+      "internal/modules/collaboration/hub_telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK",
+      "internal/modules/collaboration/hub_telemetry_test.go::TestActiveConnectionTelemetryGaugeNoSDK",
       "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
       "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
     ]

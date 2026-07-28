@@ -54,7 +54,10 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	store := NewStore(deps.Postgres)
+	if deps.Jobs != nil && deps.JobTransactions == nil {
+		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
+	}
+	store := NewStore(deps.Postgres, deps.JobTransactions)
 	app, err := NewApplicationService(
 		store,
 		incidents.NewAccess(deps.PostgresHandle()),

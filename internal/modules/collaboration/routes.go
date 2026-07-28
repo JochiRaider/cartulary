@@ -8,14 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const (
@@ -28,22 +26,27 @@ const (
 	sessionRevokedReason = "session_revoked"
 	incidentClosedReason = "incident_closed"
 	slowConsumerReason   = "slow_consumer"
+	invalidMessageReason = "invalid_message"
 )
 
 type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
-	hub            *platformws.Hub
-	stream         *Store
+	hub            *Hub
+	replay         *ReplayStore
 	keys           authn.MasterKeys
-	publicOrigin   string
+	acceptSocket   AcceptSocket
+	checkOrigin    CheckBrowserOrigin
+	codec          Codec
 	serviceVersion string
 	now            func() time.Time
 }
 
 type Settings struct {
-	PublicOrigin   string
-	ServiceVersion string
+	AcceptSocket       AcceptSocket
+	CheckBrowserOrigin CheckBrowserOrigin
+	Hub                *Hub
+	ServiceVersion     string
 }
 
 func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
@@ -62,6 +65,15 @@ func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
 }
 
 func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
+	if settings.AcceptSocket == nil {
+		return nil, errors.New("Collaboration WebSocket accept dependency is required")
+	}
+	if settings.CheckBrowserOrigin == nil {
+		return nil, errors.New("Collaboration WebSocket Origin dependency is required")
+	}
+	if settings.Hub == nil {
+		return nil, errors.New("Collaboration Hub dependency is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -73,10 +85,11 @@ func newService(deps httpapi.DependencySet, settings Settings) (*Service, error)
 	return &Service{
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		hub:            deps.WSHub,
-		stream:         NewStore(deps.PostgresHandle(), now),
+		hub:            settings.Hub,
+		replay:         NewReplayStore(deps.PostgresHandle(), now),
 		keys:           keys,
-		publicOrigin:   settings.PublicOrigin,
+		acceptSocket:   settings.AcceptSocket,
+		checkOrigin:    settings.CheckBrowserOrigin,
 		serviceVersion: settings.ServiceVersion,
 		now:            now,
 	}, nil
@@ -90,7 +103,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		finishLifecycle(lifecycleResult, lifecycleErrorCode)
 	}()
 
-	if platformws.RejectUntrustedBrowserOrigin(w, r, s.publicOrigin) {
+	if s.checkOrigin(w, r) {
 		lifecycleResult = "rejected"
 		return
 	}
@@ -111,7 +124,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := platformws.Accept(w, r, s.publicOrigin)
+	conn, err := s.acceptSocket(w, r)
 	if err != nil {
 		lifecycleResult = "failed"
 		return
@@ -119,7 +132,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	closed := false
 	defer func() {
 		if !closed {
-			conn.CloseNow()
+			_ = conn.Close(1001, "")
 		}
 	}()
 
@@ -136,14 +149,15 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	connectionID := uuid.New()
 	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
 	defer unsubscribe()
-	first, err := readFirstMessage(ctx, conn)
+	first, err := s.readFirstMessage(ctx, conn)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			lifecycleResult = "timeout"
+			_ = conn.Close(1008, invalidFirstMessage)
 		} else {
 			lifecycleResult = "rejected"
+			s.closeForDecodeFailure(ctx, conn, incidentID, err, true)
 		}
-		_ = conn.Close(websocket.StatusPolicyViolation, invalidFirstMessage)
 		closed = true
 		return
 	}
@@ -158,11 +172,11 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		lifecycleResult = "rejected"
 		lifecycleErrorCode = "invalid_websocket_handshake"
-		_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
+		_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
 			"code":      "invalid_websocket_handshake",
 			"message":   err.Error(),
 			"retryable": false,
-		}, s.now()), websocket.StatusPolicyViolation, invalidFirstMessage)
+		}, s.now()), 1008, invalidFirstMessage)
 		closed = true
 		return
 	}
@@ -172,9 +186,9 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 
 	defer s.removePresence(incidentID, connectionID)
 
-	incoming := make(chan platformws.Message, defaultSocketBuffer)
+	incoming := make(chan Message, defaultSocketBuffer)
 	readErrors := make(chan error, 1)
-	go readLoop(ctx, conn, incoming, readErrors)
+	go s.readLoop(ctx, conn, incoming, readErrors)
 
 	lastInbound := s.now()
 	lastSent := s.now()
@@ -208,12 +222,12 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				lifecycleResult = "dropped"
 				lifecycleErrorCode = slowConsumerReason
-				_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+				_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "resume_ack", map[string]any{
 					"connection_id":                connectionID.String(),
-					"status":                       platformws.ResumeStatusResetNeeded,
+					"status":                       ResumeStatusResetNeeded,
 					"resume_token":                 "",
 					"server_high_water_stream_seq": handshake.LiveAfterStreamSeq,
-				}, s.now()), websocket.StatusCode(1013), slowConsumerReason)
+				}, s.now()), 1013, slowConsumerReason)
 				closed = true
 				return
 			}
@@ -229,12 +243,12 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			if terminal, terminalErr := s.incidentClosed(ctx, incidentID, principal.User.ID); terminalErr != nil || terminal {
 				lifecycleResult = "canceled"
-				if s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed) {
+				if s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed) {
 					closed = true
 				}
 				return
 			}
-			if writeMessage(ctx, conn, message) != nil {
+			if s.writeMessage(ctx, conn, message) != nil {
 				lifecycleResult = "failed"
 				return
 			}
@@ -245,7 +259,10 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				lifecycleResult = "rejected"
 				return
 			}
-		case <-readErrors:
+		case err := <-readErrors:
+			lifecycleResult = "rejected"
+			s.closeForDecodeFailure(ctx, conn, incidentID, err, false)
+			closed = true
 			return
 		case <-ticker.C:
 			now := s.now()
@@ -258,14 +275,14 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				return
 			}
-			if now.Sub(lastInbound) > platformws.HeartbeatTimeout {
+			if now.Sub(lastInbound) > HeartbeatTimeout {
 				lifecycleResult = "timeout"
-				_ = conn.Close(websocket.StatusPolicyViolation, heartbeatCloseReason)
+				_ = conn.Close(1008, heartbeatCloseReason)
 				closed = true
 				return
 			}
-			if now.Sub(lastSent) >= platformws.HeartbeatInterval {
-				if writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
+			if now.Sub(lastSent) >= HeartbeatInterval {
+				if s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
 					lifecycleResult = "failed"
 					return
 				}
@@ -280,49 +297,49 @@ type establishedSession struct {
 	LiveAfterStreamSeq int64
 }
 
-func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan platformws.Message, message platformws.Message) (establishedSession, error) {
+func (s *Service) establishSession(ctx context.Context, conn Socket, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan Message, message Message) (establishedSession, error) {
 	switch message.Type {
 	case "hello":
 		var payload struct {
-			ClientInstanceID string                   `json:"client_instance_id"`
-			Presence         platformws.PresenceInput `json:"presence"`
+			ClientInstanceID string        `json:"client_instance_id"`
+			Presence         PresenceInput `json:"presence"`
 		}
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			return establishedSession{}, err
 		}
 		if strings.TrimSpace(payload.ClientInstanceID) == "" {
 			return establishedSession{}, errors.New("client_instance_id is required")
 		}
-		if err := platformws.ValidatePresenceInput(payload.Presence); err != nil {
+		if err := ValidatePresenceInput(payload.Presence); err != nil {
 			return establishedSession{}, err
 		}
 		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
 			return establishedSession{}, err
 		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed)
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed)
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
-		resumeToken, _, err := s.stream.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
+		resumeToken, _, err := s.replay.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
 			return establishedSession{}, err
 		}
-		highWater, err := s.stream.CurrentHighWater(ctx, incidentID)
+		highWater, err := s.replay.CurrentHighWater(ctx, incidentID)
 		if err != nil {
 			return establishedSession{}, err
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "hello_ack", map[string]any{
+		if err := s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "hello_ack", map[string]any{
 			"connection_id":         connectionID.String(),
 			"resume_token":          resumeToken,
 			"server_time":           now.UTC().Format(time.RFC3339Nano),
-			"heartbeat_interval_ms": int(platformws.HeartbeatInterval / time.Millisecond),
-			"presence_ttl_ms":       int(platformws.PresenceTTL / time.Millisecond),
-			"resume_window_ms":      int(platformws.ResumeWindow / time.Millisecond),
+			"heartbeat_interval_ms": int(HeartbeatInterval / time.Millisecond),
+			"presence_ttl_ms":       int(PresenceTTL / time.Millisecond),
+			"resume_window_ms":      int(ResumeWindow / time.Millisecond),
 		}, now)); err != nil {
 			return establishedSession{}, err
 		}
-		if err := writeMessage(ctx, conn, platformws.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
+		if err := s.writeMessage(ctx, conn, PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
 		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
@@ -330,18 +347,18 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 
 	case "resume":
 		var payload struct {
-			ClientInstanceID  string                   `json:"client_instance_id"`
-			ResumeToken       string                   `json:"resume_token"`
-			LastSeenStreamSeq int64                    `json:"last_seen_stream_seq"`
-			Presence          platformws.PresenceInput `json:"presence"`
+			ClientInstanceID  string        `json:"client_instance_id"`
+			ResumeToken       string        `json:"resume_token"`
+			LastSeenStreamSeq int64         `json:"last_seen_stream_seq"`
+			Presence          PresenceInput `json:"presence"`
 		}
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			return establishedSession{}, err
 		}
 		if strings.TrimSpace(payload.ClientInstanceID) == "" || strings.TrimSpace(payload.ResumeToken) == "" {
 			return establishedSession{}, errors.New("client_instance_id and resume_token are required")
 		}
-		if err := platformws.ValidatePresenceInput(payload.Presence); err != nil {
+		if err := ValidatePresenceInput(payload.Presence); err != nil {
 			return establishedSession{}, err
 		}
 		if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
@@ -350,20 +367,20 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
 			return establishedSession{}, err
 		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed)
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, IncidentTerminalClosed)
 			return establishedSession{}, terminalIncidentError{}
 		}
 		now := s.now()
-		replay, err := s.stream.ReplayMessages(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
+		replay, err := s.replay.ReplayMessages(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
 		if err != nil {
 			return establishedSession{}, err
 		}
-		resumeToken, _, err := s.stream.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
+		resumeToken, _, err := s.replay.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
 			return establishedSession{}, err
 		}
 		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+		if err := s.writeMessage(ctx, conn, EphemeralMessage(incidentID, "resume_ack", map[string]any{
 			"connection_id":                connectionID.String(),
 			"status":                       replay.Status,
 			"resume_token":                 resumeToken,
@@ -371,14 +388,14 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		}, now)); err != nil {
 			return establishedSession{}, err
 		}
-		if replay.Status == platformws.ResumeStatusReplayed {
+		if replay.Status == ResumeStatusReplayed {
 			for _, replayed := range replay.Messages {
-				if err := writeMessage(ctx, conn, replayed); err != nil {
+				if err := s.writeMessage(ctx, conn, replayed); err != nil {
 					return establishedSession{}, err
 				}
 			}
 		}
-		if err := writeMessage(ctx, conn, platformws.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
+		if err := s.writeMessage(ctx, conn, PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
 			return establishedSession{}, err
 		}
 		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
@@ -394,18 +411,25 @@ func (terminalIncidentError) Error() string {
 	return "terminal incident websocket"
 }
 
-func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan platformws.Message, principal httpauth.Principal, clientInstanceID string, message platformws.Message) bool {
+func (s *Service) handleClientMessage(ctx context.Context, conn Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan Message, principal httpauth.Principal, clientInstanceID string, message Message) bool {
 	switch message.Type {
 	case "pong":
+		var payload map[string]any
+		if err := decodePayloadObject(message.Payload, &payload); err != nil {
+			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
+			return false
+		}
 		return true
 	case "presence_update":
 		var payload struct {
-			Presence platformws.PresenceInput `json:"presence"`
+			Presence PresenceInput `json:"presence"`
 		}
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		if err := decodePayloadObject(message.Payload, &payload); err != nil {
+			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
 		}
-		if err := platformws.ValidatePresenceInput(payload.Presence); err != nil {
+		if err := ValidatePresenceInput(payload.Presence); err != nil {
+			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
 		}
 		now := s.now()
@@ -414,14 +438,11 @@ func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn,
 		return true
 	case "resume", "hello":
 		_ = clientInstanceID
-		_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
-			"code":      "invalid_websocket_message",
-			"message":   "session establishment message already processed",
-			"retryable": false,
-		}, s.now()), websocket.StatusPolicyViolation, "invalid_message")
+		s.writeInvalidLaterMessage(ctx, conn, incidentID, "session establishment message already processed")
 		return false
 	default:
-		return true
+		s.writeInvalidLaterMessage(ctx, conn, incidentID, "unknown websocket message type")
+		return false
 	}
 }
 
@@ -433,18 +454,18 @@ func (s *Service) removePresence(incidentID uuid.UUID, connectionID uuid.UUID) {
 	}
 }
 
-func (s *Service) writeSessionRevoked(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, reasonCode string) bool {
-	return writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "session_revoked", map[string]any{
+func (s *Service) writeSessionRevoked(ctx context.Context, conn Socket, incidentID uuid.UUID, reasonCode string) bool {
+	return s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "session_revoked", map[string]any{
 		"reason_code": reasonCode,
-	}, s.now()), websocket.StatusPolicyViolation, sessionRevokedReason) == nil
+	}, s.now()), 1008, sessionRevokedReason) == nil
 }
 
-func (s *Service) writeTerminalIncidentError(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, reasonCode string) bool {
-	return writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
+func (s *Service) writeTerminalIncidentError(ctx context.Context, conn Socket, incidentID uuid.UUID, reasonCode string) bool {
+	return s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
 		"code":      reasonCode,
 		"message":   "incident closed",
 		"retryable": false,
-	}, s.now()), websocket.StatusPolicyViolation, incidentClosedReason) == nil
+	}, s.now()), 1008, incidentClosedReason) == nil
 }
 
 func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (bool, error) {
@@ -455,18 +476,16 @@ func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, user
 	return record.Status == "closed", nil
 }
 
-func readFirstMessage(ctx context.Context, conn *websocket.Conn) (platformws.Message, error) {
+func (s *Service) readFirstMessage(ctx context.Context, conn Socket) (Message, error) {
 	readCtx, cancel := context.WithTimeout(ctx, firstMessageTimeout)
 	defer cancel()
-	var message platformws.Message
-	err := platformws.ReadJSON(readCtx, conn, &message)
-	return message, err
+	return s.readMessage(readCtx, conn)
 }
 
-func readLoop(ctx context.Context, conn *websocket.Conn, incoming chan<- platformws.Message, errors chan<- error) {
+func (s *Service) readLoop(ctx context.Context, conn Socket, incoming chan<- Message, errors chan<- error) {
 	for {
-		var message platformws.Message
-		if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+		message, err := s.readMessage(ctx, conn)
+		if err != nil {
 			select {
 			case errors <- err:
 			default:
@@ -481,17 +500,82 @@ func readLoop(ctx context.Context, conn *websocket.Conn, incoming chan<- platfor
 	}
 }
 
-func writeMessage(ctx context.Context, conn *websocket.Conn, message platformws.Message) error {
-	writeCtx, cancel := context.WithTimeout(ctx, writeTimeout)
-	defer cancel()
-	return platformws.WriteJSON(writeCtx, conn, message)
+func (s *Service) readMessage(ctx context.Context, conn Socket) (Message, error) {
+	kind, payload, err := conn.Read(ctx)
+	if err != nil {
+		return Message{}, err
+	}
+	return s.codec.Decode(kind, payload)
 }
 
-func writeThenClose(ctx context.Context, conn *websocket.Conn, message platformws.Message, status websocket.StatusCode, reason string) error {
-	if err := writeMessage(ctx, conn, message); err != nil {
+func (s *Service) writeMessage(ctx context.Context, conn Socket, message Message) error {
+	writeCtx, cancel := context.WithTimeout(ctx, writeTimeout)
+	defer cancel()
+	encoded, err := s.codec.Encode(message)
+	if err != nil {
+		return err
+	}
+	return conn.Write(writeCtx, MessageText, encoded)
+}
+
+func (s *Service) writeThenClose(ctx context.Context, conn Socket, message Message, status uint16, reason string) error {
+	if err := s.writeMessage(ctx, conn, message); err != nil {
 		return err
 	}
 	return conn.Close(status, reason)
+}
+
+func (s *Service) writeInvalidLaterMessage(ctx context.Context, conn Socket, incidentID uuid.UUID, message string) {
+	_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+		"code":      "invalid_websocket_message",
+		"message":   message,
+		"retryable": false,
+	}, s.now()), 1008, invalidMessageReason)
+}
+
+func (s *Service) closeForDecodeFailure(
+	ctx context.Context,
+	conn Socket,
+	incidentID uuid.UUID,
+	err error,
+	first bool,
+) {
+	if errors.Is(err, ErrMessageTooLarge) {
+		_ = conn.Close(1009, "message_too_large")
+		return
+	}
+	var failure *DecodeFailure
+	if errors.As(err, &failure) {
+		switch failure.Kind {
+		case DecodeFailureBinaryMessage:
+			_ = conn.Close(1003, "binary_message_unsupported")
+		case DecodeFailureInvalidJSON:
+			_ = conn.Close(1007, "invalid_json")
+		case DecodeFailureDuplicateMember:
+			if first {
+				_ = s.writeThenClose(ctx, conn, EphemeralMessage(incidentID, "error", map[string]any{
+					"code":      "invalid_websocket_handshake",
+					"message":   failure.Error(),
+					"retryable": false,
+				}, s.now()), 1008, invalidFirstMessage)
+			} else {
+				s.writeInvalidLaterMessage(ctx, conn, incidentID, failure.Error())
+			}
+		}
+		return
+	}
+	_ = conn.Close(1001, "")
+}
+
+func decodePayloadObject(payload json.RawMessage, target any) error {
+	trimmed := strings.TrimSpace(string(payload))
+	if len(trimmed) < 2 || trimmed[0] != '{' {
+		return errors.New("websocket payload must be an object")
+	}
+	if err := json.Unmarshal(payload, target); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {

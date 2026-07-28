@@ -77,7 +77,8 @@ func (e *UnsupportedSnapshotDerivationError) Error() string {
 }
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool            *pgxpool.Pool
+	jobTransactions *jobs.TransactionService
 }
 
 type SnapshotRecord struct {
@@ -260,8 +261,8 @@ type ReleaseActionResult struct {
 	Replayed   bool
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
+	return &Store{pool: pool, jobTransactions: jobTransactions}
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (CreateSnapshotResult, error) {
@@ -352,7 +353,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
@@ -518,7 +519,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,

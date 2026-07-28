@@ -56,7 +56,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		t.Fatalf("indicator route readback mismatch: %#v", queried)
 	}
 	recordID := appsupport.MustUUID(t, row["record_id"].(string))
-	store := indicators.NewStore(harness.Server.Runtime.Postgres)
+	store := indicators.NewStore(harness.Server.Runtime.Postgres, harness.Server.Runtime.Revisions.Appender())
 	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
 	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineSiblingRecordID)
 	for index, sourceRecordID := range []struct {

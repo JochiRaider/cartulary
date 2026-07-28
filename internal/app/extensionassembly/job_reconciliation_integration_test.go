@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -32,7 +33,8 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 24, 20, 30, 0, 0, time.UTC)
 	manager := jobs.NewManager()
-	manager.Configure(pool, func() time.Time { return now })
+	jobTransactions := collaborationsupport.NewJobTransactions()
+	manager.Configure(pool, jobTransactions, func() time.Time { return now })
 
 	provenJob, provenAdmission := enqueueInactiveJob(t, pool, now, "proven")
 	canceledJob, _ := enqueueInactiveJob(t, pool, now.Add(time.Second), "canceled")
@@ -160,7 +162,7 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope: jobs.Scope{Kind: jobs.ScopeKindDeployment}, SubmittedByUserID: actorID,
 		Cancelable: true, Progress: jobs.Progress{Completed: 0},
 		HandlerName: "test_profile.worker_v1", Extension: admission,

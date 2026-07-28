@@ -133,12 +133,12 @@ func (e *entityRecordLockedError) Error() string {
 	return "entities: record envelope locked"
 }
 
-func newEntityStorePorts(pool postgres.DB) entityStorePorts {
+func newEntityStorePorts(pool postgres.DB, appender *revisions.Appender) entityStorePorts {
 	return entityStorePorts{
-		assessments: entityAssessmentAdapter{store: assessments.NewStore(pool)},
-		mentions:    entityMentionAdapter{store: mentions.NewStore(pool)},
+		assessments: entityAssessmentAdapter{store: assessments.NewStore(pool, appender)},
+		mentions:    entityMentionAdapter{store: mentions.NewStore(pool, appender)},
 		records:     entityRecordAdapter{store: records.NewStore()},
-		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
+		revisions:   entityRevisionAdapter{appender: appender},
 		links:       entityLinkAdapter{store: links.NewStore()},
 		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
 	}
@@ -161,7 +161,7 @@ func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, re
 }
 
 type entityRevisionAdapter struct {
-	appender revisions.Appender
+	appender *revisions.Appender
 }
 
 func (a entityRevisionAdapter) LockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {

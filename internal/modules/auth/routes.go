@@ -160,6 +160,7 @@ type RouteOption func(*routeOptions)
 type routeOptions struct {
 	enterpriseAuthBindings bool
 	publicOrigin           string
+	revocations            sessionRevocationPublisher
 }
 
 func WithEnterpriseAuthBindings() RouteOption {
@@ -174,6 +175,12 @@ func WithPublicOrigin(publicOrigin string) RouteOption {
 	}
 }
 
+func WithSessionRevocations(revocations sessionRevocationPublisher) RouteOption {
+	return func(options *routeOptions) {
+		options.revocations = revocations
+	}
+}
+
 func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		settings := routeOptions{}
@@ -182,7 +189,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps, settings.enterpriseAuthBindings, settings.publicOrigin)
+		service, err := newService(deps, settings.enterpriseAuthBindings, settings.publicOrigin, settings.revocations)
 		if err != nil {
 			return err
 		}
@@ -224,7 +231,7 @@ func RegisterEnterpriseRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps, true, settings.publicOrigin)
+		service, err := newService(deps, true, settings.publicOrigin, settings.revocations)
 		if err != nil {
 			return err
 		}
@@ -253,7 +260,7 @@ func RegisterTestRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 				option(&settings)
 			}
 		}
-		service, err := newService(deps, false, settings.publicOrigin)
+		service, err := newService(deps, false, settings.publicOrigin, settings.revocations)
 		if err != nil {
 			return err
 		}
@@ -263,7 +270,7 @@ func RegisterTestRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigin string) (*Service, error) {
+func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigin string, revocations sessionRevocationPublisher) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -314,7 +321,7 @@ func newService(deps httpapi.DependencySet, enterpriseAdmitted bool, publicOrigi
 		userAdminStore:          backingStore,
 		deploymentAuditReader:   backingStore,
 		enterpriseStore:         backingStore,
-		revocations:             deps.WSHub,
+		revocations:             revocations,
 		keys:                    keys,
 		cursorCodec:             cursorCodec,
 		env:                     deps.Env,

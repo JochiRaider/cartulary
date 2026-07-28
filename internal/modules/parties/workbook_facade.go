@@ -36,7 +36,7 @@ type WorkbookFacade struct {
 	recordStore      *records.Store
 	projectionRows   *projections.PartyRows
 	revisionHistory  historyquery.Reader
-	revisionAppender revisions.Appender
+	revisionAppender *revisions.Appender
 	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
 }
@@ -112,7 +112,7 @@ func (e *SameFieldConflictError) Error() string {
 	return "parties: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *WorkbookFacade {
+func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec, appender *revisions.Appender) *WorkbookFacade {
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
@@ -120,8 +120,8 @@ func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictT
 		recordStore:      records.NewStore(),
 		projectionRows:   projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
 		revisionHistory:  historyquery.NewReader(),
-		revisionAppender: revisions.NewAppender(),
-		store:            NewStore(pool),
+		revisionAppender: appender,
+		store:            NewStore(pool, appender),
 		conflictTokens:   conflictTokens,
 	}
 }

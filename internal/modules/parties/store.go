@@ -12,6 +12,7 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -45,11 +46,11 @@ func (e *ValidationError) Error() string {
 	return "parties: invalid mutation request"
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
 	return &Store{
 		pool:           pool,
 		recordStore:    records.NewStore(),
-		revisionStore:  newRevisionAppendAdapter(),
+		revisionStore:  newRevisionAppendAdapter(appender),
 		projectionRows: projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
 	}
 }

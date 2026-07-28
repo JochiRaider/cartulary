@@ -47,29 +47,29 @@ func TestSocketLifecycleEvidenceIndex(t *testing.T) {
 		},
 		"presence_scoping_and_ephemeral_state": {
 			"internal/modules/collaboration/socket_test.go::TestIncidentSocketPresenceScopeEphemeral_Unit",
-			"internal/platform/ws/presence_transport_test.go::TestPresenceReplayRevocationTransport/presence_snapshots_are_incident_scoped_sorted_and_expire",
+			"internal/modules/collaboration/hub_test.go::TestPresenceReplayRevocationTransport/presence_snapshots_are_incident_scoped_sorted_and_expire",
 		},
 		"presence_update_real_socket": {
 			"internal/modules/collaboration/socket_test.go::TestIncidentSocketPresenceScopeEphemeral_Unit",
 		},
 		"record_changed_replay_filtering": {
 			"internal/modules/collaboration/integration_test.go::TestResumeReplaysReplayableMessagesOnly_Integration",
-			"internal/platform/ws/presence_transport_test.go::TestPresenceReplayRevocationTransport/resume_replay_filters_to_replayable_incident_messages",
+			"internal/modules/collaboration/hub_test.go::TestPresenceReplayRevocationTransport/resume_replay_filters_to_replayable_incident_messages",
 		},
 		"job_progress_replay_filtering": {
 			"internal/modules/collaboration/integration_test.go::TestResumeReplaysReplayableMessagesOnly_Integration",
 		},
 		"resume_reset_without_partial_replay": {
 			"internal/modules/collaboration/socket_test.go::TestIncidentSocketHandshakeResume_Unit/invalid_stale_or_mismatched_resume_resets_without_partial_replay",
-			"internal/platform/ws/presence_transport_test.go::TestPresenceReplayRevocationTransport/resume_reset_covers_expired_mismatched_and_too_old_tokens",
+			"internal/modules/collaboration/hub_test.go::TestPresenceReplayRevocationTransport/resume_reset_covers_expired_mismatched_and_too_old_tokens",
 		},
 		"revocation_reason_and_close": {
 			"internal/modules/collaboration/socket_test.go::TestIncidentSocketHeartbeatIdleExpiry_Unit",
 			"internal/modules/collaboration/integration_test.go::TestIncidentSocketRevocationSources",
-			"internal/platform/ws/presence_transport_test.go::TestPresenceReplayRevocationTransport/revocation_subscribers_preserve_public_reason_codes",
+			"internal/modules/collaboration/hub_test.go::TestPresenceReplayRevocationTransport/revocation_subscribers_preserve_public_reason_codes",
 		},
 		"view_patch_canonicalization": {
-			"internal/platform/ws/presence_transport_test.go::TestPresenceReplayRevocationTransport/record_changes_emit_canonical_patch_cells_with_invalidate_fallback",
+			"internal/modules/collaboration/hub_test.go::TestPresenceReplayRevocationTransport/record_changes_emit_canonical_patch_cells_with_invalidate_fallback",
 		},
 	}
 

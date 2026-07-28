@@ -16,8 +16,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/networkflowsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 const (
@@ -27,17 +30,30 @@ const (
 	testSHA4 = "4444444444444444444444444444444444444444444444444444444444444444"
 )
 
-func newTestNetworkFlowStore(db postgres.DB, options ...StoreOption) *Store {
-	options = append(options, WithOwnerParticipants(
+func newTestNetworkFlowStore(
+	t testing.TB,
+	db postgres.DB,
+	appender *revisions.Appender,
+	options ...StoreOption,
+) *Store {
+	t.Helper()
+	defaults := []StoreOption{WithOwnerParticipants(
 		incidents.NewTransactionParticipant(),
 		authn.NewAdministrativeAuditAppender(),
-		indicators.NewStore(db),
-	))
-	options = append(options, WithSafeDigester(testNetworkFlowSafeDigester{}))
-	return NewStore(db, options...)
+		indicators.NewStore(db, appender),
+	), WithSafeDigester(testNetworkFlowSafeDigester{}), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender())}
+	return NewStore(db, append(defaults, options...)...)
 }
 
 type testNetworkFlowSafeDigester struct{}
+
+type failingResourceIntentAppender struct {
+	err error
+}
+
+func (a failingResourceIntentAppender) AppendResourceIntentTx(context.Context, pgx.Tx, ResourceIntent) error {
+	return a.err
+}
 
 func (testNetworkFlowSafeDigester) Digest(valueClass string, canonicalValue string) (string, string, error) {
 	digest, keyID := SafeDigest("test-safe-v1", []byte("0123456789abcdef0123456789abcdef"), valueClass, canonicalValue)
@@ -47,7 +63,7 @@ func (testNetworkFlowSafeDigester) Digest(valueClass string, canonicalValue stri
 func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-create")
 	sessionID, unitID := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "C:\\tmp\\flows.csv")
-	store := newTestNetworkFlowStore(harness.DB)
+	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	now := time.Date(2026, 7, 10, 11, 30, 0, 0, time.UTC)
 
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
@@ -114,7 +130,7 @@ func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.
 
 func TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-lifecycle")
-	store := newTestNetworkFlowStore(harness.DB)
+	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 1)
 	second := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 2)
 	if first.DisplayName != "flows" || second.DisplayName != "flows (2)" {
@@ -195,9 +211,46 @@ func TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	}
 }
 
+func TestNetworkFlowResourceIntentFailureRollsBackSourceMutation_Integration(t *testing.T) {
+	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-intent-rollback")
+	appender := revisionsupport.MustAppender(t)
+	store := newTestNetworkFlowStore(t, harness.DB, appender)
+	table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 1)
+	intentFailure := errors.New("reject invalid extension resource payload")
+	failingStore := newTestNetworkFlowStore(
+		t,
+		harness.DB,
+		appender,
+		WithResourceIntentAppender(failingResourceIntentAppender{err: intentFailure}),
+	)
+
+	_, err := failingStore.RenameTable(context.Background(), RenameTableParams{
+		IncidentID:       incidentID,
+		TableID:          table.TableID,
+		BaseTableVersion: table.TableVersion,
+		DisplayName:      "must roll back",
+		Now:              time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
+	})
+	if !errors.Is(err, intentFailure) {
+		t.Fatalf("rename intent failure = %v want %v", err, intentFailure)
+	}
+	unchanged, err := store.GetActiveTable(context.Background(), incidentID, table.TableID)
+	if err != nil {
+		t.Fatalf("load table after rejected intent: %v", err)
+	}
+	if unchanged.DisplayName != table.DisplayName || unchanged.TableVersion != table.TableVersion || !unchanged.UpdatedAt.Equal(table.UpdatedAt) {
+		t.Fatalf("source mutation escaped rejected intent rollback: before=%#v after=%#v", table, unchanged)
+	}
+}
+
 func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-limits")
-	store := newTestNetworkFlowStore(harness.DB, WithLimits(Limits{MaxActiveTablesPerIncident: 1, MaxRetainedTablesPerIncident: 2}))
+	store := newTestNetworkFlowStore(
+		t,
+		harness.DB,
+		revisionsupport.MustAppender(t),
+		WithLimits(Limits{MaxActiveTablesPerIncident: 1, MaxRetainedTablesPerIncident: 2}),
+	)
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "one.csv", nil, 1)
 
 	_, err := createTestTableResult(t, harness.DB, store, actor.ID, incidentID, "two.csv", nil, 2)
@@ -238,7 +291,7 @@ func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 
 func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-invalid-names")
-	store := newTestNetworkFlowStore(harness.DB)
+	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 
 	for _, testCase := range []struct {
 		name       string
@@ -261,7 +314,7 @@ func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 
 func TestNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-immutable")
-	store := newTestNetworkFlowStore(harness.DB)
+	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "immutable.csv", nil, 1)
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {

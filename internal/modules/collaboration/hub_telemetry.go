@@ -1,4 +1,4 @@
-package ws
+package collaboration
 
 import (
 	"context"
@@ -79,12 +79,10 @@ func (h *Hub) telemetryServiceVersion() string {
 }
 
 func safeWebSocketEventType(eventType string) string {
-	switch eventType {
-	case "record_changed", "job_progress", "presence_delta", "presence_snapshot", "hello_ack", "resume_result", "ping", "session_revoked", "error":
+	if IsServerMessageType(eventType) {
 		return eventType
-	default:
-		return "other"
 	}
+	return "other"
 }
 
 func safeWebSocketResult(result string) string {

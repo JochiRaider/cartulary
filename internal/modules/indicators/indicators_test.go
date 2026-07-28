@@ -10,11 +10,12 @@ import (
 
 	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-04-indicators")
-	store := NewStore(harness.DB)
+	store := NewStore(harness.DB, revisionsupport.MustAppender(t))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector indicator-storage")
 
@@ -124,7 +125,7 @@ SELECT count(*)
 func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T) {
 	ctx := context.Background()
 	harness := recordstoretest.StartStore(t, "network-flow-core02-indicator-participant")
-	store := NewStore(harness.DB)
+	store := NewStore(harness.DB, revisionsupport.MustAppender(t))
 	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
 	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
 

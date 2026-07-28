@@ -20,7 +20,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const RequestIDHeader = "X-Request-Id"
@@ -32,8 +31,8 @@ type DependencySet struct {
 	PostgresDB          postgres.DB
 	ObjectStore         objectstore.Store
 	Jobs                *jobs.Manager
+	JobTransactions     *jobs.TransactionService
 	JobRunner           *jobs.Runner
-	WSHub               *platformws.Hub
 	CursorCodec         *pagination.Codec
 	ExtensionDiscovery  ExtensionDiscoveryProvider
 	ExtensionClaims     ExtensionClaimProvider

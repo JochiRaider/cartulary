@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -20,7 +21,17 @@ import (
 
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
-	_, err := revisionassembly.NewCommandService(nil, nil, nil)
+	runtime, err := revisionassembly.Build(
+		revisionassembly.Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         collaboration.NewIntentAppender(),
+		},
+		revisionassembly.CurrentProviderContributions()...,
+	)
+	if err != nil {
+		t.Fatalf("build Revisions runtime: %v", err)
+	}
+	_, err = runtime.NewCommandService(nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}
@@ -59,6 +70,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 	if success["deleted_at"] == nil || success["deleted_by_user_id"] != actorID.String() || success["change_set_id"] == "" {
 		t.Fatalf("delete response missing tombstone attribution: %#v", success)
 	}
+	requireSingleRecordChangeIntent(t, harness.DB, success["change_set_id"].(string), recordID, "remove")
 	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND deleted_at IS NOT NULL AND deleted_by_user_id = $2`, recordID, actorID); got != 1 {
 		t.Fatalf("record envelope was not soft-deleted, count=%d", got)
 	}
@@ -164,6 +176,7 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	if countRecordRevisions(t, harness.DB, recordID) != 2 {
 		t.Fatalf("expected one delete and one restore revision")
 	}
+	requireSingleRecordChangeIntent(t, harness.DB, success["change_set_id"].(string), recordID, "invalidate")
 
 	replay := httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": tombstoneVersion, "client_txn_id": "txn-u-7-04-restore"}), http.StatusOK)["data"].(map[string]any)
 	if replay["change_set_id"] != success["change_set_id"] || countRecordMutations(t, harness.DB, recordID, "restore") != 1 {
@@ -204,6 +217,32 @@ func setMembershipRole(t testing.TB, db *sql.DB, incidentID uuid.UUID, userID uu
 	t.Helper()
 	if _, err := db.ExecContext(context.Background(), `UPDATE incident_memberships SET role = $3, updated_at = now(), updated_by_user_id = $2 WHERE incident_id = $1 AND user_id = $2`, incidentID, userID, role); err != nil {
 		t.Fatalf("set membership role: %v", err)
+	}
+}
+
+func requireSingleRecordChangeIntent(
+	t testing.TB,
+	db *sql.DB,
+	changeSetID string,
+	recordID uuid.UUID,
+	changeKind string,
+) {
+	t.Helper()
+	if got := countRows(t, db, `
+SELECT count(*)
+  FROM collaboration_event_intents
+ WHERE source_change_set_id = $1
+   AND source_record_id = $2
+   AND event_family = 'record_changed'
+   AND canonical_payload -> 'affected_views' -> 0 ->> 'change_kind' = $3
+`, changeSetID, recordID, changeKind); got != 1 {
+		t.Fatalf(
+			"record change intent count for change set %s record %s kind %s = %d, want 1",
+			changeSetID,
+			recordID,
+			changeKind,
+			got,
+		)
 	}
 }
 
