@@ -1,6 +1,7 @@
 import {
   type IncidentControlsLoadState,
   type IncidentControlsSection,
+  incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
@@ -728,14 +729,17 @@ export function IncidentAdminPanel({
       {error ? (
         <p
           aria-live="assertive"
-          data-testid="incident-admin-error-code"
+          data-testid={incidentAdministrationTestId("admin-error-code")}
           role="alert"
           style={errorStyle}
         >
           {error.code}
         </p>
       ) : (
-        <p data-testid="incident-admin-error-code" style={errorStyle}>
+        <p
+          data-testid={incidentAdministrationTestId("admin-error-code")}
+          style={errorStyle}
+        >
           {""}
         </p>
       )}
@@ -769,7 +773,9 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 Description
                 <textarea
-                  data-testid="incident-patch-description"
+                  data-testid={incidentAdministrationTestId(
+                    "patch-description",
+                  )}
                   style={textAreaStyle}
                   value={patchDescription}
                   onChange={(event) => {
@@ -780,7 +786,7 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 Severity
                 <input
-                  data-testid="incident-patch-severity"
+                  data-testid={incidentAdministrationTestId("patch-severity")}
                   style={inputStyle}
                   value={patchSeverity}
                   onChange={(event) => {
@@ -792,7 +798,7 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 TLP
                 <select
-                  data-testid="incident-patch-tlp"
+                  data-testid={incidentAdministrationTestId("patch-tlp")}
                   style={inputStyle}
                   value={patchTLP}
                   onChange={(event) => {
@@ -810,7 +816,9 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 Current phase
                 <input
-                  data-testid="incident-patch-current-phase"
+                  data-testid={incidentAdministrationTestId(
+                    "patch-current-phase",
+                  )}
                   style={inputStyle}
                   value={patchCurrentPhase}
                   onChange={(event) => {
@@ -822,7 +830,9 @@ export function IncidentAdminPanel({
               <label style={fieldLabelStyle}>
                 Primary external case
                 <input
-                  data-testid="incident-patch-external-case"
+                  data-testid={incidentAdministrationTestId(
+                    "patch-external-case",
+                  )}
                   style={inputStyle}
                   value={patchExternalCase}
                   onChange={(event) => {
@@ -832,7 +842,7 @@ export function IncidentAdminPanel({
                 />
               </label>
               <button
-                data-testid="incident-patch-button"
+                data-testid={incidentAdministrationTestId("patch-button")}
                 style={primaryButtonStyle}
                 type="button"
                 onClick={() => {
@@ -844,7 +854,7 @@ export function IncidentAdminPanel({
             </div>
           ) : (
             <p
-              data-testid="incident-patch-readonly-note"
+              data-testid={incidentAdministrationTestId("patch-readonly-note")}
               style={mutedBodyStyle}
             >
               Promoted incident fields are read-only for this incident role.
@@ -1226,7 +1236,7 @@ function renderIncidentSummary({
             <h3 style={cardTitleStyle}>Incident summary</h3>
           </div>
           <span
-            data-testid="incident-summary-version"
+            data-testid={incidentAdministrationTestId("summary-version")}
             style={versionBadgeStyle}
           >
             Version {incident?.incident_version ?? "?"}
@@ -1236,19 +1246,28 @@ function renderIncidentSummary({
         <dl style={definitionGridStyle}>
           <div>
             <dt style={labelStyle}>Incident key</dt>
-            <dd data-testid="incident-summary-key" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-key")}
+              style={valueStyle}
+            >
               {incident?.incident_key ?? "Loading…"}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Title</dt>
-            <dd data-testid="incident-summary-title" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-title")}
+              style={valueStyle}
+            >
               {incident?.title ?? "Loading…"}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Status</dt>
-            <dd data-testid="incident-summary-status" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-status")}
+              style={valueStyle}
+            >
               {incident?.status === "closed"
                 ? "Closed, read-only"
                 : (incident?.status ?? "Loading…")}
@@ -1256,38 +1275,57 @@ function renderIncidentSummary({
           </div>
           <div>
             <dt style={labelStyle}>Description</dt>
-            <dd data-testid="incident-summary-description" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-description")}
+              style={valueStyle}
+            >
               {displayValue(incident?.description)}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Severity</dt>
-            <dd data-testid="incident-summary-severity" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-severity")}
+              style={valueStyle}
+            >
               {displayValue(incident?.severity)}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Closed at</dt>
-            <dd data-testid="incident-summary-closed-at" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-closed-at")}
+              style={valueStyle}
+            >
               {incident?.closed_at ?? "Unset"}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>TLP</dt>
-            <dd data-testid="incident-summary-tlp" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-tlp")}
+              style={valueStyle}
+            >
               {displayValue(incident?.tlp)}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Current phase</dt>
-            <dd data-testid="incident-summary-current-phase" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId(
+                "summary-current-phase",
+              )}
+              style={valueStyle}
+            >
               {displayValue(incident?.current_phase)}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>Primary external case</dt>
             <dd
-              data-testid="incident-summary-primary-external-case-ref"
+              data-testid={incidentAdministrationTestId(
+                "summary-primary-external-case-ref",
+              )}
               style={valueStyle}
             >
               {displayValue(incident?.primary_external_case_ref)}
@@ -1295,7 +1333,10 @@ function renderIncidentSummary({
           </div>
           <div>
             <dt style={labelStyle}>Current role</dt>
-            <dd data-testid="incident-summary-role" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("summary-role")}
+              style={valueStyle}
+            >
               {currentIncidentRole || "viewer"}
             </dd>
           </div>
@@ -1313,7 +1354,7 @@ function renderIncidentSummary({
           <label style={fieldLabelStyle}>
             Reason
             <input
-              data-testid="incident-lifecycle-reason"
+              data-testid={incidentAdministrationTestId("lifecycle-reason")}
               style={inputStyle}
               value={lifecycleReason}
               onChange={(event) => {
@@ -1322,7 +1363,7 @@ function renderIncidentSummary({
             />
           </label>
           <button
-            data-testid="incident-close-button"
+            data-testid={incidentAdministrationTestId("close-button")}
             disabled={
               !canLifecycle ||
               !lifecycleReasonReady ||
@@ -1337,7 +1378,7 @@ function renderIncidentSummary({
             Close incident
           </button>
           <button
-            data-testid="incident-reopen-button"
+            data-testid={incidentAdministrationTestId("reopen-button")}
             disabled={
               !canLifecycle ||
               !lifecycleReasonReady ||
@@ -1366,7 +1407,9 @@ function renderIncidentSummary({
           <div>
             <dt style={labelStyle}>Incident default sheet</dt>
             <dd
-              data-testid="incident-pref-default-sheet-ref"
+              data-testid={incidentAdministrationTestId(
+                "pref-default-sheet-ref",
+              )}
               style={valueStyle}
             >
               {formatWorkbookSheetRef(defaultPreference)}
@@ -1374,7 +1417,10 @@ function renderIncidentSummary({
           </div>
           <div>
             <dt style={labelStyle}>My home sheet</dt>
-            <dd data-testid="incident-pref-home-sheet-ref" style={valueStyle}>
+            <dd
+              data-testid={incidentAdministrationTestId("pref-home-sheet-ref")}
+              style={valueStyle}
+            >
               {formatWorkbookSheetRef(userPreference)}
             </dd>
           </div>

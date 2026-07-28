@@ -31,36 +31,31 @@ type SelectorOwnership = {
 const sharedBuilderOwnedSelectorPatterns = [
   /^(?:auth|account|admin)-/u,
   /^app-shell$/u,
+  /^assessment-/u,
+  /^(?:conflict|paste-conflict)-/u,
+  /^(?:party-link|task-lifecycle|decision-supersede)-/u,
   /^debug-harness-loading$/u,
   /^deployment-user-row-/u,
+  /^generic-/u,
+  /^(?:host|identity)-inspector$/u,
+  /^incident-(?:admin|summary|pref|patch|lifecycle|close|reopen)-/u,
   /^incident-landing$/u,
   /^landing-admin-/u,
   /^landing-/u,
+  /^merge-/u,
+  /^pending-queue-/u,
+  /^presence-/u,
   /^row-history-/u,
   /^saved-view-/u,
   /^reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error)(?:-|$)/u,
   /^save-state$/u,
   /^timeline-inspector$/u,
   /^timeline-inspector-message$/u,
-  /^workbook-(?:current-user|loading)$/u,
+  /^timeline-evidence-file-/u,
+  /^workbook-(?:current-user|focus-anchor|loading)$/u,
 ] as const;
 
 const appLocalSelectorOwnership = [
-  {
-    owner: "apps/web workbook route focus support",
-    pattern: /^workbook-focus-anchor$/u,
-    reason:
-      "The workbook focus anchor is a keyboard support fixture retained app-local until its owning focus surface is promoted.",
-    scope: "apps/web route handoff and keyboard focus coverage",
-  },
-  {
-    owner: "apps/web incident administration",
-    pattern: /^incident-(?:admin|summary|pref|patch|lifecycle|close|reopen)-/u,
-    reason:
-      "Incident admin selectors are app-local to the incident admin panel and incident-directory coverage.",
-    scope:
-      "apps/web IncidentAdminPanel and incident-directory browser coverage",
-  },
   {
     owner: "apps/web phase harnesses",
     pattern:
@@ -71,63 +66,12 @@ const appLocalSelectorOwnership = [
       "apps/web AuthenticationDebugHarness, IncidentDirectoryDebugHarness, and phase support specs",
   },
   {
-    owner: "apps/web timeline workbook surface",
+    owner: "apps/web fixed unit-fixture controls",
     pattern:
-      /^(?:timeline-(?:blur-surface|refresh-error|evidence-file-(?:draft|timeline-1))|controlled-input$|entity-load-error$)/u,
+      /^(?:controlled-input|row-record-1-(?:mark-reviewed|replacement-id|supersede)|saved-view-row-record-[12])$/u,
     reason:
-      "Timeline shell selectors are app-local workbook anchors pending later FE phase selector promotion.",
-    scope: "apps/web WorkbookShell and timeline workbook support tests",
-  },
-  {
-    owner: "apps/web row fixture controls",
-    pattern:
-      /^(?:row-record-1-(?:mark-reviewed|replacement-id|supersede)|saved-view-row-record-[12])$/u,
-    reason:
-      "These fixed row selector literals target a unit-test fixture; variable row selector construction remains builder-owned.",
-    scope: "apps/web Timeline autosave unit fixture",
-  },
-  {
-    owner: "apps/web presence and sync surfaces",
-    pattern: /^(?:presence-|pending-queue-)/u,
-    reason:
-      "Presence and pending-queue selectors are app-local runtime affordances with existing shared builders staged separately.",
-    scope: "apps/web collaboration unit and browser coverage",
-  },
-  {
-    owner: "apps/web conflict resolver",
-    pattern: /^(?:conflict-|paste-conflict-)/u,
-    reason:
-      "Conflict resolver selectors are retained app-local controls until the browser.collaboration conflict surface is promoted.",
-    scope:
-      "apps/web WorkbookShell conflict resolver and collaboration and inspector coverage",
-  },
-  {
-    owner: "apps/web entity merge and inspector controls",
-    pattern: /^(?:merge-|host-inspector$|identity-inspector$)/u,
-    reason:
-      "Entity merge selectors are app-local workflow controls for existing entity workflow coverage.",
-    scope: "apps/web entity inspector merge controls and browser specs",
-  },
-  {
-    owner: "apps/web assessment controls",
-    pattern: /^assessment-/u,
-    reason:
-      "Assessment selectors are app-local workbook controls pending later system-view selector promotion.",
-    scope: "apps/web assessment surface and browser specs",
-  },
-  {
-    owner: "apps/web generic mutation controls",
-    pattern: /^generic-/u,
-    reason:
-      "Generic system-view mutation selectors are app-local controls until reusable builders are introduced per surface.",
-    scope: "apps/web generic mutation UI and workbook-inspector coverage",
-  },
-  {
-    owner: "apps/web coordination controls",
-    pattern: /^(?:party-link-|task-lifecycle-|decision-supersede-)/u,
-    reason:
-      "Coordination workflow selectors are app-local controls for current workbook-inspector browser coverage.",
-    scope: "apps/web coordination generic mutation controls",
+      "These fixed selector literals target unit-test fixtures; variable runtime selector construction remains builder-owned.",
+    scope: "apps/web Timeline support and autosave unit fixtures",
   },
   {
     owner: "apps/web test-local mocks",
@@ -560,8 +504,10 @@ describe("selector contract policy", () => {
     }
 
     expect(appLocalOwnershipFor("authentication-debug-request")).not.toBeNull();
-    expect(appLocalOwnershipFor("incident-patch-button")).not.toBeNull();
-    expect(appLocalOwnershipFor("workbook-focus-anchor")).not.toBeNull();
+    expect(sharedBuilderOwns("incident-patch-button")).toBe(true);
+    expect(appLocalOwnershipFor("incident-patch-button")).toBeNull();
+    expect(sharedBuilderOwns("workbook-focus-anchor")).toBe(true);
+    expect(appLocalOwnershipFor("workbook-focus-anchor")).toBeNull();
   });
 
   it("keeps cross-boundary selector templates behind shared builders", () => {

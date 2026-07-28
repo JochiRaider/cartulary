@@ -1,10 +1,13 @@
 import {
   cellPresenceMarkerTestId,
   gridShellTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -12,6 +15,7 @@ import {
   workbookEditRecoveryDiscardButtonTestId,
   workbookEditRecoveryRetryButtonTestId,
   workbookEditRecoveryTestId,
+  workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -160,11 +164,13 @@ describe("workbook collaboration coverage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("presence-header").textContent).toContain("OA");
+      expect(
+        screen.getByTestId(workbookPresenceSummaryTestId()).textContent,
+      ).toContain("OA");
     });
-    expect(screen.getByTestId("presence-header").textContent).not.toContain(
-      "SA",
-    );
+    expect(
+      screen.getByTestId(workbookPresenceSummaryTestId()).textContent,
+    ).not.toContain("SA");
     await waitFor(() => {
       expect(
         screen.getByTestId(
@@ -185,9 +191,9 @@ describe("workbook collaboration coverage", () => {
       },
     });
     await waitFor(() => {
-      expect(screen.getByTestId("presence-header").textContent).not.toContain(
-        "OA",
-      );
+      expect(
+        screen.getByTestId(workbookPresenceSummaryTestId()).textContent,
+      ).not.toContain("OA");
     });
   });
 
@@ -318,7 +324,7 @@ describe("workbook collaboration coverage", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getByTestId("conflict-close"));
+    fireEvent.click(screen.getByTestId(workbookConflictControlTestId("close")));
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
@@ -384,7 +390,9 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Local");
     fireEvent.blur(input);
     await screen.findByTestId(workbookConflictResolverTestId());
-    fireEvent.click(screen.getByTestId("conflict-keep-saved"));
+    fireEvent.click(
+      screen.getByTestId(workbookConflictControlTestId("keep-saved")),
+    );
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
@@ -455,7 +463,9 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Use local");
     fireEvent.blur(input);
     await screen.findByTestId(workbookConflictResolverTestId());
-    fireEvent.click(screen.getByTestId("conflict-use-unsaved"));
+    fireEvent.click(
+      screen.getByTestId(workbookConflictControlTestId("use-unsaved")),
+    );
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
@@ -527,14 +537,18 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Merge local");
     fireEvent.blur(input);
     await screen.findByTestId(workbookConflictResolverTestId());
-    expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
-      "value",
-      "Merge server",
+    expect(
+      screen.getByTestId(workbookConflictControlTestId("merged-value")),
+    ).toHaveProperty("value", "Merge server");
+    fireEvent.change(
+      screen.getByTestId(workbookConflictControlTestId("merged-value")),
+      {
+        target: { value: "Merge final" },
+      },
     );
-    fireEvent.change(screen.getByTestId("conflict-merged-value"), {
-      target: { value: "Merge final" },
-    });
-    fireEvent.click(screen.getByTestId("conflict-use-merged"));
+    fireEvent.click(
+      screen.getByTestId(workbookConflictControlTestId("use-merged")),
+    );
     await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
@@ -941,12 +955,12 @@ describe("workbook collaboration coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-        "1",
-      );
-      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
-        "future_terminal_public_error",
-      );
+      expect(
+        screen.getByTestId(pendingQueueCountTestId()).textContent,
+      ).toContain("1");
+      expect(
+        screen.getByTestId(pendingQueueNoticeTestId()).textContent,
+      ).toContain("future_terminal_public_error");
     });
   });
 
@@ -1003,7 +1017,7 @@ describe("workbook collaboration coverage", () => {
 
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
     expect(document.activeElement).toBe(
-      screen.getByTestId("pending-queue-notice"),
+      screen.getByTestId(pendingQueueNoticeTestId()),
     );
     fireEvent.click(
       screen.getByTestId(workbookEditRecoveryRetryButtonTestId()),

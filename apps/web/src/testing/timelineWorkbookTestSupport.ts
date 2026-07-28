@@ -8,6 +8,7 @@ import {
   saveStateTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookFocusAnchorTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type {
@@ -852,14 +853,14 @@ export async function focusReadyGridScalarInput({
   await waitFor(
     () => {
       expect(document.activeElement).toBe(input);
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         expectedAnchor,
       );
     },
     {
       onTimeout: (error) => {
         const focusAnchor =
-          screen.queryByTestId("workbook-focus-anchor")?.textContent ??
+          screen.queryByTestId(workbookFocusAnchorTestId())?.textContent ??
           "(missing)";
         return new Error(
           `${error.message}\nExpected ready focus anchor ${expectedAnchor}.\n` +

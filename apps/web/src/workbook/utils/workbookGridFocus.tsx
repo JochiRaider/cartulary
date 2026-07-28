@@ -4,7 +4,11 @@ import type {
   GridHandle,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
-import { rowCellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
+import {
+  rowCellTestId,
+  type WorkbookSurface,
+  workbookFocusAnchorTestId,
+} from "@cartulary/ui-contracts";
 import {
   type ClipboardEvent as ReactClipboardEvent,
   type ReactNode,
@@ -94,7 +98,7 @@ export function WorkbookFocusAnchorStatus({
   readonly anchor: WorkbookFocusAnchor | null;
 }) {
   return (
-    <span data-testid="workbook-focus-anchor" style={visuallyHiddenStyle}>
+    <span data-testid={workbookFocusAnchorTestId()} style={visuallyHiddenStyle}>
       {formatWorkbookFocusAnchor(anchor)}
     </span>
   );

@@ -29,6 +29,7 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentAdministrationTestId,
   incidentControlsPanelTestId,
   incidentMembershipListTestId,
   mentionDismissButtonTestId,
@@ -67,13 +68,16 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
   workbookEditRecoveryTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
+  workbookPresenceSummaryTestId,
   workbookResponsiveBandTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
@@ -731,8 +735,12 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(
       0,
     );
-    await expect(page.getByTestId("incident-summary-key")).toHaveCount(0);
-    await expect(page.getByTestId("incident-patch-button")).toHaveCount(0);
+    await expect(
+      page.getByTestId(incidentAdministrationTestId("summary-key")),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId(incidentAdministrationTestId("patch-button")),
+    ).toHaveCount(0);
     await expect(page.getByTestId(incidentMembershipListTestId())).toHaveCount(
       0,
     );
@@ -1058,7 +1066,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     await expect(
       page
         .getByTestId(workbookShellSlotTestId("status-strip"))
-        .getByTestId("presence-header"),
+        .getByTestId(workbookPresenceSummaryTestId()),
     ).toBeVisible();
     await assertViewportVisualRegression(
       page,
@@ -2389,7 +2397,9 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           "timeline.activity_synopsis_text",
         ),
       });
-      await expect(page.getByTestId("presence-header")).toContainText("+1");
+      await expect(
+        page.getByTestId(workbookPresenceSummaryTestId()),
+      ).toContainText("+1");
       await expect(
         page.getByTestId(rowPresenceMarkerTestId(presenceRow.record_id)),
       ).toContainText("+3");
@@ -2461,7 +2471,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       title: "browser.collaboration visual conflict strip",
     });
     try {
-      await page.getByTestId("conflict-close").click();
+      await page.getByTestId(workbookConflictControlTestId("close")).click();
       await expect(
         page.getByTestId(workbookConflictResolverTestId()),
       ).toHaveCount(0);
@@ -2484,7 +2494,9 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       title: "browser.collaboration visual recovered strip",
     });
     try {
-      await page.getByTestId("conflict-keep-saved").click();
+      await page
+        .getByTestId(workbookConflictControlTestId("keep-saved"))
+        .click();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
       await assertStatusStripVisualFixture(
@@ -3183,7 +3195,9 @@ test.describe("workbook visual evidence", () => {
         "collaboration-grid-blocked-conflict",
       );
 
-      await page.getByTestId("conflict-keep-saved").click();
+      await page
+        .getByTestId(workbookConflictControlTestId("keep-saved"))
+        .click();
       await expect(saveState).toHaveText("Saved");
     } finally {
       await patchController.dispose();
@@ -3949,7 +3963,7 @@ async function assertStatusStripVisualFixture(page: Page, name: string) {
 async function expectStatusStripFocusAnchorVisuallyHidden(
   statusStrip: Locator,
 ) {
-  const focusAnchor = statusStrip.getByTestId("workbook-focus-anchor");
+  const focusAnchor = statusStrip.getByTestId(workbookFocusAnchorTestId());
   await expect(focusAnchor).toHaveCount(1);
   await expect
     .poll(
@@ -5589,12 +5603,6 @@ async function maskVisualDynamicText(page: Page) {
       const style = document.createElement("style");
       style.id = styleId;
       style.textContent = `
-        [data-testid="conflict-server-actor"],
-        [data-testid="conflict-server-updated-at"] {
-          color: transparent !important;
-          caret-color: transparent !important;
-        }
-
         html[data-visual-snapshot="true"]
           .visual-row-history-rollback-preview > p:first-child {
           block-size: 4.5rem !important;

@@ -197,12 +197,13 @@
       ]
     },
     {
-      "id": "frontend-workbook-import-feature-facade-boundary",
+      "id": "frontend-import-orchestration-consumer-boundary",
       "level": "error",
-      "message": "Workbook and app composition must consume Import execution only through its workbook feature facade.",
+      "message": "Import orchestration is Imports-owned and may be consumed only by the Workbook Import Assistant and explicit Network Flow Import adapters.",
       "applies_to": {
         "include": [
           "apps/web/src/app/**",
+          "apps/web/src/networkFlow/**",
           "apps/web/src/workbook/**"
         ],
         "exclude": [
@@ -215,12 +216,15 @@
         ]
       },
       "allowed_importers": [
+        "apps/web/src/networkFlow/NetworkFlowMappingModal.tsx",
+        "apps/web/src/networkFlow/networkFlowImportModel.ts",
+        "apps/web/src/networkFlow/useNetworkFlowImportController.ts",
         "apps/web/src/workbook/features/ImportAssistantFeature.tsx"
       ],
       "restricted_imports": [
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/shared/importCoordinator"
+          "path": "apps/web/src/imports/importCoordinator"
         }
       ]
     },
@@ -249,7 +253,7 @@
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/shared/importCoordinator"
+          "path": "apps/web/src/imports/importCoordinator"
         },
         {
           "kind": "path_prefix",

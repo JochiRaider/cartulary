@@ -988,7 +988,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/shared/importCoordinator.test.ts",
+        "file": "apps/web/src/imports/importCoordinator.test.ts",
         "titles": [
           "extension import coordinator stages blocks selection and apply when durable approval returns a stale fingerprint",
           "extension import coordinator stages keeps discovery, side-effect-free preview, approval, selection, and apply as explicit stages",

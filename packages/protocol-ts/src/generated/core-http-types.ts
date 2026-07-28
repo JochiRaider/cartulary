@@ -23,6 +23,41 @@ export type ExtensionProfileID = string;
  * via the `definition` "ExtensionRouteFamily".
  */
 export type ExtensionRouteFamily = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ApprovedImportMapping".
+ */
+export type ApprovedImportMapping = {
+  extension_profile_id?: string;
+  owner_mapping?: {
+    [k: string]: unknown;
+  };
+  owner_mapping_schema_id?: string;
+  source_columns: ImportSourceColumnMapping[];
+  target_kind?: string;
+  target_view_schema_id?: string;
+  unknown_column_policy?: "preserve_raw_capture" | "preserve_custom_attrs" | "reject_if_unmapped";
+} & ApprovedImportMapping1;
+export type ApprovedImportMapping1 = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitMappingRequest".
+ */
+export type ImportUnitMappingRequest = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobScope".
+ */
+export type JobScope = {
+  [k: string]: unknown;
+} & {
+  incident_id?: string;
+  kind: "deployment" | "incident";
+};
 
 export interface HttpsContractsCartularyLocalGeneratedCoreHttpV1 {
   [k: string]: unknown;
@@ -383,6 +418,194 @@ export interface ExtensionMappingPreviewRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportPreviewEnvelope".
+ */
+export interface ImportPreviewEnvelope {
+  data: ImportPreview;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportPreview".
+ */
+export interface ImportPreview {
+  columns: ImportPreviewColumn[];
+  data_start_row_ref: number;
+  header_row_ref: number;
+  import_session_id: string;
+  import_unit_id: string;
+  inferred_column_count: number;
+  inferred_row_count: number;
+  locator: {
+    [k: string]: unknown;
+  };
+  locator_kind: string;
+  mapping_fingerprint?: string;
+  /**
+   * @maxItems 50
+   */
+  preview_rows: ImportPreviewRow[];
+  source_rect_a1: string;
+  truncated: boolean;
+  unit_status: string;
+  warning_codes: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportPreviewColumn".
+ */
+export interface ImportPreviewColumn {
+  source_column_ordinal: number;
+  source_header_text: string | number | boolean | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportPreviewRow".
+ */
+export interface ImportPreviewRow {
+  cells: ImportPreviewCell[];
+  source_row_ref: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportPreviewCell".
+ */
+export interface ImportPreviewCell {
+  cell_kind: "blank" | "string" | "number" | "boolean" | "datetime" | "formula_cached" | "error_literal";
+  display_text: string;
+  source_column_ordinal: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSessionApplyRequest".
+ */
+export interface ImportSessionApplyRequest {
+  client_txn_id: string;
+  selected_unit_ids?: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSessionEnvelope".
+ */
+export interface ImportSessionEnvelope {
+  data: ImportSession;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSession".
+ */
+export interface ImportSession {
+  assistant_profile: string;
+  blocking_diagnostics: {
+    [k: string]: unknown;
+  }[];
+  created_at: string;
+  created_by_user_id: string;
+  import_session_id: string;
+  incident_id: string;
+  nonblocking_warning_codes: string[];
+  original_filename: string;
+  parser_profile_id: string;
+  parser_version: string;
+  selected_unit_ids: string[];
+  session_status:
+    | "uploaded"
+    | "discovering"
+    | "discovered"
+    | "ready_to_apply"
+    | "applying"
+    | "applied"
+    | "partially_applied"
+    | "failed"
+    | "canceled";
+  source_content_sha256: string;
+  source_file_kind: "csv" | "xlsx";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitActionEnvelope".
+ */
+export interface ImportUnitActionEnvelope {
+  data: {
+    import_session_id: string;
+    selected_unit_ids: string[];
+    session_status: string;
+    unit: ImportUnit;
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnit".
+ */
+export interface ImportUnit {
+  approved_mapping?: ApprovedImportMapping;
+  data_start_row_ref: number;
+  header_row_ref: number;
+  import_session_id: string;
+  import_unit_id: string;
+  inferred_column_count: number;
+  inferred_row_count: number;
+  locator: {
+    [k: string]: unknown;
+  };
+  locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region";
+  mapping_fingerprint?: string;
+  source_rect_a1: string;
+  unit_status: "discovered" | "mapped" | "ready" | "skipped" | "applying" | "applied" | "failed";
+  warning_codes: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSourceColumnMapping".
+ */
+export interface ImportSourceColumnMapping {
+  empty_value_policy: "omit_field" | "set_null" | "set_empty_string";
+  entity_binding_mode: string | null;
+  field_key: string | null;
+  source_column_ordinal: number;
+  source_header_text: string | number | boolean | null;
+  transform_id: string | null;
+  transform_options: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitActionRequest".
+ */
+export interface ImportUnitActionRequest {
+  client_txn_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitEnvelope".
+ */
+export interface ImportUnitEnvelope {
+  data: ImportUnit;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitSkipRequest".
+ */
+export interface ImportUnitSkipRequest {
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitsEnvelope".
+ */
+export interface ImportUnitsEnvelope {
+  data: {
+    import_units: ImportUnit[];
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IncidentEnvelope".
  */
 export interface IncidentEnvelope {
@@ -418,6 +641,81 @@ export interface IncidentLifecycleRequest {
   base_incident_version: number;
   client_txn_id: string;
   reason: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobCancelRequest".
+ */
+export interface JobCancelRequest {
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobEnvelope".
+ */
+export interface JobEnvelope {
+  data: JobResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResource".
+ */
+export interface JobResource {
+  cancelable: boolean;
+  error_summary: JobErrorSummary | null;
+  finished_at: string | null;
+  job_id: string;
+  message?: string;
+  progress: JobProgress;
+  result_summary: JobResultSummary | null;
+  retained_until: string | null;
+  scope: JobScope;
+  started_at: string | null;
+  status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "canceled";
+  status_route: string;
+  submitted_at: string;
+  submitted_by_user_id: string;
+  updated_at: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobErrorSummary".
+ */
+export interface JobErrorSummary {
+  code: string;
+  details?: {
+    [k: string]: unknown;
+  };
+  message: string;
+  retryable: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobProgress".
+ */
+export interface JobProgress {
+  completed: number;
+  total: number | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResultSummary".
+ */
+export interface JobResultSummary {
+  code: string;
+  message: string;
+  resource_refs?: JobResourceRef[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "JobResourceRef".
+ */
+export interface JobResourceRef {
+  id: string;
+  kind: string;
+  route?: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

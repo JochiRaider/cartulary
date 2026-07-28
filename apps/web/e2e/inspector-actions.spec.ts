@@ -5,6 +5,7 @@ import {
 import {
   draftCellTestId,
   entityInspectButtonTestId,
+  entityInspectorTestId,
   gridShellTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
@@ -585,11 +586,11 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     targetTestId: hostInspectButtonTestId,
   });
   await page.getByTestId(hostInspectButtonTestId).click();
-  await expect(page.getByTestId("host-inspector")).toContainText(
+  await expect(page.getByTestId(entityInspectorTestId("host"))).toContainText(
     "end-to-end.inspector-history.row-02 host",
   );
   await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
-  await expect(page.getByTestId("host-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(entityInspectorTestId("host"))).toHaveCount(0);
   await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");

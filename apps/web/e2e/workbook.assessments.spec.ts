@@ -4,6 +4,8 @@ import {
   scrollGridCellIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  assessmentCreateControlTestId,
+  assessmentCreatePanelTestId,
   rowCellTestId,
   workbookAddRowButtonTestId,
   workbookShellReadyTestId,
@@ -54,10 +56,10 @@ test("creates append-only assessment history through the workbook UI", async ({
   await page
     .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
     .click();
-  await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
-  await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
-    subject.record_id,
-  );
+  await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("subject")),
+  ).toHaveValue(subject.record_id);
 
   type AssessmentState =
     | "cleared"

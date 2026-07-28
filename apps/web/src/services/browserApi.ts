@@ -12,6 +12,7 @@ import {
   csrfHeaderName,
   readCookie,
   requestJSON,
+  requestMultipartJSON,
 } from "./httpTransport";
 
 export type APIError = {
@@ -63,13 +64,36 @@ export async function fetchHTTPOperation<T>(options: {
     apiPath(options.apiBase, path),
     options.init,
   );
+  return validateHTTPOperationResult(options.operationID, result);
+}
+
+export async function fetchMultipartHTTPOperation<T>(options: {
+  apiBase?: string | undefined;
+  body: FormData;
+  init?: Omit<RequestInit, "body" | "credentials" | "headers"> | undefined;
+  operationID: HTTPOperationID;
+  pathParameters?: Readonly<Record<string, string | number>> | undefined;
+  query?: Readonly<Record<string, HTTPQueryValue>> | undefined;
+}): Promise<APIResult<T>> {
+  const path =
+    buildHTTPOperationPath(options.operationID, options.pathParameters) +
+    encodeHTTPOperationQuery(options.operationID, options.query);
+  const result = (await requestMultipartJSON<T>(
+    apiPath(options.apiBase, path),
+    options.body,
+    options.init,
+  )) as APIResult<T>;
+  return validateHTTPOperationResult(options.operationID, result);
+}
+
+function validateHTTPOperationResult<T>(
+  operationID: HTTPOperationID,
+  result: APIResult<T>,
+): APIResult<T> {
   if (!result.ok) {
     return result;
   }
-  const validation = validateHTTPOperationResponse(
-    options.operationID,
-    result.payload,
-  );
+  const validation = validateHTTPOperationResponse(operationID, result.payload);
   if (validation.ok) {
     return result;
   }
@@ -81,7 +105,7 @@ export async function fetchHTTPOperation<T>(options: {
         code: "invalid_public_contract_response",
         details: {
           instance_path: validation.instancePath,
-          operation_id: options.operationID,
+          operation_id: operationID,
           schema_id: validation.schemaId,
         },
         message: "The server returned an invalid public contract response.",

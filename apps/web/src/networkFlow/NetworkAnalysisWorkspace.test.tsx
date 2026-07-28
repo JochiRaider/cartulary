@@ -52,6 +52,11 @@ const mappingFingerprint =
 const graphDigest =
   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const incidentResourceId = "11111111-1111-4111-8111-111111111111";
+const importSessionId = "22222222-2222-4222-8222-222222222222";
+const importUnitId = "33333333-3333-4333-8333-333333333333";
+const importActorId = "44444444-4444-4444-8444-444444444444";
+const uploadImportJobId = "55555555-5555-4555-8555-555555555555";
+const applyImportJobId = "66666666-6666-4666-8666-666666666666";
 const sourceDigest =
   "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 const sourceRowDigest =
@@ -902,96 +907,134 @@ function installImportFlowFetchMock(returnedTableId: string) {
         });
       }
       if (method === "POST" && url.endsWith("/api/v1/import-sessions")) {
-        return jsonResponse({ data: importJob("upload-job") });
+        return jsonResponse(
+          importEnvelope(
+            importJob(uploadImportJobId, {
+              code: "import_session_discovered",
+              message: "Import discovery completed.",
+              resource_refs: [
+                {
+                  kind: "import_session",
+                  id: importSessionId,
+                  route: `/api/v1/import-sessions/${importSessionId}`,
+                },
+              ],
+            }),
+          ),
+        );
       }
-      if (method === "GET" && url.endsWith("/api/v1/jobs/upload-job")) {
+      if (
+        method === "GET" &&
+        url.endsWith(`/api/v1/jobs/${uploadImportJobId}`)
+      ) {
+        return jsonResponse(
+          importEnvelope(
+            importJob(uploadImportJobId, {
+              code: "import_session_discovered",
+              message: "Import discovery completed.",
+              resource_refs: [
+                {
+                  kind: "import_session",
+                  id: importSessionId,
+                  route: `/api/v1/import-sessions/${importSessionId}`,
+                },
+              ],
+            }),
+          ),
+        );
+      }
+      if (method === "GET" && url.endsWith(`/${importSessionId}`)) {
+        return jsonResponse(importEnvelope(importSessionResource()));
+      }
+      if (
+        method === "GET" &&
+        url.endsWith(`/${importSessionId}/units?limit=50`)
+      ) {
         return jsonResponse({
           data: {
-            ...importJob("upload-job"),
-            result_summary: {
-              resource_refs: [{ kind: "import_session", id: "session-1" }],
-            },
+            import_units: [importUnitResource()],
+          },
+          meta: {
+            request_id: "request-import",
+            paging: { limit: 50, has_more: false, next_cursor: null },
           },
         });
       }
-      if (method === "GET" && url.endsWith("/session-1")) {
-        return jsonResponse({
-          data: {
-            import_session_id: "session-1",
-            incident_id: "incident-1",
-            original_filename: "new-flows.csv",
-            source_file_kind: "csv",
-            session_status: "discovered",
-            selected_unit_ids: [],
-            blocking_diagnostics: [],
-            nonblocking_warning_codes: [],
-          },
-        });
-      }
-      if (method === "GET" && url.endsWith("/session-1/units?limit=50")) {
-        return jsonResponse({
-          data: {
-            import_units: [
-              { import_session_id: "session-1", import_unit_id: "unit-1" },
-            ],
-          },
-        });
-      }
-      if (method === "GET" && url.endsWith("/unit-1/preview")) {
-        return jsonResponse({
-          data: {
-            import_session_id: "session-1",
-            import_unit_id: "unit-1",
-            header_row_ref: 1,
-            data_start_row_ref: 2,
-            columns,
-            preview_rows: [],
-          },
-        });
+      if (method === "GET" && url.endsWith(`/${importUnitId}/preview`)) {
+        return jsonResponse(importEnvelope(importPreviewResource(columns)));
       }
       if (method === "POST" && url.endsWith("/mapping-preview")) {
         const request = JSON.parse(String(init?.body)) as {
           owner_mapping: Record<string, unknown>;
         };
-        return jsonResponse({
-          data: {
+        return jsonResponse(
+          importEnvelope({
             schema_id: "cartulary.imports.extension_mapping_preview_result.v1",
-            import_session_id: "session-1",
-            import_unit_id: "unit-1",
+            import_session_id: importSessionId,
+            import_unit_id: importUnitId,
             target_kind: "network_flow_table",
             extension_profile_id: "network_flow_activity",
             owner_result_schema_id:
               "cartulary.network_flow.import_preview_result.v1",
             owner_result: importPreviewResult(request.owner_mapping),
-          },
-        });
+          }),
+        );
       }
       if (method === "PUT" && url.endsWith("/mapping")) {
-        return jsonResponse({
-          data: {
-            import_session_id: "session-1",
-            import_unit_id: "unit-1",
+        return jsonResponse(
+          importEnvelope({
+            ...importUnitResource("mapped"),
             mapping_fingerprint: mappingFingerprint,
-          },
-        });
+            approved_mapping: {
+              target_kind: "network_flow_table",
+              extension_profile_id: "network_flow_activity",
+              owner_mapping_schema_id:
+                "cartulary.network_flow.mapping_candidate.v1",
+              owner_mapping: {},
+              source_columns: columns.map((column) => ({
+                ...column,
+                field_key: null,
+                entity_binding_mode: null,
+                transform_id: null,
+                transform_options: {},
+                empty_value_policy: "omit_field",
+              })),
+            },
+          }),
+        );
       }
       if (method === "POST" && url.endsWith("/select")) {
-        return jsonResponse({ data: { selected: true } });
+        return jsonResponse(
+          importEnvelope({
+            import_session_id: importSessionId,
+            session_status: "ready_to_apply",
+            selected_unit_ids: [importUnitId],
+            unit: importUnitResource("ready"),
+          }),
+        );
       }
-      if (method === "POST" && url.endsWith("/session-1/apply")) {
-        return jsonResponse({ data: importJob("apply-job") });
+      if (method === "POST" && url.endsWith(`/${importSessionId}/apply`)) {
+        return jsonResponse(importEnvelope(importJob(applyImportJobId)));
       }
-      if (method === "GET" && url.endsWith("/api/v1/jobs/apply-job")) {
-        return jsonResponse({
-          data: {
-            ...importJob("apply-job"),
-            result_summary: {
+      if (
+        method === "GET" &&
+        url.endsWith(`/api/v1/jobs/${applyImportJobId}`)
+      ) {
+        return jsonResponse(
+          importEnvelope(
+            importJob(applyImportJobId, {
+              code: "import_session_applied",
+              message: "Import session applied.",
               resource_refs: [
-                { kind: "network_flow_table", id: returnedTableId },
+                {
+                  kind: "network_flow_table",
+                  id: returnedTableId,
+                  route: `/api/v1/incidents/incident-1/network-flow/tables/${returnedTableId}`,
+                },
               ],
-            },
-          },
-        });
+            }),
+          ),
+        );
       }
       return jsonResponse({ error: { code: "unexpected_request" } }, 404);
     },
@@ -1040,8 +1083,84 @@ function importPreviewResult(ownerMapping: Record<string, unknown>) {
   };
 }
 
-function importJob(jobId: string) {
-  return { job_id: jobId, status: "succeeded", result_summary: null };
+function importSessionResource() {
+  return {
+    import_session_id: importSessionId,
+    incident_id: incidentResourceId,
+    created_by_user_id: importActorId,
+    created_at: "2026-07-28T12:00:00Z",
+    source_file_kind: "csv",
+    original_filename: "new-flows.csv",
+    source_content_sha256: sourceDigest,
+    parser_profile_id: "tabular_default",
+    parser_version: "1.0.0",
+    assistant_profile: "phase2_workbook_import_v1",
+    session_status: "discovered",
+    selected_unit_ids: [],
+    blocking_diagnostics: [],
+    nonblocking_warning_codes: [],
+  } as const;
+}
+
+function importUnitResource(
+  unitStatus: "discovered" | "mapped" | "ready" = "discovered",
+) {
+  return {
+    import_session_id: importSessionId,
+    import_unit_id: importUnitId,
+    locator_kind: "csv_file",
+    locator: { file: "source" },
+    source_rect_a1: "A1:I2",
+    header_row_ref: 1,
+    data_start_row_ref: 2,
+    inferred_row_count: 1,
+    inferred_column_count: 9,
+    warning_codes: [],
+    unit_status: unitStatus,
+  } as const;
+}
+
+function importPreviewResource(columns: ReturnType<typeof importColumns>) {
+  return {
+    ...importUnitResource(),
+    columns,
+    preview_rows: [],
+    truncated: false,
+  };
+}
+
+function importJob(
+  jobId: string,
+  resultSummary: {
+    readonly code: string;
+    readonly message: string;
+    readonly resource_refs: readonly {
+      readonly kind: string;
+      readonly id: string;
+      readonly route: string;
+    }[];
+  } | null = null,
+) {
+  return {
+    job_id: jobId,
+    scope: { kind: "incident", incident_id: incidentResourceId },
+    status_route: `/api/v1/jobs/${jobId}`,
+    submitted_by_user_id: importActorId,
+    status: "succeeded",
+    cancelable: false,
+    progress: { completed: 1, total: 1 },
+    result_summary: resultSummary,
+    error_summary: null,
+    submitted_at: "2026-07-28T12:00:00Z",
+    started_at: "2026-07-28T12:00:01Z",
+    finished_at: "2026-07-28T12:00:02Z",
+    retained_until: "2026-08-04T12:00:02Z",
+    updated_at: "2026-07-28T12:00:02Z",
+  } as const;
+}
+
+function importEnvelope<T>(data: T) {
+  return { data, meta: { request_id: "request-import" } };
 }
 
 function installNetworkFlowFetchMock(

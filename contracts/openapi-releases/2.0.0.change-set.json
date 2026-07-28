@@ -428,6 +428,234 @@
       "classification": "additive",
       "owner_id": "module.incidentbundles",
       "rationale": "Publish the closed Incident Bundle descriptor not-found reason vocabulary adopted by Core 01."
+    },
+    {
+      "fingerprint": "3bbeb48e6bab42d3fa27505e6df2c54f3e5a987660d329411a8c67b3f060b88b",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the Core 01 optional normalized cancel reason already accepted by the common job route."
+    },
+    {
+      "fingerprint": "da0187364e6edd547dfecb124c76d26fd6db36acca524b14bfcda09526c607a0",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the compact Core 01 job error summary already emitted by the common job runtime."
+    },
+    {
+      "fingerprint": "6ce9538c90672fc7fc55fe02e5c91d17e7b2238322b157214916bb1d4cd553d2",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Remove the incorrectly nested progress message from the v2 projection; Core 01 defines message only on the job resource."
+    },
+    {
+      "fingerprint": "b3e4cd61241a4a58f1fe18b6fa39df2c3876ef2bb14f8c1365c10bf4fd4d1305",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Replace the incorrect nullable-total minimum projection with the Core 01 positive-integer-or-null union."
+    },
+    {
+      "fingerprint": "5d11b52d6a33ba08cdb2c3f3219223f332123516f39fd68c6228548f7c3cea9e",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the Core 01 positive-integer-or-null progress total as an explicit union."
+    },
+    {
+      "fingerprint": "28c98ba580a5b6aa96a3f6c7b52579a249fc6f347d9276219cac99bdaf4e398d",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Replace the inaccurate multi-type progress total projection with the owner-defined explicit union."
+    },
+    {
+      "fingerprint": "68a5bf89b099a4558047be871a4a73f0572ca2a3135a7f8fad21282365bfbd30",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Remove the non-owner progress message from the required-member set."
+    },
+    {
+      "fingerprint": "395dcc631a3cdd21029463da68a988652711b135066e7f8047b2a4423aed5581",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Replace the non-canonical created_at projection with the canonical submitted_at member."
+    },
+    {
+      "fingerprint": "273171f0f447ecc240acf1dc924a1b96dfda032535efb574f39abd05428670ac",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Replace an untyped error object with the compact Core 01 job error summary."
+    },
+    {
+      "fingerprint": "414c6b190e81aba9951456c6dc27bde488316a5a08b74109276d06634e0bd511",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the required-nullable typed job error summary union."
+    },
+    {
+      "fingerprint": "107bdd963814e3172b53cd90150336206fb027c3548a7ca8a385ee63d46cdbd1",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Replace the inaccurate untyped error-summary union with its owner-defined schema reference."
+    },
+    {
+      "fingerprint": "cc18fd38660e3f712966ef8c25c10353b8b3f47df83ece51acf251402d756c1a",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Move incident identity under the canonical conditional job scope object."
+    },
+    {
+      "fingerprint": "5bdcf357d641ab9a6766fbe6fdd68764ccf91ed70a8aeac89a49fd8b30986fc7",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the optional top-level operator-visible job message from Core 01."
+    },
+    {
+      "fingerprint": "c68a57f73d2c561ff1a18da7a45b4d965f76691fe1d9e03ca648fd196ca005eb",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the required-nullable job retention timestamp already emitted by the runtime."
+    },
+    {
+      "fingerprint": "ad584566092f746a14a2db83158e3a9ca1a431415700c8a3a0be617f5a467fe4",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the canonical authorization and live-update scope object from Core 01."
+    },
+    {
+      "fingerprint": "1924b5881dc5454b56760ec8c442c79820d7d8fb904a251ed6082d78d6098d4b",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Remove the non-canonical flattened scope kind in favor of the owner-defined scope object."
+    },
+    {
+      "fingerprint": "5cb179370b04a8740bd6579aa8d0a3d757ad688dc4ff71d30212addd1328935e",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the canonical same-origin job status route already emitted by initiating routes."
+    },
+    {
+      "fingerprint": "a2e9b4d59cdded1173f1122234ec64b66931f674dc0cf8f06f6a70435592d085",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the canonical submitted_at timestamp already emitted by the runtime."
+    },
+    {
+      "fingerprint": "6be51ad02039f37643f9c8ec907cd201d68c935032456a2b74e5d68281470e76",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Align the required v2 job resource members exactly with the adopted Core 01 owner."
+    },
+    {
+      "fingerprint": "92633e7075e53597cac9bdc9e392d9f055ab1f4638b28c47062c69bc84703af7",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Preserve abstract-shell forward compatibility by making resource-ref routes optional as Core 01 requires."
+    },
+    {
+      "fingerprint": "f92cd7e295acc536d7e11cf6828257b0d6d80e3f6eac48bab3d939c756b6c3e5",
+      "classification": "breaking",
+      "owner_id": "module.jobapi",
+      "rationale": "Preserve compact result summaries by making resource_refs optional as Core 01 requires."
+    },
+    {
+      "fingerprint": "0a69c4b1e1fe00b4cef9cc52d682087f1fb0809a7e0486d201a546e6122018c1",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Project the conditional incident-or-deployment scope already emitted by the common job runtime."
+    },
+    {
+      "fingerprint": "a70b28360527fc4f242a2177286f7f9eec1ffa1ce73502dea8764d714fdb1235",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the server-derived Import preview locator as an extensible structured descriptor."
+    },
+    {
+      "fingerprint": "c40edd2199dd35152ba2dada0621c89c83f6a5817cd2e47aa980a7125e186846",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Replace the inaccurate string Import preview locator with the structured descriptor already emitted by the runtime."
+    },
+    {
+      "fingerprint": "42b132480c6ded776133befc1dd2d84871eef76d8b7da32f60ed0d31fc9eef45",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the server-derived Import unit locator as an extensible structured descriptor."
+    },
+    {
+      "fingerprint": "32fb7f03b98c8760f6c8f0615b31d2315e0498eee9c3f1ca02d92a83de9a32a3",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Replace the inaccurate string Import unit locator with the structured descriptor already emitted by the runtime."
+    },
+    {
+      "fingerprint": "1a963aa67304ad1474696a3db1febc6ebbe419418a96ea56ffed4d7516f6fb69",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the mutually exclusive view-schema and analytical-extension approved-mapping variants from Core 01."
+    },
+    {
+      "fingerprint": "0d78894a64917d517f0bda1b6f2941ab004f8846973ef5a84440f448ae1710e1",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the analytical extension profile identity in approved Import mappings."
+    },
+    {
+      "fingerprint": "bcdf7e63dea3ff53ed298652d656cf63dfd8c125bee58e61ec5380c540dc9fe2",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the owner-validated analytical extension mapping in approved Import mappings."
+    },
+    {
+      "fingerprint": "163554f0f11b6fc2d7cc46bbd8b33bad7a5ae866dbf074e44d657a179d6b9d53",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the owner mapping schema identity in approved analytical extension mappings."
+    },
+    {
+      "fingerprint": "1165ce631bc475917a2971b57316d992cb2b0d486fe475a85ca141354552d431",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the target kind in approved analytical extension mappings."
+    },
+    {
+      "fingerprint": "e89325e6cf09303941d1cfbfd737a06e667258d81eada7c9491406dd1874f90a",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Replace the view-schema-only required-member set with Core 01's closed approved-mapping variant requirements."
+    },
+    {
+      "fingerprint": "42b213985a134c1d18ac85bb09949f903931d1613e30c391a55c65cbe4e15087",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the mutually exclusive view-schema and analytical-extension mapping request variants from Core 01."
+    },
+    {
+      "fingerprint": "6e8675ddc6ae3d8a5795bc7cbc37e81384e0fc23273a2068eeba41f784ef657b",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the analytical extension profile identity in Import mapping requests."
+    },
+    {
+      "fingerprint": "a0d15286e574c2897bdf3d775c74dae27b848feb09bc3e86e34d1db7ba6eee94",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the owner-validated analytical extension mapping in Import mapping requests."
+    },
+    {
+      "fingerprint": "fff69e9d5dbd1b3c2ad1549d1d2aa103bc287203f4a76de6c4c393b3befa3d8e",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the owner mapping schema identity in analytical extension mapping requests."
+    },
+    {
+      "fingerprint": "ed214f8052ceb9cd1341e69dab68143ac32758fa17242f6577570191f8eac521",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Project the target kind in analytical extension mapping requests."
+    },
+    {
+      "fingerprint": "5321b9a34762f192ce4660b2d6555a3c7cf99c3f6d9eb21f020588770815c472",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Replace the view-schema-only required-member set with Core 01's closed mapping request variant requirements."
     }
   ]
 }

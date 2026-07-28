@@ -101,6 +101,17 @@ implementations consume this boundary but do not redefine availability.
 | `extensions/extensionWorkspaceIdentities.ts` | Stable extension profile, route-family, workspace, and sheet-reference identities. |
 | `extensions/extensionAvailability.test.ts` | Tests for support-registry decoding, exact availability intersections, stale-response rejection, generation rollover, and fail-closed behavior. |
 
+## `imports/`
+
+The `imports/` directory owns browser-side Import workflow choreography.
+Transport mechanics and generated protocol aliases remain in `services/`;
+target-specific mapping interpretation remains with the consuming feature.
+
+| File | Responsibility |
+| --- | --- |
+| `imports/importCoordinator.ts` | Paginated discovery, preview, mapping approval, selection, apply, polling, and cancellation orchestration over validated Import/job operations. |
+| `imports/importCoordinator.test.ts` | Characterization for opaque cursor traversal, exact envelopes, preview/approval separation, stale fingerprints, CSRF, and public errors. |
+
 ## `networkFlow/`
 
 Network Flow is an extension feature. It owns Network Analysis behavior and
@@ -116,7 +127,7 @@ or `view_schema` owner. Workbook composition consumes it only through
 | `networkFlow/NetworkFlowQueryControls.tsx` | Accepted-row and rejected-row filter, sort, time-window, and reset controls. |
 | `networkFlow/NetworkFlowSemanticGrid.tsx` | Semantic accepted-row, rejected-row, and contributor grids with layout controls, selection, focus recovery, and inspector presentation. |
 | `networkFlow/networkFlowBoundaryPolicy.test.ts` | Static enforcement for controller composition, generated-decoder ownership, and browser projection-input exclusion. |
-| `networkFlow/networkFlowClient.ts` | Network Flow route builders and decoded feature client operations. |
+| `networkFlow/networkFlowClient.ts` | Decoded Network Flow feature operations; browser routing remains owned by the app/workbook route seam. |
 | `networkFlow/networkFlowCollaborationInterpreter.ts` | Feature-local interpreter for decoded Network Flow extension invalidation/removal events. |
 | `networkFlow/networkFlowController.ts` | Pure Network Flow table selection and refresh/removal state reducer. |
 | `networkFlow/networkFlowErrors.ts` | Feature-local authorization-loss classification shared by query controllers. |
@@ -137,7 +148,6 @@ or `view_schema` owner. Workbook composition consumes it only through
 | `networkFlow/useNetworkFlowTableController.ts` | Table discovery, active selection, load state, and access-loss controller. |
 | `networkFlow/NetworkAnalysisWorkspace.test.tsx` | Network Analysis workspace behavior tests. |
 | `networkFlow/NetworkFlowSemanticGrid.test.tsx` | Semantic-grid accessibility tests for focus recovery and keyboard column reordering announcements. |
-| `networkFlow/networkFlowClient.test.ts` | Network Flow decoded client and request-boundary tests. |
 | `networkFlow/networkFlowCollaborationInterpreter.test.ts` | Network Flow collaboration event admission tests. |
 | `networkFlow/networkFlowController.test.ts` | Network Flow controller lifecycle tests. |
 | `networkFlow/networkFlowErrors.test.ts` | Tests for structured Network Flow error preservation, safe messages, and lifecycle/access-loss classification. |
@@ -161,7 +171,9 @@ request/response handling already owned by specs and backend contracts.
 | `services/clientTransactionId.ts` | Secure prefixed client transaction ID generation using Web Crypto UUIDs or RFC 4122 v4 fallback formatting. |
 | `services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. |
 | `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
+| `services/importContractAdapter.ts` | Thin generated-protocol alias facade for Import and common-job operations and workflow resource types. |
 | `services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. |
+| `services/networkFlowContractAdapter.test.ts` | Network Flow claimed-profile and compiled-contract-major admission tests. |
 | `services/workbookApi.ts` | Workbook HTTP helper utilities, envelope parsing, abort/query runtime helpers, and user-facing error extraction. |
 | `services/workbookEvidence.ts` | Evidence upload/attach client helpers and evidence public-error mapping. |
 | `services/browserApi.test.ts` | Tests for browser API base/path helpers. |
@@ -178,8 +190,6 @@ specific.
 | File | Responsibility |
 | --- | --- |
 | `shared/publicError.ts` | Shared public-error normalization helpers. |
-| `shared/importCoordinator.ts` | Three-stage extension import discovery, side-effect-free owner preview, and fingerprint-bound approval/apply orchestration. |
-| `shared/importCoordinator.test.ts` | Characterization tests for exact preview/approval request boundaries, discovered ordinals, stale fingerprints, CSRF, and public errors. |
 | `shared/workbookSheetRef.ts` | Shared workbook sheet-reference contract and runtime guard. |
 | `shared/workbookShellContracts.ts` | Shared app/workbook shell contracts for account identity, application menu handoff, and incident-controls renderer props. |
 
@@ -422,7 +432,6 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar and relationship mutation commands, pending-save admission, and save lifecycle callbacks. |
 | `workbook/timeline/hooks/useTimelinePendingReplayController.ts` | Coordinates pending-save replay admission, HTTP replay dispatch, socket transaction tracking, and reload scheduling. |
 | `workbook/timeline/hooks/useTimelinePendingSaves.ts` | Coordinates Timeline pending-save queue runtime and replay admission. |
-| `workbook/timeline/hooks/useTimelinePresenceProjection.ts` | Projects active-sheet presence records, suppresses the current socket connection, resolves row/cell presence, and dispatches edit-mode presence. |
 | `workbook/timeline/hooks/useTimelineRows.ts` | Coordinates Timeline row state, draft rows, and row reconciliation. |
 | `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Coordinates Timeline row loading, query aborts, runtime status, and row reconciliation callbacks. |
 | `workbook/timeline/hooks/useTimelineSaveStatePresentation.ts` | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, replay scheduling, and beforeunload warning state. |

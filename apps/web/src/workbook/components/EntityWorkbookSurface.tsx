@@ -17,6 +17,7 @@ import {
   entityInspectButtonTestId,
   entityInspectorSubjectTestId,
   entityInspectorTestId,
+  entityMergeControlTestId,
   entityMergePreconditionDetailsTestId,
   entityReusableIdentifierItemTestId,
   entityReusableIdentifiersSectionTestId,
@@ -1289,7 +1290,7 @@ export function EntityWorkbookSurface({
                     <label style={labelStyle}>
                       Merge loser
                       <select
-                        data-testid="merge-loser-record"
+                        data-testid={entityMergeControlTestId("loser-record")}
                         style={selectStyle}
                         value={mergeCandidateId}
                         onChange={(event) => {
@@ -1313,7 +1314,7 @@ export function EntityWorkbookSurface({
                     <label style={labelStyle}>
                       Merge reason
                       <input
-                        data-testid="merge-reason"
+                        data-testid={entityMergeControlTestId("reason")}
                         style={inputStyle}
                         type="text"
                         value={mergeReason}
@@ -1323,7 +1324,10 @@ export function EntityWorkbookSurface({
                       />
                     </label>
                     {loserEntity && mergePlan ? (
-                      <div data-testid="merge-plan" style={mergePlanStyle}>
+                      <div
+                        data-testid={entityMergeControlTestId("plan")}
+                        style={mergePlanStyle}
+                      >
                         <p style={noticeTitleStyle}>
                           Survivor {selectedEntity.label} absorbs loser{" "}
                           {loserEntity.label}
@@ -1358,7 +1362,7 @@ export function EntityWorkbookSurface({
                           <li>{mergePlan.dependencySummary}</li>
                         </ul>
                         <button
-                          data-testid="merge-confirm"
+                          data-testid={entityMergeControlTestId("confirm")}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
@@ -1370,7 +1374,7 @@ export function EntityWorkbookSurface({
                       </div>
                     ) : (
                       <button
-                        data-testid="merge-start"
+                        data-testid={entityMergeControlTestId("start")}
                         style={secondaryActionButtonStyle}
                         type="button"
                         onClick={() => {
@@ -1430,7 +1434,10 @@ export function EntityWorkbookSurface({
 
                 {mergeMessage ? (
                   <div style={mergeMessageBlockStyle}>
-                    <p data-testid="merge-message" style={bodyStyle}>
+                    <p
+                      data-testid={entityMergeControlTestId("message")}
+                      style={bodyStyle}
+                    >
                       {mergeMessage}
                     </p>
                     {mergePreconditionDetails.length > 0 ? (

@@ -10,6 +10,7 @@ import {
   rowPresenceMarkerTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -372,12 +373,16 @@ export async function exerciseSameFieldResolver({
   ).toBeVisible();
 
   if (action === "keep_saved") {
-    await page.getByTestId("conflict-keep-saved").click();
+    await page.getByTestId(workbookConflictControlTestId("keep-saved")).click();
   } else if (action === "use_unsaved") {
-    await page.getByTestId("conflict-use-unsaved").click();
+    await page
+      .getByTestId(workbookConflictControlTestId("use-unsaved"))
+      .click();
   } else {
-    await page.getByTestId("conflict-merged-value").fill(mergedValue ?? "");
-    await page.getByTestId("conflict-use-merged").click();
+    await page
+      .getByTestId(workbookConflictControlTestId("merged-value"))
+      .fill(mergedValue ?? "");
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
   }
 
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");

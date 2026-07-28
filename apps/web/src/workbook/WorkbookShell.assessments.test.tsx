@@ -1,4 +1,6 @@
 import {
+  assessmentCreateControlTestId,
+  assessmentCreatePanelTestId,
   gridFilterApplyTestId,
   gridFilterChipTestId,
   gridFilterFieldTestId,
@@ -229,34 +231,51 @@ describe("Assessment workbook surface", () => {
         workbookAddRowButtonTestId(assessmentsViewSchemaId),
       ),
     );
-    await screen.findByTestId("assessment-create-panel");
+    await screen.findByTestId(assessmentCreatePanelTestId());
     await waitFor(() => {
       expect(
-        (screen.getByTestId("assessment-create-subject") as HTMLSelectElement)
-          .value,
+        (
+          screen.getByTestId(
+            assessmentCreateControlTestId("subject"),
+          ) as HTMLSelectElement
+        ).value,
       ).toBe("host-1");
     });
 
-    fireEvent.change(screen.getByTestId("assessment-create-state"), {
-      target: { value: "confirmed" },
-    });
-    fireEvent.change(screen.getByTestId("assessment-create-confidence-band"), {
-      target: { value: "high" },
-    });
-    fireEvent.change(screen.getByTestId("assessment-create-rationale"), {
-      target: { value: "Confirmed from support." },
-    });
-    fireEvent.change(screen.getByTestId("assessment-create-assessed-at"), {
-      target: { value: "2026-04-24T12:00:00Z" },
-    });
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("state")),
+      {
+        target: { value: "confirmed" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("confidence-band")),
+      {
+        target: { value: "high" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("rationale")),
+      {
+        target: { value: "Confirmed from support." },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("assessed-at")),
+      {
+        target: { value: "2026-04-24T12:00:00Z" },
+      },
+    );
     const supportSelect = screen.getByTestId(
-      "assessment-create-support-refs",
+      assessmentCreateControlTestId("support-refs"),
     ) as HTMLSelectElement;
     const supportOption = supportSelect.options.item(0);
     expect(supportOption).not.toBeNull();
     (supportOption as HTMLOptionElement).selected = true;
     fireEvent.change(supportSelect);
-    fireEvent.click(screen.getByTestId("assessment-create-submit"));
+    fireEvent.click(
+      screen.getByTestId(assessmentCreateControlTestId("submit")),
+    );
 
     await screen.findByText("Assessment created.");
     const createCallIndex = fetchMock.mock.calls.findIndex(([input]) =>

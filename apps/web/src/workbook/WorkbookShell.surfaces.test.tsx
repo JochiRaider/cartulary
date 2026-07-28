@@ -1,9 +1,11 @@
 import {
+  coordinationWorkflowTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
   entityInspectButtonTestId,
   entityInspectorSubjectTestId,
   entityInspectorTestId,
+  entityMergeControlTestId,
   entityMergePreconditionDetailsTestId,
   entityReusableIdentifierItemTestId,
   entityReusableIdentifiersSectionTestId,
@@ -20,6 +22,7 @@ import {
   gridGroupingSelectTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  incidentAdministrationTestId,
   incidentControlsCloseButtonTestId,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
@@ -46,6 +49,7 @@ import {
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineEvidenceFileInputTestId,
   timelineInspectorMessageTestId,
   timelineInspectorTestId,
   timelinePreviewRowTestId,
@@ -202,11 +206,15 @@ function TestIncidentControls({
   if (activeSection === "summary") {
     return (
       <>
-        <div data-testid="incident-summary-key">IR-1</div>
-        <div data-testid="incident-pref-default-sheet-ref">
+        <div data-testid={incidentAdministrationTestId("summary-key")}>
+          IR-1
+        </div>
+        <div
+          data-testid={incidentAdministrationTestId("pref-default-sheet-ref")}
+        >
           View schema: Timeline (cartulary.view.timeline.v2)
         </div>
-        <div data-testid="incident-pref-home-sheet-ref">
+        <div data-testid={incidentAdministrationTestId("pref-home-sheet-ref")}>
           Saved view: {savedViewId}
         </div>
       </>
@@ -214,7 +222,10 @@ function TestIncidentControls({
   }
   if (activeSection === "incident-fields") {
     return (
-      <button data-testid="incident-patch-button" type="button">
+      <button
+        data-testid={incidentAdministrationTestId("patch-button")}
+        type="button"
+      >
         Patch
       </button>
     );
@@ -1023,14 +1034,17 @@ describe("WorkbookShell surface selection", () => {
       );
     });
     expect(
-      (await screen.findByTestId("incident-summary-key")).textContent,
+      (await screen.findByTestId(incidentAdministrationTestId("summary-key")))
+        .textContent,
     ).toBe("IR-1");
     expect(
-      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+      screen.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref"))
+        .textContent,
     ).toBe("View schema: Timeline (cartulary.view.timeline.v2)");
-    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
-      `Saved view: ${savedViewId}`,
-    );
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref"))
+        .textContent,
+    ).toBe(`Saved view: ${savedViewId}`);
 
     fireEvent.keyDown(panel, { key: "Escape" });
     await waitFor(() => {
@@ -1052,8 +1066,12 @@ describe("WorkbookShell surface selection", () => {
         incidentControlsMenuItemTestId("incident-fields"),
       ),
     );
-    expect(await screen.findByTestId("incident-patch-button")).toBeTruthy();
-    expect(screen.queryByTestId("incident-summary-key")).toBeNull();
+    expect(
+      await screen.findByTestId(incidentAdministrationTestId("patch-button")),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(incidentAdministrationTestId("summary-key")),
+    ).toBeNull();
     fireEvent.click(screen.getByTestId(incidentControlsCloseButtonTestId()));
     await waitFor(() => {
       expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
@@ -2312,10 +2330,15 @@ describe("WorkbookShell surface selection", () => {
       ).textContent,
     ).toContain("Dependent row");
 
-    fireEvent.change(screen.getByTestId("merge-loser-record"), {
-      target: { value: "host-loser" },
-    });
-    const mergePlan = await screen.findByTestId("merge-plan");
+    fireEvent.change(
+      screen.getByTestId(entityMergeControlTestId("loser-record")),
+      {
+        target: { value: "host-loser" },
+      },
+    );
+    const mergePlan = await screen.findByTestId(
+      entityMergeControlTestId("plan"),
+    );
     expect(mergePlan.textContent).toContain(
       "Survivor Survivor host absorbs loser Loser host",
     );
@@ -2339,7 +2362,7 @@ describe("WorkbookShell surface selection", () => {
       "Linked events visible on surface: survivor=2, loser=1.",
     );
 
-    fireEvent.click(screen.getByTestId("merge-confirm"));
+    fireEvent.click(screen.getByTestId(entityMergeControlTestId("confirm")));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -2359,9 +2382,9 @@ describe("WorkbookShell surface selection", () => {
       reason: "Merge duplicate entity",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("merge-message").textContent).toContain(
-        "Merged Loser host into Survivor host (host).",
-      );
+      expect(
+        screen.getByTestId(entityMergeControlTestId("message")).textContent,
+      ).toContain("Merged Loser host into Survivor host (host).");
     });
     await expectRecordIds(hostsViewSchemaId, [
       "host-survivor",
@@ -2626,15 +2649,20 @@ describe("WorkbookShell surface selection", () => {
         ),
       ).textContent,
     ).toBe("Email: legacy@example.test");
-    fireEvent.change(await screen.findByTestId("merge-loser-record"), {
-      target: { value: "identity-loser" },
-    });
-    fireEvent.click(await screen.findByTestId("merge-confirm"));
+    fireEvent.change(
+      await screen.findByTestId(entityMergeControlTestId("loser-record")),
+      {
+        target: { value: "identity-loser" },
+      },
+    );
+    fireEvent.click(
+      await screen.findByTestId(entityMergeControlTestId("confirm")),
+    );
 
     await waitFor(() => {
-      expect(screen.getByTestId("merge-message").textContent).toBe(
-        "merge_precondition_failed: carry_forward_identifier_collision",
-      );
+      expect(
+        screen.getByTestId(entityMergeControlTestId("message")).textContent,
+      ).toBe("merge_precondition_failed: carry_forward_identifier_collision");
     });
     expect(
       screen.getByTestId(
@@ -2719,7 +2747,9 @@ describe("WorkbookShell surface selection", () => {
       ),
       { target: { value: "task-1" } },
     );
-    const clearButton = await screen.findByTestId("party-link-clear-link");
+    const clearButton = await screen.findByTestId(
+      coordinationWorkflowTestId("party-clear-link"),
+    );
     fireEvent.click(clearButton);
 
     await waitFor(() => {
@@ -2804,7 +2834,9 @@ describe("WorkbookShell surface selection", () => {
       ),
       { target: { value: "task-1" } },
     );
-    fireEvent.click(await screen.findByTestId("party-link-clear-link"));
+    fireEvent.click(
+      await screen.findByTestId(coordinationWorkflowTestId("party-clear-link")),
+    );
 
     await waitFor(() => {
       expect(clearPatchBody).toMatchObject({
@@ -3151,7 +3183,7 @@ describe("WorkbookShell surface selection", () => {
     );
     await openTimelineInspectorFromContext("timeline-1");
     const input = await screen.findByTestId(
-      "timeline-evidence-file-timeline-1",
+      timelineEvidenceFileInputTestId("timeline-1"),
     );
     fireEvent.change(input, {
       target: {
@@ -3209,7 +3241,7 @@ describe("WorkbookShell surface selection", () => {
     );
     await openTimelineInspectorFromContext("timeline-1");
     fireEvent.change(
-      await screen.findByTestId("timeline-evidence-file-timeline-1"),
+      await screen.findByTestId(timelineEvidenceFileInputTestId("timeline-1")),
       {
         target: {
           files: [

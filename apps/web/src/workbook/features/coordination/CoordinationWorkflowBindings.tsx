@@ -1,3 +1,4 @@
+import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useState } from "react";
 import { apiPath, clientTxnID } from "../../../services/browserApi";
@@ -153,7 +154,7 @@ export function CoordinationWorkflowBindings({
       <div style={workflowRowStyle}>
         <select
           aria-label="Task lifecycle row"
-          data-testid="task-lifecycle-target"
+          data-testid={coordinationWorkflowTestId("task-target")}
           style={selectStyle}
           value={lifecycleRecordId}
           onChange={(event) => setLifecycleRecordId(event.target.value)}
@@ -167,7 +168,7 @@ export function CoordinationWorkflowBindings({
         </select>
         <select
           aria-label="Task lifecycle status"
-          data-testid="task-lifecycle-status"
+          data-testid={coordinationWorkflowTestId("task-status")}
           style={selectStyle}
           value={lifecycleStatus}
           onChange={(event) => setLifecycleStatus(event.target.value)}
@@ -180,7 +181,7 @@ export function CoordinationWorkflowBindings({
         </select>
         <input
           aria-label="Blocked reason"
-          data-testid="task-lifecycle-blocked-reason"
+          data-testid={coordinationWorkflowTestId("task-blocked-reason")}
           disabled={lifecycleStatus !== "blocked"}
           style={inputStyle}
           type="text"
@@ -188,7 +189,7 @@ export function CoordinationWorkflowBindings({
           onChange={(event) => setLifecycleBlockedReason(event.target.value)}
         />
         <button
-          data-testid="task-lifecycle-submit"
+          data-testid={coordinationWorkflowTestId("task-submit")}
           disabled={disabled}
           style={actionButtonStyle}
           type="button"
@@ -205,7 +206,7 @@ export function CoordinationWorkflowBindings({
       <div style={workflowRowStyle}>
         <select
           aria-label="Superseded decision"
-          data-testid="decision-supersede-target"
+          data-testid={coordinationWorkflowTestId("decision-target")}
           style={selectStyle}
           value={supersedeTargetId}
           onChange={(event) => setSupersedeTargetId(event.target.value)}
@@ -219,7 +220,7 @@ export function CoordinationWorkflowBindings({
         </select>
         <select
           aria-label="Superseding decision"
-          data-testid="decision-supersede-replacement"
+          data-testid={coordinationWorkflowTestId("decision-replacement")}
           style={selectStyle}
           value={supersedeReplacementId}
           onChange={(event) => setSupersedeReplacementId(event.target.value)}
@@ -233,14 +234,14 @@ export function CoordinationWorkflowBindings({
         </select>
         <input
           aria-label="Decision supersession reason"
-          data-testid="decision-supersede-reason"
+          data-testid={coordinationWorkflowTestId("decision-reason")}
           style={inputStyle}
           type="text"
           value={supersedeReason}
           onChange={(event) => setSupersedeReason(event.target.value)}
         />
         <button
-          data-testid="decision-supersede-submit"
+          data-testid={coordinationWorkflowTestId("decision-submit")}
           disabled={disabled}
           style={actionButtonStyle}
           type="button"

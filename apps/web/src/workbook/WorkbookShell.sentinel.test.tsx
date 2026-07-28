@@ -10,8 +10,10 @@ import {
   gridShellTestId,
   rowCellTestId,
   saveStateTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
+  workbookFocusAnchorTestId,
 } from "@cartulary/ui-contracts";
 import {
   createEvent,
@@ -257,7 +259,7 @@ describe("keyboard and grid anchor coverage", () => {
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
@@ -268,7 +270,7 @@ describe("keyboard and grid anchor coverage", () => {
       .closest('[role="gridcell"]');
     fireEvent.keyDown(firstSummaryCell as HTMLElement, { key: "ArrowDown" });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
@@ -291,7 +293,7 @@ describe("keyboard and grid anchor coverage", () => {
       },
     );
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.data_source_text`,
       );
       expect(document.activeElement).toBe(
@@ -310,7 +312,7 @@ describe("keyboard and grid anchor coverage", () => {
       },
     );
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
     });
@@ -373,7 +375,7 @@ describe("keyboard and grid anchor coverage", () => {
       value: "Draft before movement",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(
@@ -389,7 +391,7 @@ describe("keyboard and grid anchor coverage", () => {
     fireEvent.mouseDown(firstCell);
     fireEvent.keyDown(firstCell, { key: "ArrowUp" });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
@@ -431,14 +433,14 @@ describe("keyboard and grid anchor coverage", () => {
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
 
     fireEvent.keyDown(summary, { key: "Enter" });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
@@ -457,7 +459,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     fireEvent.keyDown(record2Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
@@ -478,7 +480,7 @@ describe("keyboard and grid anchor coverage", () => {
       },
     );
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
       expect(
@@ -546,7 +548,7 @@ describe("keyboard and grid anchor coverage", () => {
       value: "Enter draft before movement",
     });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
       );
     });
@@ -558,7 +560,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     fireEvent.keyDown(record1Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
@@ -600,7 +602,7 @@ describe("keyboard and grid anchor coverage", () => {
     fireEvent.keyDown(summary, { key: "v", ctrlKey: true });
 
     await waitFor(() => {
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
     });
@@ -884,7 +886,7 @@ describe("keyboard and grid anchor coverage", () => {
         { kind: "create" },
       ],
     });
-    expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+    expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
       `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
     );
   });
@@ -1029,7 +1031,7 @@ describe("keyboard and grid anchor coverage", () => {
       expect(
         screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
       ).toBeTruthy();
-      expect(screen.getByTestId("workbook-focus-anchor").textContent).toBe(
+      expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
         `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
       );
       expect(
@@ -1037,26 +1039,32 @@ describe("keyboard and grid anchor coverage", () => {
           conflictMarkerTestId("record-2", "timeline.activity_synopsis_text"),
         ),
       ).toBeTruthy();
-      expect(screen.getByTestId("paste-conflict-navigator")).toBeTruthy();
-      expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
-        "1 of 2",
-      );
+      expect(
+        screen.getByTestId(workbookConflictControlTestId("paste-navigator")),
+      ).toBeTruthy();
+      expect(
+        screen.getByTestId(workbookConflictControlTestId("paste-position"))
+          .textContent,
+      ).toBe("1 of 2");
       expect(
         screen.getByTestId(workbookConflictLocalValueTestId()),
       ).toHaveProperty("value", "Client first");
     }, pasteConflictWait);
 
-    fireEvent.click(screen.getByTestId("paste-conflict-next"));
+    fireEvent.click(
+      screen.getByTestId(workbookConflictControlTestId("paste-next")),
+    );
     await waitFor(() => {
-      expect(screen.getByTestId("paste-conflict-position").textContent).toBe(
-        "2 of 2",
-      );
+      expect(
+        screen.getByTestId(workbookConflictControlTestId("paste-position"))
+          .textContent,
+      ).toBe("2 of 2");
       expect(
         screen.getByTestId(workbookConflictLocalValueTestId()),
       ).toHaveProperty("value", "Client second");
     }, pasteConflictWait);
 
-    fireEvent.click(screen.getByTestId("conflict-close"));
+    fireEvent.click(screen.getByTestId(workbookConflictControlTestId("close")));
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(

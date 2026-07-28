@@ -13,6 +13,7 @@ import {
   SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
+  coordinationWorkflowTestId,
   dataTestIdSelector,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
@@ -21,6 +22,7 @@ import {
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  genericWorkbookTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridShellTestId,
@@ -931,13 +933,13 @@ export function ContractWorkbookSurface({
             ))}
             {isNotesSurface ? (
               <label
-                htmlFor="generic-create-note-source-record"
+                htmlFor={genericWorkbookTestId("note-source-record")}
                 style={labelStyle}
               >
                 Linked source for draft row
                 <select
-                  data-testid="generic-create-note-source-record"
-                  id="generic-create-note-source-record"
+                  data-testid={genericWorkbookTestId("note-source-record")}
+                  id={genericWorkbookTestId("note-source-record")}
                   style={selectStyle}
                   value={linkedNoteSourceRecordId}
                   onChange={(event) => {
@@ -1086,7 +1088,7 @@ export function ContractWorkbookSurface({
               <div style={genericEditRowStyle}>
                 <select
                   aria-label="Party link field"
-                  data-testid="party-link-pair"
+                  data-testid={coordinationWorkflowTestId("party-pair")}
                   style={selectStyle}
                   value={selectedPartyLinkPair?.key ?? ""}
                   onChange={(event) => {
@@ -1101,7 +1103,7 @@ export function ContractWorkbookSurface({
                 </select>
                 <select
                   aria-label="Existing party"
-                  data-testid="party-link-existing-party"
+                  data-testid={coordinationWorkflowTestId("party-existing")}
                   style={selectStyle}
                   value={partyLinkExistingPartyId}
                   onChange={(event) => {
@@ -1116,7 +1118,9 @@ export function ContractWorkbookSurface({
                   ))}
                 </select>
                 <button
-                  data-testid="party-link-create-from-text"
+                  data-testid={coordinationWorkflowTestId(
+                    "party-create-from-text",
+                  )}
                   disabled={mutationState === "Syncing"}
                   style={secondaryActionButtonStyle}
                   type="button"
@@ -1127,7 +1131,9 @@ export function ContractWorkbookSurface({
                   Create party from text
                 </button>
                 <button
-                  data-testid="party-link-link-existing"
+                  data-testid={coordinationWorkflowTestId(
+                    "party-link-existing",
+                  )}
                   disabled={mutationState === "Syncing"}
                   style={secondaryActionButtonStyle}
                   type="button"
@@ -1138,7 +1144,7 @@ export function ContractWorkbookSurface({
                   Link existing party
                 </button>
                 <button
-                  data-testid="party-link-clear-link"
+                  data-testid={coordinationWorkflowTestId("party-clear-link")}
                   disabled={mutationState === "Syncing"}
                   style={secondaryActionButtonStyle}
                   type="button"
@@ -1149,7 +1155,7 @@ export function ContractWorkbookSurface({
                   Clear party link
                 </button>
                 <button
-                  data-testid="party-link-clear-text"
+                  data-testid={coordinationWorkflowTestId("party-clear-text")}
                   disabled={mutationState === "Syncing"}
                   style={secondaryActionButtonStyle}
                   type="button"
@@ -1160,7 +1166,7 @@ export function ContractWorkbookSurface({
                   Clear party text
                 </button>
                 <button
-                  data-testid="party-link-clear-both"
+                  data-testid={coordinationWorkflowTestId("party-clear-both")}
                   disabled={mutationState === "Syncing"}
                   style={secondaryActionButtonStyle}
                   type="button"
@@ -1192,7 +1198,10 @@ export function ContractWorkbookSurface({
             ) : null}
 
             {referenceLoadError ? (
-              <p data-testid="generic-reference-load-error" style={bodyStyle}>
+              <p
+                data-testid={genericWorkbookTestId("reference-load-error")}
+                style={bodyStyle}
+              >
                 {referenceLoadError}
               </p>
             ) : null}

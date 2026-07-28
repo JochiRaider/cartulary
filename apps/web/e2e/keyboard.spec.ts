@@ -26,7 +26,9 @@ import {
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorToggleTestId,
+  workbookPresenceSummaryTestId,
   workbookResponsiveBandTestId,
   workbookShellSlotTestId,
   workbookSortMenuTriggerTestId,
@@ -347,13 +349,13 @@ async function expectSharedGridAnchorSurface(options: SharedGridAnchorOptions) {
   const recordId = row.record_id;
   const content = await openSharedGridAnchorCell(options);
   const cell = await activateSemanticGridCell(content);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${viewSchemaId}:${recordId}:${fieldKey}`,
   );
 
   await page.keyboard.press("ArrowRight");
   if (rightFieldKey) {
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${viewSchemaId}:${recordId}:${rightFieldKey}`,
     );
     if (rightFocusTestId) {
@@ -369,10 +371,10 @@ async function expectSharedGridAnchorSurface(options: SharedGridAnchorOptions) {
     }
     return cell;
   }
-  await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toContainText(
     `${viewSchemaId}:${recordId}:`,
   );
-  await expect(page.getByTestId("workbook-focus-anchor")).not.toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).not.toHaveText(
     `${viewSchemaId}:${recordId}:${fieldKey}`,
   );
   return cell;
@@ -406,12 +408,12 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
   );
   const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
 
   await page.keyboard.press("Tab");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
   await expect(alphaSummaryCell).not.toBeFocused();
@@ -431,7 +433,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
   );
   await activateSemanticGridCell(alphaAnalyst);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
 
@@ -442,7 +444,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
   expect(page.url()).toBe(initialURL);
 
   await page.keyboard.press("Control+V");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   await page.keyboard.press("Escape");
@@ -450,7 +452,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     await page.keyboard.press("Escape");
   }
   await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   expect(page.url()).toBe(initialURL);
@@ -493,12 +495,12 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   await expect(
     page
       .getByTestId(workbookShellSlotTestId("top-bar"))
-      .getByTestId("presence-header"),
+      .getByTestId(workbookPresenceSummaryTestId()),
   ).toBeVisible();
   await expect(
     page
       .getByTestId(workbookShellSlotTestId("status-strip"))
-      .getByTestId("presence-header"),
+      .getByTestId(workbookPresenceSummaryTestId()),
   ).toHaveCount(0);
 
   await page.setViewportSize({ width: 1280, height: 639 });
@@ -598,12 +600,12 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   await expect(
     page
       .getByTestId(workbookShellSlotTestId("top-bar"))
-      .getByTestId("presence-header"),
+      .getByTestId(workbookPresenceSummaryTestId()),
   ).toHaveCount(0);
   await expect(
     page
       .getByTestId(workbookShellSlotTestId("status-strip"))
-      .getByTestId("presence-header"),
+      .getByTestId(workbookPresenceSummaryTestId()),
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
@@ -771,7 +773,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     "browser.coordination-review.row-02 Alpha",
   );
   const alphaSummaryCell = await activateSemanticGridCell(alphaSummary);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
   const copiedText = await alphaSummaryCell.evaluate((element) => {
@@ -787,11 +789,11 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
   expect(copiedText).toBe("browser.coordination-review.row-02 Alpha");
 
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.data_source_text`,
   );
   await page.keyboard.press("ArrowLeft");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
   await expect(alphaSummaryCell).toBeFocused();
@@ -821,7 +823,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     surface: timelineViewSchemaId,
   });
   await alphaSummary.focus();
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
   const inspectorDetails = page.getByTestId(
@@ -1163,7 +1165,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
       ),
     });
     await page.keyboard.press("ArrowLeft");
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${timelineViewSchemaId}:${row.record_id}:timeline.activity_synopsis_text`,
     );
     await expect(summary).toBeFocused();
@@ -1422,7 +1424,7 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
   );
   await expect(displayName).toHaveText("Workbook inspector reusable host");
   await activateSemanticGridCell(displayName);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
   );
 
@@ -1453,7 +1455,7 @@ test("Host entity-origin clipboard paste reuses exact matches and creates stubs"
     );
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${hostsViewSchemaId}:${existing.record_id}:host.display_name`,
   );
   await expect(
@@ -1517,7 +1519,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
   );
   await expect(displayName).toHaveText("Workbook inspector reusable identity");
   await activateSemanticGridCell(displayName);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
   );
 
@@ -1548,7 +1550,7 @@ test("Identity entity-origin clipboard paste reuses exact matches and creates st
     );
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${identitiesViewSchemaId}:${existing.record_id}:identity.display_name`,
   );
   await expect(

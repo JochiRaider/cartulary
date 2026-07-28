@@ -8403,12 +8403,41 @@
       },
       "ApprovedImportMapping": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "target_view_schema_id",
+              "unknown_column_policy"
+            ]
+          },
+          {
+            "required": [
+              "target_kind",
+              "extension_profile_id",
+              "owner_mapping_schema_id",
+              "owner_mapping"
+            ]
+          }
+        ],
         "properties": {
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_mapping": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "owner_mapping_schema_id": {
+            "type": "string"
+          },
           "source_columns": {
             "items": {
               "$ref": "#/components/schemas/ImportSourceColumnMapping"
             },
             "type": "array"
+          },
+          "target_kind": {
+            "type": "string"
           },
           "target_view_schema_id": {
             "type": "string"
@@ -8423,8 +8452,6 @@
           }
         },
         "required": [
-          "target_view_schema_id",
-          "unknown_column_policy",
           "source_columns"
         ],
         "type": "object"
@@ -10587,7 +10614,8 @@
             "type": "integer"
           },
           "locator": {
-            "type": "string"
+            "additionalProperties": true,
+            "type": "object"
           },
           "locator_kind": {
             "type": "string"
@@ -10982,7 +11010,8 @@
             "type": "integer"
           },
           "locator": {
-            "type": "string"
+            "additionalProperties": true,
+            "type": "object"
           },
           "locator_kind": {
             "enum": [
@@ -11106,6 +11135,22 @@
       },
       "ImportUnitMappingRequest": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "target_view_schema_id",
+              "unknown_column_policy"
+            ]
+          },
+          {
+            "required": [
+              "target_kind",
+              "extension_profile_id",
+              "owner_mapping_schema_id",
+              "owner_mapping"
+            ]
+          }
+        ],
         "properties": {
           "client_txn_id": {
             "type": "string"
@@ -11114,15 +11159,28 @@
             "minimum": 1,
             "type": "integer"
           },
+          "extension_profile_id": {
+            "type": "string"
+          },
           "header_row_ref": {
             "minimum": 1,
             "type": "integer"
+          },
+          "owner_mapping": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "owner_mapping_schema_id": {
+            "type": "string"
           },
           "source_columns": {
             "items": {
               "$ref": "#/components/schemas/ImportSourceColumnMapping"
             },
             "type": "array"
+          },
+          "target_kind": {
+            "type": "string"
           },
           "target_view_schema_id": {
             "type": "string"
@@ -11138,10 +11196,8 @@
         },
         "required": [
           "client_txn_id",
-          "target_view_schema_id",
           "header_row_ref",
           "data_start_row_ref",
-          "unknown_column_policy",
           "source_columns"
         ],
         "type": "object"
@@ -11959,6 +12015,12 @@
         "properties": {
           "client_txn_id": {
             "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -11982,6 +12044,30 @@
         ],
         "type": "object"
       },
+      "JobErrorSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
       "JobProgress": {
         "additionalProperties": false,
         "properties": {
@@ -11989,24 +12075,21 @@
             "minimum": 0,
             "type": "integer"
           },
-          "message": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "total": {
-            "minimum": 0,
-            "type": [
-              "integer",
-              "null"
+            "oneOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
         "required": [
           "completed",
-          "total",
-          "message"
+          "total"
         ],
         "type": "object"
       },
@@ -12016,15 +12099,14 @@
           "cancelable": {
             "type": "boolean"
           },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
           "error_summary": {
-            "additionalProperties": true,
-            "type": [
-              "object",
-              "null"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobErrorSummary"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "finished_at": {
@@ -12034,15 +12116,11 @@
               "null"
             ]
           },
-          "incident_id": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "job_id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "message": {
             "type": "string"
           },
           "progress": {
@@ -12058,12 +12136,15 @@
               }
             ]
           },
-          "scope_kind": {
-            "enum": [
-              "deployment",
-              "incident"
-            ],
-            "type": "string"
+          "retained_until": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/JobScope"
           },
           "started_at": {
             "format": "date-time",
@@ -12083,6 +12164,13 @@
             ],
             "type": "string"
           },
+          "status_route": {
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "submitted_by_user_id": {
             "format": "uuid",
             "type": "string"
@@ -12094,18 +12182,19 @@
         },
         "required": [
           "job_id",
-          "scope_kind",
-          "incident_id",
-          "submitted_by_user_id",
+          "scope",
+          "status_route",
           "status",
           "cancelable",
+          "submitted_by_user_id",
+          "submitted_at",
+          "updated_at",
           "progress",
-          "result_summary",
-          "error_summary",
-          "created_at",
           "started_at",
           "finished_at",
-          "updated_at"
+          "retained_until",
+          "result_summary",
+          "error_summary"
         ],
         "type": "object"
       },
@@ -12124,8 +12213,7 @@
         },
         "required": [
           "kind",
-          "id",
-          "route"
+          "id"
         ],
         "type": "object"
       },
@@ -12147,8 +12235,65 @@
         },
         "required": [
           "code",
-          "message",
-          "resource_refs"
+          "message"
+        ],
+        "type": "object"
+      },
+      "JobScope": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "incident"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "incident_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "deployment"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "incident_id"
+                ]
+              }
+            }
+          }
+        ],
+        "properties": {
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "deployment",
+              "incident"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
         ],
         "type": "object"
       },

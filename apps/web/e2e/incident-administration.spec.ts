@@ -5,6 +5,7 @@ import {
   dataTestIdSelector,
   genericCreateFieldTestId,
   gridShellTestId,
+  incidentAdministrationTestId,
   incidentControlsPanelTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
@@ -202,20 +203,22 @@ async function expectWorkbookShellComposition(
   await openIncidentControls(page);
   const openLayout = await readWorkbookLayoutRects(page);
   expect(openLayout).toEqual(closedLayout);
-  await expect(page.getByTestId("incident-summary-key")).toHaveText(
-    options.incidentKey,
-  );
-  await expect(page.getByTestId("incident-summary-title")).toHaveText(
-    options.incidentTitle,
-  );
-  await expect(page.getByTestId("incident-summary-role")).toHaveText("admin");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-key")),
+  ).toHaveText(options.incidentKey);
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-title")),
+  ).toHaveText(options.incidentTitle);
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-role")),
+  ).toHaveText("admin");
   if (options.expectIncidentPreferences === true) {
     await expect(
-      page.getByTestId("incident-pref-default-sheet-ref"),
+      page.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref")),
     ).toHaveText("View schema: Timeline (cartulary.view.timeline.v2)");
-    await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
-      "View schema: Timeline (cartulary.view.timeline.v2)",
-    );
+    await expect(
+      page.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref")),
+    ).toHaveText("View schema: Timeline (cartulary.view.timeline.v2)");
   }
   await closeIncidentControlsIfOpen(page);
 }
@@ -704,43 +707,53 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await openIncidentControls(page);
-  await expect(page.getByTestId("incident-summary-key")).toHaveText(
-    incidentKey,
-  );
-  await expect(page.getByTestId("incident-summary-title")).toHaveText(
-    "Incident administration incident-directory",
-  );
-  await expect(page.getByTestId("incident-summary-version")).toHaveText(
-    "Version 1",
-  );
-  await expect(page.getByTestId("incident-summary-tlp")).toHaveText("Unset");
-  await expect(page.getByTestId("incident-summary-current-phase")).toHaveText(
-    "Unset",
-  );
   await expect(
-    page.getByTestId("incident-summary-primary-external-case-ref"),
+    page.getByTestId(incidentAdministrationTestId("summary-key")),
+  ).toHaveText(incidentKey);
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-title")),
+  ).toHaveText("Incident administration incident-directory");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-version")),
+  ).toHaveText("Version 1");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-tlp")),
+  ).toHaveText("Unset");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-current-phase")),
+  ).toHaveText("Unset");
+  await expect(
+    page.getByTestId(
+      incidentAdministrationTestId("summary-primary-external-case-ref"),
+    ),
   ).toHaveText("Unset");
 
   await openIncidentControls(page, "incident-fields");
-  await page.getByTestId("incident-patch-tlp").selectOption("TLP:AMBER");
-  await page.getByTestId("incident-patch-current-phase").fill("containment");
   await page
-    .getByTestId("incident-patch-external-case")
+    .getByTestId(incidentAdministrationTestId("patch-tlp"))
+    .selectOption("TLP:AMBER");
+  await page
+    .getByTestId(incidentAdministrationTestId("patch-current-phase"))
+    .fill("containment");
+  await page
+    .getByTestId(incidentAdministrationTestId("patch-external-case"))
     .fill("CASE-E202-PRIMARY");
-  await page.getByTestId("incident-patch-button").click();
+  await page.getByTestId(incidentAdministrationTestId("patch-button")).click();
 
   await openIncidentControls(page);
-  await expect(page.getByTestId("incident-summary-version")).toHaveText(
-    "Version 2",
-  );
-  await expect(page.getByTestId("incident-summary-tlp")).toHaveText(
-    "TLP:AMBER",
-  );
-  await expect(page.getByTestId("incident-summary-current-phase")).toHaveText(
-    "containment",
-  );
   await expect(
-    page.getByTestId("incident-summary-primary-external-case-ref"),
+    page.getByTestId(incidentAdministrationTestId("summary-version")),
+  ).toHaveText("Version 2");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-tlp")),
+  ).toHaveText("TLP:AMBER");
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-current-phase")),
+  ).toHaveText("containment");
+  await expect(
+    page.getByTestId(
+      incidentAdministrationTestId("summary-primary-external-case-ref"),
+    ),
   ).toHaveText("CASE-E202-PRIMARY");
 
   await page.getByLabel("Account and application navigation").click();
@@ -858,19 +871,19 @@ test("lets incident admins manage memberships and hides those controls from non-
 
   await openIncidentControls(page, "summary");
   await page
-    .getByTestId("incident-lifecycle-reason")
+    .getByTestId(incidentAdministrationTestId("lifecycle-reason"))
     .fill("Membership access review complete");
-  await page.getByTestId("incident-close-button").click();
-  await expect(page.getByTestId("incident-summary-status")).toHaveText(
-    "Closed, read-only",
-  );
+  await page.getByTestId(incidentAdministrationTestId("close-button")).click();
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-status")),
+  ).toHaveText("Closed, read-only");
   await page
-    .getByTestId("incident-lifecycle-reason")
+    .getByTestId(incidentAdministrationTestId("lifecycle-reason"))
     .fill("Additional membership cleanup required");
-  await page.getByTestId("incident-reopen-button").click();
-  await expect(page.getByTestId("incident-summary-status")).toHaveText(
-    "active",
-  );
+  await page.getByTestId(incidentAdministrationTestId("reopen-button")).click();
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-status")),
+  ).toHaveText("active");
   await closeIncidentControlsIfOpen(page);
 
   await openIncidentControls(page, "memberships");

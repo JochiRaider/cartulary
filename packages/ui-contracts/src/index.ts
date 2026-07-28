@@ -33,6 +33,47 @@ export type StableTestId = string & {
 
 export type EntityType = "host" | "identity";
 
+export type EntityMergeControl =
+  | "confirm"
+  | "loser-record"
+  | "message"
+  | "plan"
+  | "reason"
+  | "start";
+
+export type AssessmentCreateControl =
+  | "assessed-at"
+  | "confidence-band"
+  | "message"
+  | "rationale"
+  | "state"
+  | "subject"
+  | "subject-type"
+  | "submit"
+  | "support-refs";
+
+export type GenericWorkbookSelector =
+  | "mutation-error"
+  | "note-source-record"
+  | "reference-load-error";
+
+export type CoordinationWorkflowSelector =
+  | "decision-reason"
+  | "decision-replacement"
+  | "decision-submit"
+  | "decision-target"
+  | "party-clear-both"
+  | "party-clear-link"
+  | "party-clear-text"
+  | "party-create-from-text"
+  | "party-existing"
+  | "party-link-existing"
+  | "party-pair"
+  | "task-blocked-reason"
+  | "task-status"
+  | "task-submit"
+  | "task-target";
+
 export const entityTypes = [
   "host",
   "identity",
@@ -246,6 +287,48 @@ export type IncidentControlsLoadState =
   | "partial"
   | "synced"
   | "unavailable";
+
+export type IncidentAdministrationSelector =
+  | "admin-action-message"
+  | "admin-error-code"
+  | "admin-status"
+  | "close-button"
+  | "lifecycle-reason"
+  | "patch-button"
+  | "patch-current-phase"
+  | "patch-description"
+  | "patch-external-case"
+  | "patch-readonly-note"
+  | "patch-severity"
+  | "patch-tlp"
+  | "pref-default-sheet-ref"
+  | "pref-home-sheet-ref"
+  | "reopen-button"
+  | "summary-closed-at"
+  | "summary-current-phase"
+  | "summary-description"
+  | "summary-key"
+  | "summary-primary-external-case-ref"
+  | "summary-role"
+  | "summary-severity"
+  | "summary-status"
+  | "summary-title"
+  | "summary-tlp"
+  | "summary-version";
+
+export type WorkbookConflictControl =
+  | "activate-origin"
+  | "apply-collection"
+  | "close"
+  | "keep-saved"
+  | "merged-value"
+  | "paste-navigator"
+  | "paste-next"
+  | "paste-position"
+  | "paste-previous"
+  | "use-merged"
+  | "use-server-suggestion"
+  | "use-unsaved";
 
 export const incidentControlsSections = [
   "summary",
@@ -509,6 +592,96 @@ const appRouteTestIds = Object.freeze({
   "workbook-loading": "workbook-loading",
 } satisfies Record<AppRouteSelector, string>);
 
+const incidentAdministrationTestIds = Object.freeze({
+  "admin-action-message": "incident-admin-action-message",
+  "admin-error-code": "incident-admin-error-code",
+  "admin-status": "incident-admin-status",
+  "close-button": "incident-close-button",
+  "lifecycle-reason": "incident-lifecycle-reason",
+  "patch-button": "incident-patch-button",
+  "patch-current-phase": "incident-patch-current-phase",
+  "patch-description": "incident-patch-description",
+  "patch-external-case": "incident-patch-external-case",
+  "patch-readonly-note": "incident-patch-readonly-note",
+  "patch-severity": "incident-patch-severity",
+  "patch-tlp": "incident-patch-tlp",
+  "pref-default-sheet-ref": "incident-pref-default-sheet-ref",
+  "pref-home-sheet-ref": "incident-pref-home-sheet-ref",
+  "reopen-button": "incident-reopen-button",
+  "summary-closed-at": "incident-summary-closed-at",
+  "summary-current-phase": "incident-summary-current-phase",
+  "summary-description": "incident-summary-description",
+  "summary-key": "incident-summary-key",
+  "summary-primary-external-case-ref":
+    "incident-summary-primary-external-case-ref",
+  "summary-role": "incident-summary-role",
+  "summary-severity": "incident-summary-severity",
+  "summary-status": "incident-summary-status",
+  "summary-title": "incident-summary-title",
+  "summary-tlp": "incident-summary-tlp",
+  "summary-version": "incident-summary-version",
+} satisfies Record<IncidentAdministrationSelector, string>);
+
+const workbookConflictControlTestIds = Object.freeze({
+  "activate-origin": "conflict-activate-origin",
+  "apply-collection": "conflict-apply-collection",
+  close: "conflict-close",
+  "keep-saved": "conflict-keep-saved",
+  "merged-value": "conflict-merged-value",
+  "paste-navigator": "paste-conflict-navigator",
+  "paste-next": "paste-conflict-next",
+  "paste-position": "paste-conflict-position",
+  "paste-previous": "paste-conflict-previous",
+  "use-merged": "conflict-use-merged",
+  "use-server-suggestion": "conflict-use-server-suggestion",
+  "use-unsaved": "conflict-use-unsaved",
+} satisfies Record<WorkbookConflictControl, string>);
+
+const entityMergeControlTestIds = Object.freeze({
+  confirm: "merge-confirm",
+  "loser-record": "merge-loser-record",
+  message: "merge-message",
+  plan: "merge-plan",
+  reason: "merge-reason",
+  start: "merge-start",
+} satisfies Record<EntityMergeControl, string>);
+
+const assessmentCreateControlTestIds = Object.freeze({
+  "assessed-at": "assessment-create-assessed-at",
+  "confidence-band": "assessment-create-confidence-band",
+  message: "assessment-create-message",
+  rationale: "assessment-create-rationale",
+  state: "assessment-create-state",
+  subject: "assessment-create-subject",
+  "subject-type": "assessment-create-subject-type",
+  submit: "assessment-create-submit",
+  "support-refs": "assessment-create-support-refs",
+} satisfies Record<AssessmentCreateControl, string>);
+
+const genericWorkbookTestIds = Object.freeze({
+  "mutation-error": "generic-mutation-error",
+  "note-source-record": "generic-create-note-source-record",
+  "reference-load-error": "generic-reference-load-error",
+} satisfies Record<GenericWorkbookSelector, string>);
+
+const coordinationWorkflowTestIds = Object.freeze({
+  "decision-reason": "decision-supersede-reason",
+  "decision-replacement": "decision-supersede-replacement",
+  "decision-submit": "decision-supersede-submit",
+  "decision-target": "decision-supersede-target",
+  "party-clear-both": "party-link-clear-both",
+  "party-clear-link": "party-link-clear-link",
+  "party-clear-text": "party-link-clear-text",
+  "party-create-from-text": "party-link-create-from-text",
+  "party-existing": "party-link-existing-party",
+  "party-link-existing": "party-link-link-existing",
+  "party-pair": "party-link-pair",
+  "task-blocked-reason": "task-lifecycle-blocked-reason",
+  "task-status": "task-lifecycle-status",
+  "task-submit": "task-lifecycle-submit",
+  "task-target": "task-lifecycle-target",
+} satisfies Record<CoordinationWorkflowSelector, string>);
+
 const publicErrorSurfaces = Object.freeze(
   new Set<PublicErrorSurface>(["account", "admin", "auth", "landing"]),
 );
@@ -538,6 +711,66 @@ export function incidentLandingTestId(
     incidentLandingTestIds,
     selector,
     "incident landing selector",
+  );
+}
+
+export function incidentAdministrationTestId(
+  selector: IncidentAdministrationSelector,
+): StableTestId {
+  return semanticSelectorTestId(
+    incidentAdministrationTestIds,
+    selector,
+    "incident administration selector",
+  );
+}
+
+export function workbookConflictControlTestId(
+  control: WorkbookConflictControl,
+): StableTestId {
+  return semanticSelectorTestId(
+    workbookConflictControlTestIds,
+    control,
+    "workbook conflict control",
+  );
+}
+
+export function entityMergeControlTestId(
+  control: EntityMergeControl,
+): StableTestId {
+  return semanticSelectorTestId(
+    entityMergeControlTestIds,
+    control,
+    "entity merge control",
+  );
+}
+
+export function assessmentCreateControlTestId(
+  control: AssessmentCreateControl,
+): StableTestId {
+  return semanticSelectorTestId(
+    assessmentCreateControlTestIds,
+    control,
+    "assessment create control",
+  );
+}
+
+export function genericWorkbookTestId(
+  selector: GenericWorkbookSelector,
+): StableTestId {
+  return semanticSelectorTestId(
+    genericWorkbookTestIds,
+    selector,
+    "generic workbook selector",
+  );
+}
+
+export function coordinationWorkflowTestId(
+  selector: CoordinationWorkflowSelector,
+): StableTestId {
+  return semanticSelectorTestId(
+    coordinationWorkflowTestIds,
+    selector,
+    "coordination workflow selector",
   );
 }
 
@@ -897,11 +1130,11 @@ export function incidentControlsSurfaceTestId(): StableTestId {
 }
 
 export function incidentControlsStatusTestId(): StableTestId {
-  return stableTestId("incident-admin-status");
+  return incidentAdministrationTestId("admin-status");
 }
 
 export function incidentControlsActionMessageTestId(): StableTestId {
-  return stableTestId("incident-admin-action-message");
+  return incidentAdministrationTestId("admin-action-message");
 }
 
 export function incidentControlsCloseButtonTestId(): StableTestId {
@@ -1137,6 +1370,14 @@ export function saveStateActionButtonTestId(): string {
 
 export function statusStripQueueCountTestId(): string {
   return "status-strip-queue-count";
+}
+
+export function workbookFocusAnchorTestId(): string {
+  return "workbook-focus-anchor";
+}
+
+export function workbookPresenceSummaryTestId(): string {
+  return "presence-header";
 }
 
 export function pendingQueueNoticeTestId(): string {

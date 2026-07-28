@@ -1,5 +1,6 @@
 import {
   pasteConflictItemTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -229,7 +230,7 @@ export function WorkbookConflictResolver({
       </div>
 
       <button
-        data-testid="conflict-activate-origin"
+        data-testid={workbookConflictControlTestId("activate-origin")}
         onClick={() => onActivateOrigin(conflict.origin.viewSchemaId)}
         style={secondaryButtonStyle}
         type="button"
@@ -238,7 +239,7 @@ export function WorkbookConflictResolver({
       </button>
       <button
         aria-label="Close conflict recovery"
-        data-testid="conflict-close"
+        data-testid={workbookConflictControlTestId("close")}
         onClick={dismiss}
         style={secondaryButtonStyle}
         type="button"
@@ -249,15 +250,18 @@ export function WorkbookConflictResolver({
       {snapshot.conflicts.length > 1 ? (
         <nav
           aria-label="Workbook conflict navigator"
-          data-testid="paste-conflict-navigator"
+          data-testid={workbookConflictControlTestId("paste-navigator")}
           style={navigatorStyle}
         >
-          <p data-testid="paste-conflict-position" style={bodyStyle}>
+          <p
+            data-testid={workbookConflictControlTestId("paste-position")}
+            style={bodyStyle}
+          >
             {activeConflictIndex + 1} of {snapshot.conflicts.length}
           </p>
           <div style={buttonRowStyle}>
             <button
-              data-testid="paste-conflict-previous"
+              data-testid={workbookConflictControlTestId("paste-previous")}
               disabled={activeConflictIndex <= 0}
               onClick={() => {
                 const previous = snapshot.conflicts[activeConflictIndex - 1];
@@ -269,7 +273,7 @@ export function WorkbookConflictResolver({
               Previous
             </button>
             <button
-              data-testid="paste-conflict-next"
+              data-testid={workbookConflictControlTestId("paste-next")}
               disabled={activeConflictIndex >= snapshot.conflicts.length - 1}
               onClick={() => {
                 const next = snapshot.conflicts[activeConflictIndex + 1];
@@ -323,7 +327,7 @@ export function WorkbookConflictResolver({
           <label style={labelStyle}>
             Merged value
             <textarea
-              data-testid="conflict-merged-value"
+              data-testid={workbookConflictControlTestId("merged-value")}
               onChange={(event) =>
                 mutationRuntime.updateConflictDraft(
                   conflict.key,
@@ -336,7 +340,9 @@ export function WorkbookConflictResolver({
           </label>
           {suggestion !== undefined ? (
             <button
-              data-testid="conflict-use-server-suggestion"
+              data-testid={workbookConflictControlTestId(
+                "use-server-suggestion",
+              )}
               disabled={submitting}
               onClick={() =>
                 mutationRuntime.updateConflictDraft(
@@ -382,7 +388,7 @@ export function WorkbookConflictResolver({
       ) : null}
       <div style={buttonRowStyle}>
         <button
-          data-testid="conflict-keep-saved"
+          data-testid={workbookConflictControlTestId("keep-saved")}
           disabled={submitting}
           onClick={() => void submit("keep_saved")}
           style={destructiveButtonStyle}
@@ -392,7 +398,7 @@ export function WorkbookConflictResolver({
         </button>
         {isCollection ? (
           <button
-            data-testid="conflict-apply-collection"
+            data-testid={workbookConflictControlTestId("apply-collection")}
             disabled={submitting}
             onClick={() => void submit("merged_value")}
             style={primaryButtonStyle}
@@ -403,7 +409,7 @@ export function WorkbookConflictResolver({
         ) : isText ? (
           <>
             <button
-              data-testid="conflict-use-unsaved"
+              data-testid={workbookConflictControlTestId("use-unsaved")}
               disabled={submitting}
               onClick={() => void submit("use_unsaved")}
               style={secondaryButtonStyle}
@@ -412,7 +418,7 @@ export function WorkbookConflictResolver({
               Use my unsaved value
             </button>
             <button
-              data-testid="conflict-use-merged"
+              data-testid={workbookConflictControlTestId("use-merged")}
               disabled={submitting}
               onClick={() => void submit("merged_value")}
               style={primaryButtonStyle}
@@ -423,7 +429,7 @@ export function WorkbookConflictResolver({
           </>
         ) : (
           <button
-            data-testid="conflict-use-unsaved"
+            data-testid={workbookConflictControlTestId("use-unsaved")}
             disabled={submitting}
             onClick={() => void submit("use_unsaved")}
             style={primaryButtonStyle}

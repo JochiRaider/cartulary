@@ -1,4 +1,5 @@
 import {
+  incidentAdministrationTestId,
   incidentLandingTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
@@ -178,20 +179,22 @@ export class IncidentDirectory {
   }) {
     if (options.tlp !== undefined) {
       await this.page
-        .getByTestId("incident-patch-tlp")
+        .getByTestId(incidentAdministrationTestId("patch-tlp"))
         .selectOption(options.tlp);
     }
     if (options.currentPhase !== undefined) {
       await this.page
-        .getByTestId("incident-patch-current-phase")
+        .getByTestId(incidentAdministrationTestId("patch-current-phase"))
         .fill(options.currentPhase);
     }
     if (options.externalCase !== undefined) {
       await this.page
-        .getByTestId("incident-patch-external-case")
+        .getByTestId(incidentAdministrationTestId("patch-external-case"))
         .fill(options.externalCase);
     }
-    await this.page.getByTestId("incident-patch-button").click();
+    await this.page
+      .getByTestId(incidentAdministrationTestId("patch-button"))
+      .click();
   }
 
   private async isOpen() {

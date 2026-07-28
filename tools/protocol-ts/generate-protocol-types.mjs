@@ -294,6 +294,7 @@ async function generatedTypes(bundle, rootName) {
 function validatorSource(entries) {
   const ajv = new Ajv2020({
     allErrors: true,
+    allowUnionTypes: true,
     code: { esm: true, source: true },
     strict: true,
     strictRequired: false,

@@ -1,4 +1,5 @@
 import {
+  assessmentCreateControlTestId,
   gridRowTestId,
   gridSavedRowsSelector,
   gridShellTestId,
@@ -18,24 +19,30 @@ export async function createAssessmentViaUI(
     supportRecordIds: string[];
   },
 ) {
-  await page.getByTestId("assessment-create-state").selectOption(options.state);
   await page
-    .getByTestId("assessment-create-confidence-band")
+    .getByTestId(assessmentCreateControlTestId("state"))
+    .selectOption(options.state);
+  await page
+    .getByTestId(assessmentCreateControlTestId("confidence-band"))
     .selectOption(options.confidenceBand);
-  await page.getByTestId("assessment-create-rationale").fill(options.rationale);
   await page
-    .getByTestId("assessment-create-assessed-at")
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill(options.rationale);
+  await page
+    .getByTestId(assessmentCreateControlTestId("assessed-at"))
     .fill(options.assessedAt);
   if (options.supportRecordIds.length > 0) {
     await expect(
-      page.getByTestId("assessment-create-support-refs").locator("option"),
+      page
+        .getByTestId(assessmentCreateControlTestId("support-refs"))
+        .locator("option"),
     ).toHaveCount(options.supportRecordIds.length);
     await page
-      .getByTestId("assessment-create-support-refs")
+      .getByTestId(assessmentCreateControlTestId("support-refs"))
       .selectOption(options.supportRecordIds);
   }
   const responsePromise = waitForAssessmentCreate(page);
-  await page.getByTestId("assessment-create-submit").click();
+  await page.getByTestId(assessmentCreateControlTestId("submit")).click();
   const envelope = await readTimelineMutation(await responsePromise);
   await expect(
     page.getByTestId(

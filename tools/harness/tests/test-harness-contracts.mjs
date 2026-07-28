@@ -1632,12 +1632,14 @@ test("runner selector resolvers preserve exact closed shapes across all runners"
         row_id: "web.fixture.behavior.vitest",
         runner: "vitest",
         selector: {
-          file: "apps/web/src/networkFlow/networkFlowClient.test.ts",
-          titles: ["networkFlowClient route identity uses extension workspace route state for Network Analysis"],
+          file: "apps/web/src/services/networkFlowContractAdapter.test.ts",
+          titles: [
+            "networkFlowContractAdapter requires a claimed profile and a supported compiled contract major",
+          ],
         },
       },
       expected: [
-        "vitest:apps/web/src/networkFlow/networkFlowClient.test.ts:networkFlowClient route identity uses extension workspace route state for Network Analysis",
+        "vitest:apps/web/src/services/networkFlowContractAdapter.test.ts:networkFlowContractAdapter requires a claimed profile and a supported compiled contract major",
       ],
     },
     {

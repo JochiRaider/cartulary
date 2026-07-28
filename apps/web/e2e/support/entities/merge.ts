@@ -2,6 +2,8 @@ import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   currentIncidentRoleTestId,
   entityInspectButtonTestId,
+  entityInspectorTestId,
+  entityMergeControlTestId,
   gridRowTestId,
   timelinePreviewRowTestId,
   workbookShellReadyTestId,
@@ -82,29 +84,33 @@ export async function exerciseEntityMerge(
   await expect(page.getByTestId(inspectorTestId)).toContainText(
     options.survivorLabel,
   );
-  await expect(page.getByTestId("merge-start")).toBeVisible();
-  await page.getByTestId("merge-start").click();
+  await expect(
+    page.getByTestId(entityMergeControlTestId("start")),
+  ).toBeVisible();
+  await page.getByTestId(entityMergeControlTestId("start")).click();
   await page
-    .getByTestId("merge-loser-record")
+    .getByTestId(entityMergeControlTestId("loser-record"))
     .selectOption(options.loser.record_id);
-  await page.getByTestId("merge-reason").fill(options.mergeReason);
-  await expect(page.getByTestId("merge-plan")).toContainText(
-    `Survivor ${options.survivorLabel}`,
-  );
-  await expect(page.getByTestId("merge-plan")).toContainText(
-    `loser ${options.loserLabel}`,
-  );
-  await expect(page.getByTestId("merge-plan")).toContainText(
-    options.survivor.record_id,
-  );
-  await expect(page.getByTestId("merge-plan")).toContainText(
-    options.loser.record_id,
-  );
+  await page
+    .getByTestId(entityMergeControlTestId("reason"))
+    .fill(options.mergeReason);
+  await expect(
+    page.getByTestId(entityMergeControlTestId("plan")),
+  ).toContainText(`Survivor ${options.survivorLabel}`);
+  await expect(
+    page.getByTestId(entityMergeControlTestId("plan")),
+  ).toContainText(`loser ${options.loserLabel}`);
+  await expect(
+    page.getByTestId(entityMergeControlTestId("plan")),
+  ).toContainText(options.survivor.record_id);
+  await expect(
+    page.getByTestId(entityMergeControlTestId("plan")),
+  ).toContainText(options.loser.record_id);
   const mergeResponsePromise = waitForMergeResponse(
     page,
     options.survivor.record_id,
   );
-  await page.getByTestId("merge-confirm").click();
+  await page.getByTestId(entityMergeControlTestId("confirm")).click();
   const mergeEnvelope = await readMergeEnvelope(await mergeResponsePromise);
   await expect(
     page.getByTestId(
@@ -114,9 +120,9 @@ export async function exerciseEntityMerge(
   await expect(page.getByTestId(inspectorTestId)).toContainText(
     options.survivorLabel,
   );
-  await expect(page.getByTestId("merge-message")).toContainText(
-    `Merged ${options.loserLabel} into ${options.survivorLabel}`,
-  );
+  await expect(
+    page.getByTestId(entityMergeControlTestId("message")),
+  ).toContainText(`Merged ${options.loserLabel} into ${options.survivorLabel}`);
   await expect(
     page.getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id)),
   ).toBeVisible();
@@ -202,5 +208,5 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
 }
 
 function entityInspectorLocalTestId(entityType: "host" | "identity") {
-  return entityType === "host" ? "host-inspector" : "identity-inspector";
+  return entityInspectorTestId(entityType);
 }

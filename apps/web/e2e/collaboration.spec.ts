@@ -21,9 +21,11 @@ import {
   saveStateTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
+  workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -168,7 +170,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
     );
 
     await page
-      .getByTestId("conflict-merged-value")
+      .getByTestId(workbookConflictControlTestId("merged-value"))
       .fill("integration.collaboration stale merged draft");
     const staleResolveRequest = page.waitForRequest(
       (request) =>
@@ -182,7 +184,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         response.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
         response.url().endsWith("/resolve"),
     );
-    await page.getByTestId("conflict-use-merged").click();
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
     const staleRequest = await staleResolveRequest;
     const staleResponse = await staleResolveResponse;
     expect(staleResponse.status()).toBe(409);
@@ -204,7 +206,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
     ).toHaveValue("integration.collaboration stale merged draft");
 
     await page
-      .getByTestId("conflict-merged-value")
+      .getByTestId(workbookConflictControlTestId("merged-value"))
       .fill("integration.collaboration final merged");
     const successResolveRequest = page.waitForRequest(
       (request) =>
@@ -218,7 +220,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         response.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
         response.url().endsWith("/resolve"),
     );
-    await page.getByTestId("conflict-use-merged").click();
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
     const successRequest = await successResolveRequest;
     const successResponse = await successResolveResponse;
     expect(successResponse.ok()).toBeTruthy();
@@ -501,7 +503,9 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
       remoteValue: "end-to-end.collaboration remote conflict",
       txnPrefix: "collaboration-conflict",
     });
-    await page.getByTestId("conflict-use-unsaved").click();
+    await page
+      .getByTestId(workbookConflictControlTestId("use-unsaved"))
+      .click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, conflictId, {
       "timeline.activity_synopsis_text":
@@ -583,7 +587,9 @@ test("shows two analysts each other's workbook presence within the expected inte
     );
     remotePage = remoteSession.page;
     await primarySocket.waitForMessage("presence_delta");
-    await expect(page.getByTestId("presence-header")).toContainText("RA");
+    await expect(
+      page.getByTestId(workbookPresenceSummaryTestId()),
+    ).toContainText("RA");
 
     const fieldKey = "timeline.activity_synopsis_text";
     const remoteInput = remotePage.getByTestId(

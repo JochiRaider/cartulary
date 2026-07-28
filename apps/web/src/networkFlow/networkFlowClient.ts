@@ -1,8 +1,4 @@
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
-import {
-  networkAnalysisWorkspaceKey,
-  networkFlowActivityProfileId,
-} from "../extensions/extensionWorkspaceIdentities";
 import { apiPath, clientTxnID } from "../services/browserApi";
 import type {
   NetworkFlowContributorPageRequest,
@@ -73,26 +69,6 @@ function networkFlowResponseData(payload: unknown): unknown {
     throw new Error("invalid_network_flow_success_envelope");
   }
   return payload.data;
-}
-
-export function networkAnalysisURLSelected(params: URLSearchParams): boolean {
-  return (
-    params.get("sheet_ref_kind") === "extension_workspace" &&
-    params.get("extension_profile_id") === networkFlowActivityProfileId &&
-    params.get("sheet_ref_id") === networkAnalysisWorkspaceKey
-  );
-}
-
-export function writeNetworkAnalysisURL(incidentId: string): void {
-  const next = new URLSearchParams(window.location.search);
-  next.set("incident_id", incidentId);
-  next.set("sheet_ref_kind", "extension_workspace");
-  next.set("extension_profile_id", networkFlowActivityProfileId);
-  next.set("sheet_ref_id", networkAnalysisWorkspaceKey);
-  next.delete("view_schema_id");
-  next.delete("workspace_key");
-  next.delete("surface");
-  window.history.replaceState({}, "", `/?${next.toString()}`);
 }
 
 export async function listNetworkFlowTables(options: {

@@ -3,9 +3,9 @@ import {
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
+import type { ExtensionImportDiscovery } from "../imports/importCoordinator";
 import type { NetworkFlowImportPreviewResult } from "../services/networkFlowContractAdapter";
 import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
-import type { ExtensionImportDiscovery } from "../shared/importCoordinator";
 import {
   ignoredColumnChoice,
   mappedRequiredFieldCount,

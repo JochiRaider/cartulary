@@ -1,6 +1,6 @@
+import type { DiscoveredImportColumn } from "../imports/importCoordinator";
 import type { NetworkFlowMappingCandidate } from "../services/networkFlowContractAdapter";
 import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
-import type { DiscoveredImportColumn } from "../shared/importCoordinator";
 
 export const ignoredColumnChoice = "__ignore__";
 
@@ -50,7 +50,9 @@ export function createNetworkFlowMappingDraft(
   const collisionOrdinals = new Set<number>();
   const columnChoices: Record<number, string | null> = {};
   for (const column of columns) {
-    const matchKey = sourceAliasMatchKey(column.source_header_text ?? "");
+    const matchKey = sourceAliasMatchKey(
+      importHeaderText(column.source_header_text),
+    );
     const suggested = networkFlowMappingFields.find((field) =>
       field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
     );
@@ -199,8 +201,14 @@ export function networkFlowMappingDraftReadyForPreview(
 }
 
 export function sourceColumnLabel(column: DiscoveredImportColumn): string {
-  const header = column.source_header_text?.trim() ?? "";
+  const header = importHeaderText(column.source_header_text).trim();
   return `${header === "" ? "(unnamed)" : header} · column ${column.source_column_ordinal}`;
+}
+
+function importHeaderText(
+  value: DiscoveredImportColumn["source_header_text"],
+): string {
+  return value === null ? "" : String(value);
 }
 
 function timestampProfileFromDraft(

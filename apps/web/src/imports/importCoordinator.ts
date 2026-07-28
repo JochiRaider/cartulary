@@ -3,89 +3,43 @@ import {
   importProfileId,
   importRouteFamily,
 } from "../extensions/extensionWorkspaceIdentities";
-import { apiPath, clientTxnID, extractError } from "../services/browserApi";
-import { requestMultipartJSON } from "../services/httpTransport";
 import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../services/workbookApi";
+  type APIResult,
+  clientTxnID,
+  fetchHTTPOperation,
+  fetchMultipartHTTPOperation,
+} from "../services/browserApi";
+import type {
+  ApplyImportSessionResponse,
+  CancelJobResponse,
+  CreateImportSessionResponse,
+  DiscoveredImportColumn,
+  DiscoveredImportPreview,
+  DiscoveredImportUnit,
+  ExtensionMappingPreviewResource,
+  GetImportSessionResponse,
+  GetImportUnitPreviewResponse,
+  GetJobResponse,
+  ImportJobResource,
+  ImportResourceRef,
+  ImportSessionResource,
+  ListImportUnitsResponse,
+  PreviewImportUnitExtensionMappingResponse,
+  PutImportUnitMappingResponse,
+  SelectImportUnitResponse,
+  SkipImportUnitResponse,
+  WorkbookSourceColumnMapping,
+} from "../services/importContractAdapter";
+import { parseErrorMessage } from "../services/workbookApi";
 
-export type ImportJobResource = {
-  readonly job_id: string;
-  readonly status:
-    | "queued"
-    | "running"
-    | "cancel_requested"
-    | "succeeded"
-    | "failed"
-    | "canceled";
-  readonly progress?: {
-    readonly completed: number;
-    readonly total?: number | null;
-  };
-  readonly result_summary?: {
-    readonly code?: string;
-    readonly resource_refs?: readonly ImportResourceRef[];
-  } | null;
-};
-
-export type ImportResourceRef = {
-  readonly kind: string;
-  readonly id: string;
-  readonly route?: string | undefined;
-};
-
-export type DiscoveredImportColumn = {
-  readonly source_column_ordinal: number;
-  readonly source_header_text: string | null;
-};
-
-export type DiscoveredImportPreview = {
-  readonly import_session_id: string;
-  readonly import_unit_id: string;
-  readonly locator_kind: string;
-  readonly locator: unknown;
-  readonly source_rect_a1: string;
-  readonly header_row_ref: number;
-  readonly data_start_row_ref: number;
-  readonly inferred_row_count: number;
-  readonly inferred_column_count: number;
-  readonly warning_codes: readonly string[];
-  readonly columns: readonly DiscoveredImportColumn[];
-  readonly preview_rows: readonly {
-    readonly source_row_ref: number;
-    readonly cells: readonly {
-      readonly source_column_ordinal: number;
-      readonly display_text: string;
-      readonly cell_kind: string;
-    }[];
-  }[];
-};
-
-export type DiscoveredImportUnit = {
-  readonly import_session_id: string;
-  readonly import_unit_id: string;
-  readonly unit_status: string;
-  readonly locator_kind: string;
-  readonly locator: unknown;
-  readonly source_rect_a1: string;
-  readonly inferred_row_count: number;
-  readonly inferred_column_count: number;
-  readonly warning_codes: readonly string[];
-  readonly mapping_fingerprint?: string | null | undefined;
-  readonly approved_mapping?: Record<string, unknown> | null | undefined;
-};
-
-export type ImportSessionResource = {
-  readonly import_session_id: string;
-  readonly incident_id: string;
-  readonly original_filename: string;
-  readonly source_file_kind: "csv" | "xlsx";
-  readonly session_status: string;
-  readonly selected_unit_ids: readonly string[];
-  readonly blocking_diagnostics: readonly Record<string, unknown>[];
-  readonly nonblocking_warning_codes: readonly string[];
+export type {
+  DiscoveredImportColumn,
+  DiscoveredImportPreview,
+  DiscoveredImportUnit,
+  ImportJobResource,
+  ImportResourceRef,
+  ImportSessionResource,
+  WorkbookSourceColumnMapping,
 };
 
 export type WorkbookImportUnitDiscovery = {
@@ -111,25 +65,7 @@ export type ExtensionMappingCandidate = {
   readonly ownerMapping: Record<string, unknown>;
 };
 
-export type ExtensionMappingPreviewResource<OwnerResult> = {
-  readonly schema_id: "cartulary.imports.extension_mapping_preview_result.v1";
-  readonly import_session_id: string;
-  readonly import_unit_id: string;
-  readonly target_kind: string;
-  readonly extension_profile_id: string;
-  readonly owner_result_schema_id: string;
-  readonly owner_result: OwnerResult;
-};
-
-export type WorkbookSourceColumnMapping = {
-  readonly source_column_ordinal: number;
-  readonly source_header_text: string | null;
-  readonly field_key: string | null;
-  readonly entity_binding_mode: string | null;
-  readonly transform_id: string | null;
-  readonly transform_options: Readonly<Record<string, unknown>>;
-  readonly empty_value_policy: "omit_field" | "write_null";
-};
+export type { ExtensionMappingPreviewResource };
 
 export class ImportMappingPreviewStaleError extends Error {
   constructor() {
@@ -203,20 +139,29 @@ export async function previewExtensionImportMapping<OwnerResult>(options: {
   readonly candidate: ExtensionMappingCandidate;
 }): Promise<ExtensionMappingPreviewResource<OwnerResult>> {
   const { candidate, discovery } = options;
-  const envelope = await postImportJSON<{
-    readonly data: ExtensionMappingPreviewResource<OwnerResult>;
-  }>(
-    options.availability,
-    options.apiBase,
-    `/api/v1/import-sessions/${discovery.sessionId}/units/${discovery.unit.import_unit_id}/mapping-preview`,
-    {
-      target_kind: candidate.targetKind,
-      extension_profile_id: candidate.extensionProfileId,
-      owner_mapping_schema_id: candidate.ownerMappingSchemaId,
-      owner_mapping: candidate.ownerMapping,
-    },
-  );
-  return envelope.data;
+  const envelope =
+    await requireImportResult<PreviewImportUnitExtensionMappingResponse>(
+      options.availability,
+      () =>
+        fetchHTTPOperation<PreviewImportUnitExtensionMappingResponse>({
+          apiBase: options.apiBase,
+          operationID: "previewImportUnitExtensionMapping",
+          pathParameters: {
+            import_session_id: discovery.sessionId,
+            import_unit_id: discovery.unit.import_unit_id,
+          },
+          init: {
+            method: "POST",
+            body: JSON.stringify({
+              target_kind: candidate.targetKind,
+              extension_profile_id: candidate.extensionProfileId,
+              owner_mapping_schema_id: candidate.ownerMappingSchemaId,
+              owner_mapping: candidate.ownerMapping,
+            }),
+          },
+        }),
+    );
+  return envelope.data as ExtensionMappingPreviewResource<OwnerResult>;
 }
 
 export async function approveWorkbookImportMapping(options: {
@@ -232,21 +177,28 @@ export async function approveWorkbookImportMapping(options: {
   readonly sourceColumns: readonly WorkbookSourceColumnMapping[];
   readonly transactionPrefix: string;
 }): Promise<DiscoveredImportUnit> {
-  const envelope = await postImportJSON<{
-    readonly data: DiscoveredImportUnit;
-  }>(
+  const envelope = await requireImportResult<PutImportUnitMappingResponse>(
     options.availability,
-    options.apiBase,
-    `/api/v1/import-sessions/${options.sessionId}/units/${options.discovery.unit.import_unit_id}/mapping`,
-    {
-      client_txn_id: clientTxnID(`${options.transactionPrefix}-mapping`),
-      target_view_schema_id: options.targetViewSchemaId,
-      header_row_ref: options.discovery.preview.header_row_ref,
-      data_start_row_ref: options.discovery.preview.data_start_row_ref,
-      unknown_column_policy: options.unknownColumnPolicy,
-      source_columns: options.sourceColumns,
-    },
-    "PUT",
+    () =>
+      fetchHTTPOperation<PutImportUnitMappingResponse>({
+        apiBase: options.apiBase,
+        operationID: "putImportUnitMapping",
+        pathParameters: {
+          import_session_id: options.sessionId,
+          import_unit_id: options.discovery.unit.import_unit_id,
+        },
+        init: {
+          method: "PUT",
+          body: JSON.stringify({
+            client_txn_id: clientTxnID(`${options.transactionPrefix}-mapping`),
+            target_view_schema_id: options.targetViewSchemaId,
+            header_row_ref: options.discovery.preview.header_row_ref,
+            data_start_row_ref: options.discovery.preview.data_start_row_ref,
+            unknown_column_policy: options.unknownColumnPolicy,
+            source_columns: options.sourceColumns,
+          }),
+        },
+      }),
   );
   return envelope.data;
 }
@@ -259,15 +211,24 @@ export async function setWorkbookImportUnitSelection(options: {
   readonly selected: boolean;
   readonly transactionPrefix: string;
 }): Promise<DiscoveredImportUnit> {
-  const envelope = await postImportJSON<{
-    readonly data: {
-      readonly unit: DiscoveredImportUnit;
-    };
-  }>(
-    options.availability,
-    options.apiBase,
-    `/api/v1/import-sessions/${options.sessionId}/units/${options.unitId}/${options.selected ? "select" : "skip"}`,
-    { client_txn_id: clientTxnID(`${options.transactionPrefix}-selection`) },
+  const operationID = options.selected ? "selectImportUnit" : "skipImportUnit";
+  const envelope = await requireImportResult<
+    SelectImportUnitResponse | SkipImportUnitResponse
+  >(options.availability, () =>
+    fetchHTTPOperation<SelectImportUnitResponse | SkipImportUnitResponse>({
+      apiBase: options.apiBase,
+      operationID,
+      pathParameters: {
+        import_session_id: options.sessionId,
+        import_unit_id: options.unitId,
+      },
+      init: {
+        method: "POST",
+        body: JSON.stringify({
+          client_txn_id: clientTxnID(`${options.transactionPrefix}-selection`),
+        }),
+      },
+    }),
   );
   return envelope.data.unit;
 }
@@ -280,16 +241,21 @@ export async function applyWorkbookImport(options: {
   readonly transactionPrefix: string;
   readonly onJob?: ((job: ImportJobResource) => void) | undefined;
 }): Promise<ImportJobResource> {
-  const applyEnvelope = await postImportJSON<{
-    readonly data: ImportJobResource;
-  }>(
+  const applyEnvelope = await requireImportResult<ApplyImportSessionResponse>(
     options.availability,
-    options.apiBase,
-    `/api/v1/import-sessions/${options.sessionId}/apply`,
-    {
-      client_txn_id: clientTxnID(`${options.transactionPrefix}-apply`),
-      selected_unit_ids: options.selectedUnitIds,
-    },
+    () =>
+      fetchHTTPOperation<ApplyImportSessionResponse>({
+        apiBase: options.apiBase,
+        operationID: "applyImportSession",
+        pathParameters: { import_session_id: options.sessionId },
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            client_txn_id: clientTxnID(`${options.transactionPrefix}-apply`),
+            selected_unit_ids: options.selectedUnitIds,
+          }),
+        },
+      }),
   );
   options.onJob?.(applyEnvelope.data);
   return pollImportJob(
@@ -306,11 +272,20 @@ export async function cancelImportJob(options: {
   readonly jobId: string;
   readonly transactionPrefix: string;
 }): Promise<ImportJobResource> {
-  const envelope = await postImportJSON<{ readonly data: ImportJobResource }>(
+  const envelope = await requireImportResult<CancelJobResponse>(
     options.availability,
-    options.apiBase,
-    `/api/v1/jobs/${options.jobId}/cancel`,
-    { client_txn_id: clientTxnID(`${options.transactionPrefix}-cancel`) },
+    () =>
+      fetchHTTPOperation<CancelJobResponse>({
+        apiBase: options.apiBase,
+        operationID: "cancelJob",
+        pathParameters: { job_id: options.jobId },
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            client_txn_id: clientTxnID(`${options.transactionPrefix}-cancel`),
+          }),
+        },
+      }),
   );
   return envelope.data;
 }
@@ -326,32 +301,42 @@ export async function approveSelectAndApplyExtensionImport(options: {
 }): Promise<readonly ImportResourceRef[]> {
   const { candidate, discovery } = options;
   options.onProgress?.("Approving mapping.");
-  const mappingEnvelope = await postImportJSON<{
-    readonly data: DiscoveredImportUnit;
-  }>(
-    options.availability,
-    options.apiBase,
-    `/api/v1/import-sessions/${discovery.sessionId}/units/${discovery.unit.import_unit_id}/mapping`,
-    {
-      client_txn_id: clientTxnID(`${options.transactionPrefix}-mapping`),
-      target_kind: candidate.targetKind,
-      extension_profile_id: candidate.extensionProfileId,
-      owner_mapping_schema_id: candidate.ownerMappingSchemaId,
-      owner_mapping: candidate.ownerMapping,
-      header_row_ref: discovery.preview.header_row_ref,
-      data_start_row_ref: discovery.preview.data_start_row_ref,
-      source_columns: discovery.preview.columns.map((column) => ({
-        source_column_ordinal: column.source_column_ordinal,
-        source_header_text: column.source_header_text,
-        field_key: null,
-        entity_binding_mode: null,
-        transform_id: null,
-        transform_options: {},
-        empty_value_policy: "omit_field",
-      })),
-    },
-    "PUT",
-  );
+  const mappingEnvelope =
+    await requireImportResult<PutImportUnitMappingResponse>(
+      options.availability,
+      () =>
+        fetchHTTPOperation<PutImportUnitMappingResponse>({
+          apiBase: options.apiBase,
+          operationID: "putImportUnitMapping",
+          pathParameters: {
+            import_session_id: discovery.sessionId,
+            import_unit_id: discovery.unit.import_unit_id,
+          },
+          init: {
+            method: "PUT",
+            body: JSON.stringify({
+              client_txn_id: clientTxnID(
+                `${options.transactionPrefix}-mapping`,
+              ),
+              target_kind: candidate.targetKind,
+              extension_profile_id: candidate.extensionProfileId,
+              owner_mapping_schema_id: candidate.ownerMappingSchemaId,
+              owner_mapping: candidate.ownerMapping,
+              header_row_ref: discovery.preview.header_row_ref,
+              data_start_row_ref: discovery.preview.data_start_row_ref,
+              source_columns: discovery.preview.columns.map((column) => ({
+                source_column_ordinal: column.source_column_ordinal,
+                source_header_text: column.source_header_text,
+                field_key: null,
+                entity_binding_mode: null,
+                transform_id: null,
+                transform_options: {},
+                empty_value_policy: "omit_field",
+              })),
+            }),
+          },
+        }),
+    );
   if (
     mappingEnvelope.data.mapping_fingerprint !==
     options.expectedMappingFingerprint
@@ -400,11 +385,14 @@ async function uploadImportSession(options: {
     ),
   );
   form.append("file", options.file, options.file.name);
-  const result = await fetchUploadJSON<{ data: ImportJobResource }>(
+  const result = await requireImportResult<CreateImportSessionResponse>(
     options.availability,
-    options.apiBase,
-    "/api/v1/import-sessions",
-    form,
+    () =>
+      fetchMultipartHTTPOperation<CreateImportSessionResponse>({
+        apiBase: options.apiBase,
+        operationID: "createImportSession",
+        body: form,
+      }),
   );
   return result.data;
 }
@@ -414,17 +402,43 @@ async function fetchAllImportUnits(
   apiBase: string | undefined,
   sessionId: string,
 ): Promise<readonly DiscoveredImportUnit[]> {
-  const result = await runImportRequest(availability, () =>
-    fetchWorkbookJSON<{
-      readonly data: { readonly import_units: readonly DiscoveredImportUnit[] };
-    }>(apiPath(apiBase, `/api/v1/import-sessions/${sessionId}/units?limit=50`)),
-  );
-  if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+  const units: DiscoveredImportUnit[] = [];
+  const continuationCursors = new Set<string>();
+  let cursorToken: string | undefined;
+  for (;;) {
+    const envelope = await requireImportResult<ListImportUnitsResponse>(
+      availability,
+      () =>
+        fetchHTTPOperation<ListImportUnitsResponse>({
+          apiBase,
+          operationID: "listImportUnits",
+          pathParameters: { import_session_id: sessionId },
+          query: { limit: 50, cursor_token: cursorToken },
+        }),
+    );
+    units.push(...envelope.data.import_units);
+
+    const paging = envelope.meta.paging;
+    if (paging === undefined) {
+      throw new Error("invalid_import_paging_contract");
+    }
+    if (!paging.has_more) {
+      if (paging.next_cursor !== null) {
+        throw new Error("invalid_import_paging_contract");
+      }
+      break;
+    }
+    const nextCursor = paging.next_cursor;
+    if (
+      typeof nextCursor !== "string" ||
+      nextCursor.trim() === "" ||
+      continuationCursors.has(nextCursor)
+    ) {
+      throw new Error("invalid_import_paging_contract");
+    }
+    continuationCursors.add(nextCursor);
+    cursorToken = nextCursor;
   }
-  const units = readEnvelope<{
-    data: { import_units: DiscoveredImportUnit[] };
-  }>(result.payload).data.import_units;
   if (units.length === 0) {
     throw new Error("import_unit_not_returned");
   }
@@ -436,15 +450,16 @@ async function fetchImportSession(
   apiBase: string | undefined,
   sessionId: string,
 ): Promise<ImportSessionResource> {
-  const result = await runImportRequest(availability, () =>
-    fetchWorkbookJSON<{ readonly data: ImportSessionResource }>(
-      apiPath(apiBase, `/api/v1/import-sessions/${sessionId}`),
-    ),
+  const envelope = await requireImportResult<GetImportSessionResponse>(
+    availability,
+    () =>
+      fetchHTTPOperation<GetImportSessionResponse>({
+        apiBase,
+        operationID: "getImportSession",
+        pathParameters: { import_session_id: sessionId },
+      }),
   );
-  if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
-  }
-  return readEnvelope<{ data: ImportSessionResource }>(result.payload).data;
+  return envelope.data;
 }
 
 async function fetchImportPreview(
@@ -453,18 +468,19 @@ async function fetchImportPreview(
   sessionId: string,
   unitId: string,
 ): Promise<DiscoveredImportPreview> {
-  const result = await runImportRequest(availability, () =>
-    fetchWorkbookJSON<{ data: DiscoveredImportPreview }>(
-      apiPath(
+  const envelope = await requireImportResult<GetImportUnitPreviewResponse>(
+    availability,
+    () =>
+      fetchHTTPOperation<GetImportUnitPreviewResponse>({
         apiBase,
-        `/api/v1/import-sessions/${sessionId}/units/${unitId}/preview`,
-      ),
-    ),
+        operationID: "getImportUnitPreview",
+        pathParameters: {
+          import_session_id: sessionId,
+          import_unit_id: unitId,
+        },
+      }),
   );
-  if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
-  }
-  return readEnvelope<{ data: DiscoveredImportPreview }>(result.payload).data;
+  return envelope.data;
 }
 
 export async function pollImportJob(
@@ -474,15 +490,16 @@ export async function pollImportJob(
   onJob?: ((job: ImportJobResource) => void) | undefined,
 ): Promise<ImportJobResource> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const result = await runImportRequest(availability, () =>
-      fetchWorkbookJSON<{ data: ImportJobResource }>(
-        apiPath(apiBase, `/api/v1/jobs/${jobId}`),
-      ),
+    const envelope = await requireImportResult<GetJobResponse>(
+      availability,
+      () =>
+        fetchHTTPOperation<GetJobResponse>({
+          apiBase,
+          operationID: "getJob",
+          pathParameters: { job_id: jobId },
+        }),
     );
-    if (!result.ok) {
-      throw new Error(parseErrorMessage(result.payload));
-    }
-    const job = readEnvelope<{ data: ImportJobResource }>(result.payload).data;
+    const job = envelope.data;
     onJob?.(job);
     if (job.status === "succeeded") {
       return job;
@@ -495,40 +512,15 @@ export async function pollImportJob(
   throw new Error("job_poll_timeout");
 }
 
-async function postImportJSON<T extends object = Record<string, unknown>>(
+async function requireImportResult<T>(
   availability: ExtensionAvailabilityController,
-  apiBase: string | undefined,
-  path: string,
-  body: Record<string, unknown>,
-  method = "POST",
+  request: () => Promise<APIResult<T>>,
 ): Promise<T> {
-  const result = await runImportRequest(availability, () =>
-    fetchWorkbookJSON<T>(apiPath(apiBase, path), {
-      method,
-      body: JSON.stringify(body),
-    }),
-  );
+  const result = await runImportRequest(availability, request);
   if (!result.ok) {
     throw new Error(parseErrorMessage(result.payload));
   }
-  return readEnvelope<T>(result.payload);
-}
-
-async function fetchUploadJSON<T>(
-  availability: ExtensionAvailabilityController,
-  apiBase: string | undefined,
-  path: string,
-  body: FormData,
-): Promise<T> {
-  const response = await runImportRequest(availability, () =>
-    requestMultipartJSON<T>(apiPath(apiBase, path), body),
-  );
-  const payload = response.payload;
-  if (!response.ok) {
-    const error = extractError(payload);
-    throw new Error(error?.code ?? "upload_failed");
-  }
-  return payload as T;
+  return result.payload as T;
 }
 
 function runImportRequest<T>(

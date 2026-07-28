@@ -21,7 +21,7 @@ import {
   type WorkbookImportDiscovery,
   type WorkbookImportUnitDiscovery,
   type WorkbookSourceColumnMapping,
-} from "../../shared/importCoordinator";
+} from "../../imports/importCoordinator";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 
 type ImportAssistantFeatureProps = {
@@ -664,8 +664,12 @@ function mappingColumns(
   });
 }
 
-function normalizeMappingToken(value: string | null): string {
-  return (value ?? "").toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
+function normalizeMappingToken(
+  value: DiscoveredImportColumn["source_header_text"],
+): string {
+  return (value === null ? "" : String(value))
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/gu, "");
 }
 
 function locatorLabel(item: WorkbookImportUnitDiscovery): string {

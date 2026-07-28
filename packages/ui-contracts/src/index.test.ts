@@ -4,6 +4,8 @@ import * as uiContracts from "./index";
 import {
   accountTestId,
   appRouteTestId,
+  assessmentCreateControlTestId,
+  assessmentCreatePanelTestId,
   authTestId,
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
@@ -11,6 +13,7 @@ import {
   autoResolutionUndoButtonTestId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  coordinationWorkflowTestId,
   currentIncidentRoleTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
@@ -31,6 +34,7 @@ import {
   entityInspectorTestId,
   entityMentionResolutionStatuses,
   entityMentionResolutionStatusTestId,
+  entityMergeControlTestId,
   entityTypes,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
@@ -46,6 +50,7 @@ import {
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
+  genericWorkbookTestId,
   gridActionsHeaderTestId,
   gridDataCellsSelector,
   gridDataRowsSelector,
@@ -64,6 +69,7 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
   incidentControlsCloseButtonTestId,
   incidentControlsMenuItemTestId,
@@ -179,6 +185,7 @@ import {
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
   workbookAddRowButtonTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -188,6 +195,7 @@ import {
   workbookEditRecoveryTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookImportAssistantTestId,
   workbookIncidentIdentityTestId,
   workbookInlineDraftRowTestId,
@@ -197,6 +205,7 @@ import {
   workbookInspectorPanelIds,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookPresenceSummaryTestId,
   workbookResponsiveBandTestId,
   workbookRowActionMenuButtonTestId,
   workbookRowContextMenuTestId,
@@ -655,6 +664,40 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(workbookConflictLocalValueTestId()).toBe(
       "workbook-conflict-local-value",
     );
+    expect(
+      (
+        [
+          "activate-origin",
+          "apply-collection",
+          "close",
+          "keep-saved",
+          "merged-value",
+          "paste-navigator",
+          "paste-next",
+          "paste-position",
+          "paste-previous",
+          "use-merged",
+          "use-server-suggestion",
+          "use-unsaved",
+        ] as const
+      ).map((control) => workbookConflictControlTestId(control)),
+    ).toEqual([
+      "conflict-activate-origin",
+      "conflict-apply-collection",
+      "conflict-close",
+      "conflict-keep-saved",
+      "conflict-merged-value",
+      "paste-conflict-navigator",
+      "paste-conflict-next",
+      "paste-conflict-position",
+      "paste-conflict-previous",
+      "conflict-use-merged",
+      "conflict-use-server-suggestion",
+      "conflict-use-unsaved",
+    ]);
+    expect(() =>
+      workbookConflictControlTestId("accept-server" as never),
+    ).toThrow("Invalid workbook conflict control token: accept-server");
     expect(workbookEditRecoveryTestId()).toBe("workbook-edit-recovery");
     expect(workbookEditRecoveryRetryButtonTestId()).toBe(
       "workbook-edit-recovery-retry",
@@ -690,6 +733,8 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(pendingQueueNoticeTestId()).toBe("pending-queue-notice");
     expect(pendingQueueCountTestId()).toBe("pending-queue-count");
+    expect(workbookFocusAnchorTestId()).toBe("workbook-focus-anchor");
+    expect(workbookPresenceSummaryTestId()).toBe("presence-header");
     expect(savedViewFamilySelector()).toBe('[data-testid^="saved-view-"]');
     expect(savedViewSelectorTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-selector-cartulary.view.hosts.v1",
@@ -816,6 +861,57 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "inspect-host-host-1",
     );
     expect(entityInspectorTestId("identity")).toBe("identity-inspector");
+    expect(
+      (
+        [
+          "confirm",
+          "loser-record",
+          "message",
+          "plan",
+          "reason",
+          "start",
+        ] as const
+      ).map((control) => entityMergeControlTestId(control)),
+    ).toEqual([
+      "merge-confirm",
+      "merge-loser-record",
+      "merge-message",
+      "merge-plan",
+      "merge-reason",
+      "merge-start",
+    ]);
+    expect(() => entityMergeControlTestId("undo" as never)).toThrow(
+      "Invalid entity merge control token: undo",
+    );
+    expect(assessmentCreatePanelTestId()).toBe("assessment-create-panel");
+    expect(
+      (
+        [
+          "assessed-at",
+          "confidence-band",
+          "message",
+          "rationale",
+          "state",
+          "subject",
+          "subject-type",
+          "submit",
+          "support-refs",
+        ] as const
+      ).map((control) => assessmentCreateControlTestId(control)),
+    ).toEqual([
+      "assessment-create-assessed-at",
+      "assessment-create-confidence-band",
+      "assessment-create-message",
+      "assessment-create-rationale",
+      "assessment-create-state",
+      "assessment-create-subject",
+      "assessment-create-subject-type",
+      "assessment-create-submit",
+      "assessment-create-support-refs",
+    ]);
+    expect(() => assessmentCreateControlTestId("delete" as never)).toThrow(
+      "Invalid assessment create control token: delete",
+    );
     expect(entityInspectorSubjectTestId("identity", "identity-1")).toBe(
       "identity-inspector-subject-identity-1",
     );
@@ -855,6 +951,62 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(genericEditSubmitTestId("cartulary.view.notes.v1")).toBe(
       "generic-edit-submit-cartulary.view.notes.v1",
+    );
+    expect(
+      (
+        [
+          "mutation-error",
+          "note-source-record",
+          "reference-load-error",
+        ] as const
+      ).map((selector) => genericWorkbookTestId(selector)),
+    ).toEqual([
+      "generic-mutation-error",
+      "generic-create-note-source-record",
+      "generic-reference-load-error",
+    ]);
+    expect(() => genericWorkbookTestId("delete-error" as never)).toThrow(
+      "Invalid generic workbook selector token: delete-error",
+    );
+    expect(
+      (
+        [
+          "decision-reason",
+          "decision-replacement",
+          "decision-submit",
+          "decision-target",
+          "party-clear-both",
+          "party-clear-link",
+          "party-clear-text",
+          "party-create-from-text",
+          "party-existing",
+          "party-link-existing",
+          "party-pair",
+          "task-blocked-reason",
+          "task-status",
+          "task-submit",
+          "task-target",
+        ] as const
+      ).map((selector) => coordinationWorkflowTestId(selector)),
+    ).toEqual([
+      "decision-supersede-reason",
+      "decision-supersede-replacement",
+      "decision-supersede-submit",
+      "decision-supersede-target",
+      "party-link-clear-both",
+      "party-link-clear-link",
+      "party-link-clear-text",
+      "party-link-create-from-text",
+      "party-link-existing-party",
+      "party-link-link-existing",
+      "party-link-pair",
+      "task-lifecycle-blocked-reason",
+      "task-lifecycle-status",
+      "task-lifecycle-submit",
+      "task-lifecycle-target",
+    ]);
+    expect(() => coordinationWorkflowTestId("party-delete" as never)).toThrow(
+      "Invalid coordination workflow selector token: party-delete",
     );
     expect(mentionResolveTargetSelectTestId()).toBe("inspector-resolve-target");
     expect(mentionResolveExistingButtonTestId()).toBe(
@@ -1073,6 +1225,70 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(incidentControlsStatusTestId()).toBe("incident-admin-status");
     expect(incidentControlsActionMessageTestId()).toBe(
       "incident-admin-action-message",
+    );
+    expect(
+      (
+        [
+          "admin-action-message",
+          "admin-error-code",
+          "admin-status",
+          "close-button",
+          "lifecycle-reason",
+          "patch-button",
+          "patch-current-phase",
+          "patch-description",
+          "patch-external-case",
+          "patch-readonly-note",
+          "patch-severity",
+          "patch-tlp",
+          "pref-default-sheet-ref",
+          "pref-home-sheet-ref",
+          "reopen-button",
+          "summary-closed-at",
+          "summary-current-phase",
+          "summary-description",
+          "summary-key",
+          "summary-primary-external-case-ref",
+          "summary-role",
+          "summary-severity",
+          "summary-status",
+          "summary-title",
+          "summary-tlp",
+          "summary-version",
+        ] as const
+      ).map((selector) => incidentAdministrationTestId(selector)),
+    ).toEqual([
+      "incident-admin-action-message",
+      "incident-admin-error-code",
+      "incident-admin-status",
+      "incident-close-button",
+      "incident-lifecycle-reason",
+      "incident-patch-button",
+      "incident-patch-current-phase",
+      "incident-patch-description",
+      "incident-patch-external-case",
+      "incident-patch-readonly-note",
+      "incident-patch-severity",
+      "incident-patch-tlp",
+      "incident-pref-default-sheet-ref",
+      "incident-pref-home-sheet-ref",
+      "incident-reopen-button",
+      "incident-summary-closed-at",
+      "incident-summary-current-phase",
+      "incident-summary-description",
+      "incident-summary-key",
+      "incident-summary-primary-external-case-ref",
+      "incident-summary-role",
+      "incident-summary-severity",
+      "incident-summary-status",
+      "incident-summary-title",
+      "incident-summary-tlp",
+      "incident-summary-version",
+    ]);
+    expect(() =>
+      incidentAdministrationTestId("delete-incident" as never),
+    ).toThrow(
+      "Invalid incident administration selector token: delete-incident",
     );
     expect(
       incidentMembershipAuditRowTestId("00000000-0000-4000-8000-000000002001"),

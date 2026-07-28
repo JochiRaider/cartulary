@@ -269,32 +269,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+        "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
-          "networkFlowClient route identity requires a claimed profile and a supported compiled contract major"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.networkflow.regression.networkflowclient_uses_extension_workspace_route_9bb2fadacc",
-      "owner_id": "web.networkflow",
-      "family_id": "web.networkflow.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.networkflow.verification.extension_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
-        "titles": [
-          "networkFlowClient route identity uses extension workspace route state for Network Analysis"
+          "networkFlowContractAdapter requires a claimed profile and a supported compiled contract major"
         ]
       },
       "evidence_class": "unit",

@@ -15,11 +15,13 @@ import {
   timelineMutationSubstrateReadyTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictSavedValueTestId,
   workbookEditRecoveryDiscardButtonTestId,
   workbookEditRecoveryRetryButtonTestId,
   workbookEditRecoveryTestId,
+  workbookFocusAnchorTestId,
 } from "@cartulary/ui-contracts";
 import type { APIResponse, Page, Response, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -953,7 +955,9 @@ test(
           .locator("xpath=ancestor::*[@role='gridcell'][1]");
         await staleStartCell.dispatchEvent("mousedown", { button: 0 });
         await staleStartCell.focus();
-        await expect(stalePage.getByTestId("workbook-focus-anchor")).toHaveText(
+        await expect(
+          stalePage.getByTestId(workbookFocusAnchorTestId()),
+        ).toHaveText(
           `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
         );
         await patchRecord(page, staleFirst.record_id, {
@@ -1028,17 +1032,25 @@ test(
           ),
         ).toBeVisible();
         await expect(
-          stalePage.getByTestId("paste-conflict-navigator"),
+          stalePage.getByTestId(
+            workbookConflictControlTestId("paste-navigator"),
+          ),
         ).toBeVisible();
         await expect(
-          stalePage.getByTestId("paste-conflict-position"),
+          stalePage.getByTestId(
+            workbookConflictControlTestId("paste-position"),
+          ),
         ).toHaveText("1 of 2");
         await expect(
           stalePage.getByTestId(workbookConflictLocalValueTestId()),
         ).toHaveValue(staleStartText);
-        await stalePage.getByTestId("paste-conflict-next").click();
+        await stalePage
+          .getByTestId(workbookConflictControlTestId("paste-next"))
+          .click();
         await expect(
-          stalePage.getByTestId("paste-conflict-position"),
+          stalePage.getByTestId(
+            workbookConflictControlTestId("paste-position"),
+          ),
         ).toHaveText("2 of 2");
         await expect(
           stalePage.getByTestId(workbookConflictLocalValueTestId()),

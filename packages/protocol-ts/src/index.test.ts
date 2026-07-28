@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   type AccountPreferencesEnvelope,
@@ -7,7 +7,9 @@ import {
   type AccountProfileEnvelope,
   type AccountProfilePatchRequest,
   type AccountProfileResource,
+  type ApplyImportSessionRequest,
   buildHTTPOperationPath,
+  type CancelJobRequest,
   type ContractArtifact,
   type DensityMode,
   type ErrorEnvelope,
@@ -25,6 +27,7 @@ import {
   getReasonCodeRegistry,
   getViewSchemaRegistryContract,
   getViewSchemaRegistryEntry,
+  type ListImportUnitsResponse,
   listContractArtifactFamilies,
   listExtensionProfiles,
   listViewSchemaRegistryEntries,
@@ -38,6 +41,7 @@ import {
   requireExtensionProfile,
   requireReasonCodeRegistry,
   requireViewSchemaRegistryEntry,
+  type SelectImportUnitResponse,
   type ViewSchemaRegistryContract,
   validateHTTPOperationResponse,
 } from "./index";
@@ -77,6 +81,140 @@ describe("@cartulary/protocol-ts facade", () => {
         unsupported: "must-not-pass",
       }),
     ).toThrow("unexpected query parameter unsupported");
+
+    expect([
+      buildHTTPOperationPath("createImportSession"),
+      buildHTTPOperationPath("getImportSession", {
+        import_session_id: "session/id",
+      }),
+      buildHTTPOperationPath("listImportUnits", {
+        import_session_id: "session/id",
+      }),
+      buildHTTPOperationPath("getImportUnit", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("getImportUnitPreview", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("previewImportUnitExtensionMapping", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("putImportUnitMapping", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("selectImportUnit", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("skipImportUnit", {
+        import_session_id: "session/id",
+        import_unit_id: "unit/id",
+      }),
+      buildHTTPOperationPath("applyImportSession", {
+        import_session_id: "session/id",
+      }),
+      buildHTTPOperationPath("getJob", { job_id: "job/id" }),
+      buildHTTPOperationPath("cancelJob", { job_id: "job/id" }),
+    ]).toEqual([
+      "/api/v1/import-sessions",
+      "/api/v1/import-sessions/session%2Fid",
+      "/api/v1/import-sessions/session%2Fid/units",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/preview",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/mapping-preview",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/mapping",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/select",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/skip",
+      "/api/v1/import-sessions/session%2Fid/apply",
+      "/api/v1/jobs/job%2Fid",
+      "/api/v1/jobs/job%2Fid/cancel",
+    ]);
+    expect(
+      encodeHTTPOperationQuery("listImportUnits", {
+        cursor_token: "opaque /+ cursor",
+        limit: 50,
+      }),
+    ).toBe("?cursor_token=opaque%20%2F%2B%20cursor&limit=50");
+
+    const applyRequest: ApplyImportSessionRequest = {
+      client_txn_id: "txn-apply",
+      selected_unit_ids: ["unit-1"],
+    };
+    const cancelRequest: CancelJobRequest = {
+      client_txn_id: "txn-cancel",
+    };
+    expect(applyRequest.selected_unit_ids).toEqual(["unit-1"]);
+    expect(cancelRequest.client_txn_id).toBe("txn-cancel");
+    expectTypeOf<ListImportUnitsResponse>().toMatchTypeOf<{
+      data: { import_units: unknown[] };
+      meta: { request_id: string };
+    }>();
+    expectTypeOf<SelectImportUnitResponse>().toMatchTypeOf<{
+      data: {
+        import_session_id: string;
+        selected_unit_ids: string[];
+        session_status: string;
+      };
+      meta: { request_id: string };
+    }>();
+
+    const malformedImportUnits = validateHTTPOperationResponse(
+      "listImportUnits",
+      {
+        data: { import_units: [] },
+        meta: {
+          request_id: "request-test",
+          paging: { has_more: true, limit: 50 },
+        },
+      },
+    );
+    expect(malformedImportUnits).toEqual(
+      expect.objectContaining({
+        ok: false,
+        schemaId: "cartulary.core_http.ImportUnitsEnvelope.v1",
+      }),
+    );
+    expect(
+      validateHTTPOperationResponse("putImportUnitMapping", {
+        data: {
+          import_session_id: "00000000-0000-4000-8000-000000000001",
+          import_unit_id: "00000000-0000-4000-8000-000000000002",
+          locator_kind: "csv_file",
+          locator: { file: "source" },
+          source_rect_a1: "A1:A2",
+          header_row_ref: 1,
+          data_start_row_ref: 2,
+          inferred_row_count: 1,
+          inferred_column_count: 1,
+          warning_codes: [],
+          unit_status: "mapped",
+          mapping_fingerprint: "mapping-fingerprint",
+          approved_mapping: {
+            target_kind: "network_flow_table",
+            extension_profile_id: "network_flow_activity",
+            owner_mapping_schema_id:
+              "cartulary.network_flow_mapping_candidate.v1",
+            owner_mapping: { target_kind: "network_flow_table" },
+            source_columns: [
+              {
+                source_column_ordinal: 1,
+                source_header_text: "Source IP",
+                field_key: null,
+                entity_binding_mode: null,
+                transform_id: null,
+                transform_options: {},
+                empty_value_policy: "omit_field",
+              },
+            ],
+          },
+        },
+        meta: { request_id: "request-test" },
+      }),
+    ).toEqual(expect.objectContaining({ ok: true }));
 
     const invalid = validateHTTPOperationResponse(
       "listAdministrativeAuditEvents",

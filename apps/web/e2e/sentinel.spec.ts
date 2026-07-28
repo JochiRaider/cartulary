@@ -6,7 +6,10 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
+  assessmentCreateControlTestId,
+  assessmentCreatePanelTestId,
   conflictMarkerTestId,
+  coordinationWorkflowTestId,
   dataTestIdSelector,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
@@ -14,6 +17,7 @@ import {
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditValueTestId,
+  genericWorkbookTestId,
   gridFilterChipTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
@@ -32,9 +36,11 @@ import {
   timelineMutationSubstrateReadyTestId,
   type WorkbookSurface,
   workbookAddRowButtonTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
@@ -226,7 +232,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
     rowCellTestId(seed.record_id as string, "timeline.activity_synopsis_text"),
   );
   await activateSemanticGridCell(seedSummary);
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
   );
 
@@ -261,7 +267,7 @@ test("pastes a representative 20x5 Timeline clipboard range", async ({
   }, pastePayload);
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
   );
   await expect(
@@ -371,7 +377,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
   );
   await pasteStartGridCell.dispatchEvent("mousedown", { button: 0 });
   await pasteStartGridCell.focus();
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );
 
@@ -427,7 +433,7 @@ test("groups paste conflicts and preserves selection continuity", async ({
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );
   await page
@@ -462,21 +468,23 @@ test("groups paste conflicts and preserves selection continuity", async ({
       ),
     ),
   ).toBeVisible();
-  await expect(page.getByTestId("paste-conflict-navigator")).toBeVisible();
-  await expect(page.getByTestId("paste-conflict-position")).toHaveText(
-    "1 of 2",
-  );
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-navigator")),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-position")),
+  ).toHaveText("1 of 2");
   await expect(
     page.getByTestId(workbookConflictLocalValueTestId()),
   ).toHaveValue(pasteStartText);
-  await page.getByTestId("paste-conflict-next").click();
-  await expect(page.getByTestId("paste-conflict-position")).toHaveText(
-    "2 of 2",
-  );
+  await page.getByTestId(workbookConflictControlTestId("paste-next")).click();
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-position")),
+  ).toHaveText("2 of 2");
   await expect(
     page.getByTestId(workbookConflictLocalValueTestId()),
   ).toHaveValue(pasteNextText);
-  await page.getByTestId("conflict-close").click();
+  await page.getByTestId(workbookConflictControlTestId("close")).click();
   await expect(page.getByTestId(workbookConflictResolverTestId())).toHaveCount(
     0,
   );
@@ -507,17 +515,17 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .click();
   await expect(
     page
-      .getByTestId("generic-create-note-source-record")
+      .getByTestId(genericWorkbookTestId("note-source-record"))
       .locator(`option[value="${source.record_id}"]`),
   ).toHaveCount(1, { timeout: 15_000 });
   await page
-    .getByTestId("generic-create-field-note.title")
+    .getByTestId(genericCreateFieldTestId("note.title"))
     .fill("Workbook inspector linked-notes linked note");
   await page
-    .getByTestId("generic-create-field-note.body")
+    .getByTestId(genericCreateFieldTestId("note.body"))
     .fill("Created from the Notes tab with a source record link.");
   await page
-    .getByTestId("generic-create-note-source-record")
+    .getByTestId(genericWorkbookTestId("note-source-record"))
     .selectOption(source.record_id as string);
 
   const responsePromise = page.waitForResponse(
@@ -660,7 +668,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
       rowCellTestId(evidence.record_id as string, "evidence.title"),
     ),
   );
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${evidenceViewSchemaId}:${evidence.record_id}:evidence.title`,
   );
   const preservedScroll = await setGenericGridScroll(
@@ -680,15 +688,17 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(genericEditRecordSelectTestId(evidenceViewSchemaId)),
     ).toHaveValue(evidence.record_id as string);
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${evidenceViewSchemaId}:${evidence.record_id}:evidence.title`,
     );
     await expectGenericGridScroll(page, evidenceViewSchemaId, preservedScroll);
   };
   await page
-    .getByTestId("party-link-pair")
+    .getByTestId(coordinationWorkflowTestId("party-pair"))
     .selectOption("evidence.collector_party_text:evidence.collector_party_id");
-  await page.getByTestId("party-link-create-from-text").click();
+  await page
+    .getByTestId(coordinationWorkflowTestId("party-create-from-text"))
+    .click();
   const createdParty = await waitForViewRowByCell(
     page,
     incidentId,
@@ -709,16 +719,16 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   );
 
   await page
-    .getByTestId("party-link-pair")
+    .getByTestId(coordinationWorkflowTestId("party-pair"))
     .selectOption("evidence.source_party_text:evidence.source_party_id");
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
     recordId: evidence.record_id as string,
-    clickTestId: "party-link-link-existing",
+    clickTestId: coordinationWorkflowTestId("party-link-existing"),
     changes: [
       {
         field_key: "evidence.source_party_id",
@@ -742,7 +752,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
     recordId: evidence.record_id as string,
-    clickTestId: "party-link-clear-link",
+    clickTestId: coordinationWorkflowTestId("party-clear-link"),
     changes: [{ field_key: "evidence.source_party_id", value: null }],
     expectedCells: {
       "evidence.source_party_text": "Browser Source Raw",
@@ -758,13 +768,13 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   ).toBeNull();
 
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
     recordId: evidence.record_id as string,
-    clickTestId: "party-link-link-existing",
+    clickTestId: coordinationWorkflowTestId("party-link-existing"),
     changes: [
       {
         field_key: "evidence.source_party_id",
@@ -781,7 +791,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
     recordId: evidence.record_id as string,
-    clickTestId: "party-link-clear-text",
+    clickTestId: coordinationWorkflowTestId("party-clear-text"),
     changes: [{ field_key: "evidence.source_party_text", value: null }],
     expectedCells: {
       "evidence.source_party_text": null,
@@ -797,13 +807,13 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   );
 
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedEvidence = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: evidenceViewSchemaId,
     recordId: evidence.record_id as string,
-    clickTestId: "party-link-clear-both",
+    clickTestId: coordinationWorkflowTestId("party-clear-both"),
     changes: [
       { field_key: "evidence.source_party_text", value: null },
       { field_key: "evidence.source_party_id", value: null },
@@ -857,7 +867,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   await activateSemanticGridCell(
     page.getByTestId(rowCellTestId(task.record_id as string, "task.title")),
   );
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${taskRequestsViewSchemaId}:${task.record_id}:task.title`,
   );
   const taskScroll = await setGenericGridScroll(page, taskRequestsViewSchemaId);
@@ -876,16 +886,18 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(genericEditRecordSelectTestId(taskRequestsViewSchemaId)),
     ).toHaveValue(task.record_id as string);
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${taskRequestsViewSchemaId}:${task.record_id}:task.title`,
     );
     await expectGenericGridScroll(page, taskRequestsViewSchemaId, taskScroll);
   };
 
   await page
-    .getByTestId("party-link-pair")
+    .getByTestId(coordinationWorkflowTestId("party-pair"))
     .selectOption("task.requester_party_text:task.requester_party_id");
-  await page.getByTestId("party-link-create-from-text").click();
+  await page
+    .getByTestId(coordinationWorkflowTestId("party-create-from-text"))
+    .click();
   const createdRequester = await waitForViewRowByCell(
     page,
     incidentId,
@@ -905,13 +917,13 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   );
 
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
     recordId: task.record_id as string,
-    clickTestId: "party-link-link-existing",
+    clickTestId: coordinationWorkflowTestId("party-link-existing"),
     changes: [
       {
         field_key: "task.requester_party_id",
@@ -935,7 +947,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
     recordId: task.record_id as string,
-    clickTestId: "party-link-clear-link",
+    clickTestId: coordinationWorkflowTestId("party-clear-link"),
     changes: [{ field_key: "task.requester_party_id", value: null }],
     expectedCells: {
       "task.requester_party_text": typedRequesterText,
@@ -949,13 +961,13 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   expect(refreshedTask?.cells["task.requester_party_id"]?.value).toBeNull();
 
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
     recordId: task.record_id as string,
-    clickTestId: "party-link-link-existing",
+    clickTestId: coordinationWorkflowTestId("party-link-existing"),
     changes: [
       {
         field_key: "task.requester_party_id",
@@ -972,7 +984,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
     recordId: task.record_id as string,
-    clickTestId: "party-link-clear-text",
+    clickTestId: coordinationWorkflowTestId("party-clear-text"),
     changes: [{ field_key: "task.requester_party_text", value: null }],
     expectedCells: {
       "task.requester_party_text": null,
@@ -986,13 +998,13 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   );
 
   await page
-    .getByTestId("party-link-existing-party")
+    .getByTestId(coordinationWorkflowTestId("party-existing"))
     .selectOption(existingParty.record_id as string);
   refreshedTask = await applyPartyPatchAndWait(page, {
     incidentId,
     viewSchemaId: taskRequestsViewSchemaId,
     recordId: task.record_id as string,
-    clickTestId: "party-link-clear-both",
+    clickTestId: coordinationWorkflowTestId("party-clear-both"),
     changes: [
       { field_key: "task.requester_party_text", value: null },
       { field_key: "task.requester_party_id", value: null },
@@ -1027,7 +1039,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
       rowCellTestId(commLog.record_id as string, "comm_log.summary"),
     ),
   );
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${commLogViewSchemaId}:${commLog.record_id}:comm_log.summary`,
   );
   const commScroll = await setGenericGridScroll(page, commLogViewSchemaId);
@@ -1044,7 +1056,7 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     await expect(
       page.getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId)),
     ).toHaveValue(commLog.record_id as string);
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${commLogViewSchemaId}:${commLog.record_id}:comm_log.summary`,
     );
     await expectGenericGridScroll(page, commLogViewSchemaId, commScroll);
@@ -1135,35 +1147,37 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   await page
     .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
     .click();
-  await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
-  await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
-    subjectA.record_id as string,
-  );
+  await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("subject")),
+  ).toHaveValue(subjectA.record_id as string);
 
   const invalidTimestamp = "2026-04-24 12:00:00";
-  await page.getByTestId("assessment-create-state").selectOption("confirmed");
   await page
-    .getByTestId("assessment-create-confidence-band")
+    .getByTestId(assessmentCreateControlTestId("state"))
+    .selectOption("confirmed");
+  await page
+    .getByTestId(assessmentCreateControlTestId("confidence-band"))
     .selectOption("high");
   await page
-    .getByTestId("assessment-create-rationale")
+    .getByTestId(assessmentCreateControlTestId("rationale"))
     .fill("Invalid timestamp must remain a draft.");
   await page
-    .getByTestId("assessment-create-assessed-at")
+    .getByTestId(assessmentCreateControlTestId("assessed-at"))
     .fill(invalidTimestamp);
   const failedCreate = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`),
   );
-  await page.getByTestId("assessment-create-submit").click();
+  await page.getByTestId(assessmentCreateControlTestId("submit")).click();
   expect((await failedCreate).status()).toBe(400);
-  await expect(page.getByTestId("assessment-create-message")).toContainText(
-    "invalid_mutation_payload",
-  );
-  await expect(page.getByTestId("assessment-create-assessed-at")).toHaveValue(
-    invalidTimestamp,
-  );
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("message")),
+  ).toContainText("invalid_mutation_payload");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("assessed-at")),
+  ).toHaveValue(invalidTimestamp);
   expect(
     await queryViewRows(page, incidentId, assessmentsViewSchemaId),
   ).toHaveLength(0);
@@ -1191,7 +1205,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   });
 
   await page
-    .getByTestId("assessment-create-subject")
+    .getByTestId(assessmentCreateControlTestId("subject"))
     .selectOption(subjectB.record_id as string);
   const createdDisproven = await createAssessmentViaUI(page, {
     assessedAt: "2026-04-24T13:00:00Z",
@@ -1543,7 +1557,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   ).toBeVisible();
   await expect(
     page
-      .getByTestId("decision-supersede-replacement")
+      .getByTestId(coordinationWorkflowTestId("decision-replacement"))
       .locator(`option[value="${supersedingDecision.record_id}"]`),
   ).toHaveCount(1);
   const supersedeResponse = page.waitForResponse(
@@ -1554,15 +1568,15 @@ test("Task Request and Decision workbook workflows stay native", async ({
         .endsWith(`/api/v1/records/${targetDecision.record_id}/supersede`),
   );
   await page
-    .getByTestId("decision-supersede-target")
+    .getByTestId(coordinationWorkflowTestId("decision-target"))
     .selectOption(targetDecision.record_id as string);
   await page
-    .getByTestId("decision-supersede-replacement")
+    .getByTestId(coordinationWorkflowTestId("decision-replacement"))
     .selectOption(supersedingDecision.record_id as string);
   await page
-    .getByTestId("decision-supersede-reason")
+    .getByTestId(coordinationWorkflowTestId("decision-reason"))
     .fill("coordination-review explicit supersession");
-  await page.getByTestId("decision-supersede-submit").click();
+  await page.getByTestId(coordinationWorkflowTestId("decision-submit")).click();
   const supersedeEnvelope = await (await supersedeResponse).json();
   expect(supersedeEnvelope.data.view_schema_id).toBe(decisionsViewSchemaId);
   expect(supersedeEnvelope.data.target_record_id).toBe(
@@ -1654,7 +1668,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   await setGenericCreateField(page, "task.external_ticket_ref", "SOC-E906");
   await waitForGenericOption(
     page,
-    "generic-create-field-task.decision_record_id",
+    genericCreateFieldTestId("task.decision_record_id"),
     supersedingDecision.record_id as string,
   );
   await setGenericCreateField(
@@ -1664,7 +1678,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-task.linked_record_ids",
+    genericCreateFieldTestId("task.linked_record_ids"),
     support.record_id as string,
   );
   await setGenericCreateField(
@@ -1818,13 +1832,15 @@ test("Task Request and Decision workbook workflows stay native", async ({
       response.url().endsWith(`/api/v1/records/${task.record_id}`),
   );
   await page
-    .getByTestId("task-lifecycle-target")
+    .getByTestId(coordinationWorkflowTestId("task-target"))
     .selectOption(task.record_id as string);
-  await page.getByTestId("task-lifecycle-status").selectOption("blocked");
   await page
-    .getByTestId("task-lifecycle-blocked-reason")
+    .getByTestId(coordinationWorkflowTestId("task-status"))
+    .selectOption("blocked");
+  await page
+    .getByTestId(coordinationWorkflowTestId("task-blocked-reason"))
     .fill("Waiting on endpoint owner");
-  await page.getByTestId("task-lifecycle-submit").click();
+  await page.getByTestId(coordinationWorkflowTestId("task-submit")).click();
   await lifecycleResponse;
   await expectWorkbookSaved(page);
   let taskRows = await queryViewRows(
@@ -1963,7 +1979,7 @@ test("coordination workbook workflows stay native", async ({
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-comm_log.decision_ids",
+    genericCreateFieldTestId("comm_log.decision_ids"),
     decision.record_id as string,
   );
   await setGenericCreateField(
@@ -1973,7 +1989,7 @@ test("coordination workbook workflows stay native", async ({
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-comm_log.action_task_ids",
+    genericCreateFieldTestId("comm_log.action_task_ids"),
     task.record_id as string,
   );
   await setGenericCreateField(
@@ -1983,7 +1999,7 @@ test("coordination workbook workflows stay native", async ({
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-comm_log.audience_party_ids",
+    genericCreateFieldTestId("comm_log.audience_party_ids"),
     party.record_id as string,
   );
   await setGenericCreateField(
@@ -2020,9 +2036,9 @@ test("coordination workbook workflows stay native", async ({
   await page
     .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))
     .click();
-  await expect(page.getByTestId("generic-mutation-error")).toContainText(
-    "Incoming owner",
-  );
+  await expect(
+    page.getByTestId(genericWorkbookTestId("mutation-error")),
+  ).toContainText("Incoming owner");
   await setGenericCreateField(
     page,
     "handoff.incoming_owner_user_id",
@@ -2620,17 +2636,17 @@ test("Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Sta
       viewBar.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
     ).toHaveCount(1);
     await expect(
-      topBar.getByTestId(
+      viewBar.getByTestId(
         workbookViewBarQueryControlsTestId(surface.viewSchemaId),
       ),
     ).toBeVisible();
     await expect(
-      topBar.getByTestId(
+      viewBar.getByTestId(
         workbookFilterPopoverTriggerTestId(surface.viewSchemaId),
       ),
     ).toBeVisible();
     await expect(
-      topBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
+      viewBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
     ).toBeVisible();
 
     const activeSelector = viewBar.getByTestId(

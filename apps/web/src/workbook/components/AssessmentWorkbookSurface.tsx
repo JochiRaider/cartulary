@@ -9,6 +9,7 @@ import {
   SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
+  assessmentCreateControlTestId,
   assessmentCreatePanelTestId,
   gridGroupRowTestId,
   gridShellTestId,
@@ -389,7 +390,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Subject type
                 <select
-                  data-testid="assessment-create-subject-type"
+                  data-testid={assessmentCreateControlTestId("subject-type")}
                   style={selectStyle}
                   value={draft.subjectType}
                   onChange={(event) => {
@@ -419,7 +420,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Subject
                 <select
-                  data-testid="assessment-create-subject"
+                  data-testid={assessmentCreateControlTestId("subject")}
                   style={selectStyle}
                   value={draft.subjectRecordId}
                   onChange={(event) => {
@@ -441,7 +442,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 State
                 <select
-                  data-testid="assessment-create-state"
+                  data-testid={assessmentCreateControlTestId("state")}
                   style={selectStyle}
                   value={draft.assessmentState}
                   onChange={(event) => {
@@ -462,7 +463,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Confidence
                 <select
-                  data-testid="assessment-create-confidence-band"
+                  data-testid={assessmentCreateControlTestId("confidence-band")}
                   style={selectStyle}
                   value={draft.confidenceBand}
                   onChange={(event) => {
@@ -488,7 +489,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Rationale
                 <textarea
-                  data-testid="assessment-create-rationale"
+                  data-testid={assessmentCreateControlTestId("rationale")}
                   rows={4}
                   style={textareaStyle}
                   value={draft.rationale}
@@ -504,7 +505,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Assessed
                 <input
-                  data-testid="assessment-create-assessed-at"
+                  data-testid={assessmentCreateControlTestId("assessed-at")}
                   placeholder="RFC3339 timestamp"
                   style={inputStyle}
                   type="text"
@@ -521,7 +522,7 @@ export function AssessmentWorkbookSurface({
               <label style={labelStyle}>
                 Support refs
                 <select
-                  data-testid="assessment-create-support-refs"
+                  data-testid={assessmentCreateControlTestId("support-refs")}
                   multiple
                   size={Math.min(Math.max(supportRows.length, 2), 5)}
                   style={selectStyle}
@@ -545,7 +546,7 @@ export function AssessmentWorkbookSurface({
               </label>
 
               <button
-                data-testid="assessment-create-submit"
+                data-testid={assessmentCreateControlTestId("submit")}
                 disabled={!canCreate || isSubmitting}
                 style={secondaryActionButtonStyle}
                 type="button"
@@ -556,7 +557,10 @@ export function AssessmentWorkbookSurface({
                 Create assessment
               </button>
               {message ? (
-                <p data-testid="assessment-create-message" style={bodyStyle}>
+                <p
+                  data-testid={assessmentCreateControlTestId("message")}
+                  style={bodyStyle}
+                >
                   {message}
                 </p>
               ) : null}

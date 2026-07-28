@@ -12,6 +12,7 @@ import {
   rowHistoryRollbackPreviewTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -973,7 +974,7 @@ describe("workbook history support coverage", () => {
     expect(
       screen.getByTestId(workbookConflictLocalValueTestId()),
     ).toHaveProperty("value", "Record one local draft");
-    fireEvent.click(screen.getByTestId("conflict-close"));
+    fireEvent.click(screen.getByTestId(workbookConflictControlTestId("close")));
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(
@@ -1125,10 +1126,15 @@ describe("workbook history support coverage", () => {
     fireEvent.blur(input);
 
     await screen.findByTestId(workbookConflictResolverTestId());
-    fireEvent.change(screen.getByTestId("conflict-merged-value"), {
-      target: { value: "Analyst merged draft" },
-    });
-    fireEvent.click(screen.getByTestId("conflict-use-merged"));
+    fireEvent.change(
+      screen.getByTestId(workbookConflictControlTestId("merged-value")),
+      {
+        target: { value: "Analyst merged draft" },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(workbookConflictControlTestId("use-merged")),
+    );
 
     await waitFor(() => {
       expect(
@@ -1147,10 +1153,9 @@ describe("workbook history support coverage", () => {
       expect(
         screen.getByTestId(workbookConflictLocalValueTestId()),
       ).toHaveProperty("value", "Analyst merged draft");
-      expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
-        "value",
-        "Analyst merged draft",
-      );
+      expect(
+        screen.getByTestId(workbookConflictControlTestId("merged-value")),
+      ).toHaveProperty("value", "Analyst merged draft");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
@@ -1161,7 +1166,7 @@ describe("workbook history support coverage", () => {
       resolved_value: "Analyst merged draft",
     });
 
-    fireEvent.click(screen.getByTestId("conflict-close"));
+    fireEvent.click(screen.getByTestId(workbookConflictControlTestId("close")));
     await waitFor(() => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(document.activeElement).toBe(

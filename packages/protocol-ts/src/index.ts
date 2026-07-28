@@ -7,6 +7,7 @@ import type {
   ExtensionMappingPreviewRequest,
   ExtensionMappingPreviewResource,
   ExtensionProfileResource as GeneratedExtensionProfileResource,
+  ImportSourceColumnMapping,
 } from "./generated/core-http-types.js";
 import {
   errorArtifacts,
@@ -42,6 +43,7 @@ export type {
   ExtensionMappingPreviewRequest,
   ExtensionMappingPreviewResource,
   GeneratedExtensionProfileResource,
+  ImportSourceColumnMapping,
   IncidentStreamMessage,
 };
 export {

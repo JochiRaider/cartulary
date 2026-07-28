@@ -959,7 +959,8 @@
             ]
           },
           "locator": {
-            "type": "string"
+            "type": "object",
+            "additionalProperties": true
           },
           "source_rect_a1": {
             "type": "string"
@@ -1039,12 +1040,39 @@
             "items": {
               "$ref": "#/components/schemas/ImportSourceColumnMapping"
             }
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_mapping_schema_id": {
+            "type": "string"
+          },
+          "owner_mapping": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
-          "target_view_schema_id",
-          "unknown_column_policy",
           "source_columns"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "target_view_schema_id",
+              "unknown_column_policy"
+            ]
+          },
+          {
+            "required": [
+              "target_kind",
+              "extension_profile_id",
+              "owner_mapping_schema_id",
+              "owner_mapping"
+            ]
+          }
         ]
       },
       "ImportSourceColumnMapping": {
@@ -1120,7 +1148,8 @@
             "type": "string"
           },
           "locator": {
-            "type": "string"
+            "type": "object",
+            "additionalProperties": true
           },
           "source_rect_a1": {
             "type": "string"
@@ -1364,15 +1393,42 @@
             "items": {
               "$ref": "#/components/schemas/ImportSourceColumnMapping"
             }
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_mapping_schema_id": {
+            "type": "string"
+          },
+          "owner_mapping": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
           "client_txn_id",
-          "target_view_schema_id",
           "header_row_ref",
           "data_start_row_ref",
-          "unknown_column_policy",
           "source_columns"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "target_view_schema_id",
+              "unknown_column_policy"
+            ]
+          },
+          {
+            "required": [
+              "target_kind",
+              "extension_profile_id",
+              "owner_mapping_schema_id",
+              "owner_mapping"
+            ]
+          }
         ]
       },
       "ImportUnitActionRequest": {

@@ -1,4 +1,5 @@
 import {
+  incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
@@ -115,9 +116,12 @@ describe("IncidentAdminPanel", () => {
     );
 
     await screen.findByText("Incident controls synced.");
-    expect(screen.queryByTestId("incident-patch-button")).toBeNull();
     expect(
-      screen.getByTestId("incident-patch-readonly-note").textContent,
+      screen.queryByTestId(incidentAdministrationTestId("patch-button")),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("patch-readonly-note"))
+        .textContent,
     ).toContain("read-only");
 
     view.rerender(
@@ -155,7 +159,9 @@ describe("IncidentAdminPanel", () => {
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
-    expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("patch-button")),
+    ).toBeTruthy();
 
     view.rerender(
       <IncidentAdminPanel
@@ -214,7 +220,9 @@ describe("IncidentAdminPanel", () => {
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
-    expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("patch-button")),
+    ).toBeTruthy();
 
     view.rerender(
       <IncidentAdminPanel
@@ -278,11 +286,13 @@ describe("IncidentAdminPanel", () => {
 
     await screen.findByText("Incident controls synced.");
     expect(
-      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+      screen.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref"))
+        .textContent,
     ).toBe("Unset");
-    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
-      "View schema: Timeline (cartulary.view.timeline.v2)",
-    );
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref"))
+        .textContent,
+    ).toBe("View schema: Timeline (cartulary.view.timeline.v2)");
   });
 
   it("renders saved-view workbook preference sheet refs and marks malformed refs unavailable", async () => {
@@ -338,18 +348,22 @@ describe("IncidentAdminPanel", () => {
     await screen.findByText(
       "Incident summary synced; workbook preferences unavailable.",
     );
-    expect(screen.getByTestId("incident-summary-key").textContent).toBe(
-      "IR-201",
-    );
     expect(
-      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+      screen.getByTestId(incidentAdministrationTestId("summary-key"))
+        .textContent,
+    ).toBe("IR-201");
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref"))
+        .textContent,
     ).toBe("Saved view: saved-view-1");
-    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
-      "Unavailable",
-    );
-    expect(screen.getByTestId("incident-admin-error-code").textContent).toBe(
-      "",
-    );
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref"))
+        .textContent,
+    ).toBe("Unavailable");
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("admin-error-code"))
+        .textContent,
+    ).toBe("");
   });
 
   it("patches required incident metadata fields and restricts TLP to canonical tokens", async () => {
@@ -396,22 +410,39 @@ describe("IncidentAdminPanel", () => {
     );
 
     await screen.findByText("Incident controls synced.");
-    fireEvent.change(screen.getByTestId("incident-patch-description"), {
-      target: { value: "Escalated investigation" },
-    });
-    fireEvent.change(screen.getByTestId("incident-patch-severity"), {
-      target: { value: "critical" },
-    });
-    fireEvent.change(screen.getByTestId("incident-patch-tlp"), {
-      target: { value: "TLP:RED" },
-    });
-    fireEvent.change(screen.getByTestId("incident-patch-current-phase"), {
-      target: { value: "containment" },
-    });
-    fireEvent.change(screen.getByTestId("incident-patch-external-case"), {
-      target: { value: "CASE-999" },
-    });
-    fireEvent.click(screen.getByTestId("incident-patch-button"));
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("patch-description")),
+      {
+        target: { value: "Escalated investigation" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("patch-severity")),
+      {
+        target: { value: "critical" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("patch-tlp")),
+      {
+        target: { value: "TLP:RED" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("patch-current-phase")),
+      {
+        target: { value: "containment" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("patch-external-case")),
+      {
+        target: { value: "CASE-999" },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("patch-button")),
+    );
 
     await waitFor(() => {
       expect(patchBody).toEqual({
@@ -498,7 +529,9 @@ describe("IncidentAdminPanel", () => {
     );
 
     await screen.findByText("Incident controls synced.");
-    fireEvent.click(screen.getByTestId("incident-patch-button"));
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("patch-button")),
+    );
     expect(
       screen.getByTestId(incidentControlsActionMessageTestId()).textContent,
     ).toBe("Saving promoted incident fields…");
@@ -547,7 +580,9 @@ describe("IncidentAdminPanel", () => {
     expect(screen.getByTestId(incidentControlsStatusTestId()).textContent).toBe(
       "Incident controls synced.",
     );
-    expect(screen.queryByTestId("incident-patch-button")).toBeNull();
+    expect(
+      screen.queryByTestId(incidentAdministrationTestId("patch-button")),
+    ).toBeNull();
   });
 
   it("keeps membership audit placement inside incident admin controls", async () => {
@@ -728,14 +763,20 @@ describe("IncidentAdminPanel", () => {
     );
 
     await screen.findByText("Incident controls synced.");
-    fireEvent.change(screen.getByTestId("incident-lifecycle-reason"), {
-      target: { value: "  containment complete  " },
-    });
-    fireEvent.click(screen.getByTestId("incident-close-button"));
-    await screen.findByText("Incident closed.");
-    expect(screen.getByTestId("incident-summary-status").textContent).toBe(
-      "Closed, read-only",
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("lifecycle-reason")),
+      {
+        target: { value: "  containment complete  " },
+      },
     );
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("close-button")),
+    );
+    await screen.findByText("Incident closed.");
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("summary-status"))
+        .textContent,
+    ).toBe("Closed, read-only");
     expect(lifecycleRequests[0]).toMatchObject({
       base_incident_version: 1,
       reason: "containment complete",
@@ -743,10 +784,15 @@ describe("IncidentAdminPanel", () => {
     expect(typeof lifecycleRequests[0]?.client_txn_id).toBe("string");
     expect(onIncidentSnapshot).toHaveBeenLastCalledWith(currentIncident);
 
-    fireEvent.change(screen.getByTestId("incident-lifecycle-reason"), {
-      target: { value: "new evidence" },
-    });
-    fireEvent.click(screen.getByTestId("incident-reopen-button"));
+    fireEvent.change(
+      screen.getByTestId(incidentAdministrationTestId("lifecycle-reason")),
+      {
+        target: { value: "new evidence" },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("reopen-button")),
+    );
     await screen.findByText(
       "Incident changed; refreshed current state. Review and retry.",
     );
@@ -756,10 +802,13 @@ describe("IncidentAdminPanel", () => {
     });
     expect(incidentReads).toBeGreaterThanOrEqual(2);
     expect(
-      screen.getByTestId("incident-summary-version").textContent,
+      screen.getByTestId(incidentAdministrationTestId("summary-version"))
+        .textContent,
     ).toContain("3");
     expect(
-      screen.getByTestId("incident-reopen-button").getAttribute("disabled"),
+      screen
+        .getByTestId(incidentAdministrationTestId("reopen-button"))
+        .getAttribute("disabled"),
     ).toBeNull();
   });
 
@@ -803,15 +852,18 @@ describe("IncidentAdminPanel", () => {
     await screen.findByText(
       "Incident summary synced; workbook preferences unavailable.",
     );
-    expect(screen.getByTestId("incident-summary-title").textContent).toBe(
-      "Incident 201",
-    );
     expect(
-      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+      screen.getByTestId(incidentAdministrationTestId("summary-title"))
+        .textContent,
+    ).toBe("Incident 201");
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref"))
+        .textContent,
     ).toBe("Unavailable");
-    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
-      "Unset",
-    );
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref"))
+        .textContent,
+    ).toBe("Unset");
   });
 
   it("ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation", async () => {

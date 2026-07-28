@@ -1,7 +1,9 @@
 import {
+  genericWorkbookTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   statusStripQueueCountTestId,
+  workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
 import {
@@ -127,7 +129,7 @@ export function WorkbookSurfaceStatusStrip({
       {mutationError ? (
         <span
           aria-live="polite"
-          data-testid="generic-mutation-error"
+          data-testid={genericWorkbookTestId("mutation-error")}
           role="status"
           style={surfaceStatusStripErrorStyle}
         >
@@ -151,7 +153,7 @@ export function WorkbookPresenceSummary({
   return (
     <div
       aria-label={`${records.length} collaborators present on this sheet`}
-      data-testid="presence-header"
+      data-testid={workbookPresenceSummaryTestId()}
       role="status"
       style={statusStripPresenceStyle}
     >

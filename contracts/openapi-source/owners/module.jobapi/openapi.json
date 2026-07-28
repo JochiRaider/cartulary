@@ -131,6 +131,12 @@
         "properties": {
           "client_txn_id": {
             "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -161,23 +167,11 @@
             "type": "string",
             "format": "uuid"
           },
-          "scope_kind": {
-            "type": "string",
-            "enum": [
-              "deployment",
-              "incident"
-            ]
+          "scope": {
+            "$ref": "#/components/schemas/JobScope"
           },
-          "incident_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
-          "submitted_by_user_id": {
-            "type": "string",
-            "format": "uuid"
+          "status_route": {
+            "type": "string"
           },
           "status": {
             "type": "string",
@@ -193,29 +187,20 @@
           "cancelable": {
             "type": "boolean"
           },
-          "progress": {
-            "$ref": "#/components/schemas/JobProgress"
+          "submitted_by_user_id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "result_summary": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/JobResultSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error_summary": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "additionalProperties": true
-          },
-          "created_at": {
+          "submitted_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/JobProgress"
           },
           "started_at": {
             "type": [
@@ -231,25 +216,110 @@
             ],
             "format": "date-time"
           },
-          "updated_at": {
-            "type": "string",
+          "retained_until": {
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
+          },
+          "result_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobResultSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobErrorSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
           }
         },
         "required": [
           "job_id",
-          "scope_kind",
-          "incident_id",
-          "submitted_by_user_id",
+          "scope",
+          "status_route",
           "status",
           "cancelable",
+          "submitted_by_user_id",
+          "submitted_at",
+          "updated_at",
           "progress",
-          "result_summary",
-          "error_summary",
-          "created_at",
           "started_at",
           "finished_at",
-          "updated_at"
+          "retained_until",
+          "result_summary",
+          "error_summary"
+        ]
+      },
+      "JobScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deployment",
+              "incident"
+            ]
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "incident"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "incident_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "deployment"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "incident_id"
+                ]
+              }
+            }
+          }
         ]
       },
       "JobProgress": {
@@ -261,23 +331,20 @@
             "minimum": 0
           },
           "total": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 0
-          },
-          "message": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
         "required": [
           "completed",
-          "total",
-          "message"
+          "total"
         ]
       },
       "JobResultSummary": {
@@ -299,8 +366,7 @@
         },
         "required": [
           "code",
-          "message",
-          "resource_refs"
+          "message"
         ]
       },
       "JobResourceRef": {
@@ -319,8 +385,31 @@
         },
         "required": [
           "kind",
-          "id",
-          "route"
+          "id"
+        ]
+      },
+      "JobErrorSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
         ]
       }
     }

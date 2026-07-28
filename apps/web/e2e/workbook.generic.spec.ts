@@ -2,6 +2,7 @@ import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
+  genericWorkbookTestId,
   gridShellTestId,
   rowCellTestId,
   workbookInspectorToggleTestId,
@@ -129,7 +130,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-decision.support_refs",
+    genericCreateFieldTestId("decision.support_refs"),
     support.record_id,
   );
   await setGenericCreateField(page, "decision.support_refs", support.record_id);
@@ -171,7 +172,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(page, "task.task_kind", "collection");
   await waitForGenericOption(
     page,
-    "generic-create-field-task.decision_record_id",
+    genericCreateFieldTestId("task.decision_record_id"),
     decision.record_id,
   );
   await setGenericCreateField(
@@ -181,7 +182,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-task.linked_record_ids",
+    genericCreateFieldTestId("task.linked_record_ids"),
     support.record_id,
   );
   await setGenericCreateField(
@@ -241,7 +242,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(page, "evidence.storage_ref", "slot/browser");
   await waitForGenericOption(
     page,
-    "generic-create-field-evidence.collector_party_id",
+    genericCreateFieldTestId("evidence.collector_party_id"),
     party.record_id,
   );
   await setGenericCreateField(
@@ -276,7 +277,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(page, "comm_log.summary", "Browser comm log");
   await waitForGenericOption(
     page,
-    "generic-create-field-comm_log.audience_party_ids",
+    genericCreateFieldTestId("comm_log.audience_party_ids"),
     party.record_id,
   );
   await setGenericCreateField(
@@ -319,13 +320,13 @@ test("creates and edits required workbook mutation surfaces through typed generi
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-handoff.open_task_ids",
+    genericCreateFieldTestId("handoff.open_task_ids"),
     task.record_id,
   );
   await setGenericCreateField(page, "handoff.open_task_ids", task.record_id);
   await waitForGenericOption(
     page,
-    "generic-create-field-handoff.open_decision_ids",
+    genericCreateFieldTestId("handoff.open_decision_ids"),
     decision.record_id,
   );
   await setGenericCreateField(
@@ -368,7 +369,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   );
   await waitForGenericOption(
     page,
-    "generic-create-field-status_review.pending_evidence_ids",
+    genericCreateFieldTestId("status_review.pending_evidence_ids"),
     evidence.record_id,
   );
   await setGenericCreateField(
@@ -405,7 +406,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(page, "lesson.summary", "Browser lesson");
   await waitForGenericOption(
     page,
-    "generic-create-field-lesson.evidence_refs",
+    genericCreateFieldTestId("lesson.evidence_refs"),
     evidence.record_id,
   );
   await setGenericCreateField(page, "lesson.evidence_refs", evidence.record_id);
@@ -456,9 +457,9 @@ async function expectGenericCreateMinimum(
   message: string,
 ) {
   await page.getByTestId(genericCreateSubmitTestId(viewSchemaId)).click();
-  await expect(page.getByTestId("generic-mutation-error")).toContainText(
-    message,
-  );
+  await expect(
+    page.getByTestId(genericWorkbookTestId("mutation-error")),
+  ).toContainText(message);
 }
 
 async function setGenericCreateField(

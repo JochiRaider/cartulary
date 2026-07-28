@@ -30,6 +30,7 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentAdministrationTestId,
   incidentControlsStatusTestId,
   incidentLandingTestId,
   landingIncidentCardTestId,
@@ -79,6 +80,7 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
@@ -88,6 +90,7 @@ import {
   workbookEditRecoveryTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
@@ -194,12 +197,6 @@ type ViewRow = {
   row_version: number;
 };
 
-declare const A11yAppLocalTestIdBrand: unique symbol;
-
-type AuthA11yAppLocalTestId = string & {
-  readonly [A11yAppLocalTestIdBrand]: "AuthA11yAppLocalTestId";
-};
-
 const p1AccessibilityScenarioTitles = [
   "a11y.incident-selection.row-01 deferred session loading exposes progress and keeps recovery controls keyboard reachable",
   "a11y.incident-selection.row-01 anonymous login after initial session_required reaches login controls and authenticated landing",
@@ -300,17 +297,6 @@ if (p11AccessibilityScenarioTitles.length !== 1) {
     `a11y.design-readiness.row-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
   );
 }
-
-const A11yAppLocalSelectors = Object.freeze({
-  incidentPatchButton: {
-    owner: "apps/web incident administration",
-    reason:
-      "Incident patch controls are app-local to the incident admin panel until later incident-surface selector promotion.",
-    scope:
-      "browser.incident-selection selected-incident accessibility recovery path",
-    testId: "incident-patch-button" as AuthA11yAppLocalTestId,
-  },
-});
 
 const keyboardSentinelId = "a11y-keyboard-sentinel";
 const contrastThreshold = 4.5;
@@ -1052,20 +1038,6 @@ async function expectP1SurfaceA11y(
     ...(options.focusTestId ? [options.focusTestId] : []),
     ...(options.tabStops ?? []),
   ]);
-}
-
-function authA11yAppLocalTestId(
-  key: keyof typeof A11yAppLocalSelectors,
-): AuthA11yAppLocalTestId {
-  const entry = A11yAppLocalSelectors[key];
-  if (
-    entry.owner.trim() === "" ||
-    entry.reason.trim() === "" ||
-    entry.scope.trim() === ""
-  ) {
-    throw new Error(`missing app-local selector ownership for ${key}`);
-  }
-  return entry.testId;
 }
 
 async function loadIncidentMembership(
@@ -1860,7 +1832,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     );
     const originSummaryCell = semanticGridCell(inspectorOriginSummary);
     await semanticGridCell(inspectorOriginSummary).focus();
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${timelineViewSchemaId}:${editRow.record_id}:timeline.activity_synopsis_text`,
     );
     const inspectorDetails = page.getByTestId(
@@ -2525,10 +2497,10 @@ test.describe("browser.collaboration accessibility readiness", () => {
           saveStateTestId(),
           rowPresenceMarkerTestId(recordId),
           cellPresenceMarkerTestId(recordId, "timeline.activity_synopsis_text"),
-          "conflict-close",
-          "conflict-keep-saved",
-          "conflict-use-unsaved",
-          "conflict-use-merged",
+          workbookConflictControlTestId("close"),
+          workbookConflictControlTestId("keep-saved"),
+          workbookConflictControlTestId("use-unsaved"),
+          workbookConflictControlTestId("use-merged"),
         ]);
 
         await page.keyboard.press("Escape");
@@ -3220,9 +3192,9 @@ test.describe("browser.coordination-review accessibility readiness", () => {
           surface.fieldKey,
         );
         await expectVisibleSemanticGridCellFocus(cell);
-        await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
-          surface.viewSchemaId,
-        );
+        await expect(
+          page.getByTestId(workbookFocusAnchorTestId()),
+        ).toContainText(surface.viewSchemaId);
         await expectCellTextOrValue(cell, surface.expected);
       });
     }
@@ -3468,7 +3440,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       "timeline.activity_synopsis_text",
     );
     await semanticGridCell(inspectorSummaryCell).focus();
-    await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
       `${timelineViewSchemaId}:${timelineRow.record_id}:timeline.activity_synopsis_text`,
     );
     const semanticSummaryCell = semanticGridCell(inspectorSummaryCell);
@@ -3831,7 +3803,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await openIncidentControls(page, "incident-fields");
       await expectStatusRole(page.getByTestId(incidentControlsStatusTestId()));
       await expectVisibleFocus(
-        page.getByTestId(authA11yAppLocalTestId("incidentPatchButton")),
+        page.getByTestId(incidentAdministrationTestId("patch-button")),
       );
       await expectP1SurfaceA11y(page, {
         focusTestId: appRouteTestId("workbook-current-user"),
@@ -3864,7 +3836,9 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
-      await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
+      await expect(
+        page.getByTestId(incidentAdministrationTestId("patch-tlp")),
+      ).toBeVisible();
       const alternateMembership = await loadIncidentMembership(
         workerAdminRequest,
         alternateIncidentId,
@@ -3880,12 +3854,14 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         externalCase: "CASE-A11Y",
         tlp: "TLP:AMBER",
       });
-      await expectAlertRole(page.getByTestId("incident-admin-error-code"));
-      await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
-        "authorization_denied",
+      await expectAlertRole(
+        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
       );
+      await expect(
+        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
+      ).toHaveText("authorization_denied");
       await expectNoPrivateDiagnostics(
-        page.getByTestId("incident-admin-error-code"),
+        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
       );
       await expectVisibleFocus(
         page.getByTestId(appRouteTestId("workbook-current-user")),

@@ -2,16 +2,16 @@ import type { ChangeEvent } from "react";
 import { useCallback, useRef, useState } from "react";
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
-  decodeNetworkFlowImportPreviewResult,
-  type NetworkFlowImportPreviewResult,
-} from "../services/networkFlowContractAdapter";
-import {
   approveSelectAndApplyExtensionImport,
   type ExtensionImportDiscovery,
   ImportMappingPreviewStaleError,
   previewExtensionImportMapping,
   uploadAndDiscoverExtensionImport,
-} from "../shared/importCoordinator";
+} from "../imports/importCoordinator";
+import {
+  decodeNetworkFlowImportPreviewResult,
+  type NetworkFlowImportPreviewResult,
+} from "../services/networkFlowContractAdapter";
 import {
   buildNetworkFlowMappingCandidate,
   createNetworkFlowMappingDraft,

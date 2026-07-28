@@ -53,6 +53,9 @@ describe("Network Flow frontend boundary policy", () => {
     );
     expect(client).toContain("../services/networkFlowContractAdapter");
     expect(client).not.toContain("@cartulary/protocol-ts");
+    expect(client).not.toMatch(/\bwindow\b/u);
+    expect(client).not.toMatch(/\bhistory\b/u);
+    expect(client).not.toContain("URLSearchParams");
   });
 
   it("keeps the grid vendor and raw coordinate handles outside Network Flow consumers", () => {

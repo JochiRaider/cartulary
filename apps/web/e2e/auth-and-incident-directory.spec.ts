@@ -3,6 +3,7 @@ import {
   authTestId,
   currentIncidentRoleTestId,
   deploymentAdminTestId,
+  incidentAdministrationTestId,
   incidentLandingTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipPatchButtonTestId,
@@ -661,9 +662,9 @@ test("creates an incident from the landing screen, lists it, and opens the workb
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expectCurrentIncidentRole(page, "Current incident role: admin");
   await openIncidentControls(page);
-  await expect(page.getByTestId("incident-summary-key")).toHaveText(
-    incidentKey,
-  );
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-key")),
+  ).toHaveText(incidentKey);
 
   const secondIncidentId = await createIncident(
     page,
@@ -817,7 +818,9 @@ test("observes current-role authorization on a stale reviewer edit through the p
     page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
   ).toHaveText("reviewer");
   await openIncidentControls(page, "incident-fields");
-  await expect(page.getByTestId("incident-patch-button")).toBeVisible();
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("patch-button")),
+  ).toBeVisible();
 
   const reviewerMembership = await loadIncidentMembership(
     workerAdminRequest,
@@ -846,16 +849,18 @@ test("observes current-role authorization on a stale reviewer edit through the p
       code: "authorization_denied",
     },
   });
-  await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
-    "authorization_denied",
-  );
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("admin-error-code")),
+  ).toHaveText("authorization_denied");
   await expect(page.locator("body")).not.toContainText("request_id");
   await expect(page.locator("body")).not.toContainText("traceback");
 
   await page.reload();
   await expectCurrentIncidentRole(page, "Current incident role: editor");
   await openIncidentControls(page, "incident-fields");
-  await expect(page.getByTestId("incident-patch-readonly-note")).toBeVisible();
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("patch-readonly-note")),
+  ).toBeVisible();
 });
 
 test("returns a revoked target browser to login and allows re-authentication with unchanged incident membership", async ({
@@ -989,9 +994,9 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expectCurrentIncidentRole(page, "Current incident role: admin");
   await openIncidentControls(page);
-  await expect(page.getByTestId("incident-summary-key")).toHaveText(
-    incidentKey,
-  );
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("summary-key")),
+  ).toHaveText(incidentKey);
 
   const membership = await loadIncidentMembership(
     workerAdminRequest,
