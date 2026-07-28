@@ -114,7 +114,16 @@
         "packages/protocol-ts/src/generated/index.ts"
       ],
       "typescript_runtime_artifact_prefixes": [
-        "contracts/network-flow/"
+        "contracts/network-flow/errors.v1.json",
+        "contracts/network-flow/frontend-entrypoints.v3.json",
+        "contracts/network-flow/index.json",
+        "contracts/network-flow/key-rings.v1.schema.json",
+        "contracts/network-flow/mapping-registry.v2.json",
+        "contracts/network-flow/presentation.v2.json",
+        "contracts/network-flow/routes.v1.json",
+        "contracts/network-flow/schemas.v1.json",
+        "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
+        "contracts/network-flow/unicode17-nfc.provenance.json"
       ],
       "activation_dependency_ids": [],
       "description": "Network Flow Activity extension contracts derived from the adopted owner inputs."
@@ -138,6 +147,24 @@
       ],
       "activation_dependency_ids": [],
       "description": "Administrative audit vocabularies, action mappings, and secret-safe projection policy."
+    },
+    {
+      "family_id": "imports",
+      "contract_root": "contracts/imports",
+      "generation_status": "active",
+      "go_name": "ImportArtifacts",
+      "ts_name": "importArtifacts",
+      "output_order": 7,
+      "generated_outputs": [
+        "internal/gen/contractimports/artifacts_gen.go",
+        "internal/gen/importtargetregistry/registry_gen.go",
+        "packages/protocol-ts/src/generated/artifact.ts",
+        "packages/protocol-ts/src/generated/import-target-registry.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "typescript_runtime_artifact_prefixes": [],
+      "activation_dependency_ids": [],
+      "description": "Core Imports target inputs plus generated backend, frontend, adapter, verification, and integrity projections."
     }
   ]
 }

@@ -187,6 +187,8 @@ const networkFlowContractFilesKeys = new Set([
   "routes",
   "schemas",
   "errors",
+  "import_facade_binding",
+  "import_owner_error",
   "timezone_provenance",
   "key_rings",
   "mapping_registry",
@@ -946,11 +948,16 @@ function validateContractFamilyRegistryShape(file) {
       const typeScriptRuntimePrefixes = requireStringArray(
         entry.typescript_runtime_artifact_prefixes,
         `${label}.typescript_runtime_artifact_prefixes`,
-        { nonEmpty: familyID !== "openapi" },
+        { nonEmpty: familyID !== "openapi" && familyID !== "imports" },
       );
       if (familyID === "openapi" && typeScriptRuntimePrefixes.length !== 0) {
         throw new Error(
           `${label}.typescript_runtime_artifact_prefixes must stay empty so the raw OpenAPI document cannot enter runtime bundles`,
+        );
+      }
+      if (familyID === "imports" && typeScriptRuntimePrefixes.length !== 0) {
+        throw new Error(
+          `${label}.typescript_runtime_artifact_prefixes must stay empty so internal adapter descriptors cannot enter frontend bundles`,
         );
       }
       assertUnique(
@@ -1008,6 +1015,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("audit")) {
     throw new Error(`${file}.families must declare audit`);
   }
+  if (!familyIDs.includes("imports")) {
+    throw new Error(`${file}.families must declare imports`);
+  }
   const expectedBaseActiveIDs = [
     "openapi",
     "ws",
@@ -1016,12 +1026,12 @@ function validateContractFamilyRegistryShape(file) {
     "extensions",
   ];
   const expectedActiveIDVariants = [
-    [...expectedBaseActiveIDs, "audit"].join("\n"),
-    [...expectedBaseActiveIDs, "network-flow", "audit"].join("\n"),
+    [...expectedBaseActiveIDs, "audit", "imports"].join("\n"),
+    [...expectedBaseActiveIDs, "network-flow", "audit", "imports"].join("\n"),
   ];
   if (!expectedActiveIDVariants.includes(activeIDsByOrder.filter(Boolean).join("\n"))) {
     throw new Error(
-      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit`,
+      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit, imports`,
     );
   }
   if (plannedIDs.length > 1 || (plannedIDs.length === 1 && plannedIDs[0] !== "network-flow")) {
@@ -1058,6 +1068,14 @@ function validateNetworkFlowContractIndexShape(file) {
   const routeFile = networkFlowContractRepoPath(contractFiles.routes, `${file}.contract_files.routes`);
   const schemaFile = networkFlowContractRepoPath(contractFiles.schemas, `${file}.contract_files.schemas`);
   const errorFile = networkFlowContractRepoPath(contractFiles.errors, `${file}.contract_files.errors`);
+  const importFacadeBindingFile = networkFlowContractRepoPath(
+    contractFiles.import_facade_binding,
+    `${file}.contract_files.import_facade_binding`,
+  );
+  const importOwnerErrorFile = networkFlowContractRepoPath(
+    contractFiles.import_owner_error,
+    `${file}.contract_files.import_owner_error`,
+  );
   const timezoneFile = networkFlowContractRepoPath(
     contractFiles.timezone_provenance,
     `${file}.contract_files.timezone_provenance`,
@@ -1073,6 +1091,16 @@ function validateNetworkFlowContractIndexShape(file) {
   const presentationFile = networkFlowContractRepoPath(
     contractFiles.presentation,
     `${file}.contract_files.presentation`,
+  );
+  requireExact(
+    contractFiles.import_facade_binding,
+    "contracts/network-flow/import-facade-binding.v1.json",
+    `${file}.contract_files.import_facade_binding`,
+  );
+  requireExact(
+    contractFiles.import_owner_error,
+    "contracts/network-flow/import-owner-error.v1.schema.json",
+    `${file}.contract_files.import_owner_error`,
   );
   requireExact(
     contractFiles.timezone_provenance,
@@ -1094,7 +1122,7 @@ function validateNetworkFlowContractIndexShape(file) {
     "contracts/network-flow/presentation.v2.json",
     `${file}.contract_files.presentation`,
   );
-  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile, keyRingsFile, mappingRegistryFile, presentationFile]) {
+  for (const referencedPath of [routeFile, schemaFile, errorFile, importFacadeBindingFile, importOwnerErrorFile, timezoneFile, keyRingsFile, mappingRegistryFile, presentationFile]) {
     if (!existsSync(repoFile(repoRoot, referencedPath))) {
       throw new Error(`${file} references missing Network Flow contract file ${referencedPath}`);
     }

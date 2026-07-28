@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.import_target_registry_input_catalog.v1",
+  "core_schema_path": "contracts/imports/schemas.v1.json",
+  "view_target_input_path": "contracts/imports/view-targets.v1.json",
+  "view_schema_registry_path": "contracts/view-schemas/index.json",
+  "target_order": [
+    "view_schema:cartulary.view.timeline.v2",
+    "view_schema:cartulary.view.hosts.v1",
+    "view_schema:cartulary.view.identities.v1",
+    "view_schema:cartulary.view.evidence.v1",
+    "view_schema:cartulary.view.notes.v1",
+    "view_schema:cartulary.view.indicators.v1",
+    "view_schema:cartulary.view.assessments.v1",
+    "view_schema:cartulary.view.task_requests.v1",
+    "view_schema:cartulary.view.decisions.v1",
+    "view_schema:cartulary.view.parties.v1",
+    "view_schema:cartulary.view.comm_log.v1",
+    "view_schema:cartulary.view.handoff.v1",
+    "view_schema:cartulary.view.status_review.v1",
+    "view_schema:cartulary.view.lesson.v1",
+    "view_schema:cartulary.view.findings.v1",
+    "view_schema:cartulary.view.investigative_queries.v1",
+    "view_schema:cartulary.view.forensic_keywords.v1",
+    "network_flow_table:network_flow_activity"
+  ],
+  "owner_contracts": [
+    "module.artifacts@1",
+    "module.assessments@1",
+    "module.entities@1",
+    "module.evidence@1",
+    "module.indicators@1",
+    "module.parties@1",
+    "module.tasksdecisions@1",
+    "module.timeline@2",
+    "network_flow_activity@2"
+  ],
+  "facade_contracts": [
+    {
+      "facade_id": "artifacts.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.artifacts@1"
+    },
+    {
+      "facade_id": "artifacts.note.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.artifacts@1"
+    },
+    {
+      "facade_id": "assessments.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.assessments@1"
+    },
+    {
+      "facade_id": "entities.host.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.entities@1"
+    },
+    {
+      "facade_id": "entities.identity.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.entities@1"
+    },
+    {
+      "facade_id": "evidence.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.evidence@1"
+    },
+    {
+      "facade_id": "indicators.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.indicators@1"
+    },
+    {
+      "facade_id": "network_flow_import_facade_v1",
+      "facade_kind": "owner_preview_apply",
+      "owner_contract_ref": "network_flow_activity@2"
+    },
+    {
+      "facade_id": "parties.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.parties@1"
+    },
+    {
+      "facade_id": "tasksdecisions.decision.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.tasksdecisions@1"
+    },
+    {
+      "facade_id": "tasksdecisions.task_request.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.tasksdecisions@1"
+    },
+    {
+      "facade_id": "timeline.import_create",
+      "facade_kind": "owner_create",
+      "owner_contract_ref": "module.timeline@2"
+    }
+  ],
+  "analytical_inputs": [
+    {
+      "binding_path": "contracts/network-flow/import-facade-binding.v1.json",
+      "owner_schema_paths": [
+        "contracts/network-flow/import-owner-error.v1.schema.json",
+        "contracts/network-flow/schemas.v1.json"
+      ],
+      "extension_contribution_path": "contracts/extensions/fragments/network_flow_activity.profile.json",
+      "availability_kind": "claim_gated",
+      "activation_policy": "extension_claim_required",
+      "default_unknown_column_policy": "target_owned",
+      "entity_bearing_default": "target_owned_explicit_binding_only",
+      "public_projection_disposition": "extension_claim_gated"
+    }
+  ],
+  "error_translation_ids": [
+    "network_flow_activity.import_error_translation.v1"
+  ],
+  "commit_protocol_ids": [
+    "cartulary.imports.unit_commit.v1"
+  ]
+}

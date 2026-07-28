@@ -127,6 +127,8 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 			return fmt.Errorf("unexpected websocket artifact %s", relativePath)
 		}
 		return validateWSIndex(value)
+	case "imports":
+		return validateImportTargetAuthoredInput(relativePath, value)
 	default:
 		return nil
 	}
@@ -135,6 +137,9 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 func validateContractFamily(root, familyDir string) error {
 	if familyDir == "extensions" {
 		return validateExtensionContractFamily(root)
+	}
+	if familyDir == "imports" {
+		return validateImportTargetContractFamily(root)
 	}
 	if familyDir != "view-schemas" {
 		return nil

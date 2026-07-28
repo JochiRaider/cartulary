@@ -68,6 +68,9 @@ func main() {
 	if err := writeAdministrativeAuditRegistryGo(root, families); err != nil {
 		fatal(err)
 	}
+	if err := writeImportTargetRegistryGo(root, families); err != nil {
+		fatal(err)
+	}
 	if err := writeViewSchemaSourceTypesGo(root); err != nil {
 		fatal(err)
 	}
@@ -75,6 +78,9 @@ func main() {
 		fatal(err)
 	}
 	if err := writeViewSchemaSourceTypesTypeScript(root); err != nil {
+		fatal(err)
+	}
+	if err := writeImportTargetRegistryTypeScript(root, families); err != nil {
 		fatal(err)
 	}
 	if err := commitGeneratedFiles(); err != nil {
@@ -242,6 +248,13 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 		generated, err := deriveExtensionArtifacts(root)
 		if err != nil {
 			return nil, fmt.Errorf("derive extension artifacts: %w", err)
+		}
+		artifacts = append(artifacts, generated...)
+	}
+	if familyDir == "imports" {
+		generated, err := deriveImportTargetArtifacts(root)
+		if err != nil {
+			return nil, fmt.Errorf("derive import-target artifacts: %w", err)
 		}
 		artifacts = append(artifacts, generated...)
 	}
@@ -903,6 +916,12 @@ func writeTypeScript(root string, families []family) error {
 		exports.WriteString("export * from \"./")
 		exports.WriteString(strings.TrimSuffix(fileName, ".ts"))
 		exports.WriteString(".js\";\n")
+	}
+	for _, current := range families {
+		if current.Dir == "imports" {
+			exports.WriteString("export * from \"./import-target-registry.js\";\n")
+			break
+		}
 	}
 	return stageGeneratedFile(indexPath, exports.Bytes(), 0o644)
 }

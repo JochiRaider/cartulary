@@ -31,6 +31,7 @@
     {
       "contribution": {
         "contribution_id": "network_flow_activity.import_target",
+        "facade_binding_id": "network_flow_activity.import_facade.v1",
         "kind": "import_target",
         "target_kind": "network_flow_table"
       },

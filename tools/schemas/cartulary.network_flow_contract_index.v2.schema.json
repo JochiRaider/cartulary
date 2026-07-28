@@ -37,6 +37,8 @@
         "routes",
         "schemas",
         "errors",
+        "import_facade_binding",
+        "import_owner_error",
         "timezone_provenance",
         "key_rings",
         "mapping_registry",
@@ -50,6 +52,12 @@
           "$ref": "#/$defs/repo_json_path"
         },
         "errors": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "import_facade_binding": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "import_owner_error": {
           "$ref": "#/$defs/repo_json_path"
         },
         "timezone_provenance": {

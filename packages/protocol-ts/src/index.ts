@@ -33,6 +33,7 @@ import type {
 import * as generatedProtocolValidators from "./generated/protocol-validators.js";
 
 export * from "./generated/http-operation-bindings.js";
+export * from "./generated/import-target-registry.js";
 export type * from "./generated/network-flow-types.js";
 export type * from "./generated/view-schema-source-types.js";
 export type {

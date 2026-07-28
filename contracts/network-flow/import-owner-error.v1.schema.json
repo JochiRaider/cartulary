@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cartulary.local/network-flow/import-owner-error.v1.schema.json",
+  "schema_id": "cartulary.network_flow.import_owner_error.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_no_data_rows" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_all_rows_rejected" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["row_count_rejected", "diagnostics_truncated", "diagnostics_sample"],
+          "properties": {
+            "row_count_rejected": { "type": "integer", "minimum": 0 },
+            "diagnostics_truncated": { "type": "boolean" },
+            "diagnostics_sample": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_row_number", "error_code", "reason_code"],
+                "properties": {
+                  "source_row_number": { "type": "integer", "minimum": 1 },
+                  "source_column_ordinal": {
+                    "type": ["integer", "null"],
+                    "minimum": 1
+                  },
+                  "field_key": { "type": ["string", "null"] },
+                  "error_code": { "type": "string", "minLength": 1, "maxLength": 128 },
+                  "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_mapping_invalid" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason_code"],
+          "properties": {
+            "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "field": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_source_changed" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_target_unavailable" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason_code"],
+          "properties": {
+            "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
+        "owner_code": { "const": "network_flow_internal_failure" },
+        "retryable": { "type": "boolean" },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

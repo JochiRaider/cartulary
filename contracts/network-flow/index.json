@@ -8,6 +8,8 @@
     "routes": "contracts/network-flow/routes.v1.json",
     "schemas": "contracts/network-flow/schemas.v1.json",
     "errors": "contracts/network-flow/errors.v1.json",
+    "import_facade_binding": "contracts/network-flow/import-facade-binding.v1.json",
+    "import_owner_error": "contracts/network-flow/import-owner-error.v1.schema.json",
     "key_rings": "contracts/network-flow/key-rings.v1.schema.json",
     "mapping_registry": "contracts/network-flow/mapping-registry.v2.json",
     "presentation": "contracts/network-flow/presentation.v2.json",
