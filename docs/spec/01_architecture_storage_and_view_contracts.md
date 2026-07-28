@@ -3409,6 +3409,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_selected_unit_ids` | `selected_unit_ids[]` is empty, contains duplicates, or references units outside the addressed session. |
 | `unsupported_assistant_profile` | `assistant_profile` is not `phase2_workbook_import_v1` in the current profile. |
 | `invalid_source_columns` | `source_columns[]` is missing, empty, not exhaustive over the discovered source columns, uses duplicate or non-contiguous ordinals, or otherwise violates the per-column mapping contract. |
+| `invalid_source_rect` | An operator-region rectangle is malformed, outside its base worksheet used range, exceeds configured import limits, or names a base unit that is not an XLSX used-range unit. |
 | `invalid_target_variant` | The mapping request mixes members from more than one import target variant or omits the discriminator required for the selected variant. |
 | `target_kind_not_importable` | `target_kind` or `extension_profile_id` is absent from the import-target registry, currently unclaimed, or otherwise unavailable for mapping approval. |
 | `target_view_schema_not_importable` | `target_view_schema_id` is absent from the import-target registry or currently unavailable for mapping approval. |
@@ -3454,7 +3455,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `reason_code` | Canonical meaning |
 | --- | --- |
 | `overlapping_units` | The selected `import_unit` rectangles overlap and therefore cannot be jointly applied. |
-| `duplicate_apply_blocked` | The same `(import_unit_id, mapping_fingerprint, incident_id)` tuple was already applied and re-import was not explicitly requested. |
+| `duplicate_apply_blocked` | The same `(import_unit_id, mapping_fingerprint, incident_id)` tuple already committed. Intentional re-import requires a new import session; exact committed replay returns the original result. |
 | `unit_not_ready` | One or more selected units are not yet in `ready` state. |
 | `target_view_schema_not_importable` | A previously approved view-schema target is no longer importable at apply time. |
 | `target_kind_not_importable` | A previously approved analytical extension target is no longer importable or no longer claimed at apply time. |
@@ -7160,9 +7161,10 @@ The Import Extension Profile MUST expose exactly this minimum public route surfa
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip`,
+- `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions`,
 - `POST /api/v1/import-sessions/{import_session_id}/apply`.
 Profiles: import
-Verified by: AC-262, AC-263, AC-264
+Verified by: AC-262, AC-263, AC-264, AC-264B
 
 **Table 17.2-A. Import route inventory**
 
@@ -7177,6 +7179,7 @@ Verified by: AC-262, AC-263, AC-264
 | `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/apply` | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
 
 **Table 17.2-B. Import durable resources**
@@ -7184,7 +7187,7 @@ Verified by: AC-262, AC-263, AC-264
 | Resource | Required members or properties |
 | --- | --- |
 | `import_session` | `import_session_id`, `incident_id`, `created_by_user_id`, `created_at`, `source_file_kind`, `original_filename`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `assistant_profile`, `session_status`, `selected_unit_ids[]`, `blocking_diagnostics[]`, `nonblocking_warning_codes[]` |
-| `import_unit` | `import_unit_id`, `import_session_id`, `locator_kind`, `locator`, `source_rect_a1`, `header_row_ref`, `data_start_row_ref`, `inferred_row_count`, `inferred_column_count`, `warning_codes[]`, `unit_status`, optional `mapping_fingerprint`, optional `approved_mapping` |
+| `import_unit` | `import_unit_id`, `import_session_id`, `locator_kind`, `locator`, `source_rect_a1`, `header_row_ref`, `data_start_row_ref`, `inferred_row_count`, `inferred_column_count`, `warning_codes[]`, `unit_status`, optional `mapping_fingerprint`, optional `approved_mapping`; an operator region also persists its base used-range unit and explicit session sequence |
 | `approved_mapping` | Closed variant. The `view_schema` variant contains `target_view_schema_id`, `unknown_column_policy`, exhaustive ordered `source_columns[]`; `field_key = null` means intentionally unmapped. The analytical extension variant contains `target_kind`, `extension_profile_id`, owner-adopted mapping metadata, and exhaustive ordered `source_columns[]`. |
 | `import_preview` | Top-level session and unit identity plus `columns[]`, `preview_rows[]`, and `truncated`; preview returns at most the first 50 data rows in source order |
 
@@ -7202,7 +7205,12 @@ Verified by: AC-262, AC-263, AC-264
 
 
 **REQ-01-618**
-The Import Extension Profile MUST use an internal `import_apply_dispatcher_v1` owned by the `imports` module. The dispatcher MUST accept only an approved import unit, select its destination from the import-target registry, and invoke exactly one declared owner facade for that target. The dispatcher MUST support two target families:
+The Import Extension Profile MUST use an internal `import_apply_dispatcher_v1` owned by the
+`imports` module. The dispatcher MUST accept only an approved import unit, select its destination
+from generated `cartulary.import_target_registry.v1`, and invoke exactly one application-composed
+owner facade for that target. Source owners construct their view-owner adapters; analytical
+owners construct their exact facade implementation; application composition validates and injects
+the complete binding set. The dispatcher MUST support two target families:
 
 - `target_kind='view_schema'`, selected by exact `target_view_schema_id`, for current Core workbook-view imports.
 - `target_kind='network_flow_table'`, selected by exact `extension_profile_id='network_flow_activity'`, for the Network Flow Activity analytical extension after that profile is adopted and claimed.
@@ -7217,22 +7225,60 @@ Profiles: import
 Verified by: AC-465, AC-466, AC-467
 
 **REQ-01-620**
-The current profile MUST maintain an import-target registry beside the view-schema registry. Mapping approval MUST reject any `view_schema` target whose `target_view_schema_id` is absent from this registry or whose registry row is not importable. Mapping approval MUST reject any analytical extension target whose `target_kind` or `extension_profile_id` is absent from this registry, whose extension profile is not claimed, or whose owner facade is unavailable. Apply MUST revalidate the approved target immediately before dispatch and MUST block rather than fall back when a previously approved target is no longer importable.
+The current profile MUST generate one `cartulary.import_target_registry.v1` beside the view-schema
+registry. Its authored inputs are the Core-owned view-target catalog and each analytical target
+owner's binding declaration joined to the canonical Extensions `import_target` contribution.
+Generated backend bindings, frontend semantic catalog, typed adapters, verification identity
+projection, and integrity manifest MUST share one source digest and deterministic row order. Tests,
+source scans, route discovery, package reflection, and frontend components MUST NOT be registry
+authority. Mapping approval MUST reject any `view_schema` target whose
+`target_view_schema_id` is absent or not importable. It MUST reject an analytical target whose
+selector, contribution, binding, schema, translator, claim, facade implementation, or participant
+is absent or invalid. Apply MUST revalidate the approved target immediately before dispatch and
+MUST block rather than fall back.
 Profiles: import
 Verified by: AC-464, AC-466
 
 **REQ-01-620a**
-An analytical extension target MUST declare one owner preview/apply facade pair. The preview operation MUST receive only an internal `import_source_capability_v1`, server-derived source descriptors, and the caller's proposed owner mapping metadata. It MUST return owner diagnostics, canonical owner mapping metadata, and preview output defined by the target owner; it MUST NOT allocate a durable extension resource. The apply operation MUST receive the same capability family, the canonical approved mapping, and the import-owned expected source digest or revision. It MUST either publish exactly one owner-declared durable extension resource for the import unit or fail without publishing one.
+An analytical extension target MUST declare exactly one
+`cartulary.imports.analytical_facade_binding.v1`. Core owns the binding shape and semantic slots;
+the target NLSpec exclusively owns every exact mapping, preview request/result, apply
+request/result, diagnostic, and owner-error schema referenced by the binding. Core MUST validate
+the registered schema identities but MUST NOT define or infer the target's exact member lists. The
+preview operation receives the Core-issued source and actor contexts plus the proposed
+target-owned mapping and MUST NOT allocate a durable extension resource. Apply receives the
+Core-issued contexts and immutable approved target mapping and MUST either publish the
+owner-declared unit result through the common unit-commit protocol or fail without publishing it.
 Profiles: import, network_flow_activity
 Verified by: AC-464, AC-465, AC-466
 
 **REQ-01-620b**
-`import_source_capability_v1` is internal and opaque. It MUST be bound to one `import_session_id`, one `import_unit_id`, the exact uploaded source bytes or workbook member bytes, the server-derived source revision or digest, the authenticated incident, and the selected target. It MUST NOT be a filesystem path, object-store key, presigned URL, public route, or caller-supplied locator. Owner facades MUST treat the capability as the only source-read authority for preview and apply. If the source bytes, source revision, source descriptors, or mapping fingerprint no longer match the approved import unit at apply time, apply MUST fail closed with `import_apply_blocked` and `reason_code='source_changed'`.
+`import_source_capability_v1` and the analytical actor, mapping-approval, and idempotency contexts
+are internal and opaque. Each MUST be bound to the intended actor, incident, operation,
+import-session and unit, target, invocation or authorization epoch, and exact approved source or
+mapping identity applicable to that context. The source capability additionally binds the exact
+uploaded source bytes or workbook-member bytes and server-derived revision or digest. None may be
+a filesystem path, object-store key, presigned URL, public route, reusable bearer credential, or
+caller-supplied locator. Owner facades MUST use these contexts only through the Core boundary and
+MUST NOT serialize, persist outside the admitted commit facts, or log them. If authorization,
+source bytes, descriptors, target state, claim, binding, or mapping fingerprint no longer matches
+immediately before unit mutation, apply MUST fail closed without an owner effect; source or mapping
+identity mismatch uses `import_apply_blocked` and `reason_code='source_changed'`.
 Profiles: import, network_flow_activity
 Verified by: AC-464, AC-465, AC-466
 
 **REQ-01-620c**
-Analytical extension apply MUST commit through one common unit of work for the import unit. That unit of work MUST include the owner resource publication, import-unit/session terminal state, import-apply journal, idempotency success record, terminal job-result publication record, and any owner-declared transaction participants. If the owner needs indicator, audit, or other cross-owner participants, those participants MUST join the same final commit or the apply MUST fail before public resource publication. A failure before final commit MUST leave no queryable extension resource and no terminal success result. A cancellation request observed before final commit MUST leave no extension resource. A cancellation, crash, or worker restart after final commit MUST recover to the one committed success and MUST NOT publish a duplicate owner resource or a duplicate terminal success.
+Every selected unit, whether view-schema or analytical, MUST use one common unit-commit protocol.
+A successful unit transaction MUST atomically contain the selected owner effects, owner-required
+audit/revision/projection effect or durable obligation, import apply journal, immutable owner
+result and resource references, source and mapping fingerprints, idempotency success, durable unit
+outcome, recoverable completion fact, and every required transaction participant. The
+import-session and common-job terminal state MUST be published by a separate idempotent finalizer
+that derives only from the frozen selected set and durable ordered unit outcomes and creates no
+owner resource. A precommit failure or cancellation leaves no authoritative unit effect. A crash
+after unit commit recovers the committed outcome without repeating owner mutation. Earlier
+committed units remain applied when a later unit fails or is canceled, and finalization derives
+`partially_applied` when applicable.
 Profiles: import, network_flow_activity
 Verified by: AC-464, AC-465, AC-466
 
@@ -7240,6 +7286,21 @@ Verified by: AC-464, AC-465, AC-466
 `network_flow_table` is the only analytical extension target kind admitted by this revision. It MUST remain unavailable while `network_flow_activity` is unclaimed. A successful Network Flow import apply MUST publish one `network_flow_table` resource for each applied import unit whose Network Flow owner admits at least one accepted row. A Network Flow owner result that admits no accepted rows MUST fail through the owner-declared route error and MUST NOT publish a `network_flow_table` ref. The resulting common job summary MUST still include the canonical `import_session` ref and MUST include each published `network_flow_table` ref using the canonical same-origin route under `/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}`.
 Profiles: import, network_flow_activity
 Verified by: AC-464, AC-465, AC-466
+
+**REQ-01-620e**
+`POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` MUST accept exactly
+`client_txn_id` and `source_rect`. `source_rect` MUST contain exactly the positive one-based
+inclusive integers `start_row`, `start_column`, `end_row`, and `end_column`, with each start less
+than or equal to its end. The base unit MUST belong to the addressed session, use
+`locator_kind='xlsx_used_range'`, and identify the same worksheet rectangle that contains the
+requested region. The request MUST create or exactly replay one durable
+`locator_kind='operator_region'` unit bound to the base unit, canonical source rectangle, source
+content digest, and monotonically assigned session-local operator-region sequence. It MUST NOT
+approve a mapping, select the unit, mutate an owner resource, or reinterpret worksheet
+presentation metadata. Invalid base-kind, containment, coordinate, or configured-limit input MUST
+fail with `invalid_import_request` and `reason_code='invalid_source_rect'`.
+Profiles: import
+Verified by: AC-264B
 
 **Table 17.2-D. Current import-target registry**
 
@@ -7272,14 +7333,30 @@ Verified by: AC-464, AC-465, AC-466
 | `field_values[]` item | `field_key`, `normalized_value`, `source_column_ordinal`, `source_header_text`, `raw_value`, `cell_kind`, `transform_id`, `empty_value_policy`, `entity_binding_mode` |
 | `import_owner_create_response_v1` | `record_id`, `row_version`, `change_set_mutation_ref`, `created_or_reused`, `owner_result_code`, `row_refresh` |
 
-**Table 17.2-F. Internal analytical extension import facade contract**
+**Table 17.2-F. `cartulary.imports.analytical_facade_binding.v1`**
 
-| Shape | Required members |
+| Member | Required rule |
 | --- | --- |
-| `import_owner_preview_request_v1` | `incident_id`, `actor_user_id`, `target_kind`, `extension_profile_id`, `import_session_id`, `import_unit_id`, `import_source_capability`, `source_content_sha256`, `source_descriptor_revision`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `proposed_owner_mapping` |
-| `import_owner_preview_response_v1` | `owner_preview_code`, `canonical_owner_mapping`, `mapping_fingerprint`, `diagnostics[]`, `warnings[]`, `preview_payload` |
-| `import_owner_apply_request_v1` | `incident_id`, `actor_user_id`, `target_kind`, `extension_profile_id`, `import_session_id`, `import_unit_id`, `import_source_capability`, `expected_source_content_sha256`, `expected_source_descriptor_revision`, `mapping_fingerprint`, `canonical_owner_mapping`, `client_txn_id` from the Core import apply request |
-| `import_owner_apply_response_v1` | `owner_result_code`, `published_resource_refs[]`, `owner_audit_refs[]`, `accepted_count`, `rejected_count`, `diagnostics_truncated` |
+| `schema_id` | Exactly `cartulary.imports.analytical_facade_binding.v1`. |
+| `target_kind` | Exact analytical target-kind selector admitted by the generated target registry. |
+| `extension_profile_id` | Exact owning extension profile. |
+| `owner_contract_ref` | Exact target owner identity and contract major. |
+| `facade_id` | Exact application-composition binding; resolves once and is not runtime-discovered. |
+| `contract_major` | Positive integer matching the owner and every referenced schema. |
+| `mapping_schema_id` | Exact target-owned durable approved-mapping schema. |
+| `preview_request_schema_id` | Exact target-owned preview request schema. |
+| `preview_result_schema_id` | Exact target-owned preview success schema. |
+| `apply_request_schema_id` | Exact target-owned apply request schema. |
+| `apply_result_schema_id` | Exact target-owned immutable unit-result schema. |
+| `error_schema_id` | Exact target-owned safe error-detail union. |
+| `error_translation_id` | Exact registered translator into the closed Core Imports error family. |
+| `commit_protocol_id` | Exactly `cartulary.imports.unit_commit.v1` in the current profile. |
+
+The binding conveys the semantic slots for authorized actor context, session/unit identity,
+read-only source stream, source digest, candidate or approved mapping, mapping fingerprint,
+mapping approval, idempotency context, owner result, and error translation without imposing common
+target member names. Referenced target schemas MUST resolve exactly once. Missing, duplicate,
+major-mismatched, or structurally invalid bindings fail closed before preview or apply.
 
 **REQ-01-473**
 `POST /api/v1/import-sessions` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST include required `incident_id` and required `client_txn_id`. Metadata MAY include optional `assistant_profile`, which defaults to `phase2_workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/import-sessions` in REQ-01-552. Those media-type values are necessary but not sufficient: the server MUST still determine CSV versus XLSX from the exact uploaded bytes and MUST enforce the route's byte-based parser and source-limit rules. Before `import_session` creation or discovery-job creation, the server MUST compare uploaded source bytes against `limits.imports.max_csv_source_bytes` for CSV and `limits.imports.max_xlsx_source_bytes` for XLSX. A CSV source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='csv_source_too_large'`. An XLSX source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='xlsx_source_too_large'`. Those rejections MUST create no durable `import_session`, no idempotency commit, and no discovery job. For an accepted source, the route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
@@ -7296,6 +7373,7 @@ The import route family MUST use the common success envelope and the following r
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` returns `data = <extension_mapping_preview resource>`.
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` returns `data = <import_unit resource>`.
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` and `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` return `data = { import_session_id, session_status, selected_unit_ids[], unit }`, where `unit` uses the exact `import_unit resource` shape defined here.
+- `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` returns `data = <import_unit resource>` for the created or exactly replayed operator region.
 
 The `import_session resource` MUST expose exactly:
 
@@ -7495,10 +7573,12 @@ For terminal common-job summaries produced by this family:
 - `POST /api/v1/import-sessions` MUST use `result_summary.code='import_session_discovered'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'import_session', id: <import_session_id>, route: '/api/v1/import-sessions/{import_session_id}' }`.
 - `POST /api/v1/import-sessions/{import_session_id}/apply` MUST use `result_summary.code='import_session_applied'` when the durable `session_status='applied'` and `result_summary.code='import_session_partially_applied'` when the durable `session_status='partially_applied'`. In both success cases it MUST emit exactly one `import_session` ref using that same canonical route. If one or more analytical extension resources were published by the same apply, the job summary MUST also emit the owner-returned resource refs after the `import_session` ref, sorted by `route asc` within each `kind`.
 Profiles: import
-Verified by: AC-263, AC-264, AC-324, AC-325
+Verified by: AC-263, AC-264, AC-264B, AC-324, AC-325
 
 **REQ-01-475**
-The import route family MUST use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, `import_source_rejected`, and `import_apply_blocked`.
+The import route family MUST use only `invalid_import_request`, `import_session_not_found`,
+`import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`,
+`import_source_rejected`, `import_apply_blocked`, and `incident_closed`.
 
 `invalid_import_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus:
 
@@ -7510,6 +7590,7 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 - `invalid_selected_unit_ids`,
 - `unsupported_assistant_profile`,
 - `invalid_source_columns`,
+- `invalid_source_rect`,
 - `invalid_unknown_column_policy`,
 - `invalid_transform`,
 - `invalid_empty_value_policy`,

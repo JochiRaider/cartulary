@@ -1607,6 +1607,16 @@ The current profile MUST support discovery of:
 Profiles: import
 Verified by: AC-027, AC-064, AC-065, AC-066, AC-232
 
+**REQ-03-181a**
+An operator-selected region MUST be created through
+`POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` after previewing the
+worksheet used-range unit. The browser MUST submit the exact one-based inclusive rectangle and
+MUST use the returned durable `operator_region` unit for later mapping, selection, and apply. A
+browser-local rectangle MUST NOT be treated as a durable unit, and creation of the region MUST NOT
+select it or approve a mapping implicitly.
+Profiles: import
+Verified by: AC-264B
+
 **REQ-03-182**
 Dynamic named-range formulas, external references, and multi-area named ranges MUST be rejected as unsupported.
 Profiles: import
@@ -1639,13 +1649,17 @@ Verified by: AC-027, AC-064, AC-065, AC-066, AC-232
 2. Reject if the session is terminal or already applying.
 3. Reject if any selected unit is not ready.
 4. Reject if selected units overlap in source-cell coverage.
-5. Reject duplicate apply of `(import_unit_id, mapping_fingerprint, incident_id)` unless the operator explicitly selected re-import.
+5. Reject duplicate apply of `(import_unit_id, mapping_fingerprint, incident_id)`. Exact committed replay returns the original result; intentional re-import requires a new import session.
 6. Order units by workbook sheet order, top-left rectangle position, then explicit operator-added region sequence.
-7. For each selected unit, re-read the approved mapping, revalidate `target_view_schema_id` against the import target registry, build row plans in source-row order, apply parser extraction plus transform plus target-field normalization, validate unknown-column policy for the target, dispatch every row plan to the owner create facade inside one unit transaction, commit exactly one `change_set` for the unit, and commit the import-unit apply journal in that same transaction.
-8. Mark each unit `applied`, `failed`, `skipped`, or `rejected`.
-9. Set `session_status` to `applied`, `partially_applied`, `failed`, or `canceled`.
+7. For each selected unit, re-read the approved mapping; revalidate the exact view-schema or analytical selector against the import-target registry; rederive current actor, incident, claim, target, facade, source, and mapping authority inside the unit transaction; and dispatch exactly once through the registered source-owner create facade or analytical binding.
+8. For a view-schema unit, build row plans in source-row order and apply parser extraction, transform, target-field normalization, and target unknown-column policy behind the owner facade. For an analytical unit, supply only the Core binding's semantic contexts and the target-owned approved mapping.
+9. Commit the selected owner effects, required revision/projection/audit or durable obligation, apply journal, immutable owner result, source and mapping fingerprints, idempotency success, durable unit outcome, recovery fact, and transaction participants atomically, or commit none of them.
+10. After all frozen selected units have durable outcomes, run the idempotent finalizer to derive `session_status` as `applied`, `partially_applied`, `failed`, or `canceled` and publish the common-job result without creating an owner resource.
 
-One unit MUST either commit one complete `change_set` plus apply journal or commit no incident-source mutations. A session MAY still finish `partially_applied` when different selected units have different terminal outcomes.
+One unit MUST either commit one complete owner effect set plus its import completion facts or commit
+no authoritative owner mutation. The batch remains unit-atomic rather than session-atomic; a
+session MAY finish `partially_applied` when different selected units have different terminal
+outcomes.
 Profiles: import
 Verified by: AC-463, AC-464, AC-466, AC-467
 
@@ -1718,7 +1732,11 @@ Profiles: import
 Verified by: AC-065, AC-232
 
 **REQ-03-192**
-The assistant MUST compare the fully closed mapping plan when evaluating the `(import_unit_id, mapping_fingerprint, incident_id)` tuple for duplicate-apply detection. It MUST warn on re-applying that same tuple and MUST default to blocking the apply until the operator explicitly chooses re-import.
+The assistant MUST compare the fully closed mapping plan when evaluating the
+`(import_unit_id, mapping_fingerprint, incident_id)` tuple for duplicate-apply detection. It MUST
+block a non-replay attempt after that tuple commits and explain that intentional re-import starts a
+new import session. An exact replay of the original committed `client_txn_id` and normalized
+request MUST return the immutable original result without creating another unit outcome.
 Profiles: import
 Verified by: AC-065, AC-232
 

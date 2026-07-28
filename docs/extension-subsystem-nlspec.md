@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.7.0
+document_version: 0.7.1
 contract_major: 2
 ---
 
@@ -12,7 +12,12 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Its coordinated adoption gates in §29 were closed together with the exact companion owner revisions, generated artifacts, implementation evidence, and Harness validation recorded by the controlling implementation tracker.
+This document is `status: adopted/current`. Version `0.7.1` coordinates the Core-owned analytical
+import binding shape with target-owned exact payload schemas and requires every analytical
+`import_target` contribution to name its binding. Its coordinated owner repair is adopted with
+Core 00/Core 01, Core 03/Core 04, Domain vocabulary, and Network Flow Activity `2.0.3`; the
+machine projection and implementation evidence remain governed by the controlling remediation
+tracker.
 
 ## 1.1 Current projection and evidence boundary
 
@@ -1833,7 +1838,7 @@ Verified by: EXT-AC-008, EXT-AC-021
 | `incident_workspace` | `workspace_key` |
 | `deployment_admin_panel` | `panel_key` |
 | `authentication_entry` | `entry_key` |
-| `import_target` | `target_kind` |
+| `import_target` | `target_kind`, `facade_binding_id` |
 | `extension_resource_kind` | `resource_kind` |
 | `websocket_invalidation` | `resource_kinds[]` |
 | `job_resource_ref_kind` | `resource_ref_kind` |
@@ -1843,6 +1848,11 @@ Verified by: EXT-AC-008, EXT-AC-021
 | `backup_restore_participant` | `participant_id`, `participant_contract_ref`, `participant_contract_sha256` |
 
 The byte size of one contribution object MUST be measured by serializing that object in isolation under `extension_registry_canonical_json_v1`, including the required final LF. That byte size MUST be `1..16384`. `contributions[]` MUST contain `0..64` items. `websocket_invalidation.resource_kinds[]` MUST contain `1..64` items. A contribution that has no target items MUST be omitted rather than emitted with an empty required collection.
+
+For `import_target`, `facade_binding_id` MUST satisfy the Table 4-B qualified local-key grammar,
+MUST use the owning profile prefix, and MUST resolve exactly once in the Core Imports analytical
+binding input set. Two import-target contributions MUST NOT name the same binding, and one binding
+MUST NOT select more than one target.
 
 **EXT-REQ-089**
 For every contribution declaration:
@@ -1871,9 +1881,16 @@ Profiles: base
 Verified by: EXT-AC-031, EXT-AC-070
 
 **EXT-REQ-092**
-An `import_target` contribution MUST use the Core 01 owner preview/apply façade and common final-commit boundary. The Import owner MUST NOT write extension-owned tables directly. A target unavailable because its profile is inactive MUST fail rather than fall back to another target.
+An `import_target` contribution MUST name exactly one `facade_binding_id` that resolves to a valid
+`cartulary.imports.analytical_facade_binding.v1` with the same `target_kind`, owning profile, and
+contract major. The binding supplies the Core semantic slots and references target-owned exact
+mapping, preview, apply, result, error, translation, and unit-commit contracts; it is not a
+callback or executable contribution. The Import owner MUST NOT write extension-owned tables
+directly or duplicate the target payload members. A target unavailable because its profile,
+binding, schema, translator, facade implementation, or required transaction participant is
+inactive or invalid MUST fail rather than fall back to another target.
 
-Profiles: import
+Profiles: import, network_flow_activity
 Verified by: EXT-AC-031, EXT-AC-055, EXT-AC-056, EXT-AC-057
 
 **EXT-REQ-093**
@@ -4060,7 +4077,8 @@ The following object is an illustrative field fragment, not a conforming complet
     {
       "kind": "import_target",
       "contribution_id": "network_flow_activity.import_target",
-      "target_kind": "network_flow_table"
+      "target_kind": "network_flow_table",
+      "facade_binding_id": "network_flow_activity.import_facade.v1"
     },
     {
       "kind": "extension_resource_kind",

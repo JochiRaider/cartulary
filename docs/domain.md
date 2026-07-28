@@ -544,8 +544,9 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Reference pack | Versioned optional vocabulary, framework, type registry, template, or enrichment dataset. | Incident record, live workbook surface, or required capture dependency. | `pack_key`, `pack_version`, activation metadata | §11 | Core 01/Core 02/Core 04 | `extension-profile` | `current-extension-when-claimed` |
 | Import session | One uploaded source file plus one operator-driven import workflow. | Whole-workbook runtime behavior. | `import_session_id` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Import unit | One candidate ingestable unit discovered from an import source. | Worksheet identity or table identity. | `import_unit`, `locator_kind`, `mapping_fingerprint` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
-| Import apply dispatcher | Import-owned internal dispatcher that applies approved import units only through registry-selected owner create facades. | Workbook store, parser, grid adapter, or owner source module. | `import_apply_dispatcher_v1` | §11 | Core 01/Core 03 | `extension-profile` | `current-extension-when-claimed` |
-| Import target registry | Registry that declares which `view_schema_id` values are importable and which owner create facade handles each target. | View-schema registry replacement or visible worksheet list. | `target_view_schema_id`, `import_apply_status` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
+| Import apply dispatcher | Import-owned internal coordinator that applies an approved unit through exactly one registry-selected view-owner create facade or analytical-owner facade binding. | Workbook store, parser, grid adapter, owner source module, or target-specific mutation implementation. | `import_apply_dispatcher_v1` | §11 | Core 01/Core 03 | `extension-profile` | `current-extension-when-claimed` |
+| Import target registry | Generated Core projection that declares each view or analytical import target, its availability, owning contract, facade binding, and public disposition. | View-schema registry replacement, visible worksheet list, source scan, test inventory, or runtime callback registry. | `cartulary.import_target_registry.v1` | §11 | Core 01; target owner for analytical binding facts | `extension-profile` | `current-extension-when-claimed` |
+| Analytical import facade binding | Internal typed join between Core import orchestration and one analytical target owner's exact mapping, preview, apply, result, error, and commit contracts. | Generic callback, public bearer capability, duplicate Core definition of a target payload, or runtime plugin. | `cartulary.imports.analytical_facade_binding.v1` | §11 | Core 01 for binding shape; target NLSpec for referenced exact schemas | `extension-profile` | `current-extension-when-claimed` |
 | Network Flow table | Incident-scoped analytical resource containing one atomically published set of normalized immutable flow rows while the Network Flow Activity profile is claimed. | Core record, view schema, saved view, import unit, worksheet, filename, raw telemetry stream, or physical SQL table. | `network_flow_table_id` | §11 | Network Flow Activity NLSpec; Core 01 for import/public reference interfaces | `extension-profile` | `current-extension-when-claimed` |
 | Network Flow row | Immutable normalized analytical row owned by one Network Flow table. | `view_row_v1`, Core record revision, indicator observation, graph node, raw SIEM/EDR event, or mutable spreadsheet row. | table-scoped Network Flow row identity | §11 | Network Flow Activity NLSpec | `extension-profile` | `current-extension-when-claimed` |
 | Network Analysis workspace | Claimed extension workspace for working with active Network Flow tables and derived graph/query results. | Base built-in tab, system view, saved view, `view_schema_id`, full application module, or identity inferred from the `Network Analysis` label. | owner-adopted extension workspace identity and `sheet_ref` variant | §11 | Core 01/Core 03; Network Flow Activity NLSpec | `extension-profile` | `current-extension-when-claimed` |
@@ -622,6 +623,7 @@ Declared scope: every term row in §11. Completion rule: each §11 term appears 
 | Import unit | Imports and Tabular Ingest | Extension-profile language. |
 | Import apply dispatcher | Imports and Tabular Ingest | Internal apply-boundary language. |
 | Import target registry | Imports and Tabular Ingest | Registry and target-ownership language. |
+| Analytical import facade binding | Imports and Tabular Ingest | Core-to-analytical-owner contract-join language. |
 | Network Flow table | Network Flow Analysis | Current extension-profile analytical-resource language when the profile is claimed. |
 | Network Flow row | Network Flow Analysis | Current extension-profile normalized-row language when the profile is claimed. |
 | Network Analysis workspace | Network Flow Analysis | Current claimed extension-workspace language distinct from the Base surface registry. |
@@ -772,14 +774,15 @@ Grouping, filtering, sorting, and search operate over workbook query and project
 
 ### 13.12 Imports and tabular ingest
 
-Import terminology is scoped to the Import Extension Profile or to base-profile clipboard paste where the owner sections reuse the tabular-ingest contract. `import_session` and `import_unit` are canonical contract nouns. Worksheet, table, used range, named range, and region are locator kinds or explanatory source terms; they are not runtime workbook identities. `import_apply_dispatcher_v1` and owner create facades name internal implementation boundaries only: imports owns source compatibility and apply dispatch, while source owners own durable record semantics.
+Import terminology is scoped to the Import Extension Profile or to base-profile clipboard paste where the owner sections reuse the tabular-ingest contract. `import_session` and `import_unit` are canonical contract nouns. Worksheet, table, used range, named range, and region are locator kinds or explanatory source terms; they are not runtime workbook identities. `import_apply_dispatcher_v1`, owner create facades, and analytical import facade bindings name internal implementation boundaries only: imports owns source compatibility, mapping/source integrity, dispatch, and unit/finalizer coordination; view and analytical target owners own their exact durable resource semantics.
 
 The recognized Network Flow Activity boundary does not change those nouns. When
 an approved analytical extension target is used, imports still owns the
 source session, unit, mapping approval, opaque source capability, orchestration,
-and terminal target-result publication; Network Flow Analysis owns only its
-normalized analytical resource. A filename, worksheet, import unit, source
-column, or parser DTO MUST NOT be called a Network Flow table or workspace.
+unit outcome, and terminal target-result publication; Network Flow Analysis
+owns its exact facade payloads, validation, errors, and normalized analytical
+resource. A filename, worksheet, import unit, source column, or parser DTO MUST
+NOT be called a Network Flow table or workspace.
 
 ### 13.13 Snapshots, reports, releases, recipient partitions, and report compositions
 

@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 2.0.2
+document_version: 2.0.3
 contract_major: 2
 profile_id: network_flow_activity
 document_class: nlspec
@@ -11,9 +11,16 @@ document_class: nlspec
 
 Status: `adopted/current`.
 
-This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `2.0.2`, including the required Core, Extensions Subsystem, Graph Projection, Testing Harness, timezone-ruleset, fixture, import-preview, and presentation contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity`
+extension profile. Version `2.0.3` adopts the Core-owned analytical import binding while retaining
+exclusive ownership of the exact Network Flow mapping, preview, apply, result, diagnostic, error,
+and resource-mutation schemas. Its owner dependencies are coordinated with Core 00/Core 01, Core
+03/Core 04, Domain vocabulary, and Extensions Subsystem `0.7.1`; the controlling remediation
+tracker governs the downstream machine projection and implementation evidence.
 
-Document version: `2.0.2`. Contract major: `2`. Version `2.0.2` removes
+Document version: `2.0.3`. Contract major: `2`. Version `2.0.3` repairs
+analytical import payload ownership without changing the Network Flow public route major or
+durable state version. Version `2.0.2` removes
 acceptance-accounting and document-provenance metadata from executable test and
 contract projections. It does not change Network Flow product behavior,
 durable state, or public route schemas. Version `2.0.1` corrected inactive
@@ -80,12 +87,12 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 
 | Dependency | Imported contract | Required adopted version and locator |
 | --- | --- | --- |
-| Core 00 | Extension ownership, recognition, primary-owner provenance, precedence, and adoption. | `cartulary.core00.current.v1`, version `extensions-adoption-1`, SHA-256 `3358cc76a3f5a7db45d5373929c43a35e6a1ef0149eea977ca5938edb068f90f`; `REQ-00-065`. |
-| Core 01 | Generic seven-member discovery, import target/result union, bounded transaction boundary, staged objects, backup/restore, and public envelopes. | `cartulary.core01.current.v1`, version `extensions-adoption-1`, SHA-256 `9ad58e1339ab2bc2fa7f32e43cb2bf2f1739877406b80acbe6d8e80440c44627`; `REQ-01-151.1`, `REQ-01-542`, `REQ-01-629..633`. |
-| Core 02 | Authoritative-state presence, canonical IP-literal indicator type, indicator transaction participation, and explicit no-private-purge boundary. | `cartulary.core02.current.v1`, version `extensions-adoption-1`, SHA-256 `79803b2d0b65cfec99e8fd053d2e3be0cab5540a442d5d19b1e47ca49e825454`; `REQ-02-074A..074C`, `REQ-02-210`, `REQ-02-261`. |
-| Core 03 | Extension-contributed incident workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `79afa553168703b6acfd3977562566962b8c1cf107caa55962636d4b0b3e00c5`; `REQ-03-011A`, `REQ-03-303`. |
-| Core 04 | Closed inactive configuration, validation precedence, lease/publication lifecycle, authorization, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `67583e759aea19b52ca1718b53537d6c1ca1328f4a83031267891c916542658b`; `REQ-04-123..146`. |
-| Extensions Subsystem NLSpec | Owner manifests and fragments, generated registry, state coordination, bindings/codecs, participants, and conformance accounting. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.6.1`, SHA-256 `e4251be03942465ffdf587776035011c0939fe753c43e2cfc1acefbd689d5fd2`; `EXT-REQ-001..236`, `EXT-AC-001..158`. This dependency closed in the same atomic companion revision. |
+| Core 00 | Extension recognition plus the Core/analytical-target import ownership split. | `cartulary.core00.current.v1`, version `extensions-adoption-1`, SHA-256 `b4a75e94d431504e8790cc20786f3e0f82d3afd2333db90161bae2b7346b9890`; `REQ-00-065..066`. |
+| Core 01 | Generic discovery, import routes/registry/binding, opaque contexts, unit/finalizer commit, staged objects, backup/restore, and public envelopes. | `cartulary.core01.current.v1`, version `extensions-adoption-1`, SHA-256 `4dc1f5ad213850c29aad5025417345b646aa5ef9361ca22a8e05638a75b5602c`; `REQ-01-151.1`, `REQ-01-542`, `REQ-01-618..620e`, `REQ-01-629..633`. |
+| Core 02 | Authoritative-state presence, canonical IP-literal indicator type, indicator transaction participation, and explicit no-private-purge boundary. | `cartulary.core02.current.v1`, version `extensions-adoption-1`, SHA-256 `30a0f144dcc045b3874b517ce2a1c420da463ec77c51bf10fac98e84e32813b2`; `REQ-02-074A..074C`, `REQ-02-210`, `REQ-02-261`. |
+| Core 03 | Import workflow, unit atomicity, operator regions, extension-contributed workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `943e3c39ca22e8f3dba216430ac5ffe0ef9e3f012b8b3f5ec92d9ac64b04bd8e`; `REQ-03-011A`, `REQ-03-179..204`, `REQ-03-293`, `REQ-03-303`. |
+| Core 04 | Import authorization/error/atomicity conformance, closed inactive configuration, validation precedence, lease/publication lifecycle, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `68c58197f11f0d66c33fd97cf60e3545133adca954e95edb2638ff1946b46e2e`; `AC-064..067`, `AC-264..265`, `AC-463..467A`, `REQ-04-123..146`. |
+| Extensions Subsystem NLSpec | Typed import-target binding admission, owner fragments, generated registry, state coordination, bindings/codecs, and participants. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.7.1`, SHA-256 `44a6df59c22cd81aeee6179e2616b800044cb3e6fd3eebfb7d183628a1450c4f`; `EXT-REQ-087..092`, `EXT-REQ-001..236`, `EXT-AC-001..158`. This dependency closed in the same atomic companion revision. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
 | Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v2`, `cartulary.network_flow_fixture_scenario.v2`, and `cartulary.network_flow_timezone_ruleset_provenance.v2`. |
 
@@ -1160,6 +1167,7 @@ The extension MUST register an import target with these exact values.
 | Member | Required value |
 | --- | --- |
 | `target_kind` | `network_flow_table` |
+| `facade_binding_id` | `network_flow_activity.import_facade.v1` |
 | `target_table_schema_id` | `cartulary.network_flow_table.v1` |
 | `default_source_profile_id` | `cisco_sna_netflow_csv_v1` when launched from `Import NetFlow CSV`; otherwise no default unless a source-profile selector supplies one. |
 | `default_parser_profile_id` | `rfc4180_headered_csv_v1` |
@@ -1172,7 +1180,12 @@ The import module MUST continue to own upload, source byte validation, import se
 The import dispatcher MUST call a Network Flow owner facade named `network_flow_import_facade_v1` for applied units whose approved mapping has `target_kind='network_flow_table'`. The import module MUST NOT write `network_flow_table` rows, `network_flow_row` rows, rejected-row diagnostics, or indicator bindings directly.
 
 **NF-REQ-088a**
-`network_flow_import_facade_v1` MUST expose exactly the two operations in Table 10-A0. The facade boundary is logical and MAY be in-process or remote, but its semantic request and result objects are closed public objects under NF-REQ-011b. Omission behavior: an implementation that does not provide a remote boundary uses an in-process call with identical semantics.
+`network_flow_import_facade_v1` MUST expose exactly the two operations in Table 10-A0 through
+`facade_binding_id='network_flow_activity.import_facade.v1'`. The facade boundary is internal and
+MAY be in-process or remote, but its semantic request and result objects are the exact closed
+target-owned schemas in this section. Core supplies the binding slots and validates schema
+identity; it MUST NOT define a second generic member list. Omission behavior: an implementation
+that does not provide a remote boundary uses an in-process call with identical semantics.
 
 **Table 10-A0. Import owner-facade operations**
 
@@ -1260,6 +1273,40 @@ transport `source_columns[]` supplied for approval MUST be constructed from the
 discovered unit response and MUST NOT be hard-coded or inferred from a source
 profile.
 
+**NF-REQ-088d**
+The Network Flow import target MUST contribute this exact
+`cartulary.imports.analytical_facade_binding.v1` row:
+
+| Member | Exact value |
+| --- | --- |
+| `schema_id` | `cartulary.imports.analytical_facade_binding.v1` |
+| `target_kind` | `network_flow_table` |
+| `extension_profile_id` | `network_flow_activity` |
+| `owner_contract_ref` | `network_flow_activity@2` |
+| `facade_id` | `network_flow_import_facade_v1` |
+| `contract_major` | `2` |
+| `mapping_schema_id` | `cartulary.network_flow.approved_mapping.v1` |
+| `preview_request_schema_id` | `cartulary.network_flow.import_preview_request.v1` |
+| `preview_result_schema_id` | `cartulary.network_flow.import_preview_result.v1` |
+| `apply_request_schema_id` | `cartulary.network_flow.import_apply_request.v1` |
+| `apply_result_schema_id` | `cartulary.network_flow.import_unit_result.v1` |
+| `error_schema_id` | `cartulary.network_flow.import_owner_error.v1` |
+| `error_translation_id` | `network_flow_activity.import_error_translation.v1` |
+| `commit_protocol_id` | `cartulary.imports.unit_commit.v1` |
+
+`cartulary.network_flow.approved_mapping.v1` is the closed materialized Table 10-B object.
+`cartulary.network_flow.import_owner_error.v1` contains exactly `schema_id`, `owner_code`,
+`retryable`, and `safe_details`. `owner_code` is exactly one of
+`network_flow_no_data_rows`, `network_flow_all_rows_rejected`,
+`network_flow_mapping_invalid`, `network_flow_source_changed`,
+`network_flow_target_unavailable`, or `network_flow_internal_failure`; `retryable` is Boolean.
+`safe_details` is a closed object selected by `owner_code`: no-data, source-changed, and internal
+failure use `{}`; all-rows-rejected uses exactly `row_count_rejected`,
+`diagnostics_truncated`, and bounded `diagnostics_sample[]`; mapping-invalid uses required
+`reason_code` and optional `field`; target-unavailable uses required `reason_code`. Unknown owner
+codes or members are invalid and MUST be translated to Core
+`import_apply_blocked/owner_apply_validation_failed` without echoing the token.
+
 ### 10.2 Source column descriptors
 
 **NF-REQ-089**
@@ -1298,7 +1345,7 @@ An approved mapping for this extension MUST include the top-level members in Tab
 
 Unknown members, `source_columns`, mapping fingerprints, preview samples, source hashes, and server capability references are forbidden in `mapping_candidate_v1`.
 
-**Table 10-B. Approved mapping metadata**
+**Table 10-B. `cartulary.network_flow.approved_mapping.v1`**
 
 | Member | Type | Required | Nullable | Omission behavior | Rule |
 | --- | --- | ---: | ---: | --- | --- |
@@ -3156,7 +3203,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 
 **NF-REQ-181**
 The primary owner document identity is
-`cartulary.network_flow_activity.current.v2`, version `2.0.2`. Its only runtime
+`cartulary.network_flow_activity.current.v2`, version `2.0.3`. Its only runtime
 dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
 exact Import owner manifest version and digest selected by the Extensions
 dependency declaration set. The recognized profile is claimable at contract
@@ -3225,7 +3272,7 @@ post-restore structural validator, and `rebuild_algorithm_id=null`. Restore
 order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, and `400` for `indicator_bindings`; bindings within
 a group execute sequentially by binding ID. Historical codec declarations and
-derived physical bindings are empty in version `2.0.2`. Backup/restore operates
+derived physical bindings are empty in version `2.0.3`. Backup/restore operates
 on a stopped empty target, validates each binding before advancing, never invokes
 Network Flow code while inactive, and never serves a failed target. There is no
 persisted derived state to rebuild after claim; the graph remains an ephemeral
@@ -3236,7 +3283,8 @@ The profile declares exactly these integration contributions:
 
 - one `http_route_family` for the NF-REQ-181 route;
 - one `incident_workspace` for `network_analysis`;
-- one `import_target` for `network_flow_table`;
+- one `import_target` for `network_flow_table` naming
+  `facade_binding_id='network_flow_activity.import_facade.v1'`;
 - resource kinds `network_flow_table` and `network_flow_indicator_binding`;
 - one `websocket_invalidation` contribution covering those resource kinds;
 - typed cross-owner transaction participants
