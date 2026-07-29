@@ -6,7 +6,7 @@
 - **Execution base:** `d45f3fbf`.
 - **Active branch at execution start:** `main`.
 - **Program status:** `IN PROGRESS`.
-- **Active workstream:** `RS-02`.
+- **Active workstream:** `RS-03`.
 - **Execution rule:** workstreams run strictly in the order in section 5.
 - **Failure rule:** if a workstream exit criterion cannot be met, mark that
   workstream `BLOCKED`, record the evidence, and stop.
@@ -178,7 +178,7 @@ artifact identities are removed in RS-02.
 | --- | --- | --- | --- | --- | --- |
 | RS-00 | Convert tracker and capture executable baseline. Depends on `d45f3fbf`. | Recovery unit/service slices; browser restore; operational smoke; migration preservation before deletion; boundary check; Markdown lint. | Tracker is executable and every later slice has scope, compatibility, rollback, validation, and exit fields. | DONE | `a1ebb471` |
 | RS-01 | Adopt Core 00/01/04, Extension, Graph Projection, Testing Harness, schemas, fixtures, and generated projections. Depends on RS-00. | Markdown, JSON/schema/contract tests, `make generate-drift`, artifact policy. | Owners, strict contracts, and historical rules are authoritative outside this tracker. | DONE | `fe74a282` |
-| RS-02 | Remove legacy migration implementation, tests, schemas, policy, target, and release dependency. Depends on RS-01. | Target/occurrence scans; harness; SeaweedFS compatibility; release projection. | No MinIO-source migration behavior or evidence remains. | TODO | Pending |
+| RS-02 | Remove legacy migration implementation, tests, schemas, policy, target, and release dependency. Depends on RS-01. | Target/occurrence scans; harness; SeaweedFS compatibility; release projection. | No MinIO-source migration behavior or evidence remains. | DONE | `70cfa8d3` |
 | RS-03 | Add typed Recovery facade and Operator wire adapter. Depends on RS-02. | Recovery owner slice and `make build-operator`. | Semantic operations have typed failures/progress and wire v1 parity. | TODO | Pending |
 | RS-04 | Add private repositories and typed, atomic terminal evidence. Depends on RS-03. | Recovery service slice, journal/audit security tests, targeted gosec. | No SQLC/raw Evidence leakage; terminal journal/audit is atomic and secret-safe. | TODO | Pending |
 | RS-05 | Add bound target marker v2 and shared/exclusive serving lease. Depends on RS-04. | Recovery/server/operator slices and operational recovery smoke. | Every restore holds real target-safety proof before mutation. | TODO | Pending |
@@ -253,6 +253,7 @@ preserved surfaces.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | RS-00 | 2026-07-29 | DONE | Replaced planning-only plan with active remediation ledger; recorded design decisions, 82-table target, contract identities, sequential gates, and baseline inventory. | Documentation only; old plan remains at `d45f3fbf`. | All focused baselines in section 8 passed; `make lint-markdown` passed at `.cartulary/test-results/20260729T152635Z-p1430749`. | Revert `a1ebb471`; no product or generated state changed. | `a1ebb471` |
 | RS-01 | 2026-07-29 | DONE | Adopted coherent capture, source-owner catalog, vNext codecs, typed failures/evidence, bound marker/serving lease, workbook registration, per-attempt due verification, and immediate migration retirement in Core and subsystem owners. Added a private Recovery contract family with 14 strict schemas, 13 fixtures, generated Go projection, duplicate-member rejection, and migration-to-catalog exact coverage validation. | Normative current behavior changes to the vNext target; implementation remains intentionally transitional until later slices. No public/browser contract or database schema changed. Historical recovery schema IDs are read-only; migration schema prefix is retired. | `make generate` passed at `.cartulary/test-results/20260729T155013Z-p1452942`; `make json-shape-check` passed at `.cartulary/test-results/20260729T155025Z-p1455182`; `make generate-drift` passed at `.cartulary/test-results/20260729T155031Z-p1455754`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260729T155050Z-p1459597`; `make test-fast` passed 933 tests at `.cartulary/test-results/20260729T155057Z-p1460071`; `make lint-markdown` passed at `.cartulary/test-results/20260729T155334Z-p1513610`; `make lint-biome` passed. | Revert `fe74a282`; generated Recovery and Extension projections revert with their authored inputs. No persistence migration exists. | `fe74a282` |
+| RS-02 | 2026-07-29 | DONE | Deleted the legacy Recovery object-store transition implementation and its unit/integration tests; removed its six artifact identities, command target, release-DAG edge, duration baseline, topology claim, and transition-specific occurrence classifications. Replaced release evidence with current SeaweedFS compatibility, Recovery backup-integrity contract coverage, redaction, and storage-reference ownership checks; regenerated task and topology projections. | Immediate intentional break for deployments still requiring a MinIO-source transition: migrate externally before upgrade or remain on an earlier release. The current MinIO Go SDK remains as the S3-compatible client. The five Recovery commands, browser surface, database schema, current SeaweedFS backend, and retained historical backup readers are unchanged. | Exact repository token/target scans passed. `make generate` passed at `.cartulary/test-results/20260729T160301Z-p1520533`; `make generate-drift` passed at `.cartulary/test-results/20260729T160330Z-p1523039`; `make harness-contract` initially found the intentional public-target digest change at `.cartulary/test-results/20260729T160344Z-p1526944`, then passed after updating that digest at `.cartulary/test-results/20260729T160426Z-p1528367`; `make lint-biome` passed at `.cartulary/test-results/20260729T160507Z-p1529733`; `make lint-scripts` passed at `.cartulary/test-results/20260729T160515Z-p1530341`; `make test-fast` passed 933 tests at `.cartulary/test-results/20260729T160525Z-p1530916`; `make seaweedfs-compatibility` first stopped on a stale July 26 repository-owned proxy at `.cartulary/test-results/20260729T160758Z-p1587792`, then passed after terminating that stale process at `.cartulary/test-results/20260729T160839Z-p1588799`; `make seaweedfs-release-gate` passed at `.cartulary/test-results/20260729T160852Z-p1589656`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260729T161011Z-p1592358`; `make json-shape-check` passed at `.cartulary/test-results/20260729T161018Z-p1592737`. | Revert `70cfa8d3` as one rollback unit. No persistence migration or external state mutation was introduced; the stale local proxy was terminated before the successful compatibility rerun. | `70cfa8d3` |
 
 ## 8. RS-00 Baseline
 
@@ -292,6 +293,24 @@ The pre-remediation writer/reader inventory is:
 - `cartulary.restore_verification.v1`;
 - `cartulary.extension_backup_registry.v1`; and
 - six `cartulary.object_store_migration_*.v1` identities, removed at RS-02.
+
+### 8.2 RS-02 removal checkpoint
+
+- Recovery now contains 26 source/test files; the transition implementation
+  and its two test files were deleted.
+- The authored and generated task surfaces expose no dedicated transition
+  command, and the release DAG no longer allocates its service-validation
+  branch.
+- The occurrence policy is backend-current and retains only SDK, external
+  endpoint, historical fixture, invalid, and unclassified categories.
+- SeaweedFS release evidence now derives its storage claim from current
+  compatibility, the Recovery backup-integrity contract registry, redaction,
+  and source-owner storage-reference controls.
+- Exact scans outside `docs/archive/**` and this tracker found no removed
+  schema ID, state token, implementation symbol, environment input, target, or
+  release dependency.
+- `make lint-markdown` validated the completed ledger at
+  `.cartulary/test-results/20260729T161204Z-p1594592`.
 
 ## 9. Final Handoff Checklist
 
