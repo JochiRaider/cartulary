@@ -919,6 +919,8 @@ type ImportUnitApplyOutcome struct {
 	ErrorCode                pgtype.Text        `json:"error_code"`
 	ReasonCode               pgtype.Text        `json:"reason_code"`
 	CommittedAt              pgtype.Timestamptz `json:"committed_at"`
+	ErrorRetryable           bool               `json:"error_retryable"`
+	ErrorDetailsJson         []byte             `json:"error_details_json"`
 }
 
 type Incident struct {

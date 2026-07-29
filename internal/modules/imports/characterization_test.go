@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -122,14 +123,15 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 	}
 }
 
-func TestCharacterizationKnownNonConformanceInternalErrorEchoesRawMessage(t *testing.T) {
+func TestInternalImportErrorDoesNotEchoRawMessage(t *testing.T) {
 	t.Parallel()
 
 	apiErr := internalAPIError(errors.New("sensitive owner detail"))
 	if apiErr.Status != http.StatusInternalServerError ||
 		apiErr.Code != "internal_error" ||
-		apiErr.Message != "sensitive owner detail" {
-		t.Fatalf("current internal error behavior changed: %#v", apiErr)
+		apiErr.Message != "The import operation could not be completed." ||
+		strings.Contains(apiErr.Message, "sensitive") {
+		t.Fatalf("unsafe internal error behavior: %#v", apiErr)
 	}
 }
 

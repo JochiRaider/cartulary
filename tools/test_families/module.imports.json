@@ -211,6 +211,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.integration.network_flow_safe_owner_error_translation_rs08_ef0e4eafa0",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.partial_cancellation_outcomes_a14b66f830",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -311,6 +336,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.integration.view_owner_write_null_application_rs08_8bb5e55b95",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestTargetRegistryAndEntityOwnerFacade_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.xlsx_import_discovery_accepts_a_bounded_open_xml_d7c25ef6c8",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -329,6 +379,54 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.unit.canonical_write_null_and_safe_owner_translation_rs08_3f58f0c338",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestMappingFingerprintUsesCanonicalWriteNullToken",
+          "TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.unit.owner_create_nullability_matrix_rs08_d1cc594289",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports/ownerfacade",
+        "tests": [
+          "TestNormalizeImportScalarRejectsNullForNonNullableCreateField",
+          "TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"

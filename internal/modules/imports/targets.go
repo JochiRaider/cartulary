@@ -20,6 +20,8 @@ type importTarget struct {
 	FacadeBindingID    string
 	CreateFacade       string
 	ApplyFacade        string
+	ErrorSchemaID      string
+	ErrorTranslationID string
 	AllowRawCapture    bool
 	AllowCustomAttrs   bool
 }
@@ -97,6 +99,7 @@ func mustGeneratedImportTargets() (
 				ApplyStatus:      status,
 				FacadeBindingID:  generatedString(generated.FacadeBindingID),
 				CreateFacade:     generatedString(generated.FacadeID),
+				ErrorSchemaID:    generated.ErrorSchemaID,
 				AllowRawCapture:  generated.DefaultUnknownColumnPolicy == "preserve_raw_capture",
 				AllowCustomAttrs: false,
 			}
@@ -120,6 +123,8 @@ func mustGeneratedImportTargets() (
 				ApplyStatus:        status,
 				FacadeBindingID:    generatedString(generated.FacadeBindingID),
 				ApplyFacade:        generatedString(generated.FacadeID),
+				ErrorSchemaID:      generated.ErrorSchemaID,
+				ErrorTranslationID: generatedString(generated.ErrorTranslationID),
 			}
 			key := analyticalImportTargetKey{
 				TargetKind:         target.TargetKind,

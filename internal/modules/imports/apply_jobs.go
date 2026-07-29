@@ -77,8 +77,12 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 				unit.UnitID,
 				actor.ID,
 				"canceled",
-				"import_apply_canceled",
-				"cancel_requested",
+				importUnitFailureDetail{
+					ErrorCode:  "import_apply_canceled",
+					ReasonCode: "cancel_requested",
+					Retryable:  false,
+					Details:    map[string]any{"reason_code": "cancel_requested"},
+				},
 				s.now(),
 			); err != nil {
 				return err
@@ -91,7 +95,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 			return err
 		} else {
 			status := "failed"
-			errorCode, reasonCode := importUnitFailure(err)
+			failure := importUnitFailure(err)
 			if errors.Is(err, errImportUnitCanceled) {
 				status = "canceled"
 			}
@@ -101,8 +105,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 				unit.UnitID,
 				actor.ID,
 				status,
-				errorCode,
-				reasonCode,
+				failure,
 				s.now(),
 			); persistErr != nil {
 				return persistErr
@@ -158,11 +161,15 @@ func (s *Service) finalizeApplyJob(ctx context.Context, start ApplyStartResult) 
 			Mutate:     mutate,
 		})
 	case jobs.StatusFailed:
+		errorDetails := cloneStringAnyMap(finalization.ErrorDetails)
+		if errorDetails == nil {
+			errorDetails = map[string]any{}
+		}
 		transition.ErrorSummary = &jobs.ErrorSummary{
 			Code:      finalization.ErrorCode,
 			Message:   "Import apply failed.",
-			Retryable: false,
-			Details:   map[string]any{},
+			Retryable: finalization.ErrorRetryable,
+			Details:   errorDetails,
 		}
 		_, err = s.jobSuccessFinalizer.FinalizeImportJobFailure(ctx, JobTerminalFinalization{
 			Transition: transition,
@@ -174,22 +181,43 @@ func (s *Service) finalizeApplyJob(ctx context.Context, start ApplyStartResult) 
 	return err
 }
 
-func importUnitFailure(err error) (string, string) {
+func importUnitFailure(err error) importUnitFailureDetail {
+	var translated *translatedImportUnitError
 	var applyBlocked *ApplyBlockedError
 	switch {
+	case errors.As(err, &translated):
+		return translated.failure
 	case errors.As(err, &applyBlocked):
-		return "import_apply_blocked", applyBlocked.ReasonCode
+		if failure, ok := commonImportApplyFailure(err); ok {
+			return failure
+		}
+		return genericOwnerApplyFailure()
 	case errors.Is(err, errImportUnitCanceled):
-		return "import_apply_canceled", "cancel_requested"
+		return importUnitFailureDetail{
+			ErrorCode:  "import_apply_canceled",
+			ReasonCode: "cancel_requested",
+			Retryable:  false,
+			Details:    map[string]any{"reason_code": "cancel_requested"},
+		}
 	case errors.Is(err, incidents.ErrIncidentClosed):
-		return "incident_closed", "incident_closed"
+		return importUnitFailureDetail{
+			ErrorCode:  "incident_closed",
+			ReasonCode: "incident_closed",
+			Retryable:  false,
+			Details:    map[string]any{"reason_code": "incident_closed"},
+		}
 	case errors.Is(err, incidents.ErrIncidentNotFound),
 		errors.Is(err, incidents.ErrMembershipNotFound),
 		errors.Is(err, incidents.ErrIncidentRoleDenied),
 		errors.Is(err, errImportActorUnauthorized):
-		return "authorization_denied", "authorization_changed"
+		return importUnitFailureDetail{
+			ErrorCode:  "authorization_denied",
+			ReasonCode: "authorization_changed",
+			Retryable:  false,
+			Details:    map[string]any{"reason_code": "authorization_changed"},
+		}
 	default:
-		return "import_apply_failed", "owner_apply_failed"
+		return genericOwnerApplyFailure()
 	}
 }
 

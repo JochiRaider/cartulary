@@ -36,6 +36,8 @@ type unitApplyOutcome struct {
 	ChangeSetID        *uuid.UUID
 	ErrorCode          *string
 	ReasonCode         *string
+	ErrorRetryable     bool
+	ErrorDetails       map[string]any
 	CommittedAt        time.Time
 }
 
@@ -46,15 +48,18 @@ type appliedUnitCommit struct {
 }
 
 type applyFinalization struct {
-	SessionStatus string
-	JobStatus     string
-	ResultCode    string
-	ErrorCode     string
-	ResourceRefs  []jobs.ResourceRef
-	Applied       int
-	Failed        int
-	Canceled      int
-	OutcomeDigest string
+	SessionStatus   string
+	JobStatus       string
+	ResultCode      string
+	ErrorCode       string
+	ErrorReasonCode string
+	ErrorRetryable  bool
+	ErrorDetails    map[string]any
+	ResourceRefs    []jobs.ResourceRef
+	Applied         int
+	Failed          int
+	Canceled        int
+	OutcomeDigest   string
 }
 
 type unitOutcomeQuerier interface {
@@ -85,7 +90,8 @@ SELECT import_session_id, import_unit_id, apply_job_id, discovery_sequence,
        unit_commit_id, outcome_status, actor_user_id, target_kind,
        target_view_schema_id, extension_profile_id, owner_binding_id,
        source_content_sha256, mapping_fingerprint, owner_result_json,
-       resource_refs_json, change_set_id, error_code, reason_code, committed_at
+       resource_refs_json, change_set_id, error_code, reason_code,
+       error_retryable, error_details_json, committed_at
   FROM import_unit_apply_outcomes
  WHERE import_session_id = $1
    AND import_unit_id = $2
@@ -96,6 +102,7 @@ func scanUnitOutcome(row pgx.Row) (unitApplyOutcome, error) {
 	var outcome unitApplyOutcome
 	var ownerResultJSON []byte
 	var resourceRefsJSON []byte
+	var errorDetailsJSON []byte
 	err := row.Scan(
 		&outcome.ImportSessionID,
 		&outcome.ImportUnitID,
@@ -115,6 +122,8 @@ func scanUnitOutcome(row pgx.Row) (unitApplyOutcome, error) {
 		&outcome.ChangeSetID,
 		&outcome.ErrorCode,
 		&outcome.ReasonCode,
+		&outcome.ErrorRetryable,
+		&errorDetailsJSON,
 		&outcome.CommittedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -127,6 +136,9 @@ func scanUnitOutcome(row pgx.Row) (unitApplyOutcome, error) {
 		return unitApplyOutcome{}, err
 	}
 	if err := json.Unmarshal(resourceRefsJSON, &outcome.ResourceRefs); err != nil {
+		return unitApplyOutcome{}, err
+	}
+	if err := json.Unmarshal(errorDetailsJSON, &outcome.ErrorDetails); err != nil {
 		return unitApplyOutcome{}, err
 	}
 	return outcome, nil
@@ -541,7 +553,16 @@ func (s *Store) insertAppliedUnitOutcomeTx(
 	commit appliedUnitCommit,
 	now time.Time,
 ) (unitApplyOutcome, error) {
-	outcome, err := buildUnitOutcome(start, unit, target, actorUserID, "applied", commit, "", "", now)
+	outcome, err := buildUnitOutcome(
+		start,
+		unit,
+		target,
+		actorUserID,
+		"applied",
+		commit,
+		importUnitFailureDetail{},
+		now,
+	)
 	if err != nil {
 		return unitApplyOutcome{}, err
 	}
@@ -571,8 +592,7 @@ func (s *Store) recordTerminalUnitOutcome(
 	unitID uuid.UUID,
 	actorUserID uuid.UUID,
 	status string,
-	errorCode string,
-	reasonCode string,
+	failure importUnitFailureDetail,
 	now time.Time,
 ) (unitApplyOutcome, error) {
 	if status != "failed" && status != "canceled" {
@@ -613,8 +633,7 @@ func (s *Store) recordTerminalUnitOutcome(
 		actorUserID,
 		status,
 		appliedUnitCommit{OwnerResult: map[string]any{}, ResourceRefs: []jobs.ResourceRef{}},
-		errorCode,
-		reasonCode,
+		failure,
 		now,
 	)
 	if err != nil {
@@ -650,8 +669,7 @@ func buildUnitOutcome(
 	actorUserID uuid.UUID,
 	status string,
 	commit appliedUnitCommit,
-	errorCode string,
-	reasonCode string,
+	failure importUnitFailureDetail,
 	now time.Time,
 ) (unitApplyOutcome, error) {
 	jobID, err := uuid.Parse(start.Job.JobID)
@@ -673,6 +691,8 @@ func buildUnitOutcome(
 		OwnerResult:        commit.OwnerResult,
 		ResourceRefs:       append([]jobs.ResourceRef{}, commit.ResourceRefs...),
 		ChangeSetID:        commit.ChangeSetID,
+		ErrorRetryable:     failure.Retryable,
+		ErrorDetails:       cloneStringAnyMap(failure.Details),
 		CommittedAt:        now.UTC(),
 	}
 	if target.TargetKind == ImportTargetKindViewSchema {
@@ -682,11 +702,14 @@ func buildUnitOutcome(
 		value := target.ExtensionProfileID
 		outcome.ExtensionProfileID = &value
 	}
-	if errorCode != "" {
-		outcome.ErrorCode = &errorCode
+	if failure.ErrorCode != "" {
+		outcome.ErrorCode = &failure.ErrorCode
 	}
-	if reasonCode != "" {
-		outcome.ReasonCode = &reasonCode
+	if failure.ReasonCode != "" {
+		outcome.ReasonCode = &failure.ReasonCode
+	}
+	if outcome.ErrorDetails == nil {
+		outcome.ErrorDetails = map[string]any{}
 	}
 	return outcome, nil
 }
@@ -700,22 +723,28 @@ func insertUnitOutcomeTx(ctx context.Context, tx pgx.Tx, outcome unitApplyOutcom
 	if err != nil {
 		return err
 	}
+	errorDetails, err := json.Marshal(outcome.ErrorDetails)
+	if err != nil {
+		return err
+	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO import_unit_apply_outcomes (
     import_session_id, import_unit_id, apply_job_id, discovery_sequence,
     unit_commit_id, outcome_status, actor_user_id, target_kind,
     target_view_schema_id, extension_profile_id, owner_binding_id,
     source_content_sha256, mapping_fingerprint, owner_result_json,
-    resource_refs_json, change_set_id, error_code, reason_code, committed_at
+    resource_refs_json, change_set_id, error_code, reason_code,
+    error_retryable, error_details_json, committed_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19
+    $15, $16, $17, $18, $19, $20, $21
 )
 `, outcome.ImportSessionID, outcome.ImportUnitID, outcome.ApplyJobID, outcome.DiscoverySequence,
 		outcome.UnitCommitID, outcome.Status, outcome.ActorUserID, outcome.TargetKind,
 		outcome.TargetViewSchemaID, outcome.ExtensionProfileID, outcome.OwnerBindingID,
 		outcome.SourceDigest, outcome.MappingFingerprint, ownerResult, resourceRefs,
-		outcome.ChangeSetID, outcome.ErrorCode, outcome.ReasonCode, outcome.CommittedAt.UTC())
+		outcome.ChangeSetID, outcome.ErrorCode, outcome.ReasonCode, outcome.ErrorRetryable,
+		errorDetails, outcome.CommittedAt.UTC())
 	return err
 }
 
@@ -809,7 +838,8 @@ SELECT import_session_id, import_unit_id, apply_job_id, discovery_sequence,
        unit_commit_id, outcome_status, actor_user_id, target_kind,
        target_view_schema_id, extension_profile_id, owner_binding_id,
        source_content_sha256, mapping_fingerprint, owner_result_json,
-       resource_refs_json, change_set_id, error_code, reason_code, committed_at
+       resource_refs_json, change_set_id, error_code, reason_code,
+       error_retryable, error_details_json, committed_at
   FROM import_unit_apply_outcomes
  WHERE import_session_id = $1
    AND import_unit_id = ANY($2)
@@ -856,6 +886,14 @@ SELECT import_session_id, import_unit_id, apply_job_id, discovery_sequence,
 			finalization.ResourceRefs = append(finalization.ResourceRefs, outcome.ResourceRefs...)
 		case "failed":
 			finalization.Failed++
+			if finalization.ErrorCode == "" && outcome.ErrorCode != nil {
+				finalization.ErrorCode = *outcome.ErrorCode
+				if outcome.ReasonCode != nil {
+					finalization.ErrorReasonCode = *outcome.ReasonCode
+				}
+				finalization.ErrorRetryable = outcome.ErrorRetryable
+				finalization.ErrorDetails = cloneStringAnyMap(outcome.ErrorDetails)
+			}
 		case "canceled":
 			finalization.Canceled++
 		default:
@@ -868,6 +906,10 @@ SELECT import_session_id, import_unit_id, apply_job_id, discovery_sequence,
 			"source_digest":       outcome.SourceDigest,
 			"mapping_fingerprint": outcome.MappingFingerprint,
 			"resource_refs":       outcome.ResourceRefs,
+			"error_code":          outcome.ErrorCode,
+			"reason_code":         outcome.ReasonCode,
+			"error_retryable":     outcome.ErrorRetryable,
+			"error_details":       outcome.ErrorDetails,
 		})
 	}
 	switch {
@@ -890,7 +932,9 @@ SELECT import_session_id, import_unit_id, apply_job_id, discovery_sequence,
 	default:
 		finalization.SessionStatus = "failed"
 		finalization.JobStatus = jobs.StatusFailed
-		finalization.ErrorCode = "import_apply_failed"
+		if finalization.ErrorCode == "" {
+			return applyFinalization{}, fmt.Errorf("failed import outcome has no error code")
+		}
 	}
 	canonical, err := json.Marshal(map[string]any{
 		"import_session_id": start.ImportSessionID.String(),

@@ -33,10 +33,16 @@ func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, 
 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
 	if f == nil || f.sourceStore == nil {
-		return imports.ExtensionImportMappingResult{}, applyBlocked("owner_apply_contract_unavailable")
+		return imports.ExtensionImportMappingResult{}, importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
+		)
 	}
 	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
-		return imports.ExtensionImportMappingResult{}, applyBlocked("variant_member_conflict")
+		return imports.ExtensionImportMappingResult{}, importOwnerError(
+			"network_flow_mapping_invalid",
+			map[string]any{"reason_code": "variant_member_conflict"},
+		)
 	}
 	stream, err := f.sourceStore.OpenSourceStream(ctx, request.SourceCapability.SourceStreamRef)
 	if err != nil {
@@ -174,16 +180,28 @@ func (f *importFacade) ApplyImportUnitTx(
 	request imports.ExtensionImportApplyRequest,
 ) (imports.ExtensionImportApplyResult, error) {
 	if f == nil || f.store == nil || f.sourceStore == nil || tx == nil {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+		return imports.ExtensionImportApplyResult{}, importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
+		)
 	}
 	if f.safeDigester == nil {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+		return imports.ExtensionImportApplyResult{}, importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
+		)
 	}
 	if request.TargetKind != TargetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != MappingCandidateSchemaID {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("variant_member_conflict")
+		return imports.ExtensionImportApplyResult{}, importOwnerError(
+			"network_flow_mapping_invalid",
+			map[string]any{"reason_code": "variant_member_conflict"},
+		)
 	}
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
+		return imports.ExtensionImportApplyResult{}, importOwnerError(
+			"network_flow_source_changed",
+			nil,
+		)
 	}
 	prepared, err := f.prepareImportApply(ctx, request)
 	if err != nil {
@@ -191,7 +209,10 @@ func (f *importFacade) ApplyImportUnitTx(
 	}
 	importStore, ok := f.sourceStore.(importTransactionPort)
 	if !ok {
-		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+		return imports.ExtensionImportApplyResult{}, importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
+		)
 	}
 	capability := &transactionCapability{
 		participantID: ImportApplyParticipantID,
@@ -252,21 +273,27 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		return preparedImportApply{}, facadeError(err)
 	}
 	if !sourceColumnsMatch(mapping.SourceColumns, parsed.SourceColumns) {
-		return preparedImportApply{}, applyBlocked("source_changed")
+		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
 	}
 	fingerprint := MappingFingerprint(mapping, parsed.SourceContentSHA256)
 	if fingerprint != request.MappingFingerprint {
-		return preparedImportApply{}, applyBlocked("source_changed")
+		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
 	}
 	rows, diagnostics, diagnosticsTruncated, err := ValidateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return preparedImportApply{}, err
 	}
 	if len(rows) == 0 {
-		return preparedImportApply{}, applyBlocked("network_flow_all_rows_rejected")
+		return preparedImportApply{}, allRowsRejectedOwnerError(
+			diagnostics,
+			diagnosticsTruncated,
+		)
 	}
 	if int64(len(rows)) > f.limits.MaxAcceptedRowsPerTable {
-		return preparedImportApply{}, applyBlocked("network_flow_resource_limit_exceeded")
+		return preparedImportApply{}, importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "network_flow_resource_limit_exceeded"},
+		)
 	}
 	originalFilename, err := f.originalFilename(ctx, request.ImportSessionID)
 	if err != nil {
@@ -346,21 +373,33 @@ func networkFlowTableRoute(incidentID string, tableID string) string {
 
 func facadeError(err error) error {
 	if errors.Is(err, ErrSourceChanged) {
-		return applyBlocked("source_changed")
+		return importOwnerError("network_flow_source_changed", nil)
 	}
 	var sourceErr *SourceValidationError
 	if errors.As(err, &sourceErr) {
-		if sourceErr.ReasonCode != "" {
-			return applyBlocked(sourceErr.ReasonCode)
+		if sourceErr.Code == "network_flow_no_data_rows" {
+			return importOwnerError("network_flow_no_data_rows", nil)
 		}
-		return applyBlocked(sourceErr.Code)
+		reasonCode := sourceErr.ReasonCode
+		if reasonCode == "" {
+			reasonCode = sourceErr.Code
+		}
+		return importOwnerError(
+			"network_flow_mapping_invalid",
+			map[string]any{"reason_code": reasonCode},
+		)
 	}
 	var mappingErr *MappingValidationError
 	if errors.As(err, &mappingErr) {
-		if mappingErr.ReasonCode != "" {
-			return &imports.ApplyBlockedError{ReasonCode: mappingErr.ReasonCode, Field: mappingErr.FieldKey}
+		reasonCode := mappingErr.ReasonCode
+		if reasonCode == "" {
+			reasonCode = mappingErr.Code
 		}
-		return &imports.ApplyBlockedError{ReasonCode: mappingErr.Code, Field: mappingErr.FieldKey}
+		details := map[string]any{"reason_code": reasonCode}
+		if mappingErr.FieldKey != "" {
+			details["field"] = mappingErr.FieldKey
+		}
+		return importOwnerError("network_flow_mapping_invalid", details)
 	}
 	return err
 }
@@ -369,18 +408,23 @@ func storeApplyError(err error) error {
 	var invalidName *InvalidDisplayNameError
 	switch {
 	case errors.As(err, &invalidName):
-		return applyBlocked(invalidName.ReasonCode)
+		return importOwnerError(
+			"network_flow_mapping_invalid",
+			map[string]any{"reason_code": invalidName.ReasonCode},
+		)
 	case errors.Is(err, ErrTableLimitExceeded):
-		return applyBlocked("network_flow_table_limit_exceeded")
+		return importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "network_flow_table_limit_exceeded"},
+		)
 	case errors.Is(err, ErrTableNameExhausted):
-		return applyBlocked("network_flow_table_name_exhausted")
+		return importOwnerError(
+			"network_flow_target_unavailable",
+			map[string]any{"reason_code": "network_flow_table_name_exhausted"},
+		)
 	case errors.Is(err, ErrIDGenerationFailed):
-		return applyBlocked("network_flow_id_generation_failed")
+		return importOwnerError("network_flow_internal_failure", nil)
 	default:
 		return err
 	}
-}
-
-func applyBlocked(reason string) error {
-	return &imports.ApplyBlockedError{ReasonCode: reason}
 }

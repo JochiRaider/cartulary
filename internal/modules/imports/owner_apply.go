@@ -63,7 +63,10 @@ func (s *Service) applyGenericOwnerUnitTx(
 			owner,
 		)
 		if err != nil {
-			return appliedUnitCommit{}, err
+			return appliedUnitCommit{}, &translatedImportUnitError{
+				failure: importOwnerCreateFailure(err),
+				cause:   err,
+			}
 		}
 		response, err := owner.CreateImportRowTx(
 			ctx,
@@ -77,7 +80,10 @@ func (s *Service) applyGenericOwnerUnitTx(
 			},
 		)
 		if err != nil {
-			return appliedUnitCommit{}, err
+			return appliedUnitCommit{}, &translatedImportUnitError{
+				failure: importOwnerCreateFailure(err),
+				cause:   err,
+			}
 		}
 		ownerResponse := map[string]any{
 			"record_id":               response.RecordID.String(),

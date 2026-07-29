@@ -12,8 +12,109 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
+
+func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
+	t.Parallel()
+
+	field := "source.ip"
+	column := int64(2)
+	diagnostic := RejectedRowDiagnostic{
+		SourceRowNumber:     3,
+		SourceColumnOrdinal: &column,
+		FieldKey:            &field,
+		ErrorCode:           "network_flow_invalid_ipv4",
+		ReasonCode:          "invalid_ipv4",
+	}
+	cases := []struct {
+		name       string
+		err        error
+		ownerCode  string
+		coreReason string
+	}{
+		{
+			name:       "no data rows",
+			err:        importOwnerError("network_flow_no_data_rows", nil),
+			ownerCode:  "network_flow_no_data_rows",
+			coreReason: "owner_apply_validation_failed",
+		},
+		{
+			name:       "all rows rejected",
+			err:        allRowsRejectedOwnerError([]RejectedRowDiagnostic{diagnostic}, false),
+			ownerCode:  "network_flow_all_rows_rejected",
+			coreReason: "owner_apply_validation_failed",
+		},
+		{
+			name: "mapping invalid",
+			err: importOwnerError("network_flow_mapping_invalid", map[string]any{
+				"reason_code": "variant_member_conflict",
+				"field":       "source.ip",
+			}),
+			ownerCode:  "network_flow_mapping_invalid",
+			coreReason: "owner_apply_validation_failed",
+		},
+		{
+			name:       "source changed",
+			err:        importOwnerError("network_flow_source_changed", nil),
+			ownerCode:  "network_flow_source_changed",
+			coreReason: "source_changed",
+		},
+		{
+			name: "contract unavailable",
+			err: importOwnerError("network_flow_target_unavailable", map[string]any{
+				"reason_code": "owner_apply_contract_unavailable",
+			}),
+			ownerCode:  "network_flow_target_unavailable",
+			coreReason: "owner_apply_contract_unavailable",
+		},
+		{
+			name:       "internal failure",
+			err:        importOwnerError("network_flow_internal_failure", nil),
+			ownerCode:  "network_flow_internal_failure",
+			coreReason: "owner_apply_validation_failed",
+		},
+	}
+	facade := &importFacade{}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			translation, ok := facade.TranslateImportUnitError(testCase.err)
+			if !ok ||
+				translation.ErrorSchemaID != networkFlowImportOwnerErrorSchemaID ||
+				translation.ErrorTranslationID != networkFlowImportErrorTranslationID ||
+				translation.CoreReasonCode != testCase.coreReason ||
+				translation.OwnerError.OwnerCode != testCase.ownerCode ||
+				translation.OwnerError.Retryable {
+				t.Fatalf("translation = %#v, ok=%t", translation, ok)
+			}
+			if err := facade.ValidateImportUnitError(translation.OwnerError); err != nil {
+				t.Fatalf("validate translated owner error: %v", err)
+			}
+		})
+	}
+
+	if _, ok := facade.TranslateImportUnitError(errors.New("raw secret")); ok {
+		t.Fatal("unknown owner error unexpectedly translated")
+	}
+	for _, invalid := range []imports.ExtensionImportOwnerError{
+		{
+			SchemaID:    networkFlowImportOwnerErrorSchemaID,
+			OwnerCode:   "unregistered_owner_token",
+			SafeDetails: map[string]any{},
+		},
+		{
+			SchemaID:    networkFlowImportOwnerErrorSchemaID,
+			OwnerCode:   "network_flow_source_changed",
+			SafeDetails: map[string]any{"raw_source": "secret"},
+		},
+	} {
+		if err := facade.ValidateImportUnitError(invalid); err == nil {
+			t.Fatalf("invalid owner error accepted: %#v", invalid)
+		}
+	}
+}
 
 func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 	t.Helper()

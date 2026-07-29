@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -963,8 +964,10 @@ SELECT COUNT(*)
    AND apply_job_id::text = $3
    AND outcome_status = 'failed'
    AND change_set_id IS NULL
-   AND error_code = 'import_apply_failed'
-   AND reason_code = 'owner_apply_failed'
+   AND error_code = 'import_apply_blocked'
+   AND reason_code = 'owner_apply_validation_failed'
+   AND error_retryable = false
+   AND error_details_json = '{"reason_code":"owner_apply_validation_failed"}'::jsonb
 `, sessionID, unitID, applyJob["job_id"].(string)); got != 1 {
 		t.Fatalf("failed Timeline unit did not persist one truthful terminal outcome: %d", got)
 	}
@@ -1515,22 +1518,41 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 
-	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-extension_profile-import-target-host-upload", "hostname\nimported-host-1\n", "hosts.csv")
+	sessionID, unitID := startCSVImportSession(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		incidentID,
+		"txn-extension_profile-import-target-host-upload",
+		"hostname,location\nimported-host-1,\n",
+		"hosts.csv",
+	)
 	unknownTargetMapping := map[string]any{
 		"client_txn_id":         "txn-extension_profile-import-target-unknown-mapping",
 		"target_view_schema_id": "cartulary.view.unknown.v1",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
 		"unknown_column_policy": "reject_if_unmapped",
-		"source_columns": []map[string]any{{
-			"source_column_ordinal": 1,
-			"source_header_text":    "hostname",
-			"field_key":             "host.hostname",
-			"entity_binding_mode":   "entity_origin",
-			"transform_id":          nil,
-			"transform_options":     map[string]any{},
-			"empty_value_policy":    "omit_field",
-		}},
+		"source_columns": []map[string]any{
+			{
+				"source_column_ordinal": 1,
+				"source_header_text":    "hostname",
+				"field_key":             "host.hostname",
+				"entity_binding_mode":   "entity_origin",
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 2,
+				"source_header_text":    "location",
+				"field_key":             "host.location",
+				"entity_binding_mode":   "entity_origin",
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "write_null",
+			},
+		},
 	}
 	unknownResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", unknownTargetMapping)
 	unknownErr := httptestx.RequireErrorEnvelope(t, unknownResp, http.StatusBadRequest, "invalid_import_request")
@@ -1548,15 +1570,26 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 		},
 		"header_row_ref":     1,
 		"data_start_row_ref": 2,
-		"source_columns": []map[string]any{{
-			"source_column_ordinal": 1,
-			"source_header_text":    "hostname",
-			"field_key":             nil,
-			"entity_binding_mode":   nil,
-			"transform_id":          nil,
-			"transform_options":     map[string]any{},
-			"empty_value_policy":    "omit_field",
-		}},
+		"source_columns": []map[string]any{
+			{
+				"source_column_ordinal": 1,
+				"source_header_text":    "hostname",
+				"field_key":             nil,
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 2,
+				"source_header_text":    "location",
+				"field_key":             nil,
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+		},
 	}
 	networkFlowResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", networkFlowMapping)
 	networkFlowErr := httptestx.RequireErrorEnvelope(t, networkFlowResp, http.StatusBadRequest, "invalid_import_request")
@@ -1591,6 +1624,9 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	hostCells := rows[0].(map[string]any)["cells"].(map[string]any)
 	if got := hostCells["host.hostname"].(map[string]any)["value"]; got != "imported-host-1" {
 		t.Fatalf("unexpected imported host hostname: %#v row=%#v", got, rows[0])
+	}
+	if got := hostCells["host.location"].(map[string]any)["value"]; got != nil {
+		t.Fatalf("write_null host location = %#v, want null", got)
 	}
 }
 
@@ -1733,6 +1769,156 @@ SELECT COUNT(*)
    AND o.owner_result_json->'table_ref'->>'id' = $4
 `, sessionID, unitID, applyJob["job_id"].(string), tableID); got != 1 {
 		t.Fatalf("Network Flow owner effects and durable outcome did not commit as one unit: %d", got)
+	}
+}
+
+func TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix: "network-flow-import-owner-errors",
+		Env: map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-import-errors-incident",
+		"incident_key":  "IR-NF-IMPORT-ERRORS",
+		"title":         "Network Flow owner-error translation",
+	})
+	incidentID := incident["incident_id"].(string)
+	header := "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface"
+
+	noDataSessionID, noDataUnitID := startCSVImportSession(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		incidentID,
+		"txn-network-flow-import-errors-no-data-upload",
+		header+"\n",
+		"header-only.csv",
+	)
+	noDataResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+noDataSessionID+"/units/"+noDataUnitID+
+			"/mapping-preview",
+		networkFlowMappingPreviewPayload(),
+	)
+	noDataEnvelope := httptestx.RequireErrorEnvelope(
+		t,
+		noDataResp,
+		http.StatusBadRequest,
+		"invalid_import_request",
+	)
+	noDataDetails := noDataEnvelope["error"].(map[string]any)["details"].(map[string]any)
+	noDataOwner := noDataDetails["owner_error"].(map[string]any)
+	if noDataDetails["reason_code"] != "owner_preview_validation_failed" ||
+		noDataOwner["schema_id"] != "cartulary.network_flow.import_owner_error.v1" ||
+		noDataOwner["owner_code"] != "network_flow_no_data_rows" ||
+		noDataOwner["retryable"] != false ||
+		len(noDataOwner["safe_details"].(map[string]any)) != 0 {
+		t.Fatalf("unsafe or incorrect no-data translation: %#v", noDataEnvelope)
+	}
+
+	allRejectedCSV := strings.Join([]string{
+		header,
+		"raw-secret-invalid-source,raw-secret-invalid-destination,443,51515,TCP,1234,12,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,Gi0/1,Gi0/2",
+	}, "\n") + "\n"
+	sessionID, unitID := startCSVImportSession(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		incidentID,
+		"txn-network-flow-import-errors-all-rejected-upload",
+		allRejectedCSV,
+		"all-rejected.csv",
+	)
+	mappingResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPut,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+		networkFlowMappingPayload("txn-network-flow-import-errors-mapping"),
+	)
+	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+	selectResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+		map[string]any{"client_txn_id": "txn-network-flow-import-errors-select"},
+	)
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	applyResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/apply",
+		map[string]any{"client_txn_id": "txn-network-flow-import-errors-apply"},
+	)
+	applyJob := httptestx.RequireSuccessEnvelope(
+		t,
+		applyResp,
+		http.StatusAccepted,
+	)["data"].(map[string]any)
+	jobResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	failedJob := httptestx.RequireSuccessEnvelope(
+		t,
+		jobResp,
+		http.StatusOK,
+	)["data"].(map[string]any)
+	errorSummary := failedJob["error_summary"].(map[string]any)
+	errorDetails := errorSummary["details"].(map[string]any)
+	ownerError := errorDetails["owner_error"].(map[string]any)
+	safeDetails := ownerError["safe_details"].(map[string]any)
+	diagnostics := safeDetails["diagnostics_sample"].([]any)
+	if failedJob["status"] != "failed" ||
+		errorSummary["code"] != "import_apply_blocked" ||
+		errorSummary["retryable"] != false ||
+		errorDetails["reason_code"] != "owner_apply_validation_failed" ||
+		ownerError["owner_code"] != "network_flow_all_rows_rejected" ||
+		len(diagnostics) == 0 ||
+		strings.Contains(fmt.Sprint(errorSummary), "raw-secret") ||
+		strings.Contains(fmt.Sprint(errorSummary), "all-rejected.csv") {
+		t.Fatalf("unsafe or incorrect all-rejected translation: %#v", failedJob)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND outcome_status = 'failed'
+   AND error_code = 'import_apply_blocked'
+   AND reason_code = 'owner_apply_validation_failed'
+   AND error_retryable = false
+   AND error_details_json->'owner_error'->>'owner_code' =
+       'network_flow_all_rows_rejected'
+`, sessionID, unitID); got != 1 {
+		t.Fatalf("durable translated owner-error outcome count = %d, want 1", got)
+	}
+	if got := dbassert.CountSQL(
+		t,
+		harness.DB,
+		`SELECT COUNT(*) FROM network_flow_tables WHERE incident_id::text = $1`,
+		incidentID,
+	); got != 0 {
+		t.Fatalf("owner validation failure created %d Network Flow tables", got)
 	}
 }
 

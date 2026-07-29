@@ -735,6 +735,10 @@
           "summary": "The source_columns mapping does not match the discovered source columns."
         },
         {
+          "code": "invalid_source_rect",
+          "summary": "The requested one-based source rectangle is malformed, outside its base unit, or exceeds import limits."
+        },
+        {
           "code": "invalid_unknown_column_policy",
           "summary": "The unknown_column_policy token is outside the current import profile."
         },
@@ -751,8 +755,24 @@
           "summary": "The mapping targets the same non-null field more than once."
         },
         {
+          "code": "invalid_target_variant",
+          "summary": "The mapping combines members from incompatible import target variants."
+        },
+        {
+          "code": "target_kind_not_importable",
+          "summary": "The selected analytical target kind is not importable in the current profile."
+        },
+        {
           "code": "target_view_schema_not_importable",
           "summary": "The target_view_schema_id is not registered as importable in the current profile."
+        },
+        {
+          "code": "owner_preview_contract_unavailable",
+          "summary": "The selected analytical target has no compatible registered preview contract."
+        },
+        {
+          "code": "owner_preview_validation_failed",
+          "summary": "The analytical owner rejected the preview input or produced an invalid preview result."
         },
         {
           "code": "unknown_column_policy_not_supported_for_target",
@@ -863,12 +883,28 @@
           "summary": "One selected import unit targets a view schema that is not currently importable."
         },
         {
+          "code": "target_kind_not_importable",
+          "summary": "One selected import unit targets an analytical target kind that is not currently importable."
+        },
+        {
           "code": "owner_create_contract_unavailable",
           "summary": "One selected import target has no callable owner create facade in this implementation."
         },
         {
           "code": "owner_create_validation_failed",
           "summary": "A selected unit row was rejected by the target owner's create facade."
+        },
+        {
+          "code": "owner_apply_contract_unavailable",
+          "summary": "One selected analytical target has no compatible registered apply contract."
+        },
+        {
+          "code": "owner_apply_validation_failed",
+          "summary": "A selected analytical unit was rejected by its owner or produced an invalid owner result."
+        },
+        {
+          "code": "source_changed",
+          "summary": "The selected unit source, descriptors, or approved mapping no longer match admission state."
         }
       ]
     },

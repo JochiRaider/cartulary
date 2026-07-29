@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -313,7 +312,11 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 	}
 	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
 	if facade == nil {
-		writeAPIError(w, r, invalidImportRequest("target_kind", "owner_apply_contract_unavailable"))
+		writeAPIError(
+			w,
+			r,
+			invalidImportRequest("target_kind", "owner_preview_contract_unavailable"),
+		)
 		return
 	}
 	sourceCapability, err := s.store.SourceCapabilityForUnit(r.Context(), route.SessionID, route.UnitID)
@@ -337,11 +340,15 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
 	})
 	if err != nil {
-		writeAPIError(w, r, extensionFacadeAPIError(err))
+		writeAPIError(w, r, extensionFacadeAPIError(target, facade, err))
 		return
 	}
 	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		writeAPIError(w, r, internalAPIError(fmt.Errorf("extension mapping preview result validation failed: %w", err)))
+		writeAPIError(
+			w,
+			r,
+			invalidImportRequest("owner_result", "owner_preview_validation_failed"),
+		)
 		return
 	}
 	resource := ExtensionMappingPreviewResource{
@@ -629,7 +636,7 @@ func internalAPIError(err error) *httpapi.APIError {
 	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
-		Message: err.Error(),
+		Message: "The import operation could not be completed.",
 		Details: map[string]any{},
 	}
 }

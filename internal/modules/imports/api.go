@@ -204,10 +204,10 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 	extensionVariant := mapping.TargetKind != ""
 	if extensionVariant {
 		if _, ok := raw["target_view_schema_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_mapping_variant")
+			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_target_variant")
 		}
 		if _, ok := raw["unknown_column_policy"]; ok {
-			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_mapping_variant")
+			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_target_variant")
 		}
 		if value, ok := raw["extension_profile_id"]; !ok {
 			return MappingRequest{}, invalidImportRequest("extension_profile_id", "missing_required_field")
@@ -228,13 +228,13 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		}
 	} else {
 		if _, ok := raw["extension_profile_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_mapping_variant")
+			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_target_variant")
 		}
 		if _, ok := raw["owner_mapping_schema_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_mapping_variant")
+			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_target_variant")
 		}
 		if _, ok := raw["owner_mapping"]; ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_mapping_variant")
+			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_target_variant")
 		}
 		if value, ok := raw["target_view_schema_id"]; !ok {
 			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "missing_required_field")
@@ -667,6 +667,18 @@ func invalidImportRequest(field string, reasonCode string) *httpapi.APIError {
 		details["field"] = field
 	}
 	return &httpapi.APIError{Status: 400, Code: "invalid_import_request", Details: details}
+}
+
+func invalidImportRequestWithOwner(
+	field string,
+	reasonCode string,
+	ownerError map[string]any,
+) *httpapi.APIError {
+	apiErr := invalidImportRequest(field, reasonCode)
+	if len(ownerError) != 0 {
+		apiErr.Details["owner_error"] = ownerError
+	}
+	return apiErr
 }
 
 func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *httpapi.APIError {

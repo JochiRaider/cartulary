@@ -296,6 +296,12 @@
       "filename": "00049_import_unit_apply_outcomes.sql",
       "sha256": "0de4dd0c7e7a65165214e9a1e74a17f46370909504b8163fb4053ab9a77a8aa1",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 50,
+      "filename": "00050_import_owner_error_outcomes.sql",
+      "sha256": "858fbe675f94e4921fd79f4ae14d881295ae5b9f46c675786812064a8a742225",
+      "historical_phase_shaped": false
     }
   ]
 }

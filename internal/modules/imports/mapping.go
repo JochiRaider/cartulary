@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -29,7 +28,10 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 	}
 	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
 	if facade == nil {
-		return MappingRequest{}, invalidImportRequest("target_kind", "owner_apply_contract_unavailable")
+		return MappingRequest{}, invalidImportRequest(
+			"target_kind",
+			"owner_preview_contract_unavailable",
+		)
 	}
 	sourceCapability, err := s.store.SourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
 	if err != nil {
@@ -51,13 +53,19 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 		ClientTxnID:          request.ClientTxnID,
 	})
 	if err != nil {
-		return MappingRequest{}, extensionFacadeAPIError(err)
+		return MappingRequest{}, extensionFacadeAPIError(target, facade, err)
 	}
 	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		return MappingRequest{}, internalAPIError(fmt.Errorf("extension mapping preview result validation failed: %w", err))
+		return MappingRequest{}, invalidImportRequest(
+			"owner_result",
+			"owner_preview_validation_failed",
+		)
 	}
 	if len(result.OwnerMapping) == 0 || result.MappingFingerprint == "" || result.OwnerResultSchemaID == "" || result.OwnerResult == nil {
-		return MappingRequest{}, internalAPIError(fmt.Errorf("extension mapping facade returned incomplete mapping result"))
+		return MappingRequest{}, invalidImportRequest(
+			"owner_result",
+			"owner_preview_validation_failed",
+		)
 	}
 	request.ApprovedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
 	request.Fingerprint = result.MappingFingerprint
@@ -77,7 +85,7 @@ func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIE
 	}
 	if mapping.targetKindOrDefault() != ImportTargetKindViewSchema {
 		if !target.ownerApplyFacadeAvailable() {
-			return invalidImportRequest("target_kind", "owner_apply_contract_unavailable")
+			return invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
 		}
 		return nil
 	}
@@ -118,14 +126,22 @@ func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIE
 	return nil
 }
 
-func extensionFacadeAPIError(err error) *httpapi.APIError {
-	var applyBlocked *ApplyBlockedError
-	if errors.As(err, &applyBlocked) && applyBlocked.ReasonCode != "" {
-		field := "owner_mapping"
-		if applyBlocked.Field != "" {
-			field = applyBlocked.Field
-		}
-		return invalidImportRequest(field, applyBlocked.ReasonCode)
+func extensionFacadeAPIError(
+	target importTarget,
+	facade ExtensionImportFacade,
+	err error,
+) *httpapi.APIError {
+	failure := translateExtensionOwnerFailure(target, facade, err)
+	field := "owner_mapping"
+	if ownerError, ok := failure.Details["owner_error"].(map[string]any); ok {
+		return invalidImportRequestWithOwner(
+			field,
+			"owner_preview_validation_failed",
+			ownerError,
+		)
 	}
-	return invalidImportRequest("owner_mapping", "owner_mapping_invalid")
+	if failure.ReasonCode == "owner_apply_contract_unavailable" {
+		return invalidImportRequest(field, "owner_preview_contract_unavailable")
+	}
+	return invalidImportRequest(field, "owner_preview_validation_failed")
 }

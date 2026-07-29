@@ -59,6 +59,8 @@ type ExtensionImportFacade interface {
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
 	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
+	TranslateImportUnitError(error) (ExtensionImportErrorTranslation, bool)
+	ValidateImportUnitError(ExtensionImportOwnerError) error
 }
 
 func extensionImportFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportFacade, error) {
@@ -117,7 +119,10 @@ func (s *Service) applyExtensionOwnerUnitTx(
 		ClientTxnID:                 start.ClientTxnID,
 	})
 	if err != nil {
-		return appliedUnitCommit{}, err
+		return appliedUnitCommit{}, &translatedImportUnitError{
+			failure: translateExtensionOwnerFailure(target, facade, err),
+			cause:   err,
+		}
 	}
 	return appliedUnitCommit{
 		OwnerResult:  result.OwnerResponse,

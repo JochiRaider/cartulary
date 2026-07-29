@@ -157,14 +157,43 @@
       ],
       "properties": {
         "owner_code": {
-          "type": "string",
-          "minLength": 1
+          "const": "owner_create_validation_failed"
         },
         "retryable": {
-          "type": "boolean"
+          "const": false
         },
         "safe_details": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason_code"
+          ],
+          "properties": {
+            "reason_code": {
+              "enum": [
+                "field_not_import_writable",
+                "collection_owner_support_required",
+                "field_not_nullable",
+                "invalid_empty_value_policy",
+                "invalid_timestamp",
+                "invalid_uuid",
+                "invalid_exact_uuid",
+                "invalid_integer",
+                "invalid_boolean",
+                "invalid_text"
+              ]
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "guard": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
         }
       }
     },
