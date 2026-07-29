@@ -1089,15 +1089,18 @@ active and MUST be recorded in the checkpoint.
 
 - **Completed slice and state:** `RS-11`; `IMP-016` is `DONE`, `GATE-07` passes,
   `IRT-REQ-016` and `IRT-AC-013/015` pass, and the remediation sequence is complete. Baseline
-  `c00f9ce1`; substantive commits `575f1999` and `32c5e38b`.
+  `c00f9ce1`; substantive commits `575f1999`, `32c5e38b`, and retained-run evidence commit
+  `86ab9438`.
 - **Exact substantive files:** deleted `internal/modules/imports/.gitkeep`;
   `internal/modules/imports/http_handlers.go`;
   `internal/modules/imports/imports_integration_test.go`;
   `internal/modules/imports/mapping.go`; `internal/modules/imports/service.go`;
   `internal/modules/imports/unit_outcomes.go`; `internal/platform/jobs/jobs.go`;
-  `tools/execution_topology_render_index.json`; `tools/go_test_duration_baselines.json`;
+  `tools/browser_e2e_duration_baselines.json`; `tools/execution_topology_render_index.json`;
+  `tools/go_test_duration_baselines.json`; `tools/harness_smoke_duration_baselines.json`;
   `tools/harness/browser/start-web-e2e.sh`;
-  `tools/harness/tests/test-harness-contracts.mjs`; `tools/scheduler_manifest.json`; and
+  `tools/harness/tests/test-harness-contracts.mjs`; `tools/scheduler_manifest.json`;
+  `tools/service_backed_make_target_duration_baselines.json`; and
   `tools/test_families/module.imports.json`.
 - **Exact accounting result:** five authored Imports rows now account for all 16 formerly unrouted
   tests: twelve tests in `internal/modules/imports` and four in
@@ -1153,10 +1156,23 @@ active and MUST be recorded in the checkpoint.
   both sessions at `.cartulary/test-results/20260729T052257Z-p74315`.
   `make agent-finalize` passes at `.cartulary/test-results/20260729T052827Z-p104789` and records
   generated output unchanged, with retained-run duration maintenance skipped because
-  `RESULTS_DIR` was unset. Final `make check` passes 181/181 work units and 781 tests with zero
-  failed or missing tests at `.cartulary/test-results/20260729T052855Z-p111307`. The completed
-  tracker checkpoint passes `make lint-markdown` at
-  `.cartulary/test-results/20260729T053849Z-p216721`.
+  `RESULTS_DIR` was unset. The first committed-tree `make check` passes 181/181 work units and 781
+  tests with zero failed or missing tests at
+  `.cartulary/test-results/20260729T054039Z-p222021`; a genuinely warm retained source run passes
+  the same 181/181 units and 781 tests at
+  `.cartulary/test-results/20260729T054444Z-p322168`. Retained-run
+  `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260729T054444Z-p322168` passes at
+  `.cartulary/test-results/20260729T054739Z-p421202`, refreshes all six governed duration/topology
+  artifacts, and passes its internal checks. `make generate-drift`,
+  `make generated-artifact-policy-check`, `make go-test-duration-baseline-coverage`, and
+  `make harness-contract` then pass at
+  `.cartulary/test-results/20260729T054838Z-p428366`,
+  `.cartulary/test-results/20260729T054838Z-p428383`,
+  `.cartulary/test-results/20260729T054838Z-p428491`, and
+  `.cartulary/test-results/20260729T054838Z-p428644`. The final post-refresh `make check` passes
+  177/177 rebalanced work units and the unchanged 781-test surface with zero failed or missing
+  tests at `.cartulary/test-results/20260729T054952Z-p434347`. The supplemental tracker checkpoint
+  passes `make lint-markdown` at `.cartulary/test-results/20260729T055315Z-p532834`.
 - **Related failure disposition:** initial harness/coverage runs at
   `.cartulary/test-results/20260729T042356Z-p3477278` and
   `.cartulary/test-results/20260729T042437Z-p3478796` correctly found stale golden counts and ten
@@ -1181,13 +1197,19 @@ active and MUST be recorded in the checkpoint.
   `.cartulary/test-results/20260729T052215Z-p57475`, and the required complete browser rerun passed
   at `.cartulary/test-results/20260729T052257Z-p74315`. The first retained-run finalization attempt
   at `.cartulary/test-results/20260729T052816Z-p104395` rejected the older successful check root
-  because its source snapshot was incompatible; no older-results override was used.
+  because its source snapshot was incompatible; no older-results override was used. A first
+  exact-source retained finalization at `.cartulary/test-results/20260729T054403Z-p321437` made no
+  source changes and rejected a cold timing sample: two build units exceeded their 15-second warm
+  thresholds and the service-backed phase exceeded its 155-second budget. The immediate warm
+  run and retained finalization passed at the roots recorded above, so no budget suppression or
+  manual baseline edit was used.
 - **Compatibility, migration, rollback, and generated artifacts:** RS-11 adds no route, public
   member, database migration, stored-data rewrite, or historical-session change. The transition
   lock makes already-authorized cancellation ordering deterministic and the browser retry remains
-  bounded and fail-closed. Generated topology files were changed only by `make generate`; the
-  duration file is an authored complete-run baseline. Rollback reverts all 13 substantive files
-  together and regenerates topology from the reverted family input. One hundred inactive
+  bounded and fail-closed. Generated topology files were changed only by repository-owned
+  generation/finalization; duration baselines were refreshed only from the complete successful
+  retained run. Rollback reverts the substantive files and retained-run evidence commit together,
+  then regenerates topology from the reverted family and baseline inputs. One hundred inactive
   top-level Go/Cartulary scratch directories, approximately 179 MB, were removed from `/tmp`;
   shared caches and system-managed paths were preserved. No product, compatibility, migration,
   security, verification, or operational remediation risk is deferred.
