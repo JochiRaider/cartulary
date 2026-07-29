@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	ErrRestoreTargetNotStopped   = errors.New("recovery: restore target is not stopped")
 	ErrRestoreTargetNotEmpty     = errors.New("recovery: restore target is not empty")
 	ErrExtensionCodecUnsupported = errors.New("recovery: extension backup codec unsupported")
 	ErrExtensionBindingInvalid   = errors.New("recovery: extension backup binding invalid")

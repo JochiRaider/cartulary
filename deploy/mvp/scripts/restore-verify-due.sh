@@ -11,7 +11,6 @@ TARGET_ROOT_HOST="${CARTULARY_RESTORE_VERIFY_TARGET_ROOT:-${PACKAGE_DIR}/runtime
 SOURCE_CONFIG_CONTAINER="${CARTULARY_SOURCE_CONFIG_CONTAINER:-/etc/cartulary/config.toml}"
 TARGET_CONFIG_CONTAINER="${CARTULARY_RESTORE_VERIFY_TARGET_CONFIG_CONTAINER:-/etc/cartulary/restore-verification-target.toml}"
 TARGET_ROOT_CONTAINER="${CARTULARY_RESTORE_VERIFY_TARGET_ROOT_CONTAINER:-/var/lib/cartulary/restore-verification-target}"
-TARGET_MARKER_EXAMPLE="${PACKAGE_DIR}/restore-verification-target.marker.json.example"
 OBJECT_INIT_OUTPUT="${CARTULARY_RESTORE_VERIFY_OBJECT_INIT_OUTPUT:-/dev/null}"
 
 fail() {
@@ -53,11 +52,12 @@ operator_env_args() {
 }
 
 require_command docker
+require_command date
+require_command sha256sum
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not available"
 require_file "$ENV_FILE"
 require_file "$SOURCE_CONFIG_HOST"
 require_file "$TARGET_CONFIG_HOST"
-require_file "$TARGET_MARKER_EXAMPLE"
 
 set -a
 # shellcheck disable=SC1090
@@ -79,10 +79,6 @@ for name in \
   fi
 done
 
-mkdir -p "${TARGET_ROOT_HOST}/backups"
-cp "$TARGET_MARKER_EXAMPLE" "${TARGET_ROOT_HOST}/backups/restore-verification-target.json"
-chmod 0644 "${TARGET_ROOT_HOST}/backups/restore-verification-target.json"
-
 if ! compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '${target_db}'" | grep -qx "1"; then
   compose exec -T postgres createdb -U "${POSTGRES_USER:-cartulary}" "$target_db"
 fi
@@ -101,6 +97,32 @@ compose run --rm --no-deps \
   "${target_env[@]}" \
   --entrypoint /usr/local/bin/cartulary-operator \
   app object-store init -config "$TARGET_CONFIG_CONTAINER" >"$OBJECT_INIT_OUTPUT"
+
+generation_source="/proc/sys/kernel/random/uuid"
+if [[ ! -r "$generation_source" ]]; then
+  fail "target generation source is unavailable"
+fi
+target_generation_id="$(tr -d '\r\n' <"$generation_source")"
+if [[ ! "$target_generation_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+  fail "target generation source returned an invalid UUID"
+fi
+database_binding_identity="${CARTULARY_RESTORE_VERIFY_DATABASE_BINDING_IDENTITY:-managed_service:restore_verify}"
+object_binding_identity="${CARTULARY_RESTORE_VERIFY_OBJECT_BINDING_IDENTITY:-managed_service:restore_verify}"
+database_binding_sha256="$(printf '%s' "$database_binding_identity" | sha256sum | awk '{print $1}')"
+object_binding_sha256="$(printf '%s' "$object_binding_identity" | sha256sum | awk '{print $1}')"
+issued_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%SZ')"
+mkdir -p "${TARGET_ROOT_HOST}/backups"
+printf '%s\n' "$target_generation_id" >"${TARGET_ROOT_HOST}/backups/restore-target-generation"
+printf '{"schema_id":"cartulary.restore_target_marker.v2","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
+  "$target_generation_id" \
+  "$database_binding_sha256" \
+  "$object_binding_sha256" \
+  "$issued_at" \
+  "$expires_at" >"${TARGET_ROOT_HOST}/backups/restore-target-marker.json"
+chmod 0644 \
+  "${TARGET_ROOT_HOST}/backups/restore-target-generation" \
+  "${TARGET_ROOT_HOST}/backups/restore-target-marker.json"
 
 compose run --rm --no-deps \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \

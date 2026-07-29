@@ -105,6 +105,7 @@ type Runtime struct {
 	Revisions               *revisionassembly.Runtime
 	Telemetry               *telemetry.Runtime
 	ProcessLease            *processlease.Lease
+	ServingLease            *processlease.Lease
 	Lifecycle               *processlifecycle.Controller
 	Publication             *PublicationController
 	PublicHTTP              httpapi.RouteDiagnostics
@@ -114,6 +115,8 @@ type Runtime struct {
 	cleanups             []func()
 	stagedJanitorContext context.Context
 }
+
+const serverServingLeaseAcquireMax = time.Second
 
 type RuntimeSettings struct {
 	TelemetryFlushTimeoutMS  int64
@@ -225,6 +228,40 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.own(cancelMonitor)
 		lease.StartMonitor(monitorCtx)
 		go runtime.watchProcessLease(monitorCtx)
+	}
+	if runtime.Postgres != nil {
+		lease, leaseErr := processlease.Acquire(
+			ctx,
+			processlease.PostgresBackend{
+				Pool:        runtime.Postgres,
+				AdvisoryKey: processlease.ServingAdvisoryKey,
+				Purpose:     "server serving",
+				Mode:        processlease.LockShared,
+			},
+			min(
+				time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second,
+				serverServingLeaseAcquireMax,
+			),
+			time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second,
+		)
+		if leaseErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("acquire server serving lease: %w", leaseErr)
+		}
+		runtime.ServingLease = lease
+		runtime.own(func() {
+			releaseCtx, cancel := context.WithTimeout(context.Background(), time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
+			defer cancel()
+			if lease.State() == processlease.StateHeld {
+				_ = lease.Release(releaseCtx)
+			} else {
+				lease.Close()
+			}
+		})
+		monitorCtx, cancelMonitor := context.WithCancel(context.Background())
+		runtime.own(cancelMonitor)
+		lease.StartMonitor(monitorCtx)
+		go runtime.watchServingLease(monitorCtx)
 	}
 
 	if clientSupportDigest, present, digestErr := webassets.ClientSupportRegistrySHA256(); digestErr != nil {
@@ -1307,6 +1344,9 @@ func (r *Runtime) ActivatePublication() error {
 	if r.ProcessLease != nil && r.ProcessLease.State() != processlease.StateHeld {
 		return fmt.Errorf("extension_publication_failed")
 	}
+	if r.ServingLease != nil && r.ServingLease.State() != processlease.StateHeld {
+		return fmt.Errorf("extension_publication_failed")
+	}
 	if err := r.Publication.Serve(); err != nil {
 		return err
 	}
@@ -1370,7 +1410,7 @@ func (r *Runtime) watchProcessLease(ctx context.Context) {
 			case processlease.StateUncertain:
 				r.Lifecycle.CloseAdmission()
 			case processlease.StateHeld:
-				if event.Previous == processlease.StateUncertain {
+				if event.Previous == processlease.StateUncertain && r.servingLeasesHeld() {
 					r.Lifecycle.RestoreAdmission()
 				}
 			case processlease.StateLost:
@@ -1379,6 +1419,37 @@ func (r *Runtime) watchProcessLease(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (r *Runtime) watchServingLease(ctx context.Context) {
+	if r == nil || r.ServingLease == nil || r.Lifecycle == nil {
+		return
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-r.ServingLease.Events():
+			switch event.State {
+			case processlease.StateUncertain:
+				r.Lifecycle.CloseAdmission()
+			case processlease.StateHeld:
+				if event.Previous == processlease.StateUncertain && r.servingLeasesHeld() {
+					r.Lifecycle.RestoreAdmission()
+				}
+			case processlease.StateLost:
+				r.Lifecycle.Fatal("application_process_lease_lost")
+				return
+			}
+		}
+	}
+}
+
+func (r *Runtime) servingLeasesHeld() bool {
+	if r == nil || r.ServingLease == nil || r.ServingLease.State() != processlease.StateHeld {
+		return false
+	}
+	return r.ProcessLease == nil || r.ProcessLease.State() == processlease.StateHeld
 }
 
 func (r *Runtime) Close() {

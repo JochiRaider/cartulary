@@ -213,6 +213,32 @@
       "status": "active"
     },
     {
+      "row_id": "app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/processlease",
+        "tests": [
+          "TestPostgresServingLeaseSharedExclusive_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "app.server.integration.successful_bootstrap_commits_exactly_one_active_9859f7c12b",
       "owner_id": "app.server",
       "family_id": "app.server.integration",

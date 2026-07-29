@@ -2,10 +2,8 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,15 +18,12 @@ import (
 )
 
 const (
-	restoreMinimumSchemaVersion       int64 = 22
-	recoveryOperationAdvisoryLockKey  int64 = 401010
-	restoreVerificationTargetSchemaID       = "cartulary.restore_verification_target.v1"
-	terminalEvidenceTimeout                 = 30 * time.Second
-
-	RestoreVerificationTargetMarkerMaximumBytes int64 = 65536
+	restoreMinimumSchemaVersion      int64 = 22
+	recoveryOperationAdvisoryLockKey int64 = 401010
+	terminalEvidenceTimeout                = 30 * time.Second
 )
 
-var ErrTargetMarkerRequiresFilesystemStorage = errors.New("restore verification target marker requires filesystem backup storage")
+var ErrTargetMarkerRequiresFilesystemStorage = errors.New("restore target marker requires filesystem backup storage")
 
 type PostgresPool interface {
 	postgres.DB
@@ -45,18 +40,19 @@ type RootBinding struct {
 // Resource factories are application-owned closures so recovery never receives
 // or interprets the complete deployment configuration.
 type Deployment struct {
-	DatabaseStorage  RootBinding
-	ObjectStorage    RootBinding
-	BackupStorage    RootBinding
-	PostgresSettings postgres.Settings
-	ObjectSettings   objectstore.Settings
-	OpenPostgres     func(context.Context) (PostgresPool, error)
-	OpenObjectStore  func(context.Context) (objectstore.Store, error)
-	OpenBackup       func() (recovery.BackupStorage, error)
+	DatabaseStorage            RootBinding
+	ObjectStorage              RootBinding
+	BackupStorage              RootBinding
+	PostgresSettings           postgres.Settings
+	ObjectSettings             objectstore.Settings
+	OpenPostgres               func(context.Context) (PostgresPool, error)
+	OpenObjectStore            func(context.Context) (objectstore.Store, error)
+	OpenBackup                 func() (recovery.BackupStorage, error)
+	ServingLeaseAcquireTimeout time.Duration
+	ServingLeaseLossDetection  time.Duration
 }
 
 type DeploymentLoader func(string) (Deployment, error)
-type TargetMarkerReader func(bindingKind string, rootPath string) ([]byte, error)
 type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
@@ -67,6 +63,7 @@ type Service struct {
 	NewProjectionServices  ProjectionServicesFactory
 	NewEvidenceProvider    EvidenceRecoveryProviderFactory
 	NewEvidenceRepository  RecoveryEvidenceRepositoryFactory
+	NewTargetAdmission     TargetServingAdmissionFactory
 	ProjectFailureEvidence FailureEvidenceProjector
 	ExtensionBackups       *recovery.ExtensionBackupCatalog
 	Now                    func() time.Time
@@ -248,8 +245,11 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
 		return Result{}, err
 	}
-	defer func() { service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err) }()
-
+	var admission TargetServingAdmission
+	defer func() {
+		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
+		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
+	}()
 	sourceStore := recovery.NewStore(sourcePool)
 	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).RestoreCandidateBackup(ctx, service.now())
 	if err != nil {
@@ -261,7 +261,14 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 			errors.New("confirmed backup_set_id does not match latest retained backup"),
 		)
 	}
-	if err := service.preflightRestoreTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreTargetPurpose)
+	if err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
 	target, err := service.restoreTarget(targetPool, targetObjectStore)
@@ -272,7 +279,10 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
 	ReportProgress(progress, "invariant_check", 0, nil)
-	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups).RestoreBackupSet(ctx, target, backupSet)
+	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups).RestoreBackupSet(admission.Context(), target, backupSet)
+	if admissionErr := admission.AssertHeld(); admissionErr != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetServingTraffic, admissionErr)
+	}
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), classifyRestoreFailure(err, false)
 	}
@@ -300,8 +310,19 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
 		return Result{}, err
 	}
-	defer func() { service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err) }()
-	if err := service.preflightRestoreVerificationTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+	var admission TargetServingAdmission
+	defer func() {
+		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
+		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
+	}()
+	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
+		return Result{}, err
+	}
+	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
 	basis, err := restoreVerificationBasisForConfig(sourceCfg)
@@ -319,10 +340,13 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	ReportProgress(progress, "workbook_probe", 0, nil)
 	sourceStore := recovery.NewStore(sourcePool)
 	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups))
-	result, err := verify.VerifyLatestSuccessfulRetained(ctx, target, service.now(), basis)
+	result, err := verify.VerifyLatestSuccessfulRetained(admission.Context(), target, service.now(), basis)
 	outcome = ResultForStoredBackupSet(result.BackupSet)
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), outcome.BackupSetID))
+	}
+	if admissionErr := admission.AssertHeld(); admissionErr != nil {
+		return outcome, NewFailure(FailureTargetServingTraffic, admissionErr)
 	}
 	if err != nil {
 		return outcome, classifyRestoreFailure(err, true)
@@ -352,8 +376,19 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
 		return Result{}, err
 	}
-	defer func() { service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err) }()
-	if err := service.preflightRestoreVerificationTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+	var admission TargetServingAdmission
+	defer func() {
+		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
+		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
+	}()
+	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
+		return Result{}, err
+	}
+	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
 	basis, err := restoreVerificationBasisForConfig(sourceCfg)
@@ -379,7 +414,7 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 		ReportProgress(progress, "projection_rebuild", 0, nil)
 		ReportProgress(progress, "invariant_check", 0, nil)
 		ReportProgress(progress, "workbook_probe", 0, nil)
-		result, verifyErr := verify.VerifyBackupSet(ctx, target, backupSet, basis)
+		result, verifyErr := verify.VerifyBackupSet(admission.Context(), target, backupSet, basis)
 		if outcome.BackupSetID == nil {
 			outcome = ResultForStoredBackupSet(result.BackupSet)
 		}
@@ -387,11 +422,17 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 			backupSetID := result.BackupSet.BackupSetID
 			outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), &backupSetID))
 		}
+		if admissionErr := admission.AssertHeld(); admissionErr != nil {
+			return outcome, NewFailure(FailureTargetServingTraffic, admissionErr)
+		}
 		if verifyErr != nil {
 			return outcome, classifyRestoreFailure(verifyErr, true)
 		}
-		if err := recovery.ResetRestoreVerificationTarget(ctx, target.RestoreTarget, service.ExtensionBackups); err != nil {
+		if err := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups); err != nil {
 			return outcome, NewFailure(FailureVerificationInvariantCheck, fmt.Errorf("reset disposable restore verification target: %w", err))
+		}
+		if admissionErr := admission.AssertHeld(); admissionErr != nil {
+			return outcome, NewFailure(FailureTargetServingTraffic, admissionErr)
 		}
 		ReportProgress(progress, "attestation_update", 0, nil)
 	}
@@ -472,7 +513,6 @@ func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore o
 		return recovery.RestoreTarget{}, err
 	}
 	return recovery.RestoreTarget{
-		Stopped:         true,
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
 		EvidenceObjects: evidenceProvider,
@@ -491,7 +531,6 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 	}
 	return recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Stopped:         true,
 			Postgres:        targetPool,
 			ObjectStore:     targetObjectStore,
 			EvidenceObjects: evidenceProvider,
@@ -502,18 +541,8 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 }
 
 func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
-	if sameConfigPath(sourceConfigPath, targetConfigPath) {
-		return NewFailure(FailureSameDatabaseBinding, errors.New("restore target source and target configuration files must differ"))
-	}
-	sourcePostgres := sourceDeployment.PostgresSettings
-	targetPostgres := targetDeployment.PostgresSettings
-	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
-		return NewFailure(FailureSameDatabaseBinding, errors.New("restore target source and target database bindings must differ"))
-	}
-	sourceObject := sourceDeployment.ObjectSettings
-	targetObject := targetDeployment.ObjectSettings
-	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
-		return NewFailure(FailureSameObjectStoreBinding, errors.New("restore target source and target object-store bindings must differ"))
+	if err := requireDistinctRestoreTarget(sourceConfigPath, targetConfigPath, sourceDeployment, targetDeployment); err != nil {
+		return err
 	}
 	var schemaVersion int64
 	if err := targetPool.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&schemaVersion); err != nil {
@@ -552,66 +581,87 @@ SELECT
 	return nil
 }
 
-func (service Service) preflightRestoreVerificationTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
+func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment) error {
 	if sameConfigPath(sourceConfigPath, targetConfigPath) {
-		return NewFailure(FailureSameDatabaseBinding, errors.New("restore verification source and target configuration files must differ"))
+		return NewFailure(FailureSameDatabaseBinding, errors.New("restore target source and target configuration files must differ"))
 	}
 	sourcePostgres := sourceDeployment.PostgresSettings
 	targetPostgres := targetDeployment.PostgresSettings
 	if strings.TrimSpace(sourcePostgres.DSN) == strings.TrimSpace(targetPostgres.DSN) {
-		return NewFailure(FailureSameDatabaseBinding, errors.New("restore verification source and target database bindings must differ"))
+		return NewFailure(FailureSameDatabaseBinding, errors.New("restore target source and target database bindings must differ"))
 	}
 	sourceObject := sourceDeployment.ObjectSettings
 	targetObject := targetDeployment.ObjectSettings
 	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
-		return NewFailure(FailureSameObjectStoreBinding, errors.New("restore verification source and target object-store bindings must differ"))
-	}
-	if service.ReadTargetMarker == nil {
-		return NewFailure(FailureTargetMarkerMissing, errors.New("restore verification target marker reader is required"))
-	}
-	markerBody, err := service.ReadTargetMarker(
-		targetDeployment.BackupStorage.BindingKind,
-		targetDeployment.BackupStorage.Path,
-	)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return NewFailure(FailureTargetMarkerMissing, fmt.Errorf("read restore verification target marker: %w", err))
-		}
-		return NewFailure(FailureTargetMarkerInvalid, fmt.Errorf("read restore verification target marker: %w", err))
-	}
-	if err := requireRestoreVerificationTargetMarker(markerBody); err != nil {
-		return err
-	}
-	var schemaVersion int64
-	if err := targetPool.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&schemaVersion); err != nil {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore verification target schema version: %w", err))
-	}
-	if schemaVersion < restoreMinimumSchemaVersion {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("restore verification target schema version %d is below required %d", schemaVersion, restoreMinimumSchemaVersion))
-	}
-	if _, err := targetObjectStore.ListObjects(ctx, ""); err != nil {
-		return NewFailure(FailureTargetObjectNamespaceNotFresh, fmt.Errorf("inspect restore verification target object store: %w", err))
+		return NewFailure(FailureSameObjectStoreBinding, errors.New("restore target source and target object-store bindings must differ"))
 	}
 	return nil
 }
 
-func requireRestoreVerificationTargetMarker(body []byte) error {
-	var marker struct {
-		SchemaID string `json:"schema_id"`
-		Purpose  string `json:"purpose"`
+func (service Service) acquireTargetAdmission(
+	ctx context.Context,
+	targetDeployment Deployment,
+	targetPool PostgresPool,
+	purpose string,
+) (TargetServingAdmission, error) {
+	if service.NewTargetAdmission == nil {
+		return nil, NewFailure(FailureTargetServingTraffic, errors.New("restore target serving admission is unavailable"))
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(body)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&marker); err != nil {
-		return NewFailure(FailureTargetMarkerInvalid, fmt.Errorf("decode restore verification target marker: %w", err))
+	admission, err := service.NewTargetAdmission(
+		ctx,
+		targetPool,
+		minPositiveDuration(targetDeployment.ServingLeaseAcquireTimeout, RestoreTargetServingLeaseAcquireMax),
+		targetDeployment.ServingLeaseLossDetection,
+	)
+	if err != nil {
+		return nil, NewFailure(FailureTargetServingTraffic, fmt.Errorf("acquire restore target serving lease: %w", err))
 	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return NewFailure(FailureTargetMarkerInvalid, errors.New("restore verification target marker has trailing JSON content"))
+	releaseOnError := func() {
+		releaseTargetAdmission(admission, targetDeployment.ServingLeaseLossDetection)
 	}
-	if marker.SchemaID != restoreVerificationTargetSchemaID || marker.Purpose != "restore_verification_target" {
-		return NewFailure(FailureTargetMarkerInvalid, errors.New("restore verification target marker has the wrong schema or purpose"))
+	if service.ReadTargetMarker == nil {
+		releaseOnError()
+		return nil, NewFailure(FailureTargetMarkerMissing, errors.New("restore target marker reader is required"))
 	}
-	return nil
+	material, err := service.ReadTargetMarker(
+		targetDeployment.BackupStorage.BindingKind,
+		targetDeployment.BackupStorage.Path,
+	)
+	if err != nil {
+		releaseOnError()
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, NewFailure(FailureTargetMarkerMissing, fmt.Errorf("read restore target marker: %w", err))
+		}
+		return nil, NewFailure(FailureTargetMarkerInvalid, fmt.Errorf("read restore target marker: %w", err))
+	}
+	if err := ValidateRestoreTargetMarker(material, purpose, TargetBindingDigestsFor(targetDeployment), service.now()); err != nil {
+		releaseOnError()
+		return nil, NewFailure(FailureTargetMarkerInvalid, err)
+	}
+	if err := admission.AssertHeld(); err != nil {
+		releaseOnError()
+		return nil, NewFailure(FailureTargetServingTraffic, err)
+	}
+	return admission, nil
+}
+
+func minPositiveDuration(configured time.Duration, maximum time.Duration) time.Duration {
+	if configured <= 0 || configured > maximum {
+		return maximum
+	}
+	return configured
+}
+
+func releaseTargetAdmission(admission TargetServingAdmission, lossDetection time.Duration) {
+	if admission == nil {
+		return
+	}
+	if lossDetection <= 0 {
+		lossDetection = time.Second
+	}
+	releaseCtx, cancel := context.WithTimeout(context.Background(), lossDetection)
+	defer cancel()
+	_ = admission.Release(releaseCtx)
 }
 
 func (service Service) acquireOperationLock(ctx context.Context, pool PostgresPool) (func(), error) {
@@ -828,8 +878,6 @@ func classifyRestoreFailure(err error, verification bool) error {
 		return NewFailure(FailureVerificationWorkbookProbe, err)
 	}
 	switch {
-	case errors.Is(err, recovery.ErrRestoreTargetNotStopped):
-		return NewFailure(FailureTargetServingTraffic, err)
 	case errors.Is(err, recovery.ErrRestoreTargetNotEmpty):
 		return NewFailure(FailureTargetDatabaseNotFresh, err)
 	}

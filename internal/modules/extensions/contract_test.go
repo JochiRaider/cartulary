@@ -101,7 +101,7 @@ var movedExtensionBoundaryExpectations = []movedExtensionBoundaryExpectation{
 		RequiredTests: []string{
 			"TestFailClosedRestoreVerificationBlocked_Unit",
 			"TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
-			"TestRestoreRejectsRunningOrNonemptyTargetBeforeArtifactRead_Integration",
+			"TestRestoreRejectsNonemptyTargetBeforeArtifactRead_Integration",
 		},
 	},
 }

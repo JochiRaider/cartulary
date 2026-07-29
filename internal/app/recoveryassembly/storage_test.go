@@ -72,13 +72,13 @@ func TestRecoveryFilesystemStorageContainment_Unit(t *testing.T) {
 		if err := os.WriteFile(markerTarget, []byte(`{"purpose":"unsafe"}`), 0o600); err != nil {
 			t.Fatalf("write marker target: %v", err)
 		}
-		if err := os.Symlink(markerTarget, filepath.Join(rootPath, "restore-verification-target.json")); err != nil {
+		if err := os.Symlink(markerTarget, filepath.Join(rootPath, "restore-target-marker.json")); err != nil {
 			t.Fatalf("create marker symlink: %v", err)
 		}
-		if _, err := storage.ReadMarker(65536); err == nil {
+		if _, _, err := storage.ReadTargetMarker(65536, 64); err == nil {
 			t.Fatal("symlinked restore-verification marker read succeeded")
 		}
-		if err := os.Remove(filepath.Join(rootPath, "restore-verification-target.json")); err != nil {
+		if err := os.Remove(filepath.Join(rootPath, "restore-target-marker.json")); err != nil {
 			t.Fatalf("remove marker symlink: %v", err)
 		}
 

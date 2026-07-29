@@ -67,7 +67,6 @@ type RestoreRunner struct {
 }
 
 type RestoreTarget struct {
-	Stopped         bool
 	Postgres        postgres.DB
 	ObjectStore     objectstore.Store
 	EvidenceObjects EvidenceRecoveryProvider
@@ -174,7 +173,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if target.EvidenceObjects == nil {
 		return RestoreResult{}, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
-	if err := requireStoppedEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
+	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
 		return RestoreResult{}, err
 	}
 	artifacts, err := runner.loadSelectedRestoreArtifacts(ctx, backupSet)
@@ -250,10 +249,7 @@ func restoreProjectionSourceStateRef(backupSet BackupSet) string {
 	return fmt.Sprintf("backup_set:%s/postgres_artifact:%s", backupSet.BackupSetID.String(), backupSet.PostgresArtifactSHA256)
 }
 
-func requireStoppedEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog) error {
-	if !target.Stopped {
-		return ErrRestoreTargetNotStopped
-	}
+func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog) error {
 	rows, err := target.Postgres.Query(ctx, `
 SELECT table_name
   FROM information_schema.tables
@@ -342,14 +338,11 @@ SELECT profile_id, migration_lineage_id, state_version,
 	return nil
 }
 
-// ResetRestoreVerificationTarget returns a stopped, explicitly disposable
+// ResetRestoreVerificationTarget returns an exclusively admitted, disposable
 // verification target to its migration-owned pristine state between successful
 // restore proofs. It is not part of ordinary restore and must never be used to
 // make a nonempty production target admissible.
 func ResetRestoreVerificationTarget(ctx context.Context, target RestoreTarget, catalog *ExtensionBackupCatalog) error {
-	if !target.Stopped {
-		return ErrRestoreTargetNotStopped
-	}
 	if target.Postgres == nil || target.ObjectStore == nil || catalog == nil {
 		return fmt.Errorf("%w: verification target and extension catalog are required", ErrInvalidBackupArtifact)
 	}

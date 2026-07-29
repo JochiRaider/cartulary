@@ -129,7 +129,14 @@ mkdir -p deploy/mvp/runtime
 deploy/mvp/scripts/restore-verify-due.sh > deploy/mvp/runtime/restore-verify-due.json
 ```
 
-The restore-verification script creates or confirms the target database, initializes the target object-store bucket, writes the `cartulary.restore_verification_target.v1` marker under the target backup root, migrates the target database, and runs `cartulary-operator restore-verify due`. The target config, target root, target database, and target bucket must remain isolated from production state. Unsafe or unmarked targets are rejected before mutation.
+The restore-verification script creates or confirms the target database,
+initializes the target object-store bucket, migrates the target database, and
+then writes a fresh target-generation proof plus a bound
+`cartulary.restore_target_marker.v2` under the target backup root before it
+runs `cartulary-operator restore-verify due`. The target config, target root,
+target database, and target bucket must remain isolated from production state.
+Unsafe, expired, wrongly bound, or unmarked targets are rejected before
+mutation.
 
 If wrapper scripts must join an existing non-default Compose project, set `CARTULARY_MVP_COMPOSE_PROJECT_NAME` before invoking them.
 
@@ -206,5 +213,8 @@ It builds and runs the MVP Compose package, creates a backup, inspects latest me
 - If migration fails, inspect `docker compose logs migrate postgres` and verify `CARTULARY_POSTGRES_PRIMARY_DSN` resolves to the package Postgres service.
 - If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
 - If backup creation fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.
-- If restore verification fails before mutation, confirm the target config differs from the source config, the target database and object-store bucket are isolated, and the target marker JSON is present under the target backup root.
+- If restore verification fails before mutation, confirm the target config
+  differs from the source config, the target database and object-store bucket
+  are isolated, and both `restore-target-marker.json` and
+  `restore-target-generation` are present under the target backup root.
 - If restore verification reports a failed item, retain the JSON output and inspect the target `postgres`, object-store, migration, and operator logs before deleting target state.

@@ -182,7 +182,6 @@ INSERT INTO object_blobs (
 		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
 	}
 	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:         true,
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
 		EvidenceObjects: recoveryprovider.New(targetPool),

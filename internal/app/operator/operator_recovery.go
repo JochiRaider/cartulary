@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
@@ -28,16 +29,23 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 		Now:    runner.now,
 		Facade: application.Service{
 			LoadDeployment: runner.loadRecoveryDeployment,
-			ReadTargetMarker: func(bindingKind string, rootPath string) ([]byte, error) {
+			ReadTargetMarker: func(bindingKind string, rootPath string) (application.TargetMarkerMaterial, error) {
 				if bindingKind != "filesystem_root" {
-					return nil, application.ErrTargetMarkerRequiresFilesystemStorage
+					return application.TargetMarkerMaterial{}, application.ErrTargetMarkerRequiresFilesystemStorage
 				}
 				storage, err := recoveryassembly.NewFilesystemStorage(rootPath)
 				if err != nil {
-					return nil, err
+					return application.TargetMarkerMaterial{}, err
 				}
 				defer storage.Close()
-				return storage.ReadMarker(application.RestoreVerificationTargetMarkerMaximumBytes)
+				markerBody, generationBody, err := storage.ReadTargetMarker(
+					application.RestoreTargetMarkerMaximumBytes,
+					application.RestoreTargetGenerationMaximumBytes,
+				)
+				return application.TargetMarkerMaterial{
+					MarkerBody:     markerBody,
+					GenerationBody: generationBody,
+				}, err
 			},
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery) {
 				return timelineassembly.NewRecoveryProjectionServices(db)
@@ -50,6 +58,7 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 					return recovery.LoadRecoveryEncryptionKey(nil)
 				})
 			},
+			NewTargetAdmission:     recoveryassembly.AcquireTargetServingAdmission,
 			ProjectFailureEvidence: recoverycli.FailureEvidenceFields,
 			ExtensionBackups:       extensionBackups,
 			Now:                    runner.now,
@@ -101,5 +110,7 @@ func (runner operatorRunner) loadRecoveryDeployment(path string) (application.De
 				cfg.Roots.BackupStorage.Path,
 			)
 		},
+		ServingLeaseAcquireTimeout: time.Duration(cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds) * time.Second,
+		ServingLeaseLossDetection:  time.Duration(cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds) * time.Second,
 	}, nil
 }

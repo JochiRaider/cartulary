@@ -113,15 +113,19 @@ func (storage *FilesystemStorage) ReadArtifact(ctx context.Context, key string, 
 	return body, nil
 }
 
-func (storage *FilesystemStorage) ReadMarker(maxBytes int64) ([]byte, error) {
+func (storage *FilesystemStorage) ReadTargetMarker(maxMarkerBytes int64, maxGenerationBytes int64) ([]byte, []byte, error) {
 	if storage == nil || storage.root == nil {
-		return nil, fmt.Errorf("read recovery marker: storage is unavailable")
+		return nil, nil, fmt.Errorf("read recovery marker: storage is unavailable")
 	}
-	body, _, err := storage.root.ReadRegular(rootedfs.MustParseReference("restore-verification-target.json"), maxBytes)
+	markerBody, _, err := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-marker.json"), maxMarkerBytes)
 	if err != nil {
-		return nil, fmt.Errorf("read recovery marker: %w", err)
+		return nil, nil, fmt.Errorf("read recovery marker: %w", err)
 	}
-	return body, nil
+	generationBody, _, err := storage.root.ReadRegular(rootedfs.MustParseReference("restore-target-generation"), maxGenerationBytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read recovery target generation: %w", err)
+	}
+	return markerBody, generationBody, nil
 }
 
 func (storage *FilesystemStorage) Close() error {

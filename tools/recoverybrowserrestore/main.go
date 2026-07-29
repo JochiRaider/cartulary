@@ -224,7 +224,6 @@ func run() error {
 
 	projectionRebuilder, projectionQuery := timelineassembly.NewRecoveryProjectionServices(targetPool)
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:         true,
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
 		EvidenceObjects: recoveryprovider.New(targetPool),

@@ -170,7 +170,6 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 		BackupSet:     backupSet,
 		AsOf:          asOf,
 		Target: recovery.RestoreTarget{
-			Stopped:         true,
 			Postgres:        targetPool,
 			ObjectStore:     targetObjectStore,
 			EvidenceObjects: recoveryprovider.New(targetPool),

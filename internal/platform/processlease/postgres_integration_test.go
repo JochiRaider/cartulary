@@ -68,6 +68,57 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 	}
 }
 
+func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
+	harness := pgtest.Start(t)
+	testDB := harness.PrepareIsolatedDatabaseT(t, "recovery-serving-lease")
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	sharedBackend := PostgresBackend{
+		Pool:        pool,
+		AdvisoryKey: ServingAdvisoryKey,
+		Purpose:     "server serving",
+		Mode:        LockShared,
+	}
+	exclusiveBackend := PostgresBackend{
+		Pool:        pool,
+		AdvisoryKey: ServingAdvisoryKey,
+		Purpose:     "restore target",
+		Mode:        LockExclusive,
+	}
+
+	firstShared, err := Acquire(context.Background(), sharedBackend, 100*time.Millisecond, 40*time.Millisecond)
+	if err != nil {
+		t.Fatalf("acquire first shared serving lease: %v", err)
+	}
+	secondShared, err := Acquire(context.Background(), sharedBackend, 100*time.Millisecond, 40*time.Millisecond)
+	if err != nil {
+		t.Fatalf("acquire second shared serving lease: %v", err)
+	}
+	if _, err := Acquire(context.Background(), exclusiveBackend, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
+		t.Fatalf("exclusive lease while servers are active = %v", err)
+	}
+	if err := secondShared.Release(context.Background()); err != nil {
+		t.Fatalf("release second shared serving lease: %v", err)
+	}
+	if err := firstShared.Release(context.Background()); err != nil {
+		t.Fatalf("release first shared serving lease: %v", err)
+	}
+
+	exclusive, err := Acquire(context.Background(), exclusiveBackend, 100*time.Millisecond, 40*time.Millisecond)
+	if err != nil {
+		t.Fatalf("acquire exclusive restore lease: %v", err)
+	}
+	if _, err := Acquire(context.Background(), sharedBackend, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
+		t.Fatalf("server shared lease during restore = %v", err)
+	}
+	if err := exclusive.Release(context.Background()); err != nil {
+		t.Fatalf("release exclusive restore lease: %v", err)
+	}
+}
+
 func warmPostgresLeaseSessions(ctx context.Context, pool *pgxpool.Pool, count int) error {
 	connections := make([]*pgxpool.Conn, 0, count)
 	defer func() {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -128,6 +130,30 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 	cfg.Roots.ReferencePackStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
 	cfg.Roots.ExportOutputs = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
 
+	restoreAdmission, err := processlease.Acquire(
+		ctx,
+		processlease.PostgresBackend{
+			Pool:        pool,
+			AdvisoryKey: processlease.ServingAdvisoryKey,
+			Purpose:     "restore target",
+			Mode:        processlease.LockExclusive,
+		},
+		100*time.Millisecond,
+		40*time.Millisecond,
+	)
+	if err != nil {
+		t.Fatalf("acquire restore admission fixture: %v", err)
+	}
+	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store}); err == nil {
+		blockedRuntime.Close()
+		t.Fatal("server runtime started while restore held the exclusive serving lease")
+	} else if !errors.Is(err, processlease.ErrApplicationProcessActive) {
+		t.Fatalf("server startup during restore failed with unexpected error: %v", err)
+	}
+	if err := restoreAdmission.Release(context.Background()); err != nil {
+		t.Fatalf("release restore admission fixture: %v", err)
+	}
+
 	first, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("start first replicated runtime: %v", err)
@@ -140,6 +166,23 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 	defer second.Close()
 	if first.ProcessLease != nil || second.ProcessLease != nil {
 		t.Fatal("replicated runtimes acquired the single-process application lease")
+	}
+	if first.ServingLease == nil || first.ServingLease.State() != processlease.StateHeld ||
+		second.ServingLease == nil || second.ServingLease.State() != processlease.StateHeld {
+		t.Fatal("replicated runtimes did not hold shared server serving leases")
+	}
+	if _, err := processlease.Acquire(
+		ctx,
+		processlease.PostgresBackend{
+			Pool:        pool,
+			AdvisoryKey: processlease.ServingAdvisoryKey,
+			Purpose:     "restore target",
+			Mode:        processlease.LockExclusive,
+		},
+		20*time.Millisecond,
+		40*time.Millisecond,
+	); !errors.Is(err, processlease.ErrApplicationProcessActive) {
+		t.Fatalf("active shared serving leases did not block restore admission: %v", err)
 	}
 	if first.StagedJanitorLeader == nil || second.StagedJanitorLeader == nil {
 		t.Fatal("replicated runtimes did not compose component-fenced staged-object workers")

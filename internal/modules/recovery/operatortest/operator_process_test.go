@@ -28,7 +28,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -234,6 +236,48 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	)
 	requireOperatorRecoveryFailure(t, mismatchStdout, mismatchStderr, mismatchExit, "restore_latest", 2, "invalid_operator_request", "confirmation_mismatch")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--confirm-backup-set-id", backupSetID.String(),
+	)
+	requireOperatorRecoveryFailure(t, missingMarkerStdout, missingMarkerStderr, missingMarkerExit, "restore_latest", 3, "unsafe_restore_target", "target_marker_missing")
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	writeRestoreTargetMarker(t, loadOperatorConfig(t, targetConfig.path), application.RestoreTargetPurpose)
+	targetServingPool := mustOpenOperatorPool(t, targetDB.DSN)
+	targetServingLease, err := processlease.Acquire(
+		ctx,
+		processlease.PostgresBackend{
+			Pool:        targetServingPool,
+			AdvisoryKey: processlease.ServingAdvisoryKey,
+			Purpose:     "server serving",
+			Mode:        processlease.LockShared,
+		},
+		100*time.Millisecond,
+		40*time.Millisecond,
+	)
+	if err != nil {
+		t.Fatalf("acquire active-server fixture: %v", err)
+	}
+	t.Cleanup(func() {
+		if targetServingLease.State() == processlease.StateHeld {
+			_ = targetServingLease.Release(context.Background())
+		}
+	})
+	activeStdout, activeStderr, activeExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--confirm-backup-set-id", backupSetID.String(),
+	)
+	requireOperatorRecoveryFailure(t, activeStdout, activeStderr, activeExit, "restore_latest", 3, "unsafe_restore_target", "target_serving_traffic")
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+	if err := targetServingLease.Release(context.Background()); err != nil {
+		t.Fatalf("release active-server fixture: %v", err)
+	}
 
 	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
@@ -906,23 +950,58 @@ func loadOperatorConfig(t testing.TB, path string) configassembly.Deployment {
 
 func writeRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {
 	t.Helper()
-	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json")
+	writeRestoreTargetMarker(t, cfg, application.RestoreVerificationTargetPurpose)
+}
+
+func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpose string) {
+	t.Helper()
+	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-target-marker.json")
+	generationPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-target-generation")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
-		t.Fatalf("create restore verification target marker directory: %v", err)
+		t.Fatalf("create restore target marker directory: %v", err)
 	}
-	body := []byte(`{"schema_id":"cartulary.restore_verification_target.v1","purpose":"restore_verification_target"}`)
+	generationID := uuid.New()
+	now := time.Now().UTC()
+	digests := application.TargetBindingDigestsFor(application.Deployment{
+		DatabaseStorage: application.RootBinding{
+			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
+			Path:        cfg.Roots.DatabaseStorage.Path,
+			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
+		},
+		ObjectStorage: application.RootBinding{
+			BindingKind: cfg.Roots.ObjectStorage.BindingKind,
+			Path:        cfg.Roots.ObjectStorage.Path,
+			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
+		},
+	})
+	body, err := json.Marshal(application.RestoreTargetMarker{
+		SchemaID:           application.RestoreTargetMarkerSchemaID,
+		Purpose:            purpose,
+		TargetGenerationID: generationID.String(),
+		BindingDigests:     digests,
+		IssuedAt:           now.Add(-time.Minute).Format(time.RFC3339Nano),
+		ExpiresAt:          now.Add(time.Hour).Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("encode restore target marker: %v", err)
+	}
 	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
-		t.Fatalf("write restore verification target marker: %v", err)
+		t.Fatalf("write restore target marker: %v", err)
+	}
+	if err := os.WriteFile(generationPath, []byte(generationID.String()+"\n"), 0o600); err != nil {
+		t.Fatalf("write restore target generation proof: %v", err)
 	}
 }
 
 func writeInvalidRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {
 	t.Helper()
-	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-verification-target.json")
-	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
-		t.Fatalf("create invalid restore verification target marker directory: %v", err)
+	writeRestoreTargetMarker(t, cfg, application.RestoreVerificationTargetPurpose)
+	markerPath := filepath.Join(cfg.Roots.BackupStorage.Path, "restore-target-marker.json")
+	body, err := os.ReadFile(markerPath)
+	if err != nil {
+		t.Fatalf("read restore target marker for invalid fixture: %v", err)
 	}
-	body := []byte(`{"schema_id":"cartulary.restore_verification_target.v1","purpose":"production_target"}`)
+	body = bytes.Replace(body, []byte(`"restore_verification_target"`), []byte(`"production_target"`), 1)
 	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
 		t.Fatalf("write invalid restore verification target marker: %v", err)
 	}

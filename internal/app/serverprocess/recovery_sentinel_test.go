@@ -34,7 +34,6 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	gate := &RestoreReadinessGate{}
 
 	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:         true,
 		Postgres:        target.Postgres,
 		ObjectStore:     target.ObjectStore,
 		EvidenceObjects: recoveryprovider.New(target.Postgres),
@@ -70,7 +69,6 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
 	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Stopped:         true,
 			Postgres:        verificationTarget.Postgres,
 			ObjectStore:     verificationTarget.ObjectStore,
 			EvidenceObjects: recoveryprovider.New(verificationTarget.Postgres),

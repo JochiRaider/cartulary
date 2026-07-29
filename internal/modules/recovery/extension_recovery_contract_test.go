@@ -66,20 +66,13 @@ func TestExtensionBackupManifestRecordsCanonicalBindingProofs_Integration(t *tes
 	}
 }
 
-func TestRestoreRejectsRunningOrNonemptyTargetBeforeArtifactRead_Integration(t *testing.T) {
+func TestRestoreRejectsNonemptyTargetBeforeArtifactRead_Integration(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
 		name    string
 		wantErr error
 		mutate  func(t *testing.T, target *recovery.RestoreTarget)
 	}{
-		{
-			name:    "running",
-			wantErr: recovery.ErrRestoreTargetNotStopped,
-			mutate: func(_ *testing.T, target *recovery.RestoreTarget) {
-				target.Stopped = false
-			},
-		},
 		{
 			name:    "authoritative row",
 			wantErr: recovery.ErrRestoreTargetNotEmpty,

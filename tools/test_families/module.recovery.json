@@ -108,6 +108,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.integration.restore_target_serving_admission_cancels_mutatio_f73b480d23",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "app.server",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestTargetServingAdmissionCancelsOnLeaseLoss_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -121,7 +147,7 @@
         "tests": [
           "TestFailClosedRestoreVerificationBlocked_Unit",
           "TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
-          "TestRestoreRejectsRunningOrNonemptyTargetBeforeArtifactRead_Integration"
+          "TestRestoreRejectsNonemptyTargetBeforeArtifactRead_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -325,6 +351,32 @@
         "package": "./internal/app/recoveryassembly",
         "tests": [
           "TestRecoveryFilesystemStorageContainment_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/application",
+        "tests": [
+          "TestRestoreTargetBindingDigestsExcludeCredentials_Unit",
+          "TestRestoreTargetMarkerV2Admission_Unit"
         ]
       },
       "evidence_class": "unit",

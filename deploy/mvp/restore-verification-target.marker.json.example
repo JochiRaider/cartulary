@@ -1,1 +1,1 @@
-{"schema_id":"cartulary.restore_verification_target.v1","purpose":"restore_verification_target"}
+{"schema_id":"cartulary.restore_target_marker.v2","purpose":"restore_verification_target","target_generation_id":"00000000-0000-0000-0000-000000000101","binding_digests":{"database_sha256":"1111111111111111111111111111111111111111111111111111111111111111","object_store_sha256":"2222222222222222222222222222222222222222222222222222222222222222"},"issued_at":"2026-07-29T12:00:00Z","expires_at":"2026-07-30T11:00:00Z"}
