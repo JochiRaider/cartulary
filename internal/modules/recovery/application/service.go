@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 const (
@@ -56,6 +57,7 @@ type DeploymentLoader func(string) (Deployment, error)
 type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
+type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recoverystate.Catalog) error
 
 type Service struct {
 	LoadDeployment         DeploymentLoader
@@ -66,6 +68,8 @@ type Service struct {
 	NewTargetAdmission     TargetServingAdmissionFactory
 	ProjectFailureEvidence FailureEvidenceProjector
 	ExtensionBackups       *recovery.ExtensionBackupCatalog
+	RecoveryStateCatalog   *recoverystate.Catalog
+	ValidateStateCoverage  RecoveryStateCoverageValidator
 	Now                    func() time.Time
 }
 
@@ -169,6 +173,9 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 		return Result{}, err
 	}
 	defer func() { service.finishJournalAndAudit(ctx, pool, parsed, outcome, &err) }()
+	if err := service.validateRecoveryStateCatalog(ctx, pool); err != nil {
+		return Result{}, NewFailure(FailureBackupPublication, err)
+	}
 
 	consistencyPointAt := service.now()
 	backupSetID := uuid.New()
@@ -176,6 +183,9 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, pool)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, fmt.Errorf("capture postgres artifact: %w", err))
+	}
+	if err := service.validateLegacySnapshotShadow(postgresArtifact); err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
 	}
 	evidenceProvider, err := service.newEvidenceProvider(pool)
 	if err != nil {
@@ -250,6 +260,9 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
 		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
 	}()
+	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
+		return Result{}, NewFailure(FailureRestoreInvariantCheck, err)
+	}
 	sourceStore := recovery.NewStore(sourcePool)
 	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).RestoreCandidateBackup(ctx, service.now())
 	if err != nil {
@@ -315,6 +328,9 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
 		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
 	}()
+	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
+		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
+	}
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return Result{}, err
 	}
@@ -381,6 +397,9 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
 		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
 	}()
+	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
+		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
+	}
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return Result{}, err
 	}
@@ -662,6 +681,34 @@ func releaseTargetAdmission(admission TargetServingAdmission, lossDetection time
 	releaseCtx, cancel := context.WithTimeout(context.Background(), lossDetection)
 	defer cancel()
 	_ = admission.Release(releaseCtx)
+}
+
+func (service Service) validateRecoveryStateCatalog(ctx context.Context, pool PostgresPool) error {
+	if err := service.RecoveryStateCatalog.ValidateFrozen(); err != nil {
+		return fmt.Errorf("validate frozen recovery state catalog: %w", err)
+	}
+	if service.ValidateStateCoverage == nil {
+		return errors.New("validate frozen recovery state catalog: database coverage validator is unavailable")
+	}
+	if err := service.ValidateStateCoverage(ctx, pool, service.RecoveryStateCatalog); err != nil {
+		return fmt.Errorf("validate frozen recovery state catalog database coverage: %w", err)
+	}
+	return nil
+}
+
+func (service Service) validateLegacySnapshotShadow(body []byte) error {
+	snapshot, err := recovery.DecodePostgresSnapshotArtifact(body)
+	if err != nil {
+		return fmt.Errorf("decode legacy snapshot for recovery state shadow validation: %w", err)
+	}
+	tableNames := make([]string, 0, len(snapshot.Tables))
+	for _, table := range snapshot.Tables {
+		tableNames = append(tableNames, table.TableName)
+	}
+	if err := service.RecoveryStateCatalog.ValidateLegacyShadowTables(tableNames); err != nil {
+		return fmt.Errorf("compare legacy snapshot with frozen recovery state catalog: %w", err)
+	}
+	return nil
 }
 
 func (service Service) acquireOperationLock(ctx context.Context, pool PostgresPool) (func(), error) {

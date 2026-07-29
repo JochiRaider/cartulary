@@ -23,6 +23,11 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 		runner.logger().Error("extension recovery catalog is invalid", "error", err)
 		return true, 1
 	}
+	recoveryStateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		runner.logger().Error("recovery state catalog is invalid", "error", err)
+		return true, 1
+	}
 	return recoverycli.Runner{
 		Stdout: runner.stdout,
 		Stderr: runner.stderr,
@@ -61,6 +66,8 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			NewTargetAdmission:     recoveryassembly.AcquireTargetServingAdmission,
 			ProjectFailureEvidence: recoverycli.FailureEvidenceFields,
 			ExtensionBackups:       extensionBackups,
+			RecoveryStateCatalog:   recoveryStateCatalog,
+			ValidateStateCoverage:  recoveryassembly.ValidateRecoveryStateDatabaseCoverage,
 			Now:                    runner.now,
 		},
 	}.Run(ctx, args)

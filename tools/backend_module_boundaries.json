@@ -16,6 +16,7 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/extensions",
       "allowed_importers": [
         "internal/app/extensionassembly/**",
+        "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/server/**",
         "internal/modules/extensions/**",
         "internal/modules/stagedobjects/janitor.go"
@@ -25,8 +26,9 @@
       "id": "incidentbundles-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
       "allowed_importers": [
-        "internal/app/incidentportabilityassembly/**",
         "internal/app/extensionassembly/**",
+        "internal/app/incidentportabilityassembly/**",
+        "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/server/incident_bundle_storage.go",
         "internal/app/server/extensions_publication_characterization_test.go",
         "internal/app/server/module_settings.go",
@@ -54,6 +56,7 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
       "allowed_importers": [
         "internal/app/extensionassembly/reference_pack_jobs.go",
+        "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
         "internal/app/server/reference_pack_storage.go",

@@ -62,6 +62,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.integration.database_coverage_rejects_an_unclassified_recove_a609c7d3a3",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestRecoveryStateDatabaseCoverageRejectsUnclassifiedTableBeforeAdmission_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -351,6 +376,29 @@
         "package": "./internal/app/recoveryassembly",
         "tests": [
           "TestRecoveryFilesystemStorageContainment_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.frozen_catalog_classifies_every_authored_recover_ce34eaea4f",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit"
         ]
       },
       "evidence_class": "unit",

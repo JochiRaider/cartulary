@@ -17,6 +17,7 @@ func ProductionImportPolicy() ImportPolicy {
 func approvedProductionProjectionRootImporterPaths() []string {
 	return []string{
 		"internal/app/projectionassembly/catalog.go",
+		"internal/app/recoveryassembly/state_catalog.go",
 		"internal/app/timelineassembly/assembly.go",
 		"internal/app/workbookassembly/catalog.go",
 		"internal/modules/artifacts/import_projection.go",
