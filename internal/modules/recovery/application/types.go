@@ -64,6 +64,7 @@ type ResultStatus string
 const (
 	ResultSucceeded ResultStatus = "succeeded"
 	ResultNoOp      ResultStatus = "no_op"
+	ResultFailed    ResultStatus = "failed"
 )
 
 type Result struct {

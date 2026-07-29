@@ -152,6 +152,44 @@ func EncryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, aad string
 	}, nil
 }
 
+func DecryptOperatorRecoveryJournalPayload(
+	key RecoveryEncryptionKey,
+	aad string,
+	envelope OperatorRecoveryJournalEnvelope,
+) ([]byte, error) {
+	if key.fingerprint == "" {
+		return nil, ErrRecoveryMasterKeyRequired
+	}
+	if envelope.SchemaID != OperatorRecoveryJournalSchemaID ||
+		envelope.EncryptionMode != BackupStorageEncryptionModeAESGCM ||
+		envelope.KeyFingerprintSHA256 != key.fingerprint ||
+		!validSHA256Hex(envelope.PayloadSHA256) {
+		return nil, fmt.Errorf("%w: operator recovery journal envelope metadata mismatch", ErrInvalidBackupArtifact)
+	}
+	block, err := aes.NewCipher(key.key[:])
+	if err != nil {
+		return nil, fmt.Errorf("create operator recovery journal cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("create operator recovery journal gcm: %w", err)
+	}
+	if len(envelope.Nonce) != gcm.NonceSize() {
+		return nil, fmt.Errorf("%w: operator recovery journal nonce size is invalid", ErrInvalidBackupArtifact)
+	}
+	if strings.TrimSpace(aad) == "" {
+		aad = OperatorRecoveryJournalSchemaID
+	}
+	body, err := gcm.Open(nil, envelope.Nonce, envelope.Ciphertext, []byte(aad))
+	if err != nil {
+		return nil, fmt.Errorf("%w: decrypt operator recovery journal payload: %v", ErrInvalidBackupArtifact, err)
+	}
+	if sha256Hex(body) != envelope.PayloadSHA256 {
+		return nil, fmt.Errorf("%w: operator recovery journal payload digest mismatch", ErrInvalidBackupArtifact)
+	}
+	return body, nil
+}
+
 func (storage encryptedBackupStorage) BackupStorageEncryptionProof() BackupStorageEncryptionProof {
 	return BackupStorageEncryptionProof{
 		Mode:                 BackupStorageEncryptionModeAESGCM,

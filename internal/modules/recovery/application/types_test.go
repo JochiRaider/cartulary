@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestFailureKindsAreClosedUniqueAndRoundTrip_Unit(t *testing.T) {
@@ -53,4 +56,41 @@ func TestEnsureFailurePreservesTypedFailureAndClassifiesDeadline_Unit(t *testing
 	if !errors.Is(deadline, context.DeadlineExceeded) {
 		t.Fatal("deadline failure did not preserve context deadline cause")
 	}
+}
+
+func TestTerminalEvidenceFailureOverridesPriorOperationFailureKind_Unit(t *testing.T) {
+	service := Service{
+		NewEvidenceRepository: func(PostgresPool) (RecoveryEvidenceRepository, error) {
+			return failingCompletionRepository{}, nil
+		},
+		ProjectFailureEvidence: func(FailureKind) (string, string) {
+			return "restore_failed", "invariant_check_failed"
+		},
+	}
+	operationErr := NewFailure(FailureRestoreInvariantCheck, errors.New("restore invariant failed"))
+	service.finishJournalAndAudit(
+		context.Background(),
+		nil,
+		operationRequest{
+			OperationID: uuid.MustParse("00000000-0000-0000-0000-000000004286"),
+			Operation:   OperationRestoreLatest,
+			StartedAt:   time.Date(2026, 7, 29, 5, 0, 0, 0, time.UTC),
+		},
+		Result{},
+		&operationErr,
+	)
+	kind, ok := FailureKindOf(operationErr)
+	if !ok || kind != FailureRestoreJournalWrite {
+		t.Fatalf("terminal evidence failure kind got (%q, %t) want (%q, true)", kind, ok, FailureRestoreJournalWrite)
+	}
+}
+
+type failingCompletionRepository struct{}
+
+func (failingCompletionRepository) AppendAdmission(context.Context, RecoveryAdmissionRecord) error {
+	return nil
+}
+
+func (failingCompletionRepository) AppendCompletion(context.Context, RecoveryCompletionRecord) error {
+	return errors.New("injected terminal evidence failure")
 }

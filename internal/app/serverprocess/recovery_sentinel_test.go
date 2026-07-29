@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -33,11 +34,12 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	gate := &RestoreReadinessGate{}
 
 	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:     true,
-		Postgres:    target.Postgres,
-		ObjectStore: target.ObjectStore,
-		Projections: timelineassembly.NewRestoreRebuilder(target.Postgres),
-		Readiness:   gate,
+		Stopped:         true,
+		Postgres:        target.Postgres,
+		ObjectStore:     target.ObjectStore,
+		EvidenceObjects: recoveryprovider.New(target.Postgres),
+		Projections:     timelineassembly.NewRestoreRebuilder(target.Postgres),
+		Readiness:       gate,
 	}, fixture.AsOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh environment: %v", err)
@@ -68,10 +70,11 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
 	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Stopped:     true,
-			Postgres:    verificationTarget.Postgres,
-			ObjectStore: verificationTarget.ObjectStore,
-			Projections: verificationRebuilder,
+			Stopped:         true,
+			Postgres:        verificationTarget.Postgres,
+			ObjectStore:     verificationTarget.ObjectStore,
+			EvidenceObjects: recoveryprovider.New(verificationTarget.Postgres),
+			Projections:     verificationRebuilder,
 		},
 		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres, Query: verificationQuery},
 	}, fixture.AsOf, basis)
@@ -215,7 +218,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	if !bytes.Contains(postgresArtifact, []byte("restore source timeline")) {
 		t.Fatalf("postgres restore artifact does not include source row data")
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, sourcePool)
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(sourcePool))
 	if err != nil {
 		t.Fatalf("index source blob storage refs: %v", err)
 	}

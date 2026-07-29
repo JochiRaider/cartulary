@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -81,7 +82,7 @@ INSERT INTO object_blobs (
 	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, harness.Server.Runtime.Postgres)
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(harness.Server.Runtime.Postgres))
 	if err != nil {
 		t.Fatalf("index source blob storage refs: %v", err)
 	}
@@ -181,10 +182,11 @@ INSERT INTO object_blobs (
 		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
 	}
 	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:     true,
-		Postgres:    targetPool,
-		ObjectStore: targetObjectStore,
-		Projections: timelineassembly.NewRestoreRebuilder(targetPool),
+		Stopped:         true,
+		Postgres:        targetPool,
+		ObjectStore:     targetObjectStore,
+		EvidenceObjects: recoveryprovider.New(targetPool),
+		Projections:     timelineassembly.NewRestoreRebuilder(targetPool),
 	}, asOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)

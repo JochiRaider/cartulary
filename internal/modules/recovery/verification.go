@@ -27,9 +27,10 @@ type RestoreVerificationTarget struct {
 }
 
 type RestoreVerificationService struct {
-	store  *Store
-	runner *RestoreRunner
-	now    func() time.Time
+	backups       backupRepository
+	verifications verificationRepository
+	runner        *RestoreRunner
+	now           func() time.Time
 }
 
 type RestoreVerificationResult struct {
@@ -40,10 +41,11 @@ type RestoreVerificationResult struct {
 	ArtifactProof BackupArtifactProof
 }
 
-func NewRestoreVerificationService(store *Store, runner *RestoreRunner) *RestoreVerificationService {
+func NewRestoreVerificationService(repository recoveryRepository, runner *RestoreRunner) *RestoreVerificationService {
 	return &RestoreVerificationService{
-		store:  store,
-		runner: runner,
+		backups:       repository,
+		verifications: repository,
+		runner:        runner,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -85,7 +87,7 @@ func RestoreVerificationBasisSHA256(parts map[string]string) (string, error) {
 }
 
 func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx context.Context, target RestoreVerificationTarget, asOf time.Time, verificationBasisSHA256 string) (RestoreVerificationResult, error) {
-	if service == nil || service.store == nil || service.runner == nil {
+	if service == nil || service.backups == nil || service.verifications == nil || service.runner == nil {
 		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
 	}
 	if !validSHA256Hex(verificationBasisSHA256) {
@@ -95,7 +97,7 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 		asOf = service.now()
 	}
 	asOf = asOf.UTC()
-	backupSet, err := NewBackupCatalog(service.store, service.runner.storage, service.runner.extensionBackups).RestoreCandidateBackup(ctx, asOf)
+	backupSet, err := NewBackupCatalog(service.backups, service.runner.storage, service.runner.extensionBackups).RestoreCandidateBackup(ctx, asOf)
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}
@@ -103,7 +105,7 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 }
 
 func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasisSHA256 string) (RestoreVerificationResult, error) {
-	if service == nil || service.store == nil || service.runner == nil {
+	if service == nil || service.backups == nil || service.verifications == nil || service.runner == nil {
 		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
 	}
 	if !validSHA256Hex(verificationBasisSHA256) {
@@ -155,7 +157,7 @@ func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, 
 			FailureMessage:           "restore verification failed; inspect protected run logs for details",
 			ConsistencyReport:        restoreResult.ConsistencyReport,
 		}
-		updated, run, recordErr := service.store.RecordRestoreVerificationCompletion(ctx, runParams)
+		updated, run, recordErr := service.verifications.RecordRestoreVerificationCompletion(ctx, runParams)
 		if recordErr != nil {
 			return RestoreVerificationResult{}, fmt.Errorf("%w; additionally failed to record restore verification failure: %v", restoreErr, recordErr)
 		}
@@ -177,7 +179,7 @@ func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, 
 		VerificationBasisSHA256:  verificationBasisSHA256,
 		ConsistencyReport:        restoreResult.ConsistencyReport,
 	}
-	updated, run, err := service.store.RecordRestoreVerificationCompletion(ctx, runParams)
+	updated, run, err := service.verifications.RecordRestoreVerificationCompletion(ctx, runParams)
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}
@@ -281,7 +283,7 @@ func restoreVerificationBlobCounts(ctx context.Context, target RestoreTarget) Re
 	if target.Postgres == nil || target.ObjectStore == nil {
 		return RestoreVerificationBlobCheckCounts{Failed: 1, Total: 1}
 	}
-	_, count, err := verifyRestoredBlobRowsDetailed(ctx, target.Postgres, target.ObjectStore)
+	_, count, err := verifyRestoredBlobRowsDetailed(ctx, target.EvidenceObjects, target.ObjectStore)
 	if err != nil {
 		return RestoreVerificationBlobCheckCounts{Total: 1, Failed: 1}
 	}

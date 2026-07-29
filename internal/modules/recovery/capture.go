@@ -34,7 +34,7 @@ var (
 )
 
 type CaptureService struct {
-	store            *Store
+	store            backupRepository
 	storage          BackupStorage
 	extensionBackups *ExtensionBackupCatalog
 	now              func() time.Time
@@ -119,7 +119,7 @@ type PostgresSnapshotTable struct {
 	Rows      []json.RawMessage `json:"rows"`
 }
 
-func NewCaptureService(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *CaptureService {
+func NewCaptureService(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *CaptureService {
 	return &CaptureService{
 		store:            store,
 		storage:          storage,

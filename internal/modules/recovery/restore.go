@@ -60,20 +60,21 @@ func restoreStageFailure(stage RestoreStep, cause error) error {
 }
 
 type RestoreRunner struct {
-	store            *Store
+	store            backupRepository
 	storage          BackupStorage
 	extensionBackups *ExtensionBackupCatalog
 	now              func() time.Time
 }
 
 type RestoreTarget struct {
-	Stopped     bool
-	Postgres    postgres.DB
-	ObjectStore objectstore.Store
-	Projections restorecontract.ProjectionRebuilder
-	Readiness   RestoreReadinessGate
-	Failure     RestoreFailureGate
-	Observer    RestoreStepObserver
+	Stopped         bool
+	Postgres        postgres.DB
+	ObjectStore     objectstore.Store
+	EvidenceObjects EvidenceRecoveryProvider
+	Projections     restorecontract.ProjectionRebuilder
+	Readiness       RestoreReadinessGate
+	Failure         RestoreFailureGate
+	Observer        RestoreStepObserver
 }
 
 type RestoreReadinessGate interface {
@@ -112,7 +113,7 @@ type selectedRestoreArtifacts struct {
 	ExtensionBindings         []ExtensionBindingProof
 }
 
-func NewRestoreRunner(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *RestoreRunner {
+func NewRestoreRunner(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *RestoreRunner {
 	return &RestoreRunner{
 		store:            store,
 		storage:          storage,
@@ -135,6 +136,9 @@ func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context
 	}
 	if target.Projections == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore projection rebuilder is required", ErrInvalidBackupArtifact)
+	}
+	if target.EvidenceObjects == nil {
+		return RestoreResult{}, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
 	if asOf.IsZero() {
 		asOf = runner.now()
@@ -166,6 +170,9 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	}
 	if target.Projections == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore projection rebuilder is required", ErrInvalidBackupArtifact)
+	}
+	if target.EvidenceObjects == nil {
+		return RestoreResult{}, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
 	if err := requireStoppedEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
 		return RestoreResult{}, err
@@ -849,7 +856,7 @@ func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifac
 		_, _ = digest.Write([]byte("object:" + item.Key + ":" + item.SHA256 + "\n"))
 	}
 
-	rowDigest, _, err := verifyRestoredBlobRowsDetailed(ctx, target.Postgres, target.ObjectStore)
+	rowDigest, _, err := verifyRestoredBlobRowsDetailed(ctx, target.EvidenceObjects, target.ObjectStore)
 	if err != nil {
 		return "", 0, err
 	}
@@ -857,73 +864,51 @@ func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifac
 	return hex.EncodeToString(digest.Sum(nil)), len(objects), nil
 }
 
-func verifyRestoredBlobRowsDetailed(ctx context.Context, db postgres.DB, store objectstore.Store) (string, int, error) {
-	rows, err := db.Query(ctx, `
-SELECT b.storage_key,
-       b.byte_size,
-       b.observed_size,
-       b.expected_sha256_hex,
-       b.observed_sha256_hex,
-       e.blob_hash
-  FROM object_blobs b
-  LEFT JOIN evidence e
-    ON e.object_blob_id = b.object_blob_id
- WHERE b.upload_state = 'available'
- ORDER BY b.storage_key ASC, b.object_blob_id ASC
-`)
-	if err != nil {
-		return "", 0, fmt.Errorf("list restored blob rows: %w", err)
+func verifyRestoredBlobRowsDetailed(ctx context.Context, provider EvidenceRecoveryProvider, store objectstore.Store) (string, int, error) {
+	if provider == nil {
+		return "", 0, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
-	defer rows.Close()
+	objects, err := provider.ListAvailableRecoveryObjects(ctx)
+	if err != nil {
+		return "", 0, fmt.Errorf("list restored Evidence objects: %w", err)
+	}
 
 	digest := sha256.New()
 	count := 0
-	for rows.Next() {
-		var storageKey string
-		var byteSize int64
-		var observedSize pgtype.Int8
-		var expectedSHA pgtype.Text
-		var observedSHA pgtype.Text
-		var blobHash pgtype.Text
-		if err := rows.Scan(&storageKey, &byteSize, &observedSize, &expectedSHA, &observedSHA, &blobHash); err != nil {
-			return "", count, fmt.Errorf("scan restored blob row: %w", err)
-		}
-		reader, _, err := store.ReadObject(ctx, storageKey, objectstore.ReadOptions{})
+	for _, object := range objects {
+		reader, _, err := store.ReadObject(ctx, object.StorageKey, objectstore.ReadOptions{})
 		if err != nil {
-			return "", count, fmt.Errorf("read restored blob row object %s: %w", storageKey, err)
+			return "", count, fmt.Errorf("read restored Evidence object %s: %w", object.StorageKey, err)
 		}
 		body, readErr := io.ReadAll(reader)
 		closeErr := reader.Close()
 		if readErr != nil {
-			return "", count, fmt.Errorf("read restored blob row body %s: %w", storageKey, readErr)
+			return "", count, fmt.Errorf("read restored Evidence object body %s: %w", object.StorageKey, readErr)
 		}
 		if closeErr != nil {
-			return "", count, fmt.Errorf("close restored blob row object %s: %w", storageKey, closeErr)
+			return "", count, fmt.Errorf("close restored Evidence object %s: %w", object.StorageKey, closeErr)
 		}
 		sha := sha256Hex(body)
-		if int64(len(body)) != byteSize {
-			return "", count, fmt.Errorf("%w: restored blob row byte_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
+		if int64(len(body)) != object.ByteSize {
+			return "", count, fmt.Errorf("%w: restored Evidence object byte_size mismatch for %s", ErrInvalidBackupArtifact, object.StorageKey)
 		}
-		if observedSize.Valid && observedSize.Int64 != int64(len(body)) {
-			return "", count, fmt.Errorf("%w: restored blob row observed_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
+		if object.ObservedSize != nil && *object.ObservedSize != int64(len(body)) {
+			return "", count, fmt.Errorf("%w: restored Evidence object observed_size mismatch for %s", ErrInvalidBackupArtifact, object.StorageKey)
 		}
-		for label, value := range map[string]pgtype.Text{
-			"expected_sha256_hex": expectedSHA,
-			"observed_sha256_hex": observedSHA,
-			"blob_hash":           blobHash,
+		for label, value := range map[string]*string{
+			"expected_sha256_hex": object.ExpectedSHA256Hex,
+			"observed_sha256_hex": object.ObservedSHA256Hex,
+			"blob_hash":           object.BlobHash,
 		} {
-			if !value.Valid || strings.TrimSpace(value.String) == "" {
+			if value == nil || strings.TrimSpace(*value) == "" {
 				continue
 			}
-			if !blobHashMatches(value.String, sha) {
-				return "", count, fmt.Errorf("%w: restored blob row %s mismatch for %s", ErrInvalidBackupArtifact, label, storageKey)
+			if !blobHashMatches(*value, sha) {
+				return "", count, fmt.Errorf("%w: restored Evidence object %s mismatch for %s", ErrInvalidBackupArtifact, label, object.StorageKey)
 			}
 		}
-		_, _ = digest.Write([]byte(storageKey + ":" + sha + "\n"))
+		_, _ = digest.Write([]byte(object.StorageKey + ":" + sha + "\n"))
 		count++
-	}
-	if err := rows.Err(); err != nil {
-		return "", count, fmt.Errorf("iterate restored blob rows: %w", err)
 	}
 	return hex.EncodeToString(digest.Sum(nil)), count, nil
 }

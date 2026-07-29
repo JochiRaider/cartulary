@@ -30,6 +30,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -165,7 +166,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("capture source postgres artifact: %w", err)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, sourcePool)
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(sourcePool))
 	if err != nil {
 		return fmt.Errorf("index source blob storage refs: %w", err)
 	}
@@ -223,10 +224,11 @@ func run() error {
 
 	projectionRebuilder, projectionQuery := timelineassembly.NewRecoveryProjectionServices(targetPool)
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, extensionBackups).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		Stopped:     true,
-		Postgres:    targetPool,
-		ObjectStore: targetObjectStore,
-		Projections: projectionRebuilder,
+		Stopped:         true,
+		Postgres:        targetPool,
+		ObjectStore:     targetObjectStore,
+		EvidenceObjects: recoveryprovider.New(targetPool),
+		Projections:     projectionRebuilder,
 	}, now.Add(time.Second))
 	if err != nil {
 		targetPool.Close()

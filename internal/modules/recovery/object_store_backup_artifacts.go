@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const (
@@ -190,42 +189,6 @@ func CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx context.Context, store obj
 		Manifest:     manifest,
 		Summary:      summary,
 	}, nil
-}
-
-func AvailableBlobObjectIDsByStorageRef(ctx context.Context, db postgres.DB) (map[string]uuid.UUID, error) {
-	if db == nil {
-		return nil, fmt.Errorf("%w: postgres DB is required for object-store backup manifest blob index", ErrInvalidBackupArtifact)
-	}
-	rows, err := db.Query(ctx, `
-SELECT storage_key, object_blob_id::text
-  FROM object_blobs
- WHERE upload_state = 'available'
- ORDER BY storage_key ASC, object_blob_id ASC
-`)
-	if err != nil {
-		return nil, fmt.Errorf("list available object blob storage refs: %w", err)
-	}
-	defer rows.Close()
-	ids := make(map[string]uuid.UUID)
-	for rows.Next() {
-		var storageRef string
-		var objectBlobIDRaw string
-		if err := rows.Scan(&storageRef, &objectBlobIDRaw); err != nil {
-			return nil, fmt.Errorf("scan available object blob storage ref: %w", err)
-		}
-		objectBlobID, err := uuid.Parse(objectBlobIDRaw)
-		if err != nil {
-			return nil, fmt.Errorf("%w: object_blob_id is not a UUID", ErrInvalidBackupArtifact)
-		}
-		if _, exists := ids[storageRef]; exists {
-			return nil, fmt.Errorf("%w: duplicate durable object blob storage_ref %q", ErrInvalidBackupArtifact, storageRef)
-		}
-		ids[storageRef] = objectBlobID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate available object blob storage refs: %w", err)
-	}
-	return ids, nil
 }
 
 func BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot ObjectStoreSnapshotArtifact, params ObjectStoreBackupManifestParams) (ObjectStoreBackupManifest, []byte, error) {

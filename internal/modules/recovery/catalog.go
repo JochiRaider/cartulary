@@ -12,7 +12,7 @@ import (
 )
 
 type BackupCatalog struct {
-	store            *Store
+	store            backupRepository
 	storage          BackupStorage
 	extensionBackups *ExtensionBackupCatalog
 }
@@ -28,7 +28,7 @@ type BackupDurabilityDiagnostic struct {
 	Code               string
 }
 
-func NewBackupCatalog(store *Store, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *BackupCatalog {
+func NewBackupCatalog(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *BackupCatalog {
 	return &BackupCatalog{store: store, storage: storage, extensionBackups: extensionBackups}
 }
 

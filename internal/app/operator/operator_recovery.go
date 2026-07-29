@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -41,8 +42,13 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery) {
 				return timelineassembly.NewRecoveryProjectionServices(db)
 			},
-			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
-				return recovery.LoadRecoveryEncryptionKey(nil)
+			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {
+				return recoveryprovider.New(db)
+			},
+			NewEvidenceRepository: func(pool application.PostgresPool) (application.RecoveryEvidenceRepository, error) {
+				return recoveryassembly.NewRecoveryEvidenceRepository(pool, func() (recovery.RecoveryEncryptionKey, error) {
+					return recovery.LoadRecoveryEncryptionKey(nil)
+				})
 			},
 			ProjectFailureEvidence: recoverycli.FailureEvidenceFields,
 			ExtensionBackups:       extensionBackups,

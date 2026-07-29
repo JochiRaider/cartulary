@@ -844,6 +844,29 @@
       "production_only": true
     },
     {
+      "id": "recovery-sqlc-confined-to-private-store-adapter",
+      "imports": ["github.com/JochiRaider/cartulary/internal/gen/sql"],
+      "scan_paths": ["internal/modules/recovery/**"],
+      "allowed_paths": ["internal/modules/recovery/store.go"],
+      "production_only": true
+    },
+    {
+      "id": "recovery-no-raw-evidence-persistence-access",
+      "tokens": ["object_blobs", "FROM evidence", "JOIN evidence"],
+      "scan_paths": ["internal/modules/recovery/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "recovery-application-no-audit-adapter-import",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
+      ],
+      "scan_paths": ["internal/modules/recovery/application/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "retired-browser-runtime-opt-in",
       "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
       "scan_paths": ["internal/**", "cmd/**"],

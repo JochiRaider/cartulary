@@ -23,6 +23,7 @@ const (
 	restoreMinimumSchemaVersion       int64 = 22
 	recoveryOperationAdvisoryLockKey  int64 = 401010
 	restoreVerificationTargetSchemaID       = "cartulary.restore_verification_target.v1"
+	terminalEvidenceTimeout                 = 30 * time.Second
 
 	RestoreVerificationTargetMarkerMaximumBytes int64 = 65536
 )
@@ -57,14 +58,15 @@ type Deployment struct {
 type DeploymentLoader func(string) (Deployment, error)
 type TargetMarkerReader func(bindingKind string, rootPath string) ([]byte, error)
 type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery)
-type JournalKeyLoader func() (recovery.RecoveryEncryptionKey, error)
+type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
 
 type Service struct {
 	LoadDeployment         DeploymentLoader
 	ReadTargetMarker       TargetMarkerReader
 	NewProjectionServices  ProjectionServicesFactory
-	LoadJournalKey         JournalKeyLoader
+	NewEvidenceProvider    EvidenceRecoveryProviderFactory
+	NewEvidenceRepository  RecoveryEvidenceRepositoryFactory
 	ProjectFailureEvidence FailureEvidenceProjector
 	ExtensionBackups       *recovery.ExtensionBackupCatalog
 	Now                    func() time.Time
@@ -75,6 +77,7 @@ var _ Facade = Service{}
 type operationRequest struct {
 	OperationID        uuid.UUID
 	Operation          Operation
+	StartedAt          time.Time
 	SourceConfigPath   string
 	TargetConfigPath   string
 	ConfirmedBackupSet uuid.UUID
@@ -85,6 +88,7 @@ func (service Service) BackupInspectLatest(ctx context.Context, request BackupIn
 	result, err := service.backupInspectLatest(ctx, operationRequest{
 		OperationID:      request.OperationID,
 		Operation:        OperationBackupInspectLatest,
+		StartedAt:        service.now(),
 		SourceConfigPath: request.SourceConfigPath,
 	}, progress)
 	return result, EnsureFailure(FailureArtifactMissing, err)
@@ -94,6 +98,7 @@ func (service Service) BackupCreate(ctx context.Context, request BackupCreateReq
 	result, err := service.backupCreate(ctx, operationRequest{
 		OperationID:      request.OperationID,
 		Operation:        OperationBackupCreate,
+		StartedAt:        service.now(),
 		SourceConfigPath: request.SourceConfigPath,
 	}, progress)
 	return result, EnsureFailure(FailureBackupPublication, err)
@@ -103,6 +108,7 @@ func (service Service) RestoreLatest(ctx context.Context, request RestoreLatestR
 	result, err := service.runRestoreLatest(ctx, operationRequest{
 		OperationID:        request.OperationID,
 		Operation:          OperationRestoreLatest,
+		StartedAt:          service.now(),
 		SourceConfigPath:   request.SourceConfigPath,
 		TargetConfigPath:   request.TargetConfigPath,
 		ConfirmedBackupSet: request.ConfirmedBackupSet,
@@ -114,6 +120,7 @@ func (service Service) RestoreVerifyLatest(ctx context.Context, request RestoreV
 	result, err := service.runRestoreVerifyLatest(ctx, operationRequest{
 		OperationID:      request.OperationID,
 		Operation:        OperationRestoreVerifyLatest,
+		StartedAt:        service.now(),
 		SourceConfigPath: request.SourceConfigPath,
 		TargetConfigPath: request.TargetConfigPath,
 	}, progress)
@@ -124,6 +131,7 @@ func (service Service) RestoreVerifyDue(ctx context.Context, request RestoreVeri
 	result, err := service.runRestoreVerifyDue(ctx, operationRequest{
 		OperationID:      request.OperationID,
 		Operation:        OperationRestoreVerifyDue,
+		StartedAt:        service.now(),
 		SourceConfigPath: request.SourceConfigPath,
 		TargetConfigPath: request.TargetConfigPath,
 		AttemptTimeout:   request.AttemptTimeout,
@@ -172,7 +180,11 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, fmt.Errorf("capture postgres artifact: %w", err))
 	}
-	blobIndex, err := loadBackupObjectBlobIndex(ctx, pool)
+	evidenceProvider, err := service.newEvidenceProvider(pool)
+	if err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
+	}
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidenceProvider)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
 	}
@@ -428,23 +440,23 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operationR
 	}
 	sourceObjectStore, err := service.setupObjectStore(ctx, sourceDeployment)
 	if err != nil {
-		sourcePool.Close()
 		targetPool.Close()
+		sourcePool.Close()
 		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, NewFailure(FailureLocalConfigInvalid, fmt.Errorf("open source object store: %w", err))
 	}
 	targetObjectStore, err := service.setupObjectStore(ctx, targetDeployment)
 	if err != nil {
-		sourcePool.Close()
-		targetPool.Close()
 		_ = sourceObjectStore.Close()
+		targetPool.Close()
+		sourcePool.Close()
 		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, NewFailure(FailureLocalConfigInvalid, fmt.Errorf("open target object store: %w", err))
 	}
 	backupStorage, err := service.newBackupStorage(sourceDeployment)
 	if err != nil {
-		sourcePool.Close()
-		targetPool.Close()
-		_ = sourceObjectStore.Close()
 		_ = targetObjectStore.Close()
+		_ = sourceObjectStore.Close()
+		targetPool.Close()
+		sourcePool.Close()
 		return Deployment{}, Deployment{}, nil, nil, nil, nil, nil, classifyConfigOrSecretFailure(fmt.Errorf("open source backup storage: %w", err))
 	}
 	return sourceDeployment, targetDeployment, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
@@ -455,11 +467,16 @@ func (service Service) restoreTarget(targetPool postgres.DB, targetObjectStore o
 	if err != nil {
 		return recovery.RestoreTarget{}, err
 	}
+	evidenceProvider, err := service.newEvidenceProvider(targetPool)
+	if err != nil {
+		return recovery.RestoreTarget{}, err
+	}
 	return recovery.RestoreTarget{
-		Stopped:     true,
-		Postgres:    targetPool,
-		ObjectStore: targetObjectStore,
-		Projections: rebuilder,
+		Stopped:         true,
+		Postgres:        targetPool,
+		ObjectStore:     targetObjectStore,
+		EvidenceObjects: evidenceProvider,
+		Projections:     rebuilder,
 	}, nil
 }
 
@@ -468,12 +485,17 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
+	evidenceProvider, err := service.newEvidenceProvider(targetPool)
+	if err != nil {
+		return recovery.RestoreVerificationTarget{}, err
+	}
 	return recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
-			Stopped:     true,
-			Postgres:    targetPool,
-			ObjectStore: targetObjectStore,
-			Projections: rebuilder,
+			Stopped:         true,
+			Postgres:        targetPool,
+			ObjectStore:     targetObjectStore,
+			EvidenceObjects: evidenceProvider,
+			Projections:     rebuilder,
 		},
 		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool, Query: query},
 	}, nil
@@ -505,10 +527,18 @@ func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigP
 SELECT
     (SELECT COUNT(*) FROM incidents)
   + (SELECT COUNT(*) FROM records)
-  + (SELECT COUNT(*) FROM object_blobs)
 `).Scan(&rowCount); err != nil {
 		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore target data rows: %w", err))
 	}
+	evidenceProvider, err := service.newEvidenceProvider(targetPool)
+	if err != nil {
+		return NewFailure(FailureTargetDatabaseNotFresh, err)
+	}
+	evidenceRows, err := evidenceProvider.CountRecoveryRows(ctx)
+	if err != nil {
+		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore target Evidence rows: %w", err))
+	}
+	rowCount += evidenceRows
 	if rowCount != 0 {
 		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("restore target database is not empty (%d incident/record/blob rows)", rowCount))
 	}
@@ -612,95 +642,65 @@ func unlockRecoveryOperationAdvisoryLock(ctx context.Context, pool postgres.DB) 
 }
 
 func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPool, parsed operationRequest) error {
-	record := JournalRecord{
-		OperationID: parsed.OperationID.String(),
-		Operation:   string(parsed.Operation),
-		Result:      "started",
-		Summary: map[string]any{
-			"source_config_supplied": parsed.SourceConfigPath != "",
-			"target_config_supplied": parsed.TargetConfigPath != "",
-		},
-	}
-	store := service.journalStore(pool)
-	if err := store.Append(ctx, record); err != nil {
+	repository, err := service.evidenceRepository(pool)
+	if err != nil {
 		return NewFailure(journalFailureKind(parsed.Operation), err)
 	}
-	if parsed.Operation == OperationRestoreLatest {
-		if err := store.AppendAuditSummary(ctx, record); err != nil {
-			return NewFailure(journalFailureKind(parsed.Operation), err)
-		}
+	if err := repository.AppendAdmission(ctx, RecoveryAdmissionRecord{
+		OperationID:   parsed.OperationID,
+		Operation:     parsed.Operation,
+		StartedAt:     parsed.StartedAt,
+		ArtifactKinds: []string{},
+	}); err != nil {
+		return NewFailure(journalFailureKind(parsed.Operation), err)
 	}
 	return nil
 }
 
 func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresPool, parsed operationRequest, outcome Result, operationErr *error) {
-	result := string(outcome.Status)
+	result := outcome.Status
 	if result == "" {
-		result = string(ResultSucceeded)
+		result = ResultSucceeded
 	}
-	var errorCode string
-	var reasonCode string
+	var errorCode *string
+	var reasonCode *string
 	if operationErr != nil && *operationErr != nil {
-		result = "failed"
+		result = ResultFailed
 		*operationErr = EnsureFailure(defaultFailureKind(parsed.Operation), *operationErr)
 		if kind, ok := FailureKindOf(*operationErr); ok {
-			errorCode, reasonCode = service.failureEvidenceFields(kind)
+			code, reason := service.failureEvidenceFields(kind)
+			errorCode = &code
+			reasonCode = &reason
 		}
 	}
-	record := JournalRecord{
-		OperationID: parsed.OperationID.String(),
-		Operation:   string(parsed.Operation),
-		Result:      result,
-		BackupSetID: stringUUIDPtr(outcome.BackupSetID),
-		ErrorCode:   errorCode,
-		ReasonCode:  reasonCode,
-		Summary: map[string]any{
-			"artifact_ref_count": len(outcome.ArtifactRefs),
-			"has_backup_set_id":  outcome.BackupSetID != nil,
-		},
-	}
-	store := service.journalStore(pool)
-	if err := store.Append(ctx, record); err != nil {
-		mergeOperationError(operationErr, NewFailure(journalFailureKind(parsed.Operation), err))
+	repository, err := service.evidenceRepository(pool)
+	if err != nil {
+		replaceWithJournalFailure(operationErr, parsed.Operation, err)
 		return
 	}
-	if err := store.AppendAuditSummary(ctx, record); err != nil {
-		mergeOperationError(operationErr, NewFailure(journalFailureKind(parsed.Operation), err))
+	evidenceCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalEvidenceTimeout)
+	defer cancel()
+	if err := repository.AppendCompletion(evidenceCtx, RecoveryCompletionRecord{
+		OperationID:        parsed.OperationID,
+		Operation:          parsed.Operation,
+		StartedAt:          parsed.StartedAt,
+		CompletedAt:        service.now(),
+		Result:             result,
+		BackupSetID:        outcome.BackupSetID,
+		ConsistencyPointAt: outcome.ConsistencyPointAt,
+		ArtifactCounts:     ArtifactCountsFor(outcome.ArtifactRefs),
+		ErrorCode:          errorCode,
+		ErrorReason:        reasonCode,
+	}); err != nil {
+		replaceWithJournalFailure(operationErr, parsed.Operation, err)
 	}
 }
 
-func (service Service) journalStore(pool PostgresPool) JournalStore {
-	return JournalStore{
-		DB:      pool,
-		LoadKey: service.LoadJournalKey,
-		Now:     service.now,
+func (service Service) evidenceRepository(pool PostgresPool) (RecoveryEvidenceRepository, error) {
+	if service.NewEvidenceRepository == nil {
+		return nil, errors.New("operator recovery requires evidence repository factory")
 	}
-}
-
-func loadBackupObjectBlobIndex(ctx context.Context, db postgres.DB) (map[string]uuid.UUID, error) {
-	rows, err := db.Query(ctx, `
-SELECT storage_key, object_blob_id
-FROM object_blobs
-WHERE storage_key IS NOT NULL AND storage_key <> ''
-ORDER BY storage_key ASC
-`)
-	if err != nil {
-		return nil, fmt.Errorf("list object blobs for backup manifest: %w", err)
-	}
-	defer rows.Close()
-	index := make(map[string]uuid.UUID)
-	for rows.Next() {
-		var storageKey string
-		var objectBlobID uuid.UUID
-		if err := rows.Scan(&storageKey, &objectBlobID); err != nil {
-			return nil, fmt.Errorf("scan object blob for backup manifest: %w", err)
-		}
-		index[storageKey] = objectBlobID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate object blobs for backup manifest: %w", err)
-	}
-	return index, nil
+	return service.NewEvidenceRepository(pool)
 }
 
 func backupObjectStoreBucket(deployment Deployment) (string, error) {
@@ -761,15 +761,15 @@ func objectStoreBindingID(settings objectstore.Settings) string {
 	}
 }
 
-func mergeOperationError(operationErr *error, err error) {
-	if operationErr == nil || err == nil {
+func replaceWithJournalFailure(operationErr *error, operation Operation, journalErr error) {
+	if operationErr == nil || journalErr == nil {
 		return
 	}
-	if *operationErr == nil {
-		*operationErr = err
-		return
+	cause := journalErr
+	if *operationErr != nil {
+		cause = fmt.Errorf("operation failed before terminal evidence: %v; terminal evidence failed: %w", *operationErr, journalErr)
 	}
-	*operationErr = fmt.Errorf("%w; additionally %v", *operationErr, err)
+	*operationErr = NewFailure(journalFailureKind(operation), cause)
 }
 
 func classifyConfigOrSecretFailure(err error) error {
@@ -909,14 +909,6 @@ func (service Service) failureEvidenceFields(kind FailureKind) (string, string) 
 	return service.ProjectFailureEvidence(kind)
 }
 
-func stringUUIDPtr(value *uuid.UUID) *string {
-	if value == nil {
-		return nil
-	}
-	rendered := value.String()
-	return &rendered
-}
-
 func (service Service) loadDeployment(path string) (Deployment, error) {
 	if service.LoadDeployment == nil {
 		return Deployment{}, errors.New("operator recovery requires deployment loader")
@@ -957,6 +949,17 @@ func (service Service) newProjectionServices(db postgres.DB) (restorecontract.Pr
 		return nil, nil, errors.New("operator recovery requires projection query")
 	}
 	return rebuilder, query, nil
+}
+
+func (service Service) newEvidenceProvider(db postgres.DB) (recovery.EvidenceRecoveryProvider, error) {
+	if service.NewEvidenceProvider == nil {
+		return nil, errors.New("operator recovery requires Evidence recovery provider")
+	}
+	provider := service.NewEvidenceProvider(db)
+	if provider == nil {
+		return nil, errors.New("operator recovery Evidence recovery provider is unavailable")
+	}
+	return provider, nil
 }
 
 func (service Service) now() time.Time {

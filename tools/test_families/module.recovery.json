@@ -34,6 +34,34 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.integration.atomic_typed_terminal_evidence_7a41f0d8c2",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit",
+          "TestRecoveryEvidenceCompletionIsTypedEncryptedAndAtomic_Integration",
+          "TestRecoveryTerminalEvidenceRollsBackJournalWhenAuditFails_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -256,6 +284,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.unit.closed_typed_failure_catalog_2d89c71ab4",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/application",
+        "tests": [
+          "TestEnsureFailurePreservesTypedFailureAndClassifiesDeadline_Unit",
+          "TestFailureKindsAreClosedUniqueAndRoundTrip_Unit",
+          "TestTerminalEvidenceFailureOverridesPriorOperationFailureKind_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.unit.filesystem_backup_storage_is_rooted_and_bounded_58ce799613",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",
@@ -270,6 +325,34 @@
         "package": "./internal/app/recoveryassembly",
         "tests": [
           "TestRecoveryFilesystemStorageContainment_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.runtime_resource_lifetimes_9c37e10ad6",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "app.operator",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/application",
+        "tests": [
+          "TestRestoreRuntimeFailureClosesCreatedResourcesInReverseOrder_Unit",
+          "TestSourceRuntimeFailureClosesCreatedPostgres_Unit"
         ]
       },
       "evidence_class": "unit",
