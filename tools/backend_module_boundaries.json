@@ -870,6 +870,24 @@
       "production_only": true
     },
     {
+      "id": "recovery-runtime-no-documentation-or-harness-inputs",
+      "tokens": ["docs/", "tools/"],
+      "scan_paths": [
+        "internal/modules/recovery/**",
+        "internal/app/recoveryassembly/**",
+        "internal/app/operator/recoverycli/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "recovery-current-verification-no-timeline-view-constant",
+      "tokens": ["RestoreVerificationTimelineViewID"],
+      "scan_paths": ["internal/modules/recovery/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "retired-browser-runtime-opt-in",
       "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
       "scan_paths": ["internal/**", "cmd/**"],

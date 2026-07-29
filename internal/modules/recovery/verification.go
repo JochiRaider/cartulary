@@ -15,8 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const RestoreVerificationInterval = 7 * 24 * time.Hour
-
 type RestoreVerificationProbe interface {
 	ProbeRestoredBackup(ctx context.Context, result *RestoreResult) error
 }

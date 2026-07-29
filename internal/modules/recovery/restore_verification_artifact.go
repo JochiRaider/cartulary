@@ -165,7 +165,7 @@ func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) e
 		}
 		if artifact.WorkbookProbe.Status != "executed" ||
 			!recoveryIdentifierPattern.MatchString(artifact.WorkbookProbe.RegistrationID) ||
-			artifact.WorkbookProbe.ViewSchemaID != RestoreVerificationTimelineViewID ||
+			!recoveryIdentifierPattern.MatchString(artifact.WorkbookProbe.ViewSchemaID) ||
 			artifact.WorkbookProbe.RowCount == nil ||
 			*artifact.WorkbookProbe.RowCount < 0 ||
 			artifact.WorkbookProbe.Reason != "" {

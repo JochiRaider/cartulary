@@ -110,7 +110,9 @@
             "registration_id": {
               "$ref": "common.v1.schema.json#/$defs/identifier"
             },
-            "view_schema_id": { "const": "cartulary.view.timeline.v2" },
+            "view_schema_id": {
+              "$ref": "common.v1.schema.json#/$defs/identifier"
+            },
             "row_count": {
               "type": "integer",
               "minimum": 0,

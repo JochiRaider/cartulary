@@ -473,6 +473,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestRestoreVerificationArtifactV1HistoricalDecoderRemainsStrict_Unit",
           "TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit",
           "TestRestoreVerificationArtifactV2CanonicalFixture_Unit",
           "TestRestoreVerificationWorkbookProbe"

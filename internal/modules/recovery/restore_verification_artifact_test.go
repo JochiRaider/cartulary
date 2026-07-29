@@ -63,6 +63,16 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 		t.Fatalf("zero row count was omitted: %s", body)
 	}
 
+	artifact.WorkbookProbe.ViewSchemaID = "cartulary.view.reporting.v1"
+	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err != nil {
+		t.Fatalf("registered non-Timeline workbook view identity was rejected: %v", err)
+	}
+	artifact.WorkbookProbe.ViewSchemaID = "invalid view identity"
+	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err == nil {
+		t.Fatal("invalid workbook view identity was accepted")
+	}
+	artifact.WorkbookProbe.ViewSchemaID = "cartulary.view.timeline.v2"
+
 	duplicate := bytes.Replace(
 		body,
 		[]byte(`"schema_id":"cartulary.restore_verification.v2"`),
@@ -90,6 +100,24 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 	artifact.Result = "pass"
 	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err == nil {
 		t.Fatal("passing verification accepted prior-failure workbook skip")
+	}
+}
+
+func TestRestoreVerificationArtifactV1HistoricalDecoderRemainsStrict_Unit(t *testing.T) {
+	const canonical = `{"artifact_sha256":"920cfbff5f18e2d871683b46309835159742e233dfd718bd18d91cddc6fbdfc3","backup_set_id":"00000000-0000-0000-0000-000000000201","blob_check_counts":{"failed":0,"passed":0,"total":0},"failure_reasons":[],"incident_open_check":{"status":"skipped_no_incidents"},"manifest_check_result":"pass","projection_rebuild_result":"pass","query_view_schema_id":"","result":"pass","schema_id":"cartulary.restore_verification.v1","selected_incident_id":null}
+`
+	decoded, err := recovery.DecodeRestoreVerificationArtifactV1([]byte(canonical))
+	if err != nil {
+		t.Fatalf("decode retained restore verification v1 artifact: %v", err)
+	}
+	if decoded.SchemaID != "cartulary.restore_verification.v1" ||
+		decoded.BackupSetID != "00000000-0000-0000-0000-000000000201" {
+		t.Fatalf("decoded historical artifact got %#v", decoded)
+	}
+	if _, err := recovery.DecodeRestoreVerificationArtifactV1(
+		[]byte(strings.Replace(canonical, `"result":"pass"`, `"result":"pass","unknown":true`, 1)),
+	); err == nil {
+		t.Fatal("historical decoder accepted an unknown member")
 	}
 }
 
