@@ -25,6 +25,34 @@ RETURNING
     updated_at,
     saved_view_version;
 
+-- name: ImportSavedView :execrows
+INSERT INTO saved_views (
+    saved_view_id,
+    incident_id,
+    view_schema_id,
+    scope,
+    display_name,
+    query_json,
+    layout_json,
+    owner_user_id,
+    created_at,
+    updated_at,
+    saved_view_version
+)
+VALUES (
+    sqlc.arg(saved_view_id),
+    sqlc.arg(incident_id),
+    sqlc.arg(view_schema_id),
+    sqlc.arg(scope),
+    sqlc.arg(display_name),
+    sqlc.arg(query_json)::jsonb,
+    sqlc.arg(layout_json)::jsonb,
+    sqlc.arg(owner_user_id),
+    sqlc.arg(created_at),
+    sqlc.arg(updated_at),
+    sqlc.arg(saved_view_version)
+);
+
 -- name: ListVisibleSavedViews :many
 SELECT
     sv.saved_view_id,

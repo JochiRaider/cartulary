@@ -308,6 +308,12 @@
       "filename": "00051_import_operator_regions.sql",
       "sha256": "f4dc395b3222a9e46b59e5aea91fe9914923db676871f98a6b95dd33ea8404e2",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 52,
+      "filename": "00052_saved_views_storage_hardening.sql",
+      "sha256": "4b6b08dd9034ea366748ef854191f7ab9e9b4a6c2cedba5d4c483638fd9044ba",
+      "historical_phase_shaped": false
     }
   ]
 }

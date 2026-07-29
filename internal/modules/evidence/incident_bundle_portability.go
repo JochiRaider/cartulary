@@ -36,7 +36,14 @@ func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[strin
 		{"data/evidence_custody_events.ndjson", "evidence_custody_events", []string{"custody_event_id"}, []string{"custody_event_id", "evidence_record_id"}, `INSERT INTO evidence_custody_events SELECT * FROM jsonb_populate_record(NULL::evidence_custody_events, $1::jsonb)`},
 	}
 	for _, spec := range specs {
-		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
+		recorder := attributions
+		if spec.LogicalBundlePath == "data/object_blobs.ndjson" {
+			// Blob staging already remapped and recorded the source owner before
+			// replacing the storage reference. Applying the rewritten rows must
+			// not reinterpret the target-local actor as a second source actor.
+			recorder = nil
+		}
+		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, recorder); err != nil {
 			return err
 		}
 	}

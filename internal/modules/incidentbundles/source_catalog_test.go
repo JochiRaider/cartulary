@@ -2,7 +2,10 @@ package incidentbundles_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -37,6 +40,7 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	if !slices.Equal(families, want) {
 		t.Fatalf("catalog order = %#v, want %#v", families, want)
 	}
+	assertSavedViewsCatalogProjection(t, catalog.Descriptors())
 	for version, path := range map[int]string{1: "data/timeline_events.ndjson", 2: "data/timeline_source_provenance.ndjson"} {
 		if consumer, ok := catalog.ConsumerFor(version, path); !ok || consumer != "timeline" {
 			t.Fatalf("Timeline path %q version %d consumer = %q, %v", path, version, consumer, ok)
@@ -93,6 +97,10 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 			t.Fatal("operation-mismatched prepared value reached its owner apply function")
 			return nil
 		},
+		Validate: func(context.Context, pgx.Tx, any, sourceport.ImportContext) error {
+			t.Fatal("operation-mismatched prepared value reached its owner validate function")
+			return nil
+		},
 	})
 	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{}, sourceport.ImportContext{OperationID: "operation-a"})
 	if err != nil {
@@ -101,5 +109,100 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 	err = port.ApplyImportTx(context.Background(), nil, prepared, sourceport.ImportContext{OperationID: "operation-b"})
 	if !errors.Is(err, sourceport.ErrPreparedBinding) {
 		t.Fatalf("cross-operation prepared value error = %v; want ErrPreparedBinding", err)
+	}
+	err = port.ValidateImportTx(
+		context.Background(),
+		nil,
+		prepared,
+		sourceport.ImportContext{OperationID: "operation-b"},
+	)
+	if !errors.Is(err, sourceport.ErrPreparedBinding) {
+		t.Fatalf("cross-operation validation error = %v; want ErrPreparedBinding", err)
+	}
+}
+
+type sourceCatalogProjection struct {
+	Families []struct {
+		FamilyID     string            `json:"family_id"`
+		Paths        []sourceport.Path `json:"paths"`
+		InvariantIDs []string          `json:"invariant_ids"`
+	} `json:"families"`
+}
+
+type rowSchemaProjection struct {
+	ID                   string   `json:"$id"`
+	Type                 string   `json:"type"`
+	AdditionalProperties bool     `json:"additionalProperties"`
+	Required             []string `json:"required"`
+}
+
+func assertSavedViewsCatalogProjection(t *testing.T, descriptors []sourceport.Descriptor) {
+	t.Helper()
+	var runtime sourceport.Descriptor
+	for _, descriptor := range descriptors {
+		if descriptor.FamilyID == "saved_views" {
+			runtime = descriptor
+			break
+		}
+	}
+	if runtime.FamilyID == "" {
+		t.Fatal("runtime source catalog is missing saved_views")
+	}
+
+	var authored sourceCatalogProjection
+	readContractJSON(t, "source_catalog.json", &authored)
+	var projection struct {
+		FamilyID     string
+		Paths        []sourceport.Path
+		InvariantIDs []string
+	}
+	for _, family := range authored.Families {
+		if family.FamilyID == "saved_views" {
+			projection.FamilyID = family.FamilyID
+			projection.Paths = family.Paths
+			projection.InvariantIDs = family.InvariantIDs
+			break
+		}
+	}
+	if projection.FamilyID == "" || len(projection.Paths) != 1 || len(runtime.Paths) != 1 {
+		t.Fatal("authored and runtime saved_views catalogs must each expose one path")
+	}
+	authoredPath := projection.Paths[0]
+	runtimePath := runtime.Paths[0]
+	if authoredPath.LogicalPath != runtimePath.LogicalPath ||
+		authoredPath.ContentRole != runtimePath.ContentRole ||
+		authoredPath.SchemaID != runtimePath.SchemaID ||
+		!slices.Equal(authoredPath.Versions, runtimePath.Versions) ||
+		!slices.Equal(authoredPath.StableIdentity, runtimePath.StableIdentity) {
+		t.Fatalf("saved_views path projection drift:\nauthored=%#v\nruntime=%#v", authoredPath, runtimePath)
+	}
+	authoredInvariants := append([]string(nil), projection.InvariantIDs...)
+	slices.Sort(authoredInvariants)
+	if !slices.Equal(authoredInvariants, runtime.InvariantIDs) {
+		t.Fatalf("saved_views invariant projection drift:\nauthored=%#v\nruntime=%#v", authoredInvariants, runtime.InvariantIDs)
+	}
+
+	var rowSchema rowSchemaProjection
+	readContractJSON(t, "saved_views.row.v1.schema.json", &rowSchema)
+	required := []string{
+		"saved_view_id", "incident_id", "view_schema_id", "scope", "display_name",
+		"query_json", "layout_json", "owner_user_id", "created_at", "updated_at",
+		"saved_view_version",
+	}
+	if rowSchema.ID != runtimePath.SchemaID || rowSchema.Type != "object" ||
+		rowSchema.AdditionalProperties || !slices.Equal(rowSchema.Required, required) {
+		t.Fatalf("saved_views row schema is not the exact closed runtime projection: %#v", rowSchema)
+	}
+}
+
+func readContractJSON(t *testing.T, name string, target any) {
+	t.Helper()
+	path := filepath.Join("..", "..", "..", "contracts", "incident-bundles", name)
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if err := json.Unmarshal(payload, target); err != nil {
+		t.Fatalf("decode %s: %v", path, err)
 	}
 }

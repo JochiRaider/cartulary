@@ -76,6 +76,11 @@
     ],
     "out_of_scope_targets": [
       {
+        "target": "author-test-row-id",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
         "target": "bootstrap",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -865,6 +870,11 @@
           "target": "task-guide",
           "usage": "ROLE=module-author OWNER=<owner-id>",
           "description": "recommend what to run"
+        },
+        {
+          "target": "author-test-row-id",
+          "usage": "FAMILY_ID=<owner.family> CLAIM=<semantic-claim> SELECTOR_KEY=<stable-selector-key>",
+          "description": "derive a stable semantic test-catalog row ID"
         },
         {
           "target": "task-surface-report",
@@ -2329,6 +2339,10 @@
       "prerequisites": [
         "$(NODE_BIN)"
       ]
+    },
+    "author-test-row-id": {
+      "type": "node_tool",
+      "prerequisites": []
     },
     "test-slice": {
       "type": "owner_command",
@@ -5839,6 +5853,107 @@
             "type": "exact_1_bool",
             "default": false,
             "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
+      }
+    },
+    {
+      "name": "author-test-row-id",
+      "backing_scripts": [
+        "tools/harness/test-catalog/row-id-authoring-cli.mjs",
+        "tools/harness/test-catalog/row-id-authoring.mjs"
+      ],
+      "output_policy": {
+        "output_class": "human_summary",
+        "artifact_policy": "none",
+        "success_budget": {
+          "stdout_lines": 1,
+          "stdout_bytes": 300,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 10,
+          "stderr_bytes": 1200,
+          "excerpt_lines": 10,
+          "excerpt_bytes": 1200
+        },
+        "raw_stream_policy": "explicit_detail_only",
+        "summary_schema": null
+      },
+      "command_id": "cartulary.harness.command.author_test_row_id.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "help_discovery",
+      "side_effects": [
+        {
+          "class": "none",
+          "owner_section": "Section 4"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "FAMILY_ID",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "family_id",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "CLAIM",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "semantic_text",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "SELECTOR_KEY",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "semantic_text",
+            "default": null,
+            "empty_string": "invalid",
             "normalization": "trim",
             "invalid_reason": "usage_error",
             "summary_emission": "value",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -18,13 +19,15 @@ const ContractMajor = 1
 var (
 	ErrInvalidCatalog  = errors.New("incident bundle source-port catalog is invalid")
 	ErrPreparedBinding = errors.New("incident bundle prepared source belongs to another port")
+	schemaIDPattern    = regexp.MustCompile(`^cartulary\.[A-Za-z0-9_.-]+\.v[1-9][0-9]*$`)
 )
 
 type Path struct {
-	LogicalPath    string
-	ContentRole    string
-	Versions       []int
-	StableIdentity []string
+	LogicalPath    string   `json:"logical_path"`
+	ContentRole    string   `json:"content_role"`
+	SchemaID       string   `json:"schema_id,omitempty"`
+	Versions       []int    `json:"versions"`
+	StableIdentity []string `json:"stable_identity"`
 }
 
 type Descriptor struct {
@@ -43,7 +46,25 @@ type ImportContext struct {
 	BundleVersion        int
 	OperationID          string
 	Attributions         incidentportability.AttributionRecorder
+	Actors               ActorCatalog
 	RewrittenObjectBlobs []byte
+}
+
+type PortableAttributionResolver interface {
+	ResolvePortableSourceActors(
+		context.Context,
+		incidentportability.Queryer,
+		uuid.UUID,
+		string,
+		string,
+		[]string,
+	) (map[string]string, error)
+}
+
+type ExportContext struct {
+	Query                incidentportability.Queryer
+	IncidentID           uuid.UUID
+	PortableAttributions PortableAttributionResolver
 }
 
 type Bundle interface {
@@ -85,10 +106,10 @@ func (p Prepared) ValueFor(portKey string, operationID string) (any, error) {
 
 type Port interface {
 	Descriptor() Descriptor
-	Export(context.Context, incidentportability.Queryer, uuid.UUID) ([]incidentportability.File, error)
+	Export(context.Context, ExportContext) ([]incidentportability.File, error)
 	PrepareImport(context.Context, Bundle, ImportContext) (Prepared, error)
 	ApplyImportTx(context.Context, pgx.Tx, Prepared, ImportContext) error
-	ValidateImportTx(context.Context, pgx.Tx, ImportContext) error
+	ValidateImportTx(context.Context, pgx.Tx, Prepared, ImportContext) error
 }
 
 type ContractValidator interface {
@@ -292,6 +313,9 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 		if strings.TrimSpace(path.LogicalPath) == "" || strings.TrimSpace(path.ContentRole) == "" ||
 			len(path.Versions) == 0 || len(path.StableIdentity) == 0 {
 			return fmt.Errorf("%w: incomplete path in %s", ErrInvalidCatalog, descriptor.FamilyID)
+		}
+		if path.SchemaID != "" && !schemaIDPattern.MatchString(path.SchemaID) {
+			return fmt.Errorf("%w: invalid path schema id in %s", ErrInvalidCatalog, descriptor.FamilyID)
 		}
 		if _, duplicate := seenPaths[path.LogicalPath]; duplicate {
 			return fmt.Errorf("%w: duplicate path %s", ErrInvalidCatalog, path.LogicalPath)

@@ -6,36 +6,36 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
-type Scope string
+type scope string
 
 const (
-	ScopePrivate Scope = "private"
-	ScopeShared  Scope = "shared"
-	ScopeSystem  Scope = "system"
+	scopePrivate scope = "private"
+	scopeShared  scope = "shared"
+	scopeSystem  scope = "system"
 )
 
-func ParseScope(value string) (Scope, bool) {
-	switch Scope(value) {
-	case ScopePrivate, ScopeShared, ScopeSystem:
-		return Scope(value), true
+func parseScope(value string) (scope, bool) {
+	switch scope(value) {
+	case scopePrivate, scopeShared, scopeSystem:
+		return scope(value), true
 	default:
 		return "", false
 	}
 }
 
-func DefaultCreateScope(value *string) (Scope, bool) {
+func defaultCreateScope(value *string) (scope, bool) {
 	if value == nil {
-		return ScopePrivate, true
+		return scopePrivate, true
 	}
-	return ParseScope(*value)
+	return parseScope(*value)
 }
 
-func IsOrdinaryCreateScope(scope Scope) bool {
-	return scope == ScopePrivate || scope == ScopeShared
+func isOrdinaryCreateScope(value scope) bool {
+	return value == scopePrivate || value == scopeShared
 }
 
-func CanMutate(record Record, actorUserID uuid.UUID, membershipRole string) bool {
-	if record.Scope == ScopeSystem {
+func canMutate(record savedViewRecord, actorUserID uuid.UUID, membershipRole string) bool {
+	if record.Scope == scopeSystem {
 		return false
 	}
 	if membershipRole == "admin" {
@@ -44,7 +44,7 @@ func CanMutate(record Record, actorUserID uuid.UUID, membershipRole string) bool
 	return record.OwnerUserID != nil && *record.OwnerUserID == actorUserID
 }
 
-func NormalizeDisplayName(value string) (string, bool) {
+func normalizeDisplayName(value string) (string, bool) {
 	normalized, ok := fieldnorm.NormalizeLine(value)
 	if !ok || countRunes(normalized) > 256 {
 		return "", false

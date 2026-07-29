@@ -146,6 +146,22 @@ function ownerDiagnosticTool(mode, target) {
 }
 
 export const makeNodeTools = {
+  "author-test-row-id": {
+    inputs: ["FAMILY_ID", "CLAIM", "SELECTOR_KEY"],
+    script: "./tools/harness/test-catalog/row-id-authoring-cli.mjs",
+    usage:
+      "usage: make author-test-row-id FAMILY_ID=<owner.family> CLAIM=<semantic-claim> SELECTOR_KEY=<stable-selector-key>",
+    buildArgs(env) {
+      return [
+        "--family-id",
+        value(env, "FAMILY_ID"),
+        "--claim",
+        value(env, "CLAIM"),
+        "--selector-key",
+        value(env, "SELECTOR_KEY"),
+      ];
+    },
+  },
   "test-slice": ownerSliceTool("test-slice"),
   "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
   "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),

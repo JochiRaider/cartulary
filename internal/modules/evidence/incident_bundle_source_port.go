@@ -26,7 +26,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: ExportIncidentBundleFiles,
+		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
 			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
 		},
@@ -35,7 +35,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			files["data/object_blobs.ndjson"] = importContext.RewrittenObjectBlobs
 			return ImportIncidentBundleFilesTx(ctx, tx, files, importContext.ActorUserID, importContext.Attributions)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, importContext sourceport.ImportContext) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool
 			if err := tx.QueryRow(ctx, `
 SELECT EXISTS (

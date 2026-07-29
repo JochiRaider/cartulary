@@ -9,6 +9,7 @@ const validInputSources = new Set([
 const validInputTypes = new Set([
   "enum",
   "exact_1_bool",
+  "family_id",
   "owner_id",
   "path",
   "positive_decimal",
@@ -16,6 +17,7 @@ const validInputTypes = new Set([
   "result_selector",
   "row_ids",
   "run_id",
+  "semantic_text",
   "task_surface_report_args",
   "target_name",
   "url",

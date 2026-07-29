@@ -21,6 +21,7 @@
     {"acceptance_id": "AC-504", "requirement_ids": ["REQ-01-643"], "verification_ids": ["module.incidentbundles.verification.traceability"]},
     {"acceptance_id": "AC-505", "requirement_ids": ["REQ-01-643"], "verification_ids": ["harness.generated_artifacts.verification.policy"]},
     {"acceptance_id": "AC-506", "requirement_ids": ["REQ-01-635", "REQ-01-636"], "verification_ids": ["module.incidentbundles.verification.compatibility"]},
-    {"acceptance_id": "AC-507", "requirement_ids": ["REQ-01-639", "REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]}
+    {"acceptance_id": "AC-507", "requirement_ids": ["REQ-01-639", "REQ-01-640"], "verification_ids": ["module.incidentbundles.verification.source_catalog"]},
+    {"acceptance_id": "AC-508", "requirement_ids": ["REQ-01-639", "REQ-01-640", "REQ-01-642", "REQ-01-644", "REQ-01-645", "REQ-01-646"], "verification_ids": ["module.savedviews.verification.incident_portability", "module.incidentbundles.verification.atomic_coordination", "module.incidentbundles.verification.safe_failures", "module.incidentbundles.verification.source_catalog"]}
   ]
 }

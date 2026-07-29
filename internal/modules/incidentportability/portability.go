@@ -22,8 +22,17 @@ type File struct {
 	Payload []byte
 }
 
+type ImportedAttribution struct {
+	SourceTable   string
+	SourceRowID   string
+	SourceColumn  string
+	SourceActorID string
+	LocalUserID   uuid.UUID
+}
+
 type AttributionRecorder interface {
-	RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string)
+	RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error
+	ImportedAttributions() []ImportedAttribution
 }
 
 type FixedImportSpec struct {
@@ -114,7 +123,9 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 		if err := ValidateRequiredColumns(row, spec.RequiredColumns, spec.StableIdentity); err != nil {
 			return err
 		}
-		RemapTopLevelUserFields(row, spec.AttributionTable, spec.StableIdentity, actorUserID, attributions)
+		if err := RemapTopLevelUserFields(row, spec.AttributionTable, spec.StableIdentity, actorUserID, attributions); err != nil {
+			return err
+		}
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
@@ -177,7 +188,7 @@ func SourceRowID(row map[string]any, identity []string) string {
 	return strings.Join(parts, ":")
 }
 
-func RemapTopLevelUserFields(row map[string]any, table string, identity []string, actorUserID uuid.UUID, attributions AttributionRecorder) {
+func RemapTopLevelUserFields(row map[string]any, table string, identity []string, actorUserID uuid.UUID, attributions AttributionRecorder) error {
 	sourceRowID := SourceRowID(row, identity)
 	for key, value := range row {
 		if !strings.HasSuffix(key, "_user_id") || value == nil {
@@ -188,10 +199,13 @@ func RemapTopLevelUserFields(row map[string]any, table string, identity []string
 			continue
 		}
 		if attributions != nil && sourceRowID != "" {
-			attributions.RecordImportedAttribution(table, sourceRowID, key, sourceActorID)
+			if err := attributions.RecordImportedAttribution(table, sourceRowID, key, sourceActorID); err != nil {
+				return err
+			}
 		}
 		row[key] = actorUserID.String()
 	}
+	return nil
 }
 
 func CanonicalRawJSON(raw []byte) ([]byte, error) {

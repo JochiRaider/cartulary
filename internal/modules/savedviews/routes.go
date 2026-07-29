@@ -16,8 +16,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
-type Service struct {
-	store          *Store
+type service struct {
+	application    *savedViewApplication
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	keys           authn.MasterKeys
@@ -58,7 +58,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet) (*service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -72,8 +72,8 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	return &Service{
-		store:          NewStore(deps.PostgresHandle()),
+	return &service{
+		application:    newSavedViewApplication(newPostgresSavedViewRepository(deps.PostgresHandle())),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
@@ -82,7 +82,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
 	if err != nil {
 		http.NotFound(w, r)
@@ -98,7 +98,7 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleItem(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleItem(w http.ResponseWriter, r *http.Request) {
 	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
 	if err != nil {
 		http.NotFound(w, r)
@@ -119,26 +119,26 @@ func (s *Service) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request) {
+func (s *service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request) {
 	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	request, apiErr := DecodeSystemFixtureRequest(r.Body)
+	request, apiErr := decodeSystemFixtureRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.CreateSystemFixture(r.Context(), incidentID, request, s.now())
+	record, err := s.application.createSystemFixture(r.Context(), incidentID, request, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, BuildResource(record))
+	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, buildResource(record))
 }
 
-func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+func (s *service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -163,7 +163,7 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	records, err := s.store.ListVisible(r.Context(), incidentID, principal.User.ID, pageRequest)
+	records, err := s.application.listVisible(r.Context(), incidentID, principal.User.ID, pageRequest)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -199,7 +199,7 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 	})
 }
 
-func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+func (s *service) handleCreate(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -209,12 +209,12 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeCreateRequest(r.Body)
+	request, apiErr := decodeCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.Create(r.Context(), principal.User, incidentID, request, s.now())
+	record, err := s.application.create(r.Context(), incidentID, principal.User.ID, request, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -223,10 +223,10 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, BuildResource(record))
+	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, buildResource(record))
 }
 
-func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
+func (s *service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -237,17 +237,17 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	current, err := s.store.GetVisibleForUpdate(r.Context(), incidentID, savedViewID, principal.User.ID)
+	current, err := s.application.visibleForPatch(r.Context(), incidentID, savedViewID, principal.User.ID)
 	if err != nil {
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
-	request, apiErr := DecodePatchRequest(r.Body, current.ViewSchemaID)
+	request, apiErr := decodePatchRequest(r.Body, current.ViewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.Patch(r.Context(), principal.User, membership.Role, incidentID, savedViewID, request, s.now())
+	record, err := s.application.patch(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role, request, s.now())
 	if err != nil {
 		writeAPIError(w, r, savedViewError(err))
 		return
@@ -256,10 +256,10 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildResource(record))
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildResource(record))
 }
 
-func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
+func (s *service) handleDelete(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -270,7 +270,7 @@ func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, incidentI
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err := s.store.Delete(r.Context(), principal.User, membership.Role, incidentID, savedViewID); err != nil {
+	if err := s.application.delete(r.Context(), incidentID, savedViewID, principal.User.ID, membership.Role); err != nil {
 		writeAPIError(w, r, savedViewError(err))
 		return
 	}
@@ -284,33 +284,33 @@ func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, incidentI
 	})
 }
 
-func savedViewListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (ListPageRequest, string) {
-	request := ListPageRequest{Limit: binding.Limit + 1}
+func savedViewListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (listPageRequest, string) {
+	request := listPageRequest{Limit: binding.Limit + 1}
 	if cursor == nil {
 		return request, ""
 	}
 	if cursor.Mode != pagination.ModeKeyset {
-		return ListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	anchor, err := time.Parse(time.RFC3339Nano, cursor.Position["anchor_updated_at"])
 	if err != nil {
-		return ListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	lastUpdatedAt, err := time.Parse(time.RFC3339Nano, cursor.Position["last_updated_at"])
 	if err != nil {
-		return ListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	lastID, err := uuid.Parse(cursor.Position["last_saved_view_id"])
 	if err != nil {
-		return ListPageRequest{}, pagination.ReasonInvalidCursorToken
+		return listPageRequest{}, pagination.ReasonInvalidCursorToken
 	}
 	anchor = anchor.UTC()
 	request.AnchorUpdatedAt = &anchor
-	request.After = &ListPosition{UpdatedAt: lastUpdatedAt.UTC(), SavedViewID: lastID}
+	request.After = &listPosition{UpdatedAt: lastUpdatedAt.UTC(), SavedViewID: lastID}
 	return request, ""
 }
 
-func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, records []Record) ([]json.RawMessage, *pagination.Cursor, error) {
+func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, records []savedViewRecord) ([]json.RawMessage, *pagination.Cursor, error) {
 	hasMore := len(records) > binding.Limit
 	pageRecords := records
 	if hasMore {
@@ -318,7 +318,7 @@ func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, record
 	}
 	resources := make([]map[string]any, 0, len(pageRecords))
 	for _, record := range pageRecords {
-		resources = append(resources, BuildResource(record))
+		resources = append(resources, buildResource(record))
 	}
 	rows, err := pagination.MarshalResources(resources)
 	if err != nil {
@@ -344,26 +344,26 @@ func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, record
 }
 
 func savedViewError(err error) *httpapi.APIError {
-	var versionConflict *SavedViewVersionConflictError
+	var versionConflict *savedViewVersionConflictError
 	switch {
-	case errors.Is(err, ErrSavedViewNotFound):
+	case errors.Is(err, errSavedViewNotFound):
 		return savedViewNotFoundError()
-	case errors.Is(err, ErrSavedViewMutationDenied):
+	case errors.Is(err, errSavedViewMutationDenied):
 		return authorizationDeniedError()
 	case errors.As(err, &versionConflict):
-		return savedViewVersionConflictError(versionConflict)
-	case errors.Is(err, ErrSavedViewVersionConflict):
-		return savedViewVersionConflictError(nil)
+		return savedViewVersionConflictAPIError(versionConflict)
+	case errors.Is(err, errSavedViewVersionConflict):
+		return savedViewVersionConflictAPIError(nil)
 	default:
 		return internalAPIError(err)
 	}
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
+func (s *service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 

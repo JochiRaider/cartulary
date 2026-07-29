@@ -14,11 +14,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
-	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -225,15 +226,22 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 
 func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-saved-views")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-saved-views@example.test", "Collaboration Saved Views", "CollaborationSavedViews1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-saved-views-incident", "IR-COLLABORATION-SAVED-VIEWS", "Workbook inspector collaboration workflow coordination saved views")
-	savedViewStore := savedviews.NewStore(harness.DB)
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{
+		Prefix:        "workbook_interaction-collaboration-coordination-saved-views",
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
+	login, actorID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	incidentResource := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-workbook_interaction-collaboration-saved-views-incident",
+		"incident_key":  "IR-COLLABORATION-SAVED-VIEWS",
+		"title":         "Workbook inspector collaboration workflow coordination saved views",
+	})
+	incidentID := uuid.MustParse(incidentResource["incident_id"].(string))
 	startupStore := workbookassembly.NewStartupStore(
-		harness.DB,
+		harness.Pool,
 		workbookstartup.NewWorkspaceRegistryFromPublication(nil),
 	)
-	workbookStore := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
+	workbookStore := appsupport.NewWorkbookStore(harness.Pool, workbookTestConflictTokens())
 
 	for _, viewSchemaID := range []string{
 		workbook.CommLogViewSchemaID,
@@ -242,17 +250,26 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		workbook.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			createRequest := SavedViewCreateRequest(t, viewSchemaID)
-			created, err := savedViewStore.Create(ctx, actor, incident.ID, createRequest, Time(0))
-			if err != nil {
-				t.Fatalf("create coordination saved view: %v", err)
+			response := recordstoretest.DoJSON(
+				t,
+				http.MethodPost,
+				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/saved-views",
+				map[string]any{
+					"view_schema_id": viewSchemaID,
+					"display_name":   "Saved " + viewSchemaID,
+					"query_json":     map[string]any{},
+					"layout_json":    map[string]any{},
+				},
+				recordstoretest.WithCookies(login.SessionCookie, login.CSRFCookie),
+				recordstoretest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+			)
+			created := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
+			if created["view_schema_id"] != viewSchemaID {
+				t.Fatalf("saved view stored wrong view_schema_id: got %q want %q", created["view_schema_id"], viewSchemaID)
 			}
-			if created.ViewSchemaID != viewSchemaID {
-				t.Fatalf("saved view stored wrong view_schema_id: got %q want %q", created.ViewSchemaID, viewSchemaID)
-			}
-			savedViewID := created.SavedViewID.String()
+			savedViewID := created["saved_view_id"].(string)
 
-			startup, err := startupStore.Resolve(ctx, incident.ID, actor.ID, "admin", SheetRefJSON(t, "saved_view", savedViewID), Time(1))
+			startup, err := startupStore.Resolve(ctx, incidentID, actorID, "admin", SheetRefJSON(t, "saved_view", savedViewID), Time(1))
 			if err != nil {
 				t.Fatalf("resolve startup saved view: %v", err)
 			}
@@ -266,29 +283,11 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 			if startup.SelectedSavedView.ViewSchemaID != viewSchemaID {
 				t.Fatalf("startup selected saved view changed identity: got %q want %q", startup.SelectedSavedView.ViewSchemaID, viewSchemaID)
 			}
-			if _, err := workbookStore.QueryRows(ctx, incident.ID, viewSchemaID, DefaultQueryMeta(t, viewSchemaID)); err != nil {
+			if _, err := workbookStore.QueryRows(ctx, incidentID, viewSchemaID, DefaultQueryMeta(t, viewSchemaID)); err != nil {
 				t.Fatalf("canonical query changed identity for %s: %v", viewSchemaID, err)
 			}
 		})
 	}
-}
-
-func SavedViewCreateRequest(t testing.TB, viewSchemaID string) savedviews.CreateRequest {
-	t.Helper()
-	payload, err := json.Marshal(map[string]any{
-		"view_schema_id": viewSchemaID,
-		"display_name":   "Saved " + viewSchemaID,
-		"query_json":     map[string]any{},
-		"layout_json":    map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("marshal saved view request: %v", err)
-	}
-	request, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(string(payload)))
-	if apiErr != nil {
-		t.Fatalf("decode saved view request: %v", apiErr)
-	}
-	return request
 }
 
 func SheetRefJSON(t testing.TB, kind string, id string) []byte {

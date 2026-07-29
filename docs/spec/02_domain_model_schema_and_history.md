@@ -1513,7 +1513,10 @@ Timeline v2 import, paste, extraction, and suggestion behavior MUST derive only 
 ### 11.1 Saved-view contract
 
 **REQ-02-152**
-A saved view MUST be an incident-scoped configuration object over exactly one `view_schema`.
+A saved view MUST be an incident-scoped configuration object over exactly one
+registered `view_schema` admitted by the active base or claimed-extension
+profile. A portable saved view MUST bind only to such an admitted schema and
+MUST NOT define, infer, or create a custom sheet or custom `view_schema`.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
 

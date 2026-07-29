@@ -149,9 +149,9 @@
       "owner_relation_ids": ["savedviews"],
       "dependencies": ["revisions"],
       "paths": [
-        {"logical_path": "data/saved_views.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["saved_view_id"]}
+        {"logical_path": "data/saved_views.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.saved_views.row.v1", "versions": [1, 2], "stable_identity": ["saved_view_id"]}
       ],
-      "invariant_ids": ["saved_views.identity_scope_legal", "saved_views.owner_tuple_legal", "saved_views.display_name_normalized", "saved_views.query_layout_legal", "saved_views.version_timestamps_legal", "saved_views.reference_pack_degradation_bounded"]
+      "invariant_ids": ["saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal", "saved_views.display_name_normalized", "saved_views.query_layout_legal", "saved_views.version_timestamps_legal", "saved_views.reference_pack_degradation_bounded"]
     }
   ],
   "special_consumers": [

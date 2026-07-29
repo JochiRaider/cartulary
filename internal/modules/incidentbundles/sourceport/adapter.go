@@ -13,10 +13,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-type ExportFunc func(context.Context, incidentportability.Queryer, uuid.UUID) ([]incidentportability.File, error)
+type ExportFunc func(context.Context, ExportContext) ([]incidentportability.File, error)
 type PrepareFunc func(context.Context, Bundle, ImportContext) (any, error)
 type ApplyFunc func(context.Context, pgx.Tx, any, ImportContext) error
-type ValidateFunc func(context.Context, pgx.Tx, ImportContext) error
+type ValidateFunc func(context.Context, pgx.Tx, any, ImportContext) error
 
 type AdapterOptions struct {
 	Descriptor Descriptor
@@ -60,11 +60,19 @@ func (a *Adapter) ValidateSourcePortContract() error {
 	return nil
 }
 
-func (a *Adapter) Export(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
-	if a == nil || a.export == nil {
+func (a *Adapter) Export(ctx context.Context, exportContext ExportContext) ([]incidentportability.File, error) {
+	if a == nil || a.export == nil || exportContext.Query == nil || exportContext.IncidentID == uuid.Nil {
 		return nil, fmt.Errorf("%w: missing export", ErrInvalidCatalog)
 	}
-	return a.export(ctx, q, incidentID)
+	return a.export(ctx, exportContext)
+}
+
+func QueryExport(
+	export func(context.Context, incidentportability.Queryer, uuid.UUID) ([]incidentportability.File, error),
+) ExportFunc {
+	return func(ctx context.Context, exportContext ExportContext) ([]incidentportability.File, error) {
+		return export(ctx, exportContext.Query, exportContext.IncidentID)
+	}
 }
 
 func (a *Adapter) PrepareImport(ctx context.Context, bundle Bundle, importContext ImportContext) (Prepared, error) {
@@ -110,11 +118,15 @@ func (a *Adapter) sourceFailure() error {
 	return &Failure{FamilyID: a.descriptor.FamilyID, InvariantID: invariantID}
 }
 
-func (a *Adapter) ValidateImportTx(ctx context.Context, tx pgx.Tx, importContext ImportContext) error {
+func (a *Adapter) ValidateImportTx(ctx context.Context, tx pgx.Tx, prepared Prepared, importContext ImportContext) error {
 	if a == nil || a.validate == nil {
 		return fmt.Errorf("%w: missing validation", ErrInvalidCatalog)
 	}
-	return a.validate(ctx, tx, importContext)
+	value, err := prepared.ValueFor(a.portKey, importContext.OperationID)
+	if err != nil {
+		return err
+	}
+	return a.validate(ctx, tx, value, importContext)
 }
 
 type PreparedFiles map[string][]byte

@@ -923,6 +923,22 @@ function validateTargetInputValue(name, value, input, manifest) {
     }
     return value;
   }
+  if (input.type === "family_id") {
+    if (!/^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}$/u.test(value)) {
+      throw new HarnessConfigError(`${name} must be an owner-qualified family ID`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
+  if (input.type === "semantic_text") {
+    if (value.length > 500 || /[\u0000-\u001f\u007f]/u.test(value)) {
+      throw new HarnessConfigError(`${name} must be semantic text of at most 500 characters`, {
+        reason: input.invalid_reason,
+      });
+    }
+    return value;
+  }
   if (input.type === "row_ids") {
     const rowIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,127}_[0-9a-f]{10}$/u;
     const tokens = value.split(",").map((token) => token.trim());

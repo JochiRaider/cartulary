@@ -1,54 +1,18 @@
 package savedviews
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type CreateRequest struct {
-	ViewSchemaID string
-	DisplayName  string
-	Scope        Scope
-	QueryJSON    []byte
-	LayoutJSON   []byte
-}
-
-type OptionalString struct {
-	Present bool
-	Value   string
-}
-
-type OptionalScope struct {
-	Present bool
-	Value   Scope
-}
-
-type OptionalJSON struct {
-	Present bool
-	Value   []byte
-}
-
-type PatchRequest struct {
-	BaseSavedViewVersion int64
-	DisplayName          OptionalString
-	Scope                OptionalScope
-	QueryJSON            OptionalJSON
-	LayoutJSON           OptionalJSON
-}
-
-func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
+func decodeCreateRequest(reader io.Reader) (createRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
-		return CreateRequest{}, apiErr
+		return createRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"view_schema_id": {},
@@ -59,38 +23,35 @@ func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
+			return createRequest{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 
 	scopeRaw, hasScope := raw["scope"]
-	scope := ScopePrivate
+	requestScope := scopePrivate
 	switch {
 	case !hasScope:
 	case string(scopeRaw) == "null":
-		return CreateRequest{}, invalidMutationPayload("scope", "field_not_nullable")
+		return createRequest{}, invalidMutationPayload("scope", "field_not_nullable")
 	default:
 		var scopeValue string
 		if err := json.Unmarshal(scopeRaw, &scopeValue); err != nil {
-			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
+			return createRequest{}, invalidMutationPayload("scope", "invalid_scope")
 		}
-		parsedScope, ok := ParseScope(scopeValue)
-		if !ok {
-			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
+		parsedScope, policyErr := normalizeOrdinaryScope(scopeValue)
+		if policyErr != nil {
+			return createRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
-		if !IsOrdinaryCreateScope(parsedScope) {
-			return CreateRequest{}, invalidMutationPayload("scope", "system_scope_forbidden")
-		}
-		scope = parsedScope
+		requestScope = parsedScope
 	}
 
-	return decodeCreateFields(raw, scope)
+	return decodeCreateFields(raw, requestScope)
 }
 
-func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
+func decodeSystemFixtureRequest(reader io.Reader) (createRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
-		return CreateRequest{}, apiErr
+		return createRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"view_schema_id": {},
@@ -100,48 +61,48 @@ func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *httpapi.APIEr
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
+			return createRequest{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 
-	return decodeCreateFields(raw, ScopeSystem)
+	return decodeCreateFields(raw, scopeSystem)
 }
 
-func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequest, *httpapi.APIError) {
-	var request CreateRequest
-	request.Scope = scope
+func decodeCreateFields(raw map[string]json.RawMessage, requestScope scope) (createRequest, *httpapi.APIError) {
+	var request createRequest
+	request.Scope = requestScope
 	if value, ok := raw["view_schema_id"]; !ok {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
+		return createRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil || strings.TrimSpace(request.ViewSchemaID) == "" {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "invalid_value")
+		return createRequest{}, invalidMutationPayload("view_schema_id", "invalid_value")
 	}
-	if _, ok := viewschema.Lookup(request.ViewSchemaID); !ok {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+	if policyErr := validateViewSchemaID(request.ViewSchemaID); policyErr != nil {
+		return createRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 	}
 
 	if value, ok := raw["display_name"]; !ok {
-		return CreateRequest{}, invalidMutationPayload("display_name", "missing_required_field")
+		return createRequest{}, invalidMutationPayload("display_name", "missing_required_field")
 	} else if string(value) == "null" {
-		return CreateRequest{}, invalidMutationPayload("display_name", "field_not_nullable")
+		return createRequest{}, invalidMutationPayload("display_name", "field_not_nullable")
 	} else {
 		var displayName string
 		if err := json.Unmarshal(value, &displayName); err != nil {
-			return CreateRequest{}, invalidMutationPayload("display_name", "invalid_value")
+			return createRequest{}, invalidMutationPayload("display_name", "invalid_value")
 		}
-		normalized, ok := NormalizeDisplayName(displayName)
-		if !ok {
-			return CreateRequest{}, invalidMutationPayload("display_name", "invalid_value")
+		normalized, policyErr := normalizeMutationDisplayName(displayName)
+		if policyErr != nil {
+			return createRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
 		request.DisplayName = normalized
 	}
 
 	queryRaw, ok := raw["query_json"]
 	if !ok {
-		return CreateRequest{}, invalidMutationPayload("query_json", "missing_required_field")
+		return createRequest{}, invalidMutationPayload("query_json", "missing_required_field")
 	}
-	queryJSON, validationErr := viewquery.NormalizePersisted(queryRaw, request.ViewSchemaID)
-	if validationErr != nil {
-		return CreateRequest{}, invalidMutationPayloadFromQuery(validationErr)
+	queryJSON, policyErr := normalizeMutationQuery(queryRaw, request.ViewSchemaID)
+	if policyErr != nil {
+		return createRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 	}
 	request.QueryJSON = queryJSON
 
@@ -149,18 +110,18 @@ func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequ
 	if value, ok := raw["layout_json"]; ok {
 		layoutRaw = value
 	}
-	layoutJSON, layoutErr := viewschema.NormalizeLayout(layoutRaw, request.ViewSchemaID)
-	if layoutErr != nil {
-		return CreateRequest{}, invalidMutationPayload(layoutErr.Field, layoutErr.ReasonCode)
+	layoutJSON, policyErr := normalizeMutationLayout(layoutRaw, request.ViewSchemaID)
+	if policyErr != nil {
+		return createRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 	}
 	request.LayoutJSON = layoutJSON
 	return request, nil
 }
 
-func DecodePatchRequest(reader io.Reader, viewSchemaID string) (PatchRequest, *httpapi.APIError) {
+func decodePatchRequest(reader io.Reader, viewSchemaID string) (patchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
-		return PatchRequest{}, apiErr
+		return patchRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"base_saved_view_version": {},
@@ -180,115 +141,77 @@ func DecodePatchRequest(reader io.Reader, viewSchemaID string) (PatchRequest, *h
 	}
 	for key := range raw {
 		if _, ok := serverManaged[key]; ok {
-			return PatchRequest{}, invalidMutationPayload(key, "server_managed_field")
+			return patchRequest{}, invalidMutationPayload(key, "server_managed_field")
 		}
 		if _, ok := allowed[key]; !ok {
-			return PatchRequest{}, invalidMutationPayload(key, "unknown_field")
+			return patchRequest{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 
-	var request PatchRequest
+	var request patchRequest
 	if value, ok := raw["base_saved_view_version"]; !ok {
-		return PatchRequest{}, invalidMutationPayload("base_saved_view_version", "missing_required_field")
+		return patchRequest{}, invalidMutationPayload("base_saved_view_version", "missing_required_field")
 	} else if string(value) == "null" {
-		return PatchRequest{}, invalidMutationPayload("base_saved_view_version", "field_not_nullable")
+		return patchRequest{}, invalidMutationPayload("base_saved_view_version", "field_not_nullable")
 	} else if err := json.Unmarshal(value, &request.BaseSavedViewVersion); err != nil || request.BaseSavedViewVersion < 1 {
-		return PatchRequest{}, invalidMutationPayload("base_saved_view_version", "invalid_value")
+		return patchRequest{}, invalidMutationPayload("base_saved_view_version", "invalid_value")
 	}
 
 	if value, ok := raw["display_name"]; ok {
 		if string(value) == "null" {
-			return PatchRequest{}, invalidMutationPayload("display_name", "field_not_nullable")
+			return patchRequest{}, invalidMutationPayload("display_name", "field_not_nullable")
 		}
 		var displayName string
 		if err := json.Unmarshal(value, &displayName); err != nil {
-			return PatchRequest{}, invalidMutationPayload("display_name", "invalid_value")
+			return patchRequest{}, invalidMutationPayload("display_name", "invalid_value")
 		}
-		normalized, ok := NormalizeDisplayName(displayName)
-		if !ok {
-			return PatchRequest{}, invalidMutationPayload("display_name", "invalid_value")
+		normalized, policyErr := normalizeMutationDisplayName(displayName)
+		if policyErr != nil {
+			return patchRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
-		request.DisplayName = OptionalString{Present: true, Value: normalized}
+		request.DisplayName = optionalString{Present: true, Value: normalized}
 	}
 
 	if value, ok := raw["scope"]; ok {
 		if string(value) == "null" {
-			return PatchRequest{}, invalidMutationPayload("scope", "field_not_nullable")
+			return patchRequest{}, invalidMutationPayload("scope", "field_not_nullable")
 		}
 		var scopeValue string
 		if err := json.Unmarshal(value, &scopeValue); err != nil {
-			return PatchRequest{}, invalidMutationPayload("scope", "invalid_scope")
+			return patchRequest{}, invalidMutationPayload("scope", "invalid_scope")
 		}
-		scope, ok := ParseScope(scopeValue)
-		if !ok {
-			return PatchRequest{}, invalidMutationPayload("scope", "invalid_scope")
+		scope, policyErr := normalizeOrdinaryScope(scopeValue)
+		if policyErr != nil {
+			return patchRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
-		if !IsOrdinaryCreateScope(scope) {
-			return PatchRequest{}, invalidMutationPayload("scope", "system_scope_forbidden")
-		}
-		request.Scope = OptionalScope{Present: true, Value: scope}
+		request.Scope = optionalScope{Present: true, Value: scope}
 	}
 
 	if value, ok := raw["query_json"]; ok {
 		if string(value) == "null" {
-			return PatchRequest{}, invalidMutationPayload("query_json", "field_not_nullable")
+			return patchRequest{}, invalidMutationPayload("query_json", "field_not_nullable")
 		}
-		queryJSON, validationErr := viewquery.NormalizePersisted(value, viewSchemaID)
-		if validationErr != nil {
-			return PatchRequest{}, invalidMutationPayloadFromQuery(validationErr)
+		queryJSON, policyErr := normalizeMutationQuery(value, viewSchemaID)
+		if policyErr != nil {
+			return patchRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
-		request.QueryJSON = OptionalJSON{Present: true, Value: queryJSON}
+		request.QueryJSON = optionalJSON{Present: true, Value: queryJSON}
 	}
 
 	if value, ok := raw["layout_json"]; ok {
 		if string(value) == "null" {
-			return PatchRequest{}, invalidMutationPayload("layout_json", "field_not_nullable")
+			return patchRequest{}, invalidMutationPayload("layout_json", "field_not_nullable")
 		}
-		layoutJSON, layoutErr := viewschema.NormalizeLayout(value, viewSchemaID)
-		if layoutErr != nil {
-			return PatchRequest{}, invalidMutationPayload(layoutErr.Field, layoutErr.ReasonCode)
+		layoutJSON, policyErr := normalizeMutationLayout(value, viewSchemaID)
+		if policyErr != nil {
+			return patchRequest{}, invalidMutationPayloadFromPolicy(policyErr)
 		}
-		request.LayoutJSON = OptionalJSON{Present: true, Value: layoutJSON}
+		request.LayoutJSON = optionalJSON{Present: true, Value: layoutJSON}
 	}
 	return request, nil
 }
 
-func ApplyPatch(current Record, request PatchRequest, updatedAt time.Time) (Record, bool, error) {
-	next := current
-	if request.DisplayName.Present {
-		next.DisplayName = request.DisplayName.Value
-	}
-	if request.Scope.Present {
-		next.Scope = request.Scope.Value
-	}
-	if request.QueryJSON.Present {
-		next.QueryJSON = append([]byte(nil), request.QueryJSON.Value...)
-	}
-	if request.LayoutJSON.Present {
-		next.LayoutJSON = append([]byte(nil), request.LayoutJSON.Value...)
-	}
-
-	sameQuery, err := jsonStructurallyEqual(current.QueryJSON, next.QueryJSON)
-	if err != nil {
-		return Record{}, false, err
-	}
-	sameLayout, err := jsonStructurallyEqual(current.LayoutJSON, next.LayoutJSON)
-	if err != nil {
-		return Record{}, false, err
-	}
-	if current.DisplayName == next.DisplayName &&
-		current.Scope == next.Scope &&
-		sameQuery &&
-		sameLayout {
-		return current, false, nil
-	}
-
-	next.UpdatedAt = updatedAt.UTC()
-	next.SavedViewVersion = current.SavedViewVersion + 1
-	return next, true, nil
-}
-
-func BuildResource(record Record) map[string]any {
+func buildResource(record savedViewRecord) map[string]any {
 	return map[string]any{
 		"saved_view_id":      record.SavedViewID,
 		"incident_id":        record.IncidentID,
@@ -324,45 +247,29 @@ func decodeJSON(raw []byte) any {
 	return value
 }
 
-func jsonStructurallyEqual(left []byte, right []byte) (bool, error) {
-	var leftValue any
-	var rightValue any
-	leftDecoder := json.NewDecoder(bytes.NewReader(left))
-	leftDecoder.UseNumber()
-	if err := leftDecoder.Decode(&leftValue); err != nil {
-		return false, err
-	}
-	rightDecoder := json.NewDecoder(bytes.NewReader(right))
-	rightDecoder.UseNumber()
-	if err := rightDecoder.Decode(&rightValue); err != nil {
-		return false, err
-	}
-	return reflect.DeepEqual(leftValue, rightValue), nil
-}
-
-func invalidMutationPayloadFromQuery(validationErr *viewquery.ValidationError) *httpapi.APIError {
-	field := validationErr.Field
+func invalidMutationPayloadFromPolicy(policyErr *mutationPolicyError) *httpapi.APIError {
+	field := policyErr.Field
 	switch field {
 	case "":
 		field = "query_json"
 	case "sort", "filters", "group_by":
 		field = "query_json." + field
 	}
-	if validationErr.FilterIndex != nil {
-		field = "query_json.filters[" + itoa(*validationErr.FilterIndex) + "]"
-		if validationErr.FieldKey != "" {
+	if policyErr.FilterIndex != nil {
+		field = "query_json.filters[" + itoa(*policyErr.FilterIndex) + "]"
+		if policyErr.FieldKey != "" {
 			field += ".field_key"
 		}
 	}
 	details := map[string]any{
 		"field":       field,
-		"reason_code": validationErr.ReasonCode,
+		"reason_code": policyErr.ReasonCode,
 	}
-	if validationErr.RequestedCount != nil {
-		details["requested_count"] = *validationErr.RequestedCount
+	if policyErr.RequestedCount != nil {
+		details["requested_count"] = *policyErr.RequestedCount
 	}
-	if validationErr.MaxCount != nil {
-		details["max_count"] = *validationErr.MaxCount
+	if policyErr.MaxCount != nil {
+		details["max_count"] = *policyErr.MaxCount
 	}
 	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
@@ -412,7 +319,7 @@ func authorizationDeniedError() *httpapi.APIError {
 	}
 }
 
-func savedViewVersionConflictError(conflict *SavedViewVersionConflictError) *httpapi.APIError {
+func savedViewVersionConflictAPIError(conflict *savedViewVersionConflictError) *httpapi.APIError {
 	details := map[string]any{}
 	if conflict != nil {
 		details = conflict.Details()

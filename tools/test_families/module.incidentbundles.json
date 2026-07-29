@@ -3,6 +3,32 @@
   "owner_id": "module.incidentbundles",
   "rows": [
     {
+      "row_id": "module.incidentbundles.integration.actor_export_combines_native_users_and_imported_f4f3ed2ecc",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract",
+        "module.incidentbundles.verification.source_catalog"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestActorExportCombinesNativeAndImportedDescriptorsAndRejectsCollisions_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",

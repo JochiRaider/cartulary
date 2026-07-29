@@ -791,7 +791,7 @@ Definition of Done:
 - additional requirement selector: `profile:incident_portability`
 - additional acceptance criteria: `AC-164..AC-169`, `AC-236`,
   `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`,
-  `AC-440`, `AC-442`, `AC-487..AC-507`
+  `AC-440`, `AC-442`, `AC-487..AC-508`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1995,7 +1995,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   export.
   - Verifies: REQ-01-441..REQ-01-442, REQ-01-639, REQ-01-641..REQ-01-642
 - **AC-504**: The typed traceability projection contains every
-  REQ-01-635..REQ-01-643-to-AC mapping and every AC-487..AC-507-to-verification
+  REQ-01-635..REQ-01-646-to-AC mapping and every AC-487..AC-508-to-verification
   mapping with no orphan requirement, ungrounded criterion, missing owner, or
   duplicate active verification row.
   - Verifies: REQ-01-643
@@ -2016,6 +2016,21 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   closed malformed, duplicate, mismatched, unknown, or unclaimed cases, invoke
   exactly their admitted consumer, and publish no unauthorized state.
   - Verifies: REQ-01-635, REQ-01-640, REQ-01-642
+- **AC-508**: For admitted versions `1` and `2`,
+  `data/saved_views.ndjson` is always present and contains only the exact
+  eleven-member REQ-01-644 row. Deterministic export covers private, shared,
+  system, and zero-row incidents without relation-derived fields. Preparation
+  rejects aliases, unknown, missing, duplicate, wrongly typed, null,
+  noncanonical, malformed, multivalue, trailing-content, blank, and over-bound
+  input with the exact safe Saved Views invariant. Successful import maps
+  private/shared runtime ownership to the target submitter while preserving
+  source ownership and actor attribution for re-export, preserves null system
+  ownership, applies each row exactly once through fixed SQL, validates all
+  seven invariants against admitted input inside the final transaction, and
+  synthesizes no authorization state. Every forced failure leaves no visible
+  incident, membership, preference, audit, projection, attribution, final
+  object, or terminal-success artifact.
+  - Verifies: REQ-01-639..REQ-01-640, REQ-01-642, REQ-01-644..REQ-01-646
 
 - **AC-409**: Whole-incident portability preserves the boundary between incident data and deployment-local auth state: the exported bundle contains no login-capable local users, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, deployment-local administrative audit state including deployment and incident-membership administrative audit events, or idempotency state; importing that bundle into another deployment does not synthesize any of those states without explicit deployment-local administrative action; and historical actors import only as inert imported actors or historical descriptors, never as login-capable principals.
   - Verifies: REQ-02-204, REQ-02-249, REQ-04-038

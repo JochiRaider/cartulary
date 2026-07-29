@@ -27,6 +27,7 @@
       "properties": {
         "logical_path": { "type": "string", "minLength": 1 },
         "content_role": { "enum": ["singleton_json", "source_rows", "validation_rows"] },
+        "schema_id": { "type": "string", "pattern": "^cartulary\\.[A-Za-z0-9_.-]+\\.v[1-9][0-9]*$" },
         "versions": {
           "type": "array",
           "minItems": 1,

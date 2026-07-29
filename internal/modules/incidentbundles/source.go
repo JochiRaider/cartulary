@@ -3,6 +3,7 @@ package incidentbundles
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -103,7 +104,11 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 		return BuiltIncidentBundle{}, errors.New("incident bundle source catalog is required")
 	}
 	for _, port := range b.sourceCatalog.Ports() {
-		exportedFiles, err := port.Export(ctx, tx, incidentID)
+		exportedFiles, err := port.Export(ctx, sourceport.ExportContext{
+			Query:                tx,
+			IncidentID:           incidentID,
+			PortableAttributions: portableAttributionResolver{},
+		})
 		if err != nil {
 			return BuiltIncidentBundle{}, err
 		}
@@ -112,7 +117,7 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 		}
 	}
 	files["data/reference_pack_refs.json"] = []byte("[]\n")
-	actors, err := b.exportActors(ctx, tx, files)
+	actors, err := b.exportActors(ctx, tx, incidentID, files)
 	if err != nil {
 		return BuiltIncidentBundle{}, err
 	}
@@ -157,7 +162,7 @@ func (b BundleBuilder) Build(ctx context.Context, incidentID uuid.UUID, request 
 	}, nil
 }
 
-func (b BundleBuilder) exportActors(ctx context.Context, q incidentportability.Queryer, files map[string][]byte) ([]byte, error) {
+func (b BundleBuilder) exportActors(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID, files map[string][]byte) ([]byte, error) {
 	actorIDs := map[string]struct{}{}
 	for path, payload := range files {
 		if path == "data/actors.ndjson" || path == "data/reference_pack_refs.json" || !strings.HasPrefix(path, "data/") {
@@ -187,12 +192,11 @@ func (b BundleBuilder) exportActors(ctx context.Context, q incidentportability.Q
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
-	rows, err := q.Query(ctx, `
-SELECT jsonb_build_object(
-    'actor_id', u.id::text,
-    'display_name', u.display_name,
-    'email_hint', u.email::text
-)
+	descriptors := map[string]portableActorDescriptor{}
+	localRows, err := q.Query(ctx, `
+SELECT u.id::text,
+       u.display_name,
+       u.email::text
   FROM users u
  WHERE u.id IN (SELECT unnest($1::text[])::uuid)
  ORDER BY u.id
@@ -200,8 +204,97 @@ SELECT jsonb_build_object(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return incidentportability.EncodeRows(rows)
+	for localRows.Next() {
+		var descriptor portableActorDescriptor
+		if err := localRows.Scan(&descriptor.ActorID, &descriptor.DisplayName, &descriptor.EmailHint); err != nil {
+			localRows.Close()
+			return nil, err
+		}
+		if err := mergePortableActorDescriptor(descriptors, descriptor); err != nil {
+			localRows.Close()
+			return nil, err
+		}
+	}
+	if err := localRows.Err(); err != nil {
+		localRows.Close()
+		return nil, err
+	}
+	localRows.Close()
+
+	importedRows, err := q.Query(ctx, `
+SELECT source_actor_id,
+       display_name,
+       email_hint
+  FROM incident_bundle_imported_actors
+ WHERE incident_id = $1
+   AND source_actor_id IN (SELECT unnest($2::text[]))
+ ORDER BY source_actor_id
+`, incidentID, ids)
+	if err != nil {
+		return nil, err
+	}
+	for importedRows.Next() {
+		var (
+			actorID     string
+			displayName sql.NullString
+			emailHint   sql.NullString
+		)
+		if err := importedRows.Scan(&actorID, &displayName, &emailHint); err != nil {
+			importedRows.Close()
+			return nil, err
+		}
+		if err := mergePortableActorDescriptor(descriptors, portableActorDescriptor{
+			ActorID:     actorID,
+			DisplayName: displayName.String,
+			EmailHint:   emailHint.String,
+		}); err != nil {
+			importedRows.Close()
+			return nil, err
+		}
+	}
+	if err := importedRows.Err(); err != nil {
+		importedRows.Close()
+		return nil, err
+	}
+	importedRows.Close()
+
+	var payload bytes.Buffer
+	for _, actorID := range ids {
+		descriptor, ok := descriptors[actorID]
+		if !ok {
+			return nil, &sourceport.Failure{FamilyID: "actors", InvariantID: "actors.reference_complete"}
+		}
+		row := map[string]any{"actor_id": descriptor.ActorID}
+		if descriptor.DisplayName != "" {
+			row["display_name"] = descriptor.DisplayName
+		}
+		if descriptor.EmailHint != "" {
+			row["email_hint"] = descriptor.EmailHint
+		}
+		encoded, err := incidentportability.CanonicalJSONString(row)
+		if err != nil {
+			return nil, err
+		}
+		payload.Write(encoded)
+	}
+	return payload.Bytes(), nil
+}
+
+type portableActorDescriptor struct {
+	ActorID     string
+	DisplayName string
+	EmailHint   string
+}
+
+func mergePortableActorDescriptor(descriptors map[string]portableActorDescriptor, descriptor portableActorDescriptor) error {
+	if _, err := uuid.Parse(descriptor.ActorID); err != nil {
+		return &sourceport.Failure{FamilyID: "actors", InvariantID: "actors.reference_complete"}
+	}
+	if existing, duplicate := descriptors[descriptor.ActorID]; duplicate && existing != descriptor {
+		return &sourceport.Failure{FamilyID: "actors", InvariantID: "actors.reference_complete"}
+	}
+	descriptors[descriptor.ActorID] = descriptor
+	return nil
 }
 
 func collectActorIDs(row map[string]any, actorIDs map[string]struct{}) {
@@ -240,9 +333,11 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 		BundleVersion: verified.Manifest.BundleVersion, OperationID: params.OperationID,
 		Attributions: &attributions,
 	}
-	if err := validateImportedActors(verified.Files, incidentID); err != nil {
+	actorCatalog, err := validateImportedActors(verified.Files, incidentID)
+	if err != nil {
 		return nil, err
 	}
+	importContext.Actors = actorCatalog
 	if err := reference_data.ValidateIncidentBundleReferences(verified.Files["data/reference_pack_refs.json"]); err != nil {
 		invariantID, ok := reference_data.IncidentBundleReferenceInvariant(err)
 		if !ok {
@@ -321,7 +416,7 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 		}
 	}
 	for _, source := range prepared.sourcePreparations {
-		if err := source.port.ValidateImportTx(ctx, tx, importContext); err != nil {
+		if err := source.port.ValidateImportTx(ctx, tx, source.prepared, importContext); err != nil {
 			return uuid.UUID{}, verificationErrorFromPort(err)
 		}
 	}
@@ -376,21 +471,21 @@ func verificationErrorFromPort(err error) error {
 	return err
 }
 
-func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) error {
+func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) (sourceport.ActorCatalog, error) {
 	rows, err := incidentportability.DecodeNDJSON(files["data/actors.ndjson"])
 	if err != nil {
-		return &VerificationError{
+		return sourceport.ActorCatalog{}, &VerificationError{
 			ReasonCode:     "source_family_invalid",
 			SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
 		}
 	}
-	descriptors := map[string]struct{}{}
+	descriptors := make([]sourceport.ActorDescriptor, 0, len(rows))
 	for _, row := range rows {
 		for key := range row {
 			switch key {
 			case "actor_id", "source_actor_id", "display_name", "email_hint", "provider_subject_hint":
 			default:
-				return &VerificationError{
+				return sourceport.ActorCatalog{}, &VerificationError{
 					ReasonCode:     "source_family_invalid",
 					SourceFamilyID: "actors", InvariantID: "actors.inert",
 				}
@@ -401,18 +496,27 @@ func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) error
 			sourceActorID = strings.TrimSpace(incidentportability.StringFromAny(row["source_actor_id"]))
 		}
 		if _, parseErr := uuid.Parse(sourceActorID); parseErr != nil {
-			return &VerificationError{
+			return sourceport.ActorCatalog{}, &VerificationError{
 				ReasonCode:     "source_family_invalid",
 				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
 			}
 		}
-		if _, duplicate := descriptors[sourceActorID]; duplicate {
-			return &VerificationError{
-				ReasonCode:     "source_family_invalid",
-				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
-			}
+		displayName, _ := row["display_name"].(string)
+		emailHint, _ := row["email_hint"].(string)
+		providerSubjectHint, _ := row["provider_subject_hint"].(string)
+		descriptors = append(descriptors, sourceport.ActorDescriptor{
+			SourceActorID:       sourceActorID,
+			DisplayName:         displayName,
+			EmailHint:           emailHint,
+			ProviderSubjectHint: providerSubjectHint,
+		})
+	}
+	catalog, err := sourceport.NewActorCatalog(descriptors)
+	if err != nil {
+		return sourceport.ActorCatalog{}, &VerificationError{
+			ReasonCode:     "source_family_invalid",
+			SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
 		}
-		descriptors[sourceActorID] = struct{}{}
 	}
 	referenced := map[string]struct{}{}
 	for filePath, payload := range files {
@@ -424,7 +528,7 @@ func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) error
 		if filePath == "data/incident.json" {
 			var row map[string]any
 			if err := json.Unmarshal(bytes.TrimSpace(payload), &row); err != nil {
-				return &VerificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "incident", InvariantID: "incident.exact_shape"}
+				return sourceport.ActorCatalog{}, &VerificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "incident", InvariantID: "incident.exact_shape"}
 			}
 			sourceRows = []map[string]any{row}
 		} else {
@@ -447,15 +551,15 @@ func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) error
 		}
 	}
 	for actorID := range referenced {
-		if _, ok := descriptors[actorID]; !ok {
-			return &VerificationError{
+		if _, ok := catalog.Lookup(actorID); !ok {
+			return sourceport.ActorCatalog{}, &VerificationError{
 				ReasonCode:     "source_family_invalid",
 				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
 			}
 		}
 	}
 	_ = incidentID
-	return nil
+	return catalog, nil
 }
 
 func (i Importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, incidentID uuid.UUID) error {
@@ -487,44 +591,52 @@ VALUES ($1, $2, $3, $4, $5)
 	return nil
 }
 
-type importedAttribution struct {
-	SourceTable   string
-	SourceRowID   string
-	SourceColumn  string
-	SourceActorID string
-}
-
 type importedAttributionBuffer struct {
 	IncidentID  uuid.UUID
 	LocalUserID uuid.UUID
-	rows        []importedAttribution
+	rows        []incidentportability.ImportedAttribution
 }
 
-func (b *importedAttributionBuffer) RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) {
+func (b *importedAttributionBuffer) RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error {
 	sourceActorID = strings.TrimSpace(sourceActorID)
 	sourceRowID = strings.TrimSpace(sourceRowID)
-	if b == nil || sourceActorID == "" || sourceRowID == "" {
-		return
+	if b == nil || sourceActorID == "" || sourceRowID == "" ||
+		strings.TrimSpace(table) == "" || strings.TrimSpace(column) == "" {
+		return errors.New("incident bundle attribution is invalid")
 	}
-	b.rows = append(b.rows, importedAttribution{
+	if _, err := uuid.Parse(sourceActorID); err != nil {
+		return errors.New("incident bundle attribution is invalid")
+	}
+	for _, row := range b.rows {
+		if row.SourceTable == table && row.SourceRowID == sourceRowID && row.SourceColumn == column {
+			if row.SourceActorID == sourceActorID && row.LocalUserID == b.LocalUserID {
+				return nil
+			}
+			return errors.New("incident bundle attribution conflicts")
+		}
+	}
+	b.rows = append(b.rows, incidentportability.ImportedAttribution{
 		SourceTable:   table,
 		SourceRowID:   sourceRowID,
 		SourceColumn:  column,
 		SourceActorID: sourceActorID,
+		LocalUserID:   b.LocalUserID,
 	})
+	return nil
+}
+
+func (b *importedAttributionBuffer) ImportedAttributions() []incidentportability.ImportedAttribution {
+	if b == nil {
+		return nil
+	}
+	return append([]incidentportability.ImportedAttribution(nil), b.rows...)
 }
 
 func (b *importedAttributionBuffer) flush(ctx context.Context, tx pgx.Tx) error {
 	if b == nil {
 		return nil
 	}
-	seen := map[string]struct{}{}
 	for _, row := range b.rows {
-		key := row.SourceTable + "\x00" + row.SourceRowID + "\x00" + row.SourceColumn
-		if _, duplicate := seen[key]; duplicate {
-			continue
-		}
-		seen[key] = struct{}{}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO incident_bundle_imported_attributions (
     incident_id,
@@ -535,7 +647,7 @@ INSERT INTO incident_bundle_imported_attributions (
     local_user_id
 )
 VALUES ($1, $2, $3, $4, $5, $6)
-`, b.IncidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, b.LocalUserID)
+`, b.IncidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, row.LocalUserID)
 		if err != nil {
 			return err
 		}

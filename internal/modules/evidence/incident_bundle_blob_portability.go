@@ -62,7 +62,9 @@ func (p IncidentBundleBlobPortability) RewriteAndStageObjectBlobs(ctx context.Co
 	writtenKeys := make([]string, 0, len(rows))
 	var buf bytes.Buffer
 	for _, row := range rows {
-		incidentportability.RemapTopLevelUserFields(row, "object_blobs", []string{"object_blob_id"}, actorUserID, attributions)
+		if err := incidentportability.RemapTopLevelUserFields(row, "object_blobs", []string{"object_blob_id"}, actorUserID, attributions); err != nil {
+			return nil, nil, err
+		}
 		objectBlobText, ok := row["object_blob_id"].(string)
 		if !ok || objectBlobText == "" {
 			return nil, writtenKeys, &incidentportability.VerificationFailure{ReasonCode: "malformed_manifest"}

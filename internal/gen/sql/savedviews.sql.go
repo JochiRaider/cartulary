@@ -146,6 +146,69 @@ func (q *Queries) GetVisibleSavedViewForUpdate(ctx context.Context, arg GetVisib
 	return i, err
 }
 
+const importSavedView = `-- name: ImportSavedView :execrows
+INSERT INTO saved_views (
+    saved_view_id,
+    incident_id,
+    view_schema_id,
+    scope,
+    display_name,
+    query_json,
+    layout_json,
+    owner_user_id,
+    created_at,
+    updated_at,
+    saved_view_version
+)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6::jsonb,
+    $7::jsonb,
+    $8,
+    $9,
+    $10,
+    $11
+)
+`
+
+type ImportSavedViewParams struct {
+	SavedViewID      pgtype.UUID        `json:"saved_view_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	ViewSchemaID     string             `json:"view_schema_id"`
+	Scope            string             `json:"scope"`
+	DisplayName      string             `json:"display_name"`
+	QueryJson        []byte             `json:"query_json"`
+	LayoutJson       []byte             `json:"layout_json"`
+	OwnerUserID      pgtype.UUID        `json:"owner_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	SavedViewVersion int64              `json:"saved_view_version"`
+}
+
+func (q *Queries) ImportSavedView(ctx context.Context, arg ImportSavedViewParams) (int64, error) {
+	result, err := q.db.Exec(ctx, importSavedView,
+		arg.SavedViewID,
+		arg.IncidentID,
+		arg.ViewSchemaID,
+		arg.Scope,
+		arg.DisplayName,
+		arg.QueryJson,
+		arg.LayoutJson,
+		arg.OwnerUserID,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.SavedViewVersion,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listVisibleSavedViews = `-- name: ListVisibleSavedViews :many
 SELECT
     sv.saved_view_id,

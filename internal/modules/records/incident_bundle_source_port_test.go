@@ -80,7 +80,7 @@ INSERT INTO incidents (
 		_ = tx.Rollback(ctx)
 		t.Fatalf("apply records import: %v", err)
 	}
-	if err := port.ValidateImportTx(ctx, tx, importContext); err != nil {
+	if err := port.ValidateImportTx(ctx, tx, prepared, importContext); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatalf("validate records import: %v", err)
 	}

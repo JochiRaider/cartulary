@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -26,8 +25,8 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
-		Export: func(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
-			payload, _, err := ExportIncidentBundleIncident(ctx, q, incidentID)
+		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
+			payload, _, err := ExportIncidentBundleIncident(ctx, exportContext.Query, exportContext.IncidentID)
 			if err != nil {
 				return nil, err
 			}
@@ -51,7 +50,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			files := value.(sourceport.PreparedFiles)
 			return ImportIncidentBundleIncidentTx(ctx, tx, files["data/incident.json"], importContext.ActorUserID, importContext.Attributions)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, importContext sourceport.ImportContext) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var count int
 			if err := tx.QueryRow(ctx, `SELECT count(*) FROM incidents WHERE id = $1`, importContext.IncidentID).Scan(&count); err != nil {
 				return err

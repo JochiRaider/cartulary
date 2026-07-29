@@ -190,6 +190,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.savedviews.integration.imported_saved_views_preserve_portable_owners_se_45009255f0",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestIncidentBundleSavedViewPortableOwnerRoundTripAndRollback_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.integration",
@@ -209,6 +234,57 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.integration.saved_view_export_emits_the_exact_canonical_elev_fb78b01a43",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestIncidentBundleSavedViewCanonicalExport_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.integration.saved_views_storage_hardening_rejects_invalid_le_debf877cb1",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestSavedViewsStorageHardeningMigration52FreshSchema_Integration",
+          "TestSavedViewsStorageHardeningMigration52PreflightReportsOnlyCounts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -264,6 +340,29 @@
       "status": "active"
     },
     {
+      "row_id": "module.savedviews.unit.saved_view_application_policy_preserves_visibili_5af44d4ba8",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewApplicationOrderingAndNoOp_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.savedviews.unit.saved_view_scope_vocabulary_is_exactly_private_s_aa8991ad84",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.unit",
@@ -276,6 +375,56 @@
         "package": "./internal/modules/savedviews",
         "tests": [
           "TestSavedViewScopeVocabulary_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.unit.strict_saved_views_preparation_rejects_illegal_i_d1e9382c70",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.unit",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestIncidentBundleSavedViewStrictPrepareSemantics_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.savedviews.unit.strict_saved_views_preparation_rejects_unbounded_0ac27d4f10",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.unit",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit"
         ]
       },
       "evidence_class": "unit",

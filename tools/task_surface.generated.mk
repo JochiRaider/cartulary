@@ -45,6 +45,7 @@
   benchmark-claim-check \
   task-surface-report \
   task-guide \
+  author-test-row-id \
   test-slice \
   service-backed-test-slice \
   graph-projection-fixture-candidate \
@@ -241,6 +242,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'investigate a run:' \
 	'  make task-guide' \
 	'                                      ROLE=module-author OWNER=<owner-id> recommend what to run' \
+	'  make author-test-row-id' \
+	'                                      FAMILY_ID=<owner.family> CLAIM=<semantic-claim> SELECTOR_KEY=<stable-selector-key> derive a stable semantic test-catalog row ID' \
 	'  make task-surface-report            print the root Make task-surface inventory' \
 	'  make target-plan' \
 	'                                      TARGET=backend-unit explain backend Go execution families; use explain-target for Make targets' \
@@ -572,6 +575,10 @@ task-guide:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-guide)
 	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,ROLE="$(ROLE)" OWNER="$(OWNER)" JSON="$(JSON)")
+
+author-test-row-id:
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,author-test-row-id)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,author-test-row-id,FAMILY_ID="$(FAMILY_ID)" CLAIM="$(CLAIM)" SELECTOR_KEY="$(SELECTOR_KEY)")
 
 test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-slice:

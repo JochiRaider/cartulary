@@ -6714,9 +6714,9 @@ Every port MUST provide the following behavioral interface:
 | --- | --- | --- | --- |
 | Descriptor | None | Immutable descriptor | Declares family ID, contract major, exact paths and content roles, stable row identities, dependency IDs, owner ID, owner relation IDs, and the closed invariant IDs in REQ-01-640. |
 | Export | Read-only query capability and `incident_id` | Deterministic ordered files | Reads only owner state and emits the admitted current version. |
-| Prepare import | Bounded read-only bundle capability and immutable import context | Opaque prepared value or typed failure | Decodes exact shapes, normalizes, validates row-local semantics, and performs no database or visible-object mutation. |
+| Prepare import | Bounded read-only bundle capability and immutable import context | Opaque prepared value or typed failure | Decodes exact shapes without information loss, enforces the source owner's canonical-input policy, validates row-local semantics, and performs no database or visible-object mutation. Owner-declared normalization is permitted only when its adopted contract expressly admits normalization into acceptance. |
 | Apply import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Uses fixed owner-controlled SQL or SQLC, writes only owner relations, and requires affected-row equality. |
-| Validate import transaction | Supplied transaction and immutable import context | Success or typed failure | Proves aggregate, cross-row, and declared cross-family invariants before publication. |
+| Validate import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Compares admitted input with transaction state and proves aggregate, cross-row, and declared cross-family invariants before publication. |
 
 A prepared value is bound to its creating port and operation and MUST be passed
 only to that same port. The catalog MUST reject duplicate family IDs, duplicate
@@ -6750,7 +6750,7 @@ The current contract-major-`1` source catalog and closed invariant IDs are:
 | `assessments` | `evidence` | `assessments.subject_type_scope`, `assessments.state_confidence_rationale_legal`, `assessments.timestamps_lifecycle_legal` |
 | `links_tags` | `assessments` | `links_tags.endpoints_same_incident`, `links_tags.link_tuple_legal`, `links_tags.link_unique`, `links_tags.deletion_tuple_legal`, `links_tags.tag_normalized`, `links_tags.tag_catalog_exact` |
 | `revisions` | `links_tags` | `revisions.references_complete`, `revisions.actor_references_complete`, `revisions.mutation_sequence_contiguous`, `revisions.record_version_unique`, `revisions.history_reconstruction`, `revisions.sequence_repair_after_validation` |
-| `saved_views` | `revisions` | `saved_views.identity_scope_legal`, `saved_views.owner_tuple_legal`, `saved_views.display_name_normalized`, `saved_views.query_layout_legal`, `saved_views.version_timestamps_legal`, `saved_views.reference_pack_degradation_bounded` |
+| `saved_views` | `revisions` | `saved_views.row_shape_exact`, `saved_views.identity_scope_legal`, `saved_views.owner_tuple_legal`, `saved_views.display_name_normalized`, `saved_views.query_layout_legal`, `saved_views.version_timestamps_legal`, `saved_views.reference_pack_degradation_bounded` |
 
 The corresponding source-owner invariant meanings are exactly:
 
@@ -6767,7 +6767,7 @@ The corresponding source-owner invariant meanings are exactly:
 | Assessments | The subject is a same-incident host or identity of the admitted type; state, confidence, rationale, timestamps, and lifecycle form legal tuples. |
 | Links and Tags | Link endpoints are valid same-incident records; type, direction, field key, uniqueness, and deletion tuples are legal; tags are normalized; `tags.ndjson` exactly equals the distinct `(tag_name, normalized_tag_name)` catalog derived from imported record tags. |
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
-| Saved Views | UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; absent optional Reference Packs degrade only admitted overlays. |
+| Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 The required special inputs and their closed family identifiers and dispositions
 are:
@@ -6785,7 +6785,7 @@ The complete closed source-family identifier vocabulary is `incident`,
 `saved_views`, `actors`, `reference_pack_refs`, and `extension_payload`.
 Profiles: incident_portability
 Verified by: AC-488, AC-489, AC-491, AC-496, AC-497, AC-498, AC-499,
- AC-507
+ AC-507, AC-508
 
 **REQ-01-641**
 The import coordinator MUST execute this algorithm in order:
@@ -6845,7 +6845,7 @@ Verified by: AC-490, AC-499, AC-502, AC-503, AC-507
 **REQ-01-643**
 The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
-machine projections. Each REQ-01-635 through REQ-01-643 requirement MUST map to
+machine projections. Each REQ-01-635 through REQ-01-646 requirement MUST map to
 at least one binary Core 04 acceptance criterion, and every such criterion MUST
 map back to an adopted requirement and selected verification owner and test
 family. Active verification rows MUST have exactly one owning row identity and
@@ -6855,6 +6855,97 @@ the generated format requires it, and satisfy the generated-artifact policy;
 generated files and dependency lockfiles MUST NOT be hand-edited.
 Profiles: incident_portability
 Verified by: AC-504, AC-505
+
+**REQ-01-644**
+For Incident Bundle versions `1` and `2`, source family `saved_views`,
+contract major `1`, each non-empty logical row of
+`data/saved_views.ndjson` MUST be one JSON object containing exactly these
+eleven required members:
+
+| Member | Required portable value |
+| --- | --- |
+| `saved_view_id` | UUID string; stable identity; unique within the file and target deployment. |
+| `incident_id` | UUID string equal to the immutable import-context and manifest incident identity. |
+| `view_schema_id` | Non-empty identifier of an admitted registered schema. |
+| `scope` | Exactly `private`, `shared`, or `system`. |
+| `display_name` | String already equal to its `display_name_line_v1` canonical result. |
+| `query_json` | Non-null object structurally equal to the REQ-01-142 canonical query for `view_schema_id`. |
+| `layout_json` | Non-null canonical `cartulary.layout.v1` object satisfying REQ-01-143; `{}` is invalid. |
+| `owner_user_id` | UUID string for `private` and `shared`; JSON `null` for `system`. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`. |
+| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, not earlier than `created_at`. |
+| `saved_view_version` | JSON integer greater than or equal to `1`. |
+
+The importer MUST reject `id`, `view_scope`, every other alias, every unknown
+or missing member, every duplicate member at any object depth, every wrong JSON
+type, and every prohibited `null`. A row MUST NOT carry a custom-sheet or
+custom-schema definition, a new `sheet_ref` variant, permission or membership
+state, workbook preferences, arbitrary columns, grid-vendor state, or
+session-local UI state.
+Profiles: incident_portability
+Verified by: AC-508
+
+**REQ-01-645**
+`data/saved_views.ndjson` MUST be present exactly once for admitted bundle
+versions `1` and `2`. Export MUST include every incident-owned private, shared,
+and system saved view, order rows by `saved_view_id` ascending, serialize
+lexicographically ordered canonical JSON with exactly one trailing LF per row,
+and emit a zero-byte member when no rows exist. Export MUST select and map the
+eleven REQ-01-644 fields explicitly and MUST NOT derive the portable shape from
+a whole database relation.
+
+Preparation MUST admit the zero-byte member as zero rows and otherwise require
+exactly one object per nonblank logical line, reject blank lines, multiple
+values, trailing content, malformed JSON, and logical lines larger than
+`16 MiB`, preserve number tokens until type validation, and detect duplicate
+members recursively. JSON member order and insignificant whitespace MAY vary.
+The submitted display name, query, layout, and timestamps MUST already equal
+their canonical values; preparation MUST reject rather than repair
+noncanonical values. Query requires present `sort` and `filters` arrays, no
+inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
+Layout requires all REQ-01-143 members and widths in `40..4096`.
+
+An unknown or unadmitted schema MUST fail; import MUST NOT infer a schema or
+custom sheet from row content. Missing optional Reference Packs MAY degrade
+only their admitted dependent overlays and MUST NOT change or skip a saved-view
+row. Diagnostics MUST obey REQ-01-642 and MUST NOT disclose hostile member
+names or values.
+Profiles: incident_portability
+Verified by: AC-487, AC-502, AC-503, AC-508
+
+**REQ-01-646**
+Saved Views portability MUST preserve portable source ownership separately from
+target runtime ownership. A native private or shared row exports its runtime
+owner UUID. An imported private or shared row MUST retain the bundle's source
+owner UUID and actor descriptor in imported attribution, use the target-local
+import submitter as runtime `saved_views.owner_user_id`, and re-export the
+preserved source UUID. A system row has JSON `null` and SQL `NULL` ownership
+and no owner attribution. Import MUST create no login, credential, provider
+binding, deployment role, membership, permission, preference, or session.
+
+The Saved Views source-owner port MUST:
+
+1. export through a read-only portable-attribution resolver, coalescing
+   identical actor descriptors and failing closed on conflicting descriptors
+   for one UUID;
+2. prepare a port-bound typed value containing parsed identities, timestamps,
+   version, canonical query and layout bytes, portable owner, and target
+   runtime owner, with no database, object-store, attribution, or visible-state
+   writes;
+3. apply only that prepared value through fixed owner-controlled SQL naming all
+   eleven persistence columns, require exactly one affected row per input row,
+   and record source-owner attribution through an error-returning capability;
+4. validate inside the supplied transaction that imported state and recorded
+   attribution equal the admitted prepared value and satisfy all seven
+   REQ-01-640 Saved Views invariants before coordinator publication.
+
+Apply MUST NOT decode source bytes, use `jsonb_populate_record`,
+descriptor-derived SQL, generic conflict-ignore behavior, silent row skipping,
+or ownership repair. Any Saved Views invariant failure MUST use
+`source_family_id='saved_views'`, its exact invariant ID,
+`reason_code='source_family_invalid'`, and no visible partial state.
+Profiles: incident_portability
+Verified by: AC-488, AC-498, AC-499, AC-500, AC-501, AC-508
 
 ### 12.4 Failure handling
 

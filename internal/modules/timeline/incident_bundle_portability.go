@@ -169,7 +169,9 @@ func importTimelineProfilesTx(
 		if err := requireExactFields(row, timelineBundleProfileFields, "incident_id", "enabled", "profile_version", "updated_at"); err != nil {
 			return err
 		}
-		incidentportability.RemapTopLevelUserFields(row, "timeline_time_conversion_profiles", []string{"incident_id"}, actorUserID, attributions)
+		if err := incidentportability.RemapTopLevelUserFields(row, "timeline_time_conversion_profiles", []string{"incident_id"}, actorUserID, attributions); err != nil {
+			return err
+		}
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
@@ -214,7 +216,9 @@ func importTimelineRecordsV2Tx(
 		if err := requireExactFields(row, timelineBundleRecordFields, "record_id", "incident_id", "capture_state", "activity_utc_generated", "activity_local_generated", "activity_time_pair_state"); err != nil {
 			return err
 		}
-		incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions)
+		if err := incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions); err != nil {
+			return err
+		}
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
@@ -250,7 +254,9 @@ func importTimelineRecordsV1Tx(
 			return err
 		}
 		delete(row, "raw_capture")
-		incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions)
+		if err := incidentportability.RemapTopLevelUserFields(row, "timeline_events", []string{"record_id"}, actorUserID, attributions); err != nil {
+			return err
+		}
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err

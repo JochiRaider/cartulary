@@ -86,6 +86,7 @@ import {
 import { collectTestCatalogImportViolations } from "../test-catalog/import-boundary.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
+import { deriveTestRowID } from "../test-catalog/row-id-authoring.mjs";
 import { commandTargetForEvidenceTarget } from "../test-catalog/target-routing.mjs";
 import {
   auditOwnerEvidence,
@@ -272,8 +273,8 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 60);
   assert.equal(catalog.summary.family_count, 204);
-  assert.equal(catalog.summary.row_count, 923);
-  assert.equal(catalog.summary.selector_count, 1716);
+  assert.equal(catalog.summary.row_count, 930);
+  assert.equal(catalog.summary.selector_count, 1724);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -3235,7 +3236,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "c97e00fa2ef090cd1e107473579d25ded7c91df393c2408c1f8b86b20c4ff765",
+    "6772341ca7b5a4e5f44a2d87e7ff4f99c4827d79b0754931ff09335a5a9c7613",
     "public target and command ID inventory changed; revise the authored owner and this explicit interface digest together",
   );
   for (const target of publicTargets) {
@@ -5977,4 +5978,35 @@ test("redaction uses closed structured keys and raw secret families", () => {
   ]) {
     assert.equal(raw.includes(leaked), false, `raw redaction leaked ${leaked}: ${raw}`);
   }
+});
+
+test("test row ID authoring is deterministic, semantic, and selector-sensitive", () => {
+  const input = {
+    familyID: "module.savedviews.integration",
+    claim: "Portable saved-view rows retain the current normalization baseline",
+    selectorKey:
+      "go:./internal/modules/savedviews#TestIncidentBundleSavedViewImportValidationNormalizesPortableRows",
+  };
+  const first = deriveTestRowID(input);
+  assert.equal(
+    first,
+    "module.savedviews.integration.portable_saved_view_rows_retain_the_current_norm_3a1ff0b4a4",
+  );
+  assert.equal(first, deriveTestRowID(input));
+  assert.notEqual(
+    first,
+    deriveTestRowID({
+      ...input,
+      selectorKey:
+        "go:./internal/modules/savedviews#TestIncidentBundleSavedViewImportValidationRejectsMalformedRows",
+    }),
+  );
+  assert.throws(
+    () => deriveTestRowID({ ...input, familyID: "savedviews.integration" }),
+    /owner-qualified test family/u,
+  );
+  assert.throws(
+    () => deriveTestRowID({ ...input, claim: "bad\u0000claim" }),
+    /control characters/u,
+  );
 });

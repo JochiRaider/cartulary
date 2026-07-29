@@ -29,7 +29,9 @@ func ImportIncidentBundleIncidentTx(ctx context.Context, tx pgx.Tx, payload []by
 	if err := incidentportability.ValidateRequiredColumns(row, []string{"id", "incident_key"}, []string{"id"}); err != nil {
 		return err
 	}
-	incidentportability.RemapTopLevelUserFields(row, "incidents", []string{"id"}, actorUserID, attributions)
+	if err := incidentportability.RemapTopLevelUserFields(row, "incidents", []string{"id"}, actorUserID, attributions); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(row)
 	if err != nil {
 		return err
