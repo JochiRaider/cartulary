@@ -8,58 +8,64 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
-type emptyWorkbookProjectionQuery struct{}
+type workbookProbeExecutor struct {
+	calls      int
+	profile    string
+	incidentID uuid.UUID
+	result     workbookprobe.Result
+	err        error
+}
 
-func (emptyWorkbookProjectionQuery) QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error) {
-	return []map[string]any{}, nil
+func (executor *workbookProbeExecutor) ExecuteDefault(
+	_ context.Context,
+	profile string,
+	incidentID uuid.UUID,
+) (workbookprobe.Result, error) {
+	executor.calls++
+	executor.profile = profile
+	executor.incidentID = incidentID
+	return executor.result, executor.err
 }
 
 func TestRestoreVerificationWorkbookProbe(t *testing.T) {
 	ctx := context.Background()
-	t.Run("nil postgres fails", func(t *testing.T) {
-		err := recovery.RestoreVerificationWorkbookProbe{}.ProbeRestoredBackup(ctx, recovery.RestoreResult{})
-		if err == nil || !strings.Contains(err.Error(), "requires postgres") {
-			t.Fatalf("nil postgres error got %v", err)
+	t.Run("nil result fails", func(t *testing.T) {
+		err := (recovery.RestoreVerificationWorkbookProbe{}).ProbeRestoredBackup(ctx, nil)
+		if err == nil || !strings.Contains(err.Error(), "restore result is required") {
+			t.Fatalf("nil result error got %v", err)
 		}
 	})
 
-	t.Run("zero incidents skips", func(t *testing.T) {
-		db := pgtest.Start(t).BeginRollbackDBT(t, "restore-workbook-probe-zero-incidents")
-		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db, Query: emptyWorkbookProjectionQuery{}}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
+	t.Run("zero incidents skips without executor", func(t *testing.T) {
+		result := recovery.RestoreResult{}
+		if err := (recovery.RestoreVerificationWorkbookProbe{}).ProbeRestoredBackup(ctx, &result); err != nil {
 			t.Fatalf("zero incidents should skip probe: %v", err)
 		}
+		if result.WorkbookProbe != nil {
+			t.Fatalf("zero incidents unexpectedly recorded a workbook probe: %#v", result.WorkbookProbe)
+		}
 	})
 
-	t.Run("selected incident with empty result succeeds", func(t *testing.T) {
-		db := pgtest.Start(t).BeginRollbackDBT(t, "restore-workbook-probe-empty-result")
-		userID := uuid.MustParse("00000000-0000-0000-0000-000000009001")
+	t.Run("selected incident executes once and binds result identity", func(t *testing.T) {
 		incidentID := uuid.MustParse("00000000-0000-0000-0000-000000009101")
-		if _, err := db.Exec(ctx, `
-INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ($1, 'restore-probe@example.test', 'Restore Probe', 'hash', true, true, false)
-`, userID); err != nil {
-			t.Fatalf("seed user: %v", err)
+		selected := incidentID.String()
+		executor := &workbookProbeExecutor{result: workbookprobe.Result{
+			RegistrationID: "timeline.base_restore_probe.v1",
+			ViewSchemaID:   "cartulary.view.timeline.v2",
+			RowCount:       0,
+		}}
+		result := recovery.RestoreResult{SelectedIncidentID: &selected}
+		if err := (recovery.RestoreVerificationWorkbookProbe{Executor: executor}).ProbeRestoredBackup(ctx, &result); err != nil {
+			t.Fatalf("empty workbook query should not fail probe: %v", err)
 		}
-		if _, err := db.Exec(ctx, `
-INSERT INTO incidents (
-    id,
-    incident_key,
-    incident_key_canonical,
-    title,
-    status,
-    created_by_user_id,
-    updated_by_user_id
-)
-VALUES ($1, 'RESTORE-PROBE', 'restore-probe', 'Restore Probe', 'active', $2, $2)
-`, incidentID, userID); err != nil {
-			t.Fatalf("seed incident: %v", err)
+		if executor.calls != 1 || executor.profile != workbookprobe.BaseProfile || executor.incidentID != incidentID {
+			t.Fatalf("probe execution got calls=%d profile=%q incident=%s", executor.calls, executor.profile, executor.incidentID)
 		}
-		if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: db, Query: emptyWorkbookProjectionQuery{}}).ProbeRestoredBackup(ctx, recovery.RestoreResult{}); err != nil {
-			t.Fatalf("empty timeline query should not fail probe: %v", err)
+		if result.WorkbookProbe == nil || *result.WorkbookProbe != executor.result {
+			t.Fatalf("bound workbook probe result got %#v want %#v", result.WorkbookProbe, executor.result)
 		}
 	})
 }

@@ -902,6 +902,11 @@ type VNextRestoreService struct {
 	algorithms *VNextRestoreAlgorithmCatalog
 }
 
+type VNextRestoreVerificationEvidence struct {
+	ManifestSHA256      string
+	RestoredObjectCount int64
+}
+
 func NewVNextRestoreService(
 	storage StreamingBackupStorage,
 	stateCatalog *recoverystate.Catalog,
@@ -914,6 +919,51 @@ func NewVNextRestoreService(
 		return nil, fmt.Errorf("%w: %v", ErrVNextBackup, err)
 	}
 	return &VNextRestoreService{storage: storage, state: stateCatalog, algorithms: algorithms}, nil
+}
+
+func (service *VNextRestoreService) ReadVerificationEvidence(
+	ctx context.Context,
+	integrityProof BackupArtifactStreamProof,
+) (VNextRestoreVerificationEvidence, error) {
+	if service == nil {
+		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: restore service is required", ErrVNextBackup)
+	}
+	integrityBody, err := service.readJSONArtifact(ctx, integrityProof, 32<<20)
+	if err != nil {
+		return VNextRestoreVerificationEvidence{}, err
+	}
+	var integrity VNextBackupIntegrityManifest
+	if err := strictDecodeJSON(integrityBody, &integrity); err != nil {
+		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
+	}
+	if err := service.validateIntegrityManifest(integrity); err != nil {
+		return VNextRestoreVerificationEvidence{}, err
+	}
+	var objectManifestProof VNextArtifactProof
+	for _, proof := range integrity.Artifacts {
+		if proof.LogicalRef == integrity.ObjectStoreManifestRef {
+			objectManifestProof = proof
+			break
+		}
+	}
+	if objectManifestProof.SchemaID != ObjectStoreBackupManifestV2SchemaID {
+		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: object manifest proof is missing", ErrVNextBackup)
+	}
+	objectBody, err := service.readJSONArtifact(ctx, streamProof(objectManifestProof), 1<<30)
+	if err != nil {
+		return VNextRestoreVerificationEvidence{}, err
+	}
+	var objectManifest VNextObjectStoreBackupManifest
+	if err := strictDecodeJSON(objectBody, &objectManifest); err != nil {
+		return VNextRestoreVerificationEvidence{}, fmt.Errorf("%w: decode object manifest: %v", ErrVNextBackup, err)
+	}
+	if err := service.validateObjectManifest(integrity, objectManifest); err != nil {
+		return VNextRestoreVerificationEvidence{}, err
+	}
+	return VNextRestoreVerificationEvidence{
+		ManifestSHA256:      integrity.ManifestSHA256,
+		RestoredObjectCount: int64(len(objectManifest.Objects)),
+	}, nil
 }
 
 func (service *VNextRestoreService) Restore(

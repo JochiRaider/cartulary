@@ -159,10 +159,15 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 		})
 	}
 
-	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism": "backup_restore.recovery.restore.v1",
-		"fixture":          "backup_restore-u-10-03",
-	})
+	basis := recovery.RestoreVerificationBasis{
+		MechanismID:                "backup_restore.recovery.restore.v1",
+		DatabaseBindingSHA256:      recovery.SHA256String("backup_restore-u-10-03-database"),
+		ObjectStoreBindingSHA256:   recovery.SHA256String("backup_restore-u-10-03-objects"),
+		BackupStorageBindingSHA256: recovery.SHA256String("backup_restore-u-10-03-backups"),
+		RecoveryStateCatalogSHA256: recovery.SHA256String("backup_restore-u-10-03-catalog"),
+		CodecRegistrySHA256:        recovery.SHA256String("backup_restore-u-10-03-codecs"),
+	}
+	basisSHA256, err := basis.SHA256()
 	if err != nil {
 		t.Fatalf("restore verification basis: %v", err)
 	}
@@ -176,7 +181,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	}
 	if verified.BackupSet.VerificationState != recovery.VerificationVerified ||
 		verified.BackupSet.LastVerifiedRestoreAt == nil ||
-		verified.BackupSet.LastVerificationBasisSHA256 != basis ||
+		verified.BackupSet.LastVerificationBasisSHA256 != basisSHA256 ||
 		verified.Run.VerificationState != recovery.VerificationVerified {
 		t.Fatalf("successful verification state got %#v", verified)
 	}
@@ -196,7 +201,7 @@ func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
 	}
 	if failed.VerificationState != recovery.VerificationFailed ||
 		failed.LastVerifiedRestoreAt == nil ||
-		failed.LastVerificationBasisSHA256 != basis {
+		failed.LastVerificationBasisSHA256 != basisSHA256 {
 		t.Fatalf("failed verification state got %#v", failed)
 	}
 }

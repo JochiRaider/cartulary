@@ -55,15 +55,19 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		t.Fatalf("fresh restore did not publish complete consistency hashes: %#v", result.ConsistencyReport)
 	}
 
-	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism": "backup_restore.process.restore.v1",
-		"source_root":      "backup_restore-i-10-02-source",
-	})
-	if err != nil {
-		t.Fatalf("restore verification basis: %v", err)
+	basis := recovery.RestoreVerificationBasis{
+		MechanismID:                "backup_restore.process.restore.v1",
+		DatabaseBindingSHA256:      recovery.SHA256String("backup_restore-i-10-02-database"),
+		ObjectStoreBindingSHA256:   recovery.SHA256String("backup_restore-i-10-02-objects"),
+		BackupStorageBindingSHA256: recovery.SHA256String("backup_restore-i-10-02-backups"),
+		RecoveryStateCatalogSHA256: recovery.SHA256String("backup_restore-i-10-02-catalog"),
+		CodecRegistrySHA256:        recovery.SHA256String("backup_restore-i-10-02-codecs"),
 	}
 	verificationTarget := prepareRestoreTarget(t, "backup_restore-i-10-02-verification-target")
-	verificationRebuilder, verificationQuery := timelineassembly.NewRecoveryProjectionServices(verificationTarget.Postgres)
+	verificationRebuilder, verificationQuery, err := timelineassembly.NewRecoveryProjectionServices(verificationTarget.Postgres)
+	if err != nil {
+		t.Fatalf("compose restore projection services: %v", err)
+	}
 	verification, err := recovery.NewRestoreVerificationService(
 		fixture.SourceStore,
 		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
@@ -74,7 +78,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 			EvidenceObjects: recoveryprovider.New(verificationTarget.Postgres),
 			Projections:     verificationRebuilder,
 		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: verificationTarget.Postgres, Query: verificationQuery},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: verificationQuery},
 	}, fixture.AsOf, basis)
 	if err != nil {
 		t.Fatalf("verify restored process fixture: %v", err)

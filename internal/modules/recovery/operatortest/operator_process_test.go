@@ -353,7 +353,8 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-latest-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
-	seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-latest@example.test", true, true)
+	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-latest@example.test", true, true)
+	seedOperatorIncident(t, sourceDB.DSN, actorID, "RESTORE-VERIFY-LATEST")
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102701")
@@ -394,6 +395,33 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_verify_latest", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 	requireOperatorBackupVerificationState(t, sourceDB.DSN, backupSetID, recovery.VerificationVerified)
+	matches, err := filepath.Glob(filepath.Join(
+		sourceConfig.backupRoot,
+		"backup_sets",
+		backupSetID.String(),
+		"restore-verification-*.json",
+	))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("restore verification artifact paths got %v err=%v", matches, err)
+	}
+	logicalKey, err := filepath.Rel(sourceConfig.backupRoot, matches[0])
+	if err != nil {
+		t.Fatalf("resolve restore verification artifact key: %v", err)
+	}
+	artifactBody, err := backupStorage.ReadArtifact(ctx, filepath.ToSlash(logicalKey), 1<<20)
+	if err != nil {
+		t.Fatalf("read restore verification artifact: %v", err)
+	}
+	artifact, err := recovery.DecodeRestoreVerificationArtifact(artifactBody)
+	if err != nil {
+		t.Fatalf("decode restore verification artifact: %v", err)
+	}
+	if artifact.SelectedIncidentID == nil ||
+		artifact.WorkbookProbe.Status != "executed" ||
+		artifact.WorkbookProbe.RegistrationID != "timeline.base_restore_probe.v1" ||
+		artifact.WorkbookProbe.ViewSchemaID != "cartulary.view.timeline.v2" {
+		t.Fatalf("restore verification artifact did not bind executed owner probe: %#v", artifact)
+	}
 }
 
 func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
@@ -1106,6 +1134,31 @@ RETURNING id
 		t.Fatalf("seed operator user %s: %v", email, err)
 	}
 	return userID
+}
+
+func seedOperatorIncident(t testing.TB, dsn string, actorID uuid.UUID, incidentKey string) uuid.UUID {
+	t.Helper()
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open sql DB for operator incident seed: %v", err)
+	}
+	defer db.Close()
+	incidentID := uuid.New()
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO incidents (
+    id,
+    incident_key,
+    incident_key_canonical,
+    title,
+    status,
+    created_by_user_id,
+    updated_by_user_id
+)
+VALUES ($1, $2, lower($2), $2, 'active', $3, $3)
+`, incidentID, incidentKey, actorID); err != nil {
+		t.Fatalf("seed operator incident %s: %v", incidentKey, err)
+	}
+	return incidentID
 }
 
 func operatorObjectStoreBackupObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {

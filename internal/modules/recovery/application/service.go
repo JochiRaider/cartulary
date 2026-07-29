@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 const (
@@ -54,7 +55,7 @@ type Deployment struct {
 }
 
 type DeploymentLoader func(string) (Deployment, error)
-type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery)
+type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
 type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recoverystate.Catalog) error
@@ -345,7 +346,7 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
-	basis, err := service.restoreVerificationBasisForConfig(sourceCfg)
+	basis, err := service.restoreVerificationBasisForConfigs(sourceCfg, targetCfg)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
@@ -422,7 +423,11 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
-	basis, err := service.restoreVerificationBasisForConfig(sourceCfg)
+	basis, err := service.restoreVerificationBasisForConfigs(sourceCfg, targetCfg)
+	if err != nil {
+		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
+	}
+	basisSHA256, err := basis.SHA256()
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
@@ -432,7 +437,7 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 		backupStorage,
 		service.ExtensionBackups,
 		service.RecoveryStateCatalog,
-	).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
+	).ListBackupsDueForRestoreVerification(ctx, service.now(), basisSHA256)
 	if err != nil {
 		return Result{}, classifyAdmissionFailure(err)
 	}
@@ -580,7 +585,7 @@ func (service Service) restoreVerificationTarget(targetPool postgres.DB, targetO
 			EvidenceObjects: evidenceProvider,
 			Projections:     rebuilder,
 		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool, Query: query},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: query},
 	}, nil
 }
 
@@ -843,18 +848,22 @@ func backupObjectStoreBucket(deployment Deployment) (string, error) {
 	}
 }
 
-func (service Service) restoreVerificationBasisForConfig(deployment Deployment) (string, error) {
+func (service Service) restoreVerificationBasisForConfigs(
+	source Deployment,
+	target Deployment,
+) (recovery.RestoreVerificationBasis, error) {
 	if service.RecoveryStateCatalog == nil {
-		return "", recoverystate.ErrInvalidCatalog
+		return recovery.RestoreVerificationBasis{}, recoverystate.ErrInvalidCatalog
 	}
-	return recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism":              recovery.BackupIntegrityManifestV3SchemaID,
-		"codec_registry_sha256":         recovery.VNextCodecRegistrySHA256(),
-		"recovery_state_catalog_sha256": service.RecoveryStateCatalog.DigestSHA256(),
-		"database_storage_binding":      rootBindingBasis(deployment.DatabaseStorage),
-		"object_storage_binding":        rootBindingBasis(deployment.ObjectStorage),
-		"backup_storage_binding":        rootBindingBasis(deployment.BackupStorage),
-	})
+	basis := recovery.RestoreVerificationBasis{
+		MechanismID:                recovery.VNextBackupMechanismID,
+		CodecRegistrySHA256:        recovery.VNextCodecRegistrySHA256(),
+		RecoveryStateCatalogSHA256: service.RecoveryStateCatalog.DigestSHA256(),
+		DatabaseBindingSHA256:      recovery.SHA256String(rootBindingBasis(target.DatabaseStorage)),
+		ObjectStoreBindingSHA256:   recovery.SHA256String(rootBindingBasis(target.ObjectStorage)),
+		BackupStorageBindingSHA256: recovery.SHA256String(rootBindingBasis(source.BackupStorage)),
+	}
+	return basis, basis.Validate()
 }
 
 func rootBindingBasis(binding RootBinding) string {
@@ -1062,11 +1071,14 @@ func (service Service) newBackupStorage(deployment Deployment) (recovery.BackupS
 	return deployment.OpenBackup()
 }
 
-func (service Service) newProjectionServices(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery, error) {
+func (service Service) newProjectionServices(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 	if service.NewProjectionServices == nil {
 		return nil, nil, errors.New("operator recovery requires projection services")
 	}
-	rebuilder, query := service.NewProjectionServices(db)
+	rebuilder, query, err := service.NewProjectionServices(db)
+	if err != nil {
+		return nil, nil, err
+	}
 	if rebuilder == nil {
 		return nil, nil, errors.New("operator recovery requires projection rebuilder")
 	}

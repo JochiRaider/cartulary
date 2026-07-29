@@ -71,6 +71,10 @@ func Acquire(ctx context.Context, backend Backend, timeout time.Duration, lossDe
 	defer cancel()
 	session, err := backend.Open(acquireCtx)
 	if err != nil {
+		if errors.Is(acquireCtx.Err(), context.DeadlineExceeded) ||
+			errors.Is(err, context.DeadlineExceeded) {
+			return nil, ErrApplicationProcessActive
+		}
 		return nil, err
 	}
 	for {

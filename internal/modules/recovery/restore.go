@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 type RestoreStep string
@@ -96,6 +97,10 @@ type RestoreResult struct {
 	ObjectStoreBackupManifest ObjectStoreBackupManifest
 	ProjectionRebuildResult   restorecontract.ProjectionRebuildResult
 	ExtensionBindings         []ExtensionBindingProof
+	SelectedIncidentID        *string
+	WorkbookProbe             *workbookprobe.Result
+	IntegrityManifestSHA256   string
+	RestoredObjectCount       int64
 }
 
 type RestoreConsistencyReport struct {
@@ -200,6 +205,8 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 		BackupSet:                 backupSet,
 		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
 		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
+		IntegrityManifestSHA256:   backupSet.IntegrityManifestSHA256,
+		RestoredObjectCount:       int64(artifacts.ObjectStoreBackupManifest.ObjectCount),
 	}
 
 	recordStep(target.Observer, RestoreStepPostgresRestore)
@@ -241,6 +248,8 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
 		ProjectionRebuildResult:   projectionResult,
 		ExtensionBindings:         append([]ExtensionBindingProof(nil), artifacts.ExtensionBindings...),
+		IntegrityManifestSHA256:   backupSet.IntegrityManifestSHA256,
+		RestoredObjectCount:       int64(artifacts.ObjectStoreBackupManifest.ObjectCount),
 	}
 
 	if target.Readiness != nil {
@@ -293,6 +302,10 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	}, integrityProof); err != nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepPostgresRestore, err)
 	}
+	verificationEvidence, err := restore.ReadVerificationEvidence(ctx, integrityProof)
+	if err != nil {
+		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepConsistencyCheck, err)
+	}
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
 	projectionResult, err := target.Projections.RebuildRestoreProjections(
 		ctx,
@@ -315,6 +328,8 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	result := RestoreResult{
 		BackupSet: backupSet, ConsistencyReport: report,
 		ProjectionRebuildResult: projectionResult,
+		IntegrityManifestSHA256: verificationEvidence.ManifestSHA256,
+		RestoredObjectCount:     verificationEvidence.RestoredObjectCount,
 	}
 	if target.Readiness != nil {
 		recordStep(target.Observer, RestoreStepReadiness)

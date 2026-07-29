@@ -1004,6 +1004,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.timeline.unit.restore_workbook_probe_matches_canonical_fixture_4fbe5d13e2",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestRestoreWorkbookProbeRegistrationMatchesCanonicalFixture"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.timeline.unit.timeline_admission_decoding_and_hashing_46ac663c5c",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.unit",

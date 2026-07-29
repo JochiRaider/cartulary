@@ -6,48 +6,35 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
-
-type WorkbookProjectionQuery interface {
-	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
-}
 
 var ErrWorkbookProbeFailed = errors.New("recovery: workbook probe failed")
 
 type RestoreVerificationWorkbookProbe struct {
-	Postgres postgres.DB
-	Query    WorkbookProjectionQuery
+	Executor workbookprobe.Executor
 }
 
-func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, _ RestoreResult) error {
-	if probe.Postgres == nil {
-		return fmt.Errorf("%w: restore verification workbook probe requires postgres", ErrWorkbookProbeFailed)
+func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, result *RestoreResult) error {
+	if result == nil {
+		return fmt.Errorf("%w: restore result is required", ErrWorkbookProbeFailed)
 	}
-	if probe.Query == nil {
-		return fmt.Errorf("%w: restore verification workbook probe requires projection query", ErrWorkbookProbeFailed)
+	if result.SelectedIncidentID == nil {
+		result.WorkbookProbe = nil
+		return nil
 	}
-	var incidentID uuid.UUID
-	if err := probe.Postgres.QueryRow(ctx, `
-SELECT id
-FROM incidents
-ORDER BY id::text ASC
-LIMIT 1
-`).Scan(&incidentID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		return fmt.Errorf("%w: incident lookup: %v", ErrWorkbookProbeFailed, err)
+	if probe.Executor == nil {
+		return fmt.Errorf("%w: restore verification workbook probe requires executor", ErrWorkbookProbeFailed)
 	}
-	schema, ok := viewschema.Lookup(RestoreVerificationTimelineViewID)
-	if !ok {
-		return fmt.Errorf("%w: timeline view schema is missing", ErrWorkbookProbeFailed)
+	incidentID, err := uuid.Parse(*result.SelectedIncidentID)
+	if err != nil {
+		return fmt.Errorf("%w: selected incident_id is invalid", ErrWorkbookProbeFailed)
 	}
-	if _, err := probe.Query.QueryRows(ctx, incidentID, RestoreVerificationTimelineViewID, schema.DefaultQueryMeta()); err != nil {
-		return fmt.Errorf("%w: timeline query: %v", ErrWorkbookProbeFailed, err)
+	executed, err := probe.Executor.ExecuteDefault(ctx, workbookprobe.BaseProfile, incidentID)
+	result.WorkbookProbe = &executed
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrWorkbookProbeFailed, err)
 	}
 	return nil
 }

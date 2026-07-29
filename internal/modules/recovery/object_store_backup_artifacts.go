@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	ObjectStoreBackupManifestSchemaID   = "cartulary.object_store_backup_manifest.v1"
-	ObjectStoreBackupSummarySchemaID    = "cartulary.object_store_backup_summary.v1"
-	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v1"
-	ObjectStoreBackendSeaweedFSS3       = "seaweedfs_s3"
-	RestoreVerificationTimelineViewID   = "cartulary.view.timeline.v2"
+	ObjectStoreBackupManifestSchemaID     = "cartulary.object_store_backup_manifest.v1"
+	ObjectStoreBackupSummarySchemaID      = "cartulary.object_store_backup_summary.v1"
+	RestoreVerificationArtifactV1SchemaID = "cartulary.restore_verification.v1"
+	ObjectStoreBackendSeaweedFSS3         = "seaweedfs_s3"
+	RestoreVerificationTimelineViewID     = "cartulary.view.timeline.v2"
 )
 
 type ObjectStoreBackupCaptureParams struct {
@@ -95,7 +95,7 @@ type RedactionRef struct {
 	PortPresent    *bool  `json:"port_present,omitempty"`
 }
 
-type RestoreVerificationArtifact struct {
+type RestoreVerificationArtifactV1 struct {
 	SchemaID                string                               `json:"schema_id"`
 	BackupSetID             string                               `json:"backup_set_id"`
 	SelectedIncidentID      *string                              `json:"selected_incident_id"`
@@ -489,36 +489,36 @@ func ValidateObjectStoreBackupSummary(summary ObjectStoreBackupSummary) error {
 	return nil
 }
 
-func EncodeRestoreVerificationArtifact(artifact RestoreVerificationArtifact) ([]byte, error) {
-	if err := ValidateRestoreVerificationArtifactWithoutDigest(artifact); err != nil {
+func EncodeRestoreVerificationArtifactV1(artifact RestoreVerificationArtifactV1) ([]byte, error) {
+	if err := ValidateRestoreVerificationArtifactV1WithoutDigest(artifact); err != nil {
 		return nil, err
 	}
 	artifact.ArtifactSHA256 = sha256Hex(canonicalRestoreVerificationArtifactBytes(artifact, false))
-	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
+	if err := ValidateRestoreVerificationArtifactV1(artifact); err != nil {
 		return nil, err
 	}
 	return canonicalRestoreVerificationArtifactBytes(artifact, true), nil
 }
 
-func DecodeRestoreVerificationArtifact(body []byte) (RestoreVerificationArtifact, error) {
+func DecodeRestoreVerificationArtifactV1(body []byte) (RestoreVerificationArtifactV1, error) {
 	if err := rejectDuplicateJSONKeys(body); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification artifact JSON object keys must be unique: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifactV1{}, fmt.Errorf("%w: restore verification artifact JSON object keys must be unique: %v", ErrInvalidBackupArtifact, err)
 	}
-	var artifact RestoreVerificationArtifact
+	var artifact RestoreVerificationArtifactV1
 	if err := decodeStrictJSON(body, &artifact); err != nil {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: decode restore verification artifact: %v", ErrInvalidBackupArtifact, err)
+		return RestoreVerificationArtifactV1{}, fmt.Errorf("%w: decode restore verification artifact: %v", ErrInvalidBackupArtifact, err)
 	}
-	if err := ValidateRestoreVerificationArtifact(artifact); err != nil {
-		return RestoreVerificationArtifact{}, err
+	if err := ValidateRestoreVerificationArtifactV1(artifact); err != nil {
+		return RestoreVerificationArtifactV1{}, err
 	}
 	if !bytes.Equal(body, canonicalRestoreVerificationArtifactBytes(artifact, true)) {
-		return RestoreVerificationArtifact{}, fmt.Errorf("%w: restore verification artifact is not canonical JSON", ErrInvalidBackupArtifact)
+		return RestoreVerificationArtifactV1{}, fmt.Errorf("%w: restore verification artifact is not canonical JSON", ErrInvalidBackupArtifact)
 	}
 	return artifact, nil
 }
 
-func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) error {
-	if err := ValidateRestoreVerificationArtifactWithoutDigest(artifact); err != nil {
+func ValidateRestoreVerificationArtifactV1(artifact RestoreVerificationArtifactV1) error {
+	if err := ValidateRestoreVerificationArtifactV1WithoutDigest(artifact); err != nil {
 		return err
 	}
 	if !validSHA256Hex(artifact.ArtifactSHA256) {
@@ -530,8 +530,8 @@ func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) e
 	return nil
 }
 
-func ValidateRestoreVerificationArtifactWithoutDigest(artifact RestoreVerificationArtifact) error {
-	if artifact.SchemaID != RestoreVerificationArtifactSchemaID {
+func ValidateRestoreVerificationArtifactV1WithoutDigest(artifact RestoreVerificationArtifactV1) error {
+	if artifact.SchemaID != RestoreVerificationArtifactV1SchemaID {
 		return fmt.Errorf("%w: unsupported restore verification artifact schema %q", ErrInvalidBackupArtifact, artifact.SchemaID)
 	}
 	if _, err := uuid.Parse(artifact.BackupSetID); err != nil {
@@ -646,7 +646,7 @@ func canonicalObjectStoreBackupSummaryBytes(summary ObjectStoreBackupSummary) []
 	})
 }
 
-func canonicalRestoreVerificationArtifactBytes(artifact RestoreVerificationArtifact, includeDigest bool) []byte {
+func canonicalRestoreVerificationArtifactBytes(artifact RestoreVerificationArtifactV1, includeDigest bool) []byte {
 	value := map[string]any{
 		"backup_set_id":             artifact.BackupSetID,
 		"blob_check_counts":         map[string]any{"failed": artifact.BlobCheckCounts.Failed, "passed": artifact.BlobCheckCounts.Passed, "total": artifact.BlobCheckCounts.Total},

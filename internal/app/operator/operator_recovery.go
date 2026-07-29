@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
@@ -53,7 +54,7 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 					GenerationBody: generationBody,
 				}, err
 			},
-			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery) {
+			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 				return timelineassembly.NewRecoveryProjectionServices(db)
 			},
 			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {

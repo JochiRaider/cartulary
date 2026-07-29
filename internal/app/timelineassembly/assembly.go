@@ -26,8 +26,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 type Bundle struct {
@@ -109,9 +111,16 @@ func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
 	return composeProjection(pool).rebuilder
 }
 
-func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, *projections.QueryService) {
+func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 	components := composeProjection(pool)
-	return components.rebuilder, components.catalog.Query
+	registry, err := workbookrestoreprobe.NewRegistry(
+		components.catalog.Query,
+		timeline.RestoreWorkbookProbeRegistration(),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("compose restore workbook probe registry: %w", err)
+	}
+	return components.rebuilder, registry, nil
 }
 
 func compose(

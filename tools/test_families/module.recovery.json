@@ -410,6 +410,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.unit.owner_registered_workbook_probe_and_v2_artifact_a881cb6053",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit",
+          "TestRestoreVerificationArtifactV2CanonicalFixture_Unit",
+          "TestRestoreVerificationWorkbookProbe"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",

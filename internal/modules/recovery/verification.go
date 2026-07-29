@@ -18,7 +18,7 @@ import (
 const RestoreVerificationInterval = 7 * 24 * time.Hour
 
 type RestoreVerificationProbe interface {
-	ProbeRestoredBackup(ctx context.Context, result RestoreResult) error
+	ProbeRestoredBackup(ctx context.Context, result *RestoreResult) error
 }
 
 type RestoreVerificationTarget struct {
@@ -86,12 +86,12 @@ func RestoreVerificationBasisSHA256(parts map[string]string) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx context.Context, target RestoreVerificationTarget, asOf time.Time, verificationBasisSHA256 string) (RestoreVerificationResult, error) {
+func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx context.Context, target RestoreVerificationTarget, asOf time.Time, verificationBasis RestoreVerificationBasis) (RestoreVerificationResult, error) {
 	if service == nil || service.backups == nil || service.verifications == nil || service.runner == nil {
 		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
 	}
-	if !validSHA256Hex(verificationBasisSHA256) {
-		return RestoreVerificationResult{}, ErrInvalidVerificationBasis
+	if err := verificationBasis.Validate(); err != nil {
+		return RestoreVerificationResult{}, err
 	}
 	if asOf.IsZero() {
 		asOf = service.now()
@@ -106,28 +106,25 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}
-	return service.VerifyBackupSet(ctx, target, backupSet, verificationBasisSHA256)
+	return service.VerifyBackupSet(ctx, target, backupSet, verificationBasis)
 }
 
-func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasisSHA256 string) (RestoreVerificationResult, error) {
+func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasis RestoreVerificationBasis) (RestoreVerificationResult, error) {
 	if service == nil || service.backups == nil || service.verifications == nil || service.runner == nil {
 		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
 	}
-	if !validSHA256Hex(verificationBasisSHA256) {
-		return RestoreVerificationResult{}, ErrInvalidVerificationBasis
+	verificationBasisSHA256, err := verificationBasis.SHA256()
+	if err != nil {
+		return RestoreVerificationResult{}, err
 	}
 	startedAt := service.now().UTC()
 	runID := uuid.New()
 
 	restoreTarget := target.RestoreTarget
 	restoreTarget.Readiness = nil
-	recorder := &restoreVerificationStepRecorder{}
-	restoreTarget.Observer = restoreVerificationObserver{
-		outer:    restoreTarget.Observer,
-		recorder: recorder,
-	}
 	restoreResult, restoreErr := service.runner.RestoreBackupSet(ctx, restoreTarget, backupSet)
 	selectedIncidentID, incidentErr := selectRestoreVerificationIncidentID(ctx, restoreTarget.Postgres)
+	restoreResult.SelectedIncidentID = selectedIncidentID
 	var probeErr error
 	if restoreErr == nil {
 		if incidentErr != nil {
@@ -136,7 +133,7 @@ func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, 
 			if target.Probe == nil {
 				probeErr = fmt.Errorf("%w: restore verification probe is required when incidents exist", ErrInvalidBackupArtifact)
 			} else {
-				probeErr = target.Probe.ProbeRestoredBackup(ctx, restoreResult)
+				probeErr = target.Probe.ProbeRestoredBackup(ctx, &restoreResult)
 			}
 			if probeErr != nil {
 				restoreErr = probeErr
@@ -145,7 +142,19 @@ func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, 
 	}
 
 	completedAt := service.now().UTC()
-	artifact, artifactProof, artifactErr := service.writeRestoreVerificationArtifact(ctx, runID, backupSet, restoreTarget, restoreResult, restoreErr, incidentErr, probeErr, selectedIncidentID, recorder)
+	artifact, artifactProof, artifactErr := service.writeRestoreVerificationArtifact(
+		ctx,
+		runID,
+		backupSet,
+		restoreResult,
+		restoreErr,
+		incidentErr,
+		probeErr,
+		selectedIncidentID,
+		verificationBasis,
+		verificationBasisSHA256,
+		completedAt,
+	)
 	if artifactErr != nil {
 		restoreErr = artifactErr
 		completedAt = service.now().UTC()
@@ -201,18 +210,30 @@ func (service *RestoreVerificationService) writeRestoreVerificationArtifact(
 	ctx context.Context,
 	runID uuid.UUID,
 	backupSet BackupSet,
-	target RestoreTarget,
 	restoreResult RestoreResult,
 	restoreErr error,
 	incidentErr error,
 	probeErr error,
 	selectedIncidentID *string,
-	recorder *restoreVerificationStepRecorder,
+	verificationBasis RestoreVerificationBasis,
+	verificationBasisSHA256 string,
+	completedAt time.Time,
 ) (RestoreVerificationArtifact, BackupArtifactProof, error) {
 	if service == nil || service.runner == nil || service.runner.storage == nil {
 		return RestoreVerificationArtifact{}, BackupArtifactProof{}, fmt.Errorf("%w: restore verification artifact requires backup storage", ErrInvalidBackupMetadata)
 	}
-	artifact := buildRestoreVerificationArtifact(ctx, backupSet, target, restoreResult, restoreErr, incidentErr, probeErr, selectedIncidentID, recorder)
+	artifact := buildRestoreVerificationArtifact(
+		runID,
+		backupSet,
+		restoreResult,
+		restoreErr,
+		incidentErr,
+		probeErr,
+		selectedIncidentID,
+		verificationBasis,
+		verificationBasisSHA256,
+		completedAt,
+	)
 	body, err := EncodeRestoreVerificationArtifact(artifact)
 	if err != nil {
 		return RestoreVerificationArtifact{}, BackupArtifactProof{}, fmt.Errorf("encode restore verification artifact: %w", err)
@@ -230,112 +251,58 @@ func (service *RestoreVerificationService) writeRestoreVerificationArtifact(
 }
 
 func buildRestoreVerificationArtifact(
-	ctx context.Context,
+	runID uuid.UUID,
 	backupSet BackupSet,
-	target RestoreTarget,
 	restoreResult RestoreResult,
 	restoreErr error,
 	incidentErr error,
 	probeErr error,
 	selectedIncidentID *string,
-	recorder *restoreVerificationStepRecorder,
+	verificationBasis RestoreVerificationBasis,
+	verificationBasisSHA256 string,
+	completedAt time.Time,
 ) RestoreVerificationArtifact {
-	manifestResult := "fail"
-	if ValidateObjectStoreBackupManifestForBackup(backupSet, restoreResult.ObjectStoreBackupManifest) == nil {
-		manifestResult = "pass"
+	workbookProbe := RestoreVerificationWorkbookProbeArtifact{
+		Status: "skipped",
+		Reason: "no_incidents",
 	}
-	projectionResult := "fail"
-	if restoreResult.ProjectionRebuildResult.ReadinessSatisfied() {
-		projectionResult = "pass"
-	} else if recorder != nil && recorder.Contains(RestoreStepConsistencyCheck) {
-		projectionResult = "pass"
-	}
-
-	blobCounts := restoreVerificationBlobCounts(ctx, target)
-	incidentStatus := "skipped_no_incidents"
-	queryViewSchemaID := ""
 	if selectedIncidentID != nil {
-		queryViewSchemaID = RestoreVerificationTimelineViewID
-		if probeErr == nil && incidentErr == nil && restoreErr == nil {
-			incidentStatus = "pass"
-		} else {
-			incidentStatus = "fail"
+		workbookProbe = RestoreVerificationWorkbookProbeArtifact{Status: "executed"}
+		if executed := restoreResult.WorkbookProbe; executed != nil {
+			rowCount := executed.RowCount
+			workbookProbe.RegistrationID = executed.RegistrationID
+			workbookProbe.ViewSchemaID = executed.ViewSchemaID
+			workbookProbe.RowCount = &rowCount
 		}
 	}
 
 	result := "pass"
-	reasons := make([]string, 0)
-	if restoreErr != nil || incidentErr != nil || probeErr != nil ||
-		manifestResult != "pass" || projectionResult != "pass" || blobCounts.Failed != 0 || incidentStatus == "fail" {
+	if restoreErr != nil || incidentErr != nil || probeErr != nil {
 		result = "fail"
-		reasons = restoreVerificationArtifactFailureReasons(restoreErr, incidentErr, probeErr, manifestResult, projectionResult, blobCounts, incidentStatus)
 	}
 	return RestoreVerificationArtifact{
-		SchemaID:                RestoreVerificationArtifactSchemaID,
-		BackupSetID:             backupSet.BackupSetID.String(),
-		SelectedIncidentID:      selectedIncidentID,
-		IncidentOpenCheck:       RestoreVerificationIncidentOpenCheck{Status: incidentStatus},
-		QueryViewSchemaID:       queryViewSchemaID,
-		BlobCheckCounts:         blobCounts,
-		ManifestCheckResult:     manifestResult,
-		ProjectionRebuildResult: projectionResult,
-		Result:                  result,
-		FailureReasons:          reasons,
+		SchemaID:                   RestoreVerificationArtifactSchemaID,
+		VerificationAttemptID:      runID.String(),
+		BackupSetID:                backupSet.BackupSetID.String(),
+		ConsistencyPointAt:         backupSet.ConsistencyPointAt,
+		VerificationBasis:          verificationBasis,
+		VerificationBasisSHA256:    verificationBasisSHA256,
+		RecoveryStateCatalogSHA256: verificationBasis.RecoveryStateCatalogSHA256,
+		CodecRegistrySHA256:        verificationBasis.CodecRegistrySHA256,
+		ManifestSHA256:             restoreVerificationManifestSHA256(backupSet, restoreResult),
+		RestoredObjectCount:        restoreResult.RestoredObjectCount,
+		SelectedIncidentID:         selectedIncidentID,
+		WorkbookProbe:              workbookProbe,
+		Result:                     result,
+		CompletedAt:                completedAt,
 	}
 }
 
-func restoreVerificationBlobCounts(ctx context.Context, target RestoreTarget) RestoreVerificationBlobCheckCounts {
-	if target.Postgres == nil || target.ObjectStore == nil {
-		return RestoreVerificationBlobCheckCounts{Failed: 1, Total: 1}
+func restoreVerificationManifestSHA256(backupSet BackupSet, result RestoreResult) string {
+	if validSHA256Hex(result.IntegrityManifestSHA256) {
+		return result.IntegrityManifestSHA256
 	}
-	_, count, err := verifyRestoredBlobRowsDetailed(ctx, target.EvidenceObjects, target.ObjectStore)
-	if err != nil {
-		return RestoreVerificationBlobCheckCounts{Total: 1, Failed: 1}
-	}
-	return RestoreVerificationBlobCheckCounts{Total: count, Passed: count}
-}
-
-func restoreVerificationArtifactFailureReasons(restoreErr error, incidentErr error, probeErr error, manifestResult string, projectionResult string, blobCounts RestoreVerificationBlobCheckCounts, incidentStatus string) []string {
-	reasons := make(map[string]struct{})
-	add := func(reason string) {
-		reasons[reason] = struct{}{}
-	}
-	if restoreErr != nil {
-		switch {
-		case errors.Is(restoreErr, ErrInvalidBackupArtifact):
-			add("backup_artifact_invalid")
-		case errors.Is(restoreErr, ErrNoSuccessfulRetainedBackup):
-			add("backup_selection_failed")
-		case errors.Is(restoreErr, ErrLatestSuccessfulBackupStale):
-			add("backup_selection_failed")
-		default:
-			add("restore_failed")
-		}
-	}
-	if manifestResult != "pass" {
-		add("manifest_check_failed")
-	}
-	if projectionResult != "pass" {
-		add("projection_rebuild_failed")
-	}
-	if blobCounts.Failed != 0 {
-		add("blob_lifecycle_inconsistent")
-	}
-	if incidentErr != nil {
-		add("incident_open_failed")
-	}
-	if probeErr != nil || incidentStatus == "fail" {
-		add("workbook_query_failed")
-	}
-	if len(reasons) == 0 {
-		add("restore_verification_failed")
-	}
-	ordered := make([]string, 0, len(reasons))
-	for reason := range reasons {
-		ordered = append(ordered, reason)
-	}
-	sort.Strings(ordered)
-	return ordered
+	return backupSet.IntegrityManifestSHA256
 }
 
 func selectRestoreVerificationIncidentID(ctx context.Context, target postgresQueryer) (*string, error) {
@@ -359,40 +326,6 @@ LIMIT 1
 
 type postgresQueryer interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
-type restoreVerificationStepRecorder struct {
-	Steps []RestoreStep
-}
-
-func (recorder *restoreVerificationStepRecorder) RecordRestoreStep(step RestoreStep) {
-	recorder.Steps = append(recorder.Steps, step)
-}
-
-func (recorder *restoreVerificationStepRecorder) Contains(step RestoreStep) bool {
-	if recorder == nil {
-		return false
-	}
-	for _, got := range recorder.Steps {
-		if got == step {
-			return true
-		}
-	}
-	return false
-}
-
-type restoreVerificationObserver struct {
-	outer    RestoreStepObserver
-	recorder *restoreVerificationStepRecorder
-}
-
-func (observer restoreVerificationObserver) RecordRestoreStep(step RestoreStep) {
-	if observer.outer != nil {
-		observer.outer.RecordRestoreStep(step)
-	}
-	if observer.recorder != nil {
-		observer.recorder.RecordRestoreStep(step)
-	}
 }
 
 func restoreVerificationFailureReason(err error) string {

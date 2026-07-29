@@ -19,7 +19,7 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	warmCtx, cancelWarm := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelWarm()
 	if err := warmPostgresLeaseSessions(warmCtx, pool, 2); err != nil {
@@ -75,7 +75,7 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	sharedBackend := PostgresBackend{
 		Pool:        pool,
 		AdvisoryKey: ServingAdvisoryKey,
