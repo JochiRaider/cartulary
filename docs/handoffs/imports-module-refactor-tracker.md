@@ -8,11 +8,12 @@
 - **Target label:** `imports`
 - **Output path:** `docs/handoffs/imports-module-refactor-tracker.md`
 - **Status:** Active remediation control artifact.
-- **Current control point:** `RS-06` checkpoint complete; only `RS-07` is eligible.
-- **Allowed change in the next control point:** Backend rectangle-overlap enforcement at selection
-  and apply, skipped-unit reselection with mapping retention, fresh-session intentional re-import
-  behavior, associated frontend/state evidence, and the mandatory tracker checkpoint. Later changes
-  MUST remain inside the separately recorded `RS-08` through `RS-11` workstream boundaries.
+- **Current control point:** `RS-07` checkpoint complete; only `RS-08` is eligible.
+- **Allowed change in the next control point:** Canonical `write_null` handling, stable null-policy
+  fingerprints, typed owner-apply errors, registered safe translation, unknown-error fail-closed
+  behavior, associated contract/security evidence, and the mandatory tracker checkpoint. Later
+  changes MUST remain inside the separately recorded `RS-09` through `RS-11` workstream
+  boundaries.
 - **Non-goals:** No unsequenced production refactor, generated-root hand edit, dependency-lock edit,
   whole-session rollback, generic callback bus, import-specific WebSocket surface, or legacy target
   fallback.
@@ -91,8 +92,8 @@ The implementation baseline is clean `main` at
 only this tracker. The active narrow baseline is
 `make test-slice OWNER=module.imports`: five routed tests and three work units passed at
 `.cartulary/test-results/20260728T224329Z-p1276405`.
-The current workstream baseline is tracker checkpoint `161792f8`; the responsibility decomposition
-in RS-05 is substantive commit `7bbbb00d`.
+The current workstream baseline is tracker checkpoint `b00fcd1c`; the selection lifecycle
+correction in RS-07 is substantive commit `356281c0`.
 
 ### 1.4 Mandatory workstream checkpoint
 
@@ -138,15 +139,16 @@ substantive change. A failed exit criterion leaves the current slice open.
 | `internal/modules/imports/ownerfacade/registry.go` | Closed binding, adapter, owner normalizer, and exact owner-create registry contract | Binding, facade, adapter constructor, registry constructor, ordered bindings, and exact resolver | Source-owner constructors, Imports assembly, apply coordinator | Owner-create request/result contract | Dedicated registry and assembly tests | Core owner-create facade and generated target binding | imports shared facade contract | high | Construction fails closed on missing, duplicate, unexpected, mismatched, or nil facades; Timeline uses the same resolution boundary. |
 | `internal/modules/imports/ownerfacade/registry_test.go` | Exact-order and fail-closed registry characterization | Test-only package surface | Go test runner | Ownerfacade registry | Self | Verification owner and family mappings | imports test ownership | medium | RS-11 must account for this test exactly once. |
 | `internal/modules/imports/revision_append_port.go` | Narrow adapter for appending revision contributions during import-owned coordination | Internal revision-appender wrapper surface | Owner apply and route/job assembly | Revisions module | Imports integration tests indirectly | Revision/change-set contracts | revisions owner behind imports port | high | Revision order and idempotency MUST remain owner-defined. |
+| `internal/modules/imports/selection.go` | Transactional unit-selection readiness and canonical worksheet-rectangle overlap enforcement | Internal selection-state, source-region, and overlap helpers | Store selection and apply admission | PostgreSQL unit/session state plus canonical locator parsing | Imports lifecycle integration and responsibility-boundary tests | Core selection lifecycle and Imports HTTP error contract | imports selection service | high | Session-first locking serializes concurrent selection; selection and apply both reject overlap with `import_apply_blocked/overlapping_units`. |
 | `internal/modules/imports/service.go` | Public route options and registration, dependency validation, service construction, and application-facing composition | `Service`, `RouteOption`, `RegisterRoutes`, and option constructors | Server runtime | Store, owner registry, revisions, auth, jobs, extensions, pagination | Imports route and composition tests | Application facade and authored route inventory | imports composition facade | high | Exported declaration comparison is unchanged from the RS-04 baseline. |
 | `internal/modules/imports/source_streams.go` | Import-owned opaque source-stream references, capability loading, and content-digest validation | Source capability/stream types and Store methods consumed by analytical facades | Network Flow import facade and transaction participants | Import Store and hashing/value helpers | Network Flow behavior and imports integration tests | Analytical import facade contract | imports | high | Capability binding MUST satisfy IRT-REQ-004 and IRT-REQ-007 before interface movement. |
 | `internal/modules/imports/store.go` | Direct SQL persistence for import sessions, units, source rows, previews, idempotency, admission/state transitions, source streams, and apply journal | `Store`, constructor, session/unit/query/mutation methods, sentinel errors | Routes, owner apply, Network Flow through a restricted interface, tests, server assembly | PostgreSQL and import-owned schema | Imports and Network Flow tests | Import database schema and HTTP resources | imports persistence adapter | critical | Direct SQL is intentional for import-owned state; cross-owner SQL MUST NOT migrate here. |
 | `internal/modules/imports/targets.go` | Runtime view-schema and analytical target lookups derived exclusively from the generated registry | Target lookup surface | Routes, mapping validation, owner apply, tests | Generated target registry | Target-registry and owner-apply integration cases | `cartulary.import_target_registry.v1` Go projection | imports contract-owner mapping | medium | RS-03 removed the manual backend target list; the frontend duplicate remains assigned to RS-10. |
 | `internal/modules/imports/xlsx.go` | Bounded ZIP/OpenXML XLSX parsing, shared strings, worksheet used ranges, cell kinds, and archive limits | Internal XLSX discovery/row-loading surface | Route discovery and preview/application flow | ZIP/XML parsing and archive policy | Bounded used-range integration test | Core import profile and limit contract | imports source adapter using shared tabular-ingest semantics | high | Tables, named ranges, operator regions, and presentation neutrality lack implementation evidence. |
 
-The 28 tracked files above include the RS-00 characterization additions and the RS-03 through
-RS-05 registry/convergence/decomposition contracts. The filesystem also contains an empty,
-untracked
+The 29 tracked files above include the RS-00 characterization additions, the RS-03 through RS-05
+registry/convergence/decomposition contracts, and the RS-07 selection boundary. The filesystem
+also contains an empty, untracked
 `internal/modules/imports/tabularingest` directory. Git does not track empty directories. The live
 shared parser package is `internal/modules/tabularingest`; no module move may be inferred from the
 empty directory.
@@ -397,7 +399,7 @@ condition, not a design choice left to an implementer.
 | GATE-03 Correction authorization | Adopt one Imports Conformance Corrections Authorization row per observable correction. | PASS | Each correction has owner requirements, compatibility class, tests, migration posture, rollback boundary, approver, and adopted status. | RS-06 through RS-10 |
 | GATE-04 Registry projection | Adopt and generate `cartulary.import_target_registry.v1`. | PASS | Backend, frontend, adapter, verification, and integrity outputs validate and share one source digest. | Registry injection and frontend cleanup |
 | GATE-05 Structural authorization | Explicitly authorize behavior-preserving registry injection and file-level decomposition. | PASS | GATE-01, GATE-02, and GATE-04 pass; authorized files and rollback boundaries are recorded. | RS-03 through RS-05 |
-| GATE-06 Correction implementation | Authorize and implement each observable correction independently. | IN PROGRESS; RS-06 PASS | Each selected correction's current and normative tests pass with required migration/compatibility evidence. | Final validation |
+| GATE-06 Correction implementation | Authorize and implement each observable correction independently. | IN PROGRESS; RS-06/07 PASS | Each selected correction's current and normative tests pass with required migration/compatibility evidence. | Final validation |
 | GATE-07 Harness closure | Add exact authored owner/family rows, regenerate topology, and run narrow-to-broad checks. | TODO | No uncovered target, duplicate selector, unowned test, or generated drift remains. | Final handoff |
 
 The conformance authorization artifact required by GATE-03 MUST contain:
@@ -446,7 +448,7 @@ boundaries now that GATE-01, GATE-02, and GATE-04 pass.
 | Workflow ID | Name | Class | Required previous workflows/gates | Required subsequent workflows | Goal | Validation | Handoff checkpoint |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | WF-00 | Scope, source, and tracker posture | root | None | WF-01 through WF-04 | Fix authority, baseline, language, and write boundary | `make lint-markdown` | Tracker is internally coherent and only it changed. |
-| WF-01 | Live target inventory | chain | WF-00 | WF-02 through WF-04 | Account for every file, caller, dependency, and test | Repository inspection | All 22 tracked files have target-specific rows. |
+| WF-01 | Live target inventory | chain | WF-00 | WF-02 through WF-04 | Account for every file, caller, dependency, and test | Repository inspection | All 29 tracked files have target-specific rows. |
 | WF-02 | Contract and owner resolution | chain | WF-01 | WF-05 | Make ownership and interfaces decision-complete and adopt the coordinated owner correction before production changes | Human owner review; owner-selected documentation and shape checks | GATE-02/03 pass; exact analytical ownership, two-level completion, and correction authorization are adopted. |
 | WF-03 | Characterization and evidence design | parallel | WF-01 | WF-05, WF-07 | Define exact coverage and accounting for all 18 targets | Owner slices and frontend checks | GATE-01 plan is complete. |
 | WF-04 | Boundary and projection design | parallel | WF-01 | WF-05 | Specify owner registry, composition, and generated target projection | Boundary and generation checks | GATE-04 passes; all five projections share source digest `5ef5aad1fb8bcfbebc5c7078a83c560346144e279a95952506918280c0e276f7`. |
@@ -606,7 +608,7 @@ active and MUST be recorded in the checkpoint.
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
 | IMP-001 | Fix target scope, authority, baseline, and write boundary | WF-00 | DONE | None | §1 | Exact scope and non-goals are normative. |
-| IMP-002 | Inventory every tracked target file and direct boundary | WF-01 | DONE | IMP-001 | §2 | All 22 tracked files have live target-specific rows. |
+| IMP-002 | Inventory every tracked target file and direct boundary | WF-01 | DONE | IMP-001 | §2 | All 29 tracked files have live target-specific rows. |
 | IMP-003 | Resolve analytical ownership and commit semantics in the tracker | WF-02 | DONE | IMP-002 | IRT-REQ-003 through 006; RB-001 | Planning decision is complete without claiming owner adoption. |
 | IMP-004 | Resolve conformance behavior decisions in the tracker | WF-02 | DONE | IMP-002 | §4.6/4.7; RB-002 | Every correction has exact behavior, default, and compatibility class. |
 | IMP-005 | Define complete characterization and harness posture | WF-03 | DONE | IMP-002 | §8; RB-003 | All 18 targets and cross-cutting invariants have binary evidence obligations. |
@@ -618,7 +620,7 @@ active and MUST be recorded in the checkpoint.
 | IMP-011 | Split imports internal responsibilities | WF-05 | DONE | IMP-010; GATE-05 | RS-05 `7bbbb00d` | Exported declarations, ten routes, errors, transactions, parser behavior, and characterization remain unchanged behind explicit file responsibilities. |
 | IMP-012 | Adopt conformance correction authorization | WF-06 | DONE | IMP-004, IMP-007; GATE-03 | §6.1 Imports Conformance Corrections Authorization | Every correction row is adopted before implementation. |
 | IMP-013 | Implement transaction/auth correction | WF-06 | DONE | IMP-008, IMP-010 through IMP-012; GATE-06 | RS-06; `75c7c2ec` | IRT-REQ-005 through 008 pass. |
-| IMP-014 | Implement state/null/error/discovery corrections | WF-06 | TODO | IMP-011/012; GATE-06 | RS-07 through RS-09 | IRT-REQ-009 through 013 pass independently. |
+| IMP-014 | Implement state/null/error/discovery corrections | WF-06 | IN PROGRESS; RS-07 DONE | IMP-011/012; GATE-06 | RS-07 `356281c0`; RS-08/09 pending | IRT-REQ-009/010 pass; IRT-REQ-011 through 013 remain. |
 | IMP-015 | Replace frontend hardcoded registry | WF-06 | TODO | IMP-009, IMP-012; GATE-06 | RS-10 | IRT-REQ-014/015 pass with selector parity. |
 | IMP-016 | Complete harness accounting and final evidence | WF-07 | TODO | Applicable implementation rows; GATE-07 | RS-11 | Every active test is accounted for once; required checks are recorded. |
 | IMP-017 | Validate this NLSpec-style tracker revision | WF-00 | DONE | IMP-001 through IMP-006 | `make lint-markdown` | Markdown and structural checks passed with only this file changed. |
@@ -638,6 +640,7 @@ active and MUST be recorded in the checkpoint.
 | 2026-07-28 20:50 EDT | RS-04 | Baseline `cfb01613`; substantive result `7e891c66` | Added Timeline’s owner-created import facade and provenance/normalization tests; registered all 14 enabled view owners exactly through `internal/app/importassembly`; removed Imports’ direct Timeline dependency and special row loop; extended the narrow owner facade with owner normalization, collection identity, and a contiguous mutation sequencer; refactored Timeline row creation to participate in the caller’s transaction and change set; expanded integration evidence for exact effects, replay, and rollback across 14 substantive files | `make format` passed at `.cartulary/test-results/20260729T004858Z-p2197580`; Imports `test-slice` and `service-backed-test-slice` passed five tests and 3/3 work units each at `.cartulary/test-results/20260729T004035Z-p2043893` and `.cartulary/test-results/20260729T004124Z-p2063322`; Timeline `test-slice` passed 48 tests and 9/9 work units at `.cartulary/test-results/20260729T004213Z-p2082395`; Timeline `service-backed-test-slice` passed 33 tests and 9/9 work units at `.cartulary/test-results/20260729T004703Z-p2173190`; `make backend-module-boundary-check`, `make generate-drift`, `make test-fast`, and `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260729T004344Z-p2107659`, `.cartulary/test-results/20260729T004347Z-p2107933`, `.cartulary/test-results/20260729T004402Z-p2111851` with 891 tests and 2/2 work units, and `.cartulary/test-results/20260729T004654Z-p2172784`; checkpoint `make lint-markdown` passed at `.cartulary/test-results/20260729T005243Z-p2203519` | Internal structural change only: all ten routes, public shapes, database state, generated outputs, and historical sessions are unchanged; rollback reverts all 14 substantive files together; the first staticcheck run at `.cartulary/test-results/20260729T004636Z-p2171229` found five related capitalized Timeline error strings, which were corrected; the rerun at `.cartulary/test-results/20260729T004902Z-p2200663` contains only unrelated pre-existing Collaboration, Incidents, Extensions, and S3 proxy findings and no changed-path finding; durable unit outcomes and outcome-only finalization remain deliberately assigned to RS-06 | RS-05 only |
 | 2026-07-28 21:09 EDT | RS-05 | Baseline `161792f8`; substantive result `7bbbb00d` | Replaced `routes.go` with `service.go`, `http_handlers.go`, `jobs.go`, `apply_jobs.go`, `apply_coordination.go`, `discovery.go`, and `mapping.go`; retained `store.go`, `owner_apply.go`, and `xlsx.go` as cohesive persistence, view-owner transaction, and XLSX adapter boundaries; added a source-level responsibility-separation guard across nine substantive files | Final `make format` passed at `.cartulary/test-results/20260729T010405Z-p2233683`; Imports `test-slice` and `service-backed-test-slice` passed five tests and 3/3 work units at `.cartulary/test-results/20260729T010825Z-p2317397` and `.cartulary/test-results/20260729T010418Z-p2236611`; `make backend-module-boundary-check` passed at `.cartulary/test-results/20260729T010508Z-p2256391`; `make test-fast` passed 891 tests and 2/2 work units at `.cartulary/test-results/20260729T010517Z-p2256797`; `make generate-drift` passed at `.cartulary/test-results/20260729T010758Z-p2313483`; checkpoint `make lint-markdown` passed at `.cartulary/test-results/20260729T011103Z-p2337179`; an exact sorted exported-declaration comparison against baseline `161792f8` produced no diff | Internal structural change only: the exported declaration set, ten routes, payloads, errors, transactions, parser outcomes, database state, generated outputs, and historical sessions are unchanged; rollback reverts the nine-file decomposition together; no failed validation occurred; transaction, recovery, state, null/error, XLSX, and frontend behavior remain assigned to RS-06 through RS-10 | RS-06 only |
 | 2026-07-28 22:23 EDT | RS-06 | Baseline `3b803b5c`; substantive result `75c7c2ec` | Added migration 00049, immutable apply plans/outcomes, job-first unit serialization, transaction-current actor/role/membership/incident/source/mapping/target checks, caller-owned view and Network Flow owner transactions, outcome-only finalization, crash recovery, truthful partial cancellation, and exact owner/harness evidence; exact paths and failure dispositions are recorded below | Imports `test-slice` and `service-backed-test-slice` each passed 10 tests and 7/7 work units; affected Timeline, Network Flow, Extensions, and Job API owner slices passed 48, 57, 26, and 3 tests; migration, generation, generated-policy, JSON-shape, and boundary checks passed; `make test-fast` passed 896 tests and 2/2 work units; exact run roots are recorded below | The ten public Imports routes and Network Flow resource shape remain compatible; migration 00049 adds durable state and aborts on ambiguous active apply state, does not backfill or reopen terminal sessions, and requires code/schema rollback together; authority lost before commit now fails by design; generated files came only from `make generate`; no residual RS-06 correctness risk is open | RS-07 only |
+| 2026-07-28 22:50 EDT | RS-07 | Baseline `b00fcd1c`; substantive result `356281c0` | Added the cohesive selection boundary, server-side overlap rejection at selection and apply, session-first concurrent serialization, skipped-unit reselection with immutable mapping retention, fresh-session re-import evidence, frontend approval/selection state separation, additive lifecycle-state OpenAPI correction, and exact Go/Vitest harness rows; exact paths and failure dispositions are recorded below | Final Imports `test-slice` passed 13 tests and 9/9 work units twice; service-backed Imports passed 12 tests and 9/9 work units; focused lifecycle rows, frontend unit/type, both boundaries, generation/drift/policy, JSON shape, OpenAPI compatibility, and the 898-test fast suite passed; exact run roots are recorded below | No route, request, or database migration changed; overlapping persisted selections now fail with the adopted 409 code/reason, skipped mappings are retained, same-session duplicate apply remains blocked, and intentional duplicate-source import requires a new session; the lifecycle enum expansion is additive and governed by the 2.0 change set; generated files came only from `make generate`; rollback reverts all 17 substantive files together | RS-08 only |
 
 #### RS-06 checkpoint detail
 
@@ -715,6 +718,94 @@ active and MUST be recorded in the checkpoint.
   accounting remain in `RS-08` through `RS-11`.
 - **Single next eligible workstream:** `RS-07` only.
 
+#### RS-07 checkpoint detail
+
+- **Completed slice and state:** `RS-07`; the RS-07 portion of `IMP-014` is `DONE`, and the RS-07
+  portion of `GATE-06` passes. Baseline `b00fcd1c`; substantive commit `356281c0`.
+- **Exact substantive files:**
+  `apps/web/src/workbook/features/ImportAssistantFeature.tsx`;
+  `apps/web/src/workbook/features/ImportAssistantFeature.test.tsx`;
+  `contracts/openapi-releases/2.0.0.change-set.json`;
+  `contracts/openapi-source/owners/module.imports/openapi.json`;
+  `contracts/openapi/cartulary.openapi.yaml`;
+  `contracts/verification/owners/module.imports.json`;
+  `internal/gen/contractopenapi/artifacts_gen.go`;
+  `internal/gen/openapioperations/catalog_gen.go`;
+  `internal/modules/imports/boundary_guard_test.go`;
+  `internal/modules/imports/imports_integration_test.go`;
+  `internal/modules/imports/selection.go`; `internal/modules/imports/store.go`;
+  `packages/protocol-ts/src/generated/core-http-types.ts`;
+  `packages/protocol-ts/src/generated/protocol-validators.ts`;
+  `tools/execution_topology_render_index.json`; `tools/scheduler_manifest.json`; and
+  `tools/test_families/module.imports.json`.
+- **Selection and lifecycle result:** selection now parses canonical one-based A1 rectangles,
+  compares only worksheet units on the same sheet, locks the session before candidate and selected
+  units, and rejects a conflicting proposed persisted set with
+  `import_apply_blocked/overlapping_units`. Apply admission locks and independently rechecks the
+  exact selected unit set before creating a job or durable unit plan. A skipped unit is selectable
+  again and derives `ready` from its retained approved mapping and fingerprint without rewriting
+  either value. Exact action replay remains immutable.
+- **Frontend and re-import result:** the Import Assistant now tracks approval independently from
+  selection. Skip and selection-conflict paths retain the approved mapping locally, and reselection
+  issues only the select operation. Identical source bytes with different upload transaction IDs
+  produce distinct sessions and may both apply; a second apply in one terminal session remains
+  `duplicate_apply_blocked`, and an invented `reimport` request member fails the closed decoder.
+- **Contract and generated-artifact notes:** the authored Imports OpenAPI now includes `selected`,
+  `rejected`, and `canceled` in the unit lifecycle enum because adopted behavior and runtime
+  resources already use those states. The expansion is additive and is recorded by fingerprint in
+  the governed 2.0 release change set. The assembled OpenAPI, generated Go catalogs, generated
+  TypeScript types/validators, scheduler manifest, and topology index were produced only by
+  `make generate`; no generated root was hand-edited.
+- **Focused validation:** the Vitest reselection row passed 1 test and 1/1 work units at
+  `.cartulary/test-results/20260729T023553Z-p2716192`; the concurrent overlap/reselection and
+  fresh-session re-import rows passed 2 tests and 2/2 work units at
+  `.cartulary/test-results/20260729T023601Z-p2716589`; and the existing partial-cancellation row
+  passed in isolation at `.cartulary/test-results/20260729T024154Z-p2828651`.
+- **Owner and broad validation:** final `make test-slice OWNER=module.imports` runs passed 13 tests
+  and 9/9 work units at `.cartulary/test-results/20260729T024906Z-p2921157` and
+  `.cartulary/test-results/20260729T025003Z-p2940639`;
+  `make service-backed-test-slice OWNER=module.imports` passed 12 tests and 9/9 work units at
+  `.cartulary/test-results/20260729T023713Z-p2739134`; `make frontend-unit` passed at
+  `.cartulary/test-results/20260729T024619Z-p2887324`; and `make frontend-typecheck` passed with no
+  retained wrapper run root. `make backend-module-boundary-check` and
+  `make frontend-import-boundary-check` passed at
+  `.cartulary/test-results/20260729T024652Z-p2894163` and
+  `.cartulary/test-results/20260729T024652Z-p2894206`. Final `make generate`,
+  `make generate-drift`, `make openapi-compatibility-check`,
+  `make generated-artifact-policy-check`, and `make json-shape-check` passed at
+  `.cartulary/test-results/20260729T024559Z-p2884650`,
+  `.cartulary/test-results/20260729T024619Z-p2887141`,
+  `.cartulary/test-results/20260729T024619Z-p2887158`,
+  `.cartulary/test-results/20260729T024652Z-p2893907`, and
+  `.cartulary/test-results/20260729T024652Z-p2893935`. Final `make format` passed at
+  `.cartulary/test-results/20260729T024902Z-p2918238`; `make test-fast` passed 898 tests and 2/2
+  work units at `.cartulary/test-results/20260729T024208Z-p2830086`; the tracker checkpoint
+  `make lint-markdown` passed at `.cartulary/test-results/20260729T025421Z-p2960960`.
+- **Failure disposition:** the first catalog-aware format invocation rejected Vitest evidence
+  because the Imports verification contract admitted only Go and Playwright; adding the missing
+  evidence kind corrected that related routing defect. `make test-fast` at
+  `.cartulary/test-results/20260729T023903Z-p2766680` exposed an RS-06 cancellation assertion that
+  observed apply admission instead of asynchronous finalization; the fixture now waits for the
+  durable terminal condition and retains exact session/job/unit/outcome diagnostics.
+  `make generate` at `.cartulary/test-results/20260729T024506Z-p2882218` and its direct
+  `generate-artifacts` diagnosis at `.cartulary/test-results/20260729T024517Z-p2883400` correctly
+  rejected an unaccounted OpenAPI enum delta; the governed release change set now accounts for all
+  110 changes. One later complete owner slice at
+  `.cartulary/test-results/20260729T024704Z-p2895645` hit the same asynchronous cancellation
+  assertion under load; the focused row, broad fast suite, and two subsequent complete owner
+  slices passed. This is classified as transient fixture timing outside the RS-07 selection path;
+  the retained diagnostics and RS-11 broad rerun guard against recurrence.
+- **Compatibility, migration, rollback, and residual risk:** no migration is required. The existing
+  ten routes and request members remain unchanged. Overlap rejection and fresh-session-only
+  re-import are intentional adopted behavior corrections; clients that attempted an overlapping
+  persisted selection now receive the stable 409 error rather than reaching partial apply.
+  Lifecycle enum expansion is additive and documents runtime states rather than introducing a new
+  state. Rollback must revert the 17 substantive files together and regenerate from the reverted
+  authored contracts/catalog inputs. No RS-07 functional risk is deferred; canonical null/error
+  work remains exclusively in RS-08, XLSX locators in RS-09, frontend registry consumption in
+  RS-10, and final accounting in RS-11.
+- **Single next eligible workstream:** `RS-08` only.
+
 ### Scope and authority
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
@@ -772,7 +863,7 @@ former RB items are closed at the planning layer as follows:
 | ID | Resolution | Decision status | What is not claimed | Required next gate |
 | --- | --- | --- | --- | --- |
 | RB-001 | Core owns generic orchestration and semantic obligations; the target NLSpec owns exact target payloads; the binding and two-level commit model join them. | IMPLEMENTED | Registry injection, Timeline convergence, durable unit commits, analytical transaction convergence, and outcome-only finalization are complete. | None |
-| RB-002 | Authorization, races, unit/partial outcomes, overlap, reselection, nulls, errors, XLSX, cancellation, replay, and capability behavior are exact in §4. | PARTIALLY IMPLEMENTED | RS-06 authorization, durable outcomes, recovery, and cancellation are complete; RS-07 through RS-10 corrections remain. | GATE-06; RS-07 |
+| RB-002 | Authorization, races, unit/partial outcomes, overlap, reselection, nulls, errors, XLSX, cancellation, replay, and capability behavior are exact in §4. | PARTIALLY IMPLEMENTED | RS-06 authorization/recovery and RS-07 overlap/reselection are complete; RS-08 through RS-10 corrections remain. | GATE-06; RS-08 |
 | RB-003 | The 18-target matrix, cross-cutting suites, boundary rules, harness families, and exact accounting define a complete evidence baseline. | RESOLVED_IN_TRACKER | Tests and harness rows do not yet exist or pass. | GATE-01 and GATE-07 |
 | RB-004 | One Core-backed deterministic registry supplies backend, frontend, adapter, verification, and integrity projections; no public field is required for same-release deployment. | BACKEND_CONSUMED | RS-03 runtime backend dispatch consumes the generated registry; the frontend still uses its characterized manual set. | RS-10 |
 
@@ -823,4 +914,7 @@ later slice to start before its dependencies and the preceding tracker checkpoin
 - [x] CP-00 `make lint-markdown`, `git diff --check`, and one-file status check pass.
 - [x] RS-06 commits generic, Timeline, and analytical unit effects with one durable outcome,
   revalidates transaction-current authority and input identity, recovers both crash boundaries
-  without replay, derives truthful partial cancellation, and leaves only RS-07 eligible.
+  without replay, and derives truthful partial cancellation.
+- [x] RS-07 rejects overlapping worksheet rectangles at selection and apply, serializes concurrent
+  selection, reselects skipped units without remapping, requires a fresh session for intentional
+  duplicate-source import, and leaves only RS-08 eligible.
