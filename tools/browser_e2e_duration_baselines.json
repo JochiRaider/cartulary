@@ -8,313 +8,313 @@
     "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "assessment workflow keeps invalid timestamp drafts local",
-      "weight_ms": 2546
+      "weight_ms": 2732
     },
     "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9": {
       "file": "apps/web/e2e/workbook.assessments.spec.ts",
       "title": "creates append-only assessment history through the workbook UI",
-      "weight_ms": 2687
+      "weight_ms": 2511
     },
     "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "observes current-role authorization on a stale reviewer edit through the public incident error envelope",
-      "weight_ms": 3429
+      "weight_ms": 2931
     },
     "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad": {
       "file": "apps/web/e2e/enterprise-auth.spec.ts",
       "title": "handles enterprise session root landing for zero, one, multiple, and disappearing incidents",
-      "weight_ms": 1964
+      "weight_ms": 2038
     },
     "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "signs in as a local user and inspects the ordinary session surface",
-      "weight_ms": 1695
+      "weight_ms": 1743
     },
     "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "returns a revoked target browser to login and allows re-authentication with unchanged incident membership",
-      "weight_ms": 3362
+      "weight_ms": 3462
     },
     "module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "rejects invalid credentials without issuing a session cookie",
-      "weight_ms": 345
+      "weight_ms": 304
     },
     "module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924": {
       "file": "apps/web/e2e/enterprise-auth.spec.ts",
       "title": "shows enterprise providers and begins provider sign-in from the anonymous shell",
-      "weight_ms": 340
+      "weight_ms": 467
     },
     "module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
-      "weight_ms": 2734
+      "weight_ms": 2933
     },
     "module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
-      "weight_ms": 4179
+      "weight_ms": 4083
     },
     "module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
-      "weight_ms": 1968
+      "weight_ms": 1990
     },
     "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
-      "weight_ms": 4616
+      "weight_ms": 4731
     },
     "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "Verify ordinary login, incident entry, and current-role refresh stay on public browser routes.",
-      "weight_ms": 4341
+      "weight_ms": 4349
     },
     "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab": {
       "file": "apps/web/e2e/collaboration.spec.ts",
       "title": "auto-merges different-field concurrent edits and requires explicit same-field resolution",
-      "weight_ms": 3994
+      "weight_ms": 4020
     },
     "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d": {
       "file": "apps/web/e2e/collaboration.spec.ts",
       "title": "keeps live updates conflict markers and presence markers anchored to record_id and field_key",
-      "weight_ms": 8321
+      "weight_ms": 8725
     },
     "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac": {
       "file": "apps/web/e2e/collaboration.spec.ts",
       "title": "shows two analysts each other's workbook presence within the expected interaction window",
-      "weight_ms": 2128
+      "weight_ms": 2404
     },
     "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054": {
       "file": "apps/web/e2e/collaboration.spec.ts",
       "title": "replays queued unsent writes after re-authentication without silent reload restore",
-      "weight_ms": 15295
+      "weight_ms": 15107
     },
     "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd": {
       "file": "apps/web/e2e/mentions.lifecycle.spec.ts",
       "title": "dismisses and ordinarily restores a mention without relinking",
-      "weight_ms": 2233
+      "weight_ms": 2130
     },
     "module.entities.browser.the_browser_inspector_merges_duplicate_entities_d0cb95b021": {
       "file": "apps/web/e2e/merge.spec.ts",
       "title": "merges duplicate entities from the inspector and preserves survivor identity",
-      "weight_ms": 2908
+      "weight_ms": 2796
     },
     "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d": {
       "file": "apps/web/e2e/mentions.resolve.spec.ts",
       "title": "resolves and creates entities from Timeline mentions in the inspector",
-      "weight_ms": 2840
+      "weight_ms": 3223
     },
     "module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f": {
       "file": "apps/web/e2e/autoresolve.spec.ts",
       "title": "auto-resolves only eligible exact-match Timeline tokens",
-      "weight_ms": 7982
+      "weight_ms": 9162
     },
     "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4": {
       "file": "apps/web/e2e/evidence.spec.ts",
       "title": "persists a screenshot-only Timeline row through the two-step evidence path",
-      "weight_ms": 742
+      "weight_ms": 788
     },
     "module.evidence.browser.a_second_live_workbook_session_receives_the_real_194cba3dfb": {
       "file": "apps/web/e2e/evidence.spec.ts",
       "title": "refreshes a second live workbook from the real evidence attach stream",
-      "weight_ms": 1765
+      "weight_ms": 1668
     },
     "module.evidence.browser.an_analyst_attaches_a_screenshot_to_a_selected_t_4568508c1b": {
       "file": "apps/web/e2e/evidence.spec.ts",
       "title": "attaches a screenshot to a selected Timeline row without leaving the workbook surface",
-      "weight_ms": 1382
+      "weight_ms": 1437
     },
     "module.evidence.browser.an_inline_safe_type_receives_a_preview_handle_an_076fefa625": {
       "file": "apps/web/e2e/evidence.spec.ts",
       "title": "redeems inline-safe previews and shows explicit blocked-preview outcomes",
-      "weight_ms": 1336
+      "weight_ms": 1321
     },
     "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd": {
       "file": "apps/web/e2e/evidence.spec.ts",
       "title": "tracks requested evidence before a blob exists and later advances it",
-      "weight_ms": 4061
+      "weight_ms": 3696
     },
     "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "clears a stale selected incident after membership removal while preserving the account session",
-      "weight_ms": 4002
+      "weight_ms": 4090
     },
     "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell",
-      "weight_ms": 3677
+      "weight_ms": 3783
     },
     "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "creates an incident, bootstraps the creator as admin, and lands on the workbook surface",
-      "weight_ms": 1878
+      "weight_ms": 1906
     },
     "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5": {
       "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
       "title": "creates an incident from the landing screen, lists it, and opens the workbook as incident admin",
-      "weight_ms": 1772
+      "weight_ms": 1648
     },
     "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell",
-      "weight_ms": 1716
+      "weight_ms": 2139
     },
     "module.links.browser.the_notes_tab_supports_browser_visible_creation_ae6bdcc2da": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "Notes tab creates artifact-backed linked notes",
-      "weight_ms": 861
+      "weight_ms": 868
     },
     "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee": {
       "file": "apps/web/e2e/network-flow.spec.ts",
       "title": "Network Flow unclaimed workspace remains unavailable",
-      "weight_ms": 640
+      "weight_ms": 697
     },
     "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "Party create and link preserve raw text on the workbook surface",
-      "weight_ms": 5651
+      "weight_ms": 5103
     },
     "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0": {
       "file": "apps/web/e2e/restore.spec.ts",
       "title": "restore recovers workbook surface and executes a built-in workbook query",
-      "weight_ms": 14085
+      "weight_ms": 9605
     },
     "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c": {
       "file": "apps/web/e2e/reference-pack.spec.ts",
       "title": "shows Reference Pack progress and cancel controls without blocking landing interaction",
-      "weight_ms": 1356
+      "weight_ms": 1503
     },
     "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94": {
       "file": "apps/web/e2e/history.spec.ts",
       "title": "rolls back a merge change set from row history",
-      "weight_ms": 1929
+      "weight_ms": 1863
     },
     "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66": {
       "file": "apps/web/e2e/history.spec.ts",
       "title": "whole-row restore appends a new attributed revision",
-      "weight_ms": 1913
+      "weight_ms": 1923
     },
     "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897": {
       "file": "apps/web/e2e/history.spec.ts",
       "title": "opens row history from the workbook surface with legal rollback actions",
-      "weight_ms": 1069
+      "weight_ms": 1066
     },
     "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32": {
       "file": "apps/web/e2e/history.spec.ts",
       "title": "soft-deletes and restores a row with tombstone concurrency",
-      "weight_ms": 2896
+      "weight_ms": 2839
     },
     "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a": {
       "file": "apps/web/e2e/history.spec.ts",
       "title": "rolls back one attached-evidence mutation without reverting later unrelated edits",
-      "weight_ms": 1937
+      "weight_ms": 1877
     },
     "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58": {
       "file": "apps/web/e2e/workbook.spec.ts",
       "title": "saved-view route foundation persists canonical state while browser lifecycle affordances remain pending",
-      "weight_ms": 796
+      "weight_ms": 661
     },
     "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.",
-      "weight_ms": 923
+      "weight_ms": 937
     },
     "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "Task Request and Decision workbook workflows stay native",
-      "weight_ms": 4398
+      "weight_ms": 4483
     },
     "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89": {
       "file": "apps/web/e2e/timeline-workbook.spec.ts",
       "title": "drives review, demotion, and supersede through the visible workbook surface",
-      "weight_ms": 2122
+      "weight_ms": 2170
     },
     "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07": {
       "file": "apps/web/e2e/timeline-workbook.spec.ts",
       "title": "creates a Timeline row in-grid and continues editing on the draft row",
-      "weight_ms": 982
+      "weight_ms": 1043
     },
     "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38": {
       "file": "apps/web/e2e/timeline-workbook.spec.ts",
       "title": "uses public history and visible state to prove replay avoids duplicate mutation effects",
-      "weight_ms": 3099
+      "weight_ms": 2694
     },
     "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01": {
       "file": "apps/web/e2e/workbook.spec.ts",
       "title": "workbook startup falls back to Timeline for an unsupported explicit sheet",
-      "weight_ms": 2309
+      "weight_ms": 1758
     },
     "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59": {
       "file": "apps/web/e2e/keyboard.spec.ts",
       "title": "Host entity-origin clipboard paste reuses exact matches and creates stubs",
-      "weight_ms": 729
+      "weight_ms": 817
     },
     "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d": {
       "file": "apps/web/e2e/keyboard.spec.ts",
       "title": "Identity entity-origin clipboard paste reuses exact matches and creates stubs",
-      "weight_ms": 733
+      "weight_ms": 755
     },
     "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "pastes a representative 20x5 Timeline clipboard range",
-      "weight_ms": 1561
+      "weight_ms": 1458
     },
     "module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "groups paste conflicts and preserves selection continuity",
-      "weight_ms": 1418
+      "weight_ms": 1319
     },
     "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "required registry identities stay canonical with optional additions",
-      "weight_ms": 1350
+      "weight_ms": 1388
     },
     "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9": {
       "file": "apps/web/e2e/keyboard.spec.ts",
       "title": "keyboard shortcuts keep workbook grid anchors without module switching",
-      "weight_ms": 1372
+      "weight_ms": 1454
     },
     "module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "optional standardized surfaces are workbook-native when exposed",
-      "weight_ms": 4593
+      "weight_ms": 4270
     },
     "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2": {
       "file": "apps/web/e2e/workbook.generic.spec.ts",
       "title": "creates and edits required workbook mutation surfaces through typed generic controls",
-      "weight_ms": 9695
+      "weight_ms": 9414
     },
     "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d": {
       "file": "apps/web/e2e/sentinel.spec.ts",
       "title": "coordination workbook workflows stay native",
-      "weight_ms": 6381
+      "weight_ms": 6740
     },
     "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2": {
       "file": "apps/web/e2e/keyboard.spec.ts",
       "title": "shared grid keyboard anchors stay stable across workbook cells",
-      "weight_ms": 7149
+      "weight_ms": 7273
     },
     "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "updates workbook density from Account Settings while the workbook remains open",
-      "weight_ms": 2912
+      "weight_ms": 2867
     },
     "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956": {
       "file": "apps/web/e2e/incident-administration.spec.ts",
       "title": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
-      "weight_ms": 758
+      "weight_ms": 974
     },
     "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5": {
       "file": "apps/web/e2e/workbook.spec.ts",
       "title": "browser Notes full_text and prefix queries remain exact",
-      "weight_ms": 1100
+      "weight_ms": 1025
     },
     "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd": {
       "file": "apps/web/e2e/workbook.spec.ts",
       "title": "browser Timeline sort, filter, and group controls submit stable query keys",
-      "weight_ms": 1441
+      "weight_ms": 1629
     }
   },
-  "updated_at": "2026-07-28T08:08:01.055Z"
+  "updated_at": "2026-07-29T05:47:51.130Z"
 }
