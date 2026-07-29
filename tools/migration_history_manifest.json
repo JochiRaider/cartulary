@@ -290,6 +290,12 @@
       "filename": "00048_collaboration_stream_operations_contract.sql",
       "sha256": "82cb43718a2081063193571283cf28f7b5c827b858b0cbe668d32e9e039fc971",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 49,
+      "filename": "00049_import_unit_apply_outcomes.sql",
+      "sha256": "0de4dd0c7e7a65165214e9a1e74a17f46370909504b8163fb4053ab9a77a8aa1",
+      "historical_phase_shaped": false
     }
   ]
 }

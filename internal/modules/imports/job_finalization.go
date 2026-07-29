@@ -20,4 +20,11 @@ type JobSuccessFinalization struct {
 // assembly adapts the shared proof store without exposing that store to Import.
 type JobSuccessFinalizer interface {
 	FinalizeImportJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error)
+	FinalizeImportJobFailure(context.Context, JobTerminalFinalization) (jobs.Resource, error)
+	FinalizeImportJobCancellation(context.Context, JobTerminalFinalization) (jobs.Resource, error)
+}
+
+type JobTerminalFinalization struct {
+	Transition jobs.TransitionParams
+	Mutate     JobSuccessMutation
 }

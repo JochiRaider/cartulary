@@ -270,7 +270,13 @@ func ReadJSONBody(t testing.TB, resp *http.Response) map[string]any {
 func RequireStatus(t testing.TB, resp *http.Response, want int) {
 	t.Helper()
 	if resp.StatusCode != want {
-		t.Fatalf("unexpected status: got %d want %d", resp.StatusCode, want)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("unexpected status: got %d want %d; read body: %v", resp.StatusCode, want, err)
+		}
+		_ = resp.Body.Close()
+		resp.Body = io.NopCloser(bytes.NewReader(body))
+		t.Fatalf("unexpected status: got %d want %d body=%s", resp.StatusCode, want, body)
 	}
 }
 

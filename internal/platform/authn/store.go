@@ -326,6 +326,15 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 	return user, err
 }
 
+// GetUserByIDForUpdateTx rederives and locks the authoritative actor row in a
+// caller-owned mutation transaction.
+func (s *Store) GetUserByIDForUpdateTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID) (UserRecord, error) {
+	if s == nil || tx == nil {
+		return UserRecord{}, ErrNotFound
+	}
+	return fetchUserForUpdate(ctx, tx, userID)
+}
+
 func (s *Store) ListIncidentMembershipSummaries(ctx context.Context, userID uuid.UUID) ([]IncidentMembershipSummary, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT incident_id, role

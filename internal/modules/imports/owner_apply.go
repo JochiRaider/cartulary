@@ -10,27 +10,26 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 const importApplyChangeSetSource = "imports.apply"
 
-func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData, target importTarget) error {
+func (s *Service) applyGenericOwnerUnitTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor authn.UserRecord,
+	start ApplyStartResult,
+	unit ApplyUnitData,
+	target importTarget,
+) (appliedUnitCommit, error) {
 	now := s.now().UTC()
 	owner, ok := s.ownerCreateRegistry.Resolve(
 		unit.ApprovedMapping.TargetViewSchemaID,
 		target.CreateFacade,
 	)
 	if !ok {
-		return importApplyBlockedError("owner_create_contract_unavailable")
-	}
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin import apply unit transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, start.IncidentID); err != nil {
-		return err
+		return appliedUnitCommit{}, importApplyBlockedError("owner_create_contract_unavailable")
 	}
 	clientTxnID := fmt.Sprintf("import:%s:%s:%s", start.ImportSessionID, unit.UnitID, start.ClientTxnID)
 	requestID := "req-" + clientTxnID
@@ -43,14 +42,15 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 		CreatedAt:   now,
 	})
 	if err != nil {
-		return err
+		return appliedUnitCommit{}, err
 	}
 
 	mutationSequencer := ownerfacade.NewImportMutationSequencer()
+	ownerResults := make([]map[string]any, 0, len(unit.SourceRows))
 	for index, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		if rowRef <= 0 {
-			return fmt.Errorf("import source row missing source_row_ref")
+			return appliedUnitCommit{}, fmt.Errorf("import source row missing source_row_ref")
 		}
 		rowClientTxnID := fmt.Sprintf("%s:%d", clientTxnID, rowRef)
 		request, err := importOwnerCreateRequest(
@@ -63,7 +63,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 			owner,
 		)
 		if err != nil {
-			return err
+			return appliedUnitCommit{}, err
 		}
 		response, err := owner.CreateImportRowTx(
 			ctx,
@@ -77,7 +77,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 			},
 		)
 		if err != nil {
-			return err
+			return appliedUnitCommit{}, err
 		}
 		ownerResponse := map[string]any{
 			"record_id":               response.RecordID.String(),
@@ -108,14 +108,18 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 			RowRefresh:           response.RowRefresh,
 			CreatedAt:            now,
 		}); err != nil {
-			return err
+			return appliedUnitCommit{}, err
 		}
+		ownerResults = append(ownerResults, map[string]any{
+			"owner_response": ownerResponse,
+			"row_refresh":    response.RowRefresh,
+		})
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit import apply unit transaction: %w", err)
-	}
-	return nil
+	return appliedUnitCommit{
+		OwnerResult:  ownerResults,
+		ResourceRefs: []jobs.ResourceRef{},
+		ChangeSetID:  &changeSetID,
+	}, nil
 }
 
 func importOwnerCreateRequest(

@@ -136,13 +136,18 @@ func TestImportsResponsibilitiesRemainSeparated(t *testing.T) {
 		},
 		{
 			name:      "apply_jobs.go",
-			required:  []string{"executeApplyJob", "completeApplyJob", "failApplyJob"},
+			required:  []string{"executeApplyJob", "completeApplyJob", "finalizeApplyJob", "importUnitFailure"},
 			forbidden: []string{"http.ResponseWriter", "parseXLSXTables("},
 		},
 		{
 			name:      "apply_coordination.go",
-			required:  []string{"applyUnit", "importApplyResourceRefs", "transformImportValue"},
+			required:  []string{"applyUnit", "transformImportValue"},
 			forbidden: []string{"http.ResponseWriter", "RegisterHandler("},
+		},
+		{
+			name:      "unit_outcomes.go",
+			required:  []string{"lockApplyUnitTx", "insertAppliedUnitOutcomeTx", "finalizeApplyFromOutcomesTx"},
+			forbidden: []string{"http.ResponseWriter", "RegisterHandler(", "CreateImportRowTx"},
 		},
 		{
 			name:      "discovery.go",

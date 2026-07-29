@@ -115,7 +115,7 @@ func (m *Module) InstallCrossOwnerCoordinator(coordinator *crossownertransaction
 		return errors.New("network flow cross-owner transaction coordinator already installed")
 	}
 	m.transactions = coordinator
-	m.importOwner = newImportFacade(m.store, m.importSources, m.limits, m.now, m.safeDigester, coordinator)
+	m.importOwner = newImportFacade(m.store, m.importSources, m.limits, m.now, m.safeDigester)
 	return nil
 }
 

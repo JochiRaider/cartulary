@@ -306,10 +306,10 @@
       "owner": "imports",
       "profiles": ["import"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(import_sessions|import_units|import_apply_journal|import_source_streams|idx_import_sessions|idx_import_units|import_sessions_|import_units_|import_apply_journal_|import_source_streams_).*$" }
+        { "kind": "any", "name_pattern": "^(import_sessions|import_units|import_apply_journal|import_source_streams|import_apply_unit_plans|import_unit_apply_outcomes|idx_import_sessions|idx_import_units|import_sessions_|import_units_|import_apply_journal_|import_source_streams_|import_apply_unit_plans_|import_unit_apply_outcomes_).*$" }
       ],
-      "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance", "apply provenance"],
-      "notes": "Structured import session, unit, mapping, and apply-journal persistence."
+      "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance", "apply provenance", "unit recovery and finalization"],
+      "notes": "Structured import session, unit, mapping, durable apply-plan/outcome, and apply-journal persistence."
     },
     {
       "id": "network-flow-activity-storage",

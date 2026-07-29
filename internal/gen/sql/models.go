@@ -813,6 +813,31 @@ type ImportApplyJournal struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
+type ImportApplyUnitPlan struct {
+	ImportSessionID       pgtype.UUID        `json:"import_session_id"`
+	ImportUnitID          pgtype.UUID        `json:"import_unit_id"`
+	ApplyJobID            pgtype.UUID        `json:"apply_job_id"`
+	DiscoverySequence     int32              `json:"discovery_sequence"`
+	SourceFileKind        string             `json:"source_file_kind"`
+	SourceContentSha256   string             `json:"source_content_sha256"`
+	SourceStreamRef       string             `json:"source_stream_ref"`
+	SourceRowsSha256      string             `json:"source_rows_sha256"`
+	ParserProfileID       string             `json:"parser_profile_id"`
+	ParserVersion         string             `json:"parser_version"`
+	LocatorKind           string             `json:"locator_kind"`
+	Locator               string             `json:"locator"`
+	SourceRectA1          string             `json:"source_rect_a1"`
+	MappingFingerprint    string             `json:"mapping_fingerprint"`
+	ApprovedMappingJson   []byte             `json:"approved_mapping_json"`
+	ApprovedMappingSha256 string             `json:"approved_mapping_sha256"`
+	TargetKind            string             `json:"target_kind"`
+	TargetViewSchemaID    pgtype.Text        `json:"target_view_schema_id"`
+	ExtensionProfileID    pgtype.Text        `json:"extension_profile_id"`
+	OwnerBindingID        string             `json:"owner_binding_id"`
+	TargetRegistrySha256  string             `json:"target_registry_sha256"`
+	AdmittedAt            pgtype.Timestamptz `json:"admitted_at"`
+}
+
 type ImportSession struct {
 	ImportSessionID         pgtype.UUID        `json:"import_session_id"`
 	IncidentID              pgtype.UUID        `json:"incident_id"`
@@ -871,6 +896,29 @@ type ImportUnit struct {
 	ApprovedExtensionProfileID pgtype.Text        `json:"approved_extension_profile_id"`
 	ApprovedTargetViewSchemaID pgtype.Text        `json:"approved_target_view_schema_id"`
 	DiscoverySequence          int32              `json:"discovery_sequence"`
+}
+
+type ImportUnitApplyOutcome struct {
+	ImportUnitApplyOutcomeID pgtype.UUID        `json:"import_unit_apply_outcome_id"`
+	ImportSessionID          pgtype.UUID        `json:"import_session_id"`
+	ImportUnitID             pgtype.UUID        `json:"import_unit_id"`
+	ApplyJobID               pgtype.UUID        `json:"apply_job_id"`
+	DiscoverySequence        int32              `json:"discovery_sequence"`
+	UnitCommitID             string             `json:"unit_commit_id"`
+	OutcomeStatus            string             `json:"outcome_status"`
+	ActorUserID              pgtype.UUID        `json:"actor_user_id"`
+	TargetKind               string             `json:"target_kind"`
+	TargetViewSchemaID       pgtype.Text        `json:"target_view_schema_id"`
+	ExtensionProfileID       pgtype.Text        `json:"extension_profile_id"`
+	OwnerBindingID           string             `json:"owner_binding_id"`
+	SourceContentSha256      string             `json:"source_content_sha256"`
+	MappingFingerprint       string             `json:"mapping_fingerprint"`
+	OwnerResultJson          []byte             `json:"owner_result_json"`
+	ResourceRefsJson         []byte             `json:"resource_refs_json"`
+	ChangeSetID              pgtype.UUID        `json:"change_set_id"`
+	ErrorCode                pgtype.Text        `json:"error_code"`
+	ReasonCode               pgtype.Text        `json:"reason_code"`
+	CommittedAt              pgtype.Timestamptz `json:"committed_at"`
 }
 
 type Incident struct {

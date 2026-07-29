@@ -70,6 +70,34 @@ func (s *TransactionService) CompleteSucceededTx(ctx context.Context, tx pgx.Tx,
 	return resource, nil
 }
 
+func (s *TransactionService) CompleteFailedTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+	return s.completeTerminalTx(ctx, tx, params, now, StatusFailed)
+}
+
+func (s *TransactionService) CompleteCanceledTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+	return s.completeTerminalTx(ctx, tx, params, now, StatusCanceled)
+}
+
+func (s *TransactionService) completeTerminalTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	params TransitionParams,
+	now time.Time,
+	status string,
+) (Resource, error) {
+	if s == nil || s.progressIntents == nil {
+		return Resource{}, ErrNotConfigured
+	}
+	resource, err := completeTerminalTx(ctx, tx, params, now, status)
+	if err != nil {
+		return Resource{}, err
+	}
+	if err := s.appendProgressIntentTx(ctx, tx, resource); err != nil {
+		return Resource{}, err
+	}
+	return resource, nil
+}
+
 func (s *TransactionService) appendProgressIntentTx(ctx context.Context, tx pgx.Tx, resource Resource) error {
 	if s == nil || s.progressIntents == nil {
 		return ErrNotConfigured

@@ -18,6 +18,7 @@ var (
 	ErrIncidentClosed            = errors.New("incidents: incident closed")
 	ErrIncidentIllegalTransition = errors.New("incidents: illegal incident transition")
 	ErrInitialAdminUnavailable   = errors.New("incidents: initial admin unavailable")
+	ErrIncidentRoleDenied        = errors.New("incidents: incident role denied")
 )
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed

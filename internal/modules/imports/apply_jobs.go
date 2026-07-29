@@ -2,10 +2,12 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
@@ -55,106 +57,139 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 		return err
 	}
 	total := len(start.SelectedUnitIDs)
-	if !s.markJobRunningOrResume(ctx, jobID, total) {
-		s.cancelApplySessionForTerminalJob(ctx, jobID, start)
+	job, getErr := s.jobManager.Get(ctx, jobID)
+	resumingCancellation := getErr == nil && job.Status == jobs.StatusCancelRequested
+	if !resumingCancellation && !s.markJobRunningOrResume(ctx, jobID, total) {
 		return nil
 	}
 	units, err := s.store.GetApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
 	if err != nil {
-		s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-		return nil
+		return err
 	}
-	extensionRefs := make([]jobs.ResourceRef, 0)
-	completed := 0
-	failed := 0
-	seenUnits := make(map[uuid.UUID]struct{}, len(units))
+	if len(units) != len(start.SelectedUnitIDs) {
+		return fmt.Errorf("selected import unit set changed")
+	}
 	for _, unit := range units {
-		seenUnits[unit.UnitID] = struct{}{}
 		if s.jobCancelRequested(ctx, jobID) {
-			if err := s.store.CancelApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, s.now()); err != nil {
+			if _, err := s.store.recordTerminalUnitOutcome(
+				ctx,
+				start,
+				unit.UnitID,
+				actor.ID,
+				"canceled",
+				"import_apply_canceled",
+				"cancel_requested",
+				s.now(),
+			); err != nil {
 				return err
 			}
-			_, err := s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-				JobID:    jobID,
-				Progress: jobs.Progress{Completed: completed, Total: &total},
-			})
+			continue
+		}
+		if _, err := s.applyUnit(ctx, actor, start, unit.UnitID); err == nil {
+			continue
+		} else if errors.Is(err, errUnitCommitIndeterminate) {
 			return err
-		}
-		refs, err := s.applyUnit(ctx, actor, start, unit)
-		if err != nil {
-			if statusErr := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unit.UnitID, "failed", s.now()); statusErr != nil {
-				s.failApplyJob(ctx, jobID, start, "import_apply_failed", statusErr)
-				return nil
+		} else {
+			status := "failed"
+			errorCode, reasonCode := importUnitFailure(err)
+			if errors.Is(err, errImportUnitCanceled) {
+				status = "canceled"
 			}
-			failed++
-			completed++
-			continue
+			if _, persistErr := s.store.recordTerminalUnitOutcome(
+				ctx,
+				start,
+				unit.UnitID,
+				actor.ID,
+				status,
+				errorCode,
+				reasonCode,
+				s.now(),
+			); persistErr != nil {
+				return persistErr
+			}
 		}
-		if err := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unit.UnitID, "applied", s.now()); err != nil {
-			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-			return nil
-		}
-		extensionRefs = append(extensionRefs, refs...)
-		completed++
 	}
-	for _, unitID := range start.SelectedUnitIDs {
-		if _, ok := seenUnits[unitID]; ok {
-			continue
-		}
-		if err := s.store.MarkApplyUnitStatus(ctx, start.ImportSessionID, unitID, "failed", s.now()); err != nil {
-			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-			return nil
-		}
-		failed++
-		completed++
-	}
-	if completed-failed == 0 {
-		s.failApplyJob(ctx, jobID, start, "import_apply_failed", fmt.Errorf("all selected import units failed"))
-		return nil
-	}
-	status := "applied"
-	code := "import_session_applied"
-	if failed > 0 {
-		status = "partially_applied"
-		code = "import_session_partially_applied"
-	}
-	_, err = s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
-		FinalCommitID: "import.apply:" + jobID.String(),
-		Transition: jobs.TransitionParams{
-			JobID:    jobID,
-			Progress: jobs.Progress{Completed: total, Total: &total},
-			ResultSummary: &jobs.ResultSummary{
-				Code:         code,
-				Message:      "Import session applied.",
-				ResourceRefs: importApplyResourceRefs(start.ImportSessionID, extensionRefs),
-			},
-		},
-		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return s.store.CompleteApplyTx(ctx, tx, start.ImportSessionID, start.SelectedUnitIDs, status, s.now())
-		},
-	})
-	return err
+	return s.finalizeApplyJob(ctx, start)
 }
 
-func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start ApplyStartResult, code string, err error) {
-	_ = s.store.FailApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, s.now())
-	_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
+func (s *Service) finalizeApplyJob(ctx context.Context, start ApplyStartResult) error {
+	finalization, err := s.store.prepareApplyFinalization(ctx, start)
+	if err != nil {
+		return err
+	}
+	jobID, err := uuid.Parse(start.Job.JobID)
+	if err != nil {
+		return err
+	}
+	total := len(start.SelectedUnitIDs)
+	transition := jobs.TransitionParams{
 		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 0, Total: intPtr(len(start.SelectedUnitIDs))},
-		ErrorSummary: &jobs.ErrorSummary{
-			Code:      code,
+		Progress: jobs.Progress{Completed: total, Total: &total},
+	}
+	mutate := func(ctx context.Context, tx pgx.Tx) error {
+		return s.store.finalizeApplyFromOutcomesTx(
+			ctx,
+			tx,
+			start,
+			finalization,
+			s.now(),
+		)
+	}
+	switch finalization.JobStatus {
+	case jobs.StatusSucceeded:
+		transition.ResultSummary = &jobs.ResultSummary{
+			Code:         finalization.ResultCode,
+			Message:      "Import session applied.",
+			ResourceRefs: finalization.ResourceRefs,
+		}
+		_, err = s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
+			FinalCommitID: "import.apply:" + jobID.String(),
+			Transition:    transition,
+			Mutate:        mutate,
+		})
+	case jobs.StatusCanceled:
+		transition.ResultSummary = &jobs.ResultSummary{
+			Code:         finalization.ResultCode,
+			Message:      "Import apply canceled.",
+			ResourceRefs: finalization.ResourceRefs,
+		}
+		_, err = s.jobSuccessFinalizer.FinalizeImportJobCancellation(ctx, JobTerminalFinalization{
+			Transition: transition,
+			Mutate:     mutate,
+		})
+	case jobs.StatusFailed:
+		transition.ErrorSummary = &jobs.ErrorSummary{
+			Code:      finalization.ErrorCode,
 			Message:   "Import apply failed.",
 			Retryable: false,
 			Details:   map[string]any{},
-		},
-	})
-	_ = err
+		}
+		_, err = s.jobSuccessFinalizer.FinalizeImportJobFailure(ctx, JobTerminalFinalization{
+			Transition: transition,
+			Mutate:     mutate,
+		})
+	default:
+		return fmt.Errorf("unsupported import finalization job status %q", finalization.JobStatus)
+	}
+	return err
 }
 
-func (s *Service) cancelApplySessionForTerminalJob(ctx context.Context, jobID uuid.UUID, start ApplyStartResult) {
-	job, err := s.jobManager.Get(ctx, jobID)
-	if err == nil && job.Status == jobs.StatusCanceled {
-		_ = s.store.CancelApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, s.now())
+func importUnitFailure(err error) (string, string) {
+	var applyBlocked *ApplyBlockedError
+	switch {
+	case errors.As(err, &applyBlocked):
+		return "import_apply_blocked", applyBlocked.ReasonCode
+	case errors.Is(err, errImportUnitCanceled):
+		return "import_apply_canceled", "cancel_requested"
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		return "incident_closed", "incident_closed"
+	case errors.Is(err, incidents.ErrIncidentNotFound),
+		errors.Is(err, incidents.ErrMembershipNotFound),
+		errors.Is(err, incidents.ErrIncidentRoleDenied),
+		errors.Is(err, errImportActorUnauthorized):
+		return "authorization_denied", "authorization_changed"
+	default:
+		return "import_apply_failed", "owner_apply_failed"
 	}
 }
 

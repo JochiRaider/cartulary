@@ -858,7 +858,12 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),
-		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(runtime.ExtensionJobFinalizer)),
+		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(
+			runtime.ExtensionJobFinalizer,
+			postgresHandle,
+			runtime.JobTransactions,
+			now,
+		)),
 	)
 	referencePackRoutes := reference_data.RegisterRoutes(
 		reference_data.WithStorage(referencePackStorage),

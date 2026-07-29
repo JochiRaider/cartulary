@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -57,7 +58,7 @@ type ExtensionImportApplyResult struct {
 type ExtensionImportFacade interface {
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
-	ApplyImportUnit(context.Context, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
+	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
 }
 
 func extensionImportFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportFacade, error) {
@@ -86,12 +87,19 @@ func extensionImportFacadeKey(target importTarget) string {
 	return ExtensionImportFacadeKey(target.TargetKind, target.ExtensionProfileID)
 }
 
-func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData, target importTarget) ([]jobs.ResourceRef, error) {
+func (s *Service) applyExtensionOwnerUnitTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor authn.UserRecord,
+	start ApplyStartResult,
+	unit ApplyUnitData,
+	target importTarget,
+) (appliedUnitCommit, error) {
 	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
 	if facade == nil {
-		return nil, importApplyBlockedError("owner_apply_contract_unavailable")
+		return appliedUnitCommit{}, importApplyBlockedError("owner_apply_contract_unavailable")
 	}
-	result, err := facade.ApplyImportUnit(ctx, ExtensionImportApplyRequest{
+	result, err := facade.ApplyImportUnitTx(ctx, tx, ExtensionImportApplyRequest{
 		IncidentID:         start.IncidentID,
 		ActorUserID:        actor.ID,
 		TargetKind:         target.TargetKind,
@@ -109,7 +117,10 @@ func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserR
 		ClientTxnID:                 start.ClientTxnID,
 	})
 	if err != nil {
-		return nil, err
+		return appliedUnitCommit{}, err
 	}
-	return append([]jobs.ResourceRef(nil), result.ResourceRefs...), nil
+	return appliedUnitCommit{
+		OwnerResult:  result.OwnerResponse,
+		ResourceRefs: append([]jobs.ResourceRef(nil), result.ResourceRefs...),
+	}, nil
 }

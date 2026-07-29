@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -23,13 +23,12 @@ type importFacade struct {
 	limits       Limits
 	now          func() time.Time
 	safeDigester SafeDigester
-	transactions *crossownertransaction.Coordinator
 }
 
 const importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
 
-func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester, transactions *crossownertransaction.Coordinator) *importFacade {
-	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester, transactions: transactions}
+func newImportFacade(store *Store, sourceStore ImportSourcePort, limits Limits, now func() time.Time, safeDigester SafeDigester) *importFacade {
+	return &importFacade{store: store, sourceStore: sourceStore, limits: limits.normalized(), now: now, safeDigester: safeDigester}
 }
 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
@@ -169,8 +168,12 @@ func validLowerSHA256(value string) bool {
 	return true
 }
 
-func (f *importFacade) ApplyImportUnit(ctx context.Context, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
-	if f == nil || f.store == nil || f.sourceStore == nil || f.transactions == nil {
+func (f *importFacade) ApplyImportUnitTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	request imports.ExtensionImportApplyRequest,
+) (imports.ExtensionImportApplyResult, error) {
+	if f == nil || f.store == nil || f.sourceStore == nil || tx == nil {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
 	}
 	if f.safeDigester == nil {
@@ -182,25 +185,28 @@ func (f *importFacade) ApplyImportUnit(ctx context.Context, request imports.Exte
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {
 		return imports.ExtensionImportApplyResult{}, applyBlocked("source_changed")
 	}
-	canonical, err := json.Marshal(map[string]any{
-		"participant_id": ImportApplyParticipantID, "incident_id": request.IncidentID.String(),
-		"import_session_id": request.ImportSessionID.String(), "import_unit_id": request.ImportUnitID.String(),
-		"source_content_sha256": request.ExpectedSourceContentSHA256,
-		"mapping_fingerprint":   request.MappingFingerprint, "client_txn_id": request.ClientTxnID,
-	})
+	prepared, err := f.prepareImportApply(ctx, request)
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
-	digest := sha256Hex(canonical)
-	result, err := f.transactions.Execute(ctx, crossownertransaction.Operation{
-		OperationID:             "network-flow-import:" + request.ImportSessionID.String() + ":" + request.ImportUnitID.String(),
-		NormalizedRequestSHA256: digest,
-		Participants:            []crossownertransaction.Participant{&importApplyParticipant{facade: f, request: request}},
-	})
-	if err != nil {
+	importStore, ok := f.sourceStore.(importTransactionPort)
+	if !ok {
+		return imports.ExtensionImportApplyResult{}, applyBlocked("owner_apply_contract_unavailable")
+	}
+	capability := &transactionCapability{
+		participantID: ImportApplyParticipantID,
+		tx:            tx,
+		store:         f.store,
+		imports:       importStore,
+	}
+	if err := capability.ValidateImportApply(ctx, request); err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
-	return participantResult[imports.ExtensionImportApplyResult](result, ImportApplyParticipantID)
+	table, err := capability.CreateImportedTable(ctx, prepared.params)
+	if err != nil {
+		return imports.ExtensionImportApplyResult{}, storeApplyError(err)
+	}
+	return prepared.result(table), nil
 }
 
 type preparedImportApply struct {

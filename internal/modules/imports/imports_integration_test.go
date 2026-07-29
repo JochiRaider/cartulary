@@ -12,13 +12,16 @@ import (
 	"net/textproto"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -347,6 +350,27 @@ SELECT change_set_id::text
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)
+  FROM import_apply_unit_plans p
+  JOIN import_unit_apply_outcomes o
+    ON o.import_session_id = p.import_session_id
+   AND o.import_unit_id = p.import_unit_id
+   AND o.apply_job_id = p.apply_job_id
+ WHERE p.import_session_id::text = $1
+   AND p.import_unit_id::text = $2
+   AND p.apply_job_id::text = $3
+   AND p.source_content_sha256 = o.source_content_sha256
+   AND p.mapping_fingerprint = o.mapping_fingerprint
+   AND o.outcome_status = 'applied'
+   AND o.target_kind = 'view_schema'
+   AND o.target_view_schema_id = 'cartulary.view.timeline.v2'
+   AND o.owner_binding_id = 'timeline.import_create'
+   AND o.change_set_id::text = $4
+   AND jsonb_typeof(o.owner_result_json) = 'array'
+`, sessionID, unitID, applyJob["job_id"].(string), changeSetID); got != 1 {
+		t.Fatalf("expected one immutable Timeline apply plan/outcome pair, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
   FROM change_set_mutations
  WHERE change_set_id::text = $1
 `, changeSetID); got != 4 {
@@ -402,6 +426,14 @@ SELECT COUNT(*)
  WHERE incident_id::text = $1
 `, incidentID); got != 2 {
 		t.Fatalf("exact Timeline replay duplicated owner effects: %d rows", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, unitID); got != 1 {
+		t.Fatalf("exact Timeline replay changed immutable unit outcomes: %d rows", got)
 	}
 
 	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-second"})
@@ -543,6 +575,553 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 			t.Fatalf("%s survived failed Timeline unit transaction: %d", table, got)
 		}
 	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND apply_job_id::text = $3
+   AND outcome_status = 'failed'
+   AND change_set_id IS NULL
+   AND error_code = 'import_apply_failed'
+   AND reason_code = 'owner_apply_failed'
+`, sessionID, unitID, applyJob["job_id"].(string)); got != 1 {
+		t.Fatalf("failed Timeline unit did not persist one truthful terminal outcome: %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_sessions s
+  JOIN import_units u USING (import_session_id)
+ WHERE s.import_session_id::text = $1
+   AND s.session_status = 'failed'
+   AND u.import_unit_id::text = $2
+   AND u.unit_status = 'failed'
+`, sessionID, unitID); got != 1 {
+		t.Fatalf("failed Timeline finalization did not derive terminal state from its outcome")
+	}
+}
+
+func TestApplyRevalidatesTransactionCurrentState_Integration(t *testing.T) {
+	testCases := []struct {
+		name       string
+		mutateSQL  string
+		mutateArgs string
+		errorCode  string
+		reasonCode string
+	}{
+		{
+			name: "role revoked",
+			mutateSQL: `
+UPDATE incident_memberships
+   SET role = 'viewer',
+       membership_version = membership_version + 1,
+       updated_at = now()
+ WHERE incident_id::text = $1
+   AND user_id::text = $2
+`,
+			errorCode:  "authorization_denied",
+			reasonCode: "authorization_changed",
+			mutateArgs: "incident_actor",
+		},
+		{
+			name: "membership removed",
+			mutateSQL: `
+DELETE FROM incident_memberships
+ WHERE incident_id::text = $1
+   AND user_id::text = $2
+`,
+			errorCode:  "authorization_denied",
+			reasonCode: "authorization_changed",
+			mutateArgs: "incident_actor",
+		},
+		{
+			name: "incident closed",
+			mutateSQL: `
+UPDATE incidents
+   SET status = 'closed',
+       closed_at = now(),
+       incident_version = incident_version + 1,
+       updated_at = now()
+ WHERE id::text = $1
+`,
+			errorCode:  "incident_closed",
+			reasonCode: "incident_closed",
+			mutateArgs: "incident",
+		},
+		{
+			name: "actor deactivated",
+			mutateSQL: `
+UPDATE users
+   SET is_active = false,
+       user_version = user_version + 1,
+       updated_at = now()
+ WHERE id::text = $1
+`,
+			errorCode:  "authorization_denied",
+			reasonCode: "authorization_changed",
+			mutateArgs: "actor",
+		},
+		{
+			name: "source rows changed",
+			mutateSQL: `
+UPDATE import_units
+   SET source_rows_json = '[]'::jsonb,
+       updated_at = now()
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`,
+			errorCode:  "import_apply_blocked",
+			reasonCode: "source_changed",
+			mutateArgs: "unit",
+		},
+		{
+			name: "approved mapping changed",
+			mutateSQL: `
+UPDATE import_units
+   SET approved_mapping_json =
+           jsonb_set(approved_mapping_json, '{unknown_column_policy}', '"reject_if_unmapped"'),
+       updated_at = now()
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`,
+			errorCode:  "import_apply_blocked",
+			reasonCode: "source_changed",
+			mutateArgs: "unit",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			runtime := appsupport.StartRuntime(t)
+			harness := runtime.StartDefaultServer(t, "imports-transaction-current-"+strings.ReplaceAll(testCase.name, " ", "-"))
+			adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+			incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+				"client_txn_id": "txn-imports-current-incident-" + strings.ReplaceAll(testCase.name, " ", "-"),
+				"incident_key":  "IR-IMPORT-CURRENT-" + strings.ToUpper(strings.ReplaceAll(testCase.name, " ", "-")),
+				"title":         "Import transaction-current " + testCase.name,
+			})
+			incidentID := incident["incident_id"].(string)
+			sessionID, unitID := startCSVImportSession(
+				t,
+				harness.Server.HTTP.URL,
+				adminLogin,
+				incidentID,
+				"txn-imports-current-upload-"+strings.ReplaceAll(testCase.name, " ", "-"),
+				"summary\nmust not apply\n",
+				"current.csv",
+			)
+			mappingResp := doImportJSON(
+				t,
+				harness.Server.HTTP.URL,
+				adminLogin,
+				http.MethodPut,
+				"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+				map[string]any{
+					"client_txn_id":         "txn-imports-current-mapping-" + strings.ReplaceAll(testCase.name, " ", "-"),
+					"target_view_schema_id": "cartulary.view.timeline.v2",
+					"header_row_ref":        1,
+					"data_start_row_ref":    2,
+					"unknown_column_policy": "preserve_raw_capture",
+					"source_columns": []map[string]any{{
+						"source_column_ordinal": 1,
+						"source_header_text":    "summary",
+						"field_key":             "timeline.activity_synopsis_text",
+						"entity_binding_mode":   nil,
+						"transform_id":          nil,
+						"transform_options":     map[string]any{},
+						"empty_value_policy":    "omit_field",
+					}},
+				},
+			)
+			httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+			selectResp := doImportJSON(
+				t,
+				harness.Server.HTTP.URL,
+				adminLogin,
+				http.MethodPost,
+				"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+				map[string]any{
+					"client_txn_id": "txn-imports-current-select-" + strings.ReplaceAll(testCase.name, " ", "-"),
+				},
+			)
+			httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+
+			const advisoryKey int64 = 49006001
+			blocker, err := harness.DB.Conn(context.Background())
+			if err != nil {
+				t.Fatalf("acquire apply-start blocker connection: %v", err)
+			}
+			defer blocker.Close()
+			if _, err := blocker.ExecContext(
+				context.Background(),
+				"SELECT pg_advisory_lock($1)",
+				advisoryKey,
+			); err != nil {
+				t.Fatalf("acquire apply-start advisory lock: %v", err)
+			}
+			defer func() {
+				_, _ = blocker.ExecContext(
+					context.Background(),
+					"SELECT pg_advisory_unlock($1)",
+					advisoryKey,
+				)
+			}()
+			if _, err := harness.DB.ExecContext(context.Background(), `
+CREATE FUNCTION public.block_import_apply_start_rs06()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.status = 'queued' AND NEW.status = 'running' THEN
+        PERFORM pg_advisory_xact_lock(49006001);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER block_import_apply_start_rs06
+BEFORE UPDATE ON jobs
+FOR EACH ROW
+EXECUTE FUNCTION public.block_import_apply_start_rs06()
+`); err != nil {
+				t.Fatalf("install apply-start serialization fixture: %v", err)
+			}
+
+			type applyResponse struct {
+				response *http.Response
+				err      error
+			}
+			responseChannel := make(chan applyResponse, 1)
+			go func() {
+				request, err := http.NewRequest(
+					http.MethodPost,
+					harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/apply",
+					bytes.NewBufferString(`{"client_txn_id":"txn-imports-current-apply-`+
+						strings.ReplaceAll(testCase.name, " ", "-")+`"}`),
+				)
+				if err != nil {
+					responseChannel <- applyResponse{err: err}
+					return
+				}
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
+				request.AddCookie(adminLogin.SessionCookie)
+				request.AddCookie(adminLogin.CSRFCookie)
+				response, err := http.DefaultClient.Do(request)
+				responseChannel <- applyResponse{response: response, err: err}
+			}()
+
+			var applyJobID string
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) {
+				err = harness.DB.QueryRowContext(context.Background(), `
+SELECT apply_job_id::text
+  FROM import_sessions
+ WHERE import_session_id::text = $1
+   AND session_status = 'applying'
+   AND apply_job_id IS NOT NULL
+`, sessionID).Scan(&applyJobID)
+				if err == nil {
+					break
+				}
+				if err != sql.ErrNoRows {
+					t.Fatalf("observe admitted apply job: %v", err)
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			if applyJobID == "" {
+				t.Fatal("apply job did not reach the serialized post-admission boundary")
+			}
+			var mutationArgs []any
+			switch testCase.mutateArgs {
+			case "incident_actor":
+				mutationArgs = []any{incidentID, adminUserID}
+			case "incident":
+				mutationArgs = []any{incidentID}
+			case "actor":
+				mutationArgs = []any{adminUserID}
+			case "unit":
+				mutationArgs = []any{sessionID, unitID}
+			default:
+				t.Fatalf("unsupported transaction-current mutation argument kind %q", testCase.mutateArgs)
+			}
+			if _, err := harness.DB.ExecContext(
+				context.Background(),
+				testCase.mutateSQL,
+				mutationArgs...,
+			); err != nil {
+				t.Fatalf("apply transaction-current mutation: %v", err)
+			}
+			if _, err := blocker.ExecContext(
+				context.Background(),
+				"SELECT pg_advisory_unlock($1)",
+				advisoryKey,
+			); err != nil {
+				t.Fatalf("release apply-start advisory lock: %v", err)
+			}
+
+			select {
+			case result := <-responseChannel:
+				if result.err != nil {
+					t.Fatalf("submit serialized apply: %v", result.err)
+				}
+				httptestx.RequireSuccessEnvelope(t, result.response, http.StatusAccepted)
+			case <-time.After(10 * time.Second):
+				t.Fatal("timed out waiting for serialized apply")
+			}
+			var jobStatus string
+			if err := harness.DB.QueryRowContext(
+				context.Background(),
+				"SELECT status FROM jobs WHERE job_id::text = $1",
+				applyJobID,
+			).Scan(&jobStatus); err != nil {
+				t.Fatalf("read terminal apply job after %s: %v", testCase.name, err)
+			}
+			if jobStatus != "failed" {
+				t.Fatalf("expected failed apply after %s, got %q", testCase.name, jobStatus)
+			}
+			if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND apply_job_id::text = $3
+   AND outcome_status = 'failed'
+   AND error_code = $4
+   AND reason_code = $5
+`, sessionID, unitID, applyJobID, testCase.errorCode, testCase.reasonCode); got != 1 {
+				t.Fatalf("expected one safe %s outcome, got %d", testCase.name, got)
+			}
+			if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id::text = $1
+`, incidentID); got != 0 {
+				t.Fatalf("%s allowed %d owner effects", testCase.name, got)
+			}
+		})
+	}
+}
+
+func TestUnitCommitCrashRecoveryDoesNotReplayOwnerEffects_Integration(t *testing.T) {
+	testCases := []struct {
+		name                  string
+		triggerTable          string
+		triggerFunctionBody   string
+		preRecoveryOwnerCount int
+		preRecoveryOutcome    int
+		preRecoveryUnitStatus string
+	}{
+		{
+			name:         "crash before unit commit",
+			triggerTable: "import_unit_apply_outcomes",
+			triggerFunctionBody: `
+BEGIN
+    RAISE EXCEPTION 'injected unit-outcome commit failure';
+END;
+`,
+			preRecoveryOwnerCount: 0,
+			preRecoveryOutcome:    0,
+			preRecoveryUnitStatus: "applying",
+		},
+		{
+			name:         "crash after unit commit",
+			triggerTable: "jobs",
+			triggerFunctionBody: `
+BEGIN
+    IF NEW.status IN ('succeeded', 'failed', 'canceled') THEN
+        RAISE EXCEPTION 'injected finalizer commit failure';
+    END IF;
+    RETURN NEW;
+END;
+`,
+			preRecoveryOwnerCount: 1,
+			preRecoveryOutcome:    1,
+			preRecoveryUnitStatus: "applied",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			slug := strings.ReplaceAll(testCase.name, " ", "-")
+			runtime := appsupport.StartRuntime(t)
+			database := runtime.PrepareIsolatedDatabase(t, "imports-recovery-"+slug)
+			durableObjects, err := objectstore.NewFilesystemStore(t.TempDir())
+			if err != nil {
+				t.Fatalf("create durable import recovery object store: %v", err)
+			}
+			first := runtime.StartServerWithDatabaseAndObjectStore(
+				t,
+				"imports-recovery-first-"+slug,
+				database,
+				durableObjects,
+			)
+			adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, first.Server.HTTP.URL)
+			incident := scenariotest.CreateIncident(t, first.Server, adminLogin, map[string]any{
+				"client_txn_id": "txn-imports-recovery-incident-" + slug,
+				"incident_key":  "IR-IMPORT-RECOVERY-" + strings.ToUpper(slug),
+				"title":         "Import recovery " + testCase.name,
+			})
+			incidentID := incident["incident_id"].(string)
+			sessionID, unitID := prepareReadyTimelineImport(
+				t,
+				first,
+				adminLogin,
+				incidentID,
+				"imports-recovery-"+slug,
+			)
+
+			if _, err := first.DB.ExecContext(context.Background(), `
+CREATE FUNCTION public.fail_import_apply_boundary_rs06()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+`+testCase.triggerFunctionBody+`
+$$
+`); err != nil {
+				t.Fatalf("create import recovery failure function: %v", err)
+			}
+			if _, err := first.DB.ExecContext(
+				context.Background(),
+				`
+CREATE TRIGGER fail_import_apply_boundary_rs06
+BEFORE INSERT OR UPDATE ON `+testCase.triggerTable+`
+FOR EACH ROW
+EXECUTE FUNCTION public.fail_import_apply_boundary_rs06()
+`,
+			); err != nil {
+				t.Fatalf("create import recovery failure trigger: %v", err)
+			}
+
+			applyResp := doImportJSON(
+				t,
+				first.Server.HTTP.URL,
+				adminLogin,
+				http.MethodPost,
+				"/api/v1/import-sessions/"+sessionID+"/apply",
+				map[string]any{"client_txn_id": "txn-imports-recovery-apply-" + slug},
+			)
+			httptestx.RequireErrorEnvelope(t, applyResp, http.StatusInternalServerError, "internal_error")
+			var applyJobID string
+			if err := first.DB.QueryRowContext(context.Background(), `
+SELECT apply_job_id::text
+  FROM import_sessions
+ WHERE import_session_id::text = $1
+`, sessionID).Scan(&applyJobID); err != nil {
+				t.Fatalf("read interrupted apply job: %v", err)
+			}
+			if got := dbassert.CountSQL(t, first.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id::text = $1
+`, incidentID); got != testCase.preRecoveryOwnerCount {
+				t.Fatalf("pre-recovery owner count = %d, want %d", got, testCase.preRecoveryOwnerCount)
+			}
+			if got := dbassert.CountSQL(t, first.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, unitID); got != testCase.preRecoveryOutcome {
+				t.Fatalf("pre-recovery outcome count = %d, want %d", got, testCase.preRecoveryOutcome)
+			}
+			var interruptedSessionStatus string
+			var interruptedUnitStatus string
+			var interruptedJobStatus string
+			if err := first.DB.QueryRowContext(context.Background(), `
+SELECT s.session_status, u.unit_status, j.status
+  FROM import_sessions s
+  JOIN import_units u USING (import_session_id)
+  JOIN jobs j ON j.job_id = s.apply_job_id
+ WHERE s.import_session_id::text = $1
+   AND u.import_unit_id::text = $2
+`, sessionID, unitID).Scan(
+				&interruptedSessionStatus,
+				&interruptedUnitStatus,
+				&interruptedJobStatus,
+			); err != nil {
+				t.Fatalf("read interrupted apply state: %v", err)
+			}
+			if interruptedSessionStatus != "applying" ||
+				interruptedUnitStatus != testCase.preRecoveryUnitStatus ||
+				interruptedJobStatus != "running" {
+				t.Fatalf(
+					"unexpected interrupted state: session=%q unit=%q job=%q",
+					interruptedSessionStatus,
+					interruptedUnitStatus,
+					interruptedJobStatus,
+				)
+			}
+
+			if _, err := first.DB.ExecContext(
+				context.Background(),
+				"DROP TRIGGER fail_import_apply_boundary_rs06 ON "+testCase.triggerTable,
+			); err != nil {
+				t.Fatalf("drop import recovery failure trigger: %v", err)
+			}
+			if _, err := first.DB.ExecContext(
+				context.Background(),
+				"DROP FUNCTION public.fail_import_apply_boundary_rs06()",
+			); err != nil {
+				t.Fatalf("drop import recovery failure function: %v", err)
+			}
+			first.Server.Close()
+
+			second := runtime.StartServerWithDatabaseAndObjectStore(
+				t,
+				"imports-recovery-second-"+slug,
+				database,
+				durableObjects,
+			)
+			deadline := time.Now().Add(10 * time.Second)
+			var recoveredJobStatus string
+			for time.Now().Before(deadline) {
+				err := second.DB.QueryRowContext(
+					context.Background(),
+					"SELECT status FROM jobs WHERE job_id::text = $1",
+					applyJobID,
+				).Scan(&recoveredJobStatus)
+				if err != nil {
+					t.Fatalf("read recovered apply job: %v", err)
+				}
+				if recoveredJobStatus == "succeeded" {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			if recoveredJobStatus != "succeeded" {
+				t.Fatalf("recovered apply job status = %q, want succeeded", recoveredJobStatus)
+			}
+			if got := dbassert.CountSQL(t, second.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id::text = $1
+`, incidentID); got != 1 {
+				t.Fatalf("recovery created %d Timeline owner effects, want exactly one", got)
+			}
+			if got := dbassert.CountSQL(t, second.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND apply_job_id::text = $3
+   AND outcome_status = 'applied'
+`, sessionID, unitID, applyJobID); got != 1 {
+				t.Fatalf("recovery created %d applied unit outcomes, want exactly one", got)
+			}
+			if got := dbassert.CountSQL(t, second.DB, `
+SELECT COUNT(*)
+  FROM import_sessions s
+  JOIN import_units u USING (import_session_id)
+ WHERE s.import_session_id::text = $1
+   AND s.session_status = 'applied'
+   AND u.import_unit_id::text = $2
+   AND u.unit_status = 'applied'
+`, sessionID, unitID); got != 1 {
+				t.Fatalf("recovery did not derive applied session/unit state")
+			}
+			requireImportProof(t, second.DB, applyJobID, "import.apply")
+		})
+	}
 }
 
 func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
@@ -637,7 +1216,16 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 
 func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "network-flow-import-apply")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix: "network-flow-import-apply",
+		Env: map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+			"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+		},
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-import-incident",
@@ -662,7 +1250,7 @@ func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 	}
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
-   SET role = 'viewer', updated_at = now(), updated_by_user_id = $2
+   SET role = 'viewer', updated_at = now(), updated_by_user_id = $2::uuid
  WHERE incident_id::text = $1 AND user_id::text = $2
 `, incidentID, adminUserID); err != nil {
 		t.Fatalf("demote mapping preview actor: %v", err)
@@ -671,7 +1259,7 @@ UPDATE incident_memberships
 	httptestx.RequireErrorEnvelope(t, viewerPreviewResp, http.StatusForbidden, "authorization_denied")
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
-   SET role = 'admin', updated_at = now(), updated_by_user_id = $2
+   SET role = 'admin', updated_at = now(), updated_by_user_id = $2::uuid
  WHERE incident_id::text = $1 AND user_id::text = $2
 `, incidentID, adminUserID); err != nil {
 		t.Fatalf("restore mapping preview actor: %v", err)
@@ -744,6 +1332,321 @@ UPDATE incident_memberships
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, tableID); got != 0 {
 		t.Fatalf("expected no rejected-row diagnostics, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_apply_unit_plans p
+  JOIN import_unit_apply_outcomes o
+    ON o.import_session_id = p.import_session_id
+   AND o.import_unit_id = p.import_unit_id
+ WHERE p.import_session_id::text = $1
+   AND p.import_unit_id::text = $2
+   AND p.apply_job_id::text = $3
+   AND p.target_kind = 'network_flow_table'
+   AND p.extension_profile_id = 'network_flow_activity'
+   AND p.owner_binding_id = 'network_flow_activity.import_facade.v1'
+   AND o.outcome_status = 'applied'
+   AND o.change_set_id IS NULL
+   AND jsonb_array_length(o.resource_refs_json) = 1
+   AND o.resource_refs_json->0->>'kind' = 'network_flow_table'
+   AND o.resource_refs_json->0->>'id' = $4
+   AND o.owner_result_json->'table_ref'->>'id' = $4
+`, sessionID, unitID, applyJob["job_id"].(string), tableID); got != 1 {
+		t.Fatalf("Network Flow owner effects and durable outcome did not commit as one unit: %d", got)
+	}
+}
+
+func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "imports-partial-cancellation")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-imports-partial-cancel-incident",
+		"incident_key":  "IR-IMPORT-PARTIAL-CANCEL",
+		"title":         "Import partial cancellation",
+	})
+	incidentID := incident["incident_id"].(string)
+	metadata := `{"client_txn_id":"txn-imports-partial-cancel-upload","incident_id":"` + incidentID + `"}`
+	uploadResp := postImportUploadBytes(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		metadata,
+		multipleSheetXLSX(t),
+		"partial-cancel.xlsx",
+		imports.MediaTypeXLSX,
+		false,
+	)
+	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
+	discoveryResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	discoveryJob := httptestx.RequireSuccessEnvelope(t, discoveryResp, http.StatusOK)["data"].(map[string]any)
+	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
+	unitsResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
+	if len(units) != 2 {
+		t.Fatalf("partial-cancellation workbook discovered %d units, want 2", len(units))
+	}
+	headers := [][2]string{{"host", "summary"}, {"indicator", "type"}}
+	unitIDs := make([]string, len(units))
+	for index, rawUnit := range units {
+		unitID := rawUnit.(map[string]any)["import_unit_id"].(string)
+		unitIDs[index] = unitID
+		mappingResp := doImportJSON(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			http.MethodPut,
+			"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+			map[string]any{
+				"client_txn_id":         "txn-imports-partial-cancel-mapping-" + string(rune('1'+index)),
+				"target_view_schema_id": "cartulary.view.timeline.v2",
+				"header_row_ref":        1,
+				"data_start_row_ref":    2,
+				"unknown_column_policy": "preserve_raw_capture",
+				"source_columns": []map[string]any{
+					{
+						"source_column_ordinal": 1,
+						"source_header_text":    headers[index][0],
+						"field_key":             "timeline.activity_synopsis_text",
+						"entity_binding_mode":   nil,
+						"transform_id":          nil,
+						"transform_options":     map[string]any{},
+						"empty_value_policy":    "omit_field",
+					},
+					{
+						"source_column_ordinal": 2,
+						"source_header_text":    headers[index][1],
+						"field_key":             nil,
+						"entity_binding_mode":   nil,
+						"transform_id":          nil,
+						"transform_options":     map[string]any{},
+						"empty_value_policy":    "omit_field",
+					},
+				},
+			},
+		)
+		httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+		selectResp := doImportJSON(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			http.MethodPost,
+			"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+			map[string]any{
+				"client_txn_id": "txn-imports-partial-cancel-select-" + string(rune('1'+index)),
+			},
+		)
+		httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	}
+
+	const advisoryKey int64 = 49006002
+	blocker, err := harness.DB.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("acquire partial-cancellation blocker connection: %v", err)
+	}
+	defer blocker.Close()
+	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_lock($1)", advisoryKey); err != nil {
+		t.Fatalf("acquire partial-cancellation advisory lock: %v", err)
+	}
+	defer func() {
+		_, _ = blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", advisoryKey)
+	}()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+CREATE FUNCTION public.block_first_import_outcome_rs06()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.discovery_sequence = 1 THEN
+        PERFORM pg_advisory_xact_lock(49006002);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER block_first_import_outcome_rs06
+BEFORE INSERT ON import_unit_apply_outcomes
+FOR EACH ROW
+EXECUTE FUNCTION public.block_first_import_outcome_rs06()
+`); err != nil {
+		t.Fatalf("install partial-cancellation serialization fixture: %v", err)
+	}
+
+	type asyncResponse struct {
+		response *http.Response
+		err      error
+	}
+	applyResponse := make(chan asyncResponse, 1)
+	go func() {
+		request, requestErr := http.NewRequest(
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/apply",
+			bytes.NewBufferString(`{"client_txn_id":"txn-imports-partial-cancel-apply"}`),
+		)
+		if requestErr != nil {
+			applyResponse <- asyncResponse{err: requestErr}
+			return
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
+		request.AddCookie(adminLogin.SessionCookie)
+		request.AddCookie(adminLogin.CSRFCookie)
+		response, requestErr := http.DefaultClient.Do(request)
+		applyResponse <- asyncResponse{response: response, err: requestErr}
+	}()
+
+	var applyJobID string
+	deadline := time.Now().Add(5 * time.Second)
+	outcomeBlocked := false
+	for time.Now().Before(deadline) {
+		var blockedOutcomeWriters int
+		err = harness.DB.QueryRowContext(context.Background(), `
+SELECT
+    COALESCE((
+        SELECT COUNT(*)
+          FROM pg_locks
+         WHERE locktype = 'advisory'
+           AND NOT granted
+    ), 0),
+    COALESCE((
+        SELECT apply_job_id::text
+          FROM import_sessions
+         WHERE import_session_id::text = $1
+           AND apply_job_id IS NOT NULL
+    ), '')
+`, sessionID).Scan(&blockedOutcomeWriters, &applyJobID)
+		if err != nil {
+			t.Fatalf("observe first unit commit boundary: %v", err)
+		}
+		if blockedOutcomeWriters > 0 && applyJobID != "" {
+			outcomeBlocked = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !outcomeBlocked || applyJobID == "" {
+		t.Fatal("apply did not reach the first unit commit boundary")
+	}
+
+	cancelResponse := make(chan asyncResponse, 1)
+	go func() {
+		request, requestErr := http.NewRequest(
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJobID+"/cancel",
+			bytes.NewBufferString(`{"client_txn_id":"txn-imports-partial-cancel-request"}`),
+		)
+		if requestErr != nil {
+			cancelResponse <- asyncResponse{err: requestErr}
+			return
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
+		request.AddCookie(adminLogin.SessionCookie)
+		request.AddCookie(adminLogin.CSRFCookie)
+		response, requestErr := http.DefaultClient.Do(request)
+		cancelResponse <- asyncResponse{response: response, err: requestErr}
+	}()
+
+	deadline = time.Now().Add(5 * time.Second)
+	cancelWaiting := false
+	for time.Now().Before(deadline) {
+		var waiting int
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT COUNT(*)
+  FROM pg_locks
+ WHERE NOT granted
+`).Scan(&waiting); err != nil {
+			t.Fatalf("observe waiting cancellation: %v", err)
+		}
+		if waiting >= 2 {
+			cancelWaiting = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !cancelWaiting {
+		t.Fatal("cancel request did not serialize behind the first unit commit")
+	}
+	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", advisoryKey); err != nil {
+		t.Fatalf("release partial-cancellation unit commit: %v", err)
+	}
+
+	select {
+	case result := <-cancelResponse:
+		if result.err != nil {
+			t.Fatalf("cancel partially applied import: %v", result.err)
+		}
+		httptestx.RequireSuccessEnvelope(t, result.response, http.StatusOK)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for partial-cancellation request")
+	}
+	select {
+	case result := <-applyResponse:
+		if result.err != nil {
+			t.Fatalf("complete partially canceled apply: %v", result.err)
+		}
+		httptestx.RequireSuccessEnvelope(t, result.response, http.StatusAccepted)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for partially canceled apply")
+	}
+
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_sessions s
+  JOIN jobs j ON j.job_id = s.apply_job_id
+ WHERE s.import_session_id::text = $1
+   AND s.session_status = 'partially_applied'
+   AND j.status = 'canceled'
+   AND j.result_summary_json->>'code' = 'import_session_partially_applied'
+`, sessionID); got != 1 {
+		t.Fatalf("cancellation after a committed unit did not derive truthful partial application: %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND apply_job_id::text = $2
+   AND outcome_status IN ('applied', 'canceled')
+`, sessionID, applyJobID); got != 2 {
+		t.Fatalf("partial cancellation did not persist one outcome per unit: %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND outcome_status = 'applied'
+`, sessionID, unitIDs[0]); got != 1 {
+		t.Fatalf("first unit was not durably applied before cancellation: %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+   AND outcome_status = 'canceled'
+   AND error_code = 'import_apply_canceled'
+   AND reason_code = 'cancel_requested'
+`, sessionID, unitIDs[1]); got != 1 {
+		t.Fatalf("remaining unit did not receive a durable canceled outcome: %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id::text = $1
+`, incidentID); got != 2 {
+		t.Fatalf("partial cancellation committed %d Timeline effects, want only the first unit's 2", got)
 	}
 }
 
@@ -842,6 +1745,59 @@ func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]a
 		t.Fatalf("clone import mapping payload: %v", err)
 	}
 	return cloned
+}
+
+func prepareReadyTimelineImport(
+	t testing.TB,
+	harness *appsupport.ServerHarness,
+	login flowtest.LoginResult,
+	incidentID string,
+	clientPrefix string,
+) (string, string) {
+	t.Helper()
+	sessionID, unitID := startCSVImportSession(
+		t,
+		harness.Server.HTTP.URL,
+		login,
+		incidentID,
+		"txn-"+clientPrefix+"-upload",
+		"summary\nrecover exactly once\n",
+		"recovery.csv",
+	)
+	mappingResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		login,
+		http.MethodPut,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+		map[string]any{
+			"client_txn_id":         "txn-" + clientPrefix + "-mapping",
+			"target_view_schema_id": "cartulary.view.timeline.v2",
+			"header_row_ref":        1,
+			"data_start_row_ref":    2,
+			"unknown_column_policy": "preserve_raw_capture",
+			"source_columns": []map[string]any{{
+				"source_column_ordinal": 1,
+				"source_header_text":    "summary",
+				"field_key":             "timeline.activity_synopsis_text",
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			}},
+		},
+	)
+	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+	selectResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		login,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+		map[string]any{"client_txn_id": "txn-" + clientPrefix + "-select"},
+	)
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	return sessionID, unitID
 }
 
 func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string, clientTxnID string, csv string, filename string) (string, string) {

@@ -17,6 +17,7 @@ type importTarget struct {
 	ViewSchemaID       string
 	ExtensionProfileID string
 	ApplyStatus        string
+	FacadeBindingID    string
 	CreateFacade       string
 	ApplyFacade        string
 	AllowRawCapture    bool
@@ -94,6 +95,7 @@ func mustGeneratedImportTargets() (
 				TargetKind:       generated.TargetKind,
 				ViewSchemaID:     *generated.TargetViewSchemaID,
 				ApplyStatus:      status,
+				FacadeBindingID:  generatedString(generated.FacadeBindingID),
 				CreateFacade:     generatedString(generated.FacadeID),
 				AllowRawCapture:  generated.DefaultUnknownColumnPolicy == "preserve_raw_capture",
 				AllowCustomAttrs: false,
@@ -116,6 +118,7 @@ func mustGeneratedImportTargets() (
 				TargetKind:         generated.TargetKind,
 				ExtensionProfileID: *generated.ExtensionProfileID,
 				ApplyStatus:        status,
+				FacadeBindingID:    generatedString(generated.FacadeBindingID),
 				ApplyFacade:        generatedString(generated.FacadeID),
 			}
 			key := analyticalImportTargetKey{

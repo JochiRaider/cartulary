@@ -147,6 +147,7 @@ type applyJobHandlerPayload struct {
 
 type ApplyUnitData struct {
 	UnitID              uuid.UUID
+	DiscoverySequence   int
 	SourceRows          []map[string]any
 	ApprovedMapping     ApprovedMapping
 	MappingFingerprint  string
@@ -747,6 +748,16 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 		return ApplyStartResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
+	if err := s.insertApplyUnitPlansTx(
+		ctx,
+		tx,
+		params.SessionID,
+		jobID,
+		selected,
+		params.Now.UTC(),
+	); err != nil {
+		return ApplyStartResult{}, err
+	}
 	if _, err := tx.Exec(ctx, `
 UPDATE import_sessions
    SET session_status = 'applying',
@@ -802,6 +813,7 @@ func normalizedApplyRequest(request ApplyRequest, resolvedSelected []uuid.UUID) 
 func (s *Store) GetApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]ApplyUnitData, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT u.import_unit_id,
+       u.discovery_sequence,
        u.source_rows_json,
        u.approved_mapping_json,
        COALESCE(u.mapping_fingerprint, ''),
@@ -829,7 +841,7 @@ SELECT u.import_unit_id,
 		var unit ApplyUnitData
 		var sourceRowsJSON []byte
 		var mappingJSON []byte
-		if err := rows.Scan(&unit.UnitID, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.SourceStreamRef, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
+		if err := rows.Scan(&unit.UnitID, &unit.DiscoverySequence, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.SourceStreamRef, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
@@ -841,127 +853,6 @@ SELECT u.import_unit_id,
 		units = append(units, unit)
 	}
 	return units, rows.Err()
-}
-
-func (s *Store) CompleteApply(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID, status string, now time.Time) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.CompleteApplyTx(ctx, tx, sessionID, unitIDs, status, now); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
-func (s *Store) CompleteApplyTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitIDs []uuid.UUID, status string, now time.Time) error {
-	command, err := tx.Exec(ctx, `
-UPDATE import_sessions
-   SET session_status = $2,
-       updated_at = $3
- WHERE import_session_id = $1
-   AND session_status = 'applying'
-   AND NOT EXISTS (
-       SELECT 1
-         FROM import_units
-        WHERE import_session_id = $1
-          AND import_unit_id = ANY($4)
-          AND unit_status NOT IN ('applied', 'failed')
-   )
-`, sessionID, status, now.UTC(), unitIDs)
-	if err != nil {
-		return err
-	}
-	if command.RowsAffected() != 1 {
-		return fmt.Errorf("import apply terminal state precondition failed")
-	}
-	return nil
-}
-
-func (s *Store) MarkApplyUnitStatus(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID, status string, now time.Time) error {
-	if status != "applied" && status != "failed" {
-		return fmt.Errorf("invalid terminal import unit status %q", status)
-	}
-	command, err := s.pool.Exec(ctx, `
-UPDATE import_units
-   SET unit_status = $3,
-       updated_at = $4
- WHERE import_session_id = $1
-   AND import_unit_id = $2
-   AND unit_status = 'applying'
-`, sessionID, unitID, status, now.UTC())
-	if err != nil {
-		return err
-	}
-	if command.RowsAffected() != 1 {
-		var existing string
-		if scanErr := s.pool.QueryRow(ctx, `
-SELECT unit_status
-  FROM import_units
- WHERE import_session_id = $1
-   AND import_unit_id = $2
-`, sessionID, unitID).Scan(&existing); scanErr == nil && existing == status {
-			return nil
-		}
-		return fmt.Errorf("import unit terminal state precondition failed")
-	}
-	return nil
-}
-
-func (s *Store) FailApply(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID, now time.Time) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `
-UPDATE import_units
-   SET unit_status = 'failed',
-       updated_at = $3
- WHERE import_session_id = $1
-   AND import_unit_id = ANY($2)
-   AND unit_status = 'applying'
-`, sessionID, unitIDs, now.UTC()); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-UPDATE import_sessions
-   SET session_status = 'failed',
-       updated_at = $2
- WHERE import_session_id = $1
-`, sessionID, now.UTC()); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
-func (s *Store) CancelApply(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID, now time.Time) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `
-UPDATE import_units
-   SET unit_status = 'failed',
-       updated_at = $3
- WHERE import_session_id = $1
-   AND import_unit_id = ANY($2)
-   AND unit_status = 'applying'
-`, sessionID, unitIDs, now.UTC()); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-UPDATE import_sessions
-   SET session_status = 'canceled',
-       updated_at = $2
- WHERE import_session_id = $1
-   AND session_status = 'applying'
-`, sessionID, now.UTC()); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
 }
 
 func (s *Store) CancelDiscovery(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
