@@ -15,6 +15,26 @@ import (
 	"github.com/google/uuid"
 )
 
+func bindOwnerRoutes(
+	mux *http.ServeMux,
+	deps httpapi.DependencySet,
+	service *Service,
+) error {
+	return httpapi.BindOwnerRoutes(mux, deps, "module.imports", map[string]http.HandlerFunc{
+		"applyImportSession":                service.handleImportSessionsMember,
+		"createImportUnitRegion":            service.handleImportSessionsMember,
+		"createImportSession":               service.handleImportSessionsCollection,
+		"getImportSession":                  service.handleImportSessionsMember,
+		"getImportUnit":                     service.handleImportSessionsMember,
+		"getImportUnitPreview":              service.handleImportSessionsMember,
+		"listImportUnits":                   service.handleImportSessionsMember,
+		"previewImportUnitExtensionMapping": service.handleImportSessionsMember,
+		"putImportUnitMapping":              service.handleImportSessionsMember,
+		"selectImportUnit":                  service.handleImportSessionsMember,
+		"skipImportUnit":                    service.handleImportSessionsMember,
+	})
+}
+
 func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -401,20 +421,17 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	materialized, apiErr := s.prepareApprovedMapping(r.Context(), principal.User.ID, incidentID, route, request)
+	unit, err, apiErr := s.approveAndSaveMapping(
+		r.Context(),
+		principal.User.ID,
+		incidentID,
+		route,
+		request,
+	)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request = materialized
-	unit, _, err := s.store.SaveMapping(r.Context(), MappingParams{
-		ActorUserID:       principal.User.ID,
-		SessionID:         route.SessionID,
-		UnitID:            route.UnitID,
-		Request:           request,
-		NormalizedRequest: request.Normalized,
-		Now:               s.now(),
-	})
 	if !writeImportStoreError(w, r, err, request.ClientTxnID) {
 		return
 	}

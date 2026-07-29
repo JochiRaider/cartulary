@@ -480,6 +480,9 @@ func completeTerminalTx(
 	if tx == nil || params.JobID == uuid.Nil || now.IsZero() {
 		return Resource{}, ErrInvalidJobDefinition
 	}
+	if err := LockTransitionTx(ctx, tx, params.JobID); err != nil {
+		return Resource{}, err
+	}
 	if status != StatusSucceeded && status != StatusFailed && status != StatusCanceled {
 		return Resource{}, ErrInvalidTransition
 	}
@@ -686,6 +689,9 @@ func nullableText(value string) *string {
 }
 
 func cancelJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, now time.Time) (Resource, string, error) {
+	if err := LockTransitionTx(ctx, tx, jobID); err != nil {
+		return Resource{}, "", err
+	}
 	current, err := getJobTx(ctx, tx, jobID)
 	if errors.Is(err, ErrNotFound) {
 		return Resource{}, "", ErrNotFound
@@ -714,6 +720,20 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
           finished_at, retained_until, result_summary_json, error_summary_json, message
 `, jobID, now.UTC()))
 	return record, "", err
+}
+
+// LockTransitionTx serializes current-state checks and commits that can change
+// a job's cancellation or terminal state. Owner transactions that commit work
+// for a job must acquire this lock before revalidating the job status.
+func LockTransitionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {
+	if tx == nil || jobID == uuid.Nil {
+		return ErrInvalidJobDefinition
+	}
+	const transitionLockSeed int64 = 49006006
+	_, err := tx.Exec(ctx, `
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, $2))
+`, jobID, transitionLockSeed)
+	return err
 }
 
 func getJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (Resource, error) {

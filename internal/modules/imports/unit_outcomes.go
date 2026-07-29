@@ -423,6 +423,9 @@ func (s *Store) ensureApplyJobRunnableTx(
 	if err != nil {
 		return err
 	}
+	if err := jobs.LockTransitionTx(ctx, tx, jobID); err != nil {
+		return err
+	}
 	var status string
 	if err := tx.QueryRow(ctx, `
 SELECT status

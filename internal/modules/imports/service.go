@@ -88,19 +88,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.imports", map[string]http.HandlerFunc{
-			"applyImportSession":                service.handleImportSessionsMember,
-			"createImportUnitRegion":            service.handleImportSessionsMember,
-			"createImportSession":               service.handleImportSessionsCollection,
-			"getImportSession":                  service.handleImportSessionsMember,
-			"getImportUnit":                     service.handleImportSessionsMember,
-			"getImportUnitPreview":              service.handleImportSessionsMember,
-			"listImportUnits":                   service.handleImportSessionsMember,
-			"previewImportUnitExtensionMapping": service.handleImportSessionsMember,
-			"putImportUnitMapping":              service.handleImportSessionsMember,
-			"selectImportUnit":                  service.handleImportSessionsMember,
-			"skipImportUnit":                    service.handleImportSessionsMember,
-		})
+		return bindOwnerRoutes(mux, deps, service)
 	}
 }
 

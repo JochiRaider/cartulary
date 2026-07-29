@@ -75,6 +75,34 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 	return request, nil
 }
 
+func (s *Service) approveAndSaveMapping(
+	ctx context.Context,
+	actorUserID uuid.UUID,
+	incidentID uuid.UUID,
+	route importSessionRoute,
+	request MappingRequest,
+) (map[string]any, error, *httpapi.APIError) {
+	materialized, apiErr := s.prepareApprovedMapping(
+		ctx,
+		actorUserID,
+		incidentID,
+		route,
+		request,
+	)
+	if apiErr != nil {
+		return nil, nil, apiErr
+	}
+	unit, _, err := s.store.SaveMapping(ctx, MappingParams{
+		ActorUserID:       actorUserID,
+		SessionID:         route.SessionID,
+		UnitID:            route.UnitID,
+		Request:           materialized,
+		NormalizedRequest: materialized.Normalized,
+		Now:               s.now(),
+	})
+	return unit, err, nil
+}
+
 func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
 	target, ok := lookupApprovedImportTarget(mapping)
 	if !ok || !target.importable(s.extensionProfileClaimed) {

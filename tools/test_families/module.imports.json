@@ -216,6 +216,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.integration.evidence_owner_facade_complete_ac652dc3b3",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestEvidenceImportUsesOwnerFacadeAndJournal_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.fresh_session_explicit_reimport_workflow_18fc21c7f5",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -414,6 +439,30 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.integration.upload_admission_replay_complete_b8684935f2",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestExtensionImportUploadEarlyFailCreatesNoDurableRows",
+          "TestExtensionImportUploadExactReplayAndReadResources"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.view_owner_write_null_application_rs08_8bb5e55b95",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -485,6 +534,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.unit.boundary_complete_52a2a59837",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestImportsOwnerApplyUsesInjectedFacadeRegistry",
+          "TestImportsProductionPackageHasNoConcretePeerStoresOrPeerTableSQL",
+          "TestImportsProductionPackageUsesOwnerFacadesForWorkbookRows",
+          "TestImportsResponsibilitiesRemainSeparated",
+          "TestImportsTargetsUseOnlyGeneratedRegistry"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.unit.canonical_write_null_and_safe_owner_translation_rs08_3f58f0c338",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
@@ -509,6 +585,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.unit.characterization_complete_180f923ec3",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCharacterizationCurrentImportSessionMemberRoutes",
+          "TestCharacterizationCurrentImportTargetInventory",
+          "TestInternalImportErrorDoesNotEchoRawMessage",
+          "TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.unit.owner_create_nullability_matrix_rs08_d1cc594289",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
@@ -522,6 +624,32 @@
         "tests": [
           "TestNormalizeImportScalarRejectsNullForNonNullableCreateField",
           "TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.unit.owner_facade_registry_complete_9318afa5dd",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports/ownerfacade",
+        "tests": [
+          "TestBoundImportOwnerCreateFacadeRejectsWrongTarget",
+          "TestImportMutationSequencerAllocatesContiguousOwnerEffects",
+          "TestImportOwnerCreateRegistryFailsClosed",
+          "TestImportOwnerCreateRegistryRequiresExactBindings"
         ]
       },
       "evidence_class": "unit",

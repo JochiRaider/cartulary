@@ -2203,6 +2203,8 @@ SELECT
         SELECT COUNT(*)
           FROM pg_locks
          WHERE locktype = 'advisory'
+           AND classid = 0
+           AND objid = $2
            AND NOT granted
     ), 0),
     COALESCE((
@@ -2211,7 +2213,7 @@ SELECT
          WHERE import_session_id::text = $1
            AND apply_job_id IS NOT NULL
     ), '')
-`, sessionID).Scan(&blockedOutcomeWriters, &applyJobID)
+`, sessionID, advisoryKey).Scan(&blockedOutcomeWriters, &applyJobID)
 		if err != nil {
 			t.Fatalf("observe first unit commit boundary: %v", err)
 		}
@@ -2249,13 +2251,24 @@ SELECT
 	for time.Now().Before(deadline) {
 		var waiting int
 		if err := harness.DB.QueryRowContext(context.Background(), `
+WITH blocked_unit_writer AS (
+    SELECT pid
+      FROM pg_locks
+     WHERE locktype = 'advisory'
+       AND classid = 0
+       AND objid = $1
+       AND NOT granted
+)
 SELECT COUNT(*)
-  FROM pg_locks
- WHERE NOT granted
-`).Scan(&waiting); err != nil {
+  FROM pg_locks AS waiting
+  JOIN blocked_unit_writer AS writer
+    ON writer.pid = ANY(pg_blocking_pids(waiting.pid))
+ WHERE waiting.locktype = 'advisory'
+   AND NOT waiting.granted
+`, advisoryKey).Scan(&waiting); err != nil {
 			t.Fatalf("observe waiting cancellation: %v", err)
 		}
-		if waiting >= 2 {
+		if waiting == 1 {
 			cancelWaiting = true
 			break
 		}

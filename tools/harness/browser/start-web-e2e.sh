@@ -935,6 +935,9 @@ browser_wait_backend_ready() {
 }
 
 browser_wait_frontend_ready() {
+  local failure_reason
+  local failure_message
+
   for _ in $(seq 1 240); do
     if exit_for_requested_shutdown "frontend readiness"; then
       :
@@ -942,8 +945,14 @@ browser_wait_frontend_ready() {
       return "$?"
     fi
     if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
-      echo "frontend exited before readiness" >&2
-      write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before readiness" || true
+      failure_reason="service_start_error"
+      failure_message="frontend exited before readiness"
+      if [[ -f "${WEB_LOG}" ]] && grep -Eq 'Port [0-9]+ is already in use' "${WEB_LOG}"; then
+        failure_reason="resource_conflict"
+        failure_message="frontend port ${FRONTEND_PORT} became unavailable before readiness"
+      fi
+      echo "${failure_message}" >&2
+      write_startup_diagnostics "fail" "frontend_readiness" "infra" "${failure_reason}" "${failure_message}" || true
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi
@@ -1039,7 +1048,7 @@ retry_frontend_preview_port() {
 start_frontend_preview_ready_with_retry() {
   local pnpm_bin="$1"
   local attempt
-  local max_attempts=1
+  local max_attempts=3
 
   for attempt in $(seq 1 "${max_attempts}"); do
     start_frontend_preview_process "${pnpm_bin}"
