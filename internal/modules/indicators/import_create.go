@@ -3,20 +3,34 @@ package indicators
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type ImportCreateCommand struct {
-	Request     ownerfacade.ImportOwnerCreateRequest
-	ChangeSetID uuid.UUID
-	SequenceNo  int
-	Now         time.Time
+type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+
+func NewImportCreateFacade(
+	targetViewSchemaID string,
+	facadeID string,
+	pool postgres.DB,
+	appender *revisions.Appender,
+) (ownerfacade.ImportOwnerCreateFacade, error) {
+	if targetViewSchemaID != ViewSchemaID {
+		return nil, fmt.Errorf("indicator import surface %q not mapped", targetViewSchemaID)
+	}
+	store := NewStore(pool, appender)
+	return ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: targetViewSchemaID,
+			FacadeID:           facadeID,
+		},
+		store.CreateImportRowTx,
+	)
 }
 
 func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {

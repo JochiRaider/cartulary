@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -56,7 +55,6 @@ type Store struct {
 	incidentAccess   incidents.Access
 	revisionAppender *revisions.Appender
 	jobTransactions  *jobs.TransactionService
-	intents          collaboration.IntentAppender
 }
 
 type DiscoveredUnit struct {
@@ -184,14 +182,12 @@ func NewStore(
 	pool *pgxpool.Pool,
 	appender *revisions.Appender,
 	jobTransactions *jobs.TransactionService,
-	intents collaboration.IntentAppender,
 ) *Store {
 	return &Store{
 		pool:             pool,
 		incidentAccess:   incidents.NewAccess(pool),
 		revisionAppender: appender,
 		jobTransactions:  jobTransactions,
-		intents:          intents,
 	}
 }
 

@@ -60,28 +60,27 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 	t.Parallel()
 
 	type expectedTarget struct {
-		owner       string
 		applyStatus string
 		facade      string
 	}
 	expectedViews := map[string]expectedTarget{
-		"cartulary.view.timeline.v2":              {owner: "timeline", applyStatus: applyStatusSupported, facade: createFacadeTimeline},
-		"cartulary.view.hosts.v1":                 {owner: "entities", applyStatus: applyStatusSupported, facade: createFacadeHost},
-		"cartulary.view.identities.v1":            {owner: "entities", applyStatus: applyStatusSupported, facade: createFacadeIdentity},
-		"cartulary.view.indicators.v1":            {owner: "indicators", applyStatus: applyStatusSupported, facade: createFacadeIndicator},
-		"cartulary.view.evidence.v1":              {owner: "evidence", applyStatus: applyStatusSupported, facade: createFacadeEvidence},
-		"cartulary.view.notes.v1":                 {owner: "artifacts/links", applyStatus: applyStatusSupported, facade: createFacadeNoteArtifact},
-		"cartulary.view.assessments.v1":           {owner: "assessments", applyStatus: applyStatusSupported, facade: createFacadeAssessment},
-		"cartulary.view.task_requests.v1":         {owner: "tasksdecisions/links", applyStatus: applyStatusSupported, facade: createFacadeTask},
-		"cartulary.view.decisions.v1":             {owner: "tasksdecisions/links", applyStatus: applyStatusSupported, facade: createFacadeDecision},
-		"cartulary.view.parties.v1":               {owner: "parties", applyStatus: applyStatusSupported, facade: createFacadeParty},
-		"cartulary.view.comm_log.v1":              {owner: "artifacts/links", applyStatus: applyStatusSupported, facade: createFacadeArtifact},
-		"cartulary.view.handoff.v1":               {owner: "artifacts/links", applyStatus: applyStatusSupported, facade: createFacadeArtifact},
-		"cartulary.view.status_review.v1":         {owner: "artifacts/links", applyStatus: applyStatusSupported, facade: createFacadeArtifact},
-		"cartulary.view.lesson.v1":                {owner: "artifacts/links", applyStatus: applyStatusSupported, facade: createFacadeArtifact},
-		"cartulary.view.findings.v1":              {owner: "artifacts/links", applyStatus: applyStatusSupportedWhenAvailable},
-		"cartulary.view.investigative_queries.v1": {owner: "artifacts/links", applyStatus: applyStatusSupportedWhenAvailable},
-		"cartulary.view.forensic_keywords.v1":     {owner: "artifacts/links", applyStatus: applyStatusSupportedWhenAvailable},
+		"cartulary.view.timeline.v2":              {applyStatus: applyStatusSupported, facade: "timeline.import_create"},
+		"cartulary.view.hosts.v1":                 {applyStatus: applyStatusSupported, facade: "entities.host.import_create"},
+		"cartulary.view.identities.v1":            {applyStatus: applyStatusSupported, facade: "entities.identity.import_create"},
+		"cartulary.view.indicators.v1":            {applyStatus: applyStatusSupported, facade: "indicators.import_create"},
+		"cartulary.view.evidence.v1":              {applyStatus: applyStatusSupported, facade: "evidence.import_create"},
+		"cartulary.view.notes.v1":                 {applyStatus: applyStatusSupported, facade: "artifacts.note.import_create"},
+		"cartulary.view.assessments.v1":           {applyStatus: applyStatusSupported, facade: "assessments.import_create"},
+		"cartulary.view.task_requests.v1":         {applyStatus: applyStatusSupported, facade: "tasksdecisions.task_request.import_create"},
+		"cartulary.view.decisions.v1":             {applyStatus: applyStatusSupported, facade: "tasksdecisions.decision.import_create"},
+		"cartulary.view.parties.v1":               {applyStatus: applyStatusSupported, facade: "parties.import_create"},
+		"cartulary.view.comm_log.v1":              {applyStatus: applyStatusSupported, facade: "artifacts.import_create"},
+		"cartulary.view.handoff.v1":               {applyStatus: applyStatusSupported, facade: "artifacts.import_create"},
+		"cartulary.view.status_review.v1":         {applyStatus: applyStatusSupported, facade: "artifacts.import_create"},
+		"cartulary.view.lesson.v1":                {applyStatus: applyStatusSupported, facade: "artifacts.import_create"},
+		"cartulary.view.findings.v1":              {applyStatus: applyStatusSupportedWhenAvailable},
+		"cartulary.view.investigative_queries.v1": {applyStatus: applyStatusSupportedWhenAvailable},
+		"cartulary.view.forensic_keywords.v1":     {applyStatus: applyStatusSupportedWhenAvailable},
 	}
 	if len(importTargets) != len(expectedViews) {
 		t.Fatalf("current view target count changed: got %d want %d", len(importTargets), len(expectedViews))
@@ -93,7 +92,6 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 		}
 		if target.ViewSchemaID != selector ||
 			target.TargetKind != ImportTargetKindViewSchema ||
-			target.Owner != expected.owner ||
 			target.ApplyStatus != expected.applyStatus ||
 			target.CreateFacade != expected.facade {
 			t.Fatalf("unexpected current target %q: got %#v want %#v", selector, target, expected)
@@ -115,7 +113,7 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 	}
 	analytical := analyticalImportTargets[key]
 	if analytical.ApplyStatus != applyStatusSupportedWhenClaimed ||
-		analytical.ApplyFacade != applyFacadeNetworkFlow ||
+		analytical.ApplyFacade != "network_flow_import_facade_v1" ||
 		analytical.importable(nil) ||
 		!analytical.importable(func(profileID string) bool {
 			return profileID == NetworkFlowExtensionProfileID

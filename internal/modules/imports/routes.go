@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
@@ -39,6 +39,7 @@ type Service struct {
 	cursorCodec              *pagination.Codec
 	limits                   Limits
 	archiveLimits            ArchiveLimits
+	ownerCreateRegistry      *ownerfacade.ImportOwnerCreateRegistry
 	extensionImportFacades   map[string]ExtensionImportFacade
 	extensionProfileAdmitted func(string) bool
 	jobSuccessFinalizer      JobSuccessFinalizer
@@ -52,9 +53,9 @@ type routeOptions struct {
 	jobSuccessFinalizer      JobSuccessFinalizer
 	limits                   Limits
 	archiveLimits            ArchiveLimits
+	ownerCreateRegistry      *ownerfacade.ImportOwnerCreateRegistry
 	timelineOwner            *timeline.Facade
 	revisionAppender         *revisions.Appender
-	intents                  collaboration.IntentAppender
 }
 
 func WithTimelineOwner(owner *timeline.Facade) RouteOption {
@@ -63,15 +64,17 @@ func WithTimelineOwner(owner *timeline.Facade) RouteOption {
 	}
 }
 
-func WithRevisionAppender(appender *revisions.Appender) RouteOption {
+func WithOwnerCreateRegistry(
+	registry *ownerfacade.ImportOwnerCreateRegistry,
+) RouteOption {
 	return func(options *routeOptions) {
-		options.revisionAppender = appender
+		options.ownerCreateRegistry = registry
 	}
 }
 
-func WithCollaborationIntents(intents collaboration.IntentAppender) RouteOption {
+func WithRevisionAppender(appender *revisions.Appender) RouteOption {
 	return func(options *routeOptions) {
-		options.intents = intents
+		options.revisionAppender = appender
 	}
 }
 
@@ -138,11 +141,11 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.timelineOwner == nil {
 		return nil, fmt.Errorf("import route composition requires a Timeline owner")
 	}
+	if options.ownerCreateRegistry == nil {
+		return nil, fmt.Errorf("import route composition requires an owner-create registry")
+	}
 	if options.revisionAppender == nil {
 		return nil, fmt.Errorf("import route composition requires a Revisions appender")
-	}
-	if options.intents == nil {
-		return nil, fmt.Errorf("import route composition requires a Collaboration intent appender")
 	}
 	if deps.Jobs != nil && deps.JobTransactions == nil {
 		return nil, fmt.Errorf("import admitted route requires the Jobs transaction service")
@@ -164,7 +167,6 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 			deps.Postgres,
 			options.revisionAppender,
 			deps.JobTransactions,
-			options.intents,
 		),
 		incidentAccess:           incidents.NewAccess(deps.PostgresHandle()),
 		authStore:                authn.NewStore(deps.PostgresHandle()),
@@ -175,6 +177,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorCodec:              cursorCodec,
 		limits:                   options.limits,
 		archiveLimits:            options.archiveLimits,
+		ownerCreateRegistry:      options.ownerCreateRegistry,
 		extensionImportFacades:   extensionImportFacades,
 		extensionProfileAdmitted: extensionProfileAdmitted,
 		jobSuccessFinalizer:      options.jobSuccessFinalizer,

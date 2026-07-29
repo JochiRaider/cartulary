@@ -3,7 +3,6 @@ package assessments
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,13 +11,28 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type ImportCreateCommand struct {
-	Request     ownerfacade.ImportOwnerCreateRequest
-	ChangeSetID uuid.UUID
-	SequenceNo  int
-	Now         time.Time
+type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+
+func NewImportCreateFacade(
+	targetViewSchemaID string,
+	facadeID string,
+	pool postgres.DB,
+	appender *revisions.Appender,
+) (ownerfacade.ImportOwnerCreateFacade, error) {
+	if targetViewSchemaID != AssessmentsViewSchemaID {
+		return nil, fmt.Errorf("assessment import surface %q not mapped", targetViewSchemaID)
+	}
+	store := NewStore(pool, appender)
+	return ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: targetViewSchemaID,
+			FacadeID:           facadeID,
+		},
+		store.CreateImportRowTx,
+	)
 }
 
 func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {

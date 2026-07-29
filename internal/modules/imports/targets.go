@@ -1,38 +1,21 @@
 package imports
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"fmt"
+
+	"github.com/JochiRaider/cartulary/internal/gen/importtargetregistry"
 )
 
 const (
 	applyStatusSupported              = "supported"
 	applyStatusSupportedWhenAvailable = "supported_when_implemented"
 	applyStatusSupportedWhenClaimed   = "supported_when_claimed"
-
-	createFacadeTimeline     = "timeline.import_create"
-	createFacadeHost         = "entities.host.import_create"
-	createFacadeIdentity     = "entities.identity.import_create"
-	createFacadeIndicator    = "indicators.import_create"
-	createFacadeEvidence     = "evidence.import_create"
-	createFacadeNoteArtifact = "artifacts.note.import_create"
-	createFacadeArtifact     = "artifacts.import_create"
-	createFacadeAssessment   = "assessments.import_create"
-	createFacadeTask         = "tasksdecisions.task_request.import_create"
-	createFacadeDecision     = "tasksdecisions.decision.import_create"
-	createFacadeParty        = "parties.import_create"
-
-	applyFacadeNetworkFlow = "network_flow_import_facade_v1"
 )
 
 type importTarget struct {
 	TargetKind         string
 	ViewSchemaID       string
 	ExtensionProfileID string
-	Owner              string
-	RecordFamily       string
 	ApplyStatus        string
 	CreateFacade       string
 	ApplyFacade        string
@@ -52,7 +35,8 @@ func (target importTarget) importable(profileClaimed func(string) bool) bool {
 }
 
 func (target importTarget) readyCheckImportable() bool {
-	return target.ApplyStatus == applyStatusSupported || target.ApplyStatus == applyStatusSupportedWhenClaimed
+	return target.ApplyStatus == applyStatusSupported ||
+		target.ApplyStatus == applyStatusSupportedWhenClaimed
 }
 
 func (target importTarget) ownerCreateFacadeAvailable() bool {
@@ -88,157 +72,94 @@ type analyticalImportTargetKey struct {
 	ExtensionProfileID string
 }
 
-var importTargets = map[string]importTarget{
-	timeline.TimelineViewSchemaID: {
-		TargetKind:       ImportTargetKindViewSchema,
-		ViewSchemaID:     timeline.TimelineViewSchemaID,
-		Owner:            "timeline",
-		RecordFamily:     "timeline_event",
-		ApplyStatus:      applyStatusSupported,
-		CreateFacade:     createFacadeTimeline,
-		AllowRawCapture:  true,
-		AllowCustomAttrs: false,
-	},
-	hostidentity.HostsViewSchemaID: {
-		TargetKind:      ImportTargetKindViewSchema,
-		ViewSchemaID:    hostidentity.HostsViewSchemaID,
-		Owner:           "entities",
-		RecordFamily:    "host",
-		ApplyStatus:     applyStatusSupported,
-		CreateFacade:    createFacadeHost,
-		AllowRawCapture: false,
-	},
-	hostidentity.IdentitiesViewSchemaID: {
-		TargetKind:      ImportTargetKindViewSchema,
-		ViewSchemaID:    hostidentity.IdentitiesViewSchemaID,
-		Owner:           "entities",
-		RecordFamily:    "identity",
-		ApplyStatus:     applyStatusSupported,
-		CreateFacade:    createFacadeIdentity,
-		AllowRawCapture: false,
-	},
-	indicators.ViewSchemaID: {
-		TargetKind:      ImportTargetKindViewSchema,
-		ViewSchemaID:    indicators.ViewSchemaID,
-		Owner:           "indicators",
-		RecordFamily:    "indicator",
-		ApplyStatus:     applyStatusSupported,
-		CreateFacade:    createFacadeIndicator,
-		AllowRawCapture: false,
-	},
-	"cartulary.view.evidence.v1": {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: "cartulary.view.evidence.v1",
-		Owner:        "evidence",
-		RecordFamily: "evidence",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeEvidence,
-	},
-	artifacts.NotesViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.NotesViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:note",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeNoteArtifact,
-	},
-	"cartulary.view.assessments.v1": {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: "cartulary.view.assessments.v1",
-		Owner:        "assessments",
-		RecordFamily: "assessment",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeAssessment,
-	},
-	"cartulary.view.task_requests.v1": {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: "cartulary.view.task_requests.v1",
-		Owner:        "tasksdecisions/links",
-		RecordFamily: "task_request",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeTask,
-	},
-	"cartulary.view.decisions.v1": {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: "cartulary.view.decisions.v1",
-		Owner:        "tasksdecisions/links",
-		RecordFamily: "decision",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeDecision,
-	},
-	"cartulary.view.parties.v1": {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: "cartulary.view.parties.v1",
-		Owner:        "parties",
-		RecordFamily: "party",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeParty,
-	},
-	artifacts.CommLogViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.CommLogViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:comm_log",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeArtifact,
-	},
-	artifacts.HandoffViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.HandoffViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:handoff",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeArtifact,
-	},
-	artifacts.StatusReviewViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.StatusReviewViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:status_review",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeArtifact,
-	},
-	artifacts.LessonViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.LessonViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:lesson",
-		ApplyStatus:  applyStatusSupported,
-		CreateFacade: createFacadeArtifact,
-	},
-	artifacts.FindingsViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.FindingsViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:finding",
-		ApplyStatus:  applyStatusSupportedWhenAvailable,
-	},
-	artifacts.InvestigativeQueriesViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.InvestigativeQueriesViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:investigative_query",
-		ApplyStatus:  applyStatusSupportedWhenAvailable,
-	},
-	artifacts.ForensicKeywordsViewSchemaID: {
-		TargetKind:   ImportTargetKindViewSchema,
-		ViewSchemaID: artifacts.ForensicKeywordsViewSchemaID,
-		Owner:        "artifacts/links",
-		RecordFamily: "artifact:forensic_keyword",
-		ApplyStatus:  applyStatusSupportedWhenAvailable,
-	},
+var importTargets, analyticalImportTargets = mustGeneratedImportTargets()
+
+func mustGeneratedImportTargets() (
+	map[string]importTarget,
+	map[analyticalImportTargetKey]importTarget,
+) {
+	viewTargets := make(map[string]importTarget)
+	analyticalTargets := make(map[analyticalImportTargetKey]importTarget)
+	for _, generated := range importtargetregistry.Targets {
+		status := generatedImportApplyStatus(generated.AvailabilityKind)
+		switch generated.TargetKind {
+		case ImportTargetKindViewSchema:
+			if generated.TargetViewSchemaID == nil {
+				panic(fmt.Sprintf(
+					"generated import target %s has no view schema id",
+					generated.TargetID,
+				))
+			}
+			target := importTarget{
+				TargetKind:       generated.TargetKind,
+				ViewSchemaID:     *generated.TargetViewSchemaID,
+				ApplyStatus:      status,
+				CreateFacade:     generatedString(generated.FacadeID),
+				AllowRawCapture:  generated.DefaultUnknownColumnPolicy == "preserve_raw_capture",
+				AllowCustomAttrs: false,
+			}
+			if _, exists := viewTargets[target.ViewSchemaID]; exists {
+				panic(fmt.Sprintf(
+					"generated import target registry duplicated %s",
+					target.ViewSchemaID,
+				))
+			}
+			viewTargets[target.ViewSchemaID] = target
+		case ImportTargetKindNetworkFlowTable:
+			if generated.ExtensionProfileID == nil {
+				panic(fmt.Sprintf(
+					"generated analytical import target %s has no extension profile id",
+					generated.TargetID,
+				))
+			}
+			target := importTarget{
+				TargetKind:         generated.TargetKind,
+				ExtensionProfileID: *generated.ExtensionProfileID,
+				ApplyStatus:        status,
+				ApplyFacade:        generatedString(generated.FacadeID),
+			}
+			key := analyticalImportTargetKey{
+				TargetKind:         target.TargetKind,
+				ExtensionProfileID: target.ExtensionProfileID,
+			}
+			if _, exists := analyticalTargets[key]; exists {
+				panic(fmt.Sprintf(
+					"generated import target registry duplicated %s/%s",
+					key.TargetKind,
+					key.ExtensionProfileID,
+				))
+			}
+			analyticalTargets[key] = target
+		default:
+			panic(fmt.Sprintf(
+				"generated import target %s has unsupported kind %s",
+				generated.TargetID,
+				generated.TargetKind,
+			))
+		}
+	}
+	return viewTargets, analyticalTargets
 }
 
-var analyticalImportTargets = map[analyticalImportTargetKey]importTarget{
-	{
-		TargetKind:         ImportTargetKindNetworkFlowTable,
-		ExtensionProfileID: NetworkFlowExtensionProfileID,
-	}: {
-		TargetKind:         ImportTargetKindNetworkFlowTable,
-		ExtensionProfileID: NetworkFlowExtensionProfileID,
-		Owner:              NetworkFlowExtensionProfileID,
-		RecordFamily:       ImportTargetKindNetworkFlowTable,
-		ApplyStatus:        applyStatusSupportedWhenClaimed,
-		ApplyFacade:        applyFacadeNetworkFlow,
-	},
+func generatedImportApplyStatus(availability string) string {
+	switch availability {
+	case "enabled":
+		return applyStatusSupported
+	case "reserved":
+		return applyStatusSupportedWhenAvailable
+	case "claim_gated":
+		return applyStatusSupportedWhenClaimed
+	default:
+		panic(fmt.Sprintf(
+			"generated import target has unsupported availability %s",
+			availability,
+		))
+	}
+}
+
+func generatedString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

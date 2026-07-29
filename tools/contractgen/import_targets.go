@@ -298,7 +298,7 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 		"cartulary.import_target_registry.v1",
 	} {
 		if _, ok := coreSchemaIDs[required]; !ok {
-			return importTargetDerivedSet{}, fmt.Errorf("Core Imports schema input does not define %s", required)
+			return importTargetDerivedSet{}, fmt.Errorf("core Imports schema input does not define %s", required)
 		}
 	}
 	viewSchemaIDs, err := importTargetViewSchemaIDs(viewSchemaInput.Raw)

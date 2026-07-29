@@ -3,20 +3,40 @@ package evidence
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type ImportCreateCommand struct {
-	Request     ownerfacade.ImportOwnerCreateRequest
-	ChangeSetID uuid.UUID
-	SequenceNo  int
-	Now         time.Time
+type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+
+func NewImportCreateFacade(
+	targetViewSchemaID string,
+	facadeID string,
+	pool postgres.DB,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) (ownerfacade.ImportOwnerCreateFacade, error) {
+	if targetViewSchemaID != ViewSchemaID {
+		return nil, fmt.Errorf("evidence import surface %q not mapped", targetViewSchemaID)
+	}
+	store := NewStore(
+		pool,
+		WithRevisionAppender(appender),
+		WithCollaborationIntents(intents),
+	)
+	return ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: targetViewSchemaID,
+			FacadeID:           facadeID,
+		},
+		store.CreateImportRowTx,
+	)
 }
 
 func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
@@ -26,6 +46,9 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	}
 	params := WorkbookCreateParams{Values: evidenceValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
 	if err := ValidateWorkbookCreateParams(params); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if err := validateEvidenceReferencesTx(ctx, tx, request.IncidentID, params.Values); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	now := command.Now.UTC()

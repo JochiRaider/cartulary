@@ -14,6 +14,7 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/importassembly"
 	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
@@ -747,7 +748,6 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		runtime.Postgres,
 		revisionRuntime.Appender(),
 		runtime.JobTransactions,
-		intentAppender,
 	)
 	timelineFacade := timelineBundle.Facade
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
@@ -839,11 +839,22 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
 	)
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
+	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(
+		importassembly.OwnerRegistryDependencies{
+			Postgres:         postgresHandle,
+			RevisionAppender: revisionRuntime.Appender(),
+			Intents:          intentAppender,
+		},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Imports owner registry: %w", err)
+	}
 	importRoutes := imports.RegisterRoutes(
 		imports.WithLimits(importOwnerLimits, importArchiveLimits),
 		imports.WithTimelineOwner(timelineFacade),
+		imports.WithOwnerCreateRegistry(importOwnerRegistry),
 		imports.WithRevisionAppender(revisionRuntime.Appender()),
-		imports.WithCollaborationIntents(intentAppender),
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),

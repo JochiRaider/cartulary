@@ -7,92 +7,97 @@ import (
 	"testing"
 )
 
-func TestImportsIndicatorTargetUsesIndicatorOwner(t *testing.T) {
+func TestImportsTargetsUseOnlyGeneratedRegistry(t *testing.T) {
 	body, err := os.ReadFile(filepath.Clean("targets.go"))
 	if err != nil {
 		t.Fatalf("read targets.go: %v", err)
 	}
 	content := string(body)
-	for _, required := range []string{
-		`createFacadeIndicator    = "indicators.import_create"`,
-		`Owner:           "indicators"`,
-		`ViewSchemaID:    indicators.ViewSchemaID`,
-	} {
-		if !strings.Contains(content, required) {
-			t.Fatalf("targets.go missing indicator owner mapping %q", required)
-		}
+	if !strings.Contains(
+		content,
+		"internal/gen/importtargetregistry",
+	) || !strings.Contains(content, "importtargetregistry.Targets") {
+		t.Fatal("targets.go must project the generated import target registry")
 	}
-	if strings.Contains(content, `createFacadeIndicator    = "entities.import_create"`) ||
-		strings.Contains(content, `ViewSchemaID:    entities.IndicatorsViewSchemaID`) {
-		t.Fatalf("targets.go still maps indicator imports through entities")
+	for _, forbidden := range []string{
+		"internal/modules/artifacts",
+		"internal/modules/assessments",
+		"internal/modules/entities",
+		"internal/modules/evidence",
+		"internal/modules/indicators",
+		"internal/modules/parties",
+		"internal/modules/tasksdecisions",
+		`"cartulary.view.hosts.v1"`,
+		`"cartulary.view.indicators.v1"`,
+		`"network_flow_import_facade_v1"`,
+	} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("targets.go contains duplicated owner fact %q", forbidden)
+		}
 	}
 }
 
-func TestImportsIndicatorApplyUsesOwnerFacade(t *testing.T) {
-	routes, err := os.ReadFile(filepath.Clean("routes.go"))
-	if err != nil {
-		t.Fatalf("read routes.go: %v", err)
-	}
-	if strings.Contains(string(routes), "CreateIndicatorRow") {
-		t.Fatalf("imports routes.go must not call indicator store row create directly")
-	}
-
-	ownerApply, err := os.ReadFile(filepath.Clean("owner_apply.go"))
+func TestImportsOwnerApplyUsesInjectedFacadeRegistry(t *testing.T) {
+	body, err := os.ReadFile(filepath.Clean("owner_apply.go"))
 	if err != nil {
 		t.Fatalf("read owner_apply.go: %v", err)
 	}
-	content := string(ownerApply)
-	if !strings.Contains(content, "stores.indicators.CreateImportRowTx") {
-		t.Fatalf("owner_apply.go must dispatch indicator imports through indicators.CreateImportRowTx")
+	content := string(body)
+	if !strings.Contains(content, "s.ownerCreateRegistry.Resolve(") ||
+		!strings.Contains(content, "owner.CreateImportRowTx(") {
+		t.Fatal("owner_apply.go must resolve and invoke the injected owner facade")
+	}
+	for _, forbidden := range []string{
+		"internal/modules/artifacts",
+		"internal/modules/assessments",
+		"internal/modules/entities",
+		"internal/modules/evidence",
+		"internal/modules/indicators",
+		"internal/modules/parties",
+		"internal/modules/tasksdecisions",
+		"artifacts.NewStore(",
+		"assessments.NewStore(",
+		"hostidentity.NewStore(",
+		"evidence.NewStore(",
+		"indicators.NewStore(",
+		"parties.NewStore(",
+		"tasksdecisions.NewStore(",
+		"FROM users",
+		"FROM records",
+	} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("owner_apply.go retains cross-owner dependency %q", forbidden)
+		}
 	}
 }
 
-func TestImportsEntityApplyUsesOwnerFacade(t *testing.T) {
-	routes, err := os.ReadFile(filepath.Clean("routes.go"))
+func TestImportsProductionPackageHasNoConcretePeerStoresOrPeerTableSQL(t *testing.T) {
+	files, err := filepath.Glob("*.go")
 	if err != nil {
-		t.Fatalf("read routes.go: %v", err)
+		t.Fatalf("glob imports package files: %v", err)
 	}
-	routeContent := string(routes)
-	for _, disallowed := range []string{
-		"applyEntityImportRow",
-		"CreateHostRow(",
-		"CreateIdentityRow(",
-		"DecodeCreateRequest(",
-	} {
-		if strings.Contains(routeContent, disallowed) {
-			t.Fatalf("routes.go must not apply host/identity imports through %s", disallowed)
+	forbiddenImports := []string{
+		"internal/modules/artifacts",
+		"internal/modules/assessments",
+		"internal/modules/entities/hostidentity",
+		"internal/modules/evidence",
+		"internal/modules/indicators",
+		"internal/modules/parties",
+		"internal/modules/tasksdecisions",
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
 		}
-	}
-
-	ownerApply, err := os.ReadFile(filepath.Clean("owner_apply.go"))
-	if err != nil {
-		t.Fatalf("read owner_apply.go: %v", err)
-	}
-	content := string(ownerApply)
-	if !strings.Contains(content, "stores.hostidentity.CreateImportRowTx") {
-		t.Fatalf("owner_apply.go must dispatch host/identity imports through hostidentity.CreateImportRowTx")
-	}
-	for _, required := range []string{
-		"hostidentity.HostsViewSchemaID",
-		"hostidentity.IdentitiesViewSchemaID",
-	} {
-		if !strings.Contains(content, required) {
-			t.Fatalf("owner_apply.go missing entity import surface %s", required)
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
 		}
-	}
-
-	targets, err := os.ReadFile(filepath.Clean("targets.go"))
-	if err != nil {
-		t.Fatalf("read targets.go: %v", err)
-	}
-	targetContent := string(targets)
-	for _, required := range []string{
-		`createFacadeHost         = "entities.host.import_create"`,
-		`createFacadeIdentity     = "entities.identity.import_create"`,
-		`Owner:           "entities"`,
-	} {
-		if !strings.Contains(targetContent, required) {
-			t.Fatalf("targets.go must preserve public entity import facade string %q", required)
+		content := string(data)
+		for _, forbidden := range forbiddenImports {
+			if strings.Contains(content, forbidden) {
+				t.Fatalf("%s imports peer owner %q", file, forbidden)
+			}
 		}
 	}
 }

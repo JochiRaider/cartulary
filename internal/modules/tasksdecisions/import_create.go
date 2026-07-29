@@ -3,7 +3,7 @@ package tasksdecisions
 import (
 	"context"
 	"fmt"
-	"time"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -11,13 +11,28 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-type ImportCreateCommand struct {
-	Request     ownerfacade.ImportOwnerCreateRequest
-	ChangeSetID uuid.UUID
-	SequenceNo  int
-	Now         time.Time
+type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+
+func NewImportCreateFacade(
+	targetViewSchemaID string,
+	facadeID string,
+	appender *revisions.Appender,
+) (ownerfacade.ImportOwnerCreateFacade, error) {
+	if targetViewSchemaID != TaskRequestsViewSchemaID &&
+		targetViewSchemaID != DecisionsViewSchemaID {
+		return nil, fmt.Errorf("tasks/decisions import surface %q not mapped", targetViewSchemaID)
+	}
+	store := NewStore(appender)
+	return ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: targetViewSchemaID,
+			FacadeID:           facadeID,
+		},
+		store.CreateImportRowTx,
+	)
 }
 
 func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
@@ -28,6 +43,9 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	case taskRequestsImportViewSchemaID:
 		params := TaskCreateParams{Values: values}
 		if err := ValidateTaskCreateParams(params); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -60,6 +78,9 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	case DecisionsViewSchemaID:
 		params := DecisionCreateParams{Values: values}
 		if err := ValidateDecisionCreateParams(params); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -112,4 +133,52 @@ func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValu
 		}
 	}
 	return result
+}
+
+func validateImportCreateReferencesTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	values map[string]FieldValue,
+) error {
+	for fieldKey, value := range values {
+		if value.UUID == nil {
+			continue
+		}
+		if strings.HasSuffix(fieldKey, "_user_id") {
+			if err := validateImportActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
+				return err
+			}
+		}
+		if err := validateDirectReferenceTx(
+			ctx,
+			tx,
+			incidentID,
+			fieldKey,
+			*value.UUID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateImportActiveUserTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	userID uuid.UUID,
+	field string,
+) error {
+	var exists bool
+	if err := tx.QueryRow(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active = true)`,
+		userID,
+	).Scan(&exists); err != nil {
+		return fmt.Errorf("validate task or decision import user: %w", err)
+	}
+	if !exists {
+		return &ValidationError{Field: field, ReasonCode: "invalid_value"}
+	}
+	return nil
 }
