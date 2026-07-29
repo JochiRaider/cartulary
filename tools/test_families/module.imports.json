@@ -65,6 +65,84 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.frontend.generated_target_consumption_3005d01876",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "package.protocol_ts",
+        "web.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/importTargetContractAdapter.test.ts",
+        "titles": [
+          "generated import target frontend semantics keeps generated identity consumption in the shared adapter",
+          "generated import target frontend semantics partitions all 18 generated rows without a client fallback registry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.frontend.operator_region_assistant_039d399324",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ImportAssistantFeature.test.tsx",
+        "titles": [
+          "ImportAssistantFeature selection lifecycle uses generated view targets and creates an operator-selected region"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.frontend.operator_region_coordinator_eb1902fb6e",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/imports/importCoordinator.test.ts",
+        "titles": [
+          "extension import coordinator stages creates and previews a durable operator-selected region"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.frontend.skip_reselect_mapping_retention_522ba6591e",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",

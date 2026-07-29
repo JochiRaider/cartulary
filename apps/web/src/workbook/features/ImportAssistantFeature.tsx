@@ -14,6 +14,7 @@ import {
   applyWorkbookImport,
   approveWorkbookImportMapping,
   cancelImportJob,
+  createWorkbookImportRegion,
   type DiscoveredImportColumn,
   type ImportJobResource,
   setWorkbookImportUnitSelection,
@@ -22,6 +23,10 @@ import {
   type WorkbookImportUnitDiscovery,
   type WorkbookSourceColumnMapping,
 } from "../../imports/importCoordinator";
+import {
+  type SelectableViewImportTarget,
+  selectableViewImportTargets,
+} from "../../services/importTargetContractAdapter";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 
 type ImportAssistantFeatureProps = {
@@ -40,26 +45,25 @@ type UnitDraft = {
   readonly error: string | null;
 };
 
-const importableViewSchemaIds = new Set([
-  "cartulary.view.timeline.v2",
-  "cartulary.view.hosts.v1",
-  "cartulary.view.identities.v1",
-  "cartulary.view.indicators.v1",
-  "cartulary.view.evidence.v1",
-  "cartulary.view.notes.v1",
-  "cartulary.view.assessments.v1",
-  "cartulary.view.task_requests.v1",
-  "cartulary.view.decisions.v1",
-  "cartulary.view.parties.v1",
-  "cartulary.view.comm_log.v1",
-  "cartulary.view.handoff.v1",
-  "cartulary.view.status_review.v1",
-  "cartulary.view.lesson.v1",
-]);
+type ImportViewTarget = {
+  readonly semantics: SelectableViewImportTarget;
+  readonly contract: ViewContract;
+};
 
-const importTargets = listViewContracts().filter((contract) =>
-  importableViewSchemaIds.has(contract.viewSchemaId),
-);
+const viewContracts = listViewContracts();
+const importTargets: readonly ImportViewTarget[] =
+  selectableViewImportTargets.map((semantics) => {
+    const matches = viewContracts.filter(
+      (contract) => contract.viewSchemaId === semantics.target_view_schema_id,
+    );
+    const contract = matches[0];
+    if (matches.length !== 1 || contract === undefined) {
+      throw new Error(
+        `missing or duplicate view contract for ${semantics.target_id}`,
+      );
+    }
+    return { semantics, contract };
+  });
 
 export function ImportAssistantFeature({
   apiBase,
@@ -151,8 +155,8 @@ export function ImportAssistantFeature({
       for (const item of next.units) {
         const target = suggestedTarget(item);
         initialDrafts[item.unit.import_unit_id] = {
-          targetViewSchemaId: target.viewSchemaId,
-          fieldsByOrdinal: suggestFields(item.preview.columns, target),
+          targetViewSchemaId: target.contract.viewSchemaId,
+          fieldsByOrdinal: suggestFields(item.preview.columns, target.contract),
           approved: false,
           selected: false,
           error: null,
@@ -195,6 +199,77 @@ export function ImportAssistantFeature({
     });
   }
 
+  async function createOperatorRegion(
+    item: WorkbookImportUnitDiscovery,
+    sourceRect: SourceRect,
+  ) {
+    if (discovery === null || busy) {
+      return;
+    }
+    const operation = operationRef.current + 1;
+    operationRef.current = operation;
+    setBusy(true);
+    setMessage("Creating a durable operator region.");
+    try {
+      const created = await createWorkbookImportRegion({
+        availability,
+        apiBase,
+        sessionId: discovery.session.import_session_id,
+        baseUnitId: item.unit.import_unit_id,
+        sourceRect,
+        transactionPrefix: `workbook-import-${item.unit.import_unit_id}`,
+      });
+      if (operation !== operationRef.current) {
+        return;
+      }
+      const target = suggestedTarget(created);
+      setDiscovery((current) => {
+        if (current === null) {
+          return current;
+        }
+        const existingIndex = current.units.findIndex(
+          ({ unit }) => unit.import_unit_id === created.unit.import_unit_id,
+        );
+        return {
+          ...current,
+          units:
+            existingIndex === -1
+              ? [...current.units, created]
+              : current.units.map((candidate, index) =>
+                  index === existingIndex ? created : candidate,
+                ),
+        };
+      });
+      setDrafts((current) => {
+        if (current[created.unit.import_unit_id] !== undefined) {
+          return current;
+        }
+        return {
+          ...current,
+          [created.unit.import_unit_id]: {
+            targetViewSchemaId: target.contract.viewSchemaId,
+            fieldsByOrdinal: suggestFields(
+              created.preview.columns,
+              target.contract,
+            ),
+            approved: false,
+            selected: false,
+            error: null,
+          },
+        };
+      });
+      setMessage("Operator region created. Review its mapping separately.");
+    } catch (error) {
+      if (operation === operationRef.current) {
+        setMessage(importErrorMessage(error));
+      }
+    } finally {
+      if (operation === operationRef.current) {
+        setBusy(false);
+      }
+    }
+  }
+
   async function approveAndSelect(item: WorkbookImportUnitDiscovery) {
     const draft = drafts[item.unit.import_unit_id];
     if (discovery === null || draft === undefined || busy) {
@@ -209,35 +284,26 @@ export function ImportAssistantFeature({
     );
     try {
       if (!mappingApproved) {
-        const target = importTargets.find(
-          (candidate) => candidate.viewSchemaId === draft.targetViewSchemaId,
-        );
-        if (target === undefined) {
-          throw new Error("Choose a supported target view.");
-        }
+        const target = requireImportTarget(draft.targetViewSchemaId);
         const sourceColumns = mappingColumns(
           item.preview.columns,
-          target,
+          target.contract,
           draft.fieldsByOrdinal,
         );
         const hasUnmapped = sourceColumns.some(
           (column) => column.field_key === null,
         );
         const unknownColumnPolicy =
-          target.viewSchemaId === "cartulary.view.timeline.v2"
-            ? "preserve_raw_capture"
-            : "reject_if_unmapped";
+          target.semantics.default_unknown_column_policy;
         if (hasUnmapped && unknownColumnPolicy === "reject_if_unmapped") {
-          throw new Error(
-            "Map every source column for this target, or choose Timeline.",
-          );
+          throw new Error("Map every source column for this target.");
         }
         await approveWorkbookImportMapping({
           availability,
           apiBase,
           sessionId: discovery.session.import_session_id,
           discovery: item,
-          targetViewSchemaId: target.viewSchemaId,
+          targetViewSchemaId: target.contract.viewSchemaId,
           unknownColumnPolicy,
           sourceColumns,
           transactionPrefix: `workbook-import-${item.unit.import_unit_id}`,
@@ -406,10 +472,7 @@ export function ImportAssistantFeature({
         if (draft === undefined) {
           return null;
         }
-        const target =
-          importTargets.find(
-            (candidate) => candidate.viewSchemaId === draft.targetViewSchemaId,
-          ) ?? importTargets[0];
+        const target = requireImportTarget(draft.targetViewSchemaId);
         return (
           <section
             key={item.unit.import_unit_id}
@@ -428,6 +491,15 @@ export function ImportAssistantFeature({
               <p key={warning}>Warning: {warning}</p>
             ))}
             <PreviewTable discovery={item} />
+            {item.unit.locator_kind === "xlsx_used_range" ? (
+              <OperatorRegionForm
+                busy={busy}
+                discovery={item}
+                onCreate={(sourceRect) =>
+                  createOperatorRegion(item, sourceRect)
+                }
+              />
+            ) : null}
             <label>
               Target view
               <select
@@ -436,14 +508,15 @@ export function ImportAssistantFeature({
                 onChange={(event) => {
                   const nextTarget = importTargets.find(
                     (candidate) =>
-                      candidate.viewSchemaId === event.currentTarget.value,
+                      candidate.contract.viewSchemaId ===
+                      event.currentTarget.value,
                   );
                   if (nextTarget !== undefined) {
                     updateDraft(item.unit.import_unit_id, {
-                      targetViewSchemaId: nextTarget.viewSchemaId,
+                      targetViewSchemaId: nextTarget.contract.viewSchemaId,
                       fieldsByOrdinal: suggestFields(
                         item.preview.columns,
-                        nextTarget,
+                        nextTarget.contract,
                       ),
                       error: null,
                     });
@@ -452,10 +525,10 @@ export function ImportAssistantFeature({
               >
                 {importTargets.map((candidate) => (
                   <option
-                    key={candidate.viewSchemaId}
-                    value={candidate.viewSchemaId}
+                    key={candidate.contract.viewSchemaId}
+                    value={candidate.contract.viewSchemaId}
                   >
-                    {candidate.title}
+                    {candidate.contract.title}
                   </option>
                 ))}
               </select>
@@ -482,7 +555,7 @@ export function ImportAssistantFeature({
                     }}
                   >
                     <option value="">Keep as unmapped source data</option>
-                    {target?.fields
+                    {target.contract.fields
                       .filter((field) => field.writeKind === "direct_value")
                       .map((field) => (
                         <option key={field.fieldKey} value={field.fieldKey}>
@@ -552,8 +625,8 @@ export function ImportAssistantFeature({
         <nav aria-label="Imported result views" style={actionsStyle}>
           {resultViews.map((viewSchemaId) => {
             const contract = importTargets.find(
-              (candidate) => candidate.viewSchemaId === viewSchemaId,
-            );
+              (candidate) => candidate.contract.viewSchemaId === viewSchemaId,
+            )?.contract;
             return (
               <button
                 key={viewSchemaId}
@@ -602,32 +675,147 @@ function PreviewTable({
   );
 }
 
-function suggestedTarget(item: WorkbookImportUnitDiscovery): ViewContract {
-  const headerText = item.preview.columns
-    .map((column) => column.source_header_text ?? "")
-    .join(" ")
-    .toLowerCase();
-  const preferred = [
-    headerText.includes("host") ? "cartulary.view.hosts.v1" : "",
-    headerText.includes("account") || headerText.includes("identity")
-      ? "cartulary.view.identities.v1"
-      : "",
-    headerText.includes("indicator") || headerText.includes("ioc")
-      ? "cartulary.view.indicators.v1"
-      : "",
-    headerText.includes("evidence") ? "cartulary.view.evidence.v1" : "",
-    "cartulary.view.timeline.v2",
-  ].find((value) => value !== "");
+type SourceRect = {
+  readonly startRow: number;
+  readonly startColumn: number;
+  readonly endRow: number;
+  readonly endColumn: number;
+};
+
+function OperatorRegionForm({
+  busy,
+  discovery,
+  onCreate,
+}: {
+  readonly busy: boolean;
+  readonly discovery: WorkbookImportUnitDiscovery;
+  readonly onCreate: (sourceRect: SourceRect) => void | Promise<void>;
+}) {
+  const baseRect = decodeRect(discovery.unit.source_rect_a1);
+  const [sourceRect, setSourceRect] = useState<SourceRect>(() => ({
+    startRow: baseRect?.top ?? 1,
+    startColumn: baseRect?.left ?? 1,
+    endRow: baseRect?.bottom ?? 1,
+    endColumn: baseRect?.right ?? 1,
+  }));
+  if (baseRect === null) {
+    return <p role="alert">This worksheet range cannot define a region.</p>;
+  }
+  const valid =
+    sourceRect.startRow >= baseRect.top &&
+    sourceRect.startColumn >= baseRect.left &&
+    sourceRect.endRow <= baseRect.bottom &&
+    sourceRect.endColumn <= baseRect.right &&
+    sourceRect.startRow <= sourceRect.endRow &&
+    sourceRect.startColumn <= sourceRect.endColumn;
+
+  function update(member: keyof SourceRect, value: string) {
+    setSourceRect((current) => ({
+      ...current,
+      [member]: Number(value),
+    }));
+  }
+
   return (
-    importTargets.find((target) => target.viewSchemaId === preferred) ??
-    requireImportTarget()
+    <fieldset style={regionStyle}>
+      <legend>Create operator-selected region</legend>
+      <p style={introStyle}>
+        Enter one-based inclusive coordinates inside this worksheet used range.
+      </p>
+      <div style={mappingStyle}>
+        <label>
+          Region start row
+          <input
+            min={baseRect.top}
+            type="number"
+            value={sourceRect.startRow}
+            onChange={(event) => update("startRow", event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          Region start column
+          <input
+            min={baseRect.left}
+            type="number"
+            value={sourceRect.startColumn}
+            onChange={(event) =>
+              update("startColumn", event.currentTarget.value)
+            }
+          />
+        </label>
+        <label>
+          Region end row
+          <input
+            max={baseRect.bottom}
+            min={baseRect.top}
+            type="number"
+            value={sourceRect.endRow}
+            onChange={(event) => update("endRow", event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          Region end column
+          <input
+            max={baseRect.right}
+            min={baseRect.left}
+            type="number"
+            value={sourceRect.endColumn}
+            onChange={(event) => update("endColumn", event.currentTarget.value)}
+          />
+        </label>
+      </div>
+      <button
+        disabled={busy || !valid}
+        type="button"
+        onClick={() => onCreate(sourceRect)}
+      >
+        Create operator region
+      </button>
+    </fieldset>
   );
 }
 
-function requireImportTarget(): ViewContract {
-  const target = importTargets[0];
+function suggestedTarget(item: WorkbookImportUnitDiscovery): ImportViewTarget {
+  const normalizedHeaders = new Set(
+    item.preview.columns
+      .map((column) => normalizeMappingToken(column.source_header_text))
+      .filter((header) => header !== ""),
+  );
+  let best = requireImportTarget();
+  let bestScore = -1;
+  for (const target of importTargets) {
+    const fieldTokens = new Set(
+      target.contract.fields
+        .filter((field) => field.writeKind === "direct_value")
+        .flatMap((field) => [
+          normalizeMappingToken(field.label),
+          normalizeMappingToken(field.fieldKey.split(".").at(-1) ?? ""),
+        ]),
+    );
+    const score = [...normalizedHeaders].filter((header) =>
+      fieldTokens.has(header),
+    ).length;
+    if (score > bestScore) {
+      best = target;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function requireImportTarget(viewSchemaId?: string): ImportViewTarget {
+  const target =
+    viewSchemaId === undefined
+      ? importTargets[0]
+      : importTargets.find(
+          (candidate) => candidate.contract.viewSchemaId === viewSchemaId,
+        );
   if (target === undefined) {
-    throw new Error("import target registry is empty");
+    throw new Error(
+      viewSchemaId === undefined
+        ? "import target registry is empty"
+        : `unsupported import target ${viewSchemaId}`,
+    );
   }
   return target;
 }
@@ -829,6 +1017,12 @@ const mappingStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
   gap: "var(--ct-spacing-sm)",
+};
+
+const regionStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  margin: 0,
 };
 
 const actionsStyle = {

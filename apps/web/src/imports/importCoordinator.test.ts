@@ -4,6 +4,7 @@ import { errorResponse, jsonResponse } from "../testing/fetchMockTestSupport";
 import {
   approveSelectAndApplyExtensionImport,
   cancelImportJob,
+  createWorkbookImportRegion,
   ImportMappingPreviewStaleError,
   previewExtensionImportMapping,
   setWorkbookImportUnitSelection,
@@ -19,6 +20,7 @@ const firstUnitId = "00000000-0000-4000-8000-000000000004";
 const secondUnitId = "00000000-0000-4000-8000-000000000005";
 const uploadJobId = "00000000-0000-4000-8000-000000000006";
 const applyJobId = "00000000-0000-4000-8000-000000000007";
+const regionUnitId = "00000000-0000-4000-8000-000000000008";
 
 describe("extension import coordinator stages", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -171,6 +173,51 @@ describe("extension import coordinator stages", () => {
     expect(callFor(fetchMock, "/apply")).toBeUndefined();
   });
 
+  it("creates and previews a durable operator-selected region", async () => {
+    installHappyPath(fetchMock);
+    await uploadAndDiscoverWorkbookImport({
+      availability,
+      incidentId,
+      file: csvFile(),
+      transactionPrefix: "operator-region",
+    });
+
+    const created = await createWorkbookImportRegion({
+      availability,
+      sessionId,
+      baseUnitId: firstUnitId,
+      sourceRect: {
+        startRow: 2,
+        startColumn: 1,
+        endRow: 7,
+        endColumn: 3,
+      },
+      transactionPrefix: "operator-region",
+    });
+
+    expect(created.unit).toMatchObject({
+      import_unit_id: regionUnitId,
+      locator_kind: "operator_region",
+      source_rect_a1: "A2:C7",
+    });
+    expect(created.preview.import_unit_id).toBe(regionUnitId);
+    const call = fetchMock.mock.calls.find(([input, init]) => {
+      return (
+        String(input).endsWith(`/${firstUnitId}/regions`) &&
+        (init?.method ?? "GET") === "POST"
+      );
+    });
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      client_txn_id: expect.any(String),
+      source_rect: {
+        start_row: 2,
+        start_column: 1,
+        end_row: 7,
+        end_column: 3,
+      },
+    });
+  });
+
   it("preserves public preview errors and creates no durable mapping", async () => {
     installHappyPath(fetchMock, { previewError: true });
     const discovery = await uploadAndDiscoverExtensionImport({
@@ -286,6 +333,13 @@ function installHappyPath(
         return jsonResponse(
           envelope(discoveredPreview(secondUnitId, "Destination IP")),
         );
+      }
+      if (url.endsWith(`/${firstUnitId}/regions`) && method === "POST") {
+        expectCSRF(init);
+        return jsonResponse(envelope(operatorRegionUnit()));
+      }
+      if (url.endsWith(`/${regionUnitId}/preview`) && method === "GET") {
+        return jsonResponse(envelope(operatorRegionPreview()));
       }
       if (url.endsWith("/mapping-preview") && method === "POST") {
         expectCSRF(init);
@@ -458,6 +512,36 @@ function discoveredPreview(unitId = firstUnitId, secondHeader = "Source IP") {
     preview_rows: [],
     truncated: false,
   };
+}
+
+function operatorRegionUnit() {
+  return {
+    ...importUnit(regionUnitId),
+    locator_kind: "operator_region",
+    locator: {
+      sheet_name: "Data",
+      base_unit_id: firstUnitId,
+      region_sequence: 1,
+    },
+    source_rect_a1: "A2:C7",
+    header_row_ref: 2,
+    data_start_row_ref: 3,
+    inferred_row_count: 5,
+  } as const;
+}
+
+function operatorRegionPreview() {
+  return {
+    ...discoveredPreview(regionUnitId),
+    ...operatorRegionUnit(),
+    columns: [
+      { source_column_ordinal: 1, source_header_text: "Source IP" },
+      { source_column_ordinal: 2, source_header_text: "Destination IP" },
+      { source_column_ordinal: 3, source_header_text: "Bytes" },
+    ],
+    preview_rows: [],
+    truncated: false,
+  } as const;
 }
 
 function sourceColumn(ordinal: number, header: string | null) {

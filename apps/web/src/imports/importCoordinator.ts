@@ -13,6 +13,7 @@ import type {
   ApplyImportSessionResponse,
   CancelJobResponse,
   CreateImportSessionResponse,
+  CreateImportUnitRegionResponse,
   DiscoveredImportColumn,
   DiscoveredImportPreview,
   DiscoveredImportUnit,
@@ -201,6 +202,56 @@ export async function approveWorkbookImportMapping(options: {
       }),
   );
   return envelope.data;
+}
+
+export async function createWorkbookImportRegion(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly sessionId: string;
+  readonly baseUnitId: string;
+  readonly sourceRect: {
+    readonly startRow: number;
+    readonly startColumn: number;
+    readonly endRow: number;
+    readonly endColumn: number;
+  };
+  readonly transactionPrefix: string;
+}): Promise<WorkbookImportUnitDiscovery> {
+  const envelope = await requireImportResult<CreateImportUnitRegionResponse>(
+    options.availability,
+    () =>
+      fetchHTTPOperation<CreateImportUnitRegionResponse>({
+        apiBase: options.apiBase,
+        operationID: "createImportUnitRegion",
+        pathParameters: {
+          import_session_id: options.sessionId,
+          base_unit_id: options.baseUnitId,
+        },
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            client_txn_id: clientTxnID(
+              `${options.transactionPrefix}-operator-region`,
+            ),
+            source_rect: {
+              start_row: options.sourceRect.startRow,
+              start_column: options.sourceRect.startColumn,
+              end_row: options.sourceRect.endRow,
+              end_column: options.sourceRect.endColumn,
+            },
+          }),
+        },
+      }),
+  );
+  return {
+    unit: envelope.data,
+    preview: await fetchImportPreview(
+      options.availability,
+      options.apiBase,
+      options.sessionId,
+      envelope.data.import_unit_id,
+    ),
+  };
 }
 
 export async function setWorkbookImportUnitSelection(options: {

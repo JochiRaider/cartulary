@@ -98,6 +98,10 @@ describe("@cartulary/protocol-ts facade", () => {
         import_session_id: "session/id",
         import_unit_id: "unit/id",
       }),
+      buildHTTPOperationPath("createImportUnitRegion", {
+        import_session_id: "session/id",
+        base_unit_id: "unit/id",
+      }),
       buildHTTPOperationPath("previewImportUnitExtensionMapping", {
         import_session_id: "session/id",
         import_unit_id: "unit/id",
@@ -125,6 +129,7 @@ describe("@cartulary/protocol-ts facade", () => {
       "/api/v1/import-sessions/session%2Fid/units",
       "/api/v1/import-sessions/session%2Fid/units/unit%2Fid",
       "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/preview",
+      "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/regions",
       "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/mapping-preview",
       "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/mapping",
       "/api/v1/import-sessions/session%2Fid/units/unit%2Fid/select",

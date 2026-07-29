@@ -8,9 +8,12 @@ import {
   previewExtensionImportMapping,
   uploadAndDiscoverExtensionImport,
 } from "../imports/importCoordinator";
+import { requireClaimGatedAnalyticalImportTarget } from "../services/importTargetContractAdapter";
 import {
   decodeNetworkFlowImportPreviewResult,
   type NetworkFlowImportPreviewResult,
+  networkFlowMappingCandidateSchemaId,
+  networkFlowMappingMetadata,
 } from "../services/networkFlowContractAdapter";
 import {
   buildNetworkFlowMappingCandidate,
@@ -18,6 +21,11 @@ import {
   type NetworkFlowMappingDraft,
   networkFlowMappingDraftReadyForPreview,
 } from "./networkFlowImportModel";
+
+const networkFlowImportTarget = requireClaimGatedAnalyticalImportTarget(
+  networkFlowMappingMetadata.target_kind,
+  networkFlowMappingMetadata.profile_id,
+);
 
 export type NetworkFlowImportStage =
   | "idle"
@@ -155,8 +163,9 @@ export function useNetworkFlowImportController({
           "cartulary.imports.extension_mapping_preview_result.v1" ||
         resource.import_session_id !== discovery.sessionId ||
         resource.import_unit_id !== discovery.unit.import_unit_id ||
-        resource.target_kind !== "network_flow_table" ||
-        resource.extension_profile_id !== "network_flow_activity" ||
+        resource.target_kind !== networkFlowImportTarget.target_kind ||
+        resource.extension_profile_id !==
+          networkFlowImportTarget.extension_profile_id ||
         resource.owner_result_schema_id !==
           "cartulary.network_flow.import_preview_result.v1"
       ) {
@@ -214,7 +223,8 @@ export function useNetworkFlowImportController({
       }
       const importedTable = refs.find(
         (resource) =>
-          resource.kind === "network_flow_table" && resource.id.trim() !== "",
+          resource.kind === networkFlowImportTarget.target_kind &&
+          resource.id.trim() !== "",
       );
       if (importedTable === undefined) {
         throw new Error("network_flow_table_not_returned");
@@ -281,9 +291,9 @@ function extensionCandidate(
   candidate: ReturnType<typeof buildNetworkFlowMappingCandidate>,
 ) {
   return {
-    targetKind: "network_flow_table",
-    extensionProfileId: "network_flow_activity",
-    ownerMappingSchemaId: "cartulary.network_flow.mapping_candidate.v1",
+    targetKind: networkFlowImportTarget.target_kind,
+    extensionProfileId: networkFlowImportTarget.extension_profile_id,
+    ownerMappingSchemaId: networkFlowMappingCandidateSchemaId,
     ownerMapping: { ...candidate },
   } as const;
 }

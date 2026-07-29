@@ -9,6 +9,7 @@
     "closeIncident",
     "createDeploymentUser",
     "createImportSession",
+    "createImportUnitRegion",
     "createObjectBlobSlot",
     "getCurrentAccountPreferences",
     "getCurrentAccountProfile",

@@ -598,6 +598,24 @@ export interface ImportUnitEnvelope {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitRegionRequest".
+ */
+export interface ImportUnitRegionRequest {
+  client_txn_id: string;
+  source_rect: ImportUnitRegionSourceRect;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnitRegionSourceRect".
+ */
+export interface ImportUnitRegionSourceRect {
+  end_column: number;
+  end_row: number;
+  start_column: number;
+  start_row: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ImportUnitSkipRequest".
  */
 export interface ImportUnitSkipRequest {

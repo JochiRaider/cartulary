@@ -84,6 +84,8 @@ export type NetworkFlowTableSoftDeleteRequest = TableSoftDeleteRequest;
 
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
+export const networkFlowMappingCandidateSchemaId =
+  "cartulary.network_flow.mapping_candidate.v1";
 export const networkFlowErrorMetadata = getNetworkFlowErrorRegistry();
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
