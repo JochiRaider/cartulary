@@ -10,6 +10,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +204,384 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	rows := preview["preview_rows"].([]any)
 	if len(rows) != 2 || rows[1].(map[string]any)["cells"].([]any)[1].(map[string]any)["display_text"] != "Beta summary" {
 		t.Fatalf("unexpected XLSX preview rows: %#v", rows)
+	}
+}
+
+func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "imports-selection-lifecycle")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-imports-selection-lifecycle-incident",
+		"incident_key":  "IR-IMPORT-SELECTION",
+		"title":         "Import selection lifecycle",
+	})
+	incidentID := incident["incident_id"].(string)
+	metadata := `{"client_txn_id":"txn-imports-selection-lifecycle-upload","incident_id":"` + incidentID + `"}`
+	uploadResp := postImportUploadBytes(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		metadata,
+		multipleSheetXLSX(t),
+		"selection.xlsx",
+		imports.MediaTypeXLSX,
+		false,
+	)
+	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
+	discoveryResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	discoveryJob := httptestx.RequireSuccessEnvelope(t, discoveryResp, http.StatusOK)["data"].(map[string]any)
+	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
+	unitsResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
+	if len(units) != 2 {
+		t.Fatalf("selection workbook discovered %d units, want 2", len(units))
+	}
+	firstUnitID := units[0].(map[string]any)["import_unit_id"].(string)
+	secondUnitID := units[1].(map[string]any)["import_unit_id"].(string)
+	approveTimelineImportMapping(t, harness.Server.HTTP.URL, adminLogin, sessionID, firstUnitID, []string{"host", "summary"}, "selection-first")
+	approveTimelineImportMapping(t, harness.Server.HTTP.URL, adminLogin, sessionID, secondUnitID, []string{"indicator", "type"}, "selection-second")
+
+	var originalFingerprint string
+	var originalMapping string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT mapping_fingerprint, approved_mapping_json::text
+  FROM import_units
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, firstUnitID).Scan(&originalFingerprint, &originalMapping); err != nil {
+		t.Fatalf("read approved mapping before skip: %v", err)
+	}
+	firstSelect := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+firstUnitID+"/select",
+		map[string]any{"client_txn_id": "txn-imports-selection-first-select"},
+	)
+	firstSelectBody := httptestx.RequireSuccessEnvelope(t, firstSelect, http.StatusOK)
+	firstSelected := firstSelectBody["data"].(map[string]any)
+	if firstSelected["session_status"] != "ready_to_apply" ||
+		firstSelected["unit"].(map[string]any)["unit_status"] != "ready" {
+		t.Fatalf("mapped unit was not selected as ready: %#v", firstSelected)
+	}
+	firstSelectReplay := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+firstUnitID+"/select",
+		map[string]any{"client_txn_id": "txn-imports-selection-first-select"},
+	)
+	firstReplayBody := httptestx.RequireSuccessEnvelope(t, firstSelectReplay, http.StatusOK)
+	if !reflect.DeepEqual(firstSelectBody["data"], firstReplayBody["data"]) {
+		t.Fatalf("exact selection replay changed response: first=%#v replay=%#v", firstSelectBody, firstReplayBody)
+	}
+	skipResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+firstUnitID+"/skip",
+		map[string]any{"client_txn_id": "txn-imports-selection-first-skip"},
+	)
+	skipped := httptestx.RequireSuccessEnvelope(t, skipResp, http.StatusOK)["data"].(map[string]any)
+	if skipped["unit"].(map[string]any)["unit_status"] != "skipped" {
+		t.Fatalf("unit was not skipped: %#v", skipped)
+	}
+	reselectResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+firstUnitID+"/select",
+		map[string]any{"client_txn_id": "txn-imports-selection-first-reselect"},
+	)
+	reselected := httptestx.RequireSuccessEnvelope(t, reselectResp, http.StatusOK)["data"].(map[string]any)
+	if reselected["unit"].(map[string]any)["unit_status"] != "ready" {
+		t.Fatalf("skipped mapped unit was not reselected as ready: %#v", reselected)
+	}
+	var retainedFingerprint string
+	var retainedMapping string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT mapping_fingerprint, approved_mapping_json::text
+  FROM import_units
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, firstUnitID).Scan(&retainedFingerprint, &retainedMapping); err != nil {
+		t.Fatalf("read approved mapping after reselection: %v", err)
+	}
+	if retainedFingerprint != originalFingerprint || retainedMapping != originalMapping {
+		t.Fatalf("reselection changed approved mapping: fingerprint %q/%q mapping %q/%q", originalFingerprint, retainedFingerprint, originalMapping, retainedMapping)
+	}
+	clearFirstResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+firstUnitID+"/skip",
+		map[string]any{"client_txn_id": "txn-imports-selection-first-clear"},
+	)
+	httptestx.RequireSuccessEnvelope(t, clearFirstResp, http.StatusOK)
+
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE import_units
+   SET locator = '{"sheet_name":"Sheet1","rect_a1":"B2:C4"}',
+       source_rect_a1 = 'B2:C4'
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, secondUnitID); err != nil {
+		t.Fatalf("make selection rectangles overlap: %v", err)
+	}
+
+	type concurrentSelectResult struct {
+		unitID string
+		status int
+		body   []byte
+		err    error
+	}
+	start := make(chan struct{})
+	results := make(chan concurrentSelectResult, 2)
+	for index, unitID := range []string{firstUnitID, secondUnitID} {
+		requestBody, err := json.Marshal(map[string]any{
+			"client_txn_id": "txn-imports-selection-concurrent-" + strconv.Itoa(index+1),
+		})
+		if err != nil {
+			t.Fatalf("marshal concurrent select request: %v", err)
+		}
+		request, err := http.NewRequest(
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+			bytes.NewReader(requestBody),
+		)
+		if err != nil {
+			t.Fatalf("create concurrent select request: %v", err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
+		request.AddCookie(adminLogin.SessionCookie)
+		request.AddCookie(adminLogin.CSRFCookie)
+		go func(selectedUnitID string, selectRequest *http.Request) {
+			<-start
+			response, requestErr := http.DefaultClient.Do(selectRequest)
+			if requestErr != nil {
+				results <- concurrentSelectResult{unitID: selectedUnitID, err: requestErr}
+				return
+			}
+			defer response.Body.Close()
+			responseBody, readErr := io.ReadAll(response.Body)
+			results <- concurrentSelectResult{
+				unitID: selectedUnitID,
+				status: response.StatusCode,
+				body:   responseBody,
+				err:    readErr,
+			}
+		}(unitID, request)
+	}
+	close(start)
+
+	var selectedUnitID string
+	successCount := 0
+	conflictCount := 0
+	for range 2 {
+		result := <-results
+		if result.err != nil {
+			t.Fatalf("concurrent select %s failed: %v", result.unitID, result.err)
+		}
+		switch result.status {
+		case http.StatusOK:
+			successCount++
+			selectedUnitID = result.unitID
+		case http.StatusConflict:
+			conflictCount++
+			var envelope map[string]any
+			if err := json.Unmarshal(result.body, &envelope); err != nil {
+				t.Fatalf("decode overlap conflict: %v body=%s", err, string(result.body))
+			}
+			apiError := envelope["error"].(map[string]any)
+			if apiError["code"] != "import_apply_blocked" ||
+				apiError["details"].(map[string]any)["reason_code"] != "overlapping_units" {
+				t.Fatalf("unexpected overlap conflict: %#v", envelope)
+			}
+		default:
+			t.Fatalf("concurrent select %s status=%d body=%s", result.unitID, result.status, string(result.body))
+		}
+	}
+	if successCount != 1 || conflictCount != 1 {
+		t.Fatalf("concurrent overlapping selects success=%d conflict=%d, want one each", successCount, conflictCount)
+	}
+	var selectedCount int
+	if err := harness.DB.QueryRowContext(
+		context.Background(),
+		`SELECT cardinality(selected_unit_ids) FROM import_sessions WHERE import_session_id::text = $1`,
+		sessionID,
+	).Scan(&selectedCount); err != nil {
+		t.Fatalf("count persisted selection: %v", err)
+	}
+	if selectedCount != 1 {
+		t.Fatalf("concurrent selection persisted %d units, want 1", selectedCount)
+	}
+	clearWinnerResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+selectedUnitID+"/skip",
+		map[string]any{"client_txn_id": "txn-imports-selection-concurrent-clear"},
+	)
+	httptestx.RequireSuccessEnvelope(t, clearWinnerResp, http.StatusOK)
+
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE import_units
+   SET locator = '{"sheet_name":"Sheet2","rect_a1":"A1:B3"}',
+       source_rect_a1 = 'A1:B3'
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, secondUnitID); err != nil {
+		t.Fatalf("restore non-overlapping rectangle: %v", err)
+	}
+	for index, unitID := range []string{firstUnitID, secondUnitID} {
+		selectResp := doImportJSON(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			http.MethodPost,
+			"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+			map[string]any{"client_txn_id": "txn-imports-selection-apply-setup-" + strconv.Itoa(index+1)},
+		)
+		httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE import_units
+   SET locator = '{"sheet_name":"Sheet1","rect_a1":"B2:C4"}',
+       source_rect_a1 = 'B2:C4'
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, secondUnitID); err != nil {
+		t.Fatalf("inject apply-time overlap: %v", err)
+	}
+	applyResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/apply",
+		map[string]any{"client_txn_id": "txn-imports-selection-overlap-apply"},
+	)
+	applyError := httptestx.RequireErrorEnvelope(t, applyResp, http.StatusConflict, "import_apply_blocked")
+	if applyError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "overlapping_units" {
+		t.Fatalf("unexpected apply-time overlap error: %#v", applyError)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_apply_unit_plans WHERE import_session_id::text = $1`, sessionID); got != 0 {
+		t.Fatalf("apply-time overlap created %d durable plans", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_unit_apply_outcomes WHERE import_session_id::text = $1`, sessionID); got != 0 {
+		t.Fatalf("apply-time overlap created %d durable outcomes", got)
+	}
+}
+
+func TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "imports-fresh-session-reimport")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-imports-fresh-session-incident",
+		"incident_key":  "IR-IMPORT-FRESH-SESSION",
+		"title":         "Fresh-session import",
+	})
+	incidentID := incident["incident_id"].(string)
+	const source = "summary\nsame source content\n"
+
+	sessionIDs := make([]string, 0, 2)
+	for index := 1; index <= 2; index++ {
+		prefix := "fresh-session-" + strconv.Itoa(index)
+		sessionID, unitID := startCSVImportSession(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			incidentID,
+			"txn-"+prefix+"-upload",
+			source,
+			"same-source.csv",
+		)
+		sessionIDs = append(sessionIDs, sessionID)
+		approveTimelineImportMapping(t, harness.Server.HTTP.URL, adminLogin, sessionID, unitID, []string{"summary"}, prefix)
+		selectResp := doImportJSON(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			http.MethodPost,
+			"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+			map[string]any{"client_txn_id": "txn-" + prefix + "-select"},
+		)
+		httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+		applyResp := doImportJSON(
+			t,
+			harness.Server.HTTP.URL,
+			adminLogin,
+			http.MethodPost,
+			"/api/v1/import-sessions/"+sessionID+"/apply",
+			map[string]any{"client_txn_id": "txn-" + prefix + "-apply"},
+		)
+		applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+		jobResp := httptestx.DoJSON(
+			t,
+			http.MethodGet,
+			harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
+			nil,
+			httptestx.WithCookies(adminLogin.SessionCookie),
+		)
+		job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+		if job["status"] != "succeeded" {
+			t.Fatalf("fresh-session apply %d did not succeed: %#v", index, job)
+		}
+	}
+	if sessionIDs[0] == sessionIDs[1] {
+		t.Fatalf("different upload transactions reused one import session: %#v", sessionIDs)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 2 {
+		t.Fatalf("fresh-session re-import created %d Timeline rows, want 2", got)
+	}
+
+	duplicateApply := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionIDs[0]+"/apply",
+		map[string]any{"client_txn_id": "txn-fresh-session-same-session-duplicate"},
+	)
+	duplicateError := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
+	if duplicateError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "duplicate_apply_blocked" {
+		t.Fatalf("unexpected same-session duplicate error: %#v", duplicateError)
+	}
+	unsupportedMode := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionIDs[1]+"/apply",
+		map[string]any{
+			"client_txn_id": "txn-fresh-session-unsupported-mode",
+			"reimport":      true,
+		},
+	)
+	modeError := httptestx.RequireErrorEnvelope(t, unsupportedMode, http.StatusBadRequest, "invalid_import_request")
+	if modeError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "unknown_field" {
+		t.Fatalf("unexpected unsupported re-import mode error: %#v", modeError)
 	}
 }
 
@@ -1601,7 +1981,7 @@ SELECT COUNT(*)
 		t.Fatal("timed out waiting for partially canceled apply")
 	}
 
-	if got := dbassert.CountSQL(t, harness.DB, `
+	if got := waitForSQLCount(t, harness.DB, 10*time.Second, 1, `
 SELECT COUNT(*)
   FROM import_sessions s
   JOIN jobs j ON j.job_id = s.apply_job_id
@@ -1610,7 +1990,11 @@ SELECT COUNT(*)
    AND j.status = 'canceled'
    AND j.result_summary_json->>'code' = 'import_session_partially_applied'
 `, sessionID); got != 1 {
-		t.Fatalf("cancellation after a committed unit did not derive truthful partial application: %d", got)
+		t.Fatalf(
+			"cancellation after a committed unit did not derive truthful partial application: %d state=%#v",
+			got,
+			importApplyState(t, harness.DB, sessionID),
+		)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)
@@ -1798,6 +2182,50 @@ func prepareReadyTimelineImport(
 	)
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 	return sessionID, unitID
+}
+
+func approveTimelineImportMapping(
+	t testing.TB,
+	serverURL string,
+	login flowtest.LoginResult,
+	sessionID string,
+	unitID string,
+	headers []string,
+	clientPrefix string,
+) {
+	t.Helper()
+	sourceColumns := make([]map[string]any, 0, len(headers))
+	for index, header := range headers {
+		var fieldKey any
+		if index == 0 {
+			fieldKey = "timeline.activity_synopsis_text"
+		}
+		sourceColumns = append(sourceColumns, map[string]any{
+			"source_column_ordinal": index + 1,
+			"source_header_text":    header,
+			"field_key":             fieldKey,
+			"entity_binding_mode":   nil,
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		})
+	}
+	mappingResp := doImportJSON(
+		t,
+		serverURL,
+		login,
+		http.MethodPut,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+		map[string]any{
+			"client_txn_id":         "txn-" + clientPrefix + "-mapping",
+			"target_view_schema_id": "cartulary.view.timeline.v2",
+			"header_row_ref":        1,
+			"data_start_row_ref":    2,
+			"unknown_column_policy": "preserve_raw_capture",
+			"source_columns":        sourceColumns,
+		},
+	)
+	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
 }
 
 func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string, clientTxnID string, csv string, filename string) (string, string) {
@@ -2220,5 +2648,70 @@ func requireImportCounts(t testing.TB, db *sql.DB, want importCounts) {
 	}
 	if got != want {
 		t.Fatalf("unexpected import durable counts: got %+v want %+v", got, want)
+	}
+}
+
+func waitForSQLCount(t testing.TB, db *sql.DB, timeout time.Duration, want int, query string, args ...any) int {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	got := 0
+	for {
+		got = dbassert.CountSQL(t, db, query, args...)
+		if got == want || time.Now().After(deadline) {
+			return got
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func importApplyState(t testing.TB, db *sql.DB, sessionID string) map[string]string {
+	t.Helper()
+	var sessionStatus string
+	var applyJobID string
+	var jobStatus string
+	var resultSummary string
+	var errorSummary string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT s.session_status,
+       COALESCE(s.apply_job_id::text, ''),
+       COALESCE(j.status, ''),
+       COALESCE(j.result_summary_json::text, ''),
+       COALESCE(j.error_summary_json::text, '')
+  FROM import_sessions s
+  LEFT JOIN jobs j ON j.job_id = s.apply_job_id
+ WHERE s.import_session_id::text = $1
+`, sessionID).Scan(
+		&sessionStatus,
+		&applyJobID,
+		&jobStatus,
+		&resultSummary,
+		&errorSummary,
+	); err != nil {
+		t.Fatalf("read import apply session state: %v", err)
+	}
+	var unitStatuses string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT COALESCE(string_agg(unit_status, ',' ORDER BY discovery_sequence), '')
+  FROM import_units
+ WHERE import_session_id::text = $1
+`, sessionID).Scan(&unitStatuses); err != nil {
+		t.Fatalf("read import apply unit state: %v", err)
+	}
+	var outcomeStatuses string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT COALESCE(string_agg(outcome_status, ',' ORDER BY discovery_sequence), '')
+  FROM import_unit_apply_outcomes
+ WHERE import_session_id::text = $1
+`, sessionID).Scan(&outcomeStatuses); err != nil {
+		t.Fatalf("read import apply outcome state: %v", err)
+	}
+	return map[string]string{
+		"session_status":   sessionStatus,
+		"apply_job_id":     applyJobID,
+		"job_status":       jobStatus,
+		"result_summary":   resultSummary,
+		"error_summary":    errorSummary,
+		"unit_statuses":    unitStatuses,
+		"outcome_statuses": outcomeStatuses,
 	}
 }

@@ -160,6 +160,11 @@ func TestImportsResponsibilitiesRemainSeparated(t *testing.T) {
 			forbidden: []string{"http.ResponseWriter", "RegisterHandler("},
 		},
 		{
+			name:      "selection.go",
+			required:  []string{"validateProposedSelectionDoesNotOverlapTx", "validateSelectedUnitsDoNotOverlap", "statusAfterSelection"},
+			forbidden: []string{"http.ResponseWriter", "RegisterHandler(", "CreateImportRowTx"},
+		},
+		{
 			name:      "xlsx.go",
 			required:  []string{"parseXLSXTables", "xlsxRowsToTable", "archiveCompressionRatioExceeded"},
 			forbidden: []string{"http.ResponseWriter", "jobManager"},

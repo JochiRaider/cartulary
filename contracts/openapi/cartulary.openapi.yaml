@@ -11032,12 +11032,15 @@
           "unit_status": {
             "enum": [
               "discovered",
+              "selected",
               "mapped",
               "ready",
               "skipped",
               "applying",
               "applied",
-              "failed"
+              "rejected",
+              "failed",
+              "canceled"
             ],
             "type": "string"
           },

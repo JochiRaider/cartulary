@@ -586,6 +586,12 @@
       "rationale": "Replace the inaccurate string Import unit locator with the structured descriptor already emitted by the runtime."
     },
     {
+      "fingerprint": "1fa1d3e8567624f19156412978a542db13e1a7a62c399ec54ecb16824ec61f6b",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Publish the selected, rejected, and canceled Import unit lifecycle states already defined by the adopted owner and emitted by the runtime."
+    },
+    {
       "fingerprint": "1a963aa67304ad1474696a3db1febc6ebbe419418a96ea56ffed4d7516f6fb69",
       "classification": "additive",
       "owner_id": "module.imports",

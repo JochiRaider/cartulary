@@ -200,46 +200,50 @@ export function ImportAssistantFeature({
     if (discovery === null || draft === undefined || busy) {
       return;
     }
-    const target = importTargets.find(
-      (candidate) => candidate.viewSchemaId === draft.targetViewSchemaId,
-    );
-    if (target === undefined) {
-      updateDraft(item.unit.import_unit_id, {
-        error: "Choose a supported target view.",
-      });
-      return;
-    }
-    const sourceColumns = mappingColumns(
-      item.preview.columns,
-      target,
-      draft.fieldsByOrdinal,
-    );
-    const hasUnmapped = sourceColumns.some(
-      (column) => column.field_key === null,
-    );
-    const unknownColumnPolicy =
-      target.viewSchemaId === "cartulary.view.timeline.v2"
-        ? "preserve_raw_capture"
-        : "reject_if_unmapped";
-    if (hasUnmapped && unknownColumnPolicy === "reject_if_unmapped") {
-      updateDraft(item.unit.import_unit_id, {
-        error: "Map every source column for this target, or choose Timeline.",
-      });
-      return;
-    }
     setBusy(true);
-    setMessage("Approving mapping and selecting unit.");
+    let mappingApproved = draft.approved;
+    setMessage(
+      mappingApproved
+        ? "Reselecting unit with its approved mapping."
+        : "Approving mapping and selecting unit.",
+    );
     try {
-      await approveWorkbookImportMapping({
-        availability,
-        apiBase,
-        sessionId: discovery.session.import_session_id,
-        discovery: item,
-        targetViewSchemaId: target.viewSchemaId,
-        unknownColumnPolicy,
-        sourceColumns,
-        transactionPrefix: `workbook-import-${item.unit.import_unit_id}`,
-      });
+      if (!mappingApproved) {
+        const target = importTargets.find(
+          (candidate) => candidate.viewSchemaId === draft.targetViewSchemaId,
+        );
+        if (target === undefined) {
+          throw new Error("Choose a supported target view.");
+        }
+        const sourceColumns = mappingColumns(
+          item.preview.columns,
+          target,
+          draft.fieldsByOrdinal,
+        );
+        const hasUnmapped = sourceColumns.some(
+          (column) => column.field_key === null,
+        );
+        const unknownColumnPolicy =
+          target.viewSchemaId === "cartulary.view.timeline.v2"
+            ? "preserve_raw_capture"
+            : "reject_if_unmapped";
+        if (hasUnmapped && unknownColumnPolicy === "reject_if_unmapped") {
+          throw new Error(
+            "Map every source column for this target, or choose Timeline.",
+          );
+        }
+        await approveWorkbookImportMapping({
+          availability,
+          apiBase,
+          sessionId: discovery.session.import_session_id,
+          discovery: item,
+          targetViewSchemaId: target.viewSchemaId,
+          unknownColumnPolicy,
+          sourceColumns,
+          transactionPrefix: `workbook-import-${item.unit.import_unit_id}`,
+        });
+        mappingApproved = true;
+      }
       await setWorkbookImportUnitSelection({
         availability,
         apiBase,
@@ -253,10 +257,14 @@ export function ImportAssistantFeature({
         selected: true,
         error: null,
       });
-      setMessage("Mapping approved. The unit is ready to apply.");
+      setMessage(
+        draft.approved
+          ? "Unit reselected with its approved mapping."
+          : "Mapping approved. The unit is ready to apply.",
+      );
     } catch (error) {
       updateDraft(item.unit.import_unit_id, {
-        approved: false,
+        approved: mappingApproved,
         selected: false,
         error: importErrorMessage(error),
       });
@@ -492,7 +500,11 @@ export function ImportAssistantFeature({
                 type="button"
                 onClick={() => approveAndSelect(item)}
               >
-                Approve mapping and select
+                {draft.selected
+                  ? "Mapping approved and selected"
+                  : draft.approved
+                    ? "Reselect unit"
+                    : "Approve mapping and select"}
               </button>
               <button disabled={busy} type="button" onClick={() => skip(item)}>
                 Skip unit

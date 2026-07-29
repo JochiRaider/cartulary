@@ -553,7 +553,17 @@ export interface ImportUnit {
   locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region";
   mapping_fingerprint?: string;
   source_rect_a1: string;
-  unit_status: "discovered" | "mapped" | "ready" | "skipped" | "applying" | "applied" | "failed";
+  unit_status:
+    | "discovered"
+    | "selected"
+    | "mapped"
+    | "ready"
+    | "skipped"
+    | "applying"
+    | "applied"
+    | "rejected"
+    | "failed"
+    | "canceled";
   warning_codes: string[];
 }
 /**

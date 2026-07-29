@@ -65,6 +65,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.frontend.skip_reselect_mapping_retention_522ba6591e",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ImportAssistantFeature.test.tsx",
+        "titles": [
+          "ImportAssistantFeature selection lifecycle reselects a skipped mapped unit without approving a second mapping"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.integration.apply_transaction_current_state_bc8ad0ac32",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -102,6 +127,31 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestMappingSelectApplyCreatesTimelineRows_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.integration.fresh_session_explicit_reimport_workflow_18fc21c7f5",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -176,6 +226,29 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.integration.selection_overlap_reselection_lifecycle_f8525366fa",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration"
         ]
       },
       "evidence_class": "integration",

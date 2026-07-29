@@ -991,12 +991,15 @@
             "type": "string",
             "enum": [
               "discovered",
+              "selected",
               "mapped",
               "ready",
               "skipped",
               "applying",
               "applied",
-              "failed"
+              "rejected",
+              "failed",
+              "canceled"
             ]
           },
           "mapping_fingerprint": {

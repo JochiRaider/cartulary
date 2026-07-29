@@ -560,20 +560,20 @@ func (s *Store) SelectUnit(ctx context.Context, params UnitActionParams) (UnitAc
 		ClientTxnID: params.Request.ClientTxnID,
 	}
 	payload, incidentID, err := s.withUnitMutation(ctx, key, params.NormalizedRequest, params.SessionID, params.UnitID, params.Now, func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string]any, error) {
-		status, err := unitStatusTx(ctx, tx, params.SessionID, params.UnitID)
+		state, err := unitSelectionStateTx(ctx, tx, params.SessionID, params.UnitID)
 		if err != nil {
 			return nil, err
 		}
-		switch status {
+		switch state.status {
 		case "applying":
 			return nil, importConflictError("unit_applying")
-		case "applied", "skipped", "rejected", "failed":
+		case "applied", "rejected", "failed":
 			return nil, importConflictError("unit_terminal")
 		}
-		nextStatus := "selected"
-		if status == "mapped" || status == "ready" {
-			nextStatus = "ready"
+		if err := validateProposedSelectionDoesNotOverlapTx(ctx, tx, params.SessionID, params.UnitID, state); err != nil {
+			return nil, err
 		}
+		nextStatus := state.statusAfterSelection()
 		if _, err := tx.Exec(ctx, `
 UPDATE import_units
    SET unit_status = $4,
@@ -581,7 +581,7 @@ UPDATE import_units
  WHERE import_session_id = $1
    AND import_unit_id = $2
    AND unit_status = $3
-`, params.SessionID, params.UnitID, status, nextStatus, params.Now.UTC()); err != nil {
+`, params.SessionID, params.UnitID, state.status, nextStatus, params.Now.UTC()); err != nil {
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `
@@ -1113,21 +1113,27 @@ SELECT incident_id, to_jsonb(selected_unit_ids)
 
 func requireSelectedUnitsReadyTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, selected []uuid.UUID) error {
 	rows, err := tx.Query(ctx, `
-SELECT import_unit_id, unit_status, approved_mapping_json
+SELECT import_unit_id, unit_status, approved_mapping_json, locator_kind, locator, source_rect_a1
   FROM import_units
  WHERE import_session_id = $1
    AND import_unit_id = ANY($2)
+ ORDER BY discovery_sequence, import_unit_id
+ FOR UPDATE
 `, sessionID, selected)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 	seen := map[uuid.UUID]struct{}{}
+	regions := make([]*selectedSourceRegion, 0, len(selected))
 	for rows.Next() {
 		var id uuid.UUID
 		var status string
 		var mapping []byte
-		if err := rows.Scan(&id, &status, &mapping); err != nil {
+		var locatorKind string
+		var locator string
+		var sourceRectA1 string
+		if err := rows.Scan(&id, &status, &mapping, &locatorKind, &locator, &sourceRectA1); err != nil {
 			return err
 		}
 		seen[id] = struct{}{}
@@ -1151,6 +1157,11 @@ SELECT import_unit_id, unit_status, approved_mapping_json
 		if approved.targetKindOrDefault() != ImportTargetKindViewSchema && !target.ownerApplyFacadeAvailable() {
 			return importApplyBlockedError("owner_apply_contract_unavailable")
 		}
+		region, err := sourceRegion(id, locatorKind, locator, sourceRectA1)
+		if err != nil {
+			return err
+		}
+		regions = append(regions, region)
 	}
 	if err := rows.Err(); err != nil {
 		return err
@@ -1158,7 +1169,7 @@ SELECT import_unit_id, unit_status, approved_mapping_json
 	if len(seen) != len(selected) {
 		return importApplyBlockedError("unit_not_ready")
 	}
-	return nil
+	return validateSelectedUnitsDoNotOverlap(regions)
 }
 
 func importConflictError(reason string) error {
