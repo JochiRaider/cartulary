@@ -873,29 +873,32 @@ type ImportSourceStream struct {
 }
 
 type ImportUnit struct {
-	ImportUnitID               pgtype.UUID        `json:"import_unit_id"`
-	ImportSessionID            pgtype.UUID        `json:"import_session_id"`
-	UnitStatus                 string             `json:"unit_status"`
-	LocatorKind                string             `json:"locator_kind"`
-	Locator                    string             `json:"locator"`
-	SourceRectA1               string             `json:"source_rect_a1"`
-	HeaderRowRef               int32              `json:"header_row_ref"`
-	DataStartRowRef            int32              `json:"data_start_row_ref"`
-	InferredRowCount           int32              `json:"inferred_row_count"`
-	InferredColumnCount        int32              `json:"inferred_column_count"`
-	WarningCodes               []string           `json:"warning_codes"`
-	MappingFingerprint         pgtype.Text        `json:"mapping_fingerprint"`
-	ApprovedMappingJson        []byte             `json:"approved_mapping_json"`
-	ColumnsJson                []byte             `json:"columns_json"`
-	SourceRowsJson             []byte             `json:"source_rows_json"`
-	PreviewRowsJson            []byte             `json:"preview_rows_json"`
-	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
-	SourceStreamRef            pgtype.Text        `json:"source_stream_ref"`
-	ApprovedTargetKind         pgtype.Text        `json:"approved_target_kind"`
-	ApprovedExtensionProfileID pgtype.Text        `json:"approved_extension_profile_id"`
-	ApprovedTargetViewSchemaID pgtype.Text        `json:"approved_target_view_schema_id"`
-	DiscoverySequence          int32              `json:"discovery_sequence"`
+	ImportUnitID                 pgtype.UUID        `json:"import_unit_id"`
+	ImportSessionID              pgtype.UUID        `json:"import_session_id"`
+	UnitStatus                   string             `json:"unit_status"`
+	LocatorKind                  string             `json:"locator_kind"`
+	Locator                      string             `json:"locator"`
+	SourceRectA1                 string             `json:"source_rect_a1"`
+	HeaderRowRef                 int32              `json:"header_row_ref"`
+	DataStartRowRef              int32              `json:"data_start_row_ref"`
+	InferredRowCount             int32              `json:"inferred_row_count"`
+	InferredColumnCount          int32              `json:"inferred_column_count"`
+	WarningCodes                 []string           `json:"warning_codes"`
+	MappingFingerprint           pgtype.Text        `json:"mapping_fingerprint"`
+	ApprovedMappingJson          []byte             `json:"approved_mapping_json"`
+	ColumnsJson                  []byte             `json:"columns_json"`
+	SourceRowsJson               []byte             `json:"source_rows_json"`
+	PreviewRowsJson              []byte             `json:"preview_rows_json"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
+	SourceStreamRef              pgtype.Text        `json:"source_stream_ref"`
+	ApprovedTargetKind           pgtype.Text        `json:"approved_target_kind"`
+	ApprovedExtensionProfileID   pgtype.Text        `json:"approved_extension_profile_id"`
+	ApprovedTargetViewSchemaID   pgtype.Text        `json:"approved_target_view_schema_id"`
+	DiscoverySequence            int32              `json:"discovery_sequence"`
+	BaseImportUnitID             pgtype.UUID        `json:"base_import_unit_id"`
+	OperatorRegionSequence       pgtype.Int4        `json:"operator_region_sequence"`
+	BlockingSourceColumnOrdinals []int32            `json:"blocking_source_column_ordinals"`
 }
 
 type ImportUnitApplyOutcome struct {

@@ -90,6 +90,7 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.imports", map[string]http.HandlerFunc{
 			"applyImportSession":                service.handleImportSessionsMember,
+			"createImportUnitRegion":            service.handleImportSessionsMember,
 			"createImportSession":               service.handleImportSessionsCollection,
 			"getImportSession":                  service.handleImportSessionsMember,
 			"getImportUnit":                     service.handleImportSessionsMember,

@@ -607,6 +607,98 @@
         "x-cartulary-availability": "import"
       }
     },
+    "/api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "createImportUnitRegion",
+        "summary": "Create or exactly replay a durable operator-selected XLSX region.",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "base_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUnitRegionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Durable operator region created or exactly replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid source rectangle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session or base unit not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Import state or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "import"
+      }
+    },
     "/api/v1/import-sessions/{import_session_id}/apply": {
       "post": {
         "tags": [
@@ -955,7 +1047,8 @@
               "xlsx_used_range",
               "xlsx_table",
               "xlsx_named_range",
-              "xlsx_region"
+              "xlsx_region",
+              "operator_region"
             ]
           },
           "locator": {
@@ -1462,6 +1555,51 @@
         },
         "required": [
           "client_txn_id"
+        ]
+      },
+      "ImportUnitRegionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_rect": {
+            "$ref": "#/components/schemas/ImportUnitRegionSourceRect"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "source_rect"
+        ]
+      },
+      "ImportUnitRegionSourceRect": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start_row": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start_column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "end_row": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "end_column": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "start_row",
+          "start_column",
+          "end_row",
+          "end_column"
         ]
       },
       "ImportSessionApplyRequest": {

@@ -1372,6 +1372,98 @@
         "x-cartulary-availability": "import"
       }
     },
+    "/api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions": {
+      "post": {
+        "operationId": "createImportUnitRegion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "base_unit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUnitRegionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUnitEnvelope"
+                }
+              }
+            },
+            "description": "Durable operator region created or exactly replayed"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid source rectangle"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Import session or base unit not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Import state or idempotency conflict"
+          }
+        },
+        "security": [
+          {
+            "csrfCookie": [],
+            "csrfHeader": [],
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Create or exactly replay a durable operator-selected XLSX region.",
+        "tags": [
+          "imports"
+        ],
+        "x-cartulary-availability": "import"
+      }
+    },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}": {
       "get": {
         "operationId": "getImportUnit",
@@ -11019,7 +11111,8 @@
               "xlsx_used_range",
               "xlsx_table",
               "xlsx_named_range",
-              "xlsx_region"
+              "xlsx_region",
+              "operator_region"
             ],
             "type": "string"
           },
@@ -11202,6 +11295,51 @@
           "header_row_ref",
           "data_start_row_ref",
           "source_columns"
+        ],
+        "type": "object"
+      },
+      "ImportUnitRegionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_rect": {
+            "$ref": "#/components/schemas/ImportUnitRegionSourceRect"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "source_rect"
+        ],
+        "type": "object"
+      },
+      "ImportUnitRegionSourceRect": {
+        "additionalProperties": false,
+        "properties": {
+          "end_column": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "end_row": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "start_column": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "start_row": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_row",
+          "start_column",
+          "end_row",
+          "end_column"
         ],
         "type": "object"
       },

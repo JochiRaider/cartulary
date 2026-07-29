@@ -117,6 +117,25 @@ type ApplyRequest struct {
 	Normalized      []byte
 }
 
+type RegionSourceRect struct {
+	StartRow    int `json:"start_row"`
+	StartColumn int `json:"start_column"`
+	EndRow      int `json:"end_row"`
+	EndColumn   int `json:"end_column"`
+}
+
+func (rect RegionSourceRect) sourceRectangle() sourceRectangle {
+	return sourceRectangle{
+		left: rect.StartColumn, top: rect.StartRow, right: rect.EndColumn, bottom: rect.EndRow,
+	}
+}
+
+type RegionRequest struct {
+	ClientTxnID string           `json:"client_txn_id"`
+	SourceRect  RegionSourceRect `json:"source_rect"`
+	Normalized  []byte           `json:"-"`
+}
+
 func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSessionRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"incident_id":       {},
@@ -480,6 +499,69 @@ func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *httpapi.APIError) {
 	request.Normalized, err = json.Marshal(normalized)
 	if err != nil {
 		return ApplyRequest{}, internalAPIError(err)
+	}
+	return request, nil
+}
+
+func DecodeRegionRequest(reader io.Reader) (RegionRequest, *httpapi.APIError) {
+	raw, apiErr := decodeJSONObject(reader)
+	if apiErr != nil {
+		return RegionRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{"client_txn_id": {}, "source_rect": {}}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return RegionRequest{}, invalidImportRequest(key, "unknown_field")
+		}
+	}
+	var request RegionRequest
+	if value, ok := raw["client_txn_id"]; !ok {
+		return RegionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return RegionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+	}
+	value, ok := raw["source_rect"]
+	if !ok {
+		return RegionRequest{}, invalidImportRequest("source_rect", "missing_required_field")
+	}
+	var sourceRectRaw map[string]json.RawMessage
+	if err := json.Unmarshal(value, &sourceRectRaw); err != nil || sourceRectRaw == nil {
+		return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+	}
+	rectAllowed := map[string]struct{}{
+		"start_row": {}, "start_column": {}, "end_row": {}, "end_column": {},
+	}
+	for key := range sourceRectRaw {
+		if _, ok := rectAllowed[key]; !ok {
+			return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+		}
+	}
+	members := []struct {
+		name   string
+		target *int
+	}{
+		{name: "start_row", target: &request.SourceRect.StartRow},
+		{name: "start_column", target: &request.SourceRect.StartColumn},
+		{name: "end_row", target: &request.SourceRect.EndRow},
+		{name: "end_column", target: &request.SourceRect.EndColumn},
+	}
+	for _, member := range members {
+		rawValue, exists := sourceRectRaw[member.name]
+		if !exists || json.Unmarshal(rawValue, member.target) != nil || *member.target <= 0 {
+			return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+		}
+	}
+	if request.SourceRect.StartRow > request.SourceRect.EndRow ||
+		request.SourceRect.StartColumn > request.SourceRect.EndColumn {
+		return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+	}
+	var err error
+	request.Normalized, err = json.Marshal(map[string]any{
+		"client_txn_id": request.ClientTxnID,
+		"source_rect":   request.SourceRect,
+	})
+	if err != nil {
+		return RegionRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }

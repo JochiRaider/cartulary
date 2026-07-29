@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "c3ffe67564b69aa966c8899fd7d5025beebc743b9810d701b830fcfddbc8619b"
+const CanonicalSHA256 = "dbfd7c41ac955b391a21b5dab98828efceecb7f9f526032cf0fc5ea89d77555b"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {
@@ -45,6 +45,7 @@ var catalog = []Operation{
 	{OwnerID: "module.imports", Method: "GET", PathTemplate: "/api/v1/import-sessions/{import_session_id}", Pattern: "GET /api/v1/import-sessions/{import_session_id}", OperationID: "getImportSession", Availability: "import", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.imports", Method: "POST", PathTemplate: "/api/v1/import-sessions/{import_session_id}/apply", Pattern: "POST /api/v1/import-sessions/{import_session_id}/apply", OperationID: "applyImportSession", Availability: "import", StateChanging: true, SuccessStatuses: []int{202}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.imports", Method: "GET", PathTemplate: "/api/v1/import-sessions/{import_session_id}/units", Pattern: "GET /api/v1/import-sessions/{import_session_id}/units", OperationID: "listImportUnits", Availability: "import", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
+	{OwnerID: "module.imports", Method: "POST", PathTemplate: "/api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions", Pattern: "POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions", OperationID: "createImportUnitRegion", Availability: "import", StateChanging: true, SuccessStatuses: []int{201}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.imports", Method: "GET", PathTemplate: "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}", Pattern: "GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}", OperationID: "getImportUnit", Availability: "import", StateChanging: false, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},
 	{OwnerID: "module.imports", Method: "PUT", PathTemplate: "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping", Pattern: "PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping", OperationID: "putImportUnitMapping", Availability: "import", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"csrfCookie", "csrfHeader", "sessionCookie"}}},
 	{OwnerID: "module.imports", Method: "POST", PathTemplate: "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview", Pattern: "POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview", OperationID: "previewImportUnitExtensionMapping", Availability: "import", StateChanging: true, SuccessStatuses: []int{200}, Security: [][]string{[]string{"bearerSession"}, []string{"sessionCookie"}}},

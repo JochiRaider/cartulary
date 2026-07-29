@@ -208,6 +208,126 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	}
 }
 
+func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "imports-xlsx-operator-region")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-imports-region-incident",
+		"incident_key":  "IR-IMPORT-REGION",
+		"title":         "Operator region import",
+	})
+	incidentID := incident["incident_id"].(string)
+	metadata := `{"client_txn_id":"txn-imports-region-upload","incident_id":"` + incidentID + `"}`
+	uploadResp := postImportUploadBytes(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		metadata,
+		multipleSheetXLSX(t),
+		"regions.xlsx",
+		imports.MediaTypeXLSX,
+		false,
+	)
+	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
+	jobResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
+	unitsResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
+	baseUnitID := units[0].(map[string]any)["import_unit_id"].(string)
+	regionPath := "/api/v1/import-sessions/" + sessionID + "/units/" + baseUnitID + "/regions"
+	request := map[string]any{
+		"client_txn_id": "txn-imports-region-create",
+		"source_rect": map[string]any{
+			"start_row": 1, "start_column": 1, "end_row": 2, "end_column": 2,
+		},
+	}
+	createResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, request)
+	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	if created["locator_kind"] != "operator_region" ||
+		created["source_rect_a1"] != "A1:B2" ||
+		created["unit_status"] != "discovered" {
+		t.Fatalf("unexpected operator region: %#v", created)
+	}
+	regionUnitID := created["import_unit_id"].(string)
+
+	replayResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, request)
+	replayed := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusCreated)["data"].(map[string]any)
+	if replayed["import_unit_id"] != regionUnitID {
+		t.Fatalf("exact replay created a different unit: first=%#v replay=%#v", created, replayed)
+	}
+	semanticReplay := map[string]any{
+		"client_txn_id": "txn-imports-region-semantic-replay",
+		"source_rect":   request["source_rect"],
+	}
+	semanticResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, semanticReplay)
+	semantic := httptestx.RequireSuccessEnvelope(t, semanticResp, http.StatusCreated)["data"].(map[string]any)
+	if semantic["import_unit_id"] != regionUnitID {
+		t.Fatalf("semantic replay created a duplicate unit: %#v", semantic)
+	}
+	divergent := map[string]any{
+		"client_txn_id": "txn-imports-region-create",
+		"source_rect": map[string]any{
+			"start_row": 1, "start_column": 1, "end_row": 3, "end_column": 2,
+		},
+	}
+	conflictResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, divergent)
+	httptestx.RequireErrorEnvelope(t, conflictResp, http.StatusConflict, "client_txn_conflict")
+	outside := map[string]any{
+		"client_txn_id": "txn-imports-region-outside",
+		"source_rect": map[string]any{
+			"start_row": 1, "start_column": 1, "end_row": 4, "end_column": 2,
+		},
+	}
+	outsideResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, regionPath, outside)
+	outsideError := httptestx.RequireErrorEnvelope(t, outsideResp, http.StatusBadRequest, "invalid_import_request")
+	if outsideError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_source_rect" {
+		t.Fatalf("unexpected invalid rectangle error: %#v", outsideError)
+	}
+
+	var baseID string
+	var regionSequence int
+	var selected bool
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT base_import_unit_id::text,
+       operator_region_sequence,
+       import_unit_id = ANY(
+           SELECT unnest(selected_unit_ids)
+             FROM import_sessions
+            WHERE import_session_id::text = $1
+       )
+  FROM import_units
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, regionUnitID).Scan(&baseID, &regionSequence, &selected); err != nil {
+		t.Fatalf("read durable operator region: %v", err)
+	}
+	if baseID != baseUnitID || regionSequence != 1 || selected {
+		t.Fatalf("unexpected durable region binding: base=%q sequence=%d selected=%t", baseID, regionSequence, selected)
+	}
+	if count := dbassert.CountSQL(
+		t,
+		harness.DB,
+		`SELECT COUNT(*) FROM import_source_streams WHERE import_unit_id::text = $1`,
+		regionUnitID,
+	); count != 1 {
+		t.Fatalf("operator region must retain exactly one private source stream, got %d", count)
+	}
+}
+
 func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "imports-selection-lifecycle")

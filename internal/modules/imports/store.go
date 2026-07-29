@@ -66,6 +66,7 @@ type DiscoveredUnit struct {
 	InferredRowCount    int
 	InferredColumnCount int
 	WarningCodes        []string
+	BlockingColumns     []int
 	Columns             []map[string]any
 	SourceRows          []map[string]any
 	PreviewRows         []map[string]any
@@ -294,13 +295,13 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 	INSERT INTO import_units (
 	    import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
 	    header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
-	    warning_codes, columns_json, source_rows_json, preview_rows_json, source_stream_ref,
-	    discovery_sequence, created_at, updated_at
+	    warning_codes, blocking_source_column_ordinals, columns_json, source_rows_json,
+	    preview_rows_json, source_stream_ref, discovery_sequence, created_at, updated_at
 	)
-	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)
+	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
 	`, unitID, sessionID, unit.LocatorKind, unit.Locator, unit.SourceRectA1,
 			unit.HeaderRowRef, unit.DataStartRowRef, unit.InferredRowCount, unit.InferredColumnCount,
-			unit.WarningCodes, columns, sourceRows, previewRows, sourceStreamRef, index+1, params.Now.UTC()); err != nil {
+			unit.WarningCodes, unit.BlockingColumns, columns, sourceRows, previewRows, sourceStreamRef, index+1, params.Now.UTC()); err != nil {
 			return CreateAcceptedSessionResult{}, err
 		}
 		if _, err := tx.Exec(ctx, `
@@ -517,7 +518,17 @@ func (s *Store) SaveMapping(ctx context.Context, params MappingParams) (map[stri
 			return nil, importConflictError("unit_terminal")
 		}
 		nextStatus := "mapped"
-		if status == "selected" || status == "ready" {
+		var blockingColumns []int32
+		if err := tx.QueryRow(ctx, `
+SELECT blocking_source_column_ordinals
+  FROM import_units
+ WHERE import_session_id = $1
+   AND import_unit_id = $2
+`, params.SessionID, params.UnitID).Scan(&blockingColumns); err != nil {
+			return nil, err
+		}
+		if (status == "selected" || status == "ready") &&
+			!mappingUsesBlockingColumn(mappingJSONForReadiness(params.Request.ApprovedMapping), blockingColumns) {
 			nextStatus = "ready"
 		}
 		mappingJSON, err := json.Marshal(params.Request.ApprovedMapping)
@@ -550,6 +561,11 @@ func (s *Store) SaveMapping(ctx context.Context, params MappingParams) (map[stri
 		}
 		return unit, nil
 	})
+}
+
+func mappingJSONForReadiness(mapping ApprovedMapping) []byte {
+	data, _ := json.Marshal(mapping)
+	return data
 }
 
 func (s *Store) SelectUnit(ctx context.Context, params UnitActionParams) (UnitActionResult, error) {

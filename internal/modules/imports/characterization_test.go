@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,6 +32,7 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 		{path: base + "/units/" + unitID.String() + "/mapping", kind: "mapping", unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/select", kind: "select", unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/skip", kind: "skip", unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/regions", kind: "regions", unitID: unitID},
 		{path: base + "/apply", kind: "apply"},
 	}
 	for _, testCase := range cases {
@@ -49,7 +51,6 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 		"/api/v1/import-sessions/",
 		base + "/unknown",
 		base + "/units/not-a-uuid",
-		base + "/units/" + unitID.String() + "/regions",
 	} {
 		if route, ok := parseImportSessionPath(path); ok {
 			t.Fatalf("expected current unsupported path %q to fail, got %#v", path, route)
@@ -135,10 +136,10 @@ func TestInternalImportErrorDoesNotEchoRawMessage(t *testing.T) {
 	}
 }
 
-func TestCharacterizationKnownNonConformanceHiddenXLSXSheetIsSkipped(t *testing.T) {
+func TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics(t *testing.T) {
 	t.Parallel()
 
-	tables, apiErr := parseXLSXTables(
+	workbook, apiErr := indexXLSXWorkbook(
 		characterizationWorkbook(t),
 		Limits{MaxRows: 100, MaxColumns: 20, MaxCells: 2_000},
 		ArchiveLimits{
@@ -148,10 +149,25 @@ func TestCharacterizationKnownNonConformanceHiddenXLSXSheetIsSkipped(t *testing.
 		},
 	)
 	if apiErr != nil {
-		t.Fatalf("parse characterization workbook: %#v", apiErr)
+		t.Fatalf("index characterization workbook: %#v", apiErr)
 	}
-	if len(tables) != 1 || tables[0].SheetName != "Visible" {
-		t.Fatalf("current parser must expose only the visible sheet before RS-09, got %#v", tables)
+	if len(workbook.ranges) != 2 ||
+		workbook.ranges[0].sheet.name != "Visible" ||
+		workbook.ranges[1].sheet.name != "Hidden" {
+		t.Fatalf("all semantic sheets must be indexed in workbook order, got %#v", workbook.ranges)
+	}
+	decoded, decodeErr := workbook.decodeRectangle(
+		workbook.ranges[1].sheet,
+		workbook.ranges[1].rect,
+		Limits{MaxRows: 100, MaxColumns: 20, MaxCells: 2_000},
+	)
+	if decodeErr != nil {
+		t.Fatalf("decode hidden range: %#v", decodeErr)
+	}
+	if len(decoded.rows) != 2 ||
+		decoded.rows[1][0].DisplayText != "hidden" ||
+		!slices.Contains(decoded.warningCodes, "filtered_or_hidden_state_ignored") {
+		t.Fatalf("hidden presentation changed semantic cells or warning: %#v", decoded)
 	}
 }
 

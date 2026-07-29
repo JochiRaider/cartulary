@@ -95,7 +95,12 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{
+		Store:         s.authStore,
+		Keys:          s.keys,
+		Now:           s.now,
+		StateChanging: route.Kind == "regions",
+	})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -261,6 +266,12 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		s.handleSkip(w, r, principal, route)
+	case "regions":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleRegion(w, r, principal, route)
 	case "apply":
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -617,6 +628,13 @@ func parseImportSessionPath(path string) (importSessionRoute, bool) {
 			return importSessionRoute{}, false
 		}
 		return importSessionRoute{Kind: "skip", SessionID: sessionID, UnitID: unitID}, true
+	}
+	if len(parts) == 4 && parts[1] == "units" && parts[3] == "regions" {
+		baseUnitID, err := uuid.Parse(parts[2])
+		if err != nil {
+			return importSessionRoute{}, false
+		}
+		return importSessionRoute{Kind: "regions", SessionID: sessionID, UnitID: baseUnitID}, true
 	}
 	if len(parts) == 2 && parts[1] == "apply" {
 		return importSessionRoute{Kind: "apply", SessionID: sessionID}, true

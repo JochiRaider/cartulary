@@ -302,6 +302,12 @@
       "filename": "00050_import_owner_error_outcomes.sql",
       "sha256": "858fbe675f94e4921fd79f4ae14d881295ae5b9f46c675786812064a8a742225",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 51,
+      "filename": "00051_import_operator_regions.sql",
+      "sha256": "f4dc395b3222a9e46b59e5aea91fe9914923db676871f98a6b95dd33ea8404e2",
+      "historical_phase_shaped": false
     }
   ]
 }

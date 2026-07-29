@@ -384,6 +384,29 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.integration.xlsx_operator_region_durable_replay_7b0a58c912",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestXLSXOperatorRegionCreatesDurableExactReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.unit.canonical_write_null_and_safe_owner_translation_rs08_3f58f0c338",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
@@ -421,6 +444,31 @@
         "tests": [
           "TestNormalizeImportScalarRejectsNullForNonNullableCreateField",
           "TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.imports.unit.xlsx_locator_security_and_formula_index_41d0b577ac",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestFormulaCacheBlockerClearsOnlyWhenAffectedColumnIsUnmapped",
+          "TestXLSXIndexDiscoversSemanticLocatorsAndFormulaDiagnostics",
+          "TestXLSXIndexRejectsDynamicNamedRangeAndArchiveAbuse"
         ]
       },
       "evidence_class": "unit",

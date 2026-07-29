@@ -31,21 +31,38 @@ func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 		if int64(len(envelope.File)) > s.limits.MaxXLSXSourceBytes {
 			return nil, importSourceRejected("xlsx_source_too_large", int64(len(envelope.File)), s.limits.MaxXLSXSourceBytes)
 		}
-		tables, apiErr := parseXLSXTables(envelope.File, s.limits, s.archiveLimits)
+		workbook, apiErr := indexXLSXWorkbook(envelope.File, s.limits, s.archiveLimits)
 		if apiErr != nil {
 			return nil, apiErr
 		}
-		units := make([]DiscoveredUnit, 0, len(tables))
-		for _, table := range tables {
-			rect := SourceRect(len(table.Rows), len(table.Rows[0]))
-			locatorBytes, err := json.Marshal(map[string]any{
-				"sheet_name": table.SheetName,
-				"rect_a1":    rect,
-			})
+		units := make([]DiscoveredUnit, 0, len(workbook.ranges))
+		for _, located := range workbook.ranges {
+			decoded, decodeErr := workbook.decodeRectangle(located.sheet, located.rect, s.limits)
+			if decodeErr != nil {
+				return nil, decodeErr
+			}
+			locator := map[string]any{
+				"sheet_name": located.sheet.name,
+				"rect_a1":    sourceRectangleA1(located.rect),
+			}
+			if located.tableName != "" {
+				locator["table_name"] = located.tableName
+			}
+			if located.definedName != "" {
+				locator["defined_name"] = located.definedName
+			}
+			locatorBytes, err := json.Marshal(locator)
 			if err != nil {
 				return nil, internalAPIError(err)
 			}
-			unit, unitErr := s.discoveredImportUnit(table.Rows, "xlsx_used_range", string(locatorBytes))
+			unit, unitErr := s.discoveredImportUnitAt(
+				decoded.rows,
+				located.kind,
+				string(locatorBytes),
+				located.rect,
+				decoded.warningCodes,
+				decoded.blockingColumnOrdinals,
+			)
 			if unitErr != nil {
 				return nil, unitErr
 			}
@@ -64,6 +81,31 @@ func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string,
 			maxCols = len(row)
 		}
 	}
+	rect := sourceRectangle{left: 1, top: 1, right: maxCols, bottom: len(rows)}
+	if rect.right < 1 {
+		rect.right = 1
+	}
+	if rect.bottom < 1 {
+		rect.bottom = 1
+	}
+	return s.discoveredImportUnitAt(rows, locatorKind, locator, rect, nil, nil)
+}
+
+func (s *Service) discoveredImportUnitAt(
+	rows [][]tabularCell,
+	locatorKind string,
+	locator string,
+	rect sourceRectangle,
+	warningCodes []string,
+	blockingColumnOrdinals []int,
+) (DiscoveredUnit, *httpapi.APIError) {
+	if warningCodes == nil {
+		warningCodes = []string{}
+	}
+	if blockingColumnOrdinals == nil {
+		blockingColumnOrdinals = []int{}
+	}
+	maxCols := rect.right - rect.left + 1
 	dataRows := len(rows) - 1
 	if dataRows < 0 {
 		dataRows = 0
@@ -90,7 +132,7 @@ func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string,
 	previewRows := make([]map[string]any, 0)
 	sourceRows := make([]map[string]any, 0)
 	for rowIndex := 1; rowIndex < len(rows) && len(previewRows) < 50; rowIndex++ {
-		sourceRowRef := rowIndex + 1
+		sourceRowRef := rect.top + rowIndex
 		cells := make([]map[string]any, 0, maxCols)
 		for columnIndex := 0; columnIndex < maxCols; columnIndex++ {
 			cell := tabularCell{CellKind: "blank"}
@@ -109,7 +151,7 @@ func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string,
 		})
 	}
 	for rowIndex := 1; rowIndex < len(rows); rowIndex++ {
-		sourceRowRef := rowIndex + 1
+		sourceRowRef := rect.top + rowIndex
 		cells := make([]map[string]any, 0, maxCols)
 		for columnIndex := 0; columnIndex < maxCols; columnIndex++ {
 			cell := tabularCell{CellKind: "blank"}
@@ -130,12 +172,13 @@ func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string,
 	return DiscoveredUnit{
 		LocatorKind:         locatorKind,
 		Locator:             locator,
-		SourceRectA1:        SourceRect(len(rows), maxCols),
-		HeaderRowRef:        1,
-		DataStartRowRef:     2,
+		SourceRectA1:        sourceRectangleA1(rect),
+		HeaderRowRef:        rect.top,
+		DataStartRowRef:     rect.top + 1,
 		InferredRowCount:    dataRows,
 		InferredColumnCount: maxCols,
-		WarningCodes:        []string{},
+		WarningCodes:        warningCodes,
+		BlockingColumns:     blockingColumnOrdinals,
 		Columns:             columns,
 		SourceRows:          sourceRows,
 		PreviewRows:         previewRows,

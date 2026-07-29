@@ -121,7 +121,7 @@ Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-046, AC-063, AC-064, AC-065, AC-066, AC-067, AC-232
 
 **REQ-01-013**
-The current profile MUST limit `import_unit.locator_kind` to `csv_file`, `xlsx_used_range`, `xlsx_table`, `xlsx_named_range`, and `xlsx_region`. Workbook inspection, used-range discovery, table discovery, named-range eligibility checks, operator-selected region previewing, downgrade warnings, and spreadsheet-parser compatibility shims MUST remain inside `imports`.
+The current profile MUST limit emitted and persisted `import_unit.locator_kind` values to `csv_file`, `xlsx_used_range`, `xlsx_table`, `xlsx_named_range`, and `operator_region`. The released OpenAPI projection MAY retain `xlsx_region` as a read-compatible transport enum value, but runtime code MUST NOT emit, accept as a persisted locator, or create that superseded spelling. Workbook inspection, used-range discovery, table discovery, named-range eligibility checks, operator-selected region previewing, downgrade warnings, and spreadsheet-parser compatibility shims MUST remain inside `imports`.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-046, AC-063, AC-064, AC-065, AC-066, AC-067, AC-232
 

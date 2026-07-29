@@ -38,12 +38,14 @@ type unitSelectionState struct {
 	locatorKind        string
 	locator            string
 	sourceRectA1       string
+	blockingColumns    []int32
 }
 
 func unitSelectionStateTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitID uuid.UUID) (unitSelectionState, error) {
 	var state unitSelectionState
 	if err := tx.QueryRow(ctx, `
-SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, locator, source_rect_a1
+SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, locator,
+       source_rect_a1, blocking_source_column_ordinals
   FROM import_units
  WHERE import_session_id = $1
    AND import_unit_id = $2
@@ -55,6 +57,7 @@ SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, lo
 		&state.locatorKind,
 		&state.locator,
 		&state.sourceRectA1,
+		&state.blockingColumns,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return unitSelectionState{}, ErrNotFound
@@ -66,9 +69,35 @@ SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, lo
 
 func (state unitSelectionState) statusAfterSelection() string {
 	if state.mappingFingerprint != nil && *state.mappingFingerprint != "" && len(state.approvedMapping) != 0 {
+		if mappingUsesBlockingColumn(state.approvedMapping, state.blockingColumns) {
+			return "mapped"
+		}
 		return "ready"
 	}
 	return "selected"
+}
+
+func mappingUsesBlockingColumn(approvedMapping []byte, blockingColumns []int32) bool {
+	if len(approvedMapping) == 0 || len(blockingColumns) == 0 {
+		return false
+	}
+	var mapping ApprovedMapping
+	if err := json.Unmarshal(approvedMapping, &mapping); err != nil {
+		return true
+	}
+	blocked := make(map[int]struct{}, len(blockingColumns))
+	for _, ordinal := range blockingColumns {
+		blocked[int(ordinal)] = struct{}{}
+	}
+	for _, column := range mapping.SourceColumns {
+		if column.FieldKey == nil {
+			continue
+		}
+		if _, blockedColumn := blocked[column.SourceColumnOrdinal]; blockedColumn {
+			return true
+		}
+	}
+	return false
 }
 
 func validateProposedSelectionDoesNotOverlapTx(

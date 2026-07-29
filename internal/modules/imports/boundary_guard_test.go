@@ -166,8 +166,13 @@ func TestImportsResponsibilitiesRemainSeparated(t *testing.T) {
 		},
 		{
 			name:      "xlsx.go",
-			required:  []string{"parseXLSXTables", "xlsxRowsToTable", "archiveCompressionRatioExceeded"},
+			required:  []string{"indexXLSXWorkbook", "decodeRectangle", "archiveCompressionRatioExceeded"},
 			forbidden: []string{"http.ResponseWriter", "jobManager"},
+		},
+		{
+			name:      "regions.go",
+			required:  []string{"handleRegion", "CreateOperatorRegion", "operatorRegionWithinLimits"},
+			forbidden: []string{"RegisterHandler(", "applyGenericOwnerUnit("},
 		},
 	}
 	for _, file := range files {

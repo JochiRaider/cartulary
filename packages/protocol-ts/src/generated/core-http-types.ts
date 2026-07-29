@@ -550,7 +550,7 @@ export interface ImportUnit {
   locator: {
     [k: string]: unknown;
   };
-  locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region";
+  locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region" | "operator_region";
   mapping_fingerprint?: string;
   source_rect_a1: string;
   unit_status:

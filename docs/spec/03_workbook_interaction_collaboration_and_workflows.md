@@ -1522,7 +1522,7 @@ Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
 **REQ-03-171**
-`locator_kind` MUST use the closed vocabulary `csv_file`, `xlsx_used_range`, `xlsx_table`, `xlsx_named_range`, and `xlsx_region`.
+`locator_kind` MUST use the closed runtime vocabulary `csv_file`, `xlsx_used_range`, `xlsx_table`, `xlsx_named_range`, and `operator_region`. A released OpenAPI projection MAY retain `xlsx_region` only as a read-compatible transport enum value; runtime state MUST NOT use it.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
@@ -1552,7 +1552,7 @@ The current profile MUST use the following canonical locator shapes:
 - `xlsx_used_range`: `{sheet_name, rect_a1}`,
 - `xlsx_table`: `{sheet_name, table_name, rect_a1}`,
 - `xlsx_named_range`: `{defined_name, sheet_name, rect_a1}`,
-- `xlsx_region`: `{sheet_name, rect_a1}`.
+- `operator_region`: `{sheet_name, rect_a1}`.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 

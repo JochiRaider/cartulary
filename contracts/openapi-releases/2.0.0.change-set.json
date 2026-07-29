@@ -662,6 +662,30 @@
       "classification": "breaking",
       "owner_id": "module.imports",
       "rationale": "Replace the view-schema-only required-member set with Core 01's closed mapping request variant requirements."
+    },
+    {
+      "fingerprint": "f550bc88b1c9dd1abf2f2419e40f3c1cdeebae8bc94923c90033a5215129a40d",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Publish the durable operator-region locator spelling while retaining the released read-compatible enum member."
+    },
+    {
+      "fingerprint": "69d2e5d628eb949924e3154655ff0361d5d97aabeb263ad41302f002a72c4619",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Publish the closed operator-region creation request."
+    },
+    {
+      "fingerprint": "0e67ab78a37472fa310adaeaea243fbb63ffc31a64e47224030784d3042347b0",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Publish the positive one-based inclusive operator-region rectangle."
+    },
+    {
+      "fingerprint": "a1f5f2bb1d0c1eb0ce400ee83a23874c99ac629e6c4d0195ecdcab6738808af2",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Add the operator-region creation operation without changing an existing route."
     }
   ]
 }
