@@ -67,3 +67,21 @@ func CurrentRecoveryStateContributions() []recoverystate.Contribution {
 func CurrentRecoveryStateCatalog() (*recoverystate.Catalog, error) {
 	return recoverystate.Build(CurrentRecoveryStateContributions()...)
 }
+
+func CurrentVNextObjectInventoryCatalog(
+	source recovery.VNextObjectSource,
+) (*recovery.VNextObjectInventoryCatalog, error) {
+	stateCatalog, err := CurrentRecoveryStateCatalog()
+	if err != nil {
+		return nil, err
+	}
+	return recovery.NewVNextObjectInventoryCatalog(
+		stateCatalog,
+		evidence.VNextRecoveryObjectInventory(source),
+		imports.VNextRecoveryObjectInventory(),
+		extensionsrecovery.VNextRecoveryObjectInventory(source),
+		incidentbundlesource.VNextRecoveryObjectInventory(source),
+		referencedatarecovery.VNextRecoveryObjectInventory(source),
+		reporting.VNextRecoveryObjectInventory(source),
+	)
+}

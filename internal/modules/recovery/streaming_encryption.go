@@ -188,6 +188,42 @@ func (storage streamingEncryptedBackupStorage) ReadArtifactStream(
 	return nil
 }
 
+func (storage streamingEncryptedBackupStorage) ResolveObjectProof(
+	ctx context.Context,
+	object VNextObjectManifestEntry,
+) (result BackupArtifactStreamProof, resultErr error) {
+	envelopeRef := object.ArtifactRef + ".envelope.json"
+	reader, storedBytes, err := storage.backend.OpenStoredArtifact(ctx, envelopeRef)
+	if err != nil {
+		return BackupArtifactStreamProof{}, fmt.Errorf("resolve object envelope proof: %w", err)
+	}
+	defer func() {
+		if closeErr := reader.Close(); resultErr == nil && closeErr != nil {
+			resultErr = fmt.Errorf("close object envelope proof: %w", closeErr)
+		}
+	}()
+	hasher := sha256.New()
+	copied, err := io.Copy(hasher, reader)
+	if err != nil {
+		return BackupArtifactStreamProof{}, fmt.Errorf("digest object envelope proof: %w", err)
+	}
+	if copied != storedBytes || storedBytes <= 0 {
+		return BackupArtifactStreamProof{}, fmt.Errorf(
+			"%w: object envelope size changed while resolving proof",
+			ErrInvalidBackupArtifact,
+		)
+	}
+	return BackupArtifactStreamProof{
+		LogicalRef:      object.ArtifactRef,
+		ContentType:     object.ContentType,
+		PlaintextBytes:  object.PlaintextBytes,
+		PlaintextSHA256: object.PlaintextSHA256,
+		EnvelopeRef:     envelopeRef,
+		EnvelopeSHA256:  hex.EncodeToString(hasher.Sum(nil)),
+		EnvelopeBytes:   storedBytes,
+	}, nil
+}
+
 func (storage streamingEncryptedBackupStorage) processBackupArtifactEnvelopeV2(
 	ctx context.Context,
 	proof BackupArtifactStreamProof,

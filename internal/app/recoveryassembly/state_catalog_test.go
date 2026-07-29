@@ -30,6 +30,9 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if got := len(document.ObjectFamilies); got != recoverystate.ObjectFamilyCount {
 		t.Fatalf("object family count = %d, want %d", got, recoverystate.ObjectFamilyCount)
 	}
+	if _, err := CurrentVNextObjectInventoryCatalog(nil); err != nil {
+		t.Fatalf("exact six-family vNext inventory registration: %v", err)
+	}
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
 	}
