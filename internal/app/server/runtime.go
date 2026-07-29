@@ -844,6 +844,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			Postgres:         postgresHandle,
 			RevisionAppender: revisionRuntime.Appender(),
 			Intents:          intentAppender,
+			Timeline:         timelineFacade,
 		},
 	)
 	if err != nil {
@@ -852,7 +853,6 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	}
 	importRoutes := imports.RegisterRoutes(
 		imports.WithLimits(importOwnerLimits, importArchiveLimits),
-		imports.WithTimelineOwner(timelineFacade),
 		imports.WithOwnerCreateRegistry(importOwnerRegistry),
 		imports.WithRevisionAppender(revisionRuntime.Appender()),
 		imports.WithExtensionProfileAdmission(func(profileID string) bool {

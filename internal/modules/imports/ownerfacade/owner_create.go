@@ -13,12 +13,18 @@ import (
 )
 
 type ImportScalarValue struct {
-	Kind      string
-	Text      *string
-	Timestamp *time.Time
-	UUID      *uuid.UUID
-	Number    *int64
-	Bool      *bool
+	Kind            string
+	Text            *string
+	Timestamp       *time.Time
+	UUID            *uuid.UUID
+	Number          *int64
+	Bool            *bool
+	CollectionToken *ImportCollectionToken
+}
+
+type ImportCollectionToken struct {
+	RawText        string
+	NormalizedText string
 }
 
 type ImportFieldValue struct {

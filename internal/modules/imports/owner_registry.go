@@ -5,7 +5,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/gen/importtargetregistry"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
 func NewOwnerCreateRegistry(
@@ -22,9 +21,6 @@ func NewOwnerCreateRegistry(
 				"generated enabled import target %s has no owner-create binding",
 				target.TargetID,
 			)
-		}
-		if *target.TargetViewSchemaID == timeline.TimelineViewSchemaID {
-			continue
 		}
 		expected = append(expected, ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: *target.TargetViewSchemaID,

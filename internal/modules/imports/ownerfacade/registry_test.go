@@ -129,6 +129,23 @@ func TestBoundImportOwnerCreateFacadeRejectsWrongTarget(t *testing.T) {
 	}
 }
 
+func TestImportMutationSequencerAllocatesContiguousOwnerEffects(t *testing.T) {
+	t.Parallel()
+
+	sequencer := NewImportMutationSequencer()
+	first, err := sequencer.Allocate(2)
+	if err != nil || first != 1 {
+		t.Fatalf("first mutation allocation = %d, %v; want 1, nil", first, err)
+	}
+	second, err := sequencer.Allocate(1)
+	if err != nil || second != 3 {
+		t.Fatalf("second mutation allocation = %d, %v; want 3, nil", second, err)
+	}
+	if _, err := sequencer.Allocate(0); err == nil {
+		t.Fatal("zero mutation allocation unexpectedly succeeded")
+	}
+}
+
 func importOwnerCreateTestFacade(
 	t testing.TB,
 	binding ImportOwnerCreateBinding,

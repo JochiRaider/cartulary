@@ -9,22 +9,25 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
-func TestOwnerCreateRegistryComposesEveryCurrentGenericTarget(t *testing.T) {
+func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 	t.Parallel()
 
 	registry, err := NewOwnerCreateRegistry(OwnerRegistryDependencies{
 		Postgres:         inertOwnerRegistryDB{},
 		RevisionAppender: &revisions.Appender{},
 		Intents:          inertIntentAppender{},
+		Timeline:         inertTimelineFacade(),
 	})
 	if err != nil {
 		t.Fatalf("compose owner-create registry: %v", err)
 	}
 	bindings := registry.Bindings()
-	if len(bindings) != 13 {
-		t.Fatalf("generic owner-create bindings = %d, want 13", len(bindings))
+	if len(bindings) != 14 {
+		t.Fatalf("owner-create bindings = %d, want 14", len(bindings))
 	}
 	byTarget := make(map[string]string, len(bindings))
 	for _, binding := range bindings {
@@ -39,13 +42,11 @@ func TestOwnerCreateRegistryComposesEveryCurrentGenericTarget(t *testing.T) {
 		"cartulary.view.task_requests.v1": "tasksdecisions.task_request.import_create",
 		"cartulary.view.decisions.v1":     "tasksdecisions.decision.import_create",
 		"cartulary.view.notes.v1":         "artifacts.note.import_create",
+		"cartulary.view.timeline.v2":      "timeline.import_create",
 	} {
 		if byTarget[target] != facade {
 			t.Fatalf("binding for %s = %q, want %q", target, byTarget[target], facade)
 		}
-	}
-	if _, exists := byTarget["cartulary.view.timeline.v2"]; exists {
-		t.Fatal("Timeline must remain on its characterized RS-03 path until RS-04")
 	}
 }
 
@@ -61,6 +62,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				RevisionAppender: &revisions.Appender{},
 				Intents:          inertIntentAppender{},
+				Timeline:         inertTimelineFacade(),
 			},
 		},
 		{
@@ -68,6 +70,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres: inertOwnerRegistryDB{},
 				Intents:  inertIntentAppender{},
+				Timeline: inertTimelineFacade(),
 			},
 		},
 		{
@@ -75,6 +78,15 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			deps: OwnerRegistryDependencies{
 				Postgres:         inertOwnerRegistryDB{},
 				RevisionAppender: &revisions.Appender{},
+				Timeline:         inertTimelineFacade(),
+			},
+		},
+		{
+			name: "timeline",
+			deps: OwnerRegistryDependencies{
+				Postgres:         inertOwnerRegistryDB{},
+				RevisionAppender: &revisions.Appender{},
+				Intents:          inertIntentAppender{},
 			},
 		},
 	}
@@ -87,6 +99,14 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func inertTimelineFacade() *timeline.Facade {
+	return timeline.NewFacade(
+		inertOwnerRegistryDB{},
+		timeline.Collaborators{},
+		conflicttokens.ConflictTokenCodec{},
+	)
 }
 
 type inertOwnerRegistryDB struct{}

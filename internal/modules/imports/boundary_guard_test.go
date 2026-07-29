@@ -27,6 +27,7 @@ func TestImportsTargetsUseOnlyGeneratedRegistry(t *testing.T) {
 		"internal/modules/indicators",
 		"internal/modules/parties",
 		"internal/modules/tasksdecisions",
+		"internal/modules/timeline",
 		`"cartulary.view.hosts.v1"`,
 		`"cartulary.view.indicators.v1"`,
 		`"network_flow_import_facade_v1"`,
@@ -84,6 +85,7 @@ func TestImportsProductionPackageHasNoConcretePeerStoresOrPeerTableSQL(t *testin
 		"internal/modules/indicators",
 		"internal/modules/parties",
 		"internal/modules/tasksdecisions",
+		"internal/modules/timeline",
 	}
 	for _, file := range files {
 		if strings.HasSuffix(file, "_test.go") {

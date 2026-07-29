@@ -214,7 +214,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 	hostRecordID := createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
 	metadata := `{"client_txn_id":"txn-extension_profile-import-apply-upload","incident_id":"` + incidentID + `"}`
-	csv := "host,summary,source_note\nhost-1, Alpha summary ,raw-a\nhost-2,Beta summary,raw-b\n"
+	csv := "host,summary,source_note,tag\nhost-1, Alpha summary ,raw-a,Urgent\nhost-2,Beta summary,raw-b,Review\n"
 
 	uploadResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "apply.csv", false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -255,6 +255,15 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 				"source_column_ordinal": 3,
 				"source_header_text":    "source_note",
 				"field_key":             nil,
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 4,
+				"source_header_text":    "tag",
+				"field_key":             "timeline.tags",
 				"entity_binding_mode":   nil,
 				"transform_id":          nil,
 				"transform_options":     map[string]any{},
@@ -323,13 +332,216 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	requireTimelineHostMentionUnresolved(t, rowsBySummary["Alpha summary"], "host-1")
 	requireTimelineHostMentionUnresolved(t, rowsBySummary["Beta summary"], "host-2")
 	requireImportedHostMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "host-1")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:C3")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:C3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:D3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:D3")
+
+	unitClientTxnID := "import:" + sessionID + ":" + unitID + ":txn-extension_profile-import-apply-apply"
+	var changeSetID string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT change_set_id::text
+  FROM change_sets
+ WHERE source = 'imports.apply'
+   AND client_txn_id = $1
+`, unitClientTxnID).Scan(&changeSetID); err != nil {
+		t.Fatalf("query Timeline unit change set: %v", err)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id::text = $1
+`, changeSetID); got != 4 {
+		t.Fatalf("expected two Timeline row and two tag mutations, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM change_set_mutations
+ WHERE change_set_id::text = $1
+   AND sequence_no BETWEEN 1 AND 4
+`, changeSetID); got != 4 {
+		t.Fatalf("expected contiguous Timeline mutation order, got %d rows", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_revisions
+ WHERE change_set_id::text = $1
+`, changeSetID); got != 2 {
+		t.Fatalf("expected two Timeline revisions in the unit change set, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM timeline_grid_projection
+ WHERE incident_id::text = $1
+`, incidentID); got != 2 {
+		t.Fatalf("expected two Timeline projection rows, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM import_apply_journal
+ WHERE import_session_id::text = $1
+   AND change_set_id::text = $2
+`, sessionID, changeSetID); got != 2 {
+		t.Fatalf("expected two Timeline journal rows in the unit change set, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents
+ WHERE source_change_set_id::text = $1
+   AND event_family = 'record_changed'
+`, changeSetID); got != 2 {
+		t.Fatalf("expected two Timeline record-change intents, got %d", got)
+	}
+
+	replayApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-apply"})
+	replayedJob := httptestx.RequireSuccessEnvelope(t, replayApply, http.StatusAccepted)["data"].(map[string]any)
+	if replayedJob["job_id"] != applyJob["job_id"] {
+		t.Fatalf("exact Timeline apply replay returned a different job: first=%#v replay=%#v", applyJob, replayedJob)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM timeline_events
+ WHERE incident_id::text = $1
+`, incidentID); got != 2 {
+		t.Fatalf("exact Timeline replay duplicated owner effects: %d rows", got)
+	}
 
 	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-second"})
 	errBody := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "duplicate_apply_blocked" {
 		t.Fatalf("unexpected duplicate apply error: %#v", errBody)
+	}
+}
+
+func TestTimelineOwnerUnitRollsBackWhenJournalFails_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartDefaultServer(t, "extension_profile-import-timeline-owner-rollback")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-extension_profile-import-timeline-rollback-incident",
+		"incident_key":  "IR-EXTENSION-PROFILE-TIMELINE-ROLLBACK",
+		"title":         "Timeline import owner rollback",
+	})
+	incidentID := incident["incident_id"].(string)
+	sessionID, unitID := startCSVImportSession(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		incidentID,
+		"txn-extension_profile-import-timeline-rollback-upload",
+		"summary\nmust roll back\n",
+		"timeline-rollback.csv",
+	)
+	mapping := map[string]any{
+		"client_txn_id":         "txn-extension_profile-import-timeline-rollback-mapping",
+		"target_view_schema_id": "cartulary.view.timeline.v2",
+		"header_row_ref":        1,
+		"data_start_row_ref":    2,
+		"unknown_column_policy": "preserve_raw_capture",
+		"source_columns": []map[string]any{{
+			"source_column_ordinal": 1,
+			"source_header_text":    "summary",
+			"field_key":             "timeline.activity_synopsis_text",
+			"entity_binding_mode":   nil,
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		}},
+	}
+	mappingResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPut,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
+		mapping,
+	)
+	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+	selectResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+		map[string]any{"client_txn_id": "txn-extension_profile-import-timeline-rollback-select"},
+	)
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+
+	if _, err := harness.DB.ExecContext(
+		context.Background(),
+		`
+CREATE FUNCTION public.fail_import_journal_timeline_rs04()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'injected Timeline journal failure';
+END;
+$$
+`,
+	); err != nil {
+		t.Fatalf("create Timeline journal failure function: %v", err)
+	}
+	if _, err := harness.DB.ExecContext(
+		context.Background(),
+		`
+CREATE TRIGGER fail_import_journal_timeline_rs04
+BEFORE INSERT ON import_apply_journal
+FOR EACH ROW
+EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
+`,
+	); err != nil {
+		t.Fatalf("create Timeline journal failure trigger: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = harness.DB.ExecContext(
+			context.Background(),
+			"DROP TRIGGER IF EXISTS fail_import_journal_timeline_rs04 ON import_apply_journal",
+		)
+		_, _ = harness.DB.ExecContext(
+			context.Background(),
+			"DROP FUNCTION IF EXISTS public.fail_import_journal_timeline_rs04()",
+		)
+	})
+
+	applyResp := doImportJSON(
+		t,
+		harness.Server.HTTP.URL,
+		adminLogin,
+		http.MethodPost,
+		"/api/v1/import-sessions/"+sessionID+"/apply",
+		map[string]any{"client_txn_id": "txn-extension_profile-import-timeline-rollback-apply"},
+	)
+	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+	applyJobResp := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
+		nil,
+		httptestx.WithCookies(adminLogin.SessionCookie),
+	)
+	failedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	if failedJob["status"] != "failed" {
+		t.Fatalf("expected failed Timeline apply job, got %#v", failedJob)
+	}
+	for table, query := range map[string]string{
+		"Timeline source":     `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`,
+		"record envelope":     `SELECT COUNT(*) FROM records WHERE incident_id::text = $1 AND record_type = 'timeline_event'`,
+		"Timeline projection": `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`,
+		"apply journal":       `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`,
+		"unit change set":     `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1 AND source = 'imports.apply' AND client_txn_id = $2`,
+	} {
+		args := []any{incidentID}
+		if table == "apply journal" {
+			args = []any{sessionID}
+		}
+		if table == "unit change set" {
+			args = []any{
+				incidentID,
+				"import:" + sessionID + ":" + unitID + ":txn-extension_profile-import-timeline-rollback-apply",
+			}
+		}
+		if got := dbassert.CountSQL(t, harness.DB, query, args...); got != 0 {
+			t.Fatalf("%s survived failed Timeline unit transaction: %d", table, got)
+		}
 	}
 }
 

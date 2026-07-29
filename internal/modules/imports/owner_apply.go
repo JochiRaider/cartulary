@@ -46,13 +46,22 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 		return err
 	}
 
+	mutationSequencer := ownerfacade.NewImportMutationSequencer()
 	for index, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		if rowRef <= 0 {
 			return fmt.Errorf("import source row missing source_row_ref")
 		}
 		rowClientTxnID := fmt.Sprintf("%s:%d", clientTxnID, rowRef)
-		request, err := importOwnerCreateRequest(start, unit, actor.ID, sourceRow, rowRef, rowClientTxnID)
+		request, err := importOwnerCreateRequest(
+			start,
+			unit,
+			actor.ID,
+			sourceRow,
+			rowRef,
+			rowClientTxnID,
+			owner,
+		)
 		if err != nil {
 			return err
 		}
@@ -60,10 +69,11 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 			ctx,
 			tx,
 			ownerfacade.ImportOwnerCreateCommand{
-				Request:     request,
-				ChangeSetID: changeSetID,
-				SequenceNo:  index + 1,
-				Now:         now,
+				Request:           request,
+				ChangeSetID:       changeSetID,
+				SequenceNo:        index + 1,
+				MutationSequencer: mutationSequencer,
+				Now:               now,
 			},
 		)
 		if err != nil {
@@ -108,7 +118,15 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	return nil
 }
 
-func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorID uuid.UUID, sourceRow map[string]any, rowRef int, clientTxnID string) (ownerfacade.ImportOwnerCreateRequest, error) {
+func importOwnerCreateRequest(
+	start ApplyStartResult,
+	unit ApplyUnitData,
+	actorID uuid.UUID,
+	sourceRow map[string]any,
+	rowRef int,
+	clientTxnID string,
+	owner ownerfacade.ImportOwnerCreateFacade,
+) (ownerfacade.ImportOwnerCreateRequest, error) {
 	cells := sourceRowCellsByOrdinal(sourceRow)
 	request := ownerfacade.ImportOwnerCreateRequest{
 		IncidentID:          start.IncidentID,
@@ -145,7 +163,11 @@ func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorI
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateRequest{}, err
 		}
-		value, include, err := ownerfacade.NormalizeImportScalar(unit.ApprovedMapping.TargetViewSchemaID, *column.FieldKey, transformed, column.EmptyValuePolicy)
+		value, include, err := owner.NormalizeImportField(
+			*column.FieldKey,
+			transformed,
+			column.EmptyValuePolicy,
+		)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateRequest{}, err
 		}

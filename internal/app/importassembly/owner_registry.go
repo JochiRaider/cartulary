@@ -23,6 +23,7 @@ type OwnerRegistryDependencies struct {
 	Postgres         postgres.DB
 	RevisionAppender *revisions.Appender
 	Intents          collaboration.IntentAppender
+	Timeline         *timeline.Facade
 }
 
 func NewOwnerCreateRegistry(
@@ -41,6 +42,11 @@ func NewOwnerCreateRegistry(
 			"compose import owner-create registry: Collaboration intents are required",
 		)
 	}
+	if dependencies.Timeline == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Timeline owner is required",
+		)
+	}
 
 	facades := make([]ownerfacade.ImportOwnerCreateFacade, 0)
 	for _, target := range importtargetregistry.Targets {
@@ -53,9 +59,6 @@ func NewOwnerCreateRegistry(
 				"compose import owner-create registry: generated target %s has no binding",
 				target.TargetID,
 			)
-		}
-		if *target.TargetViewSchemaID == timeline.TimelineViewSchemaID {
-			continue
 		}
 		facade, err := newOwnerCreateFacade(
 			target.OwnerContractRef,
@@ -133,6 +136,12 @@ func newOwnerCreateFacade(
 			targetViewSchemaID,
 			facadeID,
 			dependencies.RevisionAppender,
+		)
+	case "module.timeline@2":
+		return timeline.NewImportCreateFacade(
+			targetViewSchemaID,
+			facadeID,
+			dependencies.Timeline,
 		)
 	default:
 		return nil, fmt.Errorf("unsupported source owner %s", ownerContractRef)
