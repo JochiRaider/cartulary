@@ -58,6 +58,12 @@ type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebu
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
 type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recoverystate.Catalog) error
+type VNextCaptureFactory func(
+	PostgresPool,
+	objectstore.Store,
+	recovery.BackupStorage,
+	*recoverystate.Catalog,
+) (*recovery.VNextCaptureService, error)
 
 type Service struct {
 	LoadDeployment         DeploymentLoader
@@ -70,6 +76,7 @@ type Service struct {
 	ExtensionBackups       *recovery.ExtensionBackupCatalog
 	RecoveryStateCatalog   *recoverystate.Catalog
 	ValidateStateCoverage  RecoveryStateCoverageValidator
+	NewVNextCapture        VNextCaptureFactory
 	Now                    func() time.Time
 }
 
@@ -148,7 +155,12 @@ func (service Service) backupInspectLatest(ctx context.Context, parsed operation
 	}
 	defer closeFn()
 	ReportProgress(progress, "catalog_select", 0, nil)
-	selection, err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).RestoreCandidateBackupSelection(ctx, service.now())
+	selection, err := recovery.NewBackupCatalog(
+		recovery.NewStore(pool),
+		backupStorage,
+		service.ExtensionBackups,
+		service.RecoveryStateCatalog,
+	).RestoreCandidateBackupSelection(ctx, service.now())
 	if err != nil {
 		return Result{}, classifyAdmissionFailure(err)
 	}
@@ -179,56 +191,38 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 
 	consistencyPointAt := service.now()
 	backupSetID := uuid.New()
-	ReportProgress(progress, "postgres_backup", 0, nil)
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, pool)
-	if err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, fmt.Errorf("capture postgres artifact: %w", err))
-	}
-	if err := service.validateLegacySnapshotShadow(postgresArtifact); err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
-	}
-	evidenceProvider, err := service.newEvidenceProvider(pool)
-	if err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
-	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidenceProvider)
-	if err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPostgres, err)
-	}
-	objectBucket, err := backupObjectStoreBucket(cfg)
-	if err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, err)
-	}
 	objectStore, err := service.setupObjectStore(ctx, cfg)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, fmt.Errorf("open object store: %w", err))
 	}
 	defer func() { _ = objectStore.Close() }()
+	if service.NewVNextCapture == nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(
+			FailureBackupPublication,
+			errors.New("vNext capture assembly is unavailable"),
+		)
+	}
+	capture, err := service.NewVNextCapture(pool, objectStore, backupStorage, service.RecoveryStateCatalog)
+	if err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, err)
+	}
+	ReportProgress(progress, "postgres_backup", 0, nil)
 	ReportProgress(progress, "object_backup", 0, nil)
-	objectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, objectStore, recovery.ObjectStoreBackupCaptureParams{
-		BackupSetID:               backupSetID,
-		ConsistencyPointAt:        consistencyPointAt,
-		Bucket:                    objectBucket,
-		BlobObjectIDsByStorageRef: blobIndex,
+	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
+		BackupSetID:        backupSetID,
+		ConsistencyPointAt: consistencyPointAt,
+		CreatedAt:          consistencyPointAt,
+		RetainedUntil:      consistencyPointAt.Add(recovery.MinimumRetentionDuration),
 	})
 	if err != nil {
-		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, fmt.Errorf("capture object-store artifacts: %w", err))
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, fmt.Errorf("capture vNext backup: %w", err))
 	}
 	ReportProgress(progress, "attestation_write", 0, nil)
-	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-		BackupSetID:                       backupSetID,
-		ConsistencyPointAt:                consistencyPointAt,
-		CreatedAt:                         consistencyPointAt,
-		RetainedUntil:                     consistencyPointAt.Add(recovery.MinimumRetentionDuration),
-		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
-		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifacts.SnapshotBody, ContentType: "application/json"},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectArtifacts.ManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectArtifacts.SummaryBody, ContentType: "application/json"},
-	})
+	backupSet, err := recovery.NewStore(pool).PublishVNextCapturedBackup(ctx, captured)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, fmt.Errorf("capture backup set: %w", err))
 	}
-	if err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage, service.ExtensionBackups).VerifyBackupSetDurability(ctx, backupSet); err != nil {
+	if err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog).VerifyBackupSetDurability(ctx, backupSet); err != nil {
 		return ResultForBackupSet(backupSet, "backup_attestation", "cartulary.backup_attestation.v1"), NewFailure(FailureBackupArtifactReadback, fmt.Errorf("verify captured backup durability: %w", err))
 	}
 	ReportProgress(progress, "journal_write", 0, nil)
@@ -264,7 +258,12 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 		return Result{}, NewFailure(FailureRestoreInvariantCheck, err)
 	}
 	sourceStore := recovery.NewStore(sourcePool)
-	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).RestoreCandidateBackup(ctx, service.now())
+	backupSet, err := recovery.NewBackupCatalog(
+		sourceStore,
+		backupStorage,
+		service.ExtensionBackups,
+		service.RecoveryStateCatalog,
+	).RestoreCandidateBackup(ctx, service.now())
 	if err != nil {
 		return Result{}, classifyAdmissionFailure(err)
 	}
@@ -292,7 +291,12 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
 	ReportProgress(progress, "invariant_check", 0, nil)
-	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups).RestoreBackupSet(admission.Context(), target, backupSet)
+	result, err := recovery.NewVersionedRestoreRunner(
+		sourceStore,
+		backupStorage,
+		service.ExtensionBackups,
+		service.RecoveryStateCatalog,
+	).RestoreBackupSet(admission.Context(), target, backupSet)
 	if admissionErr := admission.AssertHeld(); admissionErr != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetServingTraffic, admissionErr)
 	}
@@ -341,7 +345,7 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
-	basis, err := restoreVerificationBasisForConfig(sourceCfg)
+	basis, err := service.restoreVerificationBasisForConfig(sourceCfg)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
@@ -355,7 +359,15 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	ReportProgress(progress, "invariant_check", 0, nil)
 	ReportProgress(progress, "workbook_probe", 0, nil)
 	sourceStore := recovery.NewStore(sourcePool)
-	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups))
+	verify := recovery.NewRestoreVerificationService(
+		sourceStore,
+		recovery.NewVersionedRestoreRunner(
+			sourceStore,
+			backupStorage,
+			service.ExtensionBackups,
+			service.RecoveryStateCatalog,
+		),
+	)
 	result, err := verify.VerifyLatestSuccessfulRetained(admission.Context(), target, service.now(), basis)
 	outcome = ResultForStoredBackupSet(result.BackupSet)
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
@@ -410,19 +422,32 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
-	basis, err := restoreVerificationBasisForConfig(sourceCfg)
+	basis, err := service.restoreVerificationBasisForConfig(sourceCfg)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
 	sourceStore := recovery.NewStore(sourcePool)
-	due, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
+	due, err := recovery.NewBackupCatalog(
+		sourceStore,
+		backupStorage,
+		service.ExtensionBackups,
+		service.RecoveryStateCatalog,
+	).ListBackupsDueForRestoreVerification(ctx, service.now(), basis)
 	if err != nil {
 		return Result{}, classifyAdmissionFailure(err)
 	}
 	if len(due) == 0 {
 		return Result{ArtifactRefs: []ArtifactRef{}, Status: ResultNoOp}, nil
 	}
-	verify := recovery.NewRestoreVerificationService(sourceStore, recovery.NewRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups))
+	verify := recovery.NewRestoreVerificationService(
+		sourceStore,
+		recovery.NewVersionedRestoreRunner(
+			sourceStore,
+			backupStorage,
+			service.ExtensionBackups,
+			service.RecoveryStateCatalog,
+		),
+	)
 	for _, backupSet := range due {
 		target, err := service.restoreVerificationTarget(targetPool, targetObjectStore)
 		if err != nil {
@@ -818,12 +843,17 @@ func backupObjectStoreBucket(deployment Deployment) (string, error) {
 	}
 }
 
-func restoreVerificationBasisForConfig(deployment Deployment) (string, error) {
+func (service Service) restoreVerificationBasisForConfig(deployment Deployment) (string, error) {
+	if service.RecoveryStateCatalog == nil {
+		return "", recoverystate.ErrInvalidCatalog
+	}
 	return recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism":         "cartulary.backup.filesystem_snapshot.v1",
-		"database_storage_binding": rootBindingBasis(deployment.DatabaseStorage),
-		"object_storage_binding":   rootBindingBasis(deployment.ObjectStorage),
-		"backup_storage_binding":   rootBindingBasis(deployment.BackupStorage),
+		"backup_mechanism":              recovery.BackupIntegrityManifestV3SchemaID,
+		"codec_registry_sha256":         recovery.VNextCodecRegistrySHA256(),
+		"recovery_state_catalog_sha256": service.RecoveryStateCatalog.DigestSHA256(),
+		"database_storage_binding":      rootBindingBasis(deployment.DatabaseStorage),
+		"object_storage_binding":        rootBindingBasis(deployment.ObjectStorage),
+		"backup_storage_binding":        rootBindingBasis(deployment.BackupStorage),
 	})
 }
 

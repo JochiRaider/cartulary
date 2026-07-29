@@ -32,6 +32,7 @@ const (
 	vNextIntegrityManifestDigestDomain  = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"
 	vNextNDJSONContentType              = "application/x-ndjson"
 	vNextJSONContentType                = "application/json"
+	VNextMetadataArtifactScheme         = "backup-stream-v2://"
 )
 
 var ErrVNextBackup = errors.New("recovery: invalid vNext backup")
@@ -291,9 +292,11 @@ type VNextBackupIntegrityManifest struct {
 }
 
 type VNextCapturedBackup struct {
-	BackupSetID       uuid.UUID
-	IntegrityProof    BackupArtifactStreamProof
-	IntegrityManifest VNextBackupIntegrityManifest
+	BackupSetID         uuid.UUID
+	PostgresProof       BackupArtifactStreamProof
+	ObjectManifestProof BackupArtifactStreamProof
+	IntegrityProof      BackupArtifactStreamProof
+	IntegrityManifest   VNextBackupIntegrityManifest
 }
 
 type VNextCaptureParams struct {
@@ -453,8 +456,51 @@ func (service *VNextCaptureService) Capture(
 	}
 	_ = objectProofs // object proofs are bound by the private object manifest.
 	return VNextCapturedBackup{
-		BackupSetID: params.BackupSetID, IntegrityProof: integrityProof, IntegrityManifest: integrity,
+		BackupSetID: params.BackupSetID, PostgresProof: postgresProof,
+		ObjectManifestProof: objectManifestProof,
+		IntegrityProof:      integrityProof, IntegrityManifest: integrity,
 	}, nil
+}
+
+func VNextMetadataArtifactKey(logicalRef string) string {
+	return VNextMetadataArtifactScheme + logicalRef
+}
+
+func VNextLogicalRefFromMetadataKey(key string) (string, bool) {
+	if !strings.HasPrefix(key, VNextMetadataArtifactScheme) {
+		return "", false
+	}
+	logicalRef := strings.TrimPrefix(key, VNextMetadataArtifactScheme)
+	if _, err := validateBackupLogicalRef(logicalRef); err != nil {
+		return "", false
+	}
+	return logicalRef, true
+}
+
+func VNextProofFromMetadata(
+	ctx context.Context,
+	storage StreamingBackupStorage,
+	key string,
+	contentType string,
+	plaintextBytes int64,
+	plaintextSHA256 string,
+) (BackupArtifactStreamProof, error) {
+	logicalRef, ok := VNextLogicalRefFromMetadataKey(key)
+	if !ok {
+		return BackupArtifactStreamProof{}, fmt.Errorf("%w: invalid vNext metadata key", ErrVNextBackup)
+	}
+	resolver, ok := storage.(VNextObjectProofResolver)
+	if !ok {
+		return BackupArtifactStreamProof{}, fmt.Errorf("%w: vNext proof resolver is required", ErrVNextBackup)
+	}
+	return resolver.ResolveObjectProof(ctx, VNextObjectManifestEntry{
+		LogicalObjectID: "metadata",
+		StorageKey:      key,
+		ContentType:     contentType,
+		PlaintextBytes:  plaintextBytes,
+		PlaintextSHA256: plaintextSHA256,
+		ArtifactRef:     logicalRef,
+	})
 }
 
 func (service *VNextCaptureService) captureTableUnit(
@@ -1235,6 +1281,92 @@ func strictDecodeJSON(body []byte, destination any) error {
 			return fmt.Errorf("trailing JSON value")
 		}
 		return err
+	}
+	return nil
+}
+
+func verifyVNextBackupSetDurability(
+	ctx context.Context,
+	storage BackupStorage,
+	stateCatalog *recoverystate.Catalog,
+	backupSet BackupSet,
+) error {
+	if stateCatalog == nil {
+		return fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
+	}
+	streaming, err := RequireStreamingBackupStorage(storage)
+	if err != nil {
+		return err
+	}
+	integrityProof, err := VNextProofFromMetadata(
+		ctx,
+		streaming,
+		backupSet.IntegrityManifestKey,
+		vNextJSONContentType,
+		backupSet.IntegrityManifestSizeBytes,
+		backupSet.IntegrityManifestSHA256,
+	)
+	if err != nil {
+		return err
+	}
+	if integrityProof.PlaintextBytes > 32<<20 {
+		return fmt.Errorf("%w: integrity manifest exceeds bound", ErrVNextBackup)
+	}
+	var integrityBody bytes.Buffer
+	if err := streaming.ReadArtifactStream(ctx, integrityProof, &integrityBody); err != nil {
+		return err
+	}
+	var integrity VNextBackupIntegrityManifest
+	if err := strictDecodeJSON(integrityBody.Bytes(), &integrity); err != nil {
+		return fmt.Errorf("%w: decode integrity manifest: %v", ErrVNextBackup, err)
+	}
+	algorithms, err := NewVNextRestoreAlgorithmCatalog(
+		stateCatalog,
+		RequiredVNextRestoreAlgorithmIDs(stateCatalog)...,
+	)
+	if err != nil {
+		return err
+	}
+	restore, err := NewVNextRestoreService(streaming, stateCatalog, algorithms)
+	if err != nil {
+		return err
+	}
+	if err := restore.validateIntegrityManifest(integrity); err != nil {
+		return err
+	}
+	if integrity.BackupSetID != backupSet.BackupSetID.String() ||
+		!integrity.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) {
+		return fmt.Errorf("%w: integrity manifest does not match backup metadata", ErrVNextBackup)
+	}
+	proofs := make(map[string]VNextArtifactProof, len(integrity.Artifacts))
+	for _, proof := range integrity.Artifacts {
+		if _, duplicate := proofs[proof.LogicalRef]; duplicate {
+			return fmt.Errorf("%w: duplicate artifact proof", ErrVNextBackup)
+		}
+		proofs[proof.LogicalRef] = proof
+		if err := streaming.ReadArtifactStream(ctx, streamProof(proof), io.Discard); err != nil {
+			return err
+		}
+	}
+	postgresLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.PostgresArtifactKey)
+	if !ok || postgresLogicalRef != integrity.PostgresSnapshotRef {
+		return fmt.Errorf("%w: postgres metadata selector mismatch", ErrVNextBackup)
+	}
+	postgresProof, ok := proofs[postgresLogicalRef]
+	if !ok ||
+		postgresProof.PlaintextBytes != backupSet.PostgresArtifactSizeBytes ||
+		postgresProof.PlaintextSHA256 != backupSet.PostgresArtifactSHA256 {
+		return fmt.Errorf("%w: postgres metadata proof mismatch", ErrVNextBackup)
+	}
+	objectLogicalRef, ok := VNextLogicalRefFromMetadataKey(backupSet.ObjectStoreArtifactKey)
+	if !ok || objectLogicalRef != integrity.ObjectStoreManifestRef {
+		return fmt.Errorf("%w: object metadata selector mismatch", ErrVNextBackup)
+	}
+	objectProof, ok := proofs[objectLogicalRef]
+	if !ok ||
+		objectProof.PlaintextBytes != backupSet.ObjectStoreArtifactSizeBytes ||
+		objectProof.PlaintextSHA256 != backupSet.ObjectStoreArtifactSHA256 {
+		return fmt.Errorf("%w: object metadata proof mismatch", ErrVNextBackup)
 	}
 	return nil
 }

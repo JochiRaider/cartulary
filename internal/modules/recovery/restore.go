@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 type RestoreStep string
@@ -64,6 +65,7 @@ type RestoreRunner struct {
 	storage          BackupStorage
 	extensionBackups *ExtensionBackupCatalog
 	now              func() time.Time
+	stateCatalog     *recoverystate.Catalog
 }
 
 type RestoreTarget struct {
@@ -123,6 +125,17 @@ func NewRestoreRunner(store backupRepository, storage BackupStorage, extensionBa
 	}
 }
 
+func NewVersionedRestoreRunner(
+	store backupRepository,
+	storage BackupStorage,
+	extensionBackups *ExtensionBackupCatalog,
+	stateCatalog *recoverystate.Catalog,
+) *RestoreRunner {
+	runner := NewRestoreRunner(store, storage, extensionBackups)
+	runner.stateCatalog = stateCatalog
+	return runner
+}
+
 func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context, target RestoreTarget, asOf time.Time) (RestoreResult, error) {
 	if runner == nil || runner.store == nil || runner.storage == nil || runner.extensionBackups == nil {
 		return RestoreResult{}, fmt.Errorf("%w: restore runner requires store and backup storage", ErrInvalidBackupMetadata)
@@ -175,6 +188,9 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	}
 	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups); err != nil {
 		return RestoreResult{}, err
+	}
+	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); vNext {
+		return runner.restoreVNextBackupSet(ctx, target, backupSet)
 	}
 	artifacts, err := runner.loadSelectedRestoreArtifacts(ctx, backupSet)
 	if err != nil {
@@ -234,6 +250,232 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 		}
 	}
 	return result, nil
+}
+
+func (runner *RestoreRunner) restoreVNextBackupSet(
+	ctx context.Context,
+	target RestoreTarget,
+	backupSet BackupSet,
+) (RestoreResult, error) {
+	if runner.stateCatalog == nil {
+		return RestoreResult{}, fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
+	}
+	streaming, err := RequireStreamingBackupStorage(runner.storage)
+	if err != nil {
+		return RestoreResult{}, err
+	}
+	algorithms, err := NewVNextRestoreAlgorithmCatalog(
+		runner.stateCatalog,
+		RequiredVNextRestoreAlgorithmIDs(runner.stateCatalog)...,
+	)
+	if err != nil {
+		return RestoreResult{}, err
+	}
+	restore, err := NewVNextRestoreService(streaming, runner.stateCatalog, algorithms)
+	if err != nil {
+		return RestoreResult{}, err
+	}
+	integrityProof, err := VNextProofFromMetadata(
+		ctx,
+		streaming,
+		backupSet.IntegrityManifestKey,
+		vNextJSONContentType,
+		backupSet.IntegrityManifestSizeBytes,
+		backupSet.IntegrityManifestSHA256,
+	)
+	if err != nil {
+		return RestoreResult{}, err
+	}
+	recordStep(target.Observer, RestoreStepPostgresRestore)
+	recordStep(target.Observer, RestoreStepObjectStoreRestore)
+	if err := restore.Restore(ctx, &vNextRestoreTarget{
+		target: target, stateCatalog: runner.stateCatalog,
+	}, integrityProof); err != nil {
+		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepPostgresRestore, err)
+	}
+	recordStep(target.Observer, RestoreStepProjectionRebuild)
+	projectionResult, err := target.Projections.RebuildRestoreProjections(
+		ctx,
+		restoreProjectionRebuildRequest(backupSet),
+	)
+	if err != nil {
+		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepProjectionRebuild, err)
+	}
+	if !projectionResult.ReadinessSatisfied() {
+		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(
+			RestoreStepProjectionRebuild,
+			fmt.Errorf("%w: projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact),
+		)
+	}
+	recordStep(target.Observer, RestoreStepConsistencyCheck)
+	report, err := vNextConsistencyReport(ctx, target, runner.stateCatalog, backupSet)
+	if err != nil {
+		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepConsistencyCheck, err)
+	}
+	result := RestoreResult{
+		BackupSet: backupSet, ConsistencyReport: report,
+		ProjectionRebuildResult: projectionResult,
+	}
+	if target.Readiness != nil {
+		recordStep(target.Observer, RestoreStepReadiness)
+		if err := target.Readiness.MarkRestoreReady(ctx, result); err != nil {
+			return result, restoreStageFailure(RestoreStepReadiness, err)
+		}
+	}
+	return result, nil
+}
+
+type vNextRestoreTarget struct {
+	target       RestoreTarget
+	stateCatalog *recoverystate.Catalog
+}
+
+func (target *vNextRestoreTarget) WithAtomicRestore(
+	ctx context.Context,
+	run func(VNextRestoreMutation) error,
+) error {
+	tx, err := target.target.Postgres.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin vNext restore: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
+		return fmt.Errorf("disable vNext restore referential triggers: %w", err)
+	}
+	mutation := &vNextRestoreMutation{
+		tx: tx, objects: target.target.ObjectStore, stateCatalog: target.stateCatalog,
+	}
+	if err := run(mutation); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit vNext restore: %w", err)
+	}
+	return nil
+}
+
+type vNextRestoreMutation struct {
+	tx           pgx.Tx
+	objects      objectstore.Store
+	stateCatalog *recoverystate.Catalog
+}
+
+func (mutation *vNextRestoreMutation) PreparePostgresTables(
+	ctx context.Context,
+	_ []string,
+) error {
+	tableNames := make([]string, 0)
+	for _, table := range mutation.stateCatalog.Document().Tables {
+		switch table.RestoreAction {
+		case recoverystate.RestoreState, recoverystate.RebuildState, recoverystate.InvalidateState:
+			tableNames = append(tableNames, table.TableName)
+		}
+	}
+	if len(tableNames) == 0 {
+		return fmt.Errorf("%w: restore catalog has no tables", ErrVNextBackup)
+	}
+	if _, err := mutation.tx.Exec(
+		ctx,
+		"TRUNCATE "+sanitizedTableList(tableNames)+" RESTART IDENTITY CASCADE",
+	); err != nil {
+		return fmt.Errorf("truncate vNext restore target: %w", err)
+	}
+	return nil
+}
+
+func (mutation *vNextRestoreMutation) InsertPostgresRow(
+	ctx context.Context,
+	tableName string,
+	row json.RawMessage,
+) error {
+	identifier := pgx.Identifier{tableName}.Sanitize()
+	query := fmt.Sprintf(
+		"INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb)",
+		identifier,
+		identifier,
+	)
+	if _, err := mutation.tx.Exec(ctx, query, string(row)); err != nil {
+		return fmt.Errorf("restore vNext table %s: %w", tableName, err)
+	}
+	return nil
+}
+
+func (mutation *vNextRestoreMutation) FinishPostgresTable(
+	ctx context.Context,
+	tableName string,
+) error {
+	return resetOwnedSequences(ctx, mutation.tx, tableName)
+}
+
+func (mutation *vNextRestoreMutation) RestoreObject(
+	ctx context.Context,
+	object VNextObjectManifestEntry,
+	reader io.Reader,
+) error {
+	hasher := sha256.New()
+	counted := &countedReader{reader: io.TeeReader(reader, hasher)}
+	if err := mutation.objects.PutObject(
+		ctx,
+		object.StorageKey,
+		counted,
+		object.PlaintextBytes,
+		object.ContentType,
+	); err != nil {
+		return fmt.Errorf("restore vNext object %s: %w", object.StorageKey, err)
+	}
+	if counted.count != object.PlaintextBytes ||
+		hex.EncodeToString(hasher.Sum(nil)) != object.PlaintextSHA256 {
+		return fmt.Errorf("%w: restored object stream proof mismatch", ErrVNextBackup)
+	}
+	return nil
+}
+
+func (*vNextRestoreMutation) RunCatalogAlgorithm(context.Context, string) error {
+	// PreparePostgresTables invalidates every excluded table. Owner projection
+	// rebuilders run once after authoritative state commits.
+	return nil
+}
+
+func vNextConsistencyReport(
+	ctx context.Context,
+	target RestoreTarget,
+	stateCatalog *recoverystate.Catalog,
+	backupSet BackupSet,
+) (RestoreConsistencyReport, error) {
+	var authoritativeCount int
+	for _, tableName := range stateCatalog.RequiredTableNames() {
+		var count int
+		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
+		if err := target.Postgres.QueryRow(ctx, query).Scan(&count); err != nil {
+			return RestoreConsistencyReport{}, fmt.Errorf("count restored vNext table %s: %w", tableName, err)
+		}
+		authoritativeCount += count
+	}
+	var changeSetCount int
+	if err := target.Postgres.QueryRow(ctx, `
+SELECT (SELECT COUNT(*) FROM change_sets)
+     + (SELECT COUNT(*) FROM change_set_mutations)
+     + (SELECT COUNT(*) FROM record_history_entry_refs)
+     + (SELECT COUNT(*) FROM record_revisions)
+`).Scan(&changeSetCount); err != nil {
+		return RestoreConsistencyReport{}, fmt.Errorf("count restored vNext change sets: %w", err)
+	}
+	blobDigest, blobCount, err := verifyRestoredBlobRowsDetailed(
+		ctx,
+		target.EvidenceObjects,
+		target.ObjectStore,
+	)
+	if err != nil {
+		return RestoreConsistencyReport{}, err
+	}
+	return RestoreConsistencyReport{
+		AuthoritativeRowsSHA256: backupSet.PostgresArtifactSHA256,
+		AuthoritativeRowCount:   authoritativeCount,
+		ChangeSetsSHA256:        backupSet.PostgresArtifactSHA256,
+		ChangeSetRowCount:       changeSetCount,
+		BlobHashesSHA256:        blobDigest,
+		BlobCount:               blobCount,
+	}, nil
 }
 
 func restoreProjectionRebuildRequest(backupSet BackupSet) restorecontract.ProjectionRebuildRequest {

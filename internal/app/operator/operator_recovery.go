@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
@@ -68,7 +69,30 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			ExtensionBackups:       extensionBackups,
 			RecoveryStateCatalog:   recoveryStateCatalog,
 			ValidateStateCoverage:  recoveryassembly.ValidateRecoveryStateDatabaseCoverage,
-			Now:                    runner.now,
+			NewVNextCapture: func(
+				pool application.PostgresPool,
+				objects objectstore.Store,
+				storage recovery.BackupStorage,
+				state *recoverystate.Catalog,
+			) (*recovery.VNextCaptureService, error) {
+				streaming, err := recovery.RequireStreamingBackupStorage(storage)
+				if err != nil {
+					return nil, err
+				}
+				inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(
+					recoveryassembly.NewVNextObjectSource(objects),
+				)
+				if err != nil {
+					return nil, err
+				}
+				return recovery.NewVNextCaptureService(
+					recoveryassembly.NewVNextSnapshotRepository(pool),
+					streaming,
+					state,
+					inventories,
+				)
+			},
+			Now: runner.now,
 		},
 	}.Run(ctx, args)
 }

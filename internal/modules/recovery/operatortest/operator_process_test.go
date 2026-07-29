@@ -171,7 +171,15 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	requireOperatorRecoverySafeOutput(t, stdout, stderr, bucket, s3Harness.Endpoint, blob.storageKey, blob.storageRef, sourceDB.DSN, sourceConfig.path, operatorRecoveryMasterKey)
 	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "backup_create", "succeeded", bucket, s3Harness.Endpoint, blob.storageKey, blob.storageRef, sourceDB.DSN, sourceConfig.path, operatorRecoveryMasterKey)
 
-	rawArtifact := filepath.Join(sourceConfig.backupRoot, "backup_sets", *payload.BackupSetID, "object-store-artifact.json")
+	rawArtifact := filepath.Join(
+		sourceConfig.backupRoot,
+		"backup_sets",
+		*payload.BackupSetID,
+		"vnext",
+		"objects",
+		"evidence.blobs",
+		blob.objectBlobID.String()+".envelope.json",
+	)
 	rawBody, err := os.ReadFile(rawArtifact)
 	if err != nil {
 		t.Fatalf("read raw encrypted backup artifact: %v", err)
@@ -183,12 +191,24 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 	}
 
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage, operatorExtensionBackupCatalog(t)).RestoreCandidateBackup(ctx, time.Now().UTC().Add(time.Minute))
+	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatalf("build recovery state catalog: %v", err)
+	}
+	reloaded, err := recovery.NewBackupCatalog(
+		recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)),
+		backupStorage,
+		operatorExtensionBackupCatalog(t),
+		stateCatalog,
+	).RestoreCandidateBackup(ctx, time.Now().UTC().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("created backup did not remain selectable and durable: %v", err)
 	}
 	if reloaded.BackupSetID.String() != *payload.BackupSetID || reloaded.VerificationState != recovery.VerificationUnverified {
 		t.Fatalf("reloaded backup changed identity or verification state: %#v payload=%#v", reloaded, payload)
+	}
+	if _, ok := recovery.VNextLogicalRefFromMetadataKey(reloaded.IntegrityManifestKey); !ok {
+		t.Fatalf("new backup did not publish the vNext metadata selector: %#v", reloaded)
 	}
 
 	missingKeyEnv := mergeOperatorEnv(env)
@@ -214,12 +234,28 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 
 	adminEmail := "backup_restore-e-10-01-canonical-restore@example.test"
 	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
-	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102601")
-	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "backup_restore-canonical-restore")
-
 	operatorBin := injectedOperatorBinary(t)
+	createStdout, createStderr, createExit := runOperatorBinaryWithTimeout(
+		t,
+		30*time.Second,
+		operatorBin,
+		operatorRecoveryEnv(),
+		"backup", "create",
+		"--source-config-file", sourceConfig.path,
+	)
+	if createExit != 0 {
+		t.Fatalf(
+			"create vNext restore fixture: exit=%d stdout=%s stderr=%s",
+			createExit,
+			createStdout,
+			createStderr,
+		)
+	}
+	createPayload := decodeOperatorRecoveryResult(t, createStdout)
+	if createPayload.BackupSetID == nil {
+		t.Fatalf("vNext restore fixture has no backup_set_id: %#v", createPayload)
+	}
+	backupSetID := uuid.MustParse(*createPayload.BackupSetID)
 	sameStdout, sameStderr, sameExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"--source-config-file", sourceConfig.path,
@@ -722,9 +758,10 @@ type operatorExplicitConfigFixture struct {
 }
 
 type operatorObjectBlobFixture struct {
-	storageKey string
-	storageRef string
-	body       []byte
+	objectBlobID uuid.UUID
+	storageKey   string
+	storageRef   string
+	body         []byte
 }
 
 func seedOperatorObjectBlob(t testing.TB, dsn string, actorID uuid.UUID, body []byte) operatorObjectBlobFixture {
@@ -771,9 +808,10 @@ INSERT INTO evidence (
 		t.Fatalf("insert operator evidence row: %v", err)
 	}
 	return operatorObjectBlobFixture{
-		storageKey: storageKey,
-		storageRef: "object://" + blobID.String(),
-		body:       append([]byte(nil), body...),
+		objectBlobID: blobID,
+		storageKey:   storageKey,
+		storageRef:   "object://" + blobID.String(),
+		body:         append([]byte(nil), body...),
 	}
 }
 

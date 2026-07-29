@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 type BackupCatalog struct {
 	store            backupRepository
 	storage          BackupStorage
 	extensionBackups *ExtensionBackupCatalog
+	stateCatalog     *recoverystate.Catalog
 }
 
 type BackupCatalogSelection struct {
@@ -28,8 +31,19 @@ type BackupDurabilityDiagnostic struct {
 	Code               string
 }
 
-func NewBackupCatalog(store backupRepository, storage BackupStorage, extensionBackups *ExtensionBackupCatalog) *BackupCatalog {
-	return &BackupCatalog{store: store, storage: storage, extensionBackups: extensionBackups}
+func NewBackupCatalog(
+	store backupRepository,
+	storage BackupStorage,
+	extensionBackups *ExtensionBackupCatalog,
+	stateCatalog ...*recoverystate.Catalog,
+) *BackupCatalog {
+	var state *recoverystate.Catalog
+	if len(stateCatalog) == 1 {
+		state = stateCatalog[0]
+	}
+	return &BackupCatalog{
+		store: store, storage: storage, extensionBackups: extensionBackups, stateCatalog: state,
+	}
 }
 
 func (catalog *BackupCatalog) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
@@ -91,6 +105,14 @@ func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Contex
 func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, backupSet BackupSet) error {
 	if catalog == nil || catalog.storage == nil || catalog.extensionBackups == nil {
 		return fmt.Errorf("%w: backup catalog requires backup storage", ErrInvalidBackupMetadata)
+	}
+	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); vNext {
+		return verifyVNextBackupSetDurability(
+			ctx,
+			catalog.storage,
+			catalog.stateCatalog,
+			backupSet,
+		)
 	}
 	manifestProof := BackupArtifactProof{
 		Key:       backupSet.IntegrityManifestKey,

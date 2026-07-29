@@ -142,6 +142,45 @@ func NewStore(pool postgres.DB) *Store {
 	return &Store{pool: pool}
 }
 
+func (s *Store) PublishVNextCapturedBackup(
+	ctx context.Context,
+	captured VNextCapturedBackup,
+) (BackupSet, error) {
+	manifest := captured.IntegrityManifest
+	if captured.BackupSetID == uuid.Nil ||
+		manifest.BackupSetID != captured.BackupSetID.String() ||
+		captured.PostgresProof.LogicalRef != manifest.PostgresSnapshotRef ||
+		captured.ObjectManifestProof.LogicalRef != manifest.ObjectStoreManifestRef ||
+		captured.IntegrityProof.LogicalRef == "" {
+		return BackupSet{}, fmt.Errorf(
+			"%w: vNext captured backup publication facts mismatch",
+			ErrInvalidBackupMetadata,
+		)
+	}
+	postgresKey := VNextMetadataArtifactKey(captured.PostgresProof.LogicalRef)
+	objectKey := VNextMetadataArtifactKey(captured.ObjectManifestProof.LogicalRef)
+	integrityKey := VNextMetadataArtifactKey(captured.IntegrityProof.LogicalRef)
+	return s.createCapturedBackupSet(ctx, createBackupSetParams{
+		BackupSetID:                           captured.BackupSetID,
+		ConsistencyPointAt:                    manifest.ConsistencyPointAt,
+		PostgresRestoreAnchor:                 backupStorageAnchorScheme + postgresKey,
+		ObjectStoreRestoreAnchor:              backupStorageAnchorScheme + objectKey,
+		PostgresArtifactKey:                   postgresKey,
+		PostgresArtifactSHA256:                captured.PostgresProof.PlaintextSHA256,
+		PostgresArtifactSizeBytes:             captured.PostgresProof.PlaintextBytes,
+		ObjectStoreArtifactKey:                objectKey,
+		ObjectStoreArtifactSHA256:             captured.ObjectManifestProof.PlaintextSHA256,
+		ObjectStoreArtifactSizeBytes:          captured.ObjectManifestProof.PlaintextBytes,
+		IntegrityManifestKey:                  integrityKey,
+		IntegrityManifestSHA256:               captured.IntegrityProof.PlaintextSHA256,
+		IntegrityManifestSizeBytes:            captured.IntegrityProof.PlaintextBytes,
+		CreatedAt:                             manifest.CreatedAt,
+		RetainedUntil:                         manifest.RetainedUntil,
+		PostgresRestoreAnchorRetainedUntil:    manifest.RetainedUntil,
+		ObjectStoreRestoreAnchorRetainedUntil: manifest.RetainedUntil,
+	})
+}
+
 func (s *Store) createCapturedBackupSet(ctx context.Context, params createBackupSetParams) (BackupSet, error) {
 	normalized, err := normalizeCreateBackupSetParams(params)
 	if err != nil {
