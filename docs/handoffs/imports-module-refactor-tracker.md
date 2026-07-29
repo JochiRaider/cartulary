@@ -8,7 +8,7 @@
 - **Target label:** `imports`
 - **Output path:** `docs/handoffs/imports-module-refactor-tracker.md`
 - **Status:** Active remediation control artifact.
-- **Current control point:** `RS-08` checkpoint complete; only `RS-09` is eligible.
+- **Current control point:** `RS-09` checkpoint complete; only `RS-10` is eligible.
 - **Allowed change in the next control point:** Bounded XLSX workbook indexing, deterministic
   used-range/table/static-named-range/operator-region locators, presentation neutrality, inert
   formula handling, archive/security fixtures, the additive operator-region operation, and the
@@ -122,7 +122,7 @@ substantive change. A failed exit criterion leaves the current slice open.
 | `internal/modules/imports/apply_jobs.go` | Apply-job payload execution, unit iteration, cancellation/failure handling, progress, and terminal-success request | Internal apply job handler methods | Jobs runner through service registration | Store, auth store, apply coordinator, job finalizer | Imports service-backed tests | Core two-level completion contract | imports job coordination | critical | Current per-unit status and terminal publication are characterized inputs to the RS-06 replacement. |
 | `internal/modules/imports/boundary_guard_test.go` | Source-level dependency and ownership guards for the imports package | Test-only package surface | Go test runner and verification catalog when routed | Filesystem/source inspection | Self | Verification owner and family mappings | imports test ownership | medium | Current harness rows do not explicitly account for every boundary test. |
 | `internal/modules/imports/boundary_test.go` | Guards against workbook/projection ownership leakage and selected peer-owner coupling | Test-only package surface | Go test runner | Filesystem/source inspection | Self | Verification owner and family mappings | imports test ownership | medium | Source-text guards are boundary evidence, not runtime-conformance proof. |
-| `internal/modules/imports/characterization_test.go` | Executable route-count and generated-target parity evidence plus safe internal-error fallback characterization | Test-only package surface | Go test runner | Imports route and target source inspection | Self | Verification owner and family mappings | imports test ownership | medium | The RS-08 raw-error known-gap assertion is now normative non-disclosure evidence; the hidden-sheet gap remains assigned to RS-09. |
+| `internal/modules/imports/characterization_test.go` | Executable eleven-route and generated-target parity evidence plus safe internal-error fallback and hidden-sheet neutrality characterization | Test-only package surface | Go test runner | Imports route and target source inspection | Self | Verification owner and family mappings | imports test ownership | medium | RS-08 converted raw-error fallback to normative non-disclosure evidence; RS-09 converted the hidden-sheet gap to normative presentation-neutrality evidence. |
 | `internal/modules/imports/discovery.go` | File-kind detection, bounded CSV/XLSX discovery dispatch, and normalized unit/preview/source-row construction | Internal discovery adapter methods | HTTP session creation | Shared tabular ingest, XLSX adapter, Limits, HTTP error helpers | Imports parser and integration tests | Core source discovery contract | imports discovery adapter | high | Locator expansion remains isolated to RS-09. |
 | `internal/modules/imports/extension_facade.go` | Analytical import preview/apply contract, request/result and typed owner-error translation interfaces, facade registry, and dependency override lookup | Extension facade interfaces, preview/apply/error DTOs, registry construction, validation, and errors | Network Flow module, handlers, tests, server dependency override | `internal/modules/extensions` dependency set and shared import values | Network Flow and imports integration tests | Core import profile and Network Flow owner contract | imports orchestration with target-owner implementations | critical | Transaction convergence completed in RS-06; RS-08 now validates target-registered schema/translation identities and fails unknown owner errors closed. |
 | `internal/modules/imports/http_handlers.go` | Ten HTTP handlers, authentication/CSRF/role admission, response/error mapping, path parsing, and pagination | Internal handler methods and route-path parser | `RegisterRoutes` in service composition | Auth, Store, mapping/discovery/apply services, pagination | Imports integration and browser tests | Authored imports OpenAPI and generated route/model consumers | imports HTTP adapter | high | Contains transport policy only; transaction-current authorization remains in RS-06. |
@@ -403,7 +403,7 @@ condition, not a design choice left to an implementer.
 | GATE-03 Correction authorization | Adopt one Imports Conformance Corrections Authorization row per observable correction. | PASS | Each correction has owner requirements, compatibility class, tests, migration posture, rollback boundary, approver, and adopted status. | RS-06 through RS-10 |
 | GATE-04 Registry projection | Adopt and generate `cartulary.import_target_registry.v1`. | PASS | Backend, frontend, adapter, verification, and integrity outputs validate and share one source digest. | Registry injection and frontend cleanup |
 | GATE-05 Structural authorization | Explicitly authorize behavior-preserving registry injection and file-level decomposition. | PASS | GATE-01, GATE-02, and GATE-04 pass; authorized files and rollback boundaries are recorded. | RS-03 through RS-05 |
-| GATE-06 Correction implementation | Authorize and implement each observable correction independently. | IN PROGRESS; RS-06/07/08 PASS | Each selected correction's current and normative tests pass with required migration/compatibility evidence. | Final validation |
+| GATE-06 Correction implementation | Authorize and implement each observable correction independently. | IN PROGRESS; RS-06/07/08/09 PASS | Each selected correction's current and normative tests pass with required migration/compatibility evidence. | Final validation |
 | GATE-07 Harness closure | Add exact authored owner/family rows, regenerate topology, and run narrow-to-broad checks. | TODO | No uncovered target, duplicate selector, unowned test, or generated drift remains. | Final handoff |
 
 The conformance authorization artifact required by GATE-03 MUST contain:
@@ -433,7 +433,7 @@ replace those owners.
 | `imports.selection_lifecycle.v1` | `REQ-03-183`, `REQ-03-192`, `AC-065..066`, `AC-264` | Selection and apply reject overlapping rectangles; skipped units retain approved mappings and may be reselected; intentional re-import requires a fresh session. | `behavior_correction` | RS-00 session/unit route and frontend-state characterization | Raw-HTTP and concurrent overlap; apply-time recheck; skip/reselect and mapping retention; idempotency replay; fresh-session duplicate-source cases | `none` | Imports state service/store, route errors, frontend state handling, and selected tests revert together | 2026-07-28 implementation request plus adopted Core owners | `verified` |
 | `imports.write_null.v1` | `REQ-01-469`, `REQ-01-474..475`, `AC-264`, `AC-468` | Public and internal empty-value policy uses only `write_null`; nullability/default behavior and fingerprints become deterministic. | `behavior_correction` | RS-00 owner-facade token characterization | Required, optional, defaulted, nullable, and non-nullable omit-versus-null matrix plus replay fingerprint stability | `none` | Imports decoding/normalization/fingerprinting, owner-facade token, affected tests, and generated contracts if changed revert together; no `use_null` compatibility reader is permitted | 2026-07-28 implementation request plus adopted Core owners | `verified` |
 | `imports.owner_error_translation.v1` | `REQ-01-471`, `REQ-01-475`, `REQ-01-620a`, `NF-REQ-088d`, `AC-265` | Owner failures use a typed safe union and registered translation; unknown internal errors fail closed without disclosure. | `behavior_correction` | RS-00 raw-owner-error characterization and current facade cases | One fixture per registered translation; invalid result; unknown code fallback; safe-detail schema and API/log disclosure scans | `regenerate_contracts` | Core error registry, analytical binding/translator, Imports HTTP mapping, target errors, OpenAPI projections, and tests revert together | 2026-07-28 implementation request plus adopted Core and Network Flow owners | `verified` |
-| `imports.xlsx_locators.v1` | `REQ-01-472`, `REQ-01-620e`, `REQ-03-181..182`, `REQ-03-181a`, `AC-064`, `AC-264B` | XLSX discovery includes deterministic used ranges, tables, static named ranges, and durable operator regions independent of presentation state; a compatible eleventh operation creates regions. | `additive_contract` | RS-00 route-parser and hidden-sheet characterization plus bounded-XLSX baseline | Locator ordering/replay/overlap; hidden/filter/sort/style neutrality; cached/missing formulas; malformed/archive-limit/external-link/macro cases; OpenAPI compatibility | `regenerate_contracts` | XLSX index/decoder, operator-region migration/state, authored OpenAPI, generated protocol clients, frontend region flow, fixtures, and tests revert together | 2026-07-28 implementation request plus adopted Core owners | `adopted` |
+| `imports.xlsx_locators.v1` | `REQ-01-472`, `REQ-01-620e`, `REQ-03-181..182`, `REQ-03-181a`, `AC-064`, `AC-264B` | XLSX discovery includes deterministic used ranges, tables, static named ranges, and durable operator regions independent of presentation state; a compatible eleventh operation creates regions. | `additive_contract` | RS-00 route-parser and hidden-sheet characterization plus bounded-XLSX baseline | Locator ordering/replay/overlap; hidden/filter/sort/style neutrality; cached/missing formulas; malformed/archive-limit/external-link/macro cases; OpenAPI compatibility | `regenerate_contracts` | XLSX index/decoder, operator-region migration/state, authored OpenAPI, generated protocol clients, frontend region flow, fixtures, and tests revert together | 2026-07-28 implementation request plus adopted Core owners | `verified` |
 | `imports.frontend_registry_consumption.v1` | `REQ-01-620`, `REQ-03-181a`, `AC-264B`, `AC-464` | Generic and analytical frontend flows consume generated target semantics, preserve claim gating, and use the durable operator-region route without a manual fallback list. | `behavior_correction` | RS-00 frontend target and workflow characterization; generated RS-02 registry parity | Exact 18-row disposition; generic/analytical routing; claimed/unclaimed Network Flow; region creation; server revalidation; no-fallback source scan and browser flow | `regenerate_contracts` | Authored target catalog, regenerated TS projection, generic assistant, Network Flow workspace, region UX, and tests revert together | 2026-07-28 implementation request plus adopted Core and Network Flow owners | `adopted` |
 
 **Imports Structural Refactor Authorization**
@@ -624,7 +624,7 @@ active and MUST be recorded in the checkpoint.
 | IMP-011 | Split imports internal responsibilities | WF-05 | DONE | IMP-010; GATE-05 | RS-05 `7bbbb00d` | Exported declarations, ten routes, errors, transactions, parser behavior, and characterization remain unchanged behind explicit file responsibilities. |
 | IMP-012 | Adopt conformance correction authorization | WF-06 | DONE | IMP-004, IMP-007; GATE-03 | §6.1 Imports Conformance Corrections Authorization | Every correction row is adopted before implementation. |
 | IMP-013 | Implement transaction/auth correction | WF-06 | DONE | IMP-008, IMP-010 through IMP-012; GATE-06 | RS-06; `75c7c2ec` | IRT-REQ-005 through 008 pass. |
-| IMP-014 | Implement state/null/error/discovery corrections | WF-06 | IN PROGRESS; RS-07/08 DONE | IMP-011/012; GATE-06 | RS-07 `356281c0`; RS-08 `64cdc912`; RS-09 pending | IRT-REQ-009 through 012 pass; IRT-REQ-013 remains. |
+| IMP-014 | Implement state/null/error/discovery corrections | WF-06 | DONE | IMP-011/012; GATE-06 | RS-07 `356281c0`; RS-08 `64cdc912`; RS-09 `fbae9afe` | IRT-REQ-009 through 013 pass. |
 | IMP-015 | Replace frontend hardcoded registry | WF-06 | TODO | IMP-009, IMP-012; GATE-06 | RS-10 | IRT-REQ-014/015 pass with selector parity. |
 | IMP-016 | Complete harness accounting and final evidence | WF-07 | TODO | Applicable implementation rows; GATE-07 | RS-11 | Every active test is accounted for once; required checks are recorded. |
 | IMP-017 | Validate this NLSpec-style tracker revision | WF-00 | DONE | IMP-001 through IMP-006 | `make lint-markdown` | Markdown and structural checks passed with only this file changed. |
@@ -646,6 +646,7 @@ active and MUST be recorded in the checkpoint.
 | 2026-07-28 22:23 EDT | RS-06 | Baseline `3b803b5c`; substantive result `75c7c2ec` | Added migration 00049, immutable apply plans/outcomes, job-first unit serialization, transaction-current actor/role/membership/incident/source/mapping/target checks, caller-owned view and Network Flow owner transactions, outcome-only finalization, crash recovery, truthful partial cancellation, and exact owner/harness evidence; exact paths and failure dispositions are recorded below | Imports `test-slice` and `service-backed-test-slice` each passed 10 tests and 7/7 work units; affected Timeline, Network Flow, Extensions, and Job API owner slices passed 48, 57, 26, and 3 tests; migration, generation, generated-policy, JSON-shape, and boundary checks passed; `make test-fast` passed 896 tests and 2/2 work units; exact run roots are recorded below | The ten public Imports routes and Network Flow resource shape remain compatible; migration 00049 adds durable state and aborts on ambiguous active apply state, does not backfill or reopen terminal sessions, and requires code/schema rollback together; authority lost before commit now fails by design; generated files came only from `make generate`; no residual RS-06 correctness risk is open | RS-07 only |
 | 2026-07-28 22:50 EDT | RS-07 | Baseline `b00fcd1c`; substantive result `356281c0` | Added the cohesive selection boundary, server-side overlap rejection at selection and apply, session-first concurrent serialization, skipped-unit reselection with immutable mapping retention, fresh-session re-import evidence, frontend approval/selection state separation, additive lifecycle-state OpenAPI correction, and exact Go/Vitest harness rows; exact paths and failure dispositions are recorded below | Final Imports `test-slice` passed 13 tests and 9/9 work units twice; service-backed Imports passed 12 tests and 9/9 work units; focused lifecycle rows, frontend unit/type, both boundaries, generation/drift/policy, JSON shape, OpenAPI compatibility, and the 898-test fast suite passed; exact run roots are recorded below | No route, request, or database migration changed; overlapping persisted selections now fail with the adopted 409 code/reason, skipped mappings are retained, same-session duplicate apply remains blocked, and intentional duplicate-source import requires a new session; the lifecycle enum expansion is additive and governed by the 2.0 change set; generated files came only from `make generate`; rollback reverts all 17 substantive files together | RS-08 only |
 | 2026-07-28 23:31 EDT | RS-08 | Baseline `219139de`; substantive result `64cdc912` | Replaced the unreachable `use_null` branch with canonical `write_null`, added closed typed view-owner and Network Flow owner errors, registered/schema-validated safe analytical translation, fail-closed preview/apply/internal errors, durable ordered error outcomes, migration 00050, corrected Core error projections, and exact Go/harness evidence; exact paths and failure dispositions are recorded below | Imports `test-slice` passed 17 tests and 10/10 work units; service-backed Imports passed 14 tests and 10/10 work units; Network Flow and Timeline owner slices passed 58 and 48 tests; focused null/error rows, migration/generation/policy/shape/boundary/OpenAPI checks, format, and the 905-test fast suite passed; exact run roots are recorded below | Existing routes and valid mappings remain compatible; migration 00050 refuses non-contract `use_null`, backfills safe details for prior failed/canceled outcomes, and adds durable retryability/detail fields; unknown errors now disclose less by design; generated artifacts came only from `make generate`; rollback reverts all 31 substantive files together; unrelated repository-wide lint debt is explicitly retained for RS-11 | RS-09 only |
+| 2026-07-29 00:01 EDT | RS-09 | Baseline `92c0e654`; substantive result `fbae9afe` | Replaced visible-sheet materialization with bounded workbook indexing and on-demand rectangle decoding; added used-range, table, static named-range, hidden-presentation, inert-formula, archive/security semantics; added migration 00051 and the durable additive operator-region operation with exact and semantic replay; corrected the runtime locator vocabulary and added exact Go/harness evidence | Imports `test-slice` passed 19 rows and 6/6 work units; service-backed Imports passed 15 rows and 4/4 work units; focused locator/region rows, migration/generation/policy/shape/boundary/OpenAPI, format, and Markdown checks passed; exact run roots are recorded below | Existing ten routes remain compatible; the eleventh route and `operator_region` enum member are additive while released `xlsx_region` remains transport-read compatible but is never emitted; migration 00051 adds private region lineage/sequence and formula-blocking state without rewriting historical units; generated artifacts came only from `make generate`; rollback reverts all 27 substantive files together; frontend region UX and generated target consumption remain exclusively RS-10 | RS-10 only |
 
 #### RS-06 checkpoint detail
 
@@ -914,6 +915,96 @@ active and MUST be recorded in the checkpoint.
   and the retained unrelated lint/accounting closure in RS-11.
 - **Single next eligible workstream:** `RS-09` only.
 
+#### RS-09 checkpoint detail
+
+- **Completed slice and state:** `RS-09`; `IMP-014` is `DONE`,
+  `imports.xlsx_locators.v1` is `verified`, and the RS-09 portion of `GATE-06` passes.
+  Baseline `92c0e654`; substantive commit `fbae9afe`.
+- **Exact substantive files:** `contracts/openapi-releases/2.0.0.change-set.json`;
+  `contracts/openapi-source/owners/module.imports/openapi.json`;
+  `contracts/openapi/cartulary.openapi.yaml`;
+  `db/migrations/00051_import_operator_regions.sql`;
+  `docs/spec/01_architecture_storage_and_view_contracts.md`;
+  `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`;
+  `internal/gen/contractopenapi/artifacts_gen.go`;
+  `internal/gen/openapioperations/catalog_gen.go`; `internal/gen/sql/models.go`;
+  `internal/modules/imports/api.go`; `internal/modules/imports/boundary_guard_test.go`;
+  `internal/modules/imports/characterization_test.go`;
+  `internal/modules/imports/discovery.go`; `internal/modules/imports/http_handlers.go`;
+  `internal/modules/imports/imports_integration_test.go`;
+  `internal/modules/imports/regions.go`; `internal/modules/imports/selection.go`;
+  `internal/modules/imports/service.go`; `internal/modules/imports/store.go`;
+  `internal/modules/imports/xlsx.go`; `internal/modules/imports/xlsx_test.go`;
+  `packages/protocol-ts/src/generated/core-http-types.ts`;
+  `packages/protocol-ts/src/generated/protocol-validators.ts`;
+  `tools/execution_topology_render_index.json`; `tools/migration_history_manifest.json`;
+  `tools/scheduler_manifest.json`; and `tools/test_families/module.imports.json`.
+- **Workbook and locator result:** XLSX ingest now indexes bounded archive members, workbook order,
+  worksheet semantic cells, relationships, tables, static names, presentation metadata, merged
+  ranges, and safe warnings before decoding only a requested rectangle. Hidden and filtered rows,
+  columns, and sheets remain semantically visible; style-only cells do not expand the used range.
+  Cached formula results are inert `formula_cached` cells, and missing caches remain blank with an
+  affected-column readiness blocker until that column is excluded. Dynamic, external, multi-area,
+  malformed, path-escaping, and over-limit inputs fail through the closed source error registries;
+  macros, formulas, and external relationships are never executed or fetched.
+- **Operator-region result:** the additive
+  `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` operation accepts
+  only a client transaction and positive inclusive source rectangle. It requires containment by
+  the addressed worksheet used-range unit, revalidates current incident mutation authority and
+  source digest under session/base locks, creates no mapping/selection/job/owner resource, copies
+  one private source capability, and persists monotonic session-local lineage. Exact transaction
+  replay and same-base/same-rectangle semantic replay return the original unit; divergent
+  transaction replay fails closed.
+- **Migration and compatibility:** migration 00051 adds private
+  `base_import_unit_id`, `operator_region_sequence`, and
+  `blocking_source_column_ordinals` state plus lineage and semantic-identity uniqueness. It does
+  not rewrite or reopen historical units and rolls back only with the region/index runtime.
+  Existing ten operations and response members remain unchanged. `operator_region` is an additive
+  OpenAPI enum value and the eleventh route is an additive path recorded in the governed 2.0
+  change set. The released `xlsx_region` enum spelling remains in OpenAPI for read compatibility,
+  but adopted owners and runtime state forbid emitting or persisting it.
+- **Focused and owner validation:** bounded used-range discovery passed at
+  `.cartulary/test-results/20260729T035048Z-p3281208`; the locator/security/formula and durable
+  region rows passed two routed rows and 2/2 work units at
+  `.cartulary/test-results/20260729T035356Z-p3293173`. Final
+  `make test-slice OWNER=module.imports` passed 19 rows and 6/6 work units at
+  `.cartulary/test-results/20260729T035856Z-p3335665`;
+  `make service-backed-test-slice OWNER=module.imports` passed 15 rows and 4/4 work units at
+  `.cartulary/test-results/20260729T035953Z-p3355751`.
+- **Contract and broad validation:** final `make format` and `make generate` passed at
+  `.cartulary/test-results/20260729T035453Z-p3295499` and
+  `.cartulary/test-results/20260729T035457Z-p3298369`.
+  `make migration-drift`, `make openapi-compatibility-check`, `make generate-drift`,
+  `make generated-artifact-policy-check`, `make json-shape-check`,
+  `make backend-module-boundary-check`, and pre-checkpoint `make lint-markdown` passed at
+  `.cartulary/test-results/20260729T040048Z-p3375441`,
+  `.cartulary/test-results/20260729T040048Z-p3375342`,
+  `.cartulary/test-results/20260729T040048Z-p3375218`,
+  `.cartulary/test-results/20260729T040048Z-p3375260`,
+  `.cartulary/test-results/20260729T040048Z-p3375463`,
+  `.cartulary/test-results/20260729T040048Z-p3375799`, and
+  `.cartulary/test-results/20260729T040048Z-p3375819`. The completed tracker checkpoint passed
+  `make lint-markdown` at `.cartulary/test-results/20260729T040309Z-p3385403`.
+- **Failure disposition:** related development failures remain recorded. The first focused slice
+  at `.cartulary/test-results/20260729T034913Z-p3270385` found the removed parser symbol in the
+  characterization/boundary tests and a missing standard-library test import. The first generated
+  run at `.cartulary/test-results/20260729T035002Z-p3277343` correctly rejected the four
+  unaccounted additive OpenAPI changes; the governed release change set was extended before the
+  successful run. The first migration drift at
+  `.cartulary/test-results/20260729T035105Z-p3284224` correctly rejected the absent immutable
+  migration-history entry. The first complete Imports run at
+  `.cartulary/test-results/20260729T035504Z-p3300593` exposed nil CSV warning/blocking slices
+  being encoded as SQL `NULL` after the new non-null column; normalization to canonical empty
+  arrays corrected the shared discovery boundary, and the focused CSV rerun and complete owner
+  reruns passed. All failures were related and structurally corrected.
+- **Rollback and residual risk:** rollback reverts all 27 substantive files together and runs the
+  generators after reverting authored OpenAPI/harness inputs; migration 00051 and runtime code
+  must move together. No RS-09 backend correctness or compatibility risk is deferred. The generic
+  Import Assistant still lacks durable operator-region UX and generated target-catalog
+  consumption; those frontend-only obligations remain exclusively `RS-10`. Final exact harness
+  accounting and repository-wide closure remain exclusively `RS-11`.
+- **Single next eligible workstream:** `RS-10` only.
+
 ### Scope and authority
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
@@ -971,7 +1062,7 @@ former RB items are closed at the planning layer as follows:
 | ID | Resolution | Decision status | What is not claimed | Required next gate |
 | --- | --- | --- | --- | --- |
 | RB-001 | Core owns generic orchestration and semantic obligations; the target NLSpec owns exact target payloads; the binding and two-level commit model join them. | IMPLEMENTED | Registry injection, Timeline convergence, durable unit commits, analytical transaction convergence, and outcome-only finalization are complete. | None |
-| RB-002 | Authorization, races, unit/partial outcomes, overlap, reselection, nulls, errors, XLSX, cancellation, replay, and capability behavior are exact in §4. | PARTIALLY IMPLEMENTED | RS-06 authorization/recovery, RS-07 overlap/reselection, and RS-08 null/error corrections are complete; RS-09/10 corrections remain. | GATE-06; RS-09 |
+| RB-002 | Authorization, races, unit/partial outcomes, overlap, reselection, nulls, errors, XLSX, cancellation, replay, and capability behavior are exact in §4. | PARTIALLY IMPLEMENTED | RS-06 authorization/recovery, RS-07 overlap/reselection, RS-08 null/error, and RS-09 XLSX/API corrections are complete; only RS-10 frontend consumption remains. | GATE-06; RS-10 |
 | RB-003 | The 18-target matrix, cross-cutting suites, boundary rules, harness families, and exact accounting define a complete evidence baseline. | RESOLVED_IN_TRACKER | Tests and harness rows do not yet exist or pass. | GATE-01 and GATE-07 |
 | RB-004 | One Core-backed deterministic registry supplies backend, frontend, adapter, verification, and integrity projections; no public field is required for same-release deployment. | BACKEND_CONSUMED | RS-03 runtime backend dispatch consumes the generated registry; the frontend still uses its characterized manual set. | RS-10 |
 
@@ -1029,3 +1120,6 @@ later slice to start before its dependencies and the preceding tracker checkpoin
 - [x] RS-08 uses only canonical `write_null`, preserves deterministic mapping fingerprints,
   persists schema-validated safe owner failures, fails unknown errors closed without leakage, and
   leaves only RS-09 eligible.
+- [x] RS-09 discovers bounded used ranges, tables, static names, and hidden data; treats formulas
+  and external workbook features inertly; persists exact durable operator regions through the
+  additive eleventh operation; and leaves only RS-10 eligible.
