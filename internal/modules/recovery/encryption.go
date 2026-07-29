@@ -109,7 +109,14 @@ func NewEncryptedBackupStorage(inner BackupStorage, key RecoveryEncryptionKey) (
 	if key.fingerprint == "" {
 		return nil, ErrRecoveryMasterKeyRequired
 	}
-	return encryptedBackupStorage{inner: inner, key: key}, nil
+	legacy := encryptedBackupStorage{inner: inner, key: key}
+	if backend, ok := inner.(StoredStreamingBackupStorage); ok {
+		return streamingEncryptedBackupStorage{
+			encryptedBackupStorage: legacy,
+			backend:                backend,
+		}, nil
+	}
+	return legacy, nil
 }
 
 func NewEncryptedBackupStorageFromEnv(inner BackupStorage, env map[string]string) (BackupStorage, error) {

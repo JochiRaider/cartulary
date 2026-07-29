@@ -32,7 +32,7 @@
     "chunks": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 4294967295,
+      "maxItems": 4294967296,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -57,7 +57,7 @@
           "ciphertext_base64": {
             "type": "string",
             "minLength": 24,
-            "maxLength": 5592432,
+            "maxLength": 5592428,
             "pattern": "^[A-Za-z0-9+/]*={0,2}$"
           }
         }

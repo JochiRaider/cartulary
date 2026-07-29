@@ -462,6 +462,31 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.streaming_authenticated_envelope_v2_75ff1a51f9",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }
