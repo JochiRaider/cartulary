@@ -103,3 +103,80 @@ func TestImportsProductionPackageHasNoConcretePeerStoresOrPeerTableSQL(t *testin
 		}
 	}
 }
+
+func TestImportsResponsibilitiesRemainSeparated(t *testing.T) {
+	if _, err := os.Stat("routes.go"); !os.IsNotExist(err) {
+		t.Fatalf("routes.go must remain decomposed, stat error: %v", err)
+	}
+
+	files := []struct {
+		name      string
+		required  []string
+		forbidden []string
+	}{
+		{
+			name:      "service.go",
+			required:  []string{"type Service struct", "func RegisterRoutes(", "func newService("},
+			forbidden: []string{"handleImportSessionsCollection", "executeApplyJob", "discoverImportUnits"},
+		},
+		{
+			name:      "http_handlers.go",
+			required:  []string{"handleImportSessionsCollection", "handleImportSessionsMember", "writeAPIError"},
+			forbidden: []string{"RegisterHandler(", "parseXLSXTables(", "applyGenericOwnerUnit(", "prepareApprovedMapping("},
+		},
+		{
+			name:      "mapping.go",
+			required:  []string{"prepareApprovedMapping", "validateApprovedMapping", "extensionFacadeAPIError"},
+			forbidden: []string{"http.ResponseWriter", "RegisterHandler(", "parseXLSXTables("},
+		},
+		{
+			name:      "jobs.go",
+			required:  []string{"registerJobHandlers", "executeDiscoveryJob", "markJobRunningOrResume"},
+			forbidden: []string{"handleImportSessionsCollection", "discoverImportUnits"},
+		},
+		{
+			name:      "apply_jobs.go",
+			required:  []string{"executeApplyJob", "completeApplyJob", "failApplyJob"},
+			forbidden: []string{"http.ResponseWriter", "parseXLSXTables("},
+		},
+		{
+			name:      "apply_coordination.go",
+			required:  []string{"applyUnit", "importApplyResourceRefs", "transformImportValue"},
+			forbidden: []string{"http.ResponseWriter", "RegisterHandler("},
+		},
+		{
+			name:      "discovery.go",
+			required:  []string{"discoverImportUnits", "discoveredImportUnit", "detectSourceFileKind"},
+			forbidden: []string{"http.ResponseWriter", "jobManager"},
+		},
+		{
+			name:      "store.go",
+			required:  []string{"type Store struct", "func NewStore(", "CreateAcceptedSession"},
+			forbidden: []string{"http.ResponseWriter", "RegisterHandler("},
+		},
+		{
+			name:      "xlsx.go",
+			required:  []string{"parseXLSXTables", "xlsxRowsToTable", "archiveCompressionRatioExceeded"},
+			forbidden: []string{"http.ResponseWriter", "jobManager"},
+		},
+	}
+	for _, file := range files {
+		t.Run(file.name, func(t *testing.T) {
+			body, err := os.ReadFile(filepath.Clean(file.name))
+			if err != nil {
+				t.Fatalf("read %s: %v", file.name, err)
+			}
+			content := string(body)
+			for _, required := range file.required {
+				if !strings.Contains(content, required) {
+					t.Fatalf("%s is missing responsibility marker %q", file.name, required)
+				}
+			}
+			for _, forbidden := range file.forbidden {
+				if strings.Contains(content, forbidden) {
+					t.Fatalf("%s contains foreign responsibility marker %q", file.name, forbidden)
+				}
+			}
+		})
+	}
+}
