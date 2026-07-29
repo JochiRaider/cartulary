@@ -254,15 +254,75 @@ Before `restore_latest`, `restore_verify_latest`, or any selected verification i
 2. source and target object-store bindings are distinct;
 3. the target database is fresh, meaning it contains no application-owned Cartulary data except schema or migration bookkeeping required to admit the operation;
 4. the target object namespace is fresh, meaning it contains no object members reachable through the target object-store binding;
-5. target application HTTP and WebSocket listeners are not serving non-operator traffic;
-6. the target is explicitly marked as a restore target or restore-verification target by deployment-local state before mutation;
+5. the operator holds the target's exclusive serving lease, proving that no
+   target application HTTP or WebSocket listener is serving and preventing a
+   target application process from starting listeners during mutation;
+6. the target has a valid `cartulary.restore_target_marker.v2` whose purpose,
+   target-generation ID, database-binding digest, object-store-binding digest,
+   issuance time, and expiry bind it to this exact admitted target;
 7. required recovery keys, backup artifacts, and integrity proofs for the selected backup are available.
 
-`restore_verify_latest` and each verification admitted by `restore_verify_due` MUST require the explicit target marker to identify the target as a restore-verification target. Preflight failure MUST occur before target mutation and MUST use `code='unsafe_restore_target'` unless the failure is more specifically one of `recovery_key_unavailable`, `backup_set_not_found`, `backup_integrity_failed`, or `recovery_operation_in_progress` under REQ-01-595. A timed-out restore or restore verification MUST leave the target not-ready for application traffic, and that target MUST be reinitialized before reuse.
+Every application server process MUST acquire and hold the shared counterpart
+of the serving lease before starting HTTP or WebSocket listeners and MUST
+release it only after those listeners are closed. A recovery target admission
+MUST acquire and hold the exclusive counterpart before freshness checks and
+through every target mutation, validation, rebuild, journal/attestation
+decision, and reset. A server startup racing an admitted restore therefore
+waits or fails before listeners start. Lease loss makes mutation outcome
+indeterminate, leaves readiness false, stops due-verification batching, and
+requires target reinitialization.
 
-Every admitted mutating recovery operation MUST append an encrypted operator recovery journal record before its terminal result is considered durable. `backup_create`, `restore_latest`, `restore_verify_latest`, and each selected verification inside `restore_verify_due` are mutating recovery operations. `backup_inspect_latest` is non-mutating. `restore_verify_due` with no due backups returns `no_op` and need not append a recovery journal record. Journal updates MUST be append-only; terminal state MUST be recorded by appending a terminal record rather than overwriting the admission record.
+`restore_latest` markers use `purpose='restore_target'`.
+`restore_verify_latest` and each verification admitted by
+`restore_verify_due` use `purpose='restore_verification_target'`. The
+database- and object-binding digests are SHA-256 over the admitted normalized
+non-secret binding identities; they MUST NOT contain or be computed from raw
+credentials. The marker lifetime MUST be positive and no greater than 24
+hours. A version 1 marker, wrong purpose, wrong generation, wrong binding,
+expired marker, missing marker, unavailable exclusive lease, or active shared
+lease fails before target mutation using the existing
+`unsafe_restore_target` registry: marker defects map to
+`target_marker_missing` or `target_marker_invalid`, and serving-lease
+contention maps to `target_serving_traffic`.
 
-Once a writable database exists for the operation, the implementation MUST also write the safe administrative-audit summary that closes the recovery operations. That summary MUST contain only operation ID, operation token, result, started and completed timestamps, nullable backup ID, nullable consistency point, safe artifact-ref counts and kinds, and nullable error code and reason code. It MUST NOT contain the forbidden values listed in REQ-04-106.
+Preflight failure MUST occur before target mutation and MUST use
+`code='unsafe_restore_target'` unless the failure is more specifically one of
+`recovery_key_unavailable`, `backup_set_not_found`,
+`backup_integrity_failed`, or `recovery_operation_in_progress` under
+REQ-01-595. A timed-out, cancelled, or lease-lost restore or restore
+verification MUST leave the target not-ready for application traffic, and that
+target MUST be reinitialized before reuse.
+
+Every admitted mutating recovery operation MUST append an encrypted
+`cartulary.operator_recovery_journal_payload.v2` admission record and terminal
+record before its terminal result is considered durable. `backup_create`,
+`restore_latest`, `restore_verify_latest`, and each selected verification
+inside `restore_verify_due` are mutating recovery operations.
+`backup_inspect_latest` is non-mutating. A `restore_verify_due` no-op MUST
+append safe admission and terminal evidence for the scheduler invocation but
+need not acquire a mutating-operation lock. Journal records are append-only;
+terminal state is a new row rather than an overwrite.
+
+The typed admission record contains exactly schema ID, record kind, operation
+ID, operation token, attempt ID, started timestamp, nullable backup ID, nullable
+consistency point, and sorted admitted artifact kinds. The typed terminal
+record additionally contains completed timestamp, result, sorted artifact
+kinds and counts, nullable error code, and nullable error reason. Open maps,
+arbitrary keys, exception strings, raw artifact refs, and transport messages
+are forbidden.
+
+Once a writable database exists for the operation, the implementation MUST
+also write one safe
+`cartulary.operator_recovery_audit_summary.v2` derivative containing exactly
+operation ID, operation token, attempt ID, result, started and completed
+timestamps, nullable backup ID, nullable consistency point, sorted safe
+artifact kinds and counts, and nullable error code and reason code. The
+terminal encrypted journal record and its administrative-audit derivative MUST
+commit in one database transaction or neither may commit. Failure of that
+transaction prevents a successful terminal result and maps through the
+existing `journal_write_failed` transport reason. Historical journal rows
+remain readable forensic evidence and MUST NOT be rewritten. Neither record
+may contain the forbidden values in REQ-04-106.
 Profiles: base
 Verified by: AC-428
 
@@ -2382,7 +2442,15 @@ Verified by: AC-403
 
 For the current filesystem-backed backup-storage realization, backup artifacts and restore-verification extracts that carry incident data MUST be written through authenticated application-level envelope encryption before they reach `roots.backup_storage`. File permissions, root separation, or an operator assertion that the underlying volume is encrypted are not sufficient implementation proof for this realization. Implementations MUST fail closed when the recovery encryption key material required to read or write those encrypted envelopes is unavailable.
 
-For SeaweedFS S3 object-store backup and restore, operator-private object-store manifests, restore-verification artifacts, copy ledgers, and validation extracts are deployment-local recovery artifacts. Any such artifact that carries incident-derived object identity, storage refs, raw object keys, bucket names, or blob metadata MUST remain outside incident portability bundles and public user-facing responses. Shareable summaries MUST redact those values before retention outside the deployment-local recovery boundary.
+For SeaweedFS S3 object-store backup and restore, operator-private object-store
+manifests and restore-verification artifacts are deployment-local recovery
+artifacts. Any such artifact that carries incident-derived object identity,
+storage refs, raw object keys, bucket names, or blob metadata MUST remain
+outside incident portability bundles and public user-facing responses.
+Shareable summaries MUST redact those values before retention outside the
+deployment-local recovery boundary. The current profile defines no
+MinIO-source migration ledger, copy ledger, validation extract, cutover, or
+rollback artifact.
 Profiles: base
 Verified by: AC-403
 

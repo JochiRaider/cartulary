@@ -1,0 +1,21 @@
+{
+  "schema_id": "cartulary.restore_workbook_probe_registration.v1",
+  "registration_id": "timeline.base_restore_probe.v1",
+  "owner_id": "module.timeline",
+  "profile": "base",
+  "is_default": true,
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "filters": [],
+  "sort": [
+    {
+      "field_key": "timeline.activity_sort_ts",
+      "direction": "asc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "group_by": null,
+  "row_requirement": "zero_rows_allowed"
+}

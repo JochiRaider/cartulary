@@ -8,6 +8,30 @@ import (
 	"testing"
 )
 
+func TestDecodeContractRejectsDuplicateJSONMembers(t *testing.T) {
+	_, err := decodeContract([]byte(`{"schema_id":"one","nested":{"value":1,"value":2}}`))
+	requireErrorContains(t, err, `duplicate member "value"`)
+}
+
+func TestValidateRecoveryRegistryRejectsUnsortedSchemaIDs(t *testing.T) {
+	registry := map[string]any{
+		"$schema":                      contractDraft202012Schema,
+		"schema_id":                    recoveryRegistrySchemaID,
+		"canonicalization":             "cartulary.recovery_canonical_json.v1",
+		"current_schema_ids":           []any{"cartulary.z.v1", "cartulary.a.v1"},
+		"historical_reader_schema_ids": []any{"cartulary.historical.v1"},
+		"removed_schema_id_prefixes":   []any{"cartulary.object_store_migration_"},
+		"limits":                       map[string]any{"maximum_tables": json.Number("4096")},
+		"schemas":                      []any{"schema.v1.schema.json"},
+		"canonical_fixtures":           []any{"fixtures/schema.v1.json"},
+	}
+	requireErrorContains(
+		t,
+		validateRecoveryRegistry(registry),
+		"current_schema_ids must be unique and sorted",
+	)
+}
+
 func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *testing.T) {
 	valid := validExtensionDependencyDeclarationSet()
 	dependencies := valid["dependencies"].([]any)

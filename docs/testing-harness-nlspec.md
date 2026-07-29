@@ -3933,9 +3933,26 @@ inventory validation.
 
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-056
 
-SeaweedFS strict release evidence MUST derive its redaction scan input set from the current release-evidence run, the current `seaweedfs-compatibility` report, the current backend-process `backup_restore` row evidence, and the current `seaweedfs-migration-preservation` `object_store_migration` evidence. The compatibility input MUST be `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID/seaweedfs-compatibility/object-store-compatibility-report.json`, and its sibling target summary MUST report a passing target. The migration pass input MUST be `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID/seaweedfs-migration-preservation/object-store-migration/pass`, and the sibling tool summary MUST report a passing target. Strict release targets MUST run `backend-process`, `seaweedfs-compatibility`, and `seaweedfs-migration-preservation` as current-run prerequisites. Stable copies, historical delivery-shaped paths, newest-run fallback evidence, and retained `services-up` reports MUST NOT satisfy the gate. Missing selected child artifacts are blocking findings and MUST NOT be replaced with fallback evidence.
+SeaweedFS strict release evidence MUST derive its redaction scan input set from
+the current release-evidence run, the current `seaweedfs-compatibility` report,
+and the current backend-process backup/restore row evidence. Strict release
+targets MUST run `backend-process` and `seaweedfs-compatibility` as current-run
+prerequisites. Stable copies, historical delivery-shaped paths, newest-run
+fallback evidence, retained `services-up` reports, and retired source-migration
+evidence MUST NOT satisfy the gate. Missing selected child artifacts are
+blocking findings and MUST NOT be replaced with fallback evidence.
 
-SeaweedFS migration-preservation is recovery-owned release-support evidence. It MUST remain reachable through the explicit `seaweedfs-migration-preservation` and release surfaces, MUST use a support-profile catalog row, and MUST NOT be selected by default local `check` as product recovery conformance evidence. Its pass and mismatch scenarios own distinct database, object-store, bucket, artifact, and cleanup identities and MUST execute as parallel top-level tests; either scenario must preserve its exact failure and artifact semantics when its sibling fails.
+**TH-HARNESS-REQ-675**
+The current profile contains no MinIO-source migration product behavior or
+release-support evidence. The authored task surface, verification catalog,
+families, topology, occurrence policy, release evidence, and release gates MUST
+contain no `seaweedfs-migration-preservation` target, object-store-migration
+row, or replacement migration owner. SeaweedFS release evidence instead covers
+current S3 compatibility, backup integrity and restoration, operator-private
+artifact redaction, and source-owner storage-reference preservation.
+Historical result roots MAY contain retired migration artifacts but MUST NOT be
+selected as current conformance or release evidence.
+Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 The operational recovery smoke MUST build its uniquely tagged application image exactly once before Compose startup. Startup MUST consume that completed image without requesting a second build. Removing duplicate build orchestration MUST NOT change readiness, backup, restore-verification, route-absence, diagnostic, or cleanup behavior.
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015

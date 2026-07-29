@@ -2975,6 +2975,27 @@ Verified by: EXT-AC-042, EXT-AC-087
 
 # 23. Backup, restore, portability, and reporting participation
 
+**EXT-REQ-236**
+The Extensions shared owner MUST publish one
+`cartulary.recovery_state_contribution.v1` contribution for its durable
+physical-state bindings. The contribution classifies
+`extension_job_cancellation_observations`, `extension_job_commit_proofs`,
+`extension_migration_ledger`, `extension_staged_object_references`,
+`extension_staged_objects`, and `extension_state_metadata` as
+`authoritative_required`. It also declares the Extension staged-object family
+and uses the exact physical-state binding, current/historical codec,
+snapshot-scoped inventory, post-restore validator, and owner rebuild identities
+already governed by this section.
+
+The contribution is declarative shared-owner input. Recovery aggregates and
+orchestrates it; Recovery MUST NOT inspect Extension table names, infer staged
+object keys, or invoke inactive profile code. Missing, duplicate, or
+digest-mismatched Extension contribution data fails recovery-catalog admission.
+A restored claimed profile remains unavailable until the existing
+compatibility, migration, final validation, and publication gates pass.
+Profiles: base
+Verified by: EXT-AC-135, EXT-AC-155
+
 **EXT-REQ-136**
 Physical backup MUST preserve all authoritative extension state, state-presence logical-family bindings, extension state metadata, migration ledger entries, required idempotency references, job commit proofs, and authoritative object-store content regardless of whether the profile is claimed at backup time.
 

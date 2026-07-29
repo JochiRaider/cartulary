@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.backup_integrity_manifest.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "backup_set_id",
+    "consistency_point_at",
+    "created_at",
+    "retained_until",
+    "recovery_state_catalog_sha256",
+    "codec_registry_sha256",
+    "postgres_snapshot_ref",
+    "object_store_manifest_ref",
+    "artifacts",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.backup_integrity_manifest.v3" },
+    "backup_set_id": { "$ref": "common.v1.schema.json#/$defs/uuid" },
+    "consistency_point_at": {
+      "$ref": "common.v1.schema.json#/$defs/timestamp"
+    },
+    "created_at": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "retained_until": {
+      "$ref": "common.v1.schema.json#/$defs/timestamp"
+    },
+    "recovery_state_catalog_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "codec_registry_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "postgres_snapshot_ref": {
+      "$ref": "common.v1.schema.json#/$defs/logical_ref"
+    },
+    "object_store_manifest_ref": {
+      "$ref": "common.v1.schema.json#/$defs/logical_ref"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4096,
+      "items": { "$ref": "common.v1.schema.json#/$defs/artifact_proof" }
+    },
+    "manifest_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    }
+  }
+}

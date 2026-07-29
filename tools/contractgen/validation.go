@@ -129,6 +129,8 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 		return validateWSIndex(value)
 	case "imports":
 		return validateImportTargetAuthoredInput(relativePath, value)
+	case "recovery":
+		return validateRecoveryContractInput(relativePath, value)
 	default:
 		return nil
 	}
@@ -140,6 +142,9 @@ func validateContractFamily(root, familyDir string) error {
 	}
 	if familyDir == "imports" {
 		return validateImportTargetContractFamily(root)
+	}
+	if familyDir == "recovery" {
+		return validateRecoveryContractFamily(root)
 	}
 	if familyDir != "view-schemas" {
 		return nil

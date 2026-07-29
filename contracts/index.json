@@ -165,6 +165,20 @@
       "typescript_runtime_artifact_prefixes": [],
       "activation_dependency_ids": [],
       "description": "Core Imports target inputs plus generated backend, frontend, adapter, verification, and integrity projections."
+    },
+    {
+      "family_id": "recovery",
+      "contract_root": "contracts/recovery",
+      "generation_status": "active",
+      "go_name": "RecoveryArtifacts",
+      "ts_name": "recoveryArtifacts",
+      "output_order": 8,
+      "generated_outputs": [
+        "internal/gen/contractrecovery/artifacts_gen.go"
+      ],
+      "typescript_runtime_artifact_prefixes": [],
+      "activation_dependency_ids": [],
+      "description": "Recovery state ownership, backup, restore, verification, target-safety, and private evidence contracts."
     }
   ]
 }

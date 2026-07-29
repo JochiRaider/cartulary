@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.recovery_common.v1",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "schema_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^cartulary\\.[a-z][a-z0-9_.-]*\\.v[1-9][0-9]*$"
+    },
+    "logical_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+    },
+    "content_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+/-]*$"
+    },
+    "nullable_uuid": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "nullable_timestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/timestamp" },
+        { "type": "null" }
+      ]
+    },
+    "nullable_identifier": {
+      "oneOf": [
+        { "$ref": "#/$defs/identifier" },
+        { "type": "null" }
+      ]
+    },
+    "operation": {
+      "enum": [
+        "backup_inspect_latest",
+        "backup_create",
+        "restore_latest",
+        "restore_verify_latest",
+        "restore_verify_due"
+      ]
+    },
+    "result": {
+      "enum": ["succeeded", "no_op", "failed"]
+    },
+    "error_code": {
+      "oneOf": [
+        {
+          "enum": [
+            "invalid_operator_request",
+            "recovery_key_unavailable",
+            "backup_set_not_found",
+            "backup_integrity_failed",
+            "unsafe_restore_target",
+            "recovery_operation_in_progress",
+            "operation_timed_out",
+            "backup_create_failed",
+            "restore_failed",
+            "verification_failed"
+          ]
+        },
+        { "type": "null" }
+      ]
+    },
+    "error_reason": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "artifact_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "count"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/identifier" },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "artifact_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schema_id",
+        "logical_ref",
+        "content_type",
+        "plaintext_bytes",
+        "plaintext_sha256",
+        "envelope_ref",
+        "envelope_sha256"
+      ],
+      "properties": {
+        "kind": { "$ref": "#/$defs/identifier" },
+        "schema_id": { "$ref": "#/$defs/schema_id" },
+        "logical_ref": { "$ref": "#/$defs/logical_ref" },
+        "content_type": { "$ref": "#/$defs/content_type" },
+        "plaintext_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "plaintext_sha256": { "$ref": "#/$defs/sha256" },
+        "envelope_ref": { "$ref": "#/$defs/logical_ref" },
+        "envelope_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "binding_digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database_sha256", "object_store_sha256"],
+      "properties": {
+        "database_sha256": { "$ref": "#/$defs/sha256" },
+        "object_store_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

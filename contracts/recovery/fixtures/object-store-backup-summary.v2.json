@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.object_store_backup_summary.v2",
+  "backup_set_id": "00000000-0000-0000-0000-000000000201",
+  "consistency_point_at": "2026-07-29T12:00:00Z",
+  "object_count": 1,
+  "total_plaintext_bytes": 0,
+  "family_counts": [
+    {
+      "kind": "evidence.blobs",
+      "count": 1
+    }
+  ],
+  "manifest_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+}

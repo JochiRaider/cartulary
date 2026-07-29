@@ -1,0 +1,28 @@
+{
+  "schema_id": "cartulary.restore_verification.v2",
+  "verification_attempt_id": "recovery-attempt-0001",
+  "backup_set_id": "00000000-0000-0000-0000-000000000201",
+  "consistency_point_at": "2026-07-29T11:00:00Z",
+  "verification_basis": {
+    "mechanism_id": "logical_streaming_backup.v2",
+    "database_binding_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "object_store_binding_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "backup_storage_binding_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "recovery_state_catalog_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "codec_registry_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "verification_basis_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+  "recovery_state_catalog_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "codec_registry_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "manifest_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+  "restored_object_count": 1,
+  "selected_incident_id": "00000000-0000-0000-0000-000000000401",
+  "workbook_probe": {
+    "status": "executed",
+    "registration_id": "timeline.base_restore_probe.v1",
+    "view_schema_id": "cartulary.view.timeline.v2",
+    "row_count": 0
+  },
+  "result": "pass",
+  "completed_at": "2026-07-29T12:05:00Z"
+}

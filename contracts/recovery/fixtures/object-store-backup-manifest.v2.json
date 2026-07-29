@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.object_store_backup_manifest.v2",
+  "backup_set_id": "00000000-0000-0000-0000-000000000201",
+  "consistency_point_at": "2026-07-29T12:00:00Z",
+  "recovery_state_catalog_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "objects": [
+    {
+      "owner_id": "module.evidence",
+      "object_family_id": "evidence.blobs",
+      "logical_object_id": "00000000-0000-0000-0000-000000000301",
+      "storage_key": "incidents/00000000-0000-0000-0000-000000000401/object-blobs/00000000-0000-0000-0000-000000000301",
+      "content_type": "application/octet-stream",
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact_ref": "backup/00000000-0000-0000-0000-000000000201/objects/00000000-0000-0000-0000-000000000301"
+    }
+  ],
+  "manifest_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+}

@@ -2465,6 +2465,25 @@ Success `data` MUST be a JSON object with exactly these members in this order.
 
 Expired or unknown runs return `projection_run_not_found`. Accepted and computing runs are inspectable through this query but are not graph-readable.
 
+### 11.9 Recovery-state contribution
+
+Graph Projection MUST publish one
+`cartulary.recovery_state_contribution.v1` source-owner contribution.
+`graph_projection_edges`, `graph_projection_idempotency`,
+`graph_projection_runs`, `graph_projection_vertices`, and
+`graph_projection_views` are derived state with
+`backup_inclusion='excluded_rebuildable'`. They MUST NOT be authoritative
+Postgres snapshot units.
+
+After Recovery restores authoritative source state, the Graph Projection owner
+MUST deterministically clear stale graph-projection state for the new restore
+generation and rebuild only graph views whose owner-declared source inputs and
+retention state remain valid. A run or idempotency record from the prior
+generation MUST NOT be accepted as current completion evidence. The rebuild
+algorithm identity and implementation digest are part of the frozen recovery
+catalog. Missing or mismatched bindings fail before readiness; Recovery MUST
+NOT reimplement Graph Projection storage or rebuild semantics.
+
 ## 12. Intentional implementation latitude
 
 ### 12.1 Allowed internal variance

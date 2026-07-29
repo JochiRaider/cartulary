@@ -5067,7 +5067,7 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
     - `object_blobs.storage_key` is the private physical bucket-relative object key. It MUST NOT be exposed through workbook rows, evidence preview/download handles, public API payloads, or release-shareable artifacts as the evidence identity.
     - The server-generated physical key grammar is `object_blob_storage_key_v1`: canonical form `incidents/{incident_uuid}/object-blobs/{object_blob_uuid}` where both UUIDs are lowercase RFC 4122 text. The key is composed of slash-separated ASCII segments, has no empty segments, is not absolute, contains no traversal segment (`.` or `..`), and contains no NUL, CR, or LF. The canonical key MUST be at most 1024 UTF-8 bytes.
     - Malformed server-generated physical keys and persisted physical keys that do not match the authoritative incident/blob identity fail before object-store calls with public error code `object_store_invalid_request`. `error.details.reason_code` MUST be `object_blob_storage_key_malformed` for grammar violations or `object_blob_storage_key_identity_mismatch` for parsed-key identity mismatches.
-    - Default MinIO-to-SeaweedFS migration preserves the physical bucket name and bucket-relative object key exactly. The default migration MUST NOT mutate database `evidence_records.storage_ref` values.
+    - The current profile defines no in-product or release-support MinIO-source migration. A deployment that still uses a retired source realization MUST complete an operator-owned external migration before upgrade or remain on a release that supports that realization. External storage migration MUST preserve server-managed logical refs and MUST NOT reinterpret `evidence_records.storage_ref`.
   - `evidence.collector_party_text`: read `collector_party_text`; write target `evidence_records.collector_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
   - `evidence.collector_party_id`: read the canonical collector party reference; write target `evidence_records.collector_party_id`; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `evidence.source_party_text`: read `source_party_text`; write target `evidence_records.source_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
@@ -6077,6 +6077,42 @@ Each successful operational backup MUST produce one retained `backup_set` bound 
 Profiles: base
 Verified by: AC-398, AC-399, AC-440
 
+**REQ-01-647**
+Every authored public base table and every durable object family MUST be
+classified by exactly one source-owner
+`cartulary.recovery_state_contribution.v1`. Recovery MUST aggregate the
+complete contribution set into one immutable
+`cartulary.recovery_state_catalog.v1` before backup or restore admission.
+Unknown, missing, duplicate, conflicting, or cyclic contribution facts MUST
+fail before backup publication or restore mutation.
+
+A table contribution MUST declare its source owner, state class, backup
+inclusion, restore action, and any exact packaged codec, rebuild, or
+invalidation algorithm. An object-family contribution MUST additionally
+declare its snapshot-scoped inventory and validation algorithms. Recovery MUST
+orchestrate only the frozen catalog; it MUST NOT discover another owner's
+authoritative state from a name predicate, an unrestricted schema scan, raw
+cross-owner query, or Harness/tooling metadata at runtime.
+
+The current vNext catalog accounts for exactly 109 authored public base tables.
+Exactly 82 are `authoritative_required`. All five `graph_projection_*` tables
+are `excluded_rebuildable`; all four `collaboration_*` stream tables and
+`enterprise_auth_transactions` are `excluded_security_state` and MUST be
+invalidated across the restore generation. The seven explicit exclusions,
+synthetic `goose_db_version`, and ten `*_grid_projection` tables remain
+excluded under their owner-declared restore actions. The complete 82-table set
+and exclusion set are projected under `contracts/recovery`; adding or removing
+an authored table requires a coordinated source-owner contribution change
+before generation can pass.
+
+The current object families are Evidence blobs, import source streams,
+Extension staged objects, Incident Bundle files, Reference Pack members, and
+Reporting render and preview members. An object present in the configured
+namespace but absent from every admitted inventory MUST be explicitly
+classified transient or MUST fail coverage; Recovery MUST NOT silently copy it.
+Profiles: base
+Verified by: AC-398, AC-399, AC-401, AC-440
+
 **REQ-01-572**
 A `backup_set` counts as successful only when all of the following are durably captured for the same `consistency_point_at`:
 
@@ -6088,7 +6124,19 @@ At creation time, `verification_state` MUST be `unverified`. `verification_state
 
 An implementation MUST NOT classify or expose a `backup_attestation` or `backup_set` metadata row as the latest successful retained backup unless the required artifact set and integrity proof for that same row are still readable from the configured backup storage and match the persisted proofs. Metadata freshness alone is not sufficient successful-retained evidence.
 
-For a SeaweedFS S3 object-store realization, an operator-private `cartulary.object_store_backup_manifest.v1` manifest is sufficient object-store artifact evidence only when it belongs to the same `backup_set_id` and `consistency_point_at` as the enclosing `backup_set`, includes every restoreable object required by authoritative blob state at that point, includes a non-null lowercase SHA-256 digest computed from each backed-up object byte stream, and includes a manifest digest over canonical manifest bytes. A redacted `cartulary.object_store_backup_summary.v1` may be retained or shared as a derivative summary, but it MUST NOT be accepted as restore input and MUST NOT contain raw bucket names, storage refs, object keys, endpoint URLs, credentials, or raw storage backend paths.
+For a current SeaweedFS S3 object-store realization, an operator-private
+`cartulary.object_store_backup_manifest.v2` manifest is sufficient object-store
+artifact evidence only when it belongs to the same `backup_set_id`,
+`consistency_point_at`, and recovery-state catalog as the enclosing
+`backup_set`; includes every immutable object selected by the snapshot-scoped
+owner inventories; includes a non-null lowercase SHA-256 digest computed from
+each backed-up object byte stream; and includes a manifest digest over canonical
+manifest bytes. A redacted `cartulary.object_store_backup_summary.v2` may be
+retained or shared as a derivative summary, but it MUST NOT be accepted as
+restore input and MUST NOT contain raw bucket names, storage refs, object keys,
+endpoint URLs, credentials, or raw storage backend paths. Versions 1 and 2 of
+the prior object-store snapshot and version 1 of the private manifest and
+summary are historical restore codecs only.
 Profiles: base
 Verified by: AC-398, AC-401
 
@@ -6098,16 +6146,36 @@ Verified by: AC-398, AC-401
 An admitted `backup_create` operation MUST execute the following publication algorithm:
 
 1. acquire the deployment recovery-operation exclusion boundary defined by Core 04;
-2. allocate one new `backup_set_id` and one `consistency_point_at`;
-3. stage the Postgres restore artifact set or restore anchor;
-4. stage the object-store restore artifact set or restore anchor for the same `consistency_point_at`;
-5. compute and verify every required integrity proof for the staged artifacts or anchors;
-6. verify every required artifact is readable from configured backup storage;
-7. create the `backup_attestation` with `verification_state='unverified'`, `last_verified_restore_at=null`, and `retained_until >= created_at + 30 days`;
-8. atomically publish the candidate as a successful retained `backup_set`;
-9. release the deployment recovery-operation exclusion boundary.
+2. validate and freeze the complete recovery-state catalog, then allocate one
+   new `backup_set_id`;
+3. begin one read-only repeatable-read Postgres transaction, export or retain
+   its snapshot for every structured-state reader, and define
+   `consistency_point_at` from that admitted snapshot;
+4. stream each required structured-state unit from the same snapshot, and
+   derive each owner object inventory only from authoritative rows visible in
+   that snapshot;
+5. stream each exact immutable object selected by those inventories, rejecting
+   a missing or changed member before publication;
+6. compute and verify every required integrity proof for the staged artifacts
+   or anchors;
+7. verify every required artifact is readable from configured backup storage;
+8. create the `backup_attestation` with `verification_state='unverified'`,
+   `last_verified_restore_at=null`, and
+   `retained_until >= created_at + 30 days`;
+9. atomically publish the candidate as a successful retained `backup_set`;
+10. release the deployment recovery-operation exclusion boundary.
 
-Step 8 is the only success-publication point. A timeout or failure before step 8 MUST leave latest-successful-retained backup selection unchanged, MUST expose no candidate as a successful retained `backup_set`, MUST emit a failed operator result, MUST append the required recovery journal entry under Core 04, and MUST either remove staged artifacts or retain them only as non-success diagnostic material that cannot be selected for restore, inspection, or restore verification. If no prior successful retained backup exists, failure before step 8 leaves latest-successful-retained backup selection absent. If a prior successful retained backup exists, failure before step 8 MUST NOT replace, invalidate, or sort ahead of that backup when the prior backup still satisfies freshness, retention, artifact-readability, and proof checks.
+Step 9 is the only success-publication point. A timeout or failure before step 9
+MUST leave latest-successful-retained backup selection unchanged, MUST expose
+no candidate as a successful retained `backup_set`, MUST emit a failed operator
+result, MUST append the required recovery journal entry under Core 04, and MUST
+either remove staged artifacts or retain them only as non-success diagnostic
+material that cannot be selected for restore, inspection, or restore
+verification. If no prior successful retained backup exists, failure before
+step 9 leaves latest-successful-retained backup selection absent. If a prior
+successful retained backup exists, failure before step 9 MUST NOT replace,
+invalidate, or sort ahead of that backup when the prior backup still satisfies
+freshness, retention, artifact-readability, and proof checks.
 
 The current profile includes no browser scheduler, editable backup cadence setting, "Backup now" HTTP action, public route, WebSocket action, workbook action, common-job action, operator-supplied timestamp selector, operator-supplied scheduler flag, or Cartulary-managed internal scheduler for backup creation. Deployment tooling MUST invoke `operator backup create` frequently enough to satisfy REQ-01-573.
 Profiles: base
@@ -6123,10 +6191,49 @@ Postgres base backup plus WAL archiving together with object-store bucket snapsh
 Profiles: base
 Verified by: AC-398, AC-399, AC-401
 
+**REQ-01-648**
+The current logical-artifact realization MUST emit
+`cartulary.backup_integrity_manifest.v3`,
+`cartulary.postgres_snapshot_artifact.v2`,
+`cartulary.postgres_snapshot_unit.v1`,
+`cartulary.object_store_backup_manifest.v2`,
+`cartulary.object_store_backup_summary.v2`, and
+`cartulary.backup_artifact_envelope.v2`. Structured rows MUST be emitted as
+canonical NDJSON units in catalog order and object bytes MUST be streamed;
+neither complete table contents nor complete object contents nor a complete
+backup may be required in memory.
+
+Envelope v2 uses fixed 4194304-byte plaintext chunks, a per-artifact AES-256
+key derived with HKDF-SHA256 from the recovery master key and a random 32-byte
+salt, and AES-GCM nonces consisting of one random 8-byte envelope prefix plus
+the big-endian unsigned 32-bit chunk index. Authenticated additional data binds
+the envelope schema ID, logical artifact reference, content type, chunk index,
+plaintext length, and final-chunk flag. A zero-byte artifact emits one
+authenticated final chunk. Wrong keys, corrupt or reordered chunks, duplicate
+indices, truncation, missing final chunks, and trailing data MUST fail closed
+before artifact use.
+
+Persisted artifact selection MUST use the exact schema ID and any required
+codec digest recorded by the enclosing manifest. A historical decoder is
+permitted only while retained backup metadata names it and only when its exact
+implementation remains packaged. New writers MUST NOT emit historical
+formats. Renamed-token aliases, normalization, best-effort fallback, and use of
+a current decoder for historical bytes are forbidden.
+Profiles: base
+Verified by: AC-398, AC-399, AC-401
+
 ### 12.2 Restore
 
 **REQ-01-575**
 A restore operation MUST select exactly one retained `backup_set` and MUST restore Postgres and object-store contents from that same `backup_set` and its declared `consistency_point_at`.
+
+Restore MUST select the exact recovery-state catalog and codec set named by the
+backup manifest before target mutation. For vNext backups, Recovery restores
+only `authoritative_required` units, then invokes each owner-declared rebuild
+or invalidation action in the frozen catalog. Catalog, codec, unit, object, or
+algorithm identity mismatch MUST fail closed. Historical backups retain the
+catalog interpretation embedded by their exact historical decoder and MUST NOT
+be reinterpreted as the current 82-table catalog.
 Profiles: base
 Verified by: AC-399, AC-400
 
@@ -6184,13 +6291,42 @@ Profiles: base
 Verified by: AC-399
 
 **REQ-01-578**
-A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a non-secret verification-basis digest that is sufficient to detect those mechanism and root-binding changes. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
+A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
 
 A manual one-shot restore-verification command MAY exist, but it is not sufficient by itself to satisfy the cadence requirement. The deployment-local implementation MUST provide an operator-runnable due-verification control that selects retained backups due by verification age or verification-basis change, runs verification in an isolated restore target, records each result, and fails closed before mutating any target that is not proven to be a restore-verification target.
 
-The restore-verification workbook probe contract is `restore_workbook_probe_v1`. Zero-incident restored backup sets skip the workbook probe only after the restore has completed, projections have rebuilt, and authoritative evidence/blob lifecycle invariants have passed. When the restored set contains incident data, the probe MUST select one deterministic restored incident, execute one owner-registered built-in workbook query through the owning workbook or surface module, and treat transport, schema lookup, query execution, or owner-defined required-row failure as `verification_failed` with `reason_code='workbook_probe_failed'` under REQ-01-595. The probe MUST NOT define workbook query semantics, selected surfaces, row eligibility, or failure mapping from harness fixtures, package names, filenames, visible labels, or implementation-local tests. A valid owner-defined workbook query that returns zero rows is not by itself a probe failure unless the owner-defined probe registration declares an eligible source-row predicate that requires at least one returned row.
+The restore-verification workbook probe contract is
+`cartulary.restore_workbook_probe_registration.v1`. Exactly one Base default
+registration is required. Timeline owns the current registration and exact
+query. Workbook validates the complete registry and executes the selected
+registration. Recovery selects the lexicographically lowest restored
+`incident_id` once, passes that exact identity to Workbook, and records the
+returned registration and view identity in
+`cartulary.restore_verification.v2`; Workbook MUST NOT reselect an incident.
+Duplicate registration IDs, more than one Base default, or an unresolved view
+schema or executor MUST fail before verification execution.
 
-For a SeaweedFS S3 object-store realization, a `cartulary.restore_verification.v1` artifact is sufficient restore-verification evidence only when it selects exactly one retained `backup_set`, restores Postgres and object-store contents from that same set and same `consistency_point_at`, verifies manifest size and SHA-256 proofs for every manifest object, rebuilds projections, verifies authoritative evidence/blob lifecycle invariants, and records `result='pass'` only when all required checks pass. Zero-incident backups may pass only when blob and manifest checks pass and the artifact records the incident-open check as skipped because no incidents exist.
+Zero-incident restored backup sets skip the workbook probe only after the
+restore has completed, projections have rebuilt, and authoritative
+evidence/blob lifecycle invariants have passed. The current Timeline
+registration uses `cartulary.view.timeline.v2`, no filters,
+`timeline.activity_sort_ts ASC, record_id ASC`, omitted `group_by`, and
+`row_requirement='zero_rows_allowed'`. Transport, registry, schema lookup,
+query execution, or owner-defined required-row failure is
+`verification_failed` with `reason_code='workbook_probe_failed'` under
+REQ-01-595. Query semantics MUST NOT be obtained from Harness fixtures,
+package names, filenames, or visible labels.
+
+For a current SeaweedFS S3 object-store realization, a
+`cartulary.restore_verification.v2` artifact is sufficient
+restore-verification evidence only when it selects exactly one retained
+`backup_set`, binds the exact verification basis, catalog, codecs, selected
+incident, and executed workbook registration, restores Postgres and
+object-store contents from that same set and same `consistency_point_at`,
+verifies manifest size and SHA-256 proofs for every manifest object, rebuilds
+or invalidates catalog state, verifies authoritative evidence/blob lifecycle
+invariants, and records `result='pass'` only when all required checks pass.
+Version 1 remains a strict historical reader for retained evidence only.
 Profiles: base
 Verified by: AC-401
 
@@ -6267,6 +6403,19 @@ Latest-backup selection for `backup_inspect_latest`, `restore_latest`, and `rest
 
 `restore_verify_due` MUST select retained backups due by verification age or verification-basis change, order selected backups by `consistency_point_at ASC, backup_set_id ASC`, and apply the resolved `--timeout-seconds` independently to each selected verification. If no backup is due, the command MUST return `result='no_op'` with `backup_set_id=null`, `consistency_point_at=null`, and exit code `0`.
 
+The due set and its order MUST be snapshotted before the first attempt. Each
+selected backup receives its own verification-attempt ID, timeout context,
+recovery-operation exclusion acquisition, restore-target admission and serving
+lease, journal admission and terminal record, reset decision, and
+attestation update. A determinate failed attempt MAY be followed by the next
+selected backup only after target reset and a fresh complete admission
+succeed. Cancellation, timeout, serving-lease loss, indeterminate mutation,
+reset failure, or inability to prove a fresh target MUST stop the batch. The
+final result reports the first failure in due order while `artifact_refs`
+retains the safe refs for every attempted backup in deterministic order. A
+no-due invocation retains safe no-op journal and audit evidence proving the
+scheduler invocation, but acquires no mutating-operation lock.
+
 Timeout returns `code='operation_timed_out'`, `reason_code='timeout_elapsed'`, `result='failed'`, and exit code `4`. The current profile defines these exit codes:
 
 | Exit code | Meaning |
@@ -6290,6 +6439,14 @@ Operator recovery errors MUST use only the following `code` and `reason_code` co
 | `backup_create_failed` | `4` | `postgres_backup_failed`, `object_backup_failed`, `integrity_proof_failed`, `artifact_readback_failed`, `attestation_write_failed`, `backup_publication_failed`, `journal_write_failed` |
 | `restore_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `journal_write_failed` |
 | `verification_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `workbook_probe_failed`, `attestation_update_failed`, `journal_write_failed` |
+
+Recovery semantic operations MUST represent failures with one closed typed
+failure kind that maps exhaustively to this registry. CLI parsing, JSON/JSONL
+encoding, exit-code selection, and diagnostic message wording belong to the
+Operator application facade. Recovery MUST NOT inspect error text, CLI DTOs,
+or message fragments to choose a code, reason code, phase, or exit code.
+Failure of the atomic terminal journal and administrative-audit transaction
+maps to the existing operation-specific `journal_write_failed` reason.
 
 Profiles: base
 Verified by: AC-428

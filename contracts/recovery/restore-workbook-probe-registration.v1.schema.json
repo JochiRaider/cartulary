@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.restore_workbook_probe_registration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "registration_id",
+    "owner_id",
+    "profile",
+    "is_default",
+    "view_schema_id",
+    "filters",
+    "sort",
+    "group_by",
+    "row_requirement"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.restore_workbook_probe_registration.v1"
+    },
+    "registration_id": {
+      "$ref": "common.v1.schema.json#/$defs/identifier"
+    },
+    "owner_id": { "const": "module.timeline" },
+    "profile": { "const": "base" },
+    "is_default": { "const": true },
+    "view_schema_id": { "const": "cartulary.view.timeline.v2" },
+    "filters": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "type": "object" }
+    },
+    "sort": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_key", "direction"],
+          "properties": {
+            "field_key": { "const": "timeline.activity_sort_ts" },
+            "direction": { "const": "asc" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field_key", "direction"],
+          "properties": {
+            "field_key": { "const": "record_id" },
+            "direction": { "const": "asc" }
+          }
+        }
+      ],
+      "items": false
+    },
+    "group_by": { "type": "null" },
+    "row_requirement": { "const": "zero_rows_allowed" }
+  }
+}

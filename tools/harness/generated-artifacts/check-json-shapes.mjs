@@ -948,7 +948,12 @@ function validateContractFamilyRegistryShape(file) {
       const typeScriptRuntimePrefixes = requireStringArray(
         entry.typescript_runtime_artifact_prefixes,
         `${label}.typescript_runtime_artifact_prefixes`,
-        { nonEmpty: familyID !== "openapi" && familyID !== "imports" },
+        {
+          nonEmpty:
+            familyID !== "openapi" &&
+            familyID !== "imports" &&
+            familyID !== "recovery",
+        },
       );
       if (familyID === "openapi" && typeScriptRuntimePrefixes.length !== 0) {
         throw new Error(
@@ -958,6 +963,11 @@ function validateContractFamilyRegistryShape(file) {
       if (familyID === "imports" && typeScriptRuntimePrefixes.length !== 0) {
         throw new Error(
           `${label}.typescript_runtime_artifact_prefixes must stay empty so internal adapter descriptors cannot enter frontend bundles`,
+        );
+      }
+      if (familyID === "recovery" && typeScriptRuntimePrefixes.length !== 0) {
+        throw new Error(
+          `${label}.typescript_runtime_artifact_prefixes must stay empty so operator-private recovery contracts cannot enter frontend bundles`,
         );
       }
       assertUnique(
@@ -1018,6 +1028,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("imports")) {
     throw new Error(`${file}.families must declare imports`);
   }
+  if (!familyIDs.includes("recovery")) {
+    throw new Error(`${file}.families must declare recovery`);
+  }
   const expectedBaseActiveIDs = [
     "openapi",
     "ws",
@@ -1026,12 +1039,12 @@ function validateContractFamilyRegistryShape(file) {
     "extensions",
   ];
   const expectedActiveIDVariants = [
-    [...expectedBaseActiveIDs, "audit", "imports"].join("\n"),
-    [...expectedBaseActiveIDs, "network-flow", "audit", "imports"].join("\n"),
+    [...expectedBaseActiveIDs, "audit", "imports", "recovery"].join("\n"),
+    [...expectedBaseActiveIDs, "network-flow", "audit", "imports", "recovery"].join("\n"),
   ];
   if (!expectedActiveIDVariants.includes(activeIDsByOrder.filter(Boolean).join("\n"))) {
     throw new Error(
-      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit, imports`,
+      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit, imports, recovery`,
     );
   }
   if (plannedIDs.length > 1 || (plannedIDs.length === 1 && plannedIDs[0] !== "network-flow")) {

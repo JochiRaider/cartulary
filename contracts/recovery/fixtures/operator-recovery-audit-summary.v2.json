@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.operator_recovery_audit_summary.v2",
+  "operation_id": "recovery-operation-0001",
+  "operation": "restore_verify_latest",
+  "attempt_id": "recovery-attempt-0001",
+  "result": "succeeded",
+  "started_at": "2026-07-29T12:00:00Z",
+  "completed_at": "2026-07-29T12:05:00Z",
+  "backup_set_id": "00000000-0000-0000-0000-000000000201",
+  "consistency_point_at": "2026-07-29T11:00:00Z",
+  "artifact_counts": [
+    {
+      "kind": "restore_verification",
+      "count": 1
+    }
+  ],
+  "error_code": null,
+  "error_reason": null
+}

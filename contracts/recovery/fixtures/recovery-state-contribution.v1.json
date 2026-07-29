@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.recovery_state_contribution.v1",
+  "owner_id": "module.timeline",
+  "tables": [
+    {
+      "table_name": "timeline_events",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "table_name": "timeline_grid_projection",
+      "state_class": "derived",
+      "backup_inclusion": "excluded_rebuildable",
+      "restore_action": "rebuild",
+      "codec_id": null,
+      "algorithm_id": "timeline.restore_grid_projection.v1"
+    }
+  ],
+  "object_families": []
+}

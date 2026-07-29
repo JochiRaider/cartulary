@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.backup_artifact_envelope.v2",
+  "logical_ref": "backup/00000000-0000-0000-0000-000000000201/empty",
+  "content_type": "application/octet-stream",
+  "kdf": "hkdf_sha256_v1",
+  "cipher": "aes_256_gcm_chunked_v1",
+  "salt_base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  "nonce_prefix_base64": "AAAAAAAAAAA=",
+  "chunk_plaintext_bytes": 4194304,
+  "chunks": [
+    {
+      "index": 0,
+      "plaintext_length": 0,
+      "final": true,
+      "ciphertext_base64": "AAAAAAAAAAAAAAAAAAAAAA=="
+    }
+  ]
+}

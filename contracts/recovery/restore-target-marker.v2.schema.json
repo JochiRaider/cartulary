@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.restore_target_marker.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "purpose",
+    "target_generation_id",
+    "binding_digests",
+    "issued_at",
+    "expires_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.restore_target_marker.v2" },
+    "purpose": {
+      "enum": ["restore_target", "restore_verification_target"]
+    },
+    "target_generation_id": {
+      "$ref": "common.v1.schema.json#/$defs/uuid"
+    },
+    "binding_digests": {
+      "$ref": "common.v1.schema.json#/$defs/binding_digests"
+    },
+    "issued_at": { "$ref": "common.v1.schema.json#/$defs/timestamp" },
+    "expires_at": { "$ref": "common.v1.schema.json#/$defs/timestamp" }
+  }
+}

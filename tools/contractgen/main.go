@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -286,6 +287,9 @@ func pathWithinRoot(root string, target string) bool {
 }
 
 func decodeContract(data []byte) (any, error) {
+	if err := rejectDuplicateJSONMembers(data); err != nil {
+		return nil, err
+	}
 	var decoded any
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
@@ -298,6 +302,78 @@ func decodeContract(data []byte) (any, error) {
 	}
 
 	return normalize(decoded), nil
+}
+
+func rejectDuplicateJSONMembers(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := scanUniqueJSONValue(decoder, "$"); err != nil {
+		return fmt.Errorf("contract input contains invalid or duplicate JSON members: %w", err)
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return fmt.Errorf("contract input must contain exactly one JSON document")
+		}
+		return fmt.Errorf("contract input trailing content: %w", err)
+	}
+	return nil
+}
+
+func scanUniqueJSONValue(decoder *json.Decoder, path string) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, isDelimiter := token.(json.Delim)
+	if !isDelimiter {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		seen := map[string]struct{}{}
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return fmt.Errorf("%s object member is not a string", path)
+			}
+			if _, duplicate := seen[key]; duplicate {
+				return fmt.Errorf("%s has duplicate member %q", path, key)
+			}
+			seen[key] = struct{}{}
+			if err := scanUniqueJSONValue(decoder, path+"."+key); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim('}') {
+			return fmt.Errorf("%s object has invalid closing delimiter", path)
+		}
+	case '[':
+		index := 0
+		for decoder.More() {
+			if err := scanUniqueJSONValue(decoder, fmt.Sprintf("%s[%d]", path, index)); err != nil {
+				return err
+			}
+			index++
+		}
+		end, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if end != json.Delim(']') {
+			return fmt.Errorf("%s array has invalid closing delimiter", path)
+		}
+	default:
+		return fmt.Errorf("%s has unexpected delimiter %q", path, delimiter)
+	}
+	return nil
 }
 
 func canonicalizeDecoded(normalized any) (string, error) {
