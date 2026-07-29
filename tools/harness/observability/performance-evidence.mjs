@@ -672,12 +672,11 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
         ["license-report", ["check"], "artifact_generation"],
         ["sbom", ["license-report"], "artifact_generation"],
         ["seaweedfs-compatibility", ["check"], "service_validation"],
-        ["seaweedfs-migration-preservation", ["check"], "service_validation"],
-        ["seaweedfs-release-gate", ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"], "small_check"],
+        ["seaweedfs-release-gate", ["seaweedfs-compatibility", "license-report", "sbom"], "small_check"],
         ["build", ["check"], "build"],
         ["deployable-shape", ["build"], "small_check"],
         ["release-browser-readiness", ["check"], "nested_browser_validation"],
-        ["release-readiness-evidence", ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-migration-preservation", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "small_check"],
+        ["release-readiness-evidence", ["harness-contract", "go-gosec-audit", "license-report", "sbom", "seaweedfs-compatibility", "seaweedfs-release-gate", "build", "deployable-shape", "release-browser-readiness"], "small_check"],
       ],
     };
     const expectedTargetSteps = expectedSteps[target];

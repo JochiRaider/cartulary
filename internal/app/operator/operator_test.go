@@ -135,7 +135,7 @@ func objectStoreTestConfig(t testing.TB, rootPath string) configassembly.Loaded 
 	return loaded
 }
 
-func TestOperatorObjectStoreMigrationCommand_U_RemovedFromOperatorSurface(t *testing.T) {
+func TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := operatorRunner{stderr: &stderr}
 	registry, err := runner.commandRegistry()
@@ -143,16 +143,16 @@ func TestOperatorObjectStoreMigrationCommand_U_RemovedFromOperatorSurface(t *tes
 		t.Fatalf("build operator registry: %v", err)
 	}
 	exitCode := registry.run(context.Background(), []string{
-		"object-store-migration",
+		"retired-sixth-command",
 		"run",
 	})
 	if exitCode != 2 {
 		t.Fatalf("expected removed command to stop with usage error, got exit=%d stderr=%s", exitCode, stderr.String())
 	}
-	if strings.Contains(registry.usage(), "object-store-migration") {
-		t.Fatalf("operator usage still advertises removed object-store migration command")
+	if strings.Contains(registry.usage(), "retired-sixth-command") {
+		t.Fatalf("operator usage advertises an unregistered sixth command")
 	}
-	if !strings.Contains(stderr.String(), "operator backup inspect latest") || strings.Contains(stderr.String(), "object-store-migration") {
+	if !strings.Contains(stderr.String(), "operator backup inspect latest") || strings.Contains(stderr.String(), "retired-sixth-command") {
 		t.Fatalf("removed command usage was not clear: %s", stderr.String())
 	}
 }

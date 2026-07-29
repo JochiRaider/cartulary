@@ -20,7 +20,6 @@ func TestValidateRecoveryRegistryRejectsUnsortedSchemaIDs(t *testing.T) {
 		"canonicalization":             "cartulary.recovery_canonical_json.v1",
 		"current_schema_ids":           []any{"cartulary.z.v1", "cartulary.a.v1"},
 		"historical_reader_schema_ids": []any{"cartulary.historical.v1"},
-		"removed_schema_id_prefixes":   []any{"cartulary.object_store_migration_"},
 		"limits":                       map[string]any{"maximum_tables": json.Number("4096")},
 		"schemas":                      []any{"schema.v1.schema.json"},
 		"canonical_fixtures":           []any{"fixtures/schema.v1.json"},

@@ -7,8 +7,8 @@ import path from "node:path";
 
 import {
   buildDependencyBoundary,
+  buildBackupIntegrityCoverage,
   buildOccurrenceInventoryFromEntries,
-  buildMigrationPreservationEvidence,
   buildRedactionLeakageScan,
   buildReleaseManifestExposure,
   buildReleaseGateSummary,
@@ -94,7 +94,7 @@ const inventory = buildOccurrenceInventoryFromEntries({
     },
   ],
 });
-assert.equal(inventory.schema_id, "cartulary.seaweedfs_migration_occurrence_inventory.v1");
+assert.equal(inventory.schema_id, "cartulary.seaweedfs_occurrence_inventory.v1");
 assert.equal(inventory.result, "fail");
 assert.equal(inventory.occurrences.length, 8);
 assert.deepEqual(
@@ -392,95 +392,27 @@ try {
   }
 }
 
-const migration = buildMigrationPreservationEvidence({
+const backupIntegrity = buildBackupIntegrityCoverage({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
-  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/object-store-migration/pass",
-  validation: {
-    schema_id: "cartulary.object_store_migration_validation.v1",
-    result: "pass",
-    source_backend: "minio_s3",
-    target_backend: "seaweedfs_s3",
-    source_bucket: "fixture-bucket",
-    target_bucket: "fixture-bucket",
-    object_blob_count: 1,
-    blocking_diagnostics: [],
-    objects_checked: [
-      {
-        object_blob_id: "00000000-0000-4000-8000-000000000001",
-        status: "pass",
-        storage_ref_sha256: "a".repeat(64),
-        source_size_bytes: 4,
-        target_size_bytes: 4,
-        source_sha256: "b".repeat(64),
-        target_sha256: "b".repeat(64),
-      },
-    ],
-  },
-  copyLedger: {
-    schema_id: "cartulary.object_store_migration_copy_ledger.v1",
-    result: "pass",
-    object_count: 1,
-    items: [
-      {
-        object_blob_id: "00000000-0000-4000-8000-000000000001",
-        status: "copied",
-        source_bucket_ref: { sha256: "c".repeat(64) },
-        target_bucket_ref: { sha256: "c".repeat(64) },
-        source_key_ref: { sha256: "d".repeat(64) },
-        target_key_ref: { sha256: "d".repeat(64) },
-        source_size_bytes: 4,
-        target_size_bytes: 4,
-        source_sha256: "b".repeat(64),
-        target_sha256: "b".repeat(64),
-      },
-    ],
-  },
-  migrationRun: {
-    schema_id: "cartulary.object_store_migration_run.v1",
-    current_state: "cutover_ready",
-    events: [{ event: "validation_passed" }],
-  },
 });
-assert.equal(migration.result, "pass");
-assert.equal(migration.schema_id, "cartulary.seaweedfs_migration_preservation_evidence.v2");
-assert.equal(migration.preservation_checks.bucket_preserved, true);
-assert.equal(migration.preservation_checks.source_bucket, undefined);
-assert.equal(migration.preservation_checks.target_bucket, undefined);
-assert.equal(migration.preservation_checks.source_bucket_ref.redaction_class, "bucket");
-assert.match(migration.preservation_checks.source_bucket_ref.sha256, /^[a-f0-9]{64}$/);
-
-const missingMigration = buildMigrationPreservationEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  migrationPassDir: ".cartulary/test-results/missing/seaweedfs-migration-preservation/object-store-migration/pass",
-});
-assert.equal(missingMigration.result, "fail");
+assert.equal(backupIntegrity.result, "pass");
+assert.equal(backupIntegrity.schema_id, "cartulary.seaweedfs_backup_integrity_coverage.v1");
+assert.equal(
+  backupIntegrity.required_schema_ids.includes("cartulary.backup_integrity_manifest.v3"),
+  true,
+);
 
 const redactionMissingCurrent = buildRedactionLeakageScan({
   generatedAt: "2026-06-04T00:00:00.000Z",
   repoCommitValue: "abc123",
-  selectedArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
+  selectedArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/backup-integrity-coverage.json"],
   compatibilityReportPath: currentCompatibilityReportPath,
-  migrationPassDir: ".cartulary/test-results/fixture/seaweedfs-migration-preservation/object-store-migration/pass",
-  requireBackendProcessArtifacts: true,
 });
 assert.equal(redactionMissingCurrent.result, "fail");
 assert.equal(
   redactionMissingCurrent.scanned_artifacts.some(
     (artifact) => artifact.path === currentCompatibilityReportPath,
-  ),
-  true,
-);
-assert.equal(
-  redactionMissingCurrent.scanned_artifacts.some((artifact) =>
-    artifact.path.endsWith("/backend-process/backup-restore/object-store-backup-manifest.json"),
-  ),
-  true,
-);
-assert.equal(
-  redactionMissingCurrent.scanned_artifacts.some((artifact) =>
-    artifact.path.endsWith("/seaweedfs-migration-preservation/object-store-migration/mismatch/target-probe.json"),
   ),
   true,
 );
@@ -511,7 +443,7 @@ const pathMap = {
   "threat-model-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/threat-model-coverage.json",
   "storage-ref-owner-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/storage-ref-owner-coverage.json",
   "seaweedfs-compatibility-evidence.json": ".cartulary/release-artifacts/seaweedfs/fixture/seaweedfs-compatibility-evidence.json",
-  "migration-preservation-evidence.json": ".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json",
+  "backup-integrity-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/backup-integrity-coverage.json",
   "redaction-leakage-scan.json": ".cartulary/release-artifacts/seaweedfs/fixture/redaction-leakage-scan.json",
   "release-gate-summary.json": ".cartulary/release-artifacts/seaweedfs/fixture/release-gate-summary.json",
 };
@@ -539,7 +471,7 @@ const passingSummary = buildReleaseGateSummary({
     threat: { result: "pass" },
     storageRefOwner,
     compatibility,
-    migration,
+    backupIntegrity,
     redaction: { result: "pass" },
   },
 });
@@ -569,7 +501,7 @@ const redactionBlockedSummary = buildReleaseGateSummary({
     threat: { result: "pass" },
     storageRefOwner,
     compatibility,
-    migration,
+    backupIntegrity,
     redaction: { result: "fail" },
   },
 });
@@ -597,7 +529,7 @@ const blockedSummary = buildReleaseGateSummary({
     threat: { result: "pass" },
     storageRefOwner,
     compatibility: partialCompatibility,
-    migration: missingMigration,
+    backupIntegrity: { result: "fail" },
     redaction: { result: "pass" },
   },
 });

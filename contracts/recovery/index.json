@@ -26,9 +26,6 @@
     "cartulary.postgres_snapshot_artifact.v1",
     "cartulary.restore_verification.v1"
   ],
-  "removed_schema_id_prefixes": [
-    "cartulary.object_store_migration_"
-  ],
   "limits": {
     "authored_table_count": 109,
     "required_table_count": 82,

@@ -20,8 +20,8 @@
     },
     {
       "stride": "repudiation",
-      "controls": ["Retain auditable migration inventories, compatibility outcomes, lifecycle transitions, and operator-attributed destructive actions."],
-      "verification_hooks": ["seaweedfs-migration-preservation.json"]
+      "controls": ["Retain auditable backup inventories, compatibility outcomes, lifecycle transitions, and operator-attributed destructive actions."],
+      "verification_hooks": ["seaweedfs-compatibility-evidence.json", "redaction-leakage-scan.json"]
     },
     {
       "stride": "spoofing",
@@ -30,15 +30,15 @@
     },
     {
       "stride": "tampering",
-      "controls": ["Verify object digests, bucket/key identity, migration copy results, immutable compatibility cases, and retained artifact integrity."],
-      "verification_hooks": ["seaweedfs-migration-preservation.json", "storage-ref-owner-coverage.json"]
+      "controls": ["Verify object digests, bucket/key identity, backup and restore results, immutable compatibility cases, and retained artifact integrity."],
+      "verification_hooks": ["seaweedfs-compatibility-evidence.json", "redaction-leakage-scan.json", "storage-ref-owner-coverage.json"]
     }
   ],
   "storage_ref_controls": [
     { "check_id": "external-locator-preservation", "assertion": "User-authored external locators are preserved and never rewritten as server-managed object references.", "status": "active" },
     { "check_id": "invalid-key-before-backend-call", "assertion": "Malformed physical keys fail as object_store_invalid_request before an object-store call.", "status": "active" },
     { "check_id": "logical-server-ref-canonical-form", "assertion": "The canonical backend-neutral server reference is object://{object_blob_uuid}.", "status": "active" },
-    { "check_id": "migration-preserves-bucket-key-and-storage-ref", "assertion": "Object-store migration preserves bucket, physical key, and logical storage reference without mutating database identity.", "status": "active" },
+    { "check_id": "backup-preserves-storage-ref-ownership", "assertion": "Backup and restore preserve logical storage-reference ownership while keeping physical bucket and key material private.", "status": "active" },
     { "check_id": "physical-key-canonicalization", "assertion": "Physical keys use lowercase RFC 4122 identities, slash-separated ASCII, no empty segments, and no NUL, CR, or LF.", "status": "active" },
     { "check_id": "physical-key-grammar", "assertion": "object_blob_storage_key_v1 uses incidents/{incident_uuid}/object-blobs/{object_blob_uuid}.", "status": "active" },
     { "check_id": "physical-key-maximum-length", "assertion": "Physical keys are at most 1024 UTF-8 bytes.", "status": "active" },

@@ -650,7 +650,7 @@ if (!(releaseReadiness?.needs ?? []).includes("release-browser-readiness")) {
   throw new Error("release-readiness-evidence must wait for release-browser-readiness");
 }
 const seaweedGate = releaseSequence.steps.find((entry) => entry.target === "seaweedfs-release-gate");
-for (const prerequisite of ["seaweedfs-compatibility", "seaweedfs-migration-preservation", "license-report", "sbom"]) {
+for (const prerequisite of ["seaweedfs-compatibility", "license-report", "sbom"]) {
   if (!(seaweedGate?.needs ?? []).includes(prerequisite)) {
     throw new Error(`seaweedfs-release-gate must wait for ${prerequisite}`);
   }

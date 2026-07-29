@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.seaweedfs_migration_occurrence_classifications.v1",
+  "schema_id": "cartulary.seaweedfs_occurrence_classifications.v1",
   "rules": [
     {
       "id": "frontend-raw-storage-leakage-guards",
@@ -64,17 +64,6 @@
       "rationale": "Legacy credential-key spellings are retained only as redaction fixtures and policy patterns."
     },
     {
-      "id": "migration-source-backend-labels",
-      "path_globs": [
-        "internal/app/operator/operator.go",
-        "cmd/operator/**",
-        "internal/modules/recovery/**"
-      ],
-      "classification": "migration_source",
-      "owner": "Object-store migration-source evidence",
-      "rationale": "Retained source-backend labels identify the legacy source side of the migration and are not default runtime service references."
-    },
-    {
       "id": "object-store-adapter-sdk-imports",
       "path_globs": [
         "internal/platform/objectstore/**"
@@ -91,26 +80,6 @@
       "classification": "sdk_only",
       "owner": "tools/objectstoreprobe compatibility probe boundary",
       "rationale": "Generic S3-compatible client SDK usage is confined to the deployment-local object-store probe."
-    },
-    {
-      "id": "release-evidence-migration-source-support-literals",
-      "path_globs": [
-        "tools/release-evidence/seaweedfs-release-evidence.mjs"
-      ],
-      "line_regex": "Min[I]O-to-SeaweedFS migration|m[i]nio_s3",
-      "classification": "migration_source",
-      "owner": "SeaweedFS release evidence migration-source checks",
-      "rationale": "These support literals name the default migration source backend or owner-coverage phrase and are not default runtime service references."
-    },
-    {
-      "id": "release-evidence-test-migration-source-fixture",
-      "path_globs": [
-        "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs"
-      ],
-      "line_regex": "source_backend:\\s+\"m[i]nio_s3\"",
-      "classification": "migration_source",
-      "owner": "SeaweedFS release evidence migration-source fixture",
-      "rationale": "The fixture retains the default migration source backend label for release-evidence validation only."
     },
     {
       "id": "s3-test-fixture-sdk-imports",

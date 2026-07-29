@@ -135,7 +135,6 @@
   license-report \
   sbom \
   seaweedfs-compatibility \
-  seaweedfs-migration-preservation \
   seaweedfs-release-evidence \
   seaweedfs-release-gate \
   build \
@@ -305,8 +304,6 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make release-check                  run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation' \
 	'  make release-readiness-evidence     aggregate retained release-readiness evidence with explicit semantic effects' \
 	'  make seaweedfs-compatibility        run the full SeaweedFS S3 compatibility profile' \
-	'  make seaweedfs-migration-preservation' \
-	'                                      retain recovery-owned SeaweedFS migration preservation evidence' \
 	'  make seaweedfs-release-evidence     emit SeaweedFS release-gate evidence without enforcing the strict gate' \
 	'  make seaweedfs-release-gate         enforce the strict SeaweedFS S3 release gate' \
 	'  make build                          build backend and operator binaries with embedded web assets' \
@@ -1101,23 +1098,15 @@ seaweedfs-compatibility:
 	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-compatibility" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" OBJECT_STORE_PROFILE_ID="local_dev" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" $(GO) run ./tools/objectstoreprobe; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-compatibility,pass); summary_status=$$?; else $(call \
 	  RUN_RETAINED_TARGET_SUMMARY,seaweedfs-compatibility,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
-seaweedfs-migration-preservation: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-seaweedfs-migration-preservation: export CARTULARY_TEST_TARGET ?= seaweedfs-migration-preservation
-seaweedfs-migration-preservation:
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-migration-preservation)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(TEST_SERVICES_BIN) test-service-images; fi
-	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-migration-preservation" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" $(GO) test ./internal/modules/recovery -run TestSupportSeaweedFSMigrationPreservation -count=1; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-migration-preservation,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-migration-preservation,fail); \
-	  summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
-
 seaweedfs-release-evidence: export CARTULARY_TEST_TARGET ?= seaweedfs-release-evidence
 seaweedfs-release-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
 seaweedfs-release-evidence: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-release-evidence:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-evidence)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory backend-process seaweedfs-compatibility seaweedfs-migration-preservation $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_migration_occurrence_classifications.json; fi
-	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-release-evidence" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" \
-	  SEAWEEDFS_MIGRATION_PASS_DIR="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory seaweedfs-compatibility $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json; fi
+	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-release-evidence" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" $(NODE_BIN) \
+	  ./tools/release-evidence/seaweedfs-release-evidence.mjs
 
 seaweedfs-release-gate: export CARTULARY_TEST_TARGET ?= seaweedfs-release-gate
 seaweedfs-release-gate: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
@@ -1125,10 +1114,9 @@ seaweedfs-release-gate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-release-gate:
 	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-gate)
-	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory backend-process seaweedfs-compatibility seaweedfs-migration-preservation $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_migration_occurrence_classifications.json; fi
+	$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory seaweedfs-compatibility $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json; fi
 	$(Q)$(RUN_STEP_SCRIPT) "seaweedfs-release-gate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" \
-	  SEAWEEDFS_MIGRATION_PASS_DIR="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass" CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED="$(CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED)" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,pass); summary_status=$$?; else $(call \
-	  RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
+	  CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED="$(CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED)" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,seaweedfs-release-gate,fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"
 
 build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build:

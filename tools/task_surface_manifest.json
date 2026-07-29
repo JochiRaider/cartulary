@@ -40,7 +40,6 @@
       "release-check",
       "release-readiness-evidence",
       "seaweedfs-compatibility",
-      "seaweedfs-migration-preservation",
       "seaweedfs-release-evidence",
       "seaweedfs-release-gate",
       "service-backed-test-slice",
@@ -543,10 +542,6 @@
         "profile_id": "standard_no_regression"
       },
       {
-        "target": "seaweedfs-migration-preservation",
-        "profile_id": "standard_no_regression"
-      },
-      {
         "target": "seaweedfs-release-evidence",
         "profile_id": "standard_no_regression"
       },
@@ -1045,10 +1040,6 @@
         {
           "target": "seaweedfs-compatibility",
           "description": "run the full SeaweedFS S3 compatibility profile"
-        },
-        {
-          "target": "seaweedfs-migration-preservation",
-          "description": "retain recovery-owned SeaweedFS migration preservation evidence"
         },
         {
           "target": "seaweedfs-release-evidence",
@@ -1652,31 +1643,14 @@
         },
         {
           "type": "step",
-          "target": "seaweedfs-migration-preservation",
-          "needs": [
-            "check"
-          ],
-          "resource_profile": "service_validation",
-          "resource_claims": {
-            "host_cpu": 2,
-            "host_io": 4,
-            "process": 1
-          },
-          "make_jobs": 1,
-          "priority": 0
-        },
-        {
-          "type": "step",
           "target": "seaweedfs-release-gate",
           "skip_prerequisites": true,
           "produces_summary_targets": [
             "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
             "seaweedfs-release-gate"
           ],
           "needs": [
             "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
             "license-report",
             "sbom"
           ],
@@ -1764,7 +1738,6 @@
             "license-report",
             "sbom",
             "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
             "seaweedfs-release-gate",
             "build",
             "deployable-shape",
@@ -3388,39 +3361,14 @@
       ],
       "test_target": "self"
     },
-    "seaweedfs-migration-preservation": {
-      "prerequisites": [
-        "$(TEST_SERVICES_BIN)",
-        "test-service-images"
-      ],
-      "type": "step_command",
-      "mode": "run_step",
-      "step_label": "seaweedfs-migration-preservation",
-      "env": {
-        "GO": "$(GO)",
-        "GOCACHE": "$(GO_CACHE_DIR)",
-        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)"
-      },
-      "command": [
-        "$(GO)",
-        "test",
-        "./internal/modules/recovery",
-        "-run",
-        "TestSupportSeaweedFSMigrationPreservation",
-        "-count=1"
-      ],
-      "test_target": "self"
-    },
     "seaweedfs-release-evidence": {
       "prerequisites": [
-        "backend-process",
         "seaweedfs-compatibility",
-        "seaweedfs-migration-preservation",
         "$(NODE_BIN)",
         "$(SBOM_ARTIFACT)",
         "$(LICENSE_REPORT_ARTIFACT)",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_migration_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -3430,8 +3378,7 @@
         "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
-        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass"
+        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
       },
       "command": [
         "$(NODE_BIN)",
@@ -3445,14 +3392,12 @@
     },
     "seaweedfs-release-gate": {
       "prerequisites": [
-        "backend-process",
         "seaweedfs-compatibility",
-        "seaweedfs-migration-preservation",
         "$(NODE_BIN)",
         "$(SBOM_ARTIFACT)",
         "$(LICENSE_REPORT_ARTIFACT)",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_migration_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -3463,7 +3408,6 @@
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
         "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
-        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-migration-preservation/object-store-migration/pass",
         "CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED": "$(CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED)"
       },
       "command": [
@@ -11069,87 +11013,10 @@
       }
     },
     {
-      "name": "seaweedfs-migration-preservation",
-      "backing_scripts": [
-        "internal/modules/recovery/object_store_migration_preservation_integration_test.go"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v5"
-      },
-      "command_id": "cartulary.harness.command.seaweedfs_migration_preservation.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "service_lifecycle",
-          "owner_section": "Section 11"
-        },
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        },
-        {
-          "behavior": "security_boundary",
-          "owner_section": "Section 15"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "release-check"
-      ],
-      "lifecycle_state": "public_active",
-      "family_id": "backend_frontend_leaf_tests",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "service_start",
-          "owner_section": "Section 11",
-          "ownership_mode": "owned_fixture",
-          "lifecycle_machine": "test service lifecycle from Section 11"
-        },
-        {
-          "class": "service_resource_mutation",
-          "owner_section": "Section 11",
-          "ownership_mode": "owned_fixture",
-          "resource_families": [
-            "scratch databases",
-            "object buckets or prefixes"
-          ],
-          "lifecycle_machine": "test service lifecycle from Section 11"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      }
-    },
-    {
       "name": "seaweedfs-release-evidence",
       "backing_scripts": [
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_migration_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -11205,7 +11072,7 @@
       "name": "seaweedfs-release-gate",
       "backing_scripts": [
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_migration_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12097,7 +11964,7 @@
       "backing_scripts": [
         "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_migration_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json"
       ],
       "command": [
         "$(NODE_BIN)",

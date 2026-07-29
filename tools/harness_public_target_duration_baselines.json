@@ -1266,39 +1266,6 @@
       "required_improvement_ms": 1000
     },
     {
-      "target": "seaweedfs-migration-preservation",
-      "gate": "no_regression",
-      "command_id": "cartulary.harness.command.seaweedfs_migration_preservation.v1",
-      "measurement_profile_id": "standard_no_regression",
-      "canonical_inputs": {},
-      "timing_source": "aggregate_scheduler_work_envelope",
-      "evidence_kind": "retained_v1_reference_migration",
-      "source_commit": "334465751e05c9d50e00416fc4a071d579bfd719",
-      "source_snapshot_sha256": "6a84166396613d24eeb9d43433244ce70165797fba49ca85979ccad4f5be8a85",
-      "host_profile_sha256": "60b1b04a7acd7959935651192dec03d8d910225859996bc97dea68cc58ba6f76",
-      "capacity_profile_sha256": "0eb1de6a10f344907ea84b64550d893e0151b679026ced392464f491ca7b1664",
-      "toolchain_profile_sha256": "877e09fe43b77b76264d81f02ac74aaaaeafe700bba05511449f890ffb18c9ac",
-      "workload_evidence_profile_sha256": "0336493aa1b0ea55dba886082faef8265dd371c2dee6df0009061bed1c50ca1b",
-      "execution_policy": {
-        "retained_v1_execution_policy_sha256": "caee5591a075f9f4a29011de74e97c76b851227fd907412ea3560417dd9315c9"
-      },
-      "execution_policy_sha256": "caee5591a075f9f4a29011de74e97c76b851227fd907412ea3560417dd9315c9",
-      "sample_provider_target": "seaweedfs-release-evidence",
-      "warmup_root": "retained:20260721T201322Z-p3114931",
-      "sample_roots": [
-        "retained:20260721T201544Z-p3134547",
-        "retained:20260721T201758Z-p3154150"
-      ],
-      "samples_ms": [
-        83879,
-        83852
-      ],
-      "median_ms": 83865.5,
-      "mad_ms": 13.5,
-      "no_regression_limit_ms": 88058.775,
-      "required_improvement_ms": 8386.550000000001
-    },
-    {
       "target": "seaweedfs-release-evidence",
       "gate": "no_regression",
       "command_id": "cartulary.harness.command.seaweedfs_release_evidence.v1",
@@ -1677,7 +1644,6 @@
       "release-check",
       "release-readiness-evidence",
       "seaweedfs-compatibility",
-      "seaweedfs-migration-preservation",
       "seaweedfs-release-evidence",
       "seaweedfs-release-gate",
       "service-backed-test-slice",

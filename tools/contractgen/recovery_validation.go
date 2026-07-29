@@ -21,7 +21,6 @@ var (
 		"canonicalization",
 		"current_schema_ids",
 		"historical_reader_schema_ids",
-		"removed_schema_id_prefixes",
 		"limits",
 		"schemas",
 		"canonical_fixtures",
@@ -134,7 +133,6 @@ func validateRecoveryRegistry(value any) error {
 	for _, field := range []string{
 		"current_schema_ids",
 		"historical_reader_schema_ids",
-		"removed_schema_id_prefixes",
 		"schemas",
 		"canonical_fixtures",
 	} {

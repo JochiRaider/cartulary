@@ -485,18 +485,9 @@
           "priority": 0
         },
         {
-          "target": "seaweedfs-migration-preservation",
-          "needs": [
-            "check"
-          ],
-          "profile": "service_validation",
-          "priority": 0
-        },
-        {
           "target": "seaweedfs-release-gate",
           "needs": [
             "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
             "license-report",
             "sbom"
           ],
@@ -535,7 +526,6 @@
             "license-report",
             "sbom",
             "seaweedfs-compatibility",
-            "seaweedfs-migration-preservation",
             "seaweedfs-release-gate",
             "build",
             "deployable-shape",
@@ -1408,11 +1398,7 @@
           "process": 1
         }
       },
-      "go_shards_resource_claims_by_execution_family": {
-        "backend-process-seaweedfs-migration-support": {
-          "seaweedfs_fixture": 1
-        }
-      },
+      "go_shards_resource_claims_by_execution_family": {},
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
       "browser_functional_sharding": {
         "min_shards": 2,
@@ -1505,12 +1491,12 @@
             "check_service_backed_safe": true,
             "default_check_required": true
           },
-    "browser": {
-      "default_check_required": true,
-      "schedule_tags": [
-        "service_backed_check"
-      ]
-    }
+          "browser": {
+            "default_check_required": true,
+            "schedule_tags": [
+              "service_backed_check"
+            ]
+          }
         }
       },
       {

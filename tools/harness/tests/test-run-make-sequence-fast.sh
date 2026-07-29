@@ -268,7 +268,6 @@ JSON
         ;;
       seaweedfs-release-gate)
         write_summary seaweedfs-compatibility
-        write_summary seaweedfs-migration-preservation
         write_summary seaweedfs-release-gate
         ;;
       release-browser-readiness)
