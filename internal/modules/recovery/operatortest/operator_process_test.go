@@ -467,12 +467,19 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	requireOperatorRecoveryArtifactKind(t, payload, "restore_verification", recovery.RestoreVerificationArtifactSchemaID, 2)
 	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{
 		"preflight",
-		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update",
-		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update",
-		"journal_write", "finalize",
+		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update", "journal_write",
+		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update", "journal_write",
+		"finalize",
 	})
 	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_verify_due", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorDueAttemptEvidence(
+		t,
+		sourceDB.DSN,
+		payload.OperationID,
+		[]uuid.UUID{olderBackupSetID, newerBackupSetID},
+		[]string{"succeeded", "succeeded"},
+	)
 	requireOperatorBackupVerificationState(t, sourceDB.DSN, olderBackupSetID, recovery.VerificationVerified)
 	requireOperatorBackupVerificationState(t, sourceDB.DSN, newerBackupSetID, recovery.VerificationVerified)
 
@@ -482,11 +489,22 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 		}
 	}
 
+	lockTx, err := sourcePool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin no-due exclusion proof transaction: %v", err)
+	}
+	if _, err := lockTx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, int64(401010)); err != nil {
+		_ = lockTx.Rollback(ctx)
+		t.Fatalf("hold recovery-operation exclusion during no-due invocation: %v", err)
+	}
 	noOpStdout, noOpStderr, noOpExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
 		"--source-config-file", sourceConfig.path,
 		"--target-config-file", targetConfig.path,
 	)
+	if err := lockTx.Rollback(ctx); err != nil {
+		t.Fatalf("release no-due exclusion proof transaction: %v", err)
+	}
 	if noOpExit != 0 {
 		t.Fatalf("second restore-verify due failed: exit=%d stdout=%s stderr=%s", noOpExit, noOpStdout, noOpStderr)
 	}
@@ -498,6 +516,97 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 		t.Fatalf("unexpected restore-verify due no-op result: %#v", noOpPayload)
 	}
 	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, noOpPayload, "restore_verify_due", "no_op", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+}
+
+func TestOperatorRestoreVerifyDueContinuesAfterDeterminateFailure_Process(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-11-01-determinate-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-11-01-determinate-target")
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-11-01@example.test", true, true)
+	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	now := time.Now().UTC()
+	failedBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000112801")
+	successfulBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000112802")
+
+	missingObject := seedOperatorObjectBlob(t, sourceDB.DSN, actorID, []byte("object intentionally absent from captured namespace"))
+	seedOperatorRecoveryBackupSet(
+		t,
+		ctx,
+		sourcePool,
+		sourceConfig,
+		backupStorage,
+		failedBackupSetID,
+		now.Add(-2*time.Minute),
+		"backup_restore-determinate-failure",
+	)
+	cleanupStatements := []struct {
+		query string
+		id    uuid.UUID
+	}{
+		{"DELETE FROM evidence WHERE object_blob_id = $1", missingObject.objectBlobID},
+		{"DELETE FROM object_blobs WHERE object_blob_id = $1", missingObject.objectBlobID},
+		{"DELETE FROM records WHERE record_id = $1", missingObject.recordID},
+		{"DELETE FROM incidents WHERE id = $1", missingObject.incidentID},
+	}
+	for _, statement := range cleanupStatements {
+		if _, err := sourcePool.Exec(ctx, statement.query, statement.id); err != nil {
+			t.Fatalf("remove determinate-failure source fixture: %v", err)
+		}
+	}
+	seedOperatorRecoveryBackupSet(
+		t,
+		ctx,
+		sourcePool,
+		sourceConfig,
+		backupStorage,
+		successfulBackupSetID,
+		now.Add(-time.Minute),
+		"backup_restore-after-determinate-failure",
+	)
+	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
+
+	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(
+		t,
+		45*time.Second,
+		injectedOperatorBinary(t),
+		operatorRecoveryEnv(),
+		"restore-verify",
+		"due",
+		"--source-config-file",
+		sourceConfig.path,
+		"--target-config-file",
+		targetConfig.path,
+	)
+	if stderr != "" {
+		t.Fatalf("determinate due failure emitted stderr without progress: %s", stderr)
+	}
+	if exitCode != 4 {
+		t.Fatalf("determinate due failure exit got %d want 4 stdout=%s", exitCode, stdout)
+	}
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	if payload.Operation != "restore_verify_due" ||
+		payload.Result != "failed" ||
+		payload.Error == nil ||
+		payload.Error.Code != "verification_failed" ||
+		payload.BackupSetID == nil ||
+		*payload.BackupSetID != failedBackupSetID.String() {
+		t.Fatalf("unexpected determinate due failure payload: %#v", payload)
+	}
+	requireOperatorRecoveryArtifactKind(t, payload, "restore_verification", recovery.RestoreVerificationArtifactSchemaID, 2)
+	requireOperatorBackupVerificationState(t, sourceDB.DSN, failedBackupSetID, recovery.VerificationFailed)
+	requireOperatorBackupVerificationState(t, sourceDB.DSN, successfulBackupSetID, recovery.VerificationVerified)
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+	requireOperatorDueAttemptEvidence(
+		t,
+		sourceDB.DSN,
+		payload.OperationID,
+		[]uuid.UUID{failedBackupSetID, successfulBackupSetID},
+		[]string{"failed", "succeeded"},
+	)
 }
 
 type operatorRecoveryProgressRecord struct {
@@ -721,7 +830,7 @@ ORDER BY created_at ASC, operator_recovery_journal_id ASC
 		}
 	}
 	last := journalRows[len(journalRows)-1]
-	if payload.BackupSetID != nil && last.backupSetID != *payload.BackupSetID {
+	if operation != "restore_verify_due" && payload.BackupSetID != nil && last.backupSetID != *payload.BackupSetID {
 		t.Fatalf("operator recovery journal terminal backup_set_id got %q want %s rows=%#v", last.backupSetID, *payload.BackupSetID, journalRows)
 	}
 
@@ -752,6 +861,155 @@ LIMIT 1
 		if strings.Contains(afterJSON, value) {
 			t.Fatalf("operator recovery audit summary exposed forbidden value %q: %s", value, afterJSON)
 		}
+	}
+}
+
+func requireOperatorDueAttemptEvidence(
+	t testing.TB,
+	dsn string,
+	operationID string,
+	backupSetIDs []uuid.UUID,
+	terminalResults []string,
+) {
+	t.Helper()
+	if len(backupSetIDs) != len(terminalResults) {
+		t.Fatalf("due attempt evidence expectation lengths differ: backups=%d results=%d", len(backupSetIDs), len(terminalResults))
+	}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open SQL DB for due attempt evidence: %v", err)
+	}
+	defer db.Close()
+	key, err := recovery.ParseRecoveryEncryptionKey(operatorRecoveryMasterKey)
+	if err != nil {
+		t.Fatalf("parse due attempt journal key: %v", err)
+	}
+	parsedOperationID, err := uuid.Parse(operationID)
+	if err != nil {
+		t.Fatalf("parse due attempt operation ID: %v", err)
+	}
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT
+    result,
+    COALESCE(backup_set_id::text, ''),
+    envelope_schema_id,
+    encryption_mode,
+    key_fingerprint_sha256,
+    payload_sha256,
+    nonce,
+    ciphertext
+FROM operator_recovery_journal
+WHERE operation_id = $1::uuid AND operation = 'restore_verify_due'
+ORDER BY created_at ASC, operator_recovery_journal_id ASC
+`, operationID)
+	if err != nil {
+		t.Fatalf("query due attempt journal evidence: %v", err)
+	}
+	defer rows.Close()
+
+	type attemptPair struct {
+		attemptID  string
+		backupID   string
+		admission  bool
+		completion bool
+		result     string
+	}
+	pairs := make([]attemptPair, 0, len(backupSetIDs))
+	indexByAttempt := make(map[string]int, len(backupSetIDs))
+	for rows.Next() {
+		var result string
+		var backupID string
+		var envelope recovery.OperatorRecoveryJournalEnvelope
+		if err := rows.Scan(
+			&result,
+			&backupID,
+			&envelope.SchemaID,
+			&envelope.EncryptionMode,
+			&envelope.KeyFingerprintSHA256,
+			&envelope.PayloadSHA256,
+			&envelope.Nonce,
+			&envelope.Ciphertext,
+		); err != nil {
+			t.Fatalf("scan due attempt journal evidence: %v", err)
+		}
+		recordKind := "completion"
+		if result == "started" {
+			recordKind = "admission"
+		}
+		aad := application.RecoveryJournalPayloadSchemaID + "\n" +
+			parsedOperationID.String() + "\n" +
+			string(application.OperationRestoreVerifyDue) + "\n" +
+			recordKind
+		body, err := recovery.DecryptOperatorRecoveryJournalPayload(key, aad, envelope)
+		if err != nil {
+			t.Fatalf("decrypt due attempt %s evidence: %v", recordKind, err)
+		}
+		var payload struct {
+			AttemptID   *string    `json:"attempt_id"`
+			BackupSetID *uuid.UUID `json:"backup_set_id"`
+			RecordKind  string     `json:"record_kind"`
+			Result      string     `json:"result"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode due attempt %s evidence: %v", recordKind, err)
+		}
+		if payload.AttemptID == nil || strings.TrimSpace(*payload.AttemptID) == "" || payload.BackupSetID == nil {
+			t.Fatalf("due attempt evidence is missing identities: %s", body)
+		}
+		if payload.BackupSetID.String() != backupID || payload.RecordKind != recordKind {
+			t.Fatalf("due attempt evidence does not match journal row: row_backup=%s payload=%s", backupID, body)
+		}
+		pairIndex, exists := indexByAttempt[*payload.AttemptID]
+		if !exists {
+			pairIndex = len(pairs)
+			indexByAttempt[*payload.AttemptID] = pairIndex
+			pairs = append(pairs, attemptPair{attemptID: *payload.AttemptID, backupID: backupID})
+		}
+		pair := &pairs[pairIndex]
+		if pair.backupID != backupID {
+			t.Fatalf("attempt %s changed backup identity from %s to %s", pair.attemptID, pair.backupID, backupID)
+		}
+		if recordKind == "admission" {
+			if pair.admission {
+				t.Fatalf("attempt %s has duplicate admission", pair.attemptID)
+			}
+			pair.admission = true
+		} else {
+			if pair.completion {
+				t.Fatalf("attempt %s has duplicate completion", pair.attemptID)
+			}
+			pair.completion = true
+			pair.result = payload.Result
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate due attempt journal evidence: %v", err)
+	}
+	if len(pairs) != len(backupSetIDs) {
+		t.Fatalf("due attempt pair count got %d want %d: %#v", len(pairs), len(backupSetIDs), pairs)
+	}
+	for index, pair := range pairs {
+		if pair.backupID != backupSetIDs[index].String() ||
+			!pair.admission ||
+			!pair.completion ||
+			pair.result != terminalResults[index] {
+			t.Fatalf("due attempt pair %d got %#v want backup=%s result=%s", index, pair, backupSetIDs[index], terminalResults[index])
+		}
+	}
+
+	var auditCount int
+	if err := db.QueryRowContext(context.Background(), `
+SELECT count(*)
+FROM deployment_admin_audit_events
+WHERE request_id = $1
+  AND event_source = 'operator.recovery.restore_verify_due'
+  AND COALESCE(after_json->>'attempt_id', '') <> ''
+`, operationID).Scan(&auditCount); err != nil {
+		t.Fatalf("count due attempt audit evidence: %v", err)
+	}
+	if auditCount != len(backupSetIDs) {
+		t.Fatalf("due attempt audit count got %d want %d", auditCount, len(backupSetIDs))
 	}
 }
 
@@ -787,6 +1045,8 @@ type operatorExplicitConfigFixture struct {
 
 type operatorObjectBlobFixture struct {
 	objectBlobID uuid.UUID
+	incidentID   uuid.UUID
+	recordID     uuid.UUID
 	storageKey   string
 	storageRef   string
 	body         []byte
@@ -837,6 +1097,8 @@ INSERT INTO evidence (
 	}
 	return operatorObjectBlobFixture{
 		objectBlobID: blobID,
+		incidentID:   incidentID,
+		recordID:     recordID,
 		storageKey:   storageKey,
 		storageRef:   "object://" + blobID.String(),
 		body:         append([]byte(nil), body...),

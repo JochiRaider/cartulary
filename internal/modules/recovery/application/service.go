@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -86,11 +87,15 @@ var _ Facade = Service{}
 type operationRequest struct {
 	OperationID        uuid.UUID
 	Operation          Operation
+	AttemptID          *string
 	StartedAt          time.Time
 	SourceConfigPath   string
 	TargetConfigPath   string
 	ConfirmedBackupSet uuid.UUID
 	AttemptTimeout     time.Duration
+	BackupSetID        *uuid.UUID
+	ConsistencyPointAt *time.Time
+	ArtifactKinds      []string
 }
 
 func (service Service) BackupInspectLatest(ctx context.Context, request BackupInspectLatestRequest, progress ProgressSink) (Result, error) {
@@ -388,6 +393,9 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 
 func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operationRequest, progress ProgressSink) (outcome Result, err error) {
 	ReportProgress(progress, "preflight", 0, nil)
+	if parsed.AttemptTimeout <= 0 {
+		return Result{}, NewFailure(FailureLocalConfigInvalid, errors.New("restore verification attempt timeout must be positive"))
+	}
 	sourceCfg, targetCfg, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, err := service.openRestoreRuntime(ctx, parsed)
 	if err != nil {
 		return Result{}, err
@@ -397,30 +405,10 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
 	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
-	unlock, err := service.acquireOperationLock(ctx, sourcePool)
-	if err != nil {
-		return Result{}, err
-	}
-	defer unlock()
-	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
-		return Result{}, err
-	}
-	var admission TargetServingAdmission
-	defer func() {
-		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
-		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
-	}()
 	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
-		return Result{}, err
-	}
-	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return Result{}, err
 	}
 	basis, err := service.restoreVerificationBasisForConfigs(sourceCfg, targetCfg)
@@ -442,7 +430,14 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 		return Result{}, classifyAdmissionFailure(err)
 	}
 	if len(due) == 0 {
-		return Result{ArtifactRefs: []ArtifactRef{}, Status: ResultNoOp}, nil
+		outcome = Result{ArtifactRefs: []ArtifactRef{}, Status: ResultNoOp}
+		if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
+			return Result{}, err
+		}
+		defer func() { service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err) }()
+		ReportProgress(progress, "journal_write", 0, nil)
+		ReportProgress(progress, "finalize", 0, IntPtr(0))
+		return outcome, nil
 	}
 	verify := recovery.NewRestoreVerificationService(
 		sourceStore,
@@ -453,41 +448,137 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 			service.RecoveryStateCatalog,
 		),
 	)
-	for _, backupSet := range due {
-		target, err := service.restoreVerificationTarget(targetPool, targetObjectStore)
-		if err != nil {
-			return outcome, NewFailure(FailureVerificationProjectionRebuild, err)
+	outcome, err = executeDueVerificationBatch(
+		ctx,
+		due,
+		parsed.AttemptTimeout,
+		func() uuid.UUID { return uuid.New() },
+		func(attemptCtx context.Context, backupSet recovery.BackupSet, attemptID uuid.UUID) (Result, error, bool) {
+			return service.runRestoreVerifyDueAttempt(
+				attemptCtx,
+				parsed,
+				progress,
+				sourceCfg,
+				targetCfg,
+				sourcePool,
+				targetPool,
+				targetObjectStore,
+				verify,
+				backupSet,
+				basis,
+				attemptID,
+			)
+		},
+	)
+	if err == nil {
+		ReportProgress(progress, "finalize", len(due), IntPtr(len(due)))
+	}
+	return outcome, err
+}
+
+func (service Service) runRestoreVerifyDueAttempt(
+	ctx context.Context,
+	parsed operationRequest,
+	progress ProgressSink,
+	sourceCfg Deployment,
+	targetCfg Deployment,
+	sourcePool PostgresPool,
+	targetPool PostgresPool,
+	targetObjectStore objectstore.Store,
+	verify *recovery.RestoreVerificationService,
+	backupSet recovery.BackupSet,
+	basis recovery.RestoreVerificationBasis,
+	attemptID uuid.UUID,
+) (outcome Result, attemptErr error, stop bool) {
+	outcome = ResultForStoredBackupSet(backupSet)
+	attemptIDText := attemptID.String()
+	backupSetID := backupSet.BackupSetID
+	consistencyPointAt := backupSet.ConsistencyPointAt.UTC()
+	attemptRequest := parsed
+	attemptRequest.AttemptID = &attemptIDText
+	attemptRequest.StartedAt = service.now()
+	attemptRequest.BackupSetID = &backupSetID
+	attemptRequest.ConsistencyPointAt = &consistencyPointAt
+	attemptRequest.ArtifactKinds = []string{"restore_verification"}
+
+	unlock, err := service.acquireOperationLock(ctx, sourcePool)
+	if err != nil {
+		return outcome, dueAttemptContextFailure(ctx, err), true
+	}
+	defer unlock()
+	if err := service.recordRecoveryStart(ctx, sourcePool, attemptRequest); err != nil {
+		return outcome, dueAttemptContextFailure(ctx, err), true
+	}
+
+	var admission TargetServingAdmission
+	defer func() {
+		ReportProgress(progress, "journal_write", 0, nil)
+		service.finishJournalAndAudit(ctx, sourcePool, attemptRequest, outcome, &attemptErr)
+		if kind, ok := FailureKindOf(attemptErr); ok && kind == FailureVerificationJournalWrite {
+			stop = true
 		}
-		ReportProgress(progress, "postgres_restore", 0, nil)
-		ReportProgress(progress, "object_restore", 0, nil)
-		ReportProgress(progress, "projection_rebuild", 0, nil)
-		ReportProgress(progress, "invariant_check", 0, nil)
-		ReportProgress(progress, "workbook_probe", 0, nil)
-		result, verifyErr := verify.VerifyBackupSet(admission.Context(), target, backupSet, basis)
-		if outcome.BackupSetID == nil {
-			outcome = ResultForStoredBackupSet(result.BackupSet)
+		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
+	}()
+
+	admission, attemptErr = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose)
+	if attemptErr != nil {
+		return outcome, dueAttemptContextFailure(ctx, attemptErr), true
+	}
+	if attemptErr = service.preflightRestoreTarget(
+		admission.Context(),
+		parsed.SourceConfigPath,
+		parsed.TargetConfigPath,
+		sourceCfg,
+		targetCfg,
+		targetPool,
+		targetObjectStore,
+	); attemptErr != nil {
+		return outcome, dueAttemptContextFailure(admission.Context(), attemptErr), true
+	}
+	target, attemptErr := service.restoreVerificationTarget(targetPool, targetObjectStore)
+	if attemptErr != nil {
+		attemptErr = NewFailure(FailureVerificationProjectionRebuild, attemptErr)
+		return outcome, attemptErr, true
+	}
+
+	ReportProgress(progress, "postgres_restore", 0, nil)
+	ReportProgress(progress, "object_restore", 0, nil)
+	ReportProgress(progress, "projection_rebuild", 0, nil)
+	ReportProgress(progress, "invariant_check", 0, nil)
+	ReportProgress(progress, "workbook_probe", 0, nil)
+	result, verifyErr := verify.VerifyBackupSetAttempt(admission.Context(), target, backupSet, basis, attemptID)
+	if result.ArtifactProof.Key != "" && result.Run.RestoreVerificationRunID == attemptID {
+		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor(
+			"restore_verification",
+			recovery.RestoreVerificationArtifactSchemaID,
+			"restore_verification:"+attemptIDText,
+			&backupSetID,
+		))
+	}
+	if admissionErr := admission.AssertHeld(); admissionErr != nil {
+		return outcome, NewFailure(FailureTargetServingTraffic, admissionErr), true
+	}
+	if verifyErr != nil {
+		attemptErr = dueAttemptContextFailure(admission.Context(), classifyRestoreFailure(verifyErr, true))
+		if dueAttemptMustStop(attemptErr) {
+			return outcome, attemptErr, true
 		}
-		if result.Run.RestoreVerificationRunID != uuid.Nil {
-			backupSetID := result.BackupSet.BackupSetID
-			outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), &backupSetID))
-		}
-		if admissionErr := admission.AssertHeld(); admissionErr != nil {
-			return outcome, NewFailure(FailureTargetServingTraffic, admissionErr)
-		}
-		if verifyErr != nil {
-			return outcome, classifyRestoreFailure(verifyErr, true)
-		}
-		if err := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups); err != nil {
-			return outcome, NewFailure(FailureVerificationInvariantCheck, fmt.Errorf("reset disposable restore verification target: %w", err))
-		}
-		if admissionErr := admission.AssertHeld(); admissionErr != nil {
-			return outcome, NewFailure(FailureTargetServingTraffic, admissionErr)
-		}
+	}
+
+	if resetErr := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups); resetErr != nil {
+		attemptErr = dueAttemptContextFailure(
+			admission.Context(),
+			NewFailure(FailureVerificationInvariantCheck, fmt.Errorf("reset disposable restore verification target: %w", resetErr)),
+		)
+		return outcome, attemptErr, true
+	}
+	if admissionErr := admission.AssertHeld(); admissionErr != nil {
+		return outcome, NewFailure(FailureTargetServingTraffic, admissionErr), true
+	}
+	if verifyErr == nil {
 		ReportProgress(progress, "attestation_update", 0, nil)
 	}
-	ReportProgress(progress, "journal_write", 0, nil)
-	ReportProgress(progress, "finalize", len(due), IntPtr(len(due)))
-	return outcome, nil
+	return outcome, attemptErr, false
 }
 
 func (service Service) openSourceRuntime(ctx context.Context, sourceConfigPath string) (Deployment, PostgresPool, recovery.BackupStorage, func(), error) {
@@ -742,30 +833,32 @@ func (service Service) validateLegacySnapshotShadow(body []byte) error {
 }
 
 func (service Service) acquireOperationLock(ctx context.Context, pool PostgresPool) (func(), error) {
-	locked, err := tryRecoveryOperationAdvisoryLock(ctx, pool)
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		return nil, fmt.Errorf("begin recovery operation exclusion transaction: %w", err)
+	}
+	locked, err := tryRecoveryOperationAdvisoryLock(ctx, tx)
+	if err != nil {
+		_ = tx.Rollback(context.Background())
 		return nil, err
 	}
 	if !locked {
+		_ = tx.Rollback(context.Background())
 		return nil, NewFailure(FailureOperationLockUnavailable, errors.New("recovery operation lock unavailable"))
 	}
-	return func() { _ = unlockRecoveryOperationAdvisoryLock(context.Background(), pool) }, nil
+	return func() { _ = tx.Rollback(context.Background()) }, nil
 }
 
-func tryRecoveryOperationAdvisoryLock(ctx context.Context, pool postgres.DB) (bool, error) {
+type advisoryLockQueryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func tryRecoveryOperationAdvisoryLock(ctx context.Context, pool advisoryLockQueryer) (bool, error) {
 	var locked bool
-	if err := pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, recoveryOperationAdvisoryLockKey).Scan(&locked); err != nil {
-		return false, fmt.Errorf("acquire restore verification advisory lock: %w", err)
+	if err := pool.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, recoveryOperationAdvisoryLockKey).Scan(&locked); err != nil {
+		return false, fmt.Errorf("acquire recovery operation advisory lock: %w", err)
 	}
 	return locked, nil
-}
-
-func unlockRecoveryOperationAdvisoryLock(ctx context.Context, pool postgres.DB) error {
-	var unlocked bool
-	if err := pool.QueryRow(ctx, `SELECT pg_advisory_unlock($1)`, recoveryOperationAdvisoryLockKey).Scan(&unlocked); err != nil {
-		return fmt.Errorf("release restore verification advisory lock: %w", err)
-	}
-	return nil
 }
 
 func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPool, parsed operationRequest) error {
@@ -774,10 +867,13 @@ func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPoo
 		return NewFailure(journalFailureKind(parsed.Operation), err)
 	}
 	if err := repository.AppendAdmission(ctx, RecoveryAdmissionRecord{
-		OperationID:   parsed.OperationID,
-		Operation:     parsed.Operation,
-		StartedAt:     parsed.StartedAt,
-		ArtifactKinds: []string{},
+		OperationID:        parsed.OperationID,
+		Operation:          parsed.Operation,
+		AttemptID:          parsed.AttemptID,
+		StartedAt:          parsed.StartedAt,
+		BackupSetID:        parsed.BackupSetID,
+		ConsistencyPointAt: parsed.ConsistencyPointAt,
+		ArtifactKinds:      parsed.ArtifactKinds,
 	}); err != nil {
 		return NewFailure(journalFailureKind(parsed.Operation), err)
 	}
@@ -810,6 +906,7 @@ func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresP
 	if err := repository.AppendCompletion(evidenceCtx, RecoveryCompletionRecord{
 		OperationID:        parsed.OperationID,
 		Operation:          parsed.Operation,
+		AttemptID:          parsed.AttemptID,
 		StartedAt:          parsed.StartedAt,
 		CompletedAt:        service.now(),
 		Result:             result,

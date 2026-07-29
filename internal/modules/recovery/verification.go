@@ -110,23 +110,37 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 }
 
 func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasis RestoreVerificationBasis) (RestoreVerificationResult, error) {
+	return service.VerifyBackupSetAttempt(ctx, target, backupSet, verificationBasis, uuid.New())
+}
+
+func (service *RestoreVerificationService) VerifyBackupSetAttempt(
+	ctx context.Context,
+	target RestoreVerificationTarget,
+	backupSet BackupSet,
+	verificationBasis RestoreVerificationBasis,
+	runID uuid.UUID,
+) (RestoreVerificationResult, error) {
 	if service == nil || service.backups == nil || service.verifications == nil || service.runner == nil {
 		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification requires store and runner", ErrInvalidBackupMetadata)
+	}
+	if runID == uuid.Nil {
+		return RestoreVerificationResult{}, fmt.Errorf("%w: restore verification attempt ID is required", ErrInvalidBackupMetadata)
 	}
 	verificationBasisSHA256, err := verificationBasis.SHA256()
 	if err != nil {
 		return RestoreVerificationResult{}, err
 	}
 	startedAt := service.now().UTC()
-	runID := uuid.New()
 
 	restoreTarget := target.RestoreTarget
 	restoreTarget.Readiness = nil
 	restoreResult, restoreErr := service.runner.RestoreBackupSet(ctx, restoreTarget, backupSet)
-	selectedIncidentID, incidentErr := selectRestoreVerificationIncidentID(ctx, restoreTarget.Postgres)
-	restoreResult.SelectedIncidentID = selectedIncidentID
+	var selectedIncidentID *string
+	var incidentErr error
 	var probeErr error
 	if restoreErr == nil {
+		selectedIncidentID, incidentErr = selectRestoreVerificationIncidentID(ctx, restoreTarget.Postgres)
+		restoreResult.SelectedIncidentID = selectedIncidentID
 		if incidentErr != nil {
 			restoreErr = incidentErr
 		} else if selectedIncidentID != nil {
@@ -266,14 +280,19 @@ func buildRestoreVerificationArtifact(
 		Status: "skipped",
 		Reason: "no_incidents",
 	}
-	if selectedIncidentID != nil {
+	if restoreErr != nil && selectedIncidentID == nil {
+		workbookProbe.Reason = "verification_failed_before_probe"
+	}
+	if selectedIncidentID != nil && restoreResult.WorkbookProbe == nil {
+		workbookProbe.Reason = "verification_failed_before_probe"
+	}
+	if selectedIncidentID != nil && restoreResult.WorkbookProbe != nil {
 		workbookProbe = RestoreVerificationWorkbookProbeArtifact{Status: "executed"}
-		if executed := restoreResult.WorkbookProbe; executed != nil {
-			rowCount := executed.RowCount
-			workbookProbe.RegistrationID = executed.RegistrationID
-			workbookProbe.ViewSchemaID = executed.ViewSchemaID
-			workbookProbe.RowCount = &rowCount
-		}
+		executed := restoreResult.WorkbookProbe
+		rowCount := executed.RowCount
+		workbookProbe.RegistrationID = executed.RegistrationID
+		workbookProbe.ViewSchemaID = executed.ViewSchemaID
+		workbookProbe.RowCount = &rowCount
 	}
 
 	result := "pass"

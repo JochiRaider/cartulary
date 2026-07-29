@@ -6317,6 +6317,16 @@ query execution, or owner-defined required-row failure is
 REQ-01-595. Query semantics MUST NOT be obtained from Harness fixtures,
 package names, filenames, or visible labels.
 
+A failed restore-verification attempt MUST still publish its safe typed
+verification artifact when artifact storage remains available. When the
+attempt fails before the workbook probe can execute, `workbook_probe` MUST be
+`{"status":"skipped","reason":"verification_failed_before_probe"}` and the
+artifact result MUST be `fail`; this reason MUST NOT be used for a passing
+attempt. Recovery MUST NOT select an incident from a partially restored target
+after an earlier restore failure. `reason='no_incidents'` remains valid only
+after successful restore, rebuild, and invariant checks establish that the
+restored backup contains no incidents.
+
 For a current SeaweedFS S3 object-store realization, a
 `cartulary.restore_verification.v2` artifact is sufficient
 restore-verification evidence only when it selects exactly one retained

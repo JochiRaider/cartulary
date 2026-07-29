@@ -88,7 +88,12 @@
           "required": ["status", "reason"],
           "properties": {
             "status": { "const": "skipped" },
-            "reason": { "const": "no_incidents" }
+            "reason": {
+              "enum": [
+                "no_incidents",
+                "verification_failed_before_probe"
+              ]
+            }
           }
         },
         {

@@ -138,17 +138,30 @@ func ValidateRestoreVerificationArtifact(artifact RestoreVerificationArtifact) e
 	if artifact.RestoredObjectCount < 0 || artifact.RestoredObjectCount > 10_485_760 {
 		return fmt.Errorf("%w: restored_object_count is outside bounds", ErrInvalidBackupArtifact)
 	}
-	if artifact.SelectedIncidentID == nil {
-		if artifact.WorkbookProbe.Status != "skipped" ||
-			artifact.WorkbookProbe.Reason != "no_incidents" ||
-			artifact.WorkbookProbe.RegistrationID != "" ||
-			artifact.WorkbookProbe.ViewSchemaID != "" ||
-			artifact.WorkbookProbe.RowCount != nil {
-			return fmt.Errorf("%w: no-incident workbook probe must be skipped", ErrInvalidBackupArtifact)
-		}
-	} else {
+	if artifact.SelectedIncidentID != nil {
 		if _, err := uuid.Parse(*artifact.SelectedIncidentID); err != nil {
 			return fmt.Errorf("%w: selected_incident_id is invalid", ErrInvalidBackupArtifact)
+		}
+	}
+	if artifact.WorkbookProbe.Status == "skipped" {
+		if artifact.WorkbookProbe.Reason != "no_incidents" &&
+			artifact.WorkbookProbe.Reason != "verification_failed_before_probe" {
+			return fmt.Errorf("%w: skipped workbook probe reason is invalid", ErrInvalidBackupArtifact)
+		}
+		if artifact.WorkbookProbe.Reason == "no_incidents" && artifact.SelectedIncidentID != nil {
+			return fmt.Errorf("%w: no-incident workbook probe has a selected incident", ErrInvalidBackupArtifact)
+		}
+		if artifact.WorkbookProbe.Reason == "verification_failed_before_probe" && artifact.Result != "fail" {
+			return fmt.Errorf("%w: prior-failure workbook skip requires failed verification", ErrInvalidBackupArtifact)
+		}
+		if artifact.WorkbookProbe.RegistrationID != "" ||
+			artifact.WorkbookProbe.ViewSchemaID != "" ||
+			artifact.WorkbookProbe.RowCount != nil {
+			return fmt.Errorf("%w: skipped workbook probe has execution fields", ErrInvalidBackupArtifact)
+		}
+	} else {
+		if artifact.SelectedIncidentID == nil {
+			return fmt.Errorf("%w: executed workbook probe requires a selected incident", ErrInvalidBackupArtifact)
 		}
 		if artifact.WorkbookProbe.Status != "executed" ||
 			!recoveryIdentifierPattern.MatchString(artifact.WorkbookProbe.RegistrationID) ||

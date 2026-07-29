@@ -234,6 +234,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.recovery.process.due_verification_continues_after_a_determinate_f_2af5cf65e1",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestOperatorRestoreVerifyDueContinuesAfterDeterminateFailure_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.recovery.process.the_standalone_operator_initializes_the_configur_03834eb65a",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.process",
@@ -351,6 +376,31 @@
           "TestEnsureFailurePreservesTypedFailureAndClassifiesDeadline_Unit",
           "TestFailureKindsAreClosedUniqueAndRoundTrip_Unit",
           "TestTerminalEvidenceFailureOverridesPriorOperationFailureKind_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.recovery.unit.due_verification_batches_use_independent_attempt_94e1273d9c",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/application",
+        "tests": [
+          "TestDueAttemptMustStopOnlyForUnsafeContinuation",
+          "TestExecuteDueVerificationBatchStopsOnAttemptTimeout",
+          "TestExecuteDueVerificationBatchUsesIndependentAttemptsAndReturnsFirstFailure"
         ]
       },
       "evidence_class": "unit",

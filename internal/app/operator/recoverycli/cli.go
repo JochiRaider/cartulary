@@ -106,7 +106,7 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 
 	runCtx := ctx
 	cancel := func() {}
-	if parsed.TimeoutSeconds > 0 {
+	if parsed.TimeoutSeconds > 0 && parsed.Operation != "restore_verify_due" {
 		runCtx, cancel = context.WithTimeout(ctx, time.Duration(parsed.TimeoutSeconds)*time.Second)
 	}
 	defer cancel()

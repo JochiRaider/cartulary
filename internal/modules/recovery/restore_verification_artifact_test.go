@@ -77,6 +77,20 @@ func TestRestoreVerificationArtifactV2BindsWorkbookExecutionAndBasis_Unit(t *tes
 	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err == nil {
 		t.Fatal("executed workbook probe without registration identity was accepted")
 	}
+
+	artifact.SelectedIncidentID = nil
+	artifact.WorkbookProbe = recovery.RestoreVerificationWorkbookProbeArtifact{
+		Status: "skipped",
+		Reason: "verification_failed_before_probe",
+	}
+	artifact.Result = "fail"
+	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err != nil {
+		t.Fatalf("failed verification before workbook probe was not encodable: %v", err)
+	}
+	artifact.Result = "pass"
+	if _, err := recovery.EncodeRestoreVerificationArtifact(artifact); err == nil {
+		t.Fatal("passing verification accepted prior-failure workbook skip")
+	}
 }
 
 func TestRestoreVerificationArtifactV2CanonicalFixture_Unit(t *testing.T) {

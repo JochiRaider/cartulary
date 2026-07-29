@@ -97,6 +97,31 @@
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
+    },
+    {
+      "row_id": "app.operator.unit.the_due_verification_timeout_is_passed_to_recove_cbf25983a5",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator/recoverycli",
+        "tests": [
+          "TestRunnerLeavesDueInvocationUnboundedForPerAttemptTimeouts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
     }
   ]
 }
