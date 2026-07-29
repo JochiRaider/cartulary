@@ -24,10 +24,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/operator"
+	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -446,22 +446,22 @@ func operatorExtensionBackupCatalog(t testing.TB) *recovery.ExtensionBackupCatal
 	return catalog
 }
 
-func decodeOperatorRecoveryResult(t testing.TB, stdout string) operatorcli.Result {
+func decodeOperatorRecoveryResult(t testing.TB, stdout string) recoverycli.Result {
 	t.Helper()
 	if !strings.HasSuffix(stdout, "\n") || strings.Count(stdout, "\n") != 1 {
 		t.Fatalf("operator recovery stdout must be exactly one JSON line, got %q", stdout)
 	}
 	decoder := json.NewDecoder(strings.NewReader(stdout))
 	decoder.DisallowUnknownFields()
-	var payload operatorcli.Result
+	var payload recoverycli.Result
 	if err := decoder.Decode(&payload); err != nil {
 		t.Fatalf("decode operator recovery result: %v\nstdout=%s", err, stdout)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		t.Fatalf("operator recovery stdout contained trailing JSON content: %v\nstdout=%s", err, stdout)
 	}
-	if payload.SchemaID != operatorcli.ResultSchemaID {
-		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, operatorcli.ResultSchemaID, payload)
+	if payload.SchemaID != recoverycli.ResultSchemaID {
+		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, recoverycli.ResultSchemaID, payload)
 	}
 	if _, err := uuid.Parse(payload.OperationID); err != nil {
 		t.Fatalf("operator recovery operation_id is not UUID: %#v", payload)
@@ -472,7 +472,7 @@ func decodeOperatorRecoveryResult(t testing.TB, stdout string) operatorcli.Resul
 	return payload
 }
 
-func requireOperatorRecoverySuccess(t testing.TB, payload operatorcli.Result, operation string, backupSetID string) {
+func requireOperatorRecoverySuccess(t testing.TB, payload recoverycli.Result, operation string, backupSetID string) {
 	t.Helper()
 	if payload.Operation != operation || payload.Result != "succeeded" || payload.Error != nil {
 		t.Fatalf("unexpected operator recovery success payload: %#v", payload)
@@ -504,7 +504,7 @@ func requireOperatorRecoveryFailure(t testing.TB, stdout string, stderr string, 
 	}
 }
 
-func requireOperatorRecoveryArtifactKind(t testing.TB, payload operatorcli.Result, kind string, schemaID string, wantCount int) {
+func requireOperatorRecoveryArtifactKind(t testing.TB, payload recoverycli.Result, kind string, schemaID string, wantCount int) {
 	t.Helper()
 	count := 0
 	for _, ref := range payload.ArtifactRefs {
@@ -537,7 +537,7 @@ func requireOperatorRecoveryProgress(t testing.TB, stderr string, operationID st
 		if err := decoder.Decode(&record); err != nil {
 			t.Fatalf("decode operator recovery progress line %d: %v\nline=%s", index, err, line)
 		}
-		if record.SchemaID != operatorcli.ProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
+		if record.SchemaID != recoverycli.ProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
 			t.Fatalf("unexpected operator recovery progress line %d: %#v want phase=%s operation_id=%s", index, record, wantPhases[index], operationID)
 		}
 		if record.Completed < 0 || (record.Total != nil && (record.Completed > *record.Total || *record.Total < 0)) || record.EmittedAt.IsZero() {
@@ -559,7 +559,7 @@ func requireOperatorRecoverySafeOutput(t testing.TB, stdout string, stderr strin
 	}
 }
 
-func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload operatorcli.Result, operation string, terminalResult string, forbidden ...string) {
+func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload recoverycli.Result, operation string, terminalResult string, forbidden ...string) {
 	t.Helper()
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

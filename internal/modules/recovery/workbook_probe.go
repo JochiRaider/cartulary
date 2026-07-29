@@ -16,6 +16,8 @@ type WorkbookProjectionQuery interface {
 	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
 }
 
+var ErrWorkbookProbeFailed = errors.New("recovery: workbook probe failed")
+
 type RestoreVerificationWorkbookProbe struct {
 	Postgres postgres.DB
 	Query    WorkbookProjectionQuery
@@ -23,10 +25,10 @@ type RestoreVerificationWorkbookProbe struct {
 
 func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, _ RestoreResult) error {
 	if probe.Postgres == nil {
-		return fmt.Errorf("restore verification workbook probe requires postgres")
+		return fmt.Errorf("%w: restore verification workbook probe requires postgres", ErrWorkbookProbeFailed)
 	}
 	if probe.Query == nil {
-		return fmt.Errorf("restore verification workbook probe requires projection query")
+		return fmt.Errorf("%w: restore verification workbook probe requires projection query", ErrWorkbookProbeFailed)
 	}
 	var incidentID uuid.UUID
 	if err := probe.Postgres.QueryRow(ctx, `
@@ -38,14 +40,14 @@ LIMIT 1
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
-		return fmt.Errorf("restore verification workbook probe incident lookup: %w", err)
+		return fmt.Errorf("%w: incident lookup: %v", ErrWorkbookProbeFailed, err)
 	}
 	schema, ok := viewschema.Lookup(RestoreVerificationTimelineViewID)
 	if !ok {
-		return fmt.Errorf("restore verification workbook probe missing timeline view schema")
+		return fmt.Errorf("%w: timeline view schema is missing", ErrWorkbookProbeFailed)
 	}
 	if _, err := probe.Query.QueryRows(ctx, incidentID, RestoreVerificationTimelineViewID, schema.DefaultQueryMeta()); err != nil {
-		return fmt.Errorf("restore verification workbook probe timeline query: %w", err)
+		return fmt.Errorf("%w: timeline query: %v", ErrWorkbookProbeFailed, err)
 	}
 	return nil
 }

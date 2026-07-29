@@ -5,11 +5,11 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -21,22 +21,22 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 		runner.logger().Error("extension recovery catalog is invalid", "error", err)
 		return true, 1
 	}
-	return operatorcli.Runner{
+	return recoverycli.Runner{
 		Stdout: runner.stdout,
 		Stderr: runner.stderr,
 		Now:    runner.now,
-		Operations: operatorops.Service{
+		Facade: application.Service{
 			LoadDeployment: runner.loadRecoveryDeployment,
 			ReadTargetMarker: func(bindingKind string, rootPath string) ([]byte, error) {
 				if bindingKind != "filesystem_root" {
-					return nil, operatorops.ErrTargetMarkerRequiresFilesystemStorage
+					return nil, application.ErrTargetMarkerRequiresFilesystemStorage
 				}
 				storage, err := recoveryassembly.NewFilesystemStorage(rootPath)
 				if err != nil {
 					return nil, err
 				}
 				defer storage.Close()
-				return storage.ReadMarker(operatorops.RestoreVerificationTargetMarkerMaximumBytes)
+				return storage.ReadMarker(application.RestoreVerificationTargetMarkerMaximumBytes)
 			},
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, recovery.WorkbookProjectionQuery) {
 				return timelineassembly.NewRecoveryProjectionServices(db)
@@ -44,45 +44,46 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 			LoadJournalKey: func() (recovery.RecoveryEncryptionKey, error) {
 				return recovery.LoadRecoveryEncryptionKey(nil)
 			},
-			ExtensionBackups: extensionBackups,
-			Now:              runner.now,
+			ProjectFailureEvidence: recoverycli.FailureEvidenceFields,
+			ExtensionBackups:       extensionBackups,
+			Now:                    runner.now,
 		},
 	}.Run(ctx, args)
 }
 
-func (runner operatorRunner) loadRecoveryDeployment(path string) (operatorops.Deployment, error) {
+func (runner operatorRunner) loadRecoveryDeployment(path string) (application.Deployment, error) {
 	loaded, err := runner.loadConfig(path)
 	if err != nil {
-		return operatorops.Deployment{}, err
+		return application.Deployment{}, err
 	}
 	cfg := loaded.Deployment()
 	postgresSettings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
 	if err != nil {
-		return operatorops.Deployment{}, err
+		return application.Deployment{}, err
 	}
 	objectSettings, err := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(cfg), nil)
 	if err != nil {
-		return operatorops.Deployment{}, err
+		return application.Deployment{}, err
 	}
-	return operatorops.Deployment{
-		DatabaseStorage: operatorops.RootBinding{
+	return application.Deployment{
+		DatabaseStorage: application.RootBinding{
 			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 			Path:        cfg.Roots.DatabaseStorage.Path,
 			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
 		},
-		ObjectStorage: operatorops.RootBinding{
+		ObjectStorage: application.RootBinding{
 			BindingKind: cfg.Roots.ObjectStorage.BindingKind,
 			Path:        cfg.Roots.ObjectStorage.Path,
 			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
 		},
-		BackupStorage: operatorops.RootBinding{
+		BackupStorage: application.RootBinding{
 			BindingKind: cfg.Roots.BackupStorage.BindingKind,
 			Path:        cfg.Roots.BackupStorage.Path,
 			ServiceRef:  cfg.Roots.BackupStorage.ServiceRef,
 		},
 		PostgresSettings: postgresSettings,
 		ObjectSettings:   objectSettings,
-		OpenPostgres: func(ctx context.Context) (operatorops.PostgresPool, error) {
+		OpenPostgres: func(ctx context.Context) (application.PostgresPool, error) {
 			return runner.setupPostgres(ctx, postgresSettings)
 		},
 		OpenObjectStore: func(ctx context.Context) (objectstore.Store, error) {

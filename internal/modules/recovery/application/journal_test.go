@@ -1,4 +1,4 @@
-package operatorcli_test
+package application_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -21,7 +21,7 @@ func TestOperatorRecoveryJournalEncryptsPayloadAndAuditIsSafe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse recovery key: %v", err)
 	}
-	store := operatorcli.JournalStore{
+	store := application.JournalStore{
 		DB: db,
 		LoadKey: func() (recovery.RecoveryEncryptionKey, error) {
 			return key, nil
@@ -31,7 +31,7 @@ func TestOperatorRecoveryJournalEncryptsPayloadAndAuditIsSafe(t *testing.T) {
 		},
 	}
 	backupSetID := "00000000-0000-0000-0000-000000000428"
-	record := operatorcli.JournalRecord{
+	record := application.JournalRecord{
 		OperationID: "00000000-0000-0000-0000-000000004284",
 		Operation:   "backup_create",
 		Result:      "failed",

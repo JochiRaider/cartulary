@@ -27,6 +27,7 @@ const (
 
 var (
 	ErrRecoveryMasterKeyRequired = errors.New("recovery: recovery master key required")
+	ErrRecoveryMasterKeyInvalid  = errors.New("recovery: recovery master key invalid")
 	ErrEncryptedBackupStorage    = errors.New("recovery: encrypted backup storage required")
 )
 
@@ -86,11 +87,11 @@ func ParseRecoveryEncryptionKey(raw string) (RecoveryEncryptionKey, error) {
 	if err != nil {
 		decoded, err = base64.StdEncoding.DecodeString(trimmed)
 		if err != nil {
-			return RecoveryEncryptionKey{}, fmt.Errorf("decode %s: %w", RecoveryMasterKeyEnv, err)
+			return RecoveryEncryptionKey{}, fmt.Errorf("%w: decode %s: %v", ErrRecoveryMasterKeyInvalid, RecoveryMasterKeyEnv, err)
 		}
 	}
 	if len(decoded) < 32 {
-		return RecoveryEncryptionKey{}, fmt.Errorf("%s must decode to at least 32 bytes", RecoveryMasterKeyEnv)
+		return RecoveryEncryptionKey{}, fmt.Errorf("%w: %s must decode to at least 32 bytes", ErrRecoveryMasterKeyInvalid, RecoveryMasterKeyEnv)
 	}
 	var key [32]byte
 	copy(key[:], decoded[:32])

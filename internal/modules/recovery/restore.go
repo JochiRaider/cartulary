@@ -33,6 +33,32 @@ const (
 	RestoreStepReadiness          RestoreStep = "readiness"
 )
 
+type RestoreStageError struct {
+	Stage RestoreStep
+	Cause error
+}
+
+func (err *RestoreStageError) Error() string {
+	if err == nil || err.Cause == nil {
+		return "recovery: restore stage failed"
+	}
+	return err.Cause.Error()
+}
+
+func (err *RestoreStageError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.Cause
+}
+
+func restoreStageFailure(stage RestoreStep, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	return &RestoreStageError{Stage: stage, Cause: cause}
+}
+
 type RestoreRunner struct {
 	store            *Store
 	storage          BackupStorage
@@ -156,33 +182,36 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 
 	recordStep(target.Observer, RestoreStepPostgresRestore)
 	if err := restorePostgresSnapshot(ctx, target.Postgres, artifacts.PostgresSnapshot); err != nil {
-		return partialResult, err
+		return partialResult, restoreStageFailure(RestoreStepPostgresRestore, err)
 	}
 
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restoreObjectStoreSnapshot(ctx, target.ObjectStore, artifacts.ObjectStoreSnapshot); err != nil {
-		return partialResult, err
+		return partialResult, restoreStageFailure(RestoreStepObjectStoreRestore, err)
 	}
 
 	recordStep(target.Observer, RestoreStepExtensionBindings)
 	if err := validateRestoredExtensionBindings(ctx, runner.extensionBackups, artifacts.ExtensionBindings, target.Postgres); err != nil {
-		return partialResult, err
+		return partialResult, restoreStageFailure(RestoreStepExtensionBindings, err)
 	}
 
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
 	projectionResult, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(backupSet))
 	partialResult.ProjectionRebuildResult = projectionResult
 	if err != nil {
-		return partialResult, err
+		return partialResult, restoreStageFailure(RestoreStepProjectionRebuild, err)
 	}
 	if !projectionResult.ReadinessSatisfied() {
-		return partialResult, fmt.Errorf("%w: projection rebuild did not produce ready restore state: status=%q readiness_outcome=%q", ErrInvalidBackupArtifact, projectionResult.Status, projectionResult.ReadinessOutcome)
+		return partialResult, restoreStageFailure(
+			RestoreStepProjectionRebuild,
+			fmt.Errorf("%w: projection rebuild did not produce ready restore state: status=%q readiness_outcome=%q", ErrInvalidBackupArtifact, projectionResult.Status, projectionResult.ReadinessOutcome),
+		)
 	}
 
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
 	report, err := verifyRestoredConsistency(ctx, target, artifacts)
 	if err != nil {
-		return partialResult, err
+		return partialResult, restoreStageFailure(RestoreStepConsistencyCheck, err)
 	}
 	result = RestoreResult{
 		BackupSet:                 backupSet,
@@ -195,7 +224,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if target.Readiness != nil {
 		recordStep(target.Observer, RestoreStepReadiness)
 		if err := target.Readiness.MarkRestoreReady(ctx, result); err != nil {
-			return result, err
+			return result, restoreStageFailure(RestoreStepReadiness, err)
 		}
 	}
 	return result, nil

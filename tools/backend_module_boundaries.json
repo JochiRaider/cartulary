@@ -827,6 +827,23 @@
       "production_only": true
     },
     {
+      "id": "recovery-application-no-operator-transport-imports",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/app/operator",
+        "github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
+      ],
+      "scan_paths": ["internal/modules/recovery/application/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "recovery-application-no-error-text-routing",
+      "tokens": ["err.Error()", "strings.Contains(", "strings.ToLower("],
+      "scan_paths": ["internal/modules/recovery/application/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "retired-browser-runtime-opt-in",
       "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
       "scan_paths": ["internal/**", "cmd/**"],
