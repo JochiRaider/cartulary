@@ -510,7 +510,70 @@ The pre-remediation writer/reader inventory is:
 - No database migration, command, route, browser capability, scheduler, wire
   schema, historical decoder, or external data changed.
 
-## 9. Final Handoff Checklist
+## 9. RS-99 Validation and Handoff Evidence
+
+The final validation ran from clean commit `391f2dc4`. No owner exception was
+needed, and no required gate failed. The exact changed-file inventory and
+retained historical-reader posture are recorded in the
+[changed-file inventory](recovery-module-refactor-changed-files.md).
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make agent-finalize` | PASS; generated output unchanged; retained-run maintenance skipped because `RESULTS_DIR` was unset before a successful warm check existed | `.cartulary/test-results/20260729T220230Z-p916727` |
+| `make test-slice OWNER=module.recovery` | PASS, 23 rows | `.cartulary/test-results/20260729T220301Z-p923158` |
+| `make service-backed-test-slice OWNER=module.recovery` | PASS, 13 rows | `.cartulary/test-results/20260729T220432Z-p951594` |
+| `make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260729T220549Z-p979433` |
+| `make generate-drift` | PASS | `.cartulary/test-results/20260729T220555Z-p979739` |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260729T220613Z-p983577` |
+| `make harness-contract` | PASS | `.cartulary/test-results/20260729T220620Z-p984025` |
+| `make go-gosec-targeted` | PASS | `.cartulary/test-results/20260729T220657Z-p985388` |
+| `make build-operator` | PASS | `.cartulary/test-results/20260729T220709Z-p1008457` |
+| `make browser-e2e-webserver-backed` | PASS, 2/2 sessions | `.cartulary/test-results/20260729T220721Z-p1018004` |
+| `make standup-operational-recovery-smoke` | PASS | `.cartulary/test-results/20260729T221225Z-p1047147` |
+| `make seaweedfs-compatibility` | PASS | `.cartulary/test-results/20260729T221313Z-p1065986` |
+| `make check` | PASS, 189/189 work units and 818 tests with zero missing evidence | `.cartulary/test-results/20260729T221327Z-p1066897` |
+| `make release-check` | PASS, 11/11 work units and 818 tests with zero missing evidence | `.cartulary/test-results/20260729T221625Z-p1168691` |
+| `make migration-drift` | SKIPPED; no database schema change or migration was introduced | Not applicable |
+
+### 9.1 Collaborator owner evidence
+
+Every directly declared Recovery collaborator owner passed its complete
+focused slice. Projections also passed as the reverse collaborator that
+declares Recovery, and Timeline's exact registration row passed explicitly.
+
+| Owner or row | Result | Run root |
+| --- | --- | --- |
+| `app.operator` | PASS, 5 rows | `.cartulary/test-results/20260729T222214Z-p1323287` |
+| `app.server` | PASS, 31 rows | `.cartulary/test-results/20260729T222229Z-p1324904` |
+| `harness.browser` | PASS, 14 rows | `.cartulary/test-results/20260729T222352Z-p1353753` |
+| `module.workbook` | PASS, 87 rows | `.cartulary/test-results/20260729T222411Z-p1355438` |
+| `platform.audit` | PASS, 2 rows | `.cartulary/test-results/20260729T222724Z-p1392894` |
+| `platform.objectstore` | PASS, 2 rows | `.cartulary/test-results/20260729T222740Z-p1394406` |
+| `platform.postgres` | PASS, 5 rows | `.cartulary/test-results/20260729T222759Z-p1395996` |
+| `platform.rootedfs` | PASS, 2 rows | `.cartulary/test-results/20260729T222829Z-p1399659` |
+| `web.application` | PASS, 58 rows | `.cartulary/test-results/20260729T222836Z-p1400070` |
+| `module.projections` | PASS, 8 rows | `.cartulary/test-results/20260729T222918Z-p1401711` |
+| Timeline restore-probe registration row | PASS, 1 row | `.cartulary/test-results/20260729T222953Z-p1404371` |
+
+### 9.2 Final compatibility and operational posture
+
+- `docs/domain.md` remains intentionally unchanged: no domain concept, route,
+  browser capability, scheduler, or sixth command was introduced.
+- Operator result/progress schema v1, flags, defaults, ordering, streams, and
+  exit codes remain stable.
+- New backup writes use only the vNext catalog, manifests, units, object
+  inventory, and streaming envelope. Historical readers remain strict and
+  read-only as inventoried in the handoff.
+- MinIO-source migration support remains intentionally absent. Affected
+  deployments must migrate externally before upgrade or stay on an earlier
+  release.
+- No database migration, persistent data rewrite, or owner-approved validation
+  exception was needed.
+- The validated implementation and ledger range is
+  `d45f3fbf..391f2dc4`; the exact RS-99 substantive and final ledger commits
+  are recorded when the following two handoff commits are complete.
+
+## 10. Final Handoff Checklist
 
 - [ ] Every RS-00--RS-12 row is `DONE` with an exact substantive commit and
   following tracker ledger commit.
