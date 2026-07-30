@@ -431,6 +431,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
             "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9"
           ],
           "specs": [
@@ -937,6 +938,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
             "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9"
           ],
           "specs": [

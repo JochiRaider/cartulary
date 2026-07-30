@@ -16,16 +16,15 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-06")
-	assessmentStore := assessments.NewStore(harness.DB, revisionsupport.MustAppender(t))
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
@@ -51,7 +50,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		{key: "disproven", subjectRef: identityID, subjectType: "identity", state: "disproven", score: intPtr(69), assessedAt: timePtr(time.Date(2026, 4, 24, 13, 0, 0, 0, time.UTC)), wantBand: "medium"},
 		{key: "cleared", subjectRef: hostID, subjectType: "host", state: "cleared", score: intPtr(85), assessedAt: timePtr(time.Date(2026, 4, 24, 14, 0, 0, 0, time.UTC)), wantBand: "high"},
 	} {
-		request := assessments.CreateRequest{
+		request := assessmentCreateRequest{
 			ClientTxnID:     "txn-workbook_interaction-u-9-06-" + tc.key,
 			SubjectRef:      &tc.subjectRef,
 			SubjectType:     tc.subjectType,
@@ -60,12 +59,12 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 			Rationale:       "Workbook inspector " + tc.state + " assessment rationale.",
 			AssessedAt:      tc.assessedAt,
 		}
-		result, err := assessmentStore.CreateAssessmentRow(
+		result, err := createAssessment(
 			ctx,
+			workbookStore,
 			actor,
 			incident.ID,
 			request,
-			assessments.CreateRequestHash(request),
 			"req-workbook_interaction-u-9-06-"+tc.key,
 			time.Date(2026, 5, 17, 17, index, 0, 0, time.UTC),
 		)
@@ -124,7 +123,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		before := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
 		request := validCreateRequest(hostID, "host", state)
 		request.ClientTxnID = "txn-workbook_interaction-u-9-06-operational-" + state
-		if _, err := assessmentStore.CreateAssessmentRow(ctx, actor, incident.ID, request, assessments.CreateRequestHash(request), "req-operational-"+state, time.Now().UTC()); err == nil {
+		if _, err := createAssessment(ctx, workbookStore, actor, incident.ID, request, "req-operational-"+state, time.Now().UTC()); err == nil {
 			t.Fatalf("expected operational state %q to fail closed", state)
 		}
 		if after := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); after != before {
@@ -134,21 +133,21 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
-		request assessments.CreateRequest
+		request assessmentCreateRequest
 	}{
-		{name: "missing subject", request: assessments.CreateRequest{
+		{name: "missing subject", request: assessmentCreateRequest{
 			ClientTxnID:     "txn-workbook_interaction-u-9-06-missing-subject",
 			SubjectType:     "host",
 			AssessmentState: "confirmed",
 			Rationale:       "Subject was not supplied.",
 		}},
-		{name: "support refs do not satisfy minimum semantic set", request: assessments.CreateRequest{
+		{name: "support refs do not satisfy minimum semantic set", request: assessmentCreateRequest{
 			ClientTxnID: "txn-workbook_interaction-u-9-06-support-only",
 			SupportRefs: []uuid.UUID{
 				hostID,
 			},
 		}},
-		{name: "empty rationale", request: assessments.CreateRequest{
+		{name: "empty rationale", request: assessmentCreateRequest{
 			ClientTxnID:     "txn-workbook_interaction-u-9-06-empty-rationale",
 			SubjectRef:      &hostID,
 			SubjectType:     "host",
@@ -156,7 +155,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}},
 	} {
 		before := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
-		if _, err := assessmentStore.CreateAssessmentRow(ctx, actor, incident.ID, tc.request, assessments.CreateRequestHash(tc.request), "req-"+tc.name, time.Now().UTC()); err == nil {
+		if _, err := createAssessment(ctx, workbookStore, actor, incident.ID, tc.request, "req-"+tc.name, time.Now().UTC()); err == nil {
 			t.Fatalf("expected %s to fail closed", tc.name)
 		}
 		if after := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); after != before {
@@ -164,7 +163,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}
 	}
 
-	expectDecodeCreateRejected(t, map[string]any{
+	expectAssessmentCreateRejected(t, workbookStore, actor, incident.ID, map[string]any{
 		"client_txn_id":               "txn-workbook_interaction-u-9-06-null-assessed-at",
 		"assessment.subject_ref":      hostID.String(),
 		"assessment.subject_type":     "host",
@@ -204,13 +203,34 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	if _, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data))); apiErr == nil {
 		t.Fatalf("expected in-place assessment semantic patch to be rejected")
 	}
+	requireAssessmentPatchDecodeError(t, "assessment.assessment_state", map[string]any{
+		"value": "cleared",
+	}, "assessment.assessment_state")
+	requireAssessmentPatchDecodeError(t, "assessment.support_refs", map[string]any{
+		"action_payload": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": hostID.String()},
+			},
+		},
+	}, "assessment.support_refs")
+	requireAssessmentPatchDecodeError(t, "assessment.support_refs", map[string]any{
+		"action_payload": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "remove_item", "item_ref": "record_ref:" + hostID.String()},
+			},
+		},
+	}, "assessment.support_refs")
+	requireAssessmentPatchDecodeError(t, "assessment.not_a_field", map[string]any{
+		"value": "anything",
+	}, "field_key")
 	requireQueriedRecordIDs(t, workbookStore, incident.ID, filterEq("assessment.assessment_state", "confirmed"), []uuid.UUID{created["confirmed"]})
 }
 
 func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-12")
-	assessmentStore := assessments.NewStore(harness.DB, revisionsupport.MustAppender(t))
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
@@ -222,7 +242,15 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	request := validCreateRequest(hostID, "host", "confirmed")
 	request.ClientTxnID = "txn-workbook_interaction-u-9-12-valid"
 	request.SupportRefs = []uuid.UUID{supportID}
-	result, err := assessmentStore.CreateAssessmentRow(ctx, actor, incident.ID, request, assessments.CreateRequestHash(request), "req-workbook_interaction-u-9-12-valid", time.Date(2026, 5, 17, 18, 0, 0, 0, time.UTC))
+	result, err := createAssessment(
+		ctx,
+		workbookStore,
+		actor,
+		incident.ID,
+		request,
+		"req-workbook_interaction-u-9-12-valid",
+		time.Date(2026, 5, 17, 18, 0, 0, 0, time.UTC),
+	)
 	if err != nil {
 		t.Fatalf("create assessment with support ref: %v", err)
 	}
@@ -659,14 +687,111 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	requireManualLinkConfidenceNull(t, harness, incident.ID, lessonResult.RecordID, coordEvidence.RecordID, "references_record")
 }
 
-func validCreateRequest(subjectRef uuid.UUID, subjectType string, state string) assessments.CreateRequest {
-	return assessments.CreateRequest{
+type assessmentCreateRequest struct {
+	ClientTxnID     string
+	SubjectRef      *uuid.UUID
+	SubjectType     string
+	AssessmentState string
+	ConfidenceScore *int
+	Rationale       string
+	Assessor        *uuid.UUID
+	AssessedAt      *time.Time
+	SupportRefs     []uuid.UUID
+}
+
+func validCreateRequest(
+	subjectRef uuid.UUID,
+	subjectType string,
+	state string,
+) assessmentCreateRequest {
+	return assessmentCreateRequest{
 		ClientTxnID:     "txn-workbook_interaction-assessment-valid",
 		SubjectRef:      &subjectRef,
 		SubjectType:     subjectType,
 		AssessmentState: state,
 		Rationale:       "Valid rationale.",
 	}
+}
+
+func createAssessment(
+	ctx context.Context,
+	store *workbook.Store,
+	actor authn.UserRecord,
+	incidentID uuid.UUID,
+	request assessmentCreateRequest,
+	requestID string,
+	now time.Time,
+) (workbook.MutationResult, error) {
+	workbookRequest := workbook.CreateRequest{
+		ViewSchemaID: assessments.AssessmentsViewSchemaID,
+		ClientTxnID:  request.ClientTxnID,
+		Values:       map[string]workbook.ValueChange{},
+		Collections:  map[string]workbook.CollectionActionPayload{},
+	}
+	if request.SubjectRef != nil {
+		workbookRequest.Values["assessment.subject_ref"] = workbook.ValueChange{
+			Kind: "uuid",
+			UUID: request.SubjectRef,
+		}
+	}
+	if request.SubjectType != "" {
+		workbookRequest.Values["assessment.subject_type"] = workbook.ValueChange{
+			Kind: "text",
+			Text: &request.SubjectType,
+		}
+	}
+	if request.AssessmentState != "" {
+		workbookRequest.Values["assessment.assessment_state"] = workbook.ValueChange{
+			Kind: "text",
+			Text: &request.AssessmentState,
+		}
+	}
+	if request.ConfidenceScore != nil {
+		score := int64(*request.ConfidenceScore)
+		workbookRequest.Values["assessment.confidence_score"] = workbook.ValueChange{
+			Kind:   "number",
+			Number: &score,
+		}
+	}
+	if request.Rationale != "" {
+		workbookRequest.Values["assessment.rationale"] = workbook.ValueChange{
+			Kind: "text",
+			Text: &request.Rationale,
+		}
+	}
+	if request.Assessor != nil {
+		workbookRequest.Values["assessment.assessor"] = workbook.ValueChange{
+			Kind: "uuid",
+			UUID: request.Assessor,
+		}
+	}
+	if request.AssessedAt != nil {
+		workbookRequest.Values["assessment.assessed_at"] = workbook.ValueChange{
+			Kind:      "timestamp",
+			Timestamp: request.AssessedAt,
+		}
+	}
+	if len(request.SupportRefs) > 0 {
+		actions := make([]workbook.CollectionAction, 0, len(request.SupportRefs))
+		for index := range request.SupportRefs {
+			ref := request.SupportRefs[index]
+			actions = append(actions, workbook.CollectionAction{
+				Op:             "add_record_ref",
+				LinkedRecordID: &ref,
+			})
+		}
+		workbookRequest.Collections["assessment.support_refs"] =
+			workbook.CollectionActionPayload{Actions: actions}
+	}
+	return store.CreateWorkbookRow(
+		ctx,
+		actor,
+		incidentID,
+		workbookRequest,
+		workbook.CreateRequestHash(workbookRequest),
+		requestID,
+		now,
+	)
 }
 
 func filterEq(fieldKey string, value any) viewschema.Filter {
@@ -724,8 +849,43 @@ func expectDecodeCreateRejected(t testing.TB, body map[string]any) {
 	if err != nil {
 		t.Fatalf("marshal create body: %v", err)
 	}
-	if _, apiErr := assessments.DecodeCreateRequest(strings.NewReader(string(data))); apiErr == nil {
+	if _, apiErr := workbook.DecodeCreateRequest(
+		assessments.AssessmentsViewSchemaID,
+		strings.NewReader(string(data)),
+	); apiErr == nil {
 		t.Fatalf("expected create body to be rejected: %#v", body)
+	}
+}
+
+func expectAssessmentCreateRejected(
+	t testing.TB,
+	store *workbook.Store,
+	actor authn.UserRecord,
+	incidentID uuid.UUID,
+	body map[string]any,
+) {
+	t.Helper()
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal assessment create body: %v", err)
+	}
+	request, apiErr := workbook.DecodeCreateRequest(
+		assessments.AssessmentsViewSchemaID,
+		strings.NewReader(string(data)),
+	)
+	if apiErr != nil {
+		return
+	}
+	if _, err := store.CreateWorkbookRow(
+		context.Background(),
+		actor,
+		incidentID,
+		request,
+		workbook.CreateRequestHash(request),
+		"req-"+request.ClientTxnID,
+		time.Now().UTC(),
+	); err == nil {
+		t.Fatalf("expected assessment create body to be rejected: %#v", body)
 	}
 }
 
@@ -752,6 +912,36 @@ func expectWorkbookDecodePatchRejected(t testing.TB, body map[string]any) {
 		t.Fatalf("expected workbook patch body to be rejected: %#v", body)
 	} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
 		t.Fatalf("unexpected workbook patch error: %#v", apiErr)
+	}
+}
+
+func requireAssessmentPatchDecodeError(t testing.TB, fieldKey string, changeBody map[string]any, wantDetailField string) {
+	t.Helper()
+	change := map[string]any{"field_key": fieldKey}
+	for key, value := range changeBody {
+		change[key] = value
+	}
+	data, err := json.Marshal(map[string]any{
+		"view_schema_id":   assessments.AssessmentsViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-assessment-characterization-" + strings.ReplaceAll(fieldKey, ".", "-"),
+		"changes":          []map[string]any{change},
+	})
+	if err != nil {
+		t.Fatalf("marshal assessment patch body: %v", err)
+	}
+	_, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data)))
+	if apiErr == nil {
+		t.Fatalf("expected assessment patch for %s to be rejected", fieldKey)
+	}
+	if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+		t.Fatalf("unexpected assessment patch error for %s: %#v", fieldKey, apiErr)
+	}
+	if got := apiErr.Details["field"]; got != wantDetailField {
+		t.Fatalf("unexpected assessment patch detail field for %s: got %#v want %q", fieldKey, got, wantDetailField)
+	}
+	if got := apiErr.Details["reason_code"]; got != "unsupported_field_key" {
+		t.Fatalf("unexpected assessment patch reason for %s: got %#v", fieldKey, got)
 	}
 }
 

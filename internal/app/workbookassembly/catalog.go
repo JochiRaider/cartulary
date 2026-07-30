@@ -46,7 +46,10 @@ func NewContributionCatalog(
 
 	entityStore := hostidentity.NewStore(pool, appender)
 	indicatorStore := indicators.NewStore(pool, appender)
-	assessmentStore := assessments.NewStore(pool, appender)
+	assessmentFacade, err := newAssessmentFacade(pool, projectionCatalog, entityStore, appender)
+	if err != nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
+	}
 	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
 	evidenceOwner := evidence.NewWorkbookFacade(pool, conflictTokens, appender, intents)
 	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
@@ -86,7 +89,7 @@ func NewContributionCatalog(
 		hostidentity.HostsViewSchemaID:      workbook.NewHostCreateProvider(entityStore),
 		hostidentity.IdentitiesViewSchemaID: workbook.NewIdentityCreateProvider(entityStore),
 		indicators.ViewSchemaID:             workbook.NewIndicatorCreateProvider(indicatorStore),
-		assessments.AssessmentsViewSchemaID: workbook.NewAssessmentCreateProvider(assessmentStore),
+		assessments.AssessmentsViewSchemaID: workbook.NewAssessmentCreateProvider(assessmentFacade),
 		workbook.NotesViewSchemaID:          workbook.NewArtifactCreateProvider(workbook.NotesViewSchemaID, artifactOwner),
 		workbook.CommLogViewSchemaID:        workbook.NewArtifactCreateProvider(workbook.CommLogViewSchemaID, artifactOwner),
 		workbook.HandoffViewSchemaID:        workbook.NewArtifactCreateProvider(workbook.HandoffViewSchemaID, artifactOwner),

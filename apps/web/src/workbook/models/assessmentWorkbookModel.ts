@@ -1,10 +1,30 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import type {
-  AssessmentConfidenceBand,
-  AssessmentCreateDraft,
-  TimelineApiRow,
-} from "../timeline/models/workbookTimelineModel";
 import { enumValuesFor } from "./genericWorkbookModel";
+
+export type AssessmentSubjectType = "host" | "identity";
+export type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
+
+export type AssessmentCreateDraft = {
+  assessedAt: string;
+  assessmentState: string;
+  confidenceBand: AssessmentConfidenceBand;
+  rationale: string;
+  subjectRecordId: string;
+  subjectType: AssessmentSubjectType;
+  supportRecordIds: string[];
+};
+
+export type AssessmentApiRow = {
+  record_id: string;
+  row_version: number;
+  cells: Record<string, { value: unknown }>;
+  group_values?: Record<string, unknown>;
+};
+
+export type AssessmentSupportCandidate = {
+  readonly displayText: string;
+  readonly recordId: string;
+};
 
 export function isAssessmentConfidenceBand(
   value: string,
@@ -15,6 +35,12 @@ export function isAssessmentConfidenceBand(
     value === "medium" ||
     value === "high"
   );
+}
+
+export function isAssessmentSubjectType(
+  value: string,
+): value is AssessmentSubjectType {
+  return value === "host" || value === "identity";
 }
 
 export function assessmentColumnWidth(fieldKey: string): number {
@@ -34,6 +60,10 @@ export function assessmentColumnWidth(fieldKey: string): number {
 
 export function initialAssessmentDraft(
   assessmentsContract: ViewContract,
+  seed?: {
+    readonly subjectRecordId: string;
+    readonly subjectType: AssessmentSubjectType;
+  },
 ): AssessmentCreateDraft {
   const [assessmentState = "unknown"] = enumValuesFor(
     assessmentsContract,
@@ -50,15 +80,106 @@ export function initialAssessmentDraft(
     assessmentState,
     confidenceBand: confidenceBand ?? "unset",
     rationale: "",
-    subjectRecordId: "",
-    subjectType: "host",
+    subjectRecordId: seed?.subjectRecordId ?? "",
+    subjectType: seed?.subjectType ?? "host",
     supportRecordIds: [],
   };
 }
 
-export function supportRowLabel(row: TimelineApiRow): string {
-  const summary = row.cells["timeline.activity_synopsis_text"]?.value;
-  return typeof summary === "string" && summary !== ""
-    ? summary
-    : row.record_id;
+export function assessmentSupportCandidate(
+  recordId: string,
+  displayText: unknown,
+): AssessmentSupportCandidate {
+  return {
+    recordId,
+    displayText:
+      typeof displayText === "string" && displayText !== ""
+        ? displayText
+        : recordId,
+  };
+}
+
+export function followOnAssessmentDraft(
+  assessmentsContract: ViewContract,
+  selectedRow: AssessmentApiRow,
+): AssessmentCreateDraft | null {
+  const subjectRecordId = normalizedAssessmentValue(
+    selectedRow.cells["assessment.subject_ref"]?.value,
+  );
+  const subjectTypeValue = normalizedAssessmentValue(
+    selectedRow.cells["assessment.subject_type"]?.value,
+  );
+  if (subjectRecordId === "" || !isAssessmentSubjectType(subjectTypeValue)) {
+    return null;
+  }
+  return initialAssessmentDraft(assessmentsContract, {
+    subjectRecordId,
+    subjectType: subjectTypeValue,
+  });
+}
+
+export function confidenceScoreFromBand(
+  band: AssessmentConfidenceBand,
+): number | null {
+  switch (band) {
+    case "low":
+      return 25;
+    case "medium":
+      return 55;
+    case "high":
+      return 85;
+    default:
+      return null;
+  }
+}
+
+export function buildAssessmentCreatePayload(
+  draft: AssessmentCreateDraft,
+  clientTxnId: string,
+): Record<string, unknown> | null {
+  const subjectRecordId = normalizedAssessmentValue(draft.subjectRecordId);
+  const assessmentState = normalizedAssessmentValue(draft.assessmentState);
+  const rationale = normalizedAssessmentValue(draft.rationale);
+  if (subjectRecordId === "" || assessmentState === "" || rationale === "") {
+    return null;
+  }
+
+  const payload: Record<string, unknown> = {
+    client_txn_id: clientTxnId,
+    "assessment.subject_ref": subjectRecordId,
+    "assessment.subject_type": draft.subjectType,
+    "assessment.assessment_state": assessmentState,
+    "assessment.confidence_score": confidenceScoreFromBand(
+      draft.confidenceBand,
+    ),
+    "assessment.rationale": rationale,
+  };
+
+  const assessedAt = normalizedAssessmentValue(draft.assessedAt);
+  if (assessedAt !== "") {
+    payload["assessment.assessed_at"] = assessedAt;
+  }
+
+  const supportRecordIds = Array.from(
+    new Set(
+      draft.supportRecordIds
+        .map((recordId) => normalizedAssessmentValue(recordId))
+        .filter((recordId) => recordId !== ""),
+    ),
+  );
+  if (supportRecordIds.length > 0) {
+    payload["assessment.support_refs"] = {
+      kind: "collection_actions_v1",
+      actions: supportRecordIds.map((recordId) => ({
+        op: "add_record_ref",
+        linked_record_id: recordId,
+      })),
+    };
+  }
+
+  return payload;
+}
+
+function normalizedAssessmentValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }

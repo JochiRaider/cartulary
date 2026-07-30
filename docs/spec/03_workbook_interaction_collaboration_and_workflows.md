@@ -2310,9 +2310,53 @@ Profiles: base
 Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-231
 
 **REQ-03-254**
-The base-profile Assessments view is append-only for semantic assessment fields. Creating a row or equivalent entry MUST append a new assessment record. In-place grid edits to an existing assessment row MUST NOT overwrite `subject_ref`, `subject_type`, `assessment_state`, `confidence_score`, `rationale`, `assessor`, `assessed_at`, or supporting-link semantics; correction or superseding flows MUST append a new assessment record instead.
+The base-profile Assessments view is append-only for semantic assessment fields. Creating a row or equivalent entry MUST append a new assessment record. In-place grid, inspector, bulk, conflict-resolution, or direct API edits to an existing assessment row MUST NOT overwrite `subject_ref`, `subject_type`, `assessment_state`, `confidence_score`, `rationale`, `assessor`, `assessed_at`, or supporting-link semantics; correction or continuation flows MUST append a new assessment record instead.
 Profiles: base
-Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-231
+Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-231, AC-518, AC-519
+
+**REQ-03-304**
+The current-profile assessment support picker MUST discover interactive
+candidates only by querying `cartulary.view.timeline.v2` through the existing
+generic view-query route and its existing pagination, ordering, filtering, and
+authorization defaults. It MUST NOT add a search route, fan out across every
+view, read storage directly, or make external requests.
+
+At the query-hook boundary, Timeline rows MUST be reduced to an
+assessment-owned candidate containing only stable `record_id` identity and
+display text. Candidate identity MUST never be row index, visible position,
+timestamp, or label. Sorting, filtering, refreshing, rerendering, or
+virtualization MUST NOT retarget an already selected record ID. Closing or
+cancelling the picker MUST mutate neither the draft nor persisted state.
+Submission-time backend validation remains authoritative for target
+admissibility.
+
+Readable existing non-Timeline support references returned by the assessment
+row MUST remain visible and MUST NOT be discarded, converted, or implicitly
+copied merely because the interactive picker discovers Timeline candidates
+only.
+Profiles: base
+Verified by: AC-519, AC-520
+
+**REQ-03-305**
+Invoking `create_related.assessment` from a selected assessment MUST open a
+fresh assessment draft in the same workbook shell. The draft MUST seed only
+the selected row's `assessment.subject_ref` and `assessment.subject_type`.
+It MUST NOT copy assessment state, confidence score or band, rationale,
+assessor, assessed time, support references, or any other value. A valid
+assessment state and non-empty rationale remain required, and the workflow
+MUST create no automatic `supersedes` or assessment-private succession
+relation.
+
+Cancellation MUST commit nothing and preserve the original selected
+assessment. Submission failure MUST keep the same shell, the original
+selection, and the editable follow-on draft while invalidating the failed
+pending action. Success MUST append a distinct assessment, refresh rows, and
+preserve the original selection and its unchanged history. The create route
+MUST re-evaluate current incident membership, minimum `editor` role, and every
+support target at submission; stale or newly hidden targets and lost authority
+MUST fail without retargeting, draft loss, partial state, or disclosure.
+Profiles: base
+Verified by: AC-519, AC-520
 
 ### 16.4 Analyst-work coordination surfaces
 

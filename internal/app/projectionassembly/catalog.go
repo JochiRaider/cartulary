@@ -24,32 +24,39 @@ import (
 )
 
 type Bundle struct {
-	Catalog       *projections.Catalog
-	Query         *projections.QueryService
-	Rebuild       *projections.RebuildService
-	Coordinator   *projections.Coordinator
-	Timeline      *projections.TimelineRows
-	Entities      *projections.EntityRows
-	Assessments   *projections.AssessmentRows
-	Artifacts     *projections.ArtifactRows
-	Evidence      *projections.EvidenceRows
-	Parties       *projections.PartyRows
-	TaskDecisions *projections.TaskDecisionRows
+	Catalog          *projections.Catalog
+	Query            *projections.QueryService
+	Rebuild          *projections.RebuildService
+	Coordinator      *projections.Coordinator
+	AssessmentSource projections.AssessmentSource
+	Timeline         *projections.TimelineRows
+	Entities         *projections.EntityRows
+	Assessments      *projections.AssessmentRows
+	Artifacts        *projections.ArtifactRows
+	Evidence         *projections.EvidenceRows
+	Parties          *projections.PartyRows
+	TaskDecisions    *projections.TaskDecisionRows
 }
 
 func NewBundle(pool postgres.DB, timelineSource projections.TimelineSource) (*Bundle, error) {
-	catalog, err := NewCatalog(timelineSource)
+	assessmentSource := newAssessmentProjectionSource()
+	catalog, err := newCatalog(timelineSource, assessmentSource)
 	if err != nil {
 		return nil, err
 	}
 	return &Bundle{
-		Catalog:       catalog,
-		Query:         projections.NewQueryService(pool, catalog),
-		Rebuild:       projections.NewRebuildService(pool, catalog),
-		Coordinator:   projections.NewCoordinator(pool, catalog),
-		Timeline:      projections.NewTimelineRows(pool),
-		Entities:      projections.NewEntityRows(pool),
-		Assessments:   projections.NewAssessmentRows(pool, assessmentprojection.QuerySurfaces()...),
+		Catalog:          catalog,
+		Query:            projections.NewQueryService(pool, catalog),
+		Rebuild:          projections.NewRebuildService(pool, catalog),
+		Coordinator:      projections.NewCoordinator(pool, catalog),
+		AssessmentSource: assessmentSource,
+		Timeline:         projections.NewTimelineRows(pool),
+		Entities:         projections.NewEntityRows(pool),
+		Assessments: projections.NewAssessmentRows(
+			pool,
+			assessmentSource,
+			assessmentprojection.QuerySurfaces()...,
+		),
 		Artifacts:     projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
 		Evidence:      projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
 		Parties:       projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
@@ -63,6 +70,13 @@ func taskDecisionQuerySurfaces() []providercontract.QuerySurface {
 }
 
 func NewCatalog(timelineSource projections.TimelineSource) (*projections.Catalog, error) {
+	return newCatalog(timelineSource, newAssessmentProjectionSource())
+}
+
+func newCatalog(
+	timelineSource projections.TimelineSource,
+	assessmentSource projections.AssessmentSource,
+) (*projections.Catalog, error) {
 	providers := []projections.Provider{
 		projections.NewTimelineProvider(descriptor(
 			"timeline",
@@ -128,7 +142,7 @@ func NewCatalog(timelineSource projections.TimelineSource) (*projections.Catalog
 			[]string{"indicator"},
 			[]string{"internal/modules/assessments"},
 			[]string{"internal/modules/assessments/assessment_contract_test.go", "internal/modules/projections/query_test.go"},
-		)),
+		), assessmentSource),
 		projections.NewArtifactProvider(descriptor(
 			"artifact",
 			"artifacts",

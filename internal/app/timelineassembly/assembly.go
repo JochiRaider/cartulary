@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
@@ -179,6 +180,10 @@ func compose(
 		entityMergeStore: merge.NewStore(
 			pool,
 			appender,
+			merge.WithAssessmentEffects(assessmentassembly.NewMergeEffects(
+				pool,
+				projection.catalog.Catalog,
+			)),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(intents),
 		),

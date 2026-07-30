@@ -11,7 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -84,6 +86,95 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 	if len(second.Inputs) != 1 || second.NextRecordID != nil ||
 		second.Inputs[0].RecordID.String() != "10000000-0000-4000-8000-000000000003" {
 		t.Fatalf("unexpected second projection source page: %#v", second)
+	}
+}
+
+func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
+	ctx := context.Background()
+	harness := appsupport.StartStore(t, "projection-assessment-source-paging")
+	actor := authstoretest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"assessment-projection-page@example.test",
+		"Assessment Projection Page",
+		"AssessmentProjectionPage1!",
+		false,
+		false,
+		true,
+	)
+	incident := appsupport.CreateIncidentInStore(
+		t,
+		harness.DB,
+		actor,
+		"txn-assessment-projection-page-incident",
+		"IR-ASSESSMENT-PROJECTION-PAGE",
+		"Assessment projection paging",
+	)
+	subjectID := uuid.New()
+	entitytest.SeedHostRecord(
+		t,
+		harness.DB,
+		incident.ID,
+		actor.ID,
+		subjectID,
+		"Assessment projection subject",
+		"assessment-projection-subject",
+		"",
+		"",
+	)
+	recordIDs := []uuid.UUID{
+		uuid.MustParse("30000000-0000-4000-8000-000000000003"),
+		uuid.MustParse("30000000-0000-4000-8000-000000000001"),
+		uuid.MustParse("30000000-0000-4000-8000-000000000002"),
+	}
+	for _, recordID := range recordIDs {
+		assessmenttest.SeedAssessment(
+			t,
+			harness.DB,
+			incident.ID,
+			actor.ID,
+			recordID,
+			subjectID,
+			"host",
+			"confirmed",
+		)
+	}
+
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin assessment projection source paging: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	revisionComposition := revisionsupport.MustComposition(t)
+	source := timelineassembly.NewBundle(
+		harness.DB,
+		conflicttest.NewCodec("timeline"),
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+	).ProjectionCatalog.AssessmentSource
+	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
+	if err != nil {
+		t.Fatalf("list first assessment projection source page: %v", err)
+	}
+	if len(first.Inputs) != 2 || first.NextRecordID == nil ||
+		first.Inputs[0].RecordID.String() != "30000000-0000-4000-8000-000000000001" ||
+		first.Inputs[1].RecordID.String() != "30000000-0000-4000-8000-000000000002" {
+		t.Fatalf("unexpected first assessment projection page: %#v", first)
+	}
+	second, err := source.ListProjectionInputsTx(
+		ctx,
+		tx,
+		incident.ID,
+		first.NextRecordID,
+		2,
+	)
+	if err != nil {
+		t.Fatalf("list second assessment projection source page: %v", err)
+	}
+	if len(second.Inputs) != 1 || second.NextRecordID != nil ||
+		second.Inputs[0].RecordID.String() != "30000000-0000-4000-8000-000000000003" {
+		t.Fatalf("unexpected second assessment projection page: %#v", second)
 	}
 }
 

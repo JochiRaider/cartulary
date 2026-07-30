@@ -3,6 +3,37 @@
   "owner_id": "module.assessments",
   "rows": [
     {
+      "row_id": "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.assessments.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2a82260393"
+        ],
+        "titles": [
+          "appends a subject-only follow-on while preserving keyboard selection"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_exclusive",
+      "fixture_profile_id": "service_stack",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.browser",
@@ -65,6 +96,81 @@
       "status": "active"
     },
     {
+      "row_id": "module.assessments.frontend.the_assessment_model_owns_confidence_mapping_and_f155fcd292",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "titles": [
+          "owns confidence mapping and normalized create payload construction"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.frontend.the_assessment_model_seeds_follow_on_drafts_from_dceba9cd61",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "titles": [
+          "seeds follow-on drafts from subject identity only"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.frontend.the_assessment_surface_preserves_stable_selectio_ab289a0995",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
+        "titles": [
+          "preserves stable selection and an editable subject-only follow-on draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.assessments.frontend.the_ordinary_workbook_assessment_panel_submits_t_3f8efe2007",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.frontend",
@@ -118,7 +224,15 @@
       "row_id": "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.store",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.entities",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.timeline",
+        "module.workbook"
+      ],
       "verification_ids": [
         "module.assessments.verification.behavior_contract"
       ],
@@ -141,7 +255,13 @@
       "row_id": "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.store",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.entities",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
       "verification_ids": [
         "module.assessments.verification.behavior_contract",
         "module.assessments.verification.incident_portability"
@@ -157,6 +277,120 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "go_transaction_heavy",
       "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.facade_transaction_participant_rollback_and_replay",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.http_create_replay_projection_publication_characterization",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.entities",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentsCreateAndProjection"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.http_filter_validation_characterization",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.entities",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentsAppendOnlyFiltersAndValidation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.assessments.store.import_binding_identity_characterization",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.imports"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract",
+        "module.assessments.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/importassembly",
+        "tests": [
+          "TestOwnerCreateRegistryComposesEveryCurrentViewTarget"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"

@@ -28,7 +28,13 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, survivorID, "Survivor host", "survivor-host")
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, loserID, "Loser host", "loser-host")
 	seedMergeProtectedSetAssessment(t, db, incident.ID, actor.ID, assessmentID, loserID, "host", "confirmed")
-	store := NewStore(db, newMergeProtectedSetAppender(t))
+	store := NewStore(
+		db,
+		newMergeProtectedSetAppender(t),
+		WithAssessmentEffects(assessments.NewMergeEffects(
+			mergeAssessmentProjectionStub{},
+		)),
+	)
 
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -50,7 +56,13 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set-revalidate")
-	store := NewStore(db, newMergeProtectedSetAppender(t))
+	store := NewStore(
+		db,
+		newMergeProtectedSetAppender(t),
+		WithAssessmentEffects(assessments.NewMergeEffects(
+			mergeAssessmentProjectionStub{},
+		)),
+	)
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
 	incident := createMergeProtectedSetIncident(t, db, actor, "txn-merge-protected-revalidate-incident", "IR-MERGE-PROTECTED-R", "Merge protected set revalidate")
 	survivorID := uuid.New()
@@ -97,6 +109,16 @@ func newMergeProtectedSetAppender(t testing.TB) *revisions.Appender {
 		t.Fatalf("build merge protected-set Revisions appender: %v", err)
 	}
 	return appender
+}
+
+type mergeAssessmentProjectionStub struct{}
+
+func (mergeAssessmentProjectionStub) RefreshAssessmentProjectionTx(
+	context.Context,
+	pgx.Tx,
+	uuid.UUID,
+) error {
+	return nil
 }
 
 func seedMergeProtectedSetUser(t testing.TB, db postgres.DB, email string, displayName string) authn.UserRecord {

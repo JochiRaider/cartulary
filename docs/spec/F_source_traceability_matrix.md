@@ -477,8 +477,8 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-308 | Core 01 §7.4 Authoritative base-profile view schema registry | base, reference_pack | AC-116..AC-122, AC-124..AC-125, AC-231, AC-234, AC-285..AC-287 |
 | REQ-01-579 | Core 01 §7.4 Authoritative base-profile view schema registry | base, reference_pack | AC-411 |
 | REQ-01-309 | Core 01 §7.4 Authoritative base-profile view schema registry | base | AC-116..AC-122, AC-124..AC-125, AC-231, AC-281..AC-287, AC-410 |
-| REQ-01-310 | Core 01 §7.4 Authoritative base-profile view schema registry | base, reference_pack | AC-116..AC-122, AC-124..AC-125, AC-184..AC-185, AC-231, AC-234, AC-281..AC-287, AC-300..AC-303, AC-366..AC-368 |
-| REQ-01-311 | Core 01 §7.4 Authoritative base-profile view schema registry | base | AC-116..AC-122, AC-124..AC-125, AC-196, AC-231, AC-281..AC-284, AC-331..AC-332 |
+| REQ-01-310 | Core 01 §7.4 Authoritative base-profile view schema registry | base, reference_pack | AC-116..AC-122, AC-124..AC-125, AC-184..AC-185, AC-231, AC-234, AC-281..AC-287, AC-300..AC-303, AC-366..AC-368, AC-518 |
+| REQ-01-311 | Core 01 §7.4 Authoritative base-profile view schema registry | base | AC-116..AC-122, AC-124..AC-125, AC-196, AC-231, AC-281..AC-284, AC-331..AC-332, AC-517 |
 | REQ-01-312 | Core 01 §7.4.1 `cartulary.view.timeline.v2` | base | AC-118, AC-119, AC-124..AC-125, AC-184, AC-191..AC-198, AC-231, AC-300..AC-301, AC-303, AC-331..AC-332, AC-444..AC-449, AC-452 |
 | REQ-01-313 | Core 01 §7.4.1 `cartulary.view.timeline.v2` | base | AC-119, AC-124..AC-125, AC-184, AC-191..AC-198, AC-231, AC-444, AC-448, AC-452 |
 | REQ-01-314 | Core 01 §7.4.1 `cartulary.view.timeline.v2` | base | AC-119, AC-124..AC-125, AC-184, AC-191..AC-198, AC-231, AC-444, AC-448, AC-452 |
@@ -499,10 +499,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-329 | Core 01 §7.4.5 `cartulary.view.notes.v1` | base | AC-068..AC-070, AC-112, AC-118, AC-124..AC-125, AC-185, AC-231 |
 | REQ-01-330 | Core 01 §7.4.5 `cartulary.view.notes.v1` | base | AC-068..AC-070, AC-112, AC-118, AC-124..AC-125, AC-185, AC-231 |
 | REQ-01-331 | Core 01 §7.4.6 `cartulary.view.indicators.v1` | base | AC-017, AC-072..AC-079, AC-118, AC-122, AC-124, AC-231 |
-| REQ-01-332 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231, AC-300, AC-302..AC-303 |
-| REQ-01-333 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231 |
-| REQ-01-334 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231 |
-| REQ-01-335 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231 |
+| REQ-01-332 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231, AC-300, AC-302..AC-303, AC-517, AC-520 |
+| REQ-01-333 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231, AC-517 |
+| REQ-01-334 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231, AC-517, AC-520 |
+| REQ-01-335 | Core 01 §7.4.7 `cartulary.view.assessments.v1` | base | AC-018, AC-080..AC-084, AC-118, AC-121, AC-124, AC-231, AC-518 |
 | REQ-01-336 | Core 01 §7.4.8 `cartulary.view.task_requests.v1` | base | AC-085, AC-118, AC-124, AC-137..AC-140, AC-145, AC-231, AC-278..AC-280, AC-300..AC-301, AC-303..AC-304, AC-315..AC-319 |
 | REQ-01-337 | Core 01 §7.4.8 `cartulary.view.task_requests.v1` | base | AC-085, AC-118, AC-124, AC-137..AC-140, AC-145, AC-231 |
 | REQ-01-338 | Core 01 §7.4.8 `cartulary.view.task_requests.v1` | base | AC-085, AC-118, AC-124, AC-137..AC-140, AC-145, AC-231, AC-304 |
@@ -783,8 +783,8 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-613 | Core 01 §3.3.5.0A Timeline time-conversion profile | base | AC-451 |
 | REQ-01-614 | Core 01 §18 timeline_visible_text_v1 | base | AC-444..AC-449, AC-452 |
 | REQ-01-615 | Core 01 §7.4 `inspector_config_v1` | base | AC-453..AC-455, AC-460..AC-462 |
-| REQ-01-616 | Core 01 §7.4 per-surface inspector matrix | base | AC-453..AC-455, AC-461..AC-462 |
-| REQ-01-617 | Core 01 §7.4.1A Inspector feature-group registry | base | AC-454..AC-455, AC-458, AC-460..AC-462 |
+| REQ-01-616 | Core 01 §7.4 per-surface inspector matrix | base | AC-453..AC-455, AC-461..AC-462, AC-519 |
+| REQ-01-617 | Core 01 §7.4.1A Inspector feature-group registry | base | AC-454..AC-455, AC-458, AC-460..AC-462, AC-519 |
 | REQ-02-001 | Core 02 §1 Domain-model goals | base, reference_pack | AC-231, AC-234 |
 | REQ-02-002 | Core 02 §1 Domain-model goals | base | AC-231 |
 | REQ-02-003 | Core 02 §2 Core record types | base, reference_pack | AC-231, AC-234, AC-277 |
@@ -1313,7 +1313,9 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-03-251 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-018, AC-080..AC-084, AC-121, AC-231 |
 | REQ-03-252 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-018, AC-080..AC-084, AC-121, AC-231 |
 | REQ-03-253 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-018, AC-080..AC-084, AC-121, AC-231 |
-| REQ-03-254 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-018, AC-080..AC-084, AC-121, AC-231 |
+| REQ-03-254 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-018, AC-080..AC-084, AC-121, AC-231, AC-518..AC-519 |
+| REQ-03-304 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-519..AC-520 |
+| REQ-03-305 | Core 03 §16.3 Compromise-assessment surfaces | base | AC-519..AC-520 |
 | REQ-03-255 | Core 03 §16.4 Analyst-work coordination surfaces | base | AC-085..AC-090, AC-137..AC-145, AC-231 |
 | REQ-03-256 | Core 03 §16.4 Analyst-work coordination surfaces | base | AC-085..AC-090, AC-137..AC-145, AC-231, AC-278..AC-279 |
 | REQ-03-257 | Core 03 §16.4 Analyst-work coordination surfaces | base | AC-085..AC-090, AC-137..AC-145, AC-231 |
@@ -1944,6 +1946,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-425 | REQ-01-585, REQ-01-588, REQ-02-222..REQ-02-223, REQ-02-254 |
 | AC-426 | REQ-01-592, REQ-03-288 |
 | AC-427 | REQ-00-057, REQ-01-032..REQ-01-033, REQ-01-234, REQ-01-471, REQ-01-480..REQ-01-481, REQ-01-542..REQ-01-548, REQ-01-608, REQ-04-023, REQ-04-028..REQ-04-030, REQ-04-085, REQ-04-094, REQ-04-105..REQ-04-106, REQ-04-114, REQ-04-122, REQ-04-126 |
+| AC-517 | REQ-01-311, REQ-01-332..REQ-01-334 |
+| AC-518 | REQ-01-310, REQ-01-335, REQ-03-254 |
+| AC-519 | REQ-01-616..REQ-01-617, REQ-03-254, REQ-03-304..REQ-03-305 |
+| AC-520 | REQ-01-332, REQ-01-334, REQ-03-304..REQ-03-305 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
 | PC-002 | REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013 |
 | PC-003 | REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012 |

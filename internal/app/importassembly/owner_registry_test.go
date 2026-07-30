@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -17,10 +18,11 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 	t.Parallel()
 
 	registry, err := NewOwnerCreateRegistry(OwnerRegistryDependencies{
-		Postgres:         inertOwnerRegistryDB{},
-		RevisionAppender: &revisions.Appender{},
-		Intents:          inertIntentAppender{},
-		Timeline:         inertTimelineFacade(),
+		Postgres:          inertOwnerRegistryDB{},
+		RevisionAppender:  &revisions.Appender{},
+		Intents:           inertIntentAppender{},
+		Timeline:          inertTimelineFacade(),
+		ProjectionCatalog: &projections.Catalog{},
 	})
 	if err != nil {
 		t.Fatalf("compose owner-create registry: %v", err)
@@ -43,6 +45,7 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		"cartulary.view.decisions.v1":     "tasksdecisions.decision.import_create",
 		"cartulary.view.notes.v1":         "artifacts.note.import_create",
 		"cartulary.view.timeline.v2":      "timeline.import_create",
+		"cartulary.view.assessments.v1":   "assessments.import_create",
 	} {
 		if byTarget[target] != facade {
 			t.Fatalf("binding for %s = %q, want %q", target, byTarget[target], facade)
@@ -60,33 +63,46 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 		{
 			name: "postgres",
 			deps: OwnerRegistryDependencies{
-				RevisionAppender: &revisions.Appender{},
-				Intents:          inertIntentAppender{},
-				Timeline:         inertTimelineFacade(),
+				RevisionAppender:  &revisions.Appender{},
+				Intents:           inertIntentAppender{},
+				Timeline:          inertTimelineFacade(),
+				ProjectionCatalog: &projections.Catalog{},
 			},
 		},
 		{
 			name: "revisions",
 			deps: OwnerRegistryDependencies{
-				Postgres: inertOwnerRegistryDB{},
-				Intents:  inertIntentAppender{},
-				Timeline: inertTimelineFacade(),
+				Postgres:          inertOwnerRegistryDB{},
+				Intents:           inertIntentAppender{},
+				Timeline:          inertTimelineFacade(),
+				ProjectionCatalog: &projections.Catalog{},
 			},
 		},
 		{
 			name: "intents",
 			deps: OwnerRegistryDependencies{
-				Postgres:         inertOwnerRegistryDB{},
-				RevisionAppender: &revisions.Appender{},
-				Timeline:         inertTimelineFacade(),
+				Postgres:          inertOwnerRegistryDB{},
+				RevisionAppender:  &revisions.Appender{},
+				Timeline:          inertTimelineFacade(),
+				ProjectionCatalog: &projections.Catalog{},
 			},
 		},
 		{
 			name: "timeline",
 			deps: OwnerRegistryDependencies{
+				Postgres:          inertOwnerRegistryDB{},
+				RevisionAppender:  &revisions.Appender{},
+				Intents:           inertIntentAppender{},
+				ProjectionCatalog: &projections.Catalog{},
+			},
+		},
+		{
+			name: "projection catalog",
+			deps: OwnerRegistryDependencies{
 				Postgres:         inertOwnerRegistryDB{},
 				RevisionAppender: &revisions.Appender{},
 				Intents:          inertIntentAppender{},
+				Timeline:         inertTimelineFacade(),
 			},
 		},
 	}

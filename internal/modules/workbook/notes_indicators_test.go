@@ -165,7 +165,6 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
-	assessmentStore := assessments.NewStore(harness.DB, appender)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector workbook-interaction assessments")
 
@@ -174,22 +173,50 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector projection assessment host", "workbook_interaction-projection-assessment", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
-	confidenceScore := 85
-	request := assessments.CreateRequest{
-		ClientTxnID:     "txn-workbook_interaction-i-9-02-assessment",
-		SubjectRef:      &hostID,
-		SubjectType:     "host",
-		AssessmentState: "confirmed",
-		ConfidenceScore: &confidenceScore,
-		Rationale:       "Projection-backed assessment row.",
-		SupportRefs:     []uuid.UUID{supportID},
+	confidenceScore := int64(85)
+	subjectType := "host"
+	assessmentState := "confirmed"
+	rationale := "Projection-backed assessment row."
+	request := workbook.CreateRequest{
+		ViewSchemaID: assessments.AssessmentsViewSchemaID,
+		ClientTxnID:  "txn-workbook_interaction-i-9-02-assessment",
+		Values: map[string]workbook.ValueChange{
+			"assessment.subject_ref": {
+				Kind: "uuid",
+				UUID: &hostID,
+			},
+			"assessment.subject_type": {
+				Kind: "text",
+				Text: &subjectType,
+			},
+			"assessment.assessment_state": {
+				Kind: "text",
+				Text: &assessmentState,
+			},
+			"assessment.confidence_score": {
+				Kind:   "number",
+				Number: &confidenceScore,
+			},
+			"assessment.rationale": {
+				Kind: "text",
+				Text: &rationale,
+			},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"assessment.support_refs": {
+				Actions: []workbook.CollectionAction{{
+					Op:             "add_record_ref",
+					LinkedRecordID: &supportID,
+				}},
+			},
+		},
 	}
-	created, err := assessmentStore.CreateAssessmentRow(
+	created, err := workbookStore.CreateWorkbookRow(
 		context.Background(),
 		actor,
 		incident.ID,
 		request,
-		assessments.CreateRequestHash(request),
+		workbook.CreateRequestHash(request),
 		"req-workbook_interaction-i-9-02-assessment",
 		time.Date(2026, 5, 17, 16, 10, 0, 0, time.UTC),
 	)

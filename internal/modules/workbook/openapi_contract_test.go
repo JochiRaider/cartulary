@@ -24,6 +24,7 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 
 	assertWorkbookQueryContract(t, document, schemas)
 	assertViewRowCreateContract(t, document)
+	assertAssessmentCreateSupportContract(t, schemas)
 
 	patch := workbookObjectAt(t, document, "paths", "/api/v1/records/{record_id}", "patch")
 	if got := workbookStringAt(t, patch, "operationId"); got != "patchRecord" {
@@ -58,6 +59,47 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 		if !slices.Contains(required, field) {
 			t.Fatalf("LinkedNoteCreateRequest missing required field %q; got %v", field, required)
 		}
+	}
+}
+
+func assertAssessmentCreateSupportContract(t *testing.T, schemas map[string]any) {
+	t.Helper()
+
+	request := workbookSchema(t, schemas, "AssessmentCreateRequest")
+	properties := workbookObjectAt(t, request, "properties")
+	supportRefs := workbookObjectAt(t, properties, "assessment.support_refs")
+	if got := workbookStringAt(t, supportRefs, "$ref"); got != "#/components/schemas/AssessmentSupportRefCreateActionsV1" {
+		t.Fatalf("assessment.support_refs schema = %q, want assessment-specific create actions", got)
+	}
+
+	actionsEnvelope := workbookSchema(t, schemas, "AssessmentSupportRefCreateActionsV1")
+	if got := workbookStringAt(t, workbookObjectAt(t, actionsEnvelope, "properties", "kind"), "const"); got != "collection_actions_v1" {
+		t.Fatalf("assessment support kind = %q, want collection_actions_v1", got)
+	}
+	actions := workbookObjectAt(t, actionsEnvelope, "properties", "actions")
+	if got := workbookIntAt(t, actions, "minItems"); got != 1 {
+		t.Fatalf("assessment support minItems = %d, want 1", got)
+	}
+	if got := workbookIntAt(t, actions, "maxItems"); got != 64 {
+		t.Fatalf("assessment support maxItems = %d, want 64", got)
+	}
+	if got := workbookStringAt(t, workbookObjectAt(t, actions, "items"), "$ref"); got != "#/components/schemas/AssessmentSupportRefAddAction" {
+		t.Fatalf("assessment support action schema = %q, want add-only action", got)
+	}
+
+	addAction := workbookSchema(t, schemas, "AssessmentSupportRefAddAction")
+	if additional, ok := addAction["additionalProperties"].(bool); !ok || additional {
+		t.Fatalf("assessment support add action must be closed: %#v", addAction["additionalProperties"])
+	}
+	addProperties := workbookObjectAt(t, addAction, "properties")
+	if got := workbookStringAt(t, workbookObjectAt(t, addProperties, "op"), "const"); got != "add_record_ref" {
+		t.Fatalf("assessment support op = %q, want add_record_ref", got)
+	}
+	if got := workbookStringAt(t, workbookObjectAt(t, addProperties, "linked_record_id"), "format"); got != "uuid" {
+		t.Fatalf("assessment support linked_record_id format = %q, want uuid", got)
+	}
+	if got := workbookStringArrayAt(t, addAction, "required"); !slices.Equal(got, []string{"op", "linked_record_id"}) {
+		t.Fatalf("assessment support add action required fields = %v", got)
 	}
 }
 

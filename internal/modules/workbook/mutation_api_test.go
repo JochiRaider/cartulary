@@ -75,6 +75,43 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
+func TestWorkbookMutationDecoderDistinguishesKnownNonWritableAndUnknownFields(t *testing.T) {
+	tests := []struct {
+		name            string
+		fieldKey        string
+		wantDetailField string
+	}{
+		{
+			name:            "known non-writable field uses canonical key",
+			fieldKey:        "assessment.assessment_state",
+			wantDetailField: "assessment.assessment_state",
+		},
+		{
+			name:            "unknown field retains generic key",
+			fieldKey:        "assessment.not_a_field",
+			wantDetailField: "field_key",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"view_schema_id":"cartulary.view.assessments.v1","base_row_version":1,"client_txn_id":"txn-field-error","changes":[{"field_key":"` + tc.fieldKey + `","value":"cleared"}]}`
+			_, apiErr := DecodePatchRequest(strings.NewReader(body))
+			if apiErr == nil {
+				t.Fatalf("expected %s to be rejected", tc.fieldKey)
+			}
+			if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
+			}
+			if got := apiErr.Details["field"]; got != tc.wantDetailField {
+				t.Fatalf("detail field for %s = %#v, want %q", tc.fieldKey, got, tc.wantDetailField)
+			}
+			if got := apiErr.Details["reason_code"]; got != "unsupported_field_key" {
+				t.Fatalf("reason for %s = %#v, want unsupported_field_key", tc.fieldKey, got)
+			}
+		})
+	}
+}
+
 func TestWorkbookMutationDecoderAdmitsStructurallyValidOwnerSpecificCollectionOps(t *testing.T) {
 	stableID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {

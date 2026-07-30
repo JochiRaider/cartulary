@@ -6,8 +6,11 @@ import {
 import {
   assessmentCreateControlTestId,
   assessmentCreatePanelTestId,
+  gridRowTestId,
   rowCellTestId,
   workbookAddRowButtonTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorToggleTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
@@ -15,6 +18,7 @@ import { expect, test } from "./fixtures";
 import {
   createAssessmentViaUI,
   expectAssessmentGridOrder,
+  waitForAssessmentCreate,
 } from "./support/assessments/fixtures";
 import {
   assessmentsViewSchemaId,
@@ -197,4 +201,128 @@ test("creates append-only assessment history through the workbook UI", async ({
     "cleared",
   );
   await expectAssessmentGridOrder(page, [created.cleared.record_id]);
+});
+
+test("appends a subject-only follow-on while preserving keyboard selection", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WORKBOOK-ASSESSMENT-FOLLOW-ON"),
+    "Assessment follow-on workbook E2E",
+  );
+  const subject = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("assessment-follow-on-host"),
+    "host.display_name": "Follow-on Host",
+    "host.hostname": "assessment-follow-on.example.test",
+  })) as ViewRow;
+  const original = (await createViewRow(
+    page,
+    incidentId,
+    assessmentsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("assessment-original"),
+      "assessment.subject_ref": subject.record_id,
+      "assessment.subject_type": "host",
+      "assessment.assessment_state": "confirmed",
+      "assessment.confidence_score": 85,
+      "assessment.rationale": "Original assessment rationale.",
+      "assessment.assessed_at": "2026-04-24T12:00:00Z",
+    },
+  )) as ViewRow;
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      assessmentsViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page
+    .getByTestId(
+      rowCellTestId(original.record_id, "assessment.assessment_state"),
+    )
+    .click();
+  const originalRow = page.getByTestId(
+    gridRowTestId(assessmentsViewSchemaId, original.record_id),
+  );
+  await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
+
+  const inspectorToggle = page.getByTestId(
+    workbookInspectorToggleTestId(assessmentsViewSchemaId),
+  );
+  const followOnAction = page.getByTestId(
+    workbookInspectorFeatureActionTestId(
+      assessmentsViewSchemaId,
+      "create_related.assessment",
+    ),
+  );
+  await inspectorToggle.click();
+  await followOnAction.click();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("subject")),
+  ).toHaveValue(subject.record_id);
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("subject-type")),
+  ).toHaveValue("host");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("state")),
+  ).toHaveValue("unknown");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("confidence-band")),
+  ).toHaveValue("unset");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("rationale")),
+  ).toHaveValue("");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("assessed-at")),
+  ).toHaveValue("");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("support-refs")),
+  ).toHaveValues([]);
+
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Cancelled draft.");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(assessmentCreatePanelTestId())).toHaveCount(0);
+  await expect(inspectorToggle).toBeFocused();
+  await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
+
+  await inspectorToggle.click();
+  await followOnAction.click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("state"))
+    .selectOption("suspected");
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Fresh follow-on rationale.");
+  const createResponsePromise = waitForAssessmentCreate(page);
+  await page.getByTestId(assessmentCreateControlTestId("submit")).click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.request().postDataJSON()).toMatchObject({
+    "assessment.subject_ref": subject.record_id,
+    "assessment.subject_type": "host",
+    "assessment.assessment_state": "suspected",
+    "assessment.confidence_score": null,
+    "assessment.rationale": "Fresh follow-on rationale.",
+  });
+  expect(createResponse.request().postDataJSON()).not.toHaveProperty(
+    "assessment.assessed_at",
+  );
+  expect(createResponse.request().postDataJSON()).not.toHaveProperty(
+    "assessment.support_refs",
+  );
+  expect(createResponse.request().postDataJSON()).not.toHaveProperty(
+    "supersedes",
+  );
+  const createEnvelope = (await createResponse.json()) as {
+    data: { row: ViewRow };
+  };
+  expect(createEnvelope.data.row.record_id).not.toBe(original.record_id);
+  await expect(
+    page.getByTestId(
+      gridRowTestId(assessmentsViewSchemaId, createEnvelope.data.row.record_id),
+    ),
+  ).toBeVisible();
+  await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
 });

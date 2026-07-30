@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -41,12 +42,21 @@ func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption
 	}
 }
 
+func WithAssessmentEffects(effects *assessments.MergeEffects) StoreOption {
+	return func(ports *entityStorePorts) {
+		ports.assessments = entityAssessmentAdapter{effects: effects}
+	}
+}
+
 func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
 	ports := newEntityStorePorts(pool, appender)
 	for _, option := range options {
 		if option != nil {
 			option(&ports)
 		}
+	}
+	if ports.assessments == nil {
+		panic("compose entity merge store: assessment effects are required")
 	}
 	return &Store{
 		pool:           pool,

@@ -49,7 +49,7 @@
             "format": "date-time"
           },
           "assessment.support_refs": {
-            "$ref": "#/components/schemas/CollectionActionsV1"
+            "$ref": "#/components/schemas/AssessmentSupportRefCreateActionsV1"
           }
         },
         "required": [
@@ -58,6 +58,44 @@
           "assessment.subject_type",
           "assessment.assessment_state",
           "assessment.rationale"
+        ]
+      },
+      "AssessmentSupportRefCreateActionsV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "collection_actions_v1"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/AssessmentSupportRefAddAction"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "actions"
+        ]
+      },
+      "AssessmentSupportRefAddAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_record_ref"
+          },
+          "linked_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "linked_record_id"
         ]
       }
     }

@@ -35,18 +35,19 @@ type MergeMutation struct {
 	AfterValue      any
 }
 
-type RepointMergedAssessmentsCommand struct {
-	IncidentID         uuid.UUID
-	SubjectType        string
-	SurvivorRecordID   uuid.UUID
-	LoserRecordID      uuid.UUID
-	ProtectedRecordIDs map[uuid.UUID]struct{}
-	Now                time.Time
+type MergeProjectionPort interface {
+	RefreshAssessmentProjectionTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
-type RepointMergedAssessmentsResult struct {
-	Mutations      []MergeMutation
-	RepointedCount int
+type MergeEffects struct {
+	projections MergeProjectionPort
+}
+
+func NewMergeEffects(projections MergeProjectionPort) *MergeEffects {
+	if projections == nil {
+		panic("construct assessment merge effects: projection port is required")
+	}
+	return &MergeEffects{projections: projections}
 }
 
 type mergeAssessmentRecord struct {
@@ -65,7 +66,7 @@ type mergeAssessmentRecord struct {
 	DeletedByUserID *uuid.UUID
 }
 
-func (s *Store) LoadMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, subjectType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
+func (e *MergeEffects) LoadProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, subjectType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := tx.Query(ctx, `
 SELECT record_id
   FROM assessments
@@ -94,7 +95,16 @@ SELECT record_id
 	return recordIDs, nil
 }
 
-func (s *Store) RepointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, command RepointMergedAssessmentsCommand) (RepointMergedAssessmentsResult, error) {
+func (e *MergeEffects) RepointTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	subjectType string,
+	survivorRecordID uuid.UUID,
+	loserRecordID uuid.UUID,
+	protectedRecordIDs map[uuid.UUID]struct{},
+	now time.Time,
+) ([]MergeMutation, int, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
     record_id,
@@ -117,9 +127,9 @@ SELECT
    AND deleted_at IS NULL
  ORDER BY assessed_at ASC, record_id ASC
  FOR UPDATE
-`, command.IncidentID, command.SubjectType, command.LoserRecordID)
+`, incidentID, subjectType, loserRecordID)
 	if err != nil {
-		return RepointMergedAssessmentsResult{}, fmt.Errorf("load merged assessments: %w", err)
+		return nil, 0, fmt.Errorf("load merged assessments: %w", err)
 	}
 	defer rows.Close()
 
@@ -127,19 +137,19 @@ SELECT
 	for rows.Next() {
 		record, err := scanMergeAssessmentRecord(rows)
 		if err != nil {
-			return RepointMergedAssessmentsResult{}, err
+			return nil, 0, err
 		}
 		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
-		return RepointMergedAssessmentsResult{}, fmt.Errorf("iterate merged assessments: %w", err)
+		return nil, 0, fmt.Errorf("iterate merged assessments: %w", err)
 	}
 	rows.Close()
 
-	result := RepointMergedAssessmentsResult{Mutations: make([]MergeMutation, 0)}
+	mutations := make([]MergeMutation, 0, len(records))
 	for _, record := range records {
-		if _, ok := command.ProtectedRecordIDs[record.RecordID]; !ok {
-			return RepointMergedAssessmentsResult{}, &MergeProtectedSetChangedError{RecordID: record.RecordID}
+		if _, ok := protectedRecordIDs[record.RecordID]; !ok {
+			return nil, 0, &MergeProtectedSetChangedError{RecordID: record.RecordID}
 		}
 		before := buildMergeAssessmentValue(record)
 		if _, err := tx.Exec(ctx, `
@@ -147,24 +157,23 @@ UPDATE assessments
    SET subject_record_id = $2,
        updated_at = $3
  WHERE record_id = $1
-`, record.RecordID, command.SurvivorRecordID, command.Now.UTC()); err != nil {
-			return RepointMergedAssessmentsResult{}, fmt.Errorf("repoint merged assessment: %w", err)
+`, record.RecordID, survivorRecordID, now.UTC()); err != nil {
+			return nil, 0, fmt.Errorf("repoint merged assessment: %w", err)
 		}
-		record.SubjectRecordID = command.SurvivorRecordID
-		record.UpdatedAt = command.Now.UTC()
-		if err := s.projectionRows.RefreshTx(ctx, tx, record.RecordID); err != nil {
-			return RepointMergedAssessmentsResult{}, err
+		record.SubjectRecordID = survivorRecordID
+		record.UpdatedAt = now.UTC()
+		if err := e.projections.RefreshAssessmentProjectionTx(ctx, tx, record.RecordID); err != nil {
+			return nil, 0, err
 		}
-		result.Mutations = append(result.Mutations, MergeMutation{
+		mutations = append(mutations, MergeMutation{
 			TargetKind:    "assessment",
 			TargetID:      record.RecordID.String(),
 			OperationKind: "patch",
 			BeforeValue:   before,
 			AfterValue:    buildMergeAssessmentValue(record),
 		})
-		result.RepointedCount++
 	}
-	return result, nil
+	return mutations, len(records), nil
 }
 
 func scanMergeAssessmentRecord(row pgx.Row) (mergeAssessmentRecord, error) {
@@ -216,7 +225,7 @@ func buildMergeAssessmentValue(record mergeAssessmentRecord) map[string]any {
 		"confidence_score":   record.ConfidenceScore,
 		"rationale":          record.Rationale,
 		"assessor_user_id":   record.AssessorUserID.String(),
-		"assessed_at":        formatTimestamp(record.AssessedAt),
+		"assessed_at":        record.AssessedAt.UTC().Format(time.RFC3339Nano),
 		"deleted_at":         formatTimestampPointer(record.DeletedAt),
 		"deleted_by_user_id": formatUUIDPointer(record.DeletedByUserID),
 	}

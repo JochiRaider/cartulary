@@ -3,8 +3,6 @@ package projections_test
 import (
 	"context"
 	"encoding/json"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"reflect"
 	"testing"
 	"time"
@@ -14,9 +12,14 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/importassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -31,17 +34,17 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	harness := appsupport.StartStore(t, "projection-query-load-row-parity")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	projectionCatalog := timelineassembly.NewBundle(
+	timelineBundle := timelineassembly.NewBundle(
 		harness.DB,
 		conflicttest.NewCodec("timeline"),
 		appender,
 		revisionComposition.Intents,
-	).ProjectionCatalog
+	)
+	projectionCatalog := timelineBundle.ProjectionCatalog
 	workbookStore := appsupport.NewWorkbookStore(
 		harness.DB,
 		conflicttest.NewCodec("workbook"),
 	)
-	assessmentStore := assessments.NewStore(harness.DB, appender)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
@@ -51,27 +54,86 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 75
-	assessmentRequest := assessments.CreateRequest{
-		ClientTxnID:     "txn-projection-parity-assessment",
-		SubjectRef:      &hostID,
-		SubjectType:     "host",
-		AssessmentState: "confirmed",
-		ConfidenceScore: &confidenceScore,
-		Rationale:       "Projection parity assessment.",
-		SupportRefs:     []uuid.UUID{supportID},
+	confidenceNumber := int64(confidenceScore)
+	subjectType := "host"
+	assessmentState := "confirmed"
+	rationale := "Projection parity assessment."
+	assessmentRequest := workbook.CreateRequest{
+		ViewSchemaID: assessments.AssessmentsViewSchemaID,
+		ClientTxnID:  "txn-projection-parity-assessment",
+		Values: map[string]workbook.ValueChange{
+			"assessment.subject_ref": {
+				Kind: "uuid",
+				UUID: &hostID,
+			},
+			"assessment.subject_type": {
+				Kind: "text",
+				Text: &subjectType,
+			},
+			"assessment.assessment_state": {
+				Kind: "text",
+				Text: &assessmentState,
+			},
+			"assessment.confidence_score": {
+				Kind:   "number",
+				Number: &confidenceNumber,
+			},
+			"assessment.rationale": {
+				Kind: "text",
+				Text: &rationale,
+			},
+		},
+		Collections: map[string]workbook.CollectionActionPayload{
+			"assessment.support_refs": {
+				Actions: []workbook.CollectionAction{{
+					Op:             "add_record_ref",
+					LinkedRecordID: &supportID,
+				}},
+			},
+		},
 	}
-	assessment, err := assessmentStore.CreateAssessmentRow(
+	assessment, err := workbookStore.CreateWorkbookRow(
 		ctx,
 		actor,
 		incident.ID,
 		assessmentRequest,
-		assessments.CreateRequestHash(assessmentRequest),
+		workbook.CreateRequestHash(assessmentRequest),
 		"req-projection-parity-assessment",
 		time.Date(2026, 7, 1, 13, 0, 0, 0, time.UTC),
 	)
 	if err != nil {
 		t.Fatalf("create assessment parity row: %v", err)
 	}
+
+	importRegistry, err := importassembly.NewOwnerCreateRegistry(
+		importassembly.OwnerRegistryDependencies{
+			Postgres:          harness.DB,
+			RevisionAppender:  appender,
+			Intents:           revisionComposition.Intents,
+			Timeline:          timelineBundle.Facade,
+			ProjectionCatalog: projectionCatalog.Catalog,
+		},
+	)
+	if err != nil {
+		t.Fatalf("compose import owner registry: %v", err)
+	}
+	assessmentImportFacade, ok := importRegistry.Resolve(
+		assessments.AssessmentsViewSchemaID,
+		"assessments.import_create",
+	)
+	if !ok {
+		t.Fatal("assessment import owner facade is not registered")
+	}
+	importedAssessment := createImportedAssessmentProjectionRow(
+		t,
+		ctx,
+		harness.DB,
+		appender,
+		assessmentImportFacade,
+		actor,
+		incident.ID,
+		hostID,
+	)
 
 	evidence := mustCreateWorkbookProjectionRow(t, workbookStore, actor, incident.ID, workbook.EvidenceViewSchemaID, "txn-projection-parity-evidence", map[string]workbook.ValueChange{
 		"evidence.title": textProjectionValue("Projection parity evidence"),
@@ -128,6 +190,165 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 			}
 		})
 	}
+
+	createdAssessmentRow := assessment.Payload["row"].(map[string]any)
+	queriedAssessments, err := projectionCatalog.Query.QueryRows(
+		ctx,
+		incident.ID,
+		workbook.AssessmentsViewSchemaID,
+		defaultProjectionQuery(t, workbook.AssessmentsViewSchemaID),
+	)
+	if err != nil {
+		t.Fatalf("query created assessment row: %v", err)
+	}
+	if queried := requireProjectionRow(t, queriedAssessments, assessment.RecordID); !reflect.DeepEqual(
+		createdAssessmentRow,
+		queried,
+	) {
+		t.Fatalf(
+			"assessment create and query rows diverged\ncreate: %s\nquery:  %s",
+			prettyRow(createdAssessmentRow),
+			prettyRow(queried),
+		)
+	}
+	if queried := requireProjectionRow(t, queriedAssessments, importedAssessment.RecordID); !reflect.DeepEqual(
+		importedAssessment.RowRefresh,
+		queried,
+	) {
+		t.Fatalf(
+			"assessment import and query rows diverged\nimport: %s\nquery:  %s",
+			prettyRow(importedAssessment.RowRefresh),
+			prettyRow(queried),
+		)
+	}
+
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin assessment projection rebuild parity: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(
+		ctx,
+		`DELETE FROM assessment_grid_projection WHERE record_id = $1`,
+		assessment.RecordID,
+	); err != nil {
+		t.Fatalf("clear assessment projection before rebuild: %v", err)
+	}
+	if err := projectionCatalog.Coordinator.RebuildIncidentViewTx(
+		ctx,
+		tx,
+		workbook.AssessmentsViewSchemaID,
+		incident.ID,
+	); err != nil {
+		t.Fatalf("rebuild assessment projection: %v", err)
+	}
+	rebuilt, err := projectionCatalog.Coordinator.LoadRowTx(
+		ctx,
+		tx,
+		workbook.AssessmentsViewSchemaID,
+		assessment.RecordID,
+	)
+	if err != nil {
+		t.Fatalf("load rebuilt assessment projection: %v", err)
+	}
+	if !reflect.DeepEqual(createdAssessmentRow, rebuilt) {
+		t.Fatalf(
+			"assessment create and rebuilt rows diverged\ncreate:  %s\nrebuild: %s",
+			prettyRow(createdAssessmentRow),
+			prettyRow(rebuilt),
+		)
+	}
+}
+
+func createImportedAssessmentProjectionRow(
+	t testing.TB,
+	ctx context.Context,
+	db postgres.DB,
+	appender *revisions.Appender,
+	facade ownerfacade.ImportOwnerCreateFacade,
+	actor authn.UserRecord,
+	incidentID uuid.UUID,
+	subjectID uuid.UUID,
+) ownerfacade.ImportOwnerCreateResponse {
+	t.Helper()
+
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin assessment import transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	now := time.Date(2026, 7, 1, 13, 30, 0, 0, time.UTC)
+	changeSetID, err := appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+		IncidentID:  incidentID,
+		ActorUserID: actor.ID,
+		Source:      "imports.unit.apply",
+		CreatedAt:   now,
+	})
+	if err != nil {
+		t.Fatalf("append assessment import change set: %v", err)
+	}
+	subjectType := "host"
+	state := "suspected"
+	rationale := "Imported projection parity assessment."
+	score := int64(55)
+	response, err := facade.CreateImportRowTx(ctx, tx, ownerfacade.ImportOwnerCreateCommand{
+		Request: ownerfacade.ImportOwnerCreateRequest{
+			IncidentID:         incidentID,
+			ActorUserID:        actor.ID,
+			TargetViewSchemaID: assessments.AssessmentsViewSchemaID,
+			ImportSessionID:    uuid.New(),
+			ImportUnitID:       uuid.New(),
+			ClientTxnID:        "txn-projection-parity-assessment-import",
+			FieldValues: []ownerfacade.ImportFieldValue{
+				{
+					FieldKey: "assessment.subject_ref",
+					NormalizedValue: ownerfacade.ImportScalarValue{
+						Kind: "uuid",
+						UUID: &subjectID,
+					},
+				},
+				{
+					FieldKey: "assessment.subject_type",
+					NormalizedValue: ownerfacade.ImportScalarValue{
+						Kind: "text",
+						Text: &subjectType,
+					},
+				},
+				{
+					FieldKey: "assessment.assessment_state",
+					NormalizedValue: ownerfacade.ImportScalarValue{
+						Kind: "text",
+						Text: &state,
+					},
+				},
+				{
+					FieldKey: "assessment.confidence_score",
+					NormalizedValue: ownerfacade.ImportScalarValue{
+						Kind:   "number",
+						Number: &score,
+					},
+				},
+				{
+					FieldKey: "assessment.rationale",
+					NormalizedValue: ownerfacade.ImportScalarValue{
+						Kind: "text",
+						Text: &rationale,
+					},
+				},
+			},
+		},
+		ChangeSetID: changeSetID,
+		SequenceNo:  1,
+		Now:         now,
+	})
+	if err != nil {
+		t.Fatalf("create imported assessment: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit assessment import transaction: %v", err)
+	}
+	return response
 }
 
 func mustCreateWorkbookProjectionRow(

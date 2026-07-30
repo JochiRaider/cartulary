@@ -30,8 +30,6 @@ export type RelationshipDraftKey = "hostRefs" | "identityRefs";
 export type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
 export type CollectionDraftKey = RelationshipDraftKey | "tags";
 export type FocusFieldKey = keyof RowValues | CollectionDraftKey;
-export type AssessmentSubjectType = "host" | "identity";
-export type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
 
 export type RowValues = {
   dateEnteredText: string;
@@ -88,16 +86,6 @@ export type WorkbookRow = {
   collectionDrafts: CollectionDrafts;
   pendingSignature: string | null;
   rawRow: TimelineApiRow | null;
-};
-
-export type AssessmentCreateDraft = {
-  assessedAt: string;
-  assessmentState: string;
-  confidenceBand: AssessmentConfidenceBand;
-  rationale: string;
-  subjectRecordId: string;
-  subjectType: AssessmentSubjectType;
-  supportRecordIds: string[];
 };
 
 export type SameFieldConflictPayload = {
@@ -818,67 +806,5 @@ export function buildCreatePayload(
   if (Object.keys(payload).length < 2 && !options.allowZeroFieldCreate) {
     return null;
   }
-  return payload;
-}
-
-export function confidenceScoreFromBand(
-  band: AssessmentConfidenceBand,
-): number | null {
-  switch (band) {
-    case "low":
-      return 25;
-    case "medium":
-      return 55;
-    case "high":
-      return 85;
-    default:
-      return null;
-  }
-}
-
-export function buildAssessmentCreatePayload(
-  draft: AssessmentCreateDraft,
-  clientTxnId: string,
-): Record<string, unknown> | null {
-  const subjectRecordId = normalizeValue(draft.subjectRecordId);
-  const assessmentState = normalizeValue(draft.assessmentState);
-  const rationale = normalizeValue(draft.rationale);
-  if (subjectRecordId === "" || assessmentState === "" || rationale === "") {
-    return null;
-  }
-
-  const payload: Record<string, unknown> = {
-    client_txn_id: clientTxnId,
-    "assessment.subject_ref": subjectRecordId,
-    "assessment.subject_type": draft.subjectType,
-    "assessment.assessment_state": assessmentState,
-    "assessment.confidence_score": confidenceScoreFromBand(
-      draft.confidenceBand,
-    ),
-    "assessment.rationale": rationale,
-  };
-
-  const assessedAt = normalizeValue(draft.assessedAt);
-  if (assessedAt !== "") {
-    payload["assessment.assessed_at"] = assessedAt;
-  }
-
-  const supportRecordIds = Array.from(
-    new Set(
-      draft.supportRecordIds
-        .map((recordId) => normalizeValue(recordId))
-        .filter((recordId) => recordId !== ""),
-    ),
-  );
-  if (supportRecordIds.length > 0) {
-    payload["assessment.support_refs"] = {
-      kind: "collection_actions_v1",
-      actions: supportRecordIds.map((recordId) => ({
-        op: "add_record_ref",
-        linked_record_id: recordId,
-      })),
-    };
-  }
-
   return payload;
 }

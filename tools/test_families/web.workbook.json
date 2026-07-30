@@ -3,6 +3,31 @@
   "owner_id": "web.workbook",
   "rows": [
     {
+      "row_id": "web.workbook.boundary_support.assessment_semantics_stay_out_of_timeline_and_ve_e8534ed9d2",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
+        "titles": [
+          "workbook surface ownership policy keeps assessment semantics out of Timeline and vendor grid imports behind the adapter"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.workbook.boundary_support.timeline_runtime_state_trace_0d3042d183",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.boundary_support",

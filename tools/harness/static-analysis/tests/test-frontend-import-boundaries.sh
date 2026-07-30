@@ -140,6 +140,27 @@ write_config() {
       ]
     },
     {
+      "id": "frontend-assessment-owner-no-timeline-imports",
+      "level": "error",
+      "message": "Assessment models and presentation must not depend on Timeline implementation; only the candidate query adapter may translate Timeline rows.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx",
+          "apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline"
+        }
+      ]
+    },
+    {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
@@ -483,6 +504,31 @@ TS
 blocked_grid_output="$(assert_fails "blocked app grid import" run_checker "$blocked_grid_root")"
 assert_contains "$blocked_grid_output" "frontend-grid-vendor-boundary" "blocked grid rule"
 assert_contains "$blocked_grid_output" "apps/web/src/GridLeak.tsx" "blocked grid file"
+
+blocked_assessment_timeline_root="$(prepare_case_root blocked-assessment-timeline)"
+mkdir -p \
+  "$blocked_assessment_timeline_root/apps/web/src/workbook/components" \
+  "$blocked_assessment_timeline_root/apps/web/src/workbook/timeline/models"
+cat >"$blocked_assessment_timeline_root/apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx" <<'TS'
+import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+
+export const leaked = normalizeTimelineFullRow;
+TS
+blocked_assessment_timeline_output="$(assert_fails "blocked assessment Timeline import" run_checker "$blocked_assessment_timeline_root")"
+assert_contains "$blocked_assessment_timeline_output" "frontend-assessment-owner-no-timeline-imports" "blocked assessment Timeline rule"
+assert_contains "$blocked_assessment_timeline_output" "apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx" "blocked assessment Timeline file"
+
+allowed_assessment_candidate_root="$(prepare_case_root allowed-assessment-candidate)"
+mkdir -p \
+  "$allowed_assessment_candidate_root/apps/web/src/workbook/hooks" \
+  "$allowed_assessment_candidate_root/apps/web/src/workbook/timeline/models"
+cat >"$allowed_assessment_candidate_root/apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts" <<'TS'
+import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+
+export const candidateAdapter = normalizeTimelineFullRow;
+TS
+allowed_assessment_candidate_output="$(assert_passes "allowed assessment candidate Timeline adapter" run_checker "$allowed_assessment_candidate_root")"
+assert_contains "$allowed_assessment_candidate_output" "frontend import boundaries verified" "allowed assessment candidate adapter output"
 
 allowed_dom_unit_root="$(prepare_case_root allowed-dom-unit)"
 cat >"$allowed_dom_unit_root/packages/grid-adapter/src/domUnitBinding.test.tsx" <<'TS'

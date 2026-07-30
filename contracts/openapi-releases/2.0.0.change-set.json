@@ -686,6 +686,24 @@
       "classification": "additive",
       "owner_id": "module.imports",
       "rationale": "Add the operator-region creation operation without changing an existing route."
+    },
+    {
+      "fingerprint": "ad84f52c1944994c2c4b06c515b31f49a12b14ec86d55309379fb7793249a0f0",
+      "classification": "breaking",
+      "owner_id": "module.assessments",
+      "rationale": "Replace the generic collection-action reference with the adopted assessment create-only add-record-reference contract; this intentionally corrects the released schema that advertised unsupported remove and unrelated collection operations."
+    },
+    {
+      "fingerprint": "78ce223eacf360ac9ba7c4a9167ce2819046ac2c94e91430fccf0f25dfe56ba3",
+      "classification": "additive",
+      "owner_id": "module.assessments",
+      "rationale": "Publish the closed assessment support-reference add action with its UUID target."
+    },
+    {
+      "fingerprint": "d578d72290d61c7c62b7d69bb451e69be579bcce3cbf20fad1eae0e47e012cb3",
+      "classification": "additive",
+      "owner_id": "module.assessments",
+      "rationale": "Publish the bounded create-only assessment support-reference action envelope."
     }
   ]
 }

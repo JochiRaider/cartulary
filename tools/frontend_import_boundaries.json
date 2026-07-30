@@ -176,6 +176,29 @@
       ]
     },
     {
+      "id": "frontend-assessment-owner-no-timeline-imports",
+      "level": "error",
+      "message": "Assessment models and presentation must not depend on Timeline implementation; only the candidate query adapter may translate Timeline rows.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx",
+          "apps/web/src/workbook/components/WorkbookRecordCandidatePicker.tsx",
+          "apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts",
+          "apps/web/src/workbook/models/assessmentWorkbookModel.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline"
+        }
+      ]
+    },
+    {
       "id": "frontend-workbook-shell-feature-facade-boundary",
       "level": "error",
       "message": "Workbook and app composition must consume Network Flow only through its workbook feature facade.",

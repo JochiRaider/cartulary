@@ -144,6 +144,9 @@
       "owner_id": "module.projections",
       "family_id": "module.projections.rebuild",
       "collaborator_ids": [
+        "module.assessments",
+        "module.links",
+        "module.records",
         "module.recovery"
       ],
       "verification_ids": [
@@ -153,6 +156,7 @@
       "selector": {
         "package": "./internal/modules/projections",
         "tests": [
+          "TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged",
           "TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails",
           "TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess",
           "TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows",
@@ -172,6 +176,7 @@
       "owner_id": "module.projections",
       "family_id": "module.projections.storage",
       "collaborator_ids": [
+        "module.assessments",
         "platform.viewquery"
       ],
       "verification_ids": [

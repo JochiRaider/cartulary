@@ -31,8 +31,16 @@ func NewIndicatorProvider(descriptor ProviderDescriptor) Provider {
 	return providerWithHandlers(descriptor, nil, (*Store).rebuildIncidentIndicatorsTxCore)
 }
 
-func NewAssessmentProvider(descriptor ProviderDescriptor) Provider {
-	return providerWithHandlers(descriptor, (*Store).refreshAssessmentTxCore, (*Store).rebuildIncidentAssessmentsTxCore)
+func NewAssessmentProvider(descriptor ProviderDescriptor, source AssessmentSource) Provider {
+	return Provider{
+		descriptor: descriptor,
+		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+			return store.refreshAssessmentTxCore(ctx, tx, recordID, source)
+		},
+		rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
+			return store.rebuildIncidentAssessmentsTxCore(ctx, tx, incidentID, source)
+		},
+	}
 }
 
 func NewArtifactProvider(descriptor ProviderDescriptor) Provider {

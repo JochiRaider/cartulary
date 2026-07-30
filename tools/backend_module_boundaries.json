@@ -218,6 +218,25 @@
       "production_only": true
     },
     {
+      "id": "assessments-no-peer-owner-implementation-imports",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/sql",
+        "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/entities",
+        "github.com/JochiRaider/cartulary/internal/modules/links",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook"
+      ],
+      "scan_paths": ["internal/modules/assessments/**"],
+      "allowed_paths": [
+        "internal/modules/assessments/incident_bundle_subtype_presence.go",
+        "internal/modules/assessments/projectionprovider/query_surfaces.go"
+      ],
+      "production_only": true
+    },
+    {
       "id": "jobs-and-network-flow-use-consumer-owned-collaboration-ports",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -662,6 +681,18 @@
   ],
   "sql_table_access": [
     {
+      "id": "assessment-projection-storage-access",
+      "table": "assessment_grid_projection",
+      "scan_paths": ["internal/modules/**"],
+      "read_allowed_paths": [
+        "internal/modules/assessments/projectionprovider/query_surfaces.go",
+        "internal/modules/projections/assessments.go"
+      ],
+      "write_allowed_paths": [
+        "internal/modules/projections/assessments.go"
+      ]
+    },
+    {
       "id": "records-current-envelope-access",
       "table": "records",
       "scan_paths": ["internal/modules/**"],
@@ -678,7 +709,6 @@
         "internal/modules/assessments/projectionprovider/provider.go",
         "internal/modules/assessments/projectionprovider/query_surfaces.go",
         "internal/modules/assessments/rollbackprovider/provider.go",
-        "internal/modules/assessments/store.go",
         "internal/modules/entities/hostidentity/match.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/patch_store.go",
@@ -868,6 +898,30 @@
       "scan_paths": ["internal/modules/incidents/**"],
       "allowed_paths": [],
       "production_only": false
+    },
+    {
+      "id": "retired-assessments-store-definition",
+      "tokens": [
+        "type Store struct",
+        "func NewStore("
+      ],
+      "scan_paths": ["internal/modules/assessments/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-assessments-store-consumers",
+      "tokens": [
+        "assessments.Store",
+        "assessments.NewStore"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**",
+        "internal/testutil/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
     },
     {
       "id": "root-capability-consumers-no-raw-filesystem-mutation",

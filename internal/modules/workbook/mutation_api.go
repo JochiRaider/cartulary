@@ -375,8 +375,11 @@ func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *
 		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
 	}
 	field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
-	if !ok || !field.Writable {
+	if !ok {
 		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	}
+	if !field.Writable {
+		return PatchChange{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
 	}
 	value, hasValue := object["value"]
 	actionPayload, hasActionPayload := object["action_payload"]
@@ -410,7 +413,7 @@ func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *
 
 func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMessage, patch bool) (ValueChange, any, *httpapi.APIError) {
 	if string(value) == "null" {
-		if field.Clearable {
+		if !patch || field.Clearable {
 			return ValueChange{Kind: "null"}, nil, nil
 		}
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "field_not_nullable")

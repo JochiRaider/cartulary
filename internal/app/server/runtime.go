@@ -878,10 +878,11 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	importOwnerLimits, importArchiveLimits := importLimits(normalizedCfg)
 	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(
 		importassembly.OwnerRegistryDependencies{
-			Postgres:         postgresHandle,
-			RevisionAppender: revisionRuntime.Appender(),
-			Intents:          intentAppender,
-			Timeline:         timelineFacade,
+			Postgres:          postgresHandle,
+			RevisionAppender:  revisionRuntime.Appender(),
+			Intents:           intentAppender,
+			Timeline:          timelineFacade,
+			ProjectionCatalog: timelineBundle.ProjectionCatalog.Catalog,
 		},
 	)
 	if err != nil {

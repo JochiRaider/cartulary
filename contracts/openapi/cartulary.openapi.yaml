@@ -8592,7 +8592,7 @@
             "type": "string"
           },
           "assessment.support_refs": {
-            "$ref": "#/components/schemas/CollectionActionsV1"
+            "$ref": "#/components/schemas/AssessmentSupportRefCreateActionsV1"
           },
           "client_txn_id": {
             "type": "string"
@@ -8604,6 +8604,44 @@
           "assessment.subject_type",
           "assessment.assessment_state",
           "assessment.rationale"
+        ],
+        "type": "object"
+      },
+      "AssessmentSupportRefAddAction": {
+        "additionalProperties": false,
+        "properties": {
+          "linked_record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "op": {
+            "const": "add_record_ref"
+          }
+        },
+        "required": [
+          "op",
+          "linked_record_id"
+        ],
+        "type": "object"
+      },
+      "AssessmentSupportRefCreateActionsV1": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentSupportRefAddAction"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          },
+          "kind": {
+            "const": "collection_actions_v1"
+          }
+        },
+        "required": [
+          "kind",
+          "actions"
         ],
         "type": "object"
       },

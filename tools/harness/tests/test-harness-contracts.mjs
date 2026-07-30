@@ -276,8 +276,8 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 60);
   assert.equal(catalog.summary.family_count, 215);
-  assert.equal(catalog.summary.row_count, 964);
-  assert.equal(catalog.summary.selector_count, 1779);
+  assert.equal(catalog.summary.row_count, 973);
+  assert.equal(catalog.summary.selector_count, 1789);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -5073,6 +5073,105 @@ test("backend module boundary rejects the retired Incidents Store API", () => {
       ],
       `retired Incidents Store API violations differed: ${result.stdout}`,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("backend module boundary preserves assessment facade, peer-port, and projection-storage ownership", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "assessments-boundary."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/assessments/legacy_store.go",
+      [
+        "package assessments",
+        "",
+        "type Store struct{}",
+        "func NewStore() *Store { return &Store{} }",
+        "",
+      ].join("\n"),
+    );
+    writeFixtureFile(
+      root,
+      "internal/app/workbookassembly/legacy_assessment_store.go",
+      "package workbookassembly\n\nvar legacy *assessments.Store\n",
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/assessments/peer_persistence.go",
+      'package assessments\n\nimport _ "github.com/JochiRaider/cartulary/internal/gen/sql"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/assessments/projection_write.go",
+      "package assessments\n\nconst writeProjection = `DELETE FROM assessment_grid_projection WHERE record_id = $1`\n",
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/entities/assessment_projection_read.go",
+      "package entities\n\nconst readProjection = `SELECT record_id FROM assessment_grid_projection`\n",
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(
+      result.status,
+      0,
+      `synthetic assessment boundary violations unexpectedly passed: ${result.stdout}`,
+    );
+    const report = JSON.parse(result.stdout.trim());
+    for (const expected of [
+      [
+        "forbidden_source_token",
+        "internal/modules/assessments/legacy_store.go",
+        "retired-assessments-store-definition:type Store struct",
+      ],
+      [
+        "forbidden_source_token",
+        "internal/modules/assessments/legacy_store.go",
+        "retired-assessments-store-definition:func NewStore(",
+      ],
+      [
+        "forbidden_source_token",
+        "internal/app/workbookassembly/legacy_assessment_store.go",
+        "retired-assessments-store-consumers:assessments.Store",
+      ],
+      [
+        "forbidden_go_import",
+        "internal/modules/assessments/peer_persistence.go",
+        "github.com/JochiRaider/cartulary/internal/gen/sql",
+      ],
+      [
+        "sql_table_write_access",
+        "internal/modules/assessments/projection_write.go",
+        "assessment_grid_projection",
+      ],
+      [
+        "sql_table_read_access",
+        "internal/modules/entities/assessment_projection_read.go",
+        "assessment_grid_projection",
+      ],
+    ]) {
+      assert.ok(
+        report.violations.some(
+          (violation) =>
+            violation.code === expected[0] &&
+            violation.path === expected[1] &&
+            violation.symbol_or_import === expected[2],
+        ),
+        `assessment boundary violation ${expected.join(":")} missing: ${result.stdout}`,
+      );
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

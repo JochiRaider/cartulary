@@ -41,6 +41,40 @@ describe("workbook surface ownership policy", () => {
     expect(source).not.toContain("createAndAttachEvidenceBlob");
   });
 
+  it("keeps assessment semantics out of Timeline and vendor grid imports behind the adapter", () => {
+    const timelineModel = readFileSync(
+      path.join(workbookDirectory, "timeline/models/workbookTimelineModel.ts"),
+      "utf8",
+    );
+    for (const assessmentOwnedSymbol of [
+      "AssessmentApiRow",
+      "AssessmentConfidenceBand",
+      "AssessmentCreateDraft",
+      "AssessmentSubjectType",
+      "AssessmentSupportCandidate",
+      "buildAssessmentCreatePayload",
+      "confidenceScoreFromBand",
+      "initialAssessmentDraft",
+    ]) {
+      expect(timelineModel).not.toContain(assessmentOwnedSymbol);
+    }
+
+    for (const assessmentOwnedFile of [
+      "components/AssessmentWorkbookSurface.tsx",
+      "components/WorkbookRecordCandidatePicker.tsx",
+      "models/assessmentWorkbookModel.ts",
+    ]) {
+      const source = readFileSync(
+        path.join(workbookDirectory, assessmentOwnedFile),
+        "utf8",
+      );
+      expect(source, assessmentOwnedFile).not.toContain("react-data-grid");
+      expect(source, assessmentOwnedFile).not.toContain(
+        "timeline/models/workbookTimelineModel",
+      );
+    }
+  });
+
   it("assigns every registration to one declared bounded-context owner", () => {
     const owners = new Set(
       listWorkbookSurfaceRegistrations().map((entry) => entry.ownerId),

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -273,34 +275,62 @@ func NewIndicatorCreateProvider(owner *indicators.Store) CreateProvider {
 	}
 }
 
-func NewAssessmentCreateProvider(owner *assessments.Store) CreateProvider {
+func NewAssessmentCreateProvider(owner *assessments.Facade) CreateProvider {
 	return createProvider{
 		decode: func(reader io.Reader) (CreateAdmission, *httpapi.APIError) {
-			request, apiErr := assessments.DecodeCreateRequest(reader)
+			request, apiErr := DecodeCreateRequest(assessments.AssessmentsViewSchemaID, reader)
 			return CreateAdmission{ClientTxnID: request.ClientTxnID, normalized: request}, apiErr
 		},
 		create: func(ctx context.Context, command CreateCommand) (MutationResult, error) {
-			request, ok := command.Admission.normalized.(assessments.CreateRequest)
+			request, ok := command.Admission.normalized.(CreateRequest)
 			if !ok || command.ViewSchemaID != assessments.AssessmentsViewSchemaID {
 				return MutationResult{}, mutationValidationError("view_schema_id", "invalid_view_schema_id")
 			}
-			result, err := owner.CreateAssessmentRow(
-				ctx,
-				command.Actor,
-				command.IncidentID,
-				request,
-				requestHash(command.RequestHash, assessments.CreateRequestHash(request)),
-				command.RequestID,
-				command.Now,
-			)
+			input, err := assessmentCreateInputFromWorkbook(request)
+			if err != nil {
+				return MutationResult{}, err
+			}
+			const routeKey = "assessments.rows.create"
+			result, err := owner.Create(ctx, assessments.CreateCommand{
+				ActorUserID: command.Actor.ID,
+				IncidentID:  command.IncidentID,
+				Input:       input,
+				Idempotency: assessments.CreateIdempotencyKey{
+					RouteKey:    routeKey,
+					ActorUserID: command.Actor.ID,
+					ScopeKey:    command.IncidentID.String() + ":" + assessments.AssessmentsViewSchemaID,
+					ClientTxnID: input.ClientTxnID,
+					RequestHash: requestHash(command.RequestHash, assessmentCreateRequestHash(request)),
+				},
+				RequestID: command.RequestID,
+				Now:       command.Now,
+			})
 			var validation *assessments.CreateValidationError
 			if errors.As(err, &validation) {
 				err = mutationValidationError(validation.Field, validation.ReasonCode)
 			}
+			if errors.Is(err, assessments.ErrClientTxnConflict) {
+				err = authn.ErrClientTxnConflict
+			}
+			statusCode := 0
+			if err == nil {
+				statusCode = http.StatusCreated
+				if result.Outcome == assessments.CreateOutcomeReplayed {
+					statusCode = http.StatusOK
+				}
+			}
+			payload := map[string]any(nil)
+			if err == nil {
+				payload = BuildMutationPayload(
+					assessments.AssessmentsViewSchemaID,
+					result.ChangeSetID,
+					result.CanonicalRow,
+				)
+			}
 			return mutationResultFromSimpleCreate(
-				result.Payload,
-				result.StatusCode,
-				result.Replayed,
+				payload,
+				statusCode,
+				result.Outcome == assessments.CreateOutcomeReplayed,
 				result.RecordID,
 				result.ChangeSetID,
 				result.RowVersion,
@@ -310,6 +340,109 @@ func NewAssessmentCreateProvider(owner *assessments.Store) CreateProvider {
 			), err
 		},
 	}
+}
+
+func assessmentCreateInputFromWorkbook(request CreateRequest) (assessments.CreateInput, error) {
+	input := assessments.CreateInput{ClientTxnID: request.ClientTxnID}
+	if value, ok := request.Values["assessment.subject_ref"]; ok {
+		if value.Kind != "uuid" || value.UUID == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.subject_ref", "invalid_value")
+		}
+		input.SubjectRef = *value.UUID
+	}
+	if value, ok := request.Values["assessment.subject_type"]; ok {
+		if value.Kind != "text" || value.Text == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.subject_type", "invalid_value")
+		}
+		input.SubjectType = *value.Text
+	}
+	if value, ok := request.Values["assessment.assessment_state"]; ok {
+		if value.Kind != "text" || value.Text == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.assessment_state", "invalid_value")
+		}
+		input.AssessmentState = *value.Text
+	}
+	if value, ok := request.Values["assessment.confidence_score"]; ok {
+		switch {
+		case value.Kind == "null":
+		case value.Kind == "number" && value.Number != nil:
+			score := int(*value.Number)
+			input.ConfidenceScore = &score
+		default:
+			return assessments.CreateInput{}, mutationValidationError("assessment.confidence_score", "invalid_value")
+		}
+	}
+	if value, ok := request.Values["assessment.rationale"]; ok {
+		if value.Kind != "text" || value.Text == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.rationale", "invalid_value")
+		}
+		input.Rationale = *value.Text
+	}
+	if value, ok := request.Values["assessment.assessor"]; ok {
+		if value.Kind != "uuid" || value.UUID == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.assessor", "invalid_value")
+		}
+		assessor := *value.UUID
+		input.Assessor = &assessor
+	}
+	if value, ok := request.Values["assessment.assessed_at"]; ok {
+		if value.Kind != "timestamp" || value.Timestamp == nil {
+			return assessments.CreateInput{}, mutationValidationError("assessment.assessed_at", "invalid_value")
+		}
+		assessedAt := value.Timestamp.UTC()
+		input.AssessedAt = &assessedAt
+	}
+	if collection, ok := request.Collections["assessment.support_refs"]; ok {
+		input.SupportRefs = make([]uuid.UUID, 0, len(collection.Actions))
+		for _, action := range collection.Actions {
+			if action.Op != "add_record_ref" || action.LinkedRecordID == nil {
+				return assessments.CreateInput{}, mutationValidationError("assessment.support_refs", "invalid_value")
+			}
+			input.SupportRefs = append(input.SupportRefs, *action.LinkedRecordID)
+		}
+	}
+	return input, nil
+}
+
+func assessmentCreateRequestHash(request CreateRequest) []byte {
+	input, err := assessmentCreateInputFromWorkbook(request)
+	if err != nil {
+		return CreateRequestHash(request)
+	}
+	payload := map[string]any{
+		"view_schema_id": assessments.AssessmentsViewSchemaID,
+		"client_txn_id":  input.ClientTxnID,
+	}
+	if input.SubjectRef != uuid.Nil {
+		payload["assessment.subject_ref"] = input.SubjectRef.String()
+	}
+	if input.SubjectType != "" {
+		payload["assessment.subject_type"] = input.SubjectType
+	}
+	if input.AssessmentState != "" {
+		payload["assessment.assessment_state"] = input.AssessmentState
+	}
+	if input.ConfidenceScore != nil {
+		payload["assessment.confidence_score"] = *input.ConfidenceScore
+	}
+	if input.Rationale != "" {
+		payload["assessment.rationale"] = input.Rationale
+	}
+	if input.Assessor != nil {
+		payload["assessment.assessor"] = input.Assessor.String()
+	}
+	if input.AssessedAt != nil {
+		payload["assessment.assessed_at"] = input.AssessedAt.UTC().Format(time.RFC3339Nano)
+	}
+	if len(input.SupportRefs) > 0 {
+		refs := make([]string, 0, len(input.SupportRefs))
+		for _, ref := range input.SupportRefs {
+			refs = append(refs, ref.String())
+		}
+		slices.Sort(refs)
+		payload["assessment.support_refs"] = refs
+	}
+	return hashRequestPayload(payload)
 }
 
 func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.WorkbookFacade) CreateProvider {

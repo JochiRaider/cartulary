@@ -135,7 +135,6 @@ func (e *entityRecordLockedError) Error() string {
 
 func newEntityStorePorts(pool postgres.DB, appender *revisions.Appender) entityStorePorts {
 	return entityStorePorts{
-		assessments: entityAssessmentAdapter{store: assessments.NewStore(pool, appender)},
 		mentions:    entityMentionAdapter{store: mentions.NewStore(pool, appender)},
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
@@ -276,22 +275,24 @@ func mergeMutationsFromLinkMutations(mutations []links.MergeMutation) []mergeMut
 }
 
 type entityAssessmentAdapter struct {
-	store *assessments.Store
+	effects *assessments.MergeEffects
 }
 
 func (a entityAssessmentAdapter) LoadMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
-	return a.store.LoadMergeProtectedRecordIDsTx(ctx, tx, incidentID, recordType, loserRecordID)
+	return a.effects.LoadProtectedRecordIDsTx(ctx, tx, incidentID, recordType, loserRecordID)
 }
 
 func (a entityAssessmentAdapter) RepointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, protectedRecordSet map[uuid.UUID]struct{}, now time.Time) ([]mergeMutation, int, error) {
-	result, err := a.store.RepointMergedAssessmentsTx(ctx, tx, assessments.RepointMergedAssessmentsCommand{
-		IncidentID:         incidentID,
-		SubjectType:        recordType,
-		SurvivorRecordID:   survivorRecordID,
-		LoserRecordID:      loserRecordID,
-		ProtectedRecordIDs: protectedRecordSet,
-		Now:                now,
-	})
+	mutations, repointedCount, err := a.effects.RepointTx(
+		ctx,
+		tx,
+		incidentID,
+		recordType,
+		survivorRecordID,
+		loserRecordID,
+		protectedRecordSet,
+		now,
+	)
 	if err != nil {
 		var protectedSetChanged *assessments.MergeProtectedSetChangedError
 		if errors.As(err, &protectedSetChanged) {
@@ -304,7 +305,7 @@ func (a entityAssessmentAdapter) RepointMergedAssessmentsTx(ctx context.Context,
 		}
 		return nil, 0, err
 	}
-	return mergeMutationsFromAssessmentMutations(result.Mutations), result.RepointedCount, nil
+	return mergeMutationsFromAssessmentMutations(mutations), repointedCount, nil
 }
 
 func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation) []mergeMutation {

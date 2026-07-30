@@ -28,9 +28,12 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 
 	hostID := uuid.New()
 	supportID := uuid.New()
+	supportHostID := uuid.New()
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, supportHostID, "Assessment support host", "assess-support-host", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
 
+	intentsBeforeCreate := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID)
 	body := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
 		"assessment.subject_ref":      hostID.String(),
@@ -40,6 +43,8 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		"assessment.support_refs": map[string]any{
 			"kind": "collection_actions_v1",
 			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportID.String()},
+				{"op": "add_record_ref", "linked_record_id": supportHostID.String()},
 				{"op": "add_record_ref", "linked_record_id": supportID.String()},
 			},
 		},
@@ -55,12 +60,14 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	requireCellValue(t, cells, "assessment.confidence_band", "unset")
 	requireCellValue(t, cells, "assessment.confidence_score", nil)
 	requireCellValue(t, cells, "assessment.assessor", adminUserID.String())
-	requireCellValue(t, cells, "assessment.supporting_link_count", float64(1))
+	requireCellValue(t, cells, "assessment.supporting_link_count", float64(2))
 	if got := requireCellValue(t, cells, "assessment.rationale", "Confirmed from supporting event."); got != "Confirmed from supporting event." {
 		t.Fatalf("unexpected rationale normalization: %#v", got)
 	}
 	items := workbookscenariotest.CollectionItems(t, row, "assessment.support_refs")
-	if len(items) != 1 || items[0]["linked_record_id"] != supportID.String() {
+	if len(items) != 2 ||
+		items[0]["linked_record_id"] != supportHostID.String() ||
+		items[1]["linked_record_id"] != supportID.String() {
 		t.Fatalf("unexpected support refs: %#v", items)
 	}
 
@@ -68,14 +75,39 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("unexpected support link metadata: %#v", link)
 	}
+	hostLink := linktest.LookupActiveLink(t, harness.DB, incidentID, recordID, supportHostID, "supported_by")
+	if hostLink.Provenance != "manual" || hostLink.Confidence != nil {
+		t.Fatalf("unexpected heterogeneous support link metadata: %#v", hostLink)
+	}
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'assessment'`, recordID); got != 1 {
 		t.Fatalf("expected one assessment record envelope, got %d", got)
 	}
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+		t.Fatalf("assessment create publication intents = %d, want %d", got, intentsBeforeCreate+1)
+	}
 
-	replay := postAssessment(t, harness, adminLogin, incidentID, body)
+	replayBody := map[string]any{
+		"client_txn_id":               "txn-assessments-create",
+		"assessment.subject_ref":      hostID.String(),
+		"assessment.subject_type":     "  host  ",
+		"assessment.assessment_state": " confirmed ",
+		"assessment.rationale":        "Confirmed from supporting event.",
+		"assessment.support_refs": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_record_ref", "linked_record_id": supportHostID.String()},
+				{"op": "add_record_ref", "linked_record_id": supportID.String()},
+				{"op": "add_record_ref", "linked_record_id": supportID.String()},
+			},
+		},
+	}
+	replay := postAssessment(t, harness, adminLogin, incidentID, replayBody)
 	replayData := appsupport.RequireSuccessData(t, replay, http.StatusOK)
 	if got := replayData["row"].(map[string]any)["record_id"]; got != recordID.String() {
 		t.Fatalf("expected idempotent replay of record %s, got %#v", recordID, replayData)
+	}
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+		t.Fatalf("assessment replay published an extra intent: got %d want %d", got, intentsBeforeCreate+1)
 	}
 	conflictBody := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
@@ -85,8 +117,11 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		"assessment.rationale":        "Different payload.",
 	}
 	appsupport.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
+		t.Fatalf("assessment divergent replay published an intent: got %d want %d", got, intentsBeforeCreate+1)
+	}
 
-	beforeInvalid := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID)
+	beforeInvalid := loadAssessmentDurableState(t, harness, incidentID)
 	invalid := map[string]any{
 		"client_txn_id":               "txn-assessments-invalid",
 		"assessment.subject_ref":      hostID.String(),
@@ -94,8 +129,8 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		"assessment.assessment_state": "confirmed",
 	}
 	appsupport.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
-	if afterInvalid := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID); afterInvalid != beforeInvalid {
-		t.Fatalf("invalid create left partial records: before=%d after=%d", beforeInvalid, afterInvalid)
+	if afterInvalid := loadAssessmentDurableState(t, harness, incidentID); afterInvalid != beforeInvalid {
+		t.Fatalf("invalid create changed durable state: before=%#v after=%#v", beforeInvalid, afterInvalid)
 	}
 }
 
@@ -290,4 +325,31 @@ func withAssessmentField(body map[string]any, key string, value any) map[string]
 
 func eqFilter(fieldKey string, value any) map[string]any {
 	return map[string]any{"field_key": fieldKey, "op": "eq", "arg": map[string]any{"value": value}}
+}
+
+type assessmentDurableState struct {
+	records      int
+	sourceRows   int
+	links        int
+	projections  int
+	changeSets   int
+	mutations    int
+	revisions    int
+	idempotency  int
+	publications int
+}
+
+func loadAssessmentDurableState(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID) assessmentDurableState {
+	t.Helper()
+	return assessmentDurableState{
+		records:      appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID),
+		sourceRows:   appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID),
+		links:        appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND src_record_id IN (SELECT record_id FROM records WHERE incident_id = $1 AND record_type = 'assessment')`, incidentID),
+		projections:  appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessment_grid_projection WHERE incident_id = $1`, incidentID),
+		changeSets:   appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1 AND source = 'assessments.rows.create'`, incidentID),
+		mutations:    appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1 AND c.source = 'assessments.rows.create'`, incidentID),
+		revisions:    appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1 AND r.record_type = 'assessment'`, incidentID),
+		idempotency:  appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'assessments.rows.create' AND scope_key = $1`, incidentID.String()+":"+assessments.AssessmentsViewSchemaID),
+		publications: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID),
+	}
 }

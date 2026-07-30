@@ -4616,7 +4616,7 @@ Every current-profile standardized workbook surface MUST emit an explicit `inspe
 | Evidence | `cartulary.view.evidence.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Issue preview/download handles, attach blobs, manage party links and source relationships, and show blocked-preview state without external egress. |
 | Notes | `cartulary.view.notes.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage source links, evidence refs, tags, related task/decision records, and linked note context. |
 | Indicators | `cartulary.view.indicators.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to source observations and lifecycle history, link to source records, and create follow-up task or decision records where declared by existing contracts. |
-| Compromise Assessments | `cartulary.view.assessments.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to assessed host or identity, inspect prior assessments, and create or link supporting records. |
+| Compromise Assessments | `cartulary.view.assessments.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to the assessed host or identity, inspect prior assessments and readable supporting records, and append a follow-on assessment without mutating the selected assessment. |
 | Task Requests | `cartulary.view.task_requests.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage linked records, requester party, decision link, blocked work, owner/status transitions, and follow-up coordination. |
 | Decisions | `cartulary.view.decisions.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage support refs, affected records, status transitions, supersession, and linked task or communications-log entries. |
 | Parties | `cartulary.view.parties.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to communications, task requester, collector/source, audience, attendee, and coordination references. |
@@ -4630,7 +4630,7 @@ Every current-profile standardized workbook surface MUST emit an explicit `inspe
 
 The exact field membership, writeability, create minima, omitted-versus-`null` behavior, write targets, and relationship storage semantics remain owned by the relevant per-field registry and route owner sections. The inspector matrix MUST NOT be used as a substitute field registry, storage registry, route inventory, or authorization matrix.
 Profiles: base
-Verified by: AC-453
+Verified by: AC-453, AC-519
 
 **REQ-01-617**
 Inspector feature groups MUST use dotted lower-snake `feature_group_key` values. A feature key MUST be unique within its containing `view_schema_id`. Reuse of the same feature key across different `view_schema_id` values is valid only when the feature has the same observable meaning, route-binding kind, route-binding owner, mutation classification, confirmation classification, and result-behavior family.
@@ -4639,7 +4639,7 @@ Feature keys MUST use these owner prefixes when applicable: `details`, `relation
 
 A current-profile implementation MUST NOT emit a feature group whose key is not declared by the exhaustive registry in §7.4.1A, except for standardized optional surfaces when the optional surface itself is not implemented, in which case the entire surface and its inspector feature groups are omitted.
 Profiles: base
-Verified by: AC-454
+Verified by: AC-454, AC-519
 
 ### 7.4.1A Inspector feature-group registry
 
@@ -4683,7 +4683,7 @@ The table above defines defaults for feature-key families only. The per-surface 
 | `cartulary.view.evidence.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `evidence.preview_handle`, `evidence.download_handle`, `evidence.attach_blob`, `party.collector.link`, `party.source.link`, `party.reference.clear`, `relationships.manage`, `surface_pivot.linked_records`, `surface_pivot.timeline`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.notes.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `artifact.source_links.manage`, `artifact.evidence_refs.manage`, `artifact.tags.manage`, `artifact.related_notes.manage`, `surface_pivot.source_records`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.indicators.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `indicator.observations.pivot`, `indicator.lifecycle.read`, `relationships.manage`, `create_related.task_request`, `create_related.decision` |
-| `cartulary.view.assessments.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `assessment.subject_pivot`, `assessment.prior_history`, `assessment.support_refs.manage`, `evidence.refs.manage`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.assessments.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `assessment.subject_pivot`, `assessment.prior_history`, `create_related.assessment`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.task_requests.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `task.links.manage`, `task.requester_party.link`, `task.requester_party.clear`, `task.decision.link`, `task.decision.clear`, `task.status.transition`, `create_related.comm_log`, `create_related.status_review`, `create_related.lesson` |
 | `cartulary.view.decisions.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `decision.support_refs.manage`, `decision.affected_records.manage`, `decision.status.transition`, `decision.supersede`, `create_related.task_request`, `create_related.comm_log`, `create_related.status_review` |
 | `cartulary.view.parties.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `party.usage_pivot.requester`, `party.usage_pivot.collector_source`, `party.usage_pivot.audience_attendee`, `party.usage_pivot.owner_stakeholder`, `party.reference.link`, `party.reference.clear`, `party.reference.clear_both` |
@@ -4707,8 +4707,27 @@ A standardized optional surface that is not implemented must be omitted from `GE
 | `create_related.handoff` | Seed selected `record_id` as related context; handoff minimum create signal remains required. |
 | `create_related.status_review` | Seed selected `record_id` as related context; status-review minimum create signal remains required. |
 | `create_related.lesson` | Seed selected `record_id` as related context; lesson summary remains required. |
+| `create_related.assessment` | Available only from `cartulary.view.assessments.v1`; seed the selected row's `assessment.subject_ref` and `assessment.subject_type` into the same fields of a fresh `cartulary.view.assessments.v1` draft. No other assessment field or relationship is seeded. |
 | `party.*.link` | Seed party text from the source-preserving text field that owns the party pair; the linked `party_id` does not clear source text implicitly. |
 | `surface_pivot.*` | Seed target query filters using stable target `field_key` values only. Visible labels, storage names, and row indexes are invalid seed sources. |
+
+For `cartulary.view.assessments.v1`, `create_related.assessment` MUST use
+`panel_id='workflow'`, `route_binding.kind='view_row_create'`,
+`route_binding.owner='view_row_create_route'`,
+`minimum_incident_role='editor'`, `mutates=true`,
+`requires_confirmation=false`,
+`success_behavior='preserve_selected_row'`, and
+`failure_behavior='show_same_shell_error_invalidate_pending_action'`.
+Submission MUST use the existing assessment view-row create route and MUST
+re-evaluate incident membership and role at that route.
+
+Removing `assessment.support_refs.manage` and `evidence.refs.manage` and adding
+`create_related.assessment` is an adopted correction within
+`cartulary.view.assessments.v1`, not a schema-identity change. The removed
+features never had an executable assessment existing-row mutation path in the
+indexed `1.0.0` historical baseline; keeping them would contradict the
+create-only field registry below. Implementations MUST NOT emit aliases for
+either removed feature.
 
 This preserves the Core 03 rule that preseeded links remain editable context and do not satisfy minimum create signals.
 
@@ -4751,9 +4770,10 @@ Unless explicitly overridden below:
 - create-only identifiers such as subtype-specific row IDs remain immutable after first commit unless a later schema subsection explicitly overrides that rule,
 - a create attempt that does not satisfy the active view contract's minimum create signal MUST leave no partial record row, no misleading projection row, and no misleading live-update event,
 - fields not declared writable are read-only,
+- when patch decoding resolves a requested `field_key` to a schema-declared but non-writable field, `400 invalid_mutation_payload` MUST report that canonical requested key in `error.details.field` with `reason_code='unsupported_field_key'`; when the requested name is not declared by the schema, the same error MUST retain the generic `error.details.field='field_key'` mapping,
 - per-user hide/show or reordering MAY change presentation but MUST NOT change field identity, filter semantics, or write-back semantics.
 Profiles: base, reference_pack
-Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-121, AC-122, AC-124, AC-125, AC-184, AC-185, AC-231, AC-234, AC-281, AC-282, AC-283, AC-284, AC-285, AC-286, AC-287, AC-300, AC-301, AC-302, AC-303, AC-362, AC-363, AC-365, AC-366, AC-367, AC-368
+Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-121, AC-122, AC-124, AC-125, AC-184, AC-185, AC-231, AC-234, AC-281, AC-282, AC-283, AC-284, AC-285, AC-286, AC-287, AC-300, AC-301, AC-302, AC-303, AC-362, AC-363, AC-365, AC-366, AC-367, AC-368, AC-518
 
 **REQ-01-311**
 Base-profile relationship mutations surfaced by these view contracts or their adjacent inspector or row-context actions MUST follow these routing rules:
@@ -5215,29 +5235,37 @@ Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-
 - inline create: zero-field create is forbidden
 - minimum semantic create set: inline create from the sheet itself MUST commit only when `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, and non-empty `assessment.rationale` are present after create-time normalization
 - context-preseeded `assessment.subject_ref` and `assessment.subject_type` MAY seed the create surface, but they MUST NOT by themselves make an otherwise empty create valid
-- if omitted on create, the server MUST default `assessment.assessed_at` to the commit timestamp, `assessment.assessor` to the authenticated actor, and `assessment.confidence_score` to `NULL`
-- `assessment.support_refs` MAY be included on create but MUST NOT satisfy the minimum semantic create set
+- if omitted on create, the server MUST default `assessment.assessed_at` to the commit timestamp, `assessment.assessor` to the authenticated actor, `assessment.confidence_score` to `NULL`, and `assessment.support_refs` to an empty unordered support set
+- `assessment.support_refs` MAY be included only on create and MUST NOT satisfy the minimum semantic create set
 - writable fields on create only:
-  - `assessment.subject_ref`: read the subject record reference; write target the assessment subject reference; `conflict_resolution_class=atomic_replace`
+  - `assessment.subject_ref`: read the subject record reference; write target the assessment subject reference; `direct_reference_contract_id=same_incident_record_ref_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
   - `assessment.subject_type`: read the subject type; write target the assessment subject type; `conflict_resolution_class=atomic_replace`
   - `assessment.assessment_state`: read `assessment_state`; write target the `assessment_state` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
   - `assessment.confidence_score`: read `confidence_score`; write target the `confidence_score` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`. A band-first editor MUST map `unset`, `low`, `medium`, and `high` to `NULL`, `25`, `55`, and `85` respectively.
   - `assessment.rationale`: read `rationale`; write target the `rationale` field on the underlying `assessment` record; `conflict_resolution_class=text_compare_merge`
-  - `assessment.assessor`: read the assessor field; write target the assessor field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
+  - `assessment.assessor`: read the assessor field; write target the assessor field on the underlying `assessment` record; `direct_reference_contract_id=incident_member_user_ref_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
   - `assessment.assessed_at`: read `assessed_at`; write target the `assessed_at` field on the underlying `assessment` record; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=false`; `conflict_resolution_class=atomic_replace`
-  - `assessment.support_refs`: read supporting record references; write action upsert supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
+  - `assessment.support_refs`: read supporting record references; create-only write action creates field-derived supporting `record_links`; `conflict_resolution_class=collection_review`
 - read-only computed fields: `assessment.confidence_band`, `assessment.supporting_link_count`
 Profiles: base
-Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-300, AC-302, AC-303
+Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-300, AC-302, AC-303, AC-517, AC-520
 
 **REQ-01-333**
 Collection-review wire contract for `assessment.support_refs`:
 
-- On read and conflict surfaces, `assessment.support_refs` MUST use `collection_value_v1` with `ordered=false`.
-- When row creation initializes `assessment.support_refs`, the create-time field value MUST use `collection_actions_v1`.
+- On read, `assessment.support_refs` MUST use `collection_value_v1` with
+  `ordered=false`. Every active visible support target type remains identified
+  by `linked_record_id` and `item_ref`; display metadata is additive and MUST
+  NOT replace record identity.
+- Omission on create means an empty set. When present on row creation, the
+  field value MUST be one `collection_actions_v1` object containing from 1
+  through 64 actions.
+- Every create action MUST be the closed object shown below. Empty action
+  arrays, more than 64 actions, `remove_record_ref`, any other operation,
+  malformed record IDs, client-supplied `confidence`, `link_type`, direction,
+  table, storage-routing data, or any unknown object member MUST fail with
+  `400 invalid_mutation_payload`.
 - Each `items[]` entry MUST use this shape:
-Profiles: base
-Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231
 
 ```json
 {
@@ -5248,29 +5276,48 @@ Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-
 }
 ```
 
-- Allowed actions are:
+- The only assessment create action is:
 
 ```json
 { "op": "add_record_ref", "linked_record_id": "<record_id>" }
 ```
 
-```json
-{ "op": "remove_record_ref", "item_ref": "record_ref:<linked_record_id>" }
-```
-
-The current-profile action objects above are closed to the listed members and intentionally omit any client-supplied `confidence` member. Schemas that reuse this same collection contract inherit that same omission.
+- The server MUST normalize repeated target IDs to one logical target before
+  applying link effects.
+Profiles: base
+Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-517
 
 **REQ-01-334**
-- The server MUST derive any base-profile `link_type` and storage routing from `field_key`; the client MUST NOT send `link_type`, table names, or storage-specific routing metadata.
-- Duplicate adds for the same patched `record_id`, `linked_record_id`, and field-derived link type MUST coalesce to one surviving logical reference binding.
+- At assessment submission time, every normalized support target MUST resolve
+  to an active, visible, same-incident first-class record. A foreign-incident,
+  hidden, deleted, malformed, or non-record target MUST fail atomically and
+  MUST disclose no hidden target state.
+- The server MUST derive `link_type='supported_by'`, the new assessment record
+  as `src_record_id`, the support target as `dst_record_id`, and all storage
+  routing from `assessment.support_refs`. The client MUST NOT select direction
+  or physical storage.
+- Validation and link application MUST be atomic with assessment source,
+  record envelope, projection, revision, idempotency-success, and ordinary
+  collaboration effects. Any failed target or participant MUST leave none of
+  those effects committed.
+- Other existing-row writable record-reference collections that cite this
+  requirement reuse the `collection_value_v1` item identity above but do not
+  inherit the assessment create-only restriction. Their own field registries
+  admit the closed patch actions
+  `{ "op": "add_record_ref", "linked_record_id": "<record_id>" }` and
+  `{ "op": "remove_record_ref", "item_ref": "record_ref:<linked_record_id>" }`
+  through `collection_actions_v1`. Both action objects omit client-supplied
+  `confidence` and routing metadata.
 Profiles: base
-Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231
+Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-517
 
 **REQ-01-335**
 - grid edits to an existing assessment row MUST reject writes to `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_score`, `assessment.rationale`, `assessment.assessor`, `assessment.assessed_at`, and `assessment.support_refs`.
 - append-only semantics for semantic assessment fields begin only after a valid first commit satisfying the minimum semantic create set in `REQ-01-332`.
+- every existing-row patch, bulk, conflict-resolution, inspector, generated-client, or direct mutation path targeting `assessment.support_refs` MUST fail with `400 invalid_mutation_payload`, `error.details.field='assessment.support_refs'`, and `error.details.reason_code='unsupported_field_key'`; the rejection MUST create no source, link, row-version, change-set, revision, projection, idempotency-success, or collaboration effect.
+- delete, restore, rollback, owner-coordinated entity-merge repointing, and incident-bundle reconstruction remain governed by their owner contracts and MUST NOT be exposed or classified as ordinary assessment support-reference mutation.
 Profiles: base
-Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231
+Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231, AC-518
 
 #### 7.4.8 `cartulary.view.task_requests.v1`
 
@@ -5311,7 +5358,7 @@ Profiles: base
 Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231, AC-278, AC-279, AC-280, AC-300, AC-301, AC-303, AC-304, AC-315, AC-316, AC-317, AC-318, AC-319
 
 **REQ-01-337**
-`task.linked_record_ids` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `assessment.support_refs`, except the active `field_key` is `task.linked_record_ids` and the server derives the applicable `link_type` from that field key.
+`task.linked_record_ids` MUST use the `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is `task.linked_record_ids` and the server derives the applicable `link_type` from that field key.
 Profiles: base
 Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231
 
@@ -5350,7 +5397,7 @@ Profiles: base
 Verified by: AC-086, AC-118, AC-124, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-300, AC-302, AC-303
 
 **REQ-01-340**
-`decision.support_refs` and `decision.affected_record_ids` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `assessment.support_refs`, except the active `field_key` is `decision.support_refs` or `decision.affected_record_ids` and the server derives the applicable `link_type` from that field key.
+`decision.support_refs` and `decision.affected_record_ids` MUST use the `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is `decision.support_refs` or `decision.affected_record_ids` and the server derives the applicable `link_type` from that field key.
 Profiles: base
 Verified by: AC-086, AC-118, AC-124, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
@@ -8661,6 +8708,13 @@ Verified by: AC-315, AC-316, AC-317, AC-318
 Profiles: base
 Verified by: AC-315, AC-316, AC-317, AC-319
 
+`same_incident_record_ref_v1` is the exact same-incident first-class-record
+reference contract. Accepted non-null input is a JSON string whose exact value
+is one stable `record_id`; the addressed record MUST be active and visible to
+the actor in the incident that owns the referencing record. The bound domain
+field remains responsible for any narrower target-type rule. `null` clears only
+when the bound field entry declares `clearable=true`.
+
 `incident_member_user_ref_v1` is defined by REQ-01-628 and is part of this closed direct-reference registry. It preserves exact internal user identity and adds active same-incident membership validation; user display labels and email addresses are presentation only.
 
 ## 19. Parties system-view addendum
@@ -8734,7 +8788,7 @@ Verified by: AC-118, AC-231, AC-278, AC-279, AC-318
   - `comm_log.audience_party_ids`: read supplemental audience party references; write action upsert or remove same-incident `party` references using the `party_ref` family defined below; `conflict_resolution_class=collection_review`
   - `comm_log.attendee_party_ids`: read supplemental attendee party references; write action upsert or remove same-incident `party` references using the `party_ref` family defined below; `conflict_resolution_class=collection_review`
 - collection-review wire contract:
-  - `comm_log.decision_ids` and `comm_log.action_task_ids` MUST use the exact `collection_value_v1` item shape and `collection_actions_v1` action vocabulary defined for `assessment.support_refs` in `REQ-01-333` and `REQ-01-334`, except the active `field_key` is `comm_log.decision_ids` or `comm_log.action_task_ids` and the server derives `references_record` routing from that field key under `REQ-01-311`.
+  - `comm_log.decision_ids` and `comm_log.action_task_ids` MUST use the exact `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is `comm_log.decision_ids` or `comm_log.action_task_ids` and the server derives `references_record` routing from that field key under `REQ-01-311`.
   - `comm_log.decision_ids` accepts only same-incident active `decision` targets. `comm_log.action_task_ids` accepts only same-incident active `task_request` targets.
   - For those two `record_ref` fields, duplicate adds for the same patched `record_id`, `linked_record_id`, and active `field_key` MUST coalesce to one surviving logical reference binding. Removal MUST target `item_ref` only. A target from another incident, a target of the wrong `record_type`, a soft-deleted target, or an invalid or foreign `item_ref` MUST fail with `400 Bad Request` and `error.code = invalid_mutation_payload`.
   - `comm_log.audience_party_ids` and `comm_log.attendee_party_ids` MUST use `collection_value_v1` with `ordered=false`.
@@ -8793,7 +8847,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-281, AC-300, AC-301, AC-302, AC-
   - `handoff.next_checks`: read `next_checks`; write target the `next_checks` field on the underlying `handoff` artifact subtype; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
   - `handoff.acknowledged_at`: read `acknowledged_at`; write target the `acknowledged_at` field on the underlying `handoff` artifact subtype; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
 - collection-review wire contract:
-  - `handoff.open_task_ids` and `handoff.open_decision_ids` MUST use the exact `collection_value_v1` item shape and `collection_actions_v1` action vocabulary defined for `assessment.support_refs` in `REQ-01-333` and `REQ-01-334`, except the active `field_key` is `handoff.open_task_ids` or `handoff.open_decision_ids` and the server derives `references_record` routing from that field key under `REQ-01-311`.
+  - `handoff.open_task_ids` and `handoff.open_decision_ids` MUST use the exact `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is `handoff.open_task_ids` or `handoff.open_decision_ids` and the server derives `references_record` routing from that field key under `REQ-01-311`.
   - `handoff.open_task_ids` accepts only same-incident active `task_request` targets. `handoff.open_decision_ids` accepts only same-incident active `decision` targets.
   - For those two `record_ref` fields, duplicate adds for the same patched `record_id`, `linked_record_id`, and active `field_key` MUST coalesce to one surviving logical reference binding. Removal MUST target `item_ref` only. A target from another incident, a target of the wrong `record_type`, a soft-deleted target, or an invalid or foreign `item_ref` MUST fail with `400 Bad Request` and `error.code = invalid_mutation_payload`.
   - `handoff.open_risk_refs` MUST use `collection_value_v1` with `ordered=false`.
@@ -8852,7 +8906,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-282, AC-300, AC-301, AC-302, AC-
   - `status_review.active_risks_summary`: read `active_risks_summary`; write target the `active_risks_summary` field on the underlying `status_review` artifact subtype; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
   - `status_review.next_report_at`: read `next_report_at`; write target the `next_report_at` field on the underlying `status_review` artifact subtype; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
 - collection-review wire contract:
-  - `status_review.blocked_task_ids`, `status_review.pending_evidence_ids`, and `status_review.open_decision_ids` MUST use the exact `collection_value_v1` item shape and `collection_actions_v1` action vocabulary defined for `assessment.support_refs` in `REQ-01-333` and `REQ-01-334`, except the active `field_key` is the patched coordination field and the server derives `references_record` routing from that field key under `REQ-01-311`.
+  - `status_review.blocked_task_ids`, `status_review.pending_evidence_ids`, and `status_review.open_decision_ids` MUST use the exact `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is the patched coordination field and the server derives `references_record` routing from that field key under `REQ-01-311`.
   - Accepted targets are same-incident active `task_request` for `status_review.blocked_task_ids`, same-incident active `evidence` for `status_review.pending_evidence_ids`, and same-incident active `decision` for `status_review.open_decision_ids`.
   - Duplicate adds for the same patched `record_id`, `linked_record_id`, and active `field_key` MUST coalesce to one surviving logical reference binding. Removal MUST target `item_ref` only. A target from another incident, a target of the wrong `record_type`, a soft-deleted target, or an invalid or foreign `item_ref` MUST fail with `400 Bad Request` and `error.code = invalid_mutation_payload`.
 - read-only computed or system-managed fields: `status_review.status_review_id`, `status_review.timestamp_day`, `status_review.next_report_day`, `status_review.updated_at`
@@ -8881,7 +8935,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-283, AC-300, AC-301, AC-302, AC-
   - `lesson.follow_up_task_ids`: read linked follow-up task references; write action upsert or remove same-incident `task_request` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
   - `lesson.evidence_refs`: read linked evidence references; write action upsert or remove same-incident `evidence` references using the `record_ref` family defined below; `conflict_resolution_class=collection_review`
 - collection-review wire contract:
-  - `lesson.follow_up_task_ids` and `lesson.evidence_refs` MUST use the exact `collection_value_v1` item shape and `collection_actions_v1` action vocabulary defined for `assessment.support_refs` in `REQ-01-333` and `REQ-01-334`, except the active `field_key` is `lesson.follow_up_task_ids` or `lesson.evidence_refs` and the server derives `references_record` routing from that field key under `REQ-01-311`.
+  - `lesson.follow_up_task_ids` and `lesson.evidence_refs` MUST use the exact `collection_value_v1` item shape in `REQ-01-333` and the existing-row record-reference patch action vocabulary in `REQ-01-334`, except the active `field_key` is `lesson.follow_up_task_ids` or `lesson.evidence_refs` and the server derives `references_record` routing from that field key under `REQ-01-311`.
   - Accepted targets are same-incident active `task_request` for `lesson.follow_up_task_ids` and same-incident active `evidence` for `lesson.evidence_refs`.
   - Duplicate adds for the same patched `record_id`, `linked_record_id`, and active `field_key` MUST coalesce to one surviving logical reference binding. Removal MUST target `item_ref` only. A target from another incident, a target of the wrong `record_type`, a soft-deleted target, or an invalid or foreign `item_ref` MUST fail with `400 Bad Request` and `error.code = invalid_mutation_payload`.
 - read-only computed or system-managed fields: `lesson.lesson_id`, `lesson.timestamp_day`, `lesson.updated_at`

@@ -253,45 +253,38 @@
         "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "assessment.support_refs.manage",
-        "panel_id": "relationships",
-        "label": "Assessment Support Refs Manage",
+        "feature_group_key": "create_related.assessment",
+        "panel_id": "workflow",
+        "label": "Create Related Assessment",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
-          "action_key": "assessment.support_refs.manage"
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.assessments.v1",
+          "action_key": "create_related.assessment"
         },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
+        "seed_bindings": [
+          {
+            "target_field_key": "assessment.subject_ref",
+            "source": {
+              "kind": "selected_field_value",
+              "source_field_key": "assessment.subject_ref"
+            }
+          },
+          {
+            "target_field_key": "assessment.subject_type",
+            "source": {
+              "kind": "selected_field_value",
+              "source_field_key": "assessment.subject_type"
+            }
+          }
         ],
-        "success_result_behavior": "preserve_selected_row",
-        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
-      },
-      {
-        "feature_group_key": "evidence.refs.manage",
-        "panel_id": "relationships",
-        "label": "Evidence Refs Manage",
-        "minimum_incident_role": "editor",
-        "mutates": true,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
-          "action_key": "evidence.refs.manage"
-        },
-        "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
+          "authorization_lost"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
@@ -372,7 +365,7 @@
       "entity_binding_mode": null,
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
-      "direct_reference_contract_id": null,
+      "direct_reference_contract_id": "same_incident_record_ref_v1",
       "clearable": false,
       "enum_values": null,
       "writable": false,
@@ -531,7 +524,7 @@
       "entity_binding_mode": null,
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
-      "direct_reference_contract_id": null,
+      "direct_reference_contract_id": "incident_member_user_ref_v1",
       "clearable": false,
       "enum_values": null,
       "writable": false,

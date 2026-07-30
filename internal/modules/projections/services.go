@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -164,15 +165,32 @@ func (r *EntityRows) RebuildIdentitiesTx(ctx context.Context, tx pgx.Tx, inciden
 
 type AssessmentRows struct {
 	store    *Store
+	source   AssessmentSource
 	surfaces map[string]genericSurface
 }
 
-func NewAssessmentRows(pool postgres.DB, querySurfaces ...providercontract.QuerySurface) *AssessmentRows {
-	return &AssessmentRows{store: NewStore(pool, nil), surfaces: rowQuerySurfaces(querySurfaces)}
+func NewAssessmentRows(
+	pool postgres.DB,
+	source AssessmentSource,
+	querySurfaces ...providercontract.QuerySurface,
+) *AssessmentRows {
+	return &AssessmentRows{
+		store:    NewStore(pool, nil),
+		source:   source,
+		surfaces: rowQuerySurfaces(querySurfaces),
+	}
 }
 
 func (r *AssessmentRows) RefreshTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return r.store.refreshAssessmentTxCore(ctx, tx, recordID)
+	return r.store.refreshAssessmentTxCore(ctx, tx, recordID, r.source)
+}
+
+func (r *AssessmentRows) ApplyMutationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	mutation assessmentprojection.ProjectionMutation,
+) error {
+	return r.store.ApplyAssessmentMutationTx(ctx, tx, mutation)
 }
 
 func (r *AssessmentRows) LoadTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {

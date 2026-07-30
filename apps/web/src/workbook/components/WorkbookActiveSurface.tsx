@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import type { AssessmentApiRow } from "../models/assessmentWorkbookModel";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import type { WorkbookQueryLoadState } from "../models/workbookGridState";
 import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
@@ -32,7 +33,7 @@ export type WorkbookActiveSurfaceProps = {
   readonly apiBase?: string | undefined;
   readonly assessmentLoadState: WorkbookQueryLoadState;
   readonly assessmentQueryState: WorkbookQueryState;
-  readonly assessmentRows: EntityApiRow[];
+  readonly assessmentRows: AssessmentApiRow[];
   readonly authorizationEpoch: string;
   readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: WorkbookIncidentRole | null;

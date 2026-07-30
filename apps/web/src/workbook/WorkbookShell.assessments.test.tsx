@@ -7,9 +7,13 @@ import {
   gridFilterValueTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  rowCellTestId,
   surfaceTabTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookInspectorCloseButtonTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -21,13 +25,14 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
 import {
+  errorEnvelope,
   timelineRow as fullTimelineRow,
   successEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
 import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
-} from "./timeline/models/workbookTimelineModel";
+} from "./models/assessmentWorkbookModel";
 import { WorkbookShell } from "./WorkbookShell";
 
 vi.mock(
@@ -204,12 +209,15 @@ describe("Assessment workbook surface", () => {
         url.includes(`/views/${assessmentsViewSchemaId}/rows`) &&
         init?.method === "POST"
       ) {
-        createdRows.push(assessmentRow());
+        const createdRow = assessmentRow({
+          supportRecordIds: ["support-1"],
+        });
+        createdRows.push(createdRow);
         return successEnvelope(
           {
             view_schema_id: assessmentsViewSchemaId,
             change_set_id: "change-set-1",
-            row: assessmentRow(),
+            row: createdRow,
           },
           201,
         );
@@ -311,6 +319,310 @@ describe("Assessment workbook surface", () => {
     expect(assessmentGrid.textContent).toContain("confirmed");
     expect(assessmentGrid.textContent).toContain("high");
     expect(assessmentGrid.textContent).toContain("1");
+  });
+
+  it("preserves stable selection and an editable subject-only follow-on draft", async () => {
+    const original = assessmentRow({
+      recordId: "assessment-original",
+      state: "confirmed",
+      supportRecordIds: ["evidence-non-timeline"],
+    });
+    const filtered = assessmentRow({
+      recordId: "assessment-filtered",
+      state: "cleared",
+    });
+    const created = assessmentRow({
+      recordId: "assessment-follow-on",
+      state: "suspected",
+    });
+    const assessmentRows = [original, filtered];
+    const createBodies: Record<string, unknown>[] = [];
+    let createAttempt = 0;
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/auth/session")) {
+        return successEnvelope({
+          user_id: "user-1",
+          memberships: [{ incident_id: "incident-1", role: "admin" }],
+        });
+      }
+      if (url.endsWith("/api/v1/incidents/incident-1")) {
+        return successEnvelope({
+          incident_id: "incident-1",
+          incident_key: "IR-1",
+          title: "Incident 1",
+          description: null,
+          severity: null,
+          tlp: null,
+          current_phase: null,
+          primary_external_case_ref: null,
+          incident_version: 1,
+        });
+      }
+      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+        return successEnvelope({
+          memberships: [
+            {
+              incident_id: "incident-1",
+              user_id: "user-1",
+              display_name: "Admin User",
+              role: "admin",
+              membership_version: 1,
+            },
+          ],
+        });
+      }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+        return successEnvelope({
+          default_sheet_ref: null,
+          home_sheet_ref: null,
+        });
+      }
+      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        return assessmentWorkbookStartup();
+      }
+      if (url.includes("/api/v1/incidents/incident-1/saved-views")) {
+        return successEnvelope({ saved_views: [] });
+      }
+      if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: hostsViewSchemaId,
+          rows: [hostRow()],
+        });
+      }
+      if (url.includes(`/views/${identitiesViewSchemaId}/query`)) {
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: identitiesViewSchemaId,
+          rows: [],
+        });
+      }
+      if (url.includes(`/views/${timelineViewSchemaId}/query`)) {
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [timelineRow()],
+        });
+      }
+      if (
+        url.includes(`/views/${assessmentsViewSchemaId}/rows`) &&
+        init?.method === "POST"
+      ) {
+        createAttempt += 1;
+        createBodies.push(
+          JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>,
+        );
+        if (createAttempt === 1) {
+          return errorEnvelope("invalid_mutation_payload", 400);
+        }
+        if (createAttempt === 2) {
+          return errorEnvelope("authorization_denied", 403);
+        }
+        assessmentRows.push(created);
+        return successEnvelope(
+          {
+            view_schema_id: assessmentsViewSchemaId,
+            change_set_id: "change-set-follow-on",
+            row: created,
+          },
+          201,
+        );
+      }
+      if (url.includes(`/views/${assessmentsViewSchemaId}/query`)) {
+        const state = assessmentStateFilterValue(parseRequestBody(init));
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: assessmentsViewSchemaId,
+          rows:
+            state === null
+              ? assessmentRows
+              : assessmentRows.filter(
+                  (row) =>
+                    row.cells["assessment.assessment_state"]?.value === state,
+                ),
+        });
+      }
+      return successEnvelope({});
+    });
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    const originalCell = await screen.findByTestId(
+      rowCellTestId("assessment-original", "assessment.assessment_state"),
+    );
+    fireEvent.click(originalCell);
+    expect(originalCell.closest("tr")?.getAttribute("aria-current")).toBe(
+      "true",
+    );
+
+    applyAssessmentStateFilter("cleared");
+    await expectAssessmentRecordIds(["assessment-filtered"]);
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorToggleTestId(assessmentsViewSchemaId),
+      ),
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorFeatureActionTestId(
+          assessmentsViewSchemaId,
+          "create_related.assessment",
+        ),
+      ),
+    );
+
+    expect(screen.getByText("Append follow-on assessment")).toBeTruthy();
+    expect(screen.getByText(/evidence-non-timeline/u)).toBeTruthy();
+    expect(assessmentControlValue("subject")).toBe("host-1");
+    expect(assessmentControlValue("subject-type")).toBe("host");
+    expect(assessmentControlValue("state")).toBe("unknown");
+    expect(assessmentControlValue("confidence-band")).toBe("unset");
+    expect(assessmentControlValue("rationale")).toBe("");
+    expect(assessmentControlValue("assessed-at")).toBe("");
+    const initialSupportPicker = screen.getByTestId(
+      assessmentCreateControlTestId("support-refs"),
+    ) as HTMLSelectElement;
+    expect(Array.from(initialSupportPicker.selectedOptions)).toHaveLength(0);
+    expect(
+      Array.from(initialSupportPicker.options).map((option) => ({
+        label: option.text,
+        value: option.value,
+      })),
+    ).toEqual([
+      {
+        label: "Supporting timeline row",
+        value: "support-1",
+      },
+    ]);
+
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("rationale")),
+      { target: { value: "Cancelled rationale" } },
+    );
+    fireEvent.keyDown(screen.getByTestId(assessmentCreatePanelTestId()), {
+      key: "Escape",
+    });
+    expect(screen.queryByTestId(assessmentCreatePanelTestId())).toBeNull();
+    expect(createAttempt).toBe(0);
+
+    fireEvent.click(
+      screen.getByTestId(
+        gridFilterChipTestId(
+          assessmentsViewSchemaId,
+          "assessment.assessment_state",
+        ),
+      ),
+    );
+    const restoredOriginalCell = await screen.findByTestId(
+      rowCellTestId("assessment-original", "assessment.assessment_state"),
+    );
+    expect(
+      restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
+    ).toBe("true");
+
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorToggleTestId(assessmentsViewSchemaId),
+      ),
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorFeatureActionTestId(
+          assessmentsViewSchemaId,
+          "create_related.assessment",
+        ),
+      ),
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("state")),
+      { target: { value: "suspected" } },
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("rationale")),
+      { target: { value: "Fresh follow-on rationale" } },
+    );
+    const followOnSupportPicker = screen.getByTestId(
+      assessmentCreateControlTestId("support-refs"),
+    ) as HTMLSelectElement;
+    const supportOption = followOnSupportPicker.options.item(0);
+    expect(supportOption).not.toBeNull();
+    (supportOption as HTMLOptionElement).selected = true;
+    fireEvent.change(followOnSupportPicker);
+
+    fireEvent.click(
+      screen.getByTestId(assessmentCreateControlTestId("submit")),
+    );
+    await screen.findByText("invalid_mutation_payload");
+    expect(assessmentControlValue("rationale")).toBe(
+      "Fresh follow-on rationale",
+    );
+    expect(selectedAssessmentSupportRecordIds()).toEqual(["support-1"]);
+    expect(
+      restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
+    ).toBe("true");
+
+    fireEvent.click(
+      screen.getByTestId(assessmentCreateControlTestId("submit")),
+    );
+    await screen.findByText("authorization_denied");
+    expect(assessmentControlValue("rationale")).toBe(
+      "Fresh follow-on rationale",
+    );
+
+    fireEvent.click(
+      screen.getByTestId(assessmentCreateControlTestId("submit")),
+    );
+    await screen.findByText("Assessment created.");
+    await screen.findByTestId(
+      rowCellTestId("assessment-follow-on", "assessment.assessment_state"),
+    );
+    expect(
+      restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
+    ).toBe("true");
+    expect(assessmentControlValue("rationale")).toBe("");
+    expect(selectedAssessmentSupportRecordIds()).toEqual([]);
+
+    expect(createBodies[0]).toMatchObject({
+      "assessment.subject_ref": "host-1",
+      "assessment.subject_type": "host",
+      "assessment.assessment_state": "suspected",
+      "assessment.confidence_score": null,
+      "assessment.rationale": "Fresh follow-on rationale",
+    });
+    expect(createBodies[0]).not.toHaveProperty("assessment.assessed_at");
+    expect(createBodies[0]).not.toHaveProperty("assessment.assessor");
+    expect(createBodies[0]).not.toHaveProperty("assessment.supersedes");
+    expect(createBodies[0]).not.toHaveProperty("supersedes");
+    expect(createBodies[0]?.["assessment.support_refs"]).toEqual({
+      kind: "collection_actions_v1",
+      actions: [
+        {
+          op: "add_record_ref",
+          linked_record_id: "support-1",
+        },
+      ],
+    });
+    expect(assessmentPayloadWithoutClientTxn(createBodies[1])).toEqual(
+      assessmentPayloadWithoutClientTxn(createBodies[0]),
+    );
+    expect(assessmentPayloadWithoutClientTxn(createBodies[2])).toEqual(
+      assessmentPayloadWithoutClientTxn(createBodies[0]),
+    );
+    expect(new Set(createBodies.map((body) => body.client_txn_id)).size).toBe(
+      3,
+    );
+
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorCloseButtonTestId(assessmentsViewSchemaId),
+      ),
+    );
+    expect(screen.queryByTestId(assessmentCreatePanelTestId())).toBeNull();
+    expect(
+      restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("ignores superseded assessment query responses after rapid filter changes", async () => {
@@ -617,9 +929,16 @@ function timelineRow() {
   });
 }
 
-function assessmentRow(options: { recordId?: string; state?: string } = {}) {
+function assessmentRow(
+  options: {
+    recordId?: string;
+    state?: string;
+    supportRecordIds?: string[];
+  } = {},
+) {
   const recordId = options.recordId ?? "assessment-1";
   const state = options.state ?? "confirmed";
+  const supportRecordIds = options.supportRecordIds ?? [];
   return {
     record_id: recordId,
     row_version: 1,
@@ -633,9 +952,17 @@ function assessmentRow(options: { recordId?: string; state?: string } = {}) {
       "assessment.assessor": { value: "user-1" },
       "assessment.assessed_at": { value: "2026-04-24T12:00:00Z" },
       "assessment.support_refs": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
+        value: {
+          kind: "collection_value_v1",
+          ordered: false,
+          items: supportRecordIds.map((supportRecordId) => ({
+            item_ref: `support:${supportRecordId}`,
+            item_kind: "record_ref",
+            linked_record_id: supportRecordId,
+          })),
+        },
       },
-      "assessment.supporting_link_count": { value: 1 },
+      "assessment.supporting_link_count": { value: supportRecordIds.length },
     },
   };
 }
@@ -729,6 +1056,34 @@ function currentRecordIds(surface: Parameters<typeof gridShellTestId>[0]) {
   return Array.from(grid.querySelectorAll(gridSavedRowsSelector())).map(
     (row) => row.getAttribute("data-grid-record-id") ?? "",
   );
+}
+
+function assessmentControlValue(
+  control: Parameters<typeof assessmentCreateControlTestId>[0],
+): string {
+  return (
+    screen.getByTestId(assessmentCreateControlTestId(control)) as
+      | HTMLInputElement
+      | HTMLSelectElement
+      | HTMLTextAreaElement
+  ).value;
+}
+
+function selectedAssessmentSupportRecordIds(): string[] {
+  const picker = screen.getByTestId(
+    assessmentCreateControlTestId("support-refs"),
+  ) as HTMLSelectElement;
+  return Array.from(picker.selectedOptions).map((option) => option.value);
+}
+
+function assessmentPayloadWithoutClientTxn(
+  payload: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (payload === undefined) {
+    return {};
+  }
+  const { client_txn_id: _clientTxnId, ...semanticPayload } = payload;
+  return semanticPayload;
 }
 
 async function flushMicrotasks() {

@@ -582,11 +582,68 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 			t.Fatalf("%s inspector feature registry:\ngot  %#v\nwant %#v", resource.ViewSchemaID, gotFeatureKeys, expected)
 		}
 	}
+	if resource.ViewSchemaID == "cartulary.view.assessments.v1" {
+		requireAssessmentCreateRelatedFeature(t, config)
+	}
+}
+
+func requireAssessmentCreateRelatedFeature(t testing.TB, config InspectorConfig) {
+	t.Helper()
+
+	var matches []InspectorFeatureGroup
+	for _, group := range config.FeatureGroups {
+		if group.FeatureGroupKey == "create_related.assessment" {
+			matches = append(matches, group)
+		}
+		if group.FeatureGroupKey == "assessment.support_refs.manage" || group.FeatureGroupKey == "evidence.refs.manage" {
+			t.Fatalf("assessment inspector retains contradictory mutation feature %q", group.FeatureGroupKey)
+		}
+	}
+	if len(matches) != 1 {
+		t.Fatalf("assessment inspector create_related.assessment count = %d, want 1", len(matches))
+	}
+	group := matches[0]
+	if group.PanelID != "workflow" || group.Label != "Create Related Assessment" || group.MinimumIncidentRole == nil || *group.MinimumIncidentRole != "editor" {
+		t.Fatalf("assessment follow-on presentation/role mismatch: %#v", group)
+	}
+	if !group.Mutates || group.RequiresConfirmation {
+		t.Fatalf("assessment follow-on mutation/confirmation mismatch: %#v", group)
+	}
+	if group.RouteBinding.Kind != "view_row_create" ||
+		group.RouteBinding.Owner != "view_row_create_route" ||
+		group.RouteBinding.TargetViewSchemaID != "cartulary.view.assessments.v1" ||
+		group.RouteBinding.ActionKey != "create_related.assessment" {
+		t.Fatalf("assessment follow-on route mismatch: %#v", group.RouteBinding)
+	}
+	wantSeeds := []InspectorSeedBinding{
+		{
+			TargetFieldKey: "assessment.subject_ref",
+			Source: InspectorSeedSource{
+				Kind:           "selected_field_value",
+				SourceFieldKey: "assessment.subject_ref",
+			},
+		},
+		{
+			TargetFieldKey: "assessment.subject_type",
+			Source: InspectorSeedSource{
+				Kind:           "selected_field_value",
+				SourceFieldKey: "assessment.subject_type",
+			},
+		},
+	}
+	if !reflect.DeepEqual(group.SeedBindings, wantSeeds) {
+		t.Fatalf("assessment follow-on seed bindings:\ngot  %#v\nwant %#v", group.SeedBindings, wantSeeds)
+	}
+	if !slices.Equal(group.DisabledWhen, []string{"no_row_selected", "incident_closed", "authorization_lost"}) ||
+		group.SuccessResultBehavior != "preserve_selected_row" ||
+		group.FailureResultBehavior != "show_same_shell_error_invalidate_pending_action" {
+		t.Fatalf("assessment follow-on lifecycle mismatch: %#v", group)
+	}
 }
 
 func expectedInspectorFeatureRegistry() map[string][]string {
 	return map[string][]string{
-		"cartulary.view.assessments.v1":           {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "assessment.subject_pivot", "assessment.prior_history", "assessment.support_refs.manage", "evidence.refs.manage", "create_related.task_request", "create_related.decision"},
+		"cartulary.view.assessments.v1":           {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "assessment.subject_pivot", "assessment.prior_history", "create_related.assessment", "create_related.task_request", "create_related.decision"},
 		"cartulary.view.comm_log.v1":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "comm.decisions.link", "comm.action_tasks.link", "comm.parties.manage", "comm.next_report.manage", "create_related.task_request", "create_related.status_review"},
 		"cartulary.view.decisions.v1":             {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "decision.support_refs.manage", "decision.affected_records.manage", "decision.status.transition", "decision.supersede", "create_related.task_request", "create_related.comm_log", "create_related.status_review"},
 		"cartulary.view.evidence.v1":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "evidence.preview_handle", "evidence.download_handle", "evidence.attach_blob", "party.collector.link", "party.source.link", "party.reference.clear", "relationships.manage", "surface_pivot.linked_records", "surface_pivot.timeline", "create_related.note", "create_related.task_request", "create_related.decision"},
