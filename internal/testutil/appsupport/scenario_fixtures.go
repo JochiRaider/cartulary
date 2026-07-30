@@ -3,9 +3,7 @@ package appsupport
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,9 +12,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -97,382 +93,6 @@ func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecor
 	return result.Incident
 }
 
-func SeedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) authn.UserRecord {
-	t.Helper()
-
-	hash, err := authn.HashPassword(password)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	var record authn.UserRecord
-	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at, user_version
-`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(
-		&record.ID,
-		&record.Email,
-		&record.DisplayName,
-		&record.PasswordHash,
-		&record.MFARequired,
-		&record.IsActive,
-		&record.IsDeploymentAdmin,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.UserVersion,
-	); err != nil {
-		t.Fatalf("seed local user with flags: %v", err)
-	}
-	return record
-}
-
-func SeedIncidentMembership(t testing.TB, db *sql.DB, incidentID uuid.UUID, userID uuid.UUID, displayName string, role string, addedByUserID uuid.UUID) {
-	t.Helper()
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incident_memberships (
-    incident_id,
-    user_id,
-    role,
-    joined_at,
-    added_by_user_id,
-    updated_at,
-    updated_by_user_id,
-    membership_version
-)
-VALUES ($1, $2, $3, now(), $4, now(), $4, 1)
-ON CONFLICT (incident_id, user_id) DO UPDATE
-SET role = EXCLUDED.role,
-    updated_at = now(),
-    updated_by_user_id = EXCLUDED.updated_by_user_id
-`, incidentID, userID, role, addedByUserID); err != nil {
-		t.Fatalf("seed incident membership: %v", err)
-	}
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
-VALUES ($1, $2, NULL, now(), now())
-ON CONFLICT (incident_id, user_id) DO NOTHING
-`, incidentID, userID); err != nil {
-		t.Fatalf("seed user workbook preferences: %v", err)
-	}
-
-	_ = displayName
-}
-
-func SeedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
-	t.Helper()
-	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
-
-	var (
-		fqdnValue      any
-		aadDeviceValue any
-	)
-	if fqdn != "" {
-		fqdnValue = fqdn
-	}
-	if aadDeviceID != "" {
-		aadDeviceValue = aadDeviceID
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO hosts (record_id, incident_id, display_name, hostname, fqdn, aad_device_id, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
-`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue, actorUserID); err != nil {
-		t.Fatalf("seed host record: %v", err)
-	}
-}
-
-func SeedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
-	t.Helper()
-	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
-`, recordID, incidentID, displayName, upn, email, samAccountName, actorUserID); err != nil {
-		t.Fatalf("seed identity record: %v", err)
-	}
-}
-
-func SeedEntityAlias(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, entityType string, rawText string) {
-	t.Helper()
-
-	normalized, ok := fieldnorm.NormalizeLine(rawText)
-	if !ok {
-		t.Fatalf("normalize entity alias %q", rawText)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO entity_aliases (incident_id, record_id, entity_type, raw_text, normalized_text, classification, created_by_user_id, created_at)
-VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
-`, incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
-		t.Fatalf("seed entity alias: %v", err)
-	}
-}
-
-func SeedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
-	t.Helper()
-	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'record-support-source-row', 'reviewed', $3, $3)
-`, recordID, incidentID, actorUserID); err != nil {
-		t.Fatalf("seed timeline record: %v", err)
-	}
-}
-
-func SeedResolvedMention(t testing.TB, db *sql.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, resolvedRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string) {
-	t.Helper()
-
-	SeedMention(t, db, actorUserID, mentionID, sourceRecordID, sourceFieldKey, entityType, rawText, "resolved", &resolvedRecordID, resolutionMethodPointer("explicit_resolve_route"))
-}
-
-func SeedMention(t testing.TB, db *sql.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string, resolutionStatus string, resolvedRecordID *uuid.UUID, resolutionMethod *string) {
-	t.Helper()
-
-	var (
-		resolvedByUserID any
-		resolvedAt       any
-		methodValue      any
-	)
-	if resolvedRecordID != nil {
-		resolvedByUserID = actorUserID
-		resolvedAt = time.Now().UTC()
-		methodValue = resolutionMethod
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO entity_mentions (
-    entity_mention_id,
-    source_record_id,
-    entity_type,
-    source_field_key,
-    origin_kind,
-    origin_locator,
-    raw_text,
-    normalized_text,
-    resolution_status,
-    row_version,
-    ordinal,
-    created_by_user_id,
-    resolved_record_id,
-    resolved_by_user_id,
-    resolved_at,
-    resolution_method
-)
-VALUES ($1, $2, $3, $4, 'manual_entry', 'workbook-scenario-support', $5, $6, $7, 1, 1, $8, $9, $10, $11, $12)
-`, mentionID, sourceRecordID, entityType, sourceFieldKey, rawText, strings.ToLower(strings.TrimSpace(rawText)), resolutionStatus, actorUserID, resolvedRecordID, resolvedByUserID, resolvedAt, methodValue); err != nil {
-		t.Fatalf("seed mention: %v", err)
-	}
-}
-
-func SeedRecordLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordLinkID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int) {
-	t.Helper()
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_links (
-    record_link_id,
-    incident_id,
-    src_record_id,
-    dst_record_id,
-    link_type,
-    provenance,
-    confidence,
-    owner_user_id,
-    created_by_user_id,
-    decided_at,
-    created_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, now(), now())
-`, recordLinkID, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, actorUserID); err != nil {
-		t.Fatalf("seed record link: %v", err)
-	}
-}
-
-func SeedRecordTag(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordTagID uuid.UUID, recordID uuid.UUID, tagName string) {
-	t.Helper()
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-`, recordTagID, incidentID, recordID, tagName, tagName, actorUserID); err != nil {
-		t.Fatalf("seed record tag: %v", err)
-	}
-}
-
-func SeedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
-	t.Helper()
-	SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)
-VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6)
-`, assessmentID, incidentID, subjectID, subjectType, state, actorUserID); err != nil {
-		t.Fatalf("seed assessment: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO assessment_grid_projection (
-    record_id,
-    incident_id,
-    row_version,
-    subject_ref,
-    subject_type,
-    assessment_state,
-    confidence_band,
-    rationale,
-    assessor,
-    assessed_at,
-    supporting_link_count
-)
-SELECT a.record_id, a.incident_id, r.row_version, a.subject_record_id, a.subject_type, a.assessment_state, 'unset', a.rationale, a.assessor_user_id, a.assessed_at, 0
-  FROM assessments a
-  JOIN records r ON r.record_id = a.record_id
- WHERE a.record_id = $1
-ON CONFLICT (record_id) DO NOTHING
-`, assessmentID); err != nil {
-		t.Fatalf("seed assessment projection: %v", err)
-	}
-}
-
-func SeedRecordEnvelope(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, recordType string) {
-	t.Helper()
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $4)
-ON CONFLICT (record_id) DO NOTHING
-`, recordID, incidentID, recordType, actorUserID); err != nil {
-		t.Fatalf("seed record envelope: %v", err)
-	}
-}
-
-func LookupHostState(t testing.TB, db *sql.DB, recordID uuid.UUID) (string, *uuid.UUID, int64, string) {
-	t.Helper()
-
-	var (
-		state         string
-		mergedIntoRaw sql.NullString
-		rowVersion    int64
-		fqdn          sql.NullString
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT host_state, merged_into_record_id::text, row_version, COALESCE(fqdn, '')
-  FROM hosts
- WHERE record_id = $1
-`, recordID).Scan(&state, &mergedIntoRaw, &rowVersion, &fqdn); err != nil {
-		t.Fatalf("lookup host state: %v", err)
-	}
-	var mergedInto *uuid.UUID
-	if mergedIntoRaw.Valid {
-		value := MustUUID(t, mergedIntoRaw.String)
-		mergedInto = &value
-	}
-	return state, mergedInto, rowVersion, fqdn.String
-}
-
-func LookupMention(t testing.TB, db *sql.DB, mentionID uuid.UUID) fixtures.EntityMentionFixture {
-	t.Helper()
-
-	var mention fixtures.EntityMentionFixture
-	var (
-		mentionIDRaw     string
-		sourceRecordID   string
-		resolvedRecordID sql.NullString
-		resolvedByUserID sql.NullString
-		resolvedAt       sql.NullTime
-		resolutionMethod sql.NullString
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_status, row_version, resolved_record_id::text, resolved_by_user_id::text, resolved_at, resolution_method
-  FROM entity_mentions
- WHERE entity_mention_id = $1
-`, mentionID).Scan(
-		&mentionIDRaw,
-		&sourceRecordID,
-		&mention.RawText,
-		&mention.ResolutionStatus,
-		&mention.RowVersion,
-		&resolvedRecordID,
-		&resolvedByUserID,
-		&resolvedAt,
-		&resolutionMethod,
-	); err != nil {
-		t.Fatalf("lookup mention: %v", err)
-	}
-
-	mention.EntityMentionID = MustUUID(t, mentionIDRaw)
-	mention.SourceRecordID = MustUUID(t, sourceRecordID)
-	if resolvedRecordID.Valid {
-		value := MustUUID(t, resolvedRecordID.String)
-		mention.ResolvedRecordID = &value
-	}
-	if resolvedByUserID.Valid {
-		value := MustUUID(t, resolvedByUserID.String)
-		mention.ResolvedByUserID = &value
-	}
-	if resolvedAt.Valid {
-		value := resolvedAt.Time.UTC()
-		mention.ResolvedAt = &value
-	}
-	if resolutionMethod.Valid {
-		value := resolutionMethod.String
-		mention.ResolutionMethod = &value
-	}
-	return mention
-}
-
-func LookupActiveLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) fixtures.LinkFixture {
-	t.Helper()
-
-	var (
-		link        fixtures.LinkFixture
-		confidence  sql.NullInt64
-		deletedAt   sql.NullTime
-		recordLink  string
-		incidentRaw string
-		sourceRaw   string
-		targetRaw   string
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_id::text, link_type, provenance, confidence, deleted_at
-  FROM record_links
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND dst_record_id = $3
-   AND link_type = $4
-   AND deleted_at IS NULL
-`, incidentID, sourceID, targetID, linkType).Scan(&recordLink, &incidentRaw, &sourceRaw, &targetRaw, &link.LinkType, &link.Provenance, &confidence, &deletedAt); err != nil {
-		t.Fatalf("lookup active link: %v", err)
-	}
-	link.RecordLinkID = MustUUID(t, recordLink)
-	link.IncidentID = MustUUID(t, incidentRaw)
-	link.SourceID = MustUUID(t, sourceRaw)
-	link.TargetID = MustUUID(t, targetRaw)
-	if confidence.Valid {
-		value := int(confidence.Int64)
-		link.Confidence = &value
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		link.DeletedAt = &value
-	}
-	return link
-}
-
-func LookupAssessmentSubject(t testing.TB, db *sql.DB, assessmentID uuid.UUID) uuid.UUID {
-	t.Helper()
-
-	var subjectID string
-	if err := db.QueryRowContext(context.Background(), `
-SELECT subject_record_id::text
-  FROM assessments
- WHERE record_id = $1
-`, assessmentID).Scan(&subjectID); err != nil {
-		t.Fatalf("lookup assessment subject: %v", err)
-	}
-	return MustUUID(t, subjectID)
-}
-
 func RequireSuccessData(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
 	t.Helper()
 
@@ -498,11 +118,20 @@ func MustUUID(t testing.TB, value string) uuid.UUID {
 	return parsed
 }
 
-func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
+func QueryCount(t testing.TB, db any, query string, args ...any) int {
 	t.Helper()
 
 	var count int
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
+	var err error
+	switch typed := db.(type) {
+	case *sql.DB:
+		err = typed.QueryRowContext(context.Background(), query, args...).Scan(&count)
+	case postgres.DB:
+		err = typed.QueryRow(context.Background(), query, args...).Scan(&count)
+	default:
+		t.Fatalf("query count requires *sql.DB or postgres.DB, got %T", db)
+	}
+	if err != nil {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
@@ -585,27 +214,4 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 		t.Fatalf("generate totp code: %v", err)
 	}
 	return code
-}
-
-func resolutionMethodPointer(value string) *string {
-	return &value
-}
-
-func SerializeActiveLinkRead(t testing.TB, link fixtures.LinkFixture) map[string]any {
-	t.Helper()
-
-	data, err := json.Marshal(map[string]any{
-		"record_link_id": link.RecordLinkID.String(),
-		"provenance":     link.Provenance,
-		"confidence":     link.Confidence,
-	})
-	if err != nil {
-		t.Fatalf("marshal active link helper read: %v", err)
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
-		t.Fatalf("unmarshal active link helper read: %v", err)
-	}
-	return payload
 }

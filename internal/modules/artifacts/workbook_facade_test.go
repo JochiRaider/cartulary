@@ -7,15 +7,17 @@ import (
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "artifacts-workbook-facade-note")
-	actor := recordstoretest.SeedLocalUserFlags(
+	harness := appsupport.StartStore(t, "artifacts-workbook-facade-note")
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"artifact-owner@example.test",
@@ -25,7 +27,7 @@ func TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit(t *testing.T) {
 		false,
 		true,
 	)
-	incident := recordstoretest.CreateIncidentInStore(
+	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
 		actor,
@@ -109,7 +111,7 @@ SELECT count(*)
 
 func requireCount(
 	t testing.TB,
-	harness *recordstoretest.StoreHarness,
+	harness *appsupport.StoreHarness,
 	query string,
 	argsAndWant ...any,
 ) {

@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -23,10 +24,10 @@ import (
 
 func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-task-requests")
+	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-task-requests")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-task@example.test", "TaskDecision Task", "TaskDecisionTask1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-incident", "IR-TASK-DECISION-TASK", "Workbook inspector task and decision workflow task requests")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-task@example.test", "TaskDecision Task", "TaskDecisionTask1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-incident", "IR-TASK-DECISION-TASK", "Workbook inspector task and decision workflow task requests")
 
 	beforeRecords := countRecords(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -173,7 +174,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 		t.Fatalf("task decision direct link after reset: got %d want 1", got)
 	}
 	requireManualReferenceLink(t, harness.DB, taskID, decision, "task.decision_record_id", "references_record")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-other-incident", "IR-TASK-DECISION-TASK-OTHER", "Workbook inspector task and decision workflow task requests other")
+	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-other-incident", "IR-TASK-DECISION-TASK-OTHER", "Workbook inspector task and decision workflow task requests other")
 	foreignDecision := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-workbook_interaction-task-decision-task-foreign-decision", "approved", "Foreign decision")
 	deletedDecision := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-task-decision-task-deleted-decision", "approved", "Deleted decision")
 	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedDecision, Time(20*time.Minute), actor.ID); err != nil {
@@ -222,10 +223,10 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 
 func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-task-guard-failures")
+	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-task-guard-failures")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-task-guards@example.test", "TaskDecision Task Guards", "TaskDecisionTaskGuards1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-guard-incident", "IR-TASK-DECISION-TASK-GUARDS", "Workbook inspector task and decision workflow task guard failures")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-task-guards@example.test", "TaskDecision Task Guards", "TaskDecisionTaskGuards1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-guard-incident", "IR-TASK-DECISION-TASK-GUARDS", "Workbook inspector task and decision workflow task guard failures")
 
 	beforeCreatedAt := Time(-time.Hour)
 	for _, tc := range []struct {
@@ -324,10 +325,10 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 
 func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decisions")
+	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decisions")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision@example.test", "TaskDecision Decision", "TaskDecisionDecision1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-incident", "IR-TASK-DECISION-DECISION", "Workbook inspector task and decision workflow decisions")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision@example.test", "TaskDecision Decision", "TaskDecisionDecision1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-incident", "IR-TASK-DECISION-DECISION", "Workbook inspector task and decision workflow decisions")
 
 	beforeRecords := countRecords(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -510,10 +511,10 @@ INSERT INTO record_links (
 
 func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decision-supersede-inconsistent")
+	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decision-supersede-inconsistent")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision-supersede-inconsistent@example.test", "TaskDecision Decision Supersede Inconsistent", "TaskDecisionDecisionSupersede1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-supersede-inconsistent-incident", "IR-TASK-DECISION-DECISION-SUPERSEDE-INCONSISTENT", "Workbook inspector task and decision workflow decision supersede inconsistent")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision-supersede-inconsistent@example.test", "TaskDecision Decision Supersede Inconsistent", "TaskDecisionDecisionSupersede1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-supersede-inconsistent-incident", "IR-TASK-DECISION-DECISION-SUPERSEDE-INCONSISTENT", "Workbook inspector task and decision workflow decision supersede inconsistent")
 
 	inconsistentSource := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-source", "proposed", "Inconsistent source")
 	sourceExistingTarget := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-source-existing-target", "proposed", "Existing target")
@@ -575,10 +576,10 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 }
 
 func TestDecisionTerminalTransitionMatrix_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-task-decision-decision-terminal-matrix")
+	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decision-terminal-matrix")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "task-decision-decision-terminal@example.test", "TaskDecision Decision Terminal", "TaskDecisionDecisionTerminal1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-terminal-incident", "IR-TASK-DECISION-DECISION-TERMINAL", "Workbook inspector task and decision workflow decision terminal matrix")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision-terminal@example.test", "TaskDecision Decision Terminal", "TaskDecisionDecisionTerminal1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-terminal-incident", "IR-TASK-DECISION-DECISION-TERMINAL", "Workbook inspector task and decision workflow decision terminal matrix")
 
 	for _, from := range []string{"rejected", "executed", "superseded"} {
 		for _, to := range []string{"proposed", "approved", "rejected", "executed", "superseded"} {

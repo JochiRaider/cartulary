@@ -257,8 +257,26 @@ function normalizeManifest(raw) {
       scanPaths: requireStringArray(
         rule?.scan_paths ?? [],
         `sql_table_allowlists[${index + 1}].scan_paths`,
-      ).map(normalizePath),
-    })),
+        ).map(normalizePath),
+      })),
+    sqlTableAccess: requireArray(raw.sql_table_access ?? [], "sql_table_access").map(
+      (rule, index) => ({
+        id: requireString(rule?.id, `sql_table_access[${index + 1}].id`),
+        table: requireString(rule?.table, `sql_table_access[${index + 1}].table`).toLowerCase(),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `sql_table_access[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        readAllowedPaths: requireStringArray(
+          rule?.read_allowed_paths ?? [],
+          `sql_table_access[${index + 1}].read_allowed_paths`,
+        ).map(normalizePath),
+        writeAllowedPaths: requireStringArray(
+          rule?.write_allowed_paths ?? [],
+          `sql_table_access[${index + 1}].write_allowed_paths`,
+        ).map(normalizePath),
+      }),
+    ),
     forbiddenGoCalls: requireArray(raw.forbidden_go_calls ?? [], "forbidden_go_calls").map(
       (rule, index) => ({
         id: requireString(rule?.id, `forbidden_go_calls[${index + 1}].id`),
@@ -617,6 +635,54 @@ function checkSQLTableAllowlists(files, rules) {
   return violations;
 }
 
+function checkSQLTableAccess(files, rules) {
+  const violations = [];
+  const sourceFiles = files.filter((entry) => {
+    if (entry.relative.endsWith("_test.go")) {
+      return false;
+    }
+    return entry.relative.endsWith(".go") || entry.relative.endsWith(".sql");
+  });
+  for (const file of sourceFiles) {
+    for (const rule of rules) {
+      if (!pathMatchesAny(file.relative, rule.scanPaths)) {
+        continue;
+      }
+      for (const access of sqlTableAccesses(file.content)) {
+        if (access.table !== rule.table) {
+          continue;
+        }
+        const allowedPaths =
+          access.operation === "read" ? rule.readAllowedPaths : rule.writeAllowedPaths;
+        if (!pathMatchesAny(file.relative, allowedPaths)) {
+          violations.push(
+            violation(
+              access.operation === "read" ? "sql_table_read_access" : "sql_table_write_access",
+              file,
+              rule.table,
+            ),
+          );
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function sqlTableAccesses(content) {
+  const accesses = [];
+  const pattern =
+    /\b(FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?([a-z_][a-z0-9_]*)\b/gi;
+  for (const match of content.matchAll(pattern)) {
+    const keyword = match[1].toUpperCase().replace(/\s+/g, " ");
+    accesses.push({
+      operation: keyword === "FROM" || keyword === "JOIN" ? "read" : "write",
+      table: match[2].toLowerCase(),
+    });
+  }
+  return accesses;
+}
+
 function sqlTableReferences(content) {
   const tables = new Set();
   const pattern = /\b(?:FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?([a-z_][a-z0-9_]*)\b/gi;
@@ -627,6 +693,107 @@ function sqlTableReferences(content) {
     }
   }
   return Array.from(tables).sort();
+}
+
+function assertRecordsBoundaryFixtures(manifest) {
+  const recordsRule = manifest.sqlTableAccess.find(
+    (rule) => rule.id === "records-current-envelope-access",
+  );
+  if (!recordsRule) {
+    throw new Error("records-current-envelope-access boundary rule is required");
+  }
+  const fixtureFiles = [
+    {
+      label: "records owner write",
+      file: {
+        relative: "internal/modules/records/fixture_store.go",
+        content: "package records\nconst sql = `UPDATE records SET row_version = row_version + 1`",
+      },
+      wantCode: null,
+    },
+    {
+      label: "revisions write",
+      file: {
+        relative: "internal/modules/revisions/fixture_store.go",
+        content: "package revisions\nconst sql = `UPDATE records SET row_version = 2`",
+      },
+      wantCode: "sql_table_write_access",
+    },
+    {
+      label: "unapproved source-owner read join",
+      file: {
+        relative: "internal/modules/entities/fixture_query.go",
+        content: "package entities\nconst sql = `SELECT r.record_id FROM records r`",
+      },
+      wantCode: "sql_table_read_access",
+    },
+  ];
+  for (const fixture of fixtureFiles) {
+    const violations = checkSQLTableAccess([fixture.file], [recordsRule]);
+    if (fixture.wantCode === null && violations.length !== 0) {
+      throw new Error(`${fixture.label} boundary fixture must pass`);
+    }
+    if (
+      fixture.wantCode !== null &&
+      (violations.length !== 1 || violations[0].code !== fixture.wantCode)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${fixture.wantCode}`);
+    }
+  }
+
+  const genericDeleteRestoreRule = manifest.forbiddenSourceTokens.find(
+    (rule) => rule.id === "delete-restore-sources-no-generic-sql-metadata",
+  );
+  if (!genericDeleteRestoreRule) {
+    throw new Error("delete-restore-sources-no-generic-sql-metadata boundary rule is required");
+  }
+  const genericProvider = {
+    relative: "internal/modules/artifacts/deleterestore/fixture.go",
+    content: "package deleterestore\ntype TableProvider struct { SourceTable string }",
+  };
+  const genericViolations = checkForbiddenSourceTokens(
+    [genericProvider],
+    [genericDeleteRestoreRule],
+  );
+  if (
+    genericViolations.length !== 2 ||
+    genericViolations.some((entry) => entry.code !== "forbidden_source_token")
+  ) {
+    throw new Error("generic delete/restore provider boundary fixture must fail closed");
+  }
+
+  const deleteRestoreContractRule = manifest.ownerPortOnlyImports.find(
+    (rule) => rule.id === "revisions-delete-restore-source-contract-import",
+  );
+  if (!deleteRestoreContractRule) {
+    throw new Error("revisions-delete-restore-source-contract-import boundary rule is required");
+  }
+  const contractImport =
+    'github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract';
+  const contractFixtures = [
+    {
+      label: "source owner adapter contract import",
+      file: {
+        relative: "internal/modules/artifacts/deleterestore/provider.go",
+        content: `package deleterestore\nimport "${contractImport}"`,
+      },
+      wantViolation: false,
+    },
+    {
+      label: "unapproved contract import",
+      file: {
+        relative: "internal/modules/workbook/fixture.go",
+        content: `package workbook\nimport "${contractImport}"`,
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of contractFixtures) {
+    const violations = checkOwnerPortOnlyImports([fixture.file], [deleteRestoreContractRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+  }
 }
 
 function checkForbiddenGoCalls(files, rules) {
@@ -713,6 +880,7 @@ function main() {
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
   const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
+  assertRecordsBoundaryFixtures(manifest);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
@@ -722,6 +890,7 @@ function main() {
     ...checkSourceTableAccess(files, manifest.sourceTableAccess),
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
     ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists),
+    ...checkSQLTableAccess(files, manifest.sqlTableAccess),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkCommandRootShape(files, manifest.commandRootShape),
     ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens),

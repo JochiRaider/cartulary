@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"net/url"
@@ -675,8 +676,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
 	recordOneID := appsupport.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
 	recordTwoID := appsupport.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
-	appsupport.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
-	appsupport.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
+	linktest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
+	linktest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
 	evidenceResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,

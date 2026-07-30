@@ -50,7 +50,36 @@ These are logical module boundaries. They MUST be independently testable, but th
 Profiles: base
 Verified by: AC-027, AC-028, AC-029, AC-046, AC-063, AC-064, AC-065, AC-066, AC-067, AC-231
 
-For repository-level implementation and schema ownership, the logical concerns in REQ-01-004 may be refined into narrower internal owner labels when the refinement improves cohesion without creating a separate deployable. Current refinements include `assessments` for compromise-assessment source-state behavior, `savedviews` for saved-view persistence and route behavior, `incidentbundles` for Incident Portability Extension Profile export/import state, `jobapi` for public job routes, `platform_jobs` for the shared background-job storage and lifecycle substrate, and `auth` for current-account preferences. These labels refine the boundaries above; they do not authorize cross-module storage writes outside the owning concern and they do not make any extension-profile schema part of the base profile unless this Core explicitly says so.
+For repository-level implementation and schema ownership, the logical concerns in REQ-01-004 may be refined into narrower internal owner labels when the refinement improves cohesion without creating a separate deployable. Current refinements include `records` for current record-envelope persistence and query behavior, `assessments` for compromise-assessment source-state behavior, `savedviews` for saved-view persistence and route behavior, `incidentbundles` for Incident Portability Extension Profile export/import state, `jobapi` for public job routes, `platform_jobs` for the shared background-job storage and lifecycle substrate, and `auth` for current-account preferences. These labels refine the boundaries above; they do not authorize cross-module storage writes outside the owning concern and they do not make any extension-profile schema part of the base profile unless this Core explicitly says so.
+
+**REQ-01-649**
+The internal `records` refinement MUST own the current authoritative
+record-envelope relation and its table-local indexes, checks, triggers, and
+constraints. It MUST expose narrow caller-transaction ports for insert,
+current-envelope lookup, deterministic locking, version advance, and
+soft-delete-state mutation. Those ports MUST NOT begin, commit, roll back, or
+nest a transaction and MUST NOT authorize, append history, refresh a
+projection, publish collaboration, map an HTTP error, or call a network or
+object-storage peer.
+
+All writes to the current record-envelope relation and all standalone
+current-envelope lookups MUST use a Records-owned port. A source owner MAY use
+fixed read-only SQL or SQLC that necessarily joins its own source,
+projection, Reporting, or portability state to current envelopes, but the
+exact path and read shape MUST be machine-declared. Revisions MUST use the
+Records port for current-envelope writes and standalone lookups. Descriptor-
+generated SQL, arbitrary relation metadata, and dynamic table, column, or SQL
+fragment parameters are forbidden across the boundary.
+
+The physical current-envelope relation has authored relation identity
+`record-envelope`. Retained history relations, including `change_sets`,
+`change_set_mutations`, `record_revisions`, and
+`record_history_entry_refs`, retain the distinct authored relation identity
+`record-revisions`. Correcting these identities MUST NOT rewrite or rename an
+already-authored historical migration and MUST NOT create a runtime
+compatibility alias.
+Profiles: base, incident_portability
+Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 ### 2.1A Schema ownership and migration history policy
 
@@ -1543,6 +1572,33 @@ Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-
 These routes MUST apply only to first-class record envelopes. They MUST NOT be reused for deleting or restoring individual `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or other non-record mutation targets.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
+
+**REQ-01-650**
+The internal Revisions concern MUST own the consumer-facing
+`DeleteRestoreSource` port and the complete admitted-record-type catalog used
+by delete and restore coordination. Each record-type source owner MUST
+construct its concrete adapter, and application assembly MUST be the join
+point. The initial port has exactly these responsibilities:
+
+| Operation | Required behavior |
+| --- | --- |
+| `SnapshotTx` | Return the authoritative envelope/source snapshot for one record from the supplied transaction. |
+| `UpdateSourceDeleteStateTx` | Apply or clear only the source owner's current delete-state consequence in the supplied transaction. |
+| `ViewSchemaID` | Return the source-owned view consequence for the record. |
+| `ValidateDeletePreconditionsTx` | Return the source-owned typed blocker tuple without applying a mutation. |
+
+The catalog MUST fail application assembly for an empty, missing, duplicate,
+unknown, or typed-nil adapter; unknown record type; incomplete current-profile
+coverage; or nondeterministic contribution order. View consequences declared
+by source contributions MUST resolve through the admitted view registry.
+Adapters MUST use fixed owner-controlled SQL or SQLC and only the supplied
+transaction. They MUST NOT commit, authorize, publish, refresh projections,
+map HTTP errors, call a network or object store, or expose raw SQL, table
+names, column names, or other executable relation metadata through the port.
+Future optional behavior MUST use a separate narrow capability interface
+rather than widening this port or adding a descriptor-driven provider.
+Profiles: base
+Verified by: AC-514
 
 
 **REQ-01-083**
@@ -6953,6 +7009,76 @@ The complete closed source-family identifier vocabulary is `incident`,
 Profiles: incident_portability
 Verified by: AC-488, AC-489, AC-491, AC-496, AC-497, AC-498, AC-499,
  AC-507, AC-508
+
+**REQ-01-651**
+For source contract major `1`, every nonblank row in
+`data/records.ndjson` MUST be one exact JSON object with exactly these
+members:
+
+| Member | Required form |
+| --- | --- |
+| `record_id` | Canonical lowercase hyphenated UUID string, stable and unique in the Records family. |
+| `incident_id` | Canonical lowercase hyphenated UUID string equal to the immutable import context and manifest incident. |
+| `record_type` | One exact token from the closed mapping below. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`. |
+| `created_by_user_id` | Canonical UUID resolving exactly once through the admitted actor catalog. |
+| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, not earlier than `created_at`. |
+| `updated_by_user_id` | Canonical UUID resolving exactly once through the admitted actor catalog. |
+| `row_version` | Canonical positive decimal JSON integer greater than or equal to `1`. |
+| `deleted_at` | JSON `null` for an active row; otherwise canonical UTC RFC3339Nano using `Z` with `created_at <= deleted_at <= updated_at`. |
+| `deleted_by_user_id` | JSON `null` exactly when `deleted_at` is `null`; otherwise a canonical UUID resolving exactly once through the admitted actor catalog. |
+
+Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
+multivalue, or trailing-content input MUST fail admission. Admission MUST NOT
+repair, skip, canonicalize, merge, or partially import an invalid row. The
+closed current mapping is:
+
+| `record_type` | Primary source family |
+| --- | --- |
+| `timeline_event` | `timeline` |
+| `host` | `entities` |
+| `identity` | `entities` |
+| `party` | `parties` |
+| `indicator` | `indicators` |
+| `artifact` | `artifacts` |
+| `task_request` | `tasks_decisions` |
+| `decision` | `tasks_decisions` |
+| `evidence` | `evidence` |
+| `assessment` | `assessments` |
+
+Application composition MUST supply one closed subtype-presence catalog.
+Records owns the type-to-family mapping, catalog validation, and aggregate
+comparison. Each primary source owner owns a concrete fixed-query adapter that
+declares its supported types and lists typed source bindings for one incident.
+The catalog MUST reject missing, duplicate, or unknown contributors and MUST
+cover every current record type exactly once. It MUST contain no relation
+names, SQL fragments, conflict policy, or other executable owner metadata.
+
+The exact Records invariant rules are:
+
+| Invariant | Acceptance rule |
+| --- | --- |
+| `records.incident_scope` | Every admitted row incident equals the immutable import-context and manifest incident. |
+| `records.envelope_legal` | Exact shape, stable identity, UUIDs, record type, positive version, canonical timestamps, actor references, and deletion tuple satisfy this requirement. |
+| `records.subtype_complete` | Every envelope has exactly one compatible primary source-owner binding, and no primary source-owner binding targets a missing, different-incident, or incompatible envelope. |
+
+Versions `1` and `2` use this same contract-major-`1` Records row and type
+mapping. Version `1` has no lenient envelope path, version `2` has no
+additive-field tolerance, and no legacy-invalid-record switch exists. Export
+MUST emit the exact shape in `record_id` order and MUST preserve portable
+source actor attribution on re-export. Apply MUST use fixed parameterized SQL
+and affected-row equality. All aggregate validation occurs inside the one
+final import transaction.
+
+A Records invariant failure MUST use
+`error.code='incident_bundle_import_rejected'`,
+`reason_code='source_family_invalid'`, `source_family_id='records'`,
+one exact Records `invariant_id`, and `retryable=false`. The response, job
+result, logs, telemetry, readiness, and administrative summaries MUST expose
+no raw row, hostile member value, actor hint, SQL, relation name, or internal
+topology. Failure leaves no visible incident or partial authoritative state.
+Profiles: incident_portability
+Verified by: AC-513
 
 **REQ-01-641**
 The import coordinator MUST execute this algorithm in order:

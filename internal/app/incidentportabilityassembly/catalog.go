@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -18,6 +19,19 @@ import (
 )
 
 func NewCatalog() (*sourceport.Catalog, error) {
+	recordSubtypeCatalog, err := subtypepresence.NewCatalog([]subtypepresence.Contribution{
+		timeline.IncidentBundleSubtypeContribution(),
+		entities.IncidentBundleSubtypeContribution(),
+		parties.IncidentBundleSubtypeContribution(),
+		indicators.IncidentBundleSubtypeContribution(),
+		artifacts.IncidentBundleSubtypeContribution(),
+		tasksdecisions.IncidentBundleSubtypeContribution(),
+		evidence.IncidentBundleSubtypeContribution(),
+		assessments.IncidentBundleSubtypeContribution(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	v2 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
@@ -44,7 +58,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	return sourceport.NewCatalog(sourceport.CatalogOptions{
 		Ports: []sourceport.Port{
 			incidents.NewIncidentBundleSourcePort(),
-			records.NewIncidentBundleSourcePort(),
+			records.NewIncidentBundleSourcePort(recordSubtypeCatalog),
 			timeline.NewIncidentBundleSourcePort(),
 			parties.NewIncidentBundleSourcePort(),
 			entities.NewIncidentBundleSourcePort(),
@@ -59,8 +73,9 @@ func NewCatalog() (*sourceport.Catalog, error) {
 		},
 		RequiredPathsByVersion: map[int][]string{1: v1, 2: v2},
 		AllowedRelationIDs: map[string]struct{}{
-			"incident-core": {}, "record-revisions": {}, "timeline-source": {},
-			"parties": {}, "entity-source": {}, "indicator-source": {},
+			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
+			"timeline-source": {},
+			"parties":         {}, "entity-source": {}, "indicator-source": {},
 			"artifacts-and-optional-surfaces": {}, "tasks-and-decisions": {},
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},

@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -25,10 +26,11 @@ var ErrRecordNotFound = errors.New("revisions: record not found")
 type commandStore struct {
 	db                          postgres.DB
 	appender                    *Appender
+	envelopes                   *records.Store
 	incidentAccess              incidents.Access
 	importedAttributionResolver ImportedAttributionResolver
 	projections                 ProjectionServices
-	deleteRestoreProviders      *DeleteRestoreProviderCatalog
+	deleteRestoreSources        *DeleteRestoreSourceCatalog
 	rowRollbackProviders        *RowProviderCatalog
 	nonRowRollbackProviders     *NonRowProviderCatalog
 }
@@ -69,37 +71,25 @@ type RecordHistoryItem struct {
 }
 
 func (s *commandStore) GetHistoryRecord(ctx context.Context, recordID uuid.UUID) (RecordHistoryRecord, error) {
-	if s.db == nil {
+	if s.envelopes == nil {
 		return RecordHistoryRecord{}, errors.New("revisions history store: postgres dependency is nil")
 	}
-	var (
-		record       RecordHistoryRecord
-		deletedAt    sql.NullTime
-		deletedByRaw sql.NullString
-	)
-	if err := s.db.QueryRow(ctx, `
-SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_user_id::text
-  FROM records
- WHERE record_id = $1
-`, recordID).Scan(&record.IncidentID, &record.RecordID, &record.RecordType, &record.RowVersion, &deletedAt, &deletedByRaw); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	envelope, err := s.envelopes.LoadEnvelope(ctx, recordID)
+	if err != nil {
+		if errors.Is(err, records.ErrEnvelopeNotFound) {
 			return RecordHistoryRecord{}, ErrRecordNotFound
 		}
 		return RecordHistoryRecord{}, fmt.Errorf("load record history envelope: %w", err)
 	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-		record.Deleted = true
-	}
-	if deletedByRaw.Valid {
-		parsed, err := uuid.Parse(deletedByRaw.String)
-		if err != nil {
-			return RecordHistoryRecord{}, fmt.Errorf("parse deleted_by_user_id: %w", err)
-		}
-		record.DeletedByID = &parsed
-	}
-	return record, nil
+	return RecordHistoryRecord{
+		IncidentID:  envelope.IncidentID,
+		RecordID:    envelope.RecordID,
+		RecordType:  envelope.RecordType,
+		RowVersion:  envelope.RowVersion,
+		Deleted:     envelope.DeletedAt != nil,
+		DeletedAt:   envelope.DeletedAt,
+		DeletedByID: envelope.DeletedByUserID,
+	}, nil
 }
 
 func (s *commandStore) ListRecordHistory(ctx context.Context, record RecordHistoryRecord) ([]map[string]any, error) {

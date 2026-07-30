@@ -2,6 +2,8 @@ package workbook_test
 
 import (
 	"context"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
@@ -128,8 +130,8 @@ func TestWorkbookRouteConformance(t *testing.T) {
 func RequireWorkbookAuthorizationRederived(t testing.TB, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
-	editor := appsupport.SeedLocalUserFlags(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
 	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "CollaborationSharedEditor1!")
 	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
 	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))

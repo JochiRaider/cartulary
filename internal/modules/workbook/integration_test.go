@@ -2,6 +2,8 @@ package workbook_test
 
 import (
 	"encoding/json"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
@@ -29,10 +31,10 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	firstUser := appsupport.SeedLocalUserFlags(t, harness.DB, "collaboration-i-6-03-first@example.test", "Collaboration First", "CollaborationFirstPass1!", false, false, true)
-	secondUser := appsupport.SeedLocalUserFlags(t, harness.DB, "collaboration-i-6-03-second@example.test", "Collaboration Second", "CollaborationSecondPass1!", false, false, true)
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, firstUser.ID, firstUser.DisplayName, "editor", adminUserID)
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, secondUser.ID, secondUser.DisplayName, "editor", adminUserID)
+	firstUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-i-6-03-first@example.test", "Collaboration First", "CollaborationFirstPass1!", false, false, true)
+	secondUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-i-6-03-second@example.test", "Collaboration Second", "CollaborationSecondPass1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, firstUser.ID, firstUser.DisplayName, "editor", adminUserID)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, secondUser.ID, secondUser.DisplayName, "editor", adminUserID)
 	firstLogin := LoginLocalUserNoMFA(t, harness, firstUser.Email, "CollaborationFirstPass1!")
 	secondLogin := LoginLocalUserNoMFA(t, harness, secondUser.Email, "CollaborationSecondPass1!")
 

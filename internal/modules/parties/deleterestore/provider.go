@@ -3,28 +3,43 @@ package deleterestore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	recordsdeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
 
 const ActiveIncomingPartyReferenceReason = "active_incoming_party_reference"
 
-type Provider struct {
-	recordsdeleterestore.TableProvider
+type Source struct{}
+
+var _ deleterestorecontract.DeleteRestoreSource = Source{}
+
+func NewSource() Source {
+	return Source{}
 }
 
-func NewProvider() Provider {
-	return Provider{TableProvider: recordsdeleterestore.TableProvider{
-		SourceTable:        "parties",
-		SourceRecordCol:    "record_id",
-		StaticViewSchemaID: "cartulary.view.parties.v1",
-	}}
+func (Source) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
+SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(p))
+  FROM records r
+  JOIN parties p
+    ON p.record_id = r.record_id
+ WHERE r.record_id = $1
+`, recordID))
 }
 
-func (Provider) ValidateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (string, bool, error) {
+func (Source) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {
+	return nil
+}
+
+func (Source) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error) {
+	return "cartulary.view.parties.v1", nil
+}
+
+func (Source) ValidateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (string, bool, error) {
 	var exists bool
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (

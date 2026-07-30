@@ -15,7 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
-	recordroutetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/routetest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -343,7 +342,7 @@ func TestControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately_Integra
 }
 
 func TestControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	routes := append(timelineroutetest.ControlCreateAndLive(), recordroutetest.ControlMutations()...)
+	routes := append(timelineroutetest.ControlCreateAndLive(), timelineroutetest.ControlMutations()...)
 	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routes)
 }
 

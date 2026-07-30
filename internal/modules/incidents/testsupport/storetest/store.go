@@ -3,6 +3,7 @@ package storetest
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -197,6 +198,53 @@ func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func SeedMembership(
+	t testing.TB,
+	db any,
+	incidentID uuid.UUID,
+	userID uuid.UUID,
+	displayName string,
+	role string,
+	addedByUserID uuid.UUID,
+) {
+	t.Helper()
+
+	if err := execSeedDB(db, `
+INSERT INTO incident_memberships (
+    incident_id, user_id, role, joined_at, added_by_user_id,
+    updated_at, updated_by_user_id, membership_version
+)
+VALUES ($1, $2, $3, now(), $4, now(), $4, 1)
+ON CONFLICT (incident_id, user_id) DO UPDATE
+SET role = EXCLUDED.role,
+    updated_at = now(),
+    updated_by_user_id = EXCLUDED.updated_by_user_id
+`, incidentID, userID, role, addedByUserID); err != nil {
+		t.Fatalf("seed incident membership: %v", err)
+	}
+	if err := execSeedDB(db, `
+INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
+VALUES ($1, $2, NULL, now(), now())
+ON CONFLICT (incident_id, user_id) DO NOTHING
+`, incidentID, userID); err != nil {
+		t.Fatalf("seed user workbook preferences: %v", err)
+	}
+	_ = displayName
+}
+
+func execSeedDB(db any, query string, args ...any) error {
+	switch typed := db.(type) {
+	case postgres.DB:
+		_, err := typed.Exec(context.Background(), query, args...)
+		return err
+	case *sql.DB:
+		_, err := typed.ExecContext(context.Background(), query, args...)
+		return err
+	default:
+		return fmt.Errorf("unsupported incident test database %T", db)
+	}
 }
 
 func SeedIncidentMembershipSQL(t testing.TB, db *sql.DB, userID string, tag string) string {

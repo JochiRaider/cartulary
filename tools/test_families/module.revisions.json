@@ -220,6 +220,63 @@
       "status": "active"
     },
     {
+      "row_id": "module.revisions.delete_restore.source_adapter_matrix",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.delete_restore",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.records",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.delete_restore_source_adapter_matrix"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestDeleteRestoreAdapterMatrix_Unit",
+          "TestDeleteRestoreConcreteSourceAdapterMatrix_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.revisions.delete_restore.source_port_catalog",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.delete_restore",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.delete_restore_source_port"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestDeleteRestoreSourceCatalogFailsClosed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
@@ -416,7 +473,6 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestDeleteRestoreAdapterMatrix_Unit",
           "TestSoftDeleteRoutePreconditions_Unit"
         ]
       },

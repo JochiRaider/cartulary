@@ -10,10 +10,12 @@ import (
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -40,16 +42,16 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		}
 	})
 
-	harness := recordstoretest.StartStore(t, "evidence_lifecycle-attach-validation")
+	harness := appsupport.StartStore(t, "evidence_lifecycle-attach-validation")
 	revisionComposition := revisionsupport.MustComposition(t)
 	store := evidence.NewStore(
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
 	)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
+	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
 
 	t.Run("success and replay are stable", func(t *testing.T) {
 		recordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")

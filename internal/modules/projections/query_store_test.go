@@ -3,17 +3,20 @@ package projections_test
 import (
 	"context"
 	"encoding/json"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -25,7 +28,7 @@ import (
 
 func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "projection-query-load-row-parity")
+	harness := appsupport.StartStore(t, "projection-query-load-row-parity")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
 	projectionCatalog := timelineassembly.NewBundle(
@@ -39,13 +42,13 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		conflicttest.NewCodec("workbook"),
 	)
 	assessmentStore := assessments.NewStore(harness.DB, appender)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Projection parity host", "projection-parity-host", "", "")
-	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Projection parity host", "projection-parity-host", "", "")
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 75
 	assessmentRequest := assessments.CreateRequest{

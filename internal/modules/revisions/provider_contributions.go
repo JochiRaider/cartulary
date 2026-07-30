@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -56,7 +56,7 @@ type RecordViewRouteContribution struct {
 type RecordProviderContribution struct {
 	SourceOwnerModule      SourceOwnerModule
 	RecordType             string
-	DeleteRestoreProvider  recorddeleterestore.SourceProvider
+	DeleteRestoreSource    deleterestorecontract.DeleteRestoreSource
 	RowRollbackProvider    rollbackcontract.RowSourceProvider
 	LiveRecordChangePolicy LiveRecordChangePolicy
 	RecordViewRoutes       []RecordViewRouteContribution
@@ -91,7 +91,7 @@ var currentNonRowProviderOwners = map[string]SourceOwnerModule{
 	"record_tag":                  SourceOwnerLinks,
 }
 
-func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestoreProviderCatalog, *RowProviderCatalog, *NonRowProviderCatalog, error) {
+func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestoreSourceCatalog, *RowProviderCatalog, *NonRowProviderCatalog, error) {
 	requiredOwners := map[SourceOwnerModule]struct{}{}
 	for _, owner := range currentRecordProviderOwners {
 		requiredOwners[owner] = struct{}{}
@@ -101,7 +101,7 @@ func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestore
 	}
 
 	seenOwners := map[SourceOwnerModule]struct{}{}
-	deleteRestore := make([]DeleteRestoreProviderRegistration, 0, len(currentRecordProviderOwners))
+	deleteRestore := make([]DeleteRestoreSourceRegistration, 0, len(currentRecordProviderOwners))
 	rowRollback := make([]RowProviderRegistration, 0, len(currentRecordProviderOwners))
 	nonRowRollback := make([]NonRowProviderRegistration, 0, len(currentNonRowProviderOwners))
 	for _, contribution := range contributions {
@@ -122,7 +122,7 @@ func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestore
 			if !required || expectedOwner != owner {
 				return nil, nil, nil, fmt.Errorf("%w: record type %q owned by %q", ErrUnexpectedProviderContribution, record.RecordType, owner)
 			}
-			deleteRestore = append(deleteRestore, DeleteRestoreProviderRegistration{RecordType: record.RecordType, Provider: record.DeleteRestoreProvider})
+			deleteRestore = append(deleteRestore, DeleteRestoreSourceRegistration{RecordType: record.RecordType, Source: record.DeleteRestoreSource})
 			rowRollback = append(rowRollback, RowProviderRegistration{RecordType: record.RecordType, Provider: record.RowRollbackProvider})
 		}
 		for _, target := range contribution.NonRowTargets {
@@ -150,7 +150,7 @@ func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestore
 
 	recordTypes := sortedProviderRequirementKeys(currentRecordProviderOwners)
 	targetKinds := sortedProviderRequirementKeys(currentNonRowProviderOwners)
-	deleteRestoreCatalog, err := NewDeleteRestoreProviderCatalog(recordTypes, deleteRestore...)
+	deleteRestoreCatalog, err := NewDeleteRestoreSourceCatalog(recordTypes, deleteRestore...)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("build delete/restore provider catalog: %w", err)
 	}

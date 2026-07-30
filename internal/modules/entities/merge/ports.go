@@ -123,7 +123,7 @@ type entityRecordLink struct {
 	DeletedAt    *time.Time
 }
 
-var errEntityRecordEnvelopeNotFound = records.ErrRecordEnvelopeNotFound
+var errEntityRecordEnvelopeNotFound = records.ErrEnvelopeNotFound
 
 type entityRecordLockedError struct {
 	RecordID uuid.UUID

@@ -88,6 +88,20 @@ The base record types MUST include, at minimum:
 Profiles: base
 Verified by: AC-231, AC-277
 
+**REQ-02-262**
+The current-profile first-class record-type registry is closed to exactly
+`timeline_event`, `host`, `identity`, `party`, `indicator`, `artifact`,
+`task_request`, `decision`, `evidence`, and `assessment`. Every one of these
+types consumes exactly one current record envelope. A later Core or adopted
+extension-profile revision MAY add a first-class record type only by assigning
+its domain meaning, source owner, envelope behavior, history consequences,
+view or route consequences where applicable, portability source family and
+subtype-presence contribution, and conformance evidence in the same adoption.
+Implementation packaging, a database row, a projection, or an unadopted
+provider MUST NOT widen the registry.
+Profiles: base, incident_portability
+Verified by: AC-509, AC-513, AC-514
+
 **REQ-02-007**
 Internal users, auth-provider identities, sessions, incident memberships, local-account credential lifecycle state, and first-deployment-admin bootstrap-completion state are authoritative normalized administrative state but are not user-visible first-class incident records. They MUST NOT consume `record_id` values, MUST NOT be modeled as generic record-envelope rows, MUST NOT be the target of workbook row-mutation routes.
 Profiles: base

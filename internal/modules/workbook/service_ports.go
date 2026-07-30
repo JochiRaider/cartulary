@@ -23,8 +23,7 @@ type workbookMutationPort interface {
 type workbookConflictTokenClaims = conflicttokens.ConflictTokenClaims
 
 type workbookRecordTargetPort interface {
-	RecordIncident(ctx context.Context, recordID uuid.UUID, viewSchemaID string) (uuid.UUID, error)
-	RecordRouteTarget(ctx context.Context, recordID uuid.UUID) (recordRouteTarget, error)
+	Resolve(ctx context.Context, recordID uuid.UUID) (recordRouteTarget, error)
 }
 
 type recordRouteTarget = records.RouteTarget

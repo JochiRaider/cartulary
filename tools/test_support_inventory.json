@@ -2,6 +2,15 @@
   "schema_id": "cartulary.test_support_inventory.v1",
   "go_support_roots": [
     {
+      "path": "internal/modules/assessments/testsupport",
+      "owner": "assessments",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Assessment record seeds and subject lookup helpers without service-starting entrypoints."
+    },
+    {
       "path": "internal/modules/auth/testsupport",
       "owner": "auth",
       "posture": "owner_local",
@@ -29,6 +38,15 @@
       "rationale": "Host/identity route inventory support without service-starting entrypoints."
     },
     {
+      "path": "internal/modules/entities/testsupport",
+      "owner": "entities",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Entity record, alias, mention, stable-ID, and assertion helpers without service-starting entrypoints."
+    },
+    {
       "path": "internal/modules/incidents/testsupport",
       "owner": "incidents",
       "posture": "owner_local",
@@ -47,6 +65,15 @@
       "rationale": "Indicator route inventory support without service-starting entrypoints."
     },
     {
+      "path": "internal/modules/links/testsupport",
+      "owner": "links",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Record-link and tag fixtures, lookups, and assertions without service-starting entrypoints."
+    },
+    {
       "path": "internal/modules/networkflow/harnesscontrol",
       "owner": "networkflow",
       "posture": "owner_local",
@@ -61,8 +88,17 @@
       "posture": "owner_local",
       "runtime_scan": "excluded",
       "support_scan": "included",
-      "service_starting": true,
-      "rationale": "Record fixture, golden, assertion, route, and store helpers for record-model tests."
+      "service_starting": false,
+      "rationale": "Current-envelope seed and assertion helpers without service-starting entrypoints."
+    },
+    {
+      "path": "internal/modules/revisions/testsupport",
+      "owner": "revisions",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "History change-set and attribution assertions without service-starting entrypoints."
     },
     {
       "path": "internal/modules/timeline/testsupport",

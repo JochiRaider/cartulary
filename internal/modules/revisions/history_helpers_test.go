@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login appsup
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
-	appsupport.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "history_revision-host", "", "")
+	entitytest.SeedHostRecord(t, db, incidentID, actorID, recordID, "History Host", "history_revision-host", "", "")
 	return incidentID, recordID
 }
 

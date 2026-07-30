@@ -586,7 +586,7 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	if s == nil || s.contributions == nil {
 		return MutationResult{}, fmt.Errorf("workbook contribution catalog is required")
 	}
-	target, err := s.recordTargets.RecordRouteTarget(ctx, recordID)
+	target, err := s.recordTargets.Resolve(ctx, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type HistoricalIntentPolicy interface {
@@ -170,25 +171,21 @@ func (a *Appender) appendRecordRevisionIntentTx(ctx context.Context, tx pgx.Tx, 
 		return nil
 	}
 
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, params.RecordID, false)
+	if err != nil {
+		return fmt.Errorf("load record revision collaboration envelope: %w", err)
+	}
 	var (
-		incidentID  uuid.UUID
-		recordType  string
-		deletedAt   *time.Time
 		actorUserID uuid.UUID
 		clientTxnID *string
 		source      string
 		createdAt   time.Time
 	)
 	if err := tx.QueryRow(ctx, `
-SELECT r.incident_id, r.record_type, r.deleted_at,
-       c.actor_user_id, c.client_txn_id, c.source, c.created_at
-  FROM records r
-  JOIN change_sets c ON c.change_set_id = $2
- WHERE r.record_id = $1
-`, params.RecordID, params.ChangeSetID).Scan(
-		&incidentID,
-		&recordType,
-		&deletedAt,
+SELECT actor_user_id, client_txn_id, source, created_at
+  FROM change_sets
+ WHERE change_set_id = $1
+`, params.ChangeSetID).Scan(
 		&actorUserID,
 		&clientTxnID,
 		&source,
@@ -208,7 +205,7 @@ SELECT r.incident_id, r.record_type, r.deleted_at,
 	if row == nil {
 		row = beforeRow
 	}
-	viewSchemaID, err := a.recordViews.Resolve(recordType, row)
+	viewSchemaID, err := a.recordViews.Resolve(envelope.RecordType, row)
 	if err != nil {
 		return err
 	}
@@ -218,7 +215,7 @@ SELECT r.incident_id, r.record_type, r.deleted_at,
 	}
 	changeKind := ""
 	switch {
-	case deletedAt != nil:
+	case envelope.DeletedAt != nil:
 		changeKind = "remove"
 	case source == "records.restore" || source == "rollback":
 		changeKind = "invalidate"
@@ -237,7 +234,7 @@ SELECT GREATEST(COALESCE(min(sequence_no), 1) - 1, 0)
 		clientTxn = *clientTxnID
 	}
 	intent, err := collaboration.NewRecordChangeIntent(collaboration.RecordChange{
-		IncidentID:       incidentID,
+		IncidentID:       envelope.IncidentID,
 		RecordID:         params.RecordID,
 		RowVersion:       params.RowVersion,
 		ChangeSetID:      params.ChangeSetID,

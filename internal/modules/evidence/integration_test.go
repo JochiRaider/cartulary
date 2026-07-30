@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
@@ -185,7 +187,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	testDB := runtime.PrepareGroupServerDatabase(t, "evidence_lifecycle-attach-route-contract", "evidence_lifecycle-attach-route-contract")
 	harness := runtime.StartServerWithDatabase(t, "evidence_lifecycle-attach-route-contract", testDB)
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
-	objectStoreAdmin := appsupport.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)
+	objectStoreAdmin := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-attach-route-incident",
 		"incident_key":  "evidence_lifecycle-attach-route",
@@ -221,8 +223,8 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	}
 
 	t.Run("viewer cannot attach", func(t *testing.T) {
-		viewer := appsupport.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
-		appsupport.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
+		viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
+		incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
 		viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!")
 		resp := appsupport.DoJSON(t, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),
@@ -715,9 +717,9 @@ DELETE FROM incident_memberships
 			"handle_not_found_or_revoked",
 		)
 
-		appsupport.SeedIncidentMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
-		otherUser := appsupport.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycle Other", "EvidenceLifecycleOther1!", false, false, true)
-		appsupport.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
+		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
+		otherUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycle Other", "EvidenceLifecycleOther1!", false, false, true)
+		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
 		otherLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!")
 		httptestx.RequireErrorEnvelope(t,
 			appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(otherLogin.SessionCookie)),

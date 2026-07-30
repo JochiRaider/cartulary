@@ -192,8 +192,28 @@ A contract family that appears in more than one normative core document MUST hav
 Profiles: base
 Verified by: AC-231
 
+**REQ-00-067**
+The authoritative current record envelope and retained record history are
+distinct ownership concerns. Core 02 §3 owns record-envelope meaning and the
+closed current-profile record-type registry. Core 01 owns the internal
+current-envelope boundary, physical-relation ownership, transaction
+direction, and Incident Portability row contract. Core 02 owns history
+meaning; Core 01 owns public history, delete, restore, and rollback routes; and
+the internal Revisions concern owns change-set, mutation-entry,
+record-revision, rollback, and destructive-operation coordination.
+
+An implementation MUST NOT infer that retained-history ownership transfers
+authority over current envelope state. A current-envelope mutation coordinated
+by Revisions or another source owner MUST use the current-envelope owner's
+transaction port, while history append, projection refresh, collaboration
+publication, authorization, and transport mapping remain with their existing
+owners.
+Profiles: base, incident_portability
+Verified by: AC-509, AC-510, AC-511, AC-512, AC-514
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Current record-envelope authority versus retained record history | Core 02 §3 for envelope meaning and record-type membership; Core 01 §1 and §12.3 for implementation ownership and portability | Core 01 record mutation/history routes; Core 02 history substrate; Core 04 conformance; `docs/domain.md` for vocabulary only | The current-envelope owner controls current envelope persistence and transaction ports. Revisions controls history and destructive coordination but MUST NOT become current-envelope authority. | REQ-00-067 | base, incident_portability | AC-509..AC-512, AC-514 |
 | Extension-profile recognition, claimability, current major, primary owner, dependencies, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted Extensions NLSpec | Core 00 alone owns whether an extension identity is recognized and claimable/current and assigns its current major, primary owner, and dependencies. Core 01 enumerates only Core-00-recognized identities and owns the public discovery shape. Core 04 owns authorization and lifecycle consequences. The Extensions NLSpec owns shared mechanics only after coordinated adoption and cannot create recognition. | REQ-00-064, REQ-00-065 | base | AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157 |
 | Adopted subsystem NLSpec deployment-config namespace | Adopted subsystem NLSpec for namespace-local keys; Core 04 §12 for artifact, discovery, overlay, unknown-key, and startup validation mechanics | Core 04 §12, subsystem NLSpec | Core 04 owns the deployment-config container and fail-closed validation mechanics. The adopted subsystem NLSpec owns only its closed key namespace and namespace-local cross-key rules. | REQ-00-052 | base | AC-231 |
 | Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. | REQ-00-006 | base | AC-231 |

@@ -3,8 +3,8 @@ package entities_test
 import (
 	"context"
 	"database/sql"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"net/http"
 	"reflect"
 	"strings"
@@ -15,12 +15,17 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -37,16 +42,16 @@ func TestResolveRoute_Integration(t *testing.T) {
 			"title":         "Record relationships entity-resolution resolve conformance",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
 		ctx := workbookscenariotest.RouteInventoryContext{
 			IncidentID:       incidentID.String(),
 			ActorUserID:      adminUserID.String(),
-			TimelineRecordID: golden.RecordTimelineRecordID.String(),
-			MentionID:        golden.RecordHostMentionID.String(),
-			HostRecordID:     golden.RecordCanonicalHostRecordID.String(),
+			TimelineRecordID: timelinetest.RecordID.String(),
+			MentionID:        entitytest.HostMentionID.String(),
+			HostRecordID:     entitytest.CanonicalHostRecordID.String(),
 		}
 		route := workbookscenariotest.MustRoute(t, workbookscenariotest.RouteMentionResolve, ctx)
 		workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
@@ -58,9 +63,9 @@ func TestResolveRoute_Integration(t *testing.T) {
 			ExpectedMutationSource: "entities.entity_mentions.resolve",
 		})
 
-		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected route conformance resolve to leave mention resolved to target, got %#v", mention)
 		}
 	})
@@ -74,20 +79,20 @@ func TestResolveRoute_Integration(t *testing.T) {
 			"title":         "Record relationships entity-resolution resolve route",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
-		payload := fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", golden.RecordMentionActionResolve, uuidPointer(golden.RecordCanonicalHostRecordID), nil)
+		payload := entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", entitytest.MentionActionResolve, uuidPointer(entitytest.CanonicalHostRecordID), nil)
 		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			payload,
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -100,22 +105,22 @@ func TestResolveRoute_Integration(t *testing.T) {
 			t.Fatalf("expected source record row_version=2 after resolve_item, got %#v", data)
 		}
 
-		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected resolve_item to point mention at the target record, got %#v", mention)
 		}
 		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != "explicit_resolve_route" {
 			t.Fatalf("expected resolve route provenance marker, got %#v", mention)
 		}
-		link := appsupport.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host")
-		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		link := linktest.LookupActiveLink(t, harness.DB, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host")
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socketPayload := incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		socketPayload := incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
 		if socketPayload.ChangeSetID != data["change_set_id"] {
 			t.Fatalf("expected websocket to carry the mention action change_set_id, got payload=%#v response=%#v", socketPayload, data)
 		}
-		hostSocketPayload := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		hostSocketPayload := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
 		if hostSocketPayload.ChangeSetID != data["change_set_id"] {
 			t.Fatalf("expected host websocket invalidation to carry the mention action change_set_id, got payload=%#v response=%#v", hostSocketPayload, data)
 		}
@@ -128,20 +133,20 @@ func TestResolveRoute_Integration(t *testing.T) {
 		}
 		hostRow := workbookscenariotest.FindRow(
 			t,
-			workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin),
-			golden.RecordCanonicalHostRecordID.String(),
+			workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin),
+			entitytest.CanonicalHostRecordID.String(),
 		)
 		hostCells := hostRow["cells"].(map[string]any)
 		if got := hostCells["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected resolved host to expose one linked event, got %#v row=%#v", got, hostRow)
 		}
-		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, golden.RecordCanonicalHostRecordID); err != nil {
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, entitytest.CanonicalHostRecordID); err != nil {
 			t.Fatalf("corrupt resolved host linked-event count: %v", err)
 		}
 		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild resolved host projection: %v", err)
 		}
-		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
 		if got := rebuiltHostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected rebuild to restore one linked event, got %#v row=%#v", got, rebuiltHostRow)
 		}
@@ -149,7 +154,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		replayResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			payload,
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -165,15 +170,15 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "entities.entity_mentions.resolve", adminUserID.String(), golden.RecordHostMentionID.String(), "txn-entity_linking-i-4-01-resolve"); got != 1 {
+`, "entities.entity_mentions.resolve", adminUserID.String(), entitytest.HostMentionID.String(), "txn-entity_linking-i-4-01-resolve"); got != 1 {
 			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
 		}
 
 		divergentResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", "dismiss_item", nil, nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", "dismiss_item", nil, nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -189,21 +194,21 @@ SELECT COUNT(*)
 			"title":         "Record relationships entity-resolution dismiss route",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
-		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedResolvedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, timelinetest.FieldHostRefs, "host", "WS-023")
+		linktest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.ManualLinkID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
 		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-dismiss", "dismiss_item", nil, nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-dismiss", "dismiss_item", nil, nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -212,8 +217,8 @@ SELECT COUNT(*)
 			t.Fatalf("expected mention row_version=2 after dismiss_item, got %#v", data)
 		}
 
-		dismissed := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, dismissed, golden.RecordMentionStatusDismissed)
+		dismissed := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, dismissed, entitytest.MentionStatusDismissed)
 		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
@@ -222,16 +227,16 @@ SELECT COUNT(*)
    AND dst_record_id = $3
    AND link_type = 'observed_on_host'
    AND deleted_at IS NULL
-`, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID); got != 0 {
+`, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID); got != 0 {
 			t.Fatalf("expected dismiss_item to remove the active link, got %d active rows", got)
 		}
-		incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
-		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
+		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected dismiss to invalidate host linked-event count, got %#v", hostChange)
 		}
 		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
-		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
 		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("expected dismiss to project zero linked events, got %#v row=%#v", got, hostRow)
 		}
@@ -239,8 +244,8 @@ SELECT COUNT(*)
 		staleResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-stale", "revert_to_unresolved", nil, nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-stale", "revert_to_unresolved", nil, nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -252,8 +257,8 @@ SELECT COUNT(*)
 		illegalResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(2, "txn-entity_linking-i-4-01-illegal", "dismiss_item", nil, nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(2, "txn-entity_linking-i-4-01-illegal", "dismiss_item", nil, nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -261,7 +266,7 @@ SELECT COUNT(*)
 		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
 			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
 		}
-		hostRowAfterFailures := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		hostRowAfterFailures := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
 		if got := hostRowAfterFailures["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("failed mention actions changed the projected linked-event count: %#v", hostRowAfterFailures)
 		}
@@ -276,21 +281,21 @@ SELECT COUNT(*)
 			"title":         "Record relationships entity-resolution revert route",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
-		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedResolvedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, timelinetest.FieldHostRefs, "host", "WS-023")
+		linktest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.ManualLinkID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
 		resp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-revert", "revert_to_unresolved", nil, nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-revert", "revert_to_unresolved", nil, nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -299,18 +304,18 @@ SELECT COUNT(*)
 			t.Fatalf("expected source record row_version=2 after revert_to_unresolved, got %#v", data)
 		}
 
-		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusUnresolved)
 		if mention.RawText != "WS-023" || mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
 			t.Fatalf("expected revert_to_unresolved to preserve raw_text and clear resolution metadata, got %#v", mention)
 		}
-		incidentwstest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
-		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
+		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected revert to invalidate host linked-event count, got %#v", hostChange)
 		}
 		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
-		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
 		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
 			t.Fatalf("expected revert to project zero linked events, got %#v row=%#v", got, hostRow)
 		}
@@ -325,10 +330,10 @@ SELECT COUNT(*)
 			"title":         "Record relationships entity-resolution access checks",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -343,8 +348,8 @@ UPDATE incident_memberships
 		deniedResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-denied", "resolve_item", uuidPointer(golden.RecordCanonicalHostRecordID), nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-denied", "resolve_item", uuidPointer(entitytest.CanonicalHostRecordID), nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -361,15 +366,15 @@ UPDATE incident_memberships
 			t.Fatalf("restore incident membership: %v", err)
 		}
 
-		otherActor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
+		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
 		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
-		appsupport.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.RecordDuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, entitytest.DuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
 		hiddenResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-hidden", "resolve_item", uuidPointer(golden.RecordDuplicateHostRecordID), nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-hidden", "resolve_item", uuidPointer(entitytest.DuplicateHostRecordID), nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -381,13 +386,13 @@ UPDATE incident_memberships
 			"title":         "Record relationships entity-resolution visible other incident",
 		})
 		otherVisibleIncidentID := appsupport.MustUUID(t, otherVisibleIncident["incident_id"].(string))
-		appsupport.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.RecordStubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, entitytest.StubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
 
 		crossIncidentResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-cross", "resolve_item", uuidPointer(golden.RecordStubHostRecordID), nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-cross", "resolve_item", uuidPointer(entitytest.StubHostRecordID), nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
@@ -396,23 +401,23 @@ UPDATE incident_memberships
 		wrongTypeResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.RecordHostMentionID.String()+"/resolve",
-			fixtures.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-wrong-type", "resolve_item", uuidPointer(golden.RecordCanonicalIdentityID), nil),
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
+			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-wrong-type", "resolve_item", uuidPointer(entitytest.CanonicalIdentityRecordID), nil),
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		appsupport.RequireErrorBody(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
 
-		mention := appsupport.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
-		assertx.RequireRowVersionStable(t, 1, mention.RowVersion)
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusUnresolved)
+		envelopetest.RequireRowVersionStable(t, 1, mention.RowVersion)
 		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE incident_id = $1
    AND src_record_id = $2
    AND deleted_at IS NULL
-`, incidentID, golden.RecordTimelineRecordID); got != 0 {
+`, incidentID, timelinetest.RecordID); got != 0 {
 			t.Fatalf("expected invalid or unauthorized target attempts to leave record links untouched, got %d active rows", got)
 		}
 	})
@@ -433,7 +438,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 		hostCreate := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-create",
 				"host.display_name": "Gateway record",
@@ -503,7 +508,7 @@ SELECT
 		hostReuse := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-reuse",
 				"host.display_name": "Gateway reused",
@@ -516,14 +521,14 @@ SELECT
 		if got := appsupport.MustUUID(t, hostReuseData["row"].(map[string]any)["record_id"].(string)); got != hostRecordID {
 			t.Fatalf("expected preserved exact-match reuse to return the original host record, got %#v", hostReuseData)
 		}
-		if state, mergedInto, rowVersion, restoredFQDN := appsupport.LookupHostState(t, harness.DB, hostRecordID); state != "stub" || mergedInto != nil || rowVersion != 2 || restoredFQDN != "gateway-01.corp.example" {
+		if state, mergedInto, rowVersion, restoredFQDN := entitytest.LookupHostState(t, harness.DB, hostRecordID); state != "stub" || mergedInto != nil || rowVersion != 2 || restoredFQDN != "gateway-01.corp.example" {
 			t.Fatalf("unexpected reused host state: state=%s merged_into=%v row_version=%d fqdn=%q", state, mergedInto, rowVersion, restoredFQDN)
 		}
 
 		aliasOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-alias-only",
 				"host.display_name": "VPN Gateway",
@@ -539,7 +544,7 @@ SELECT
 		aliasPayloadOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-02-host-alias-payload-only",
 				"host.aliases": map[string]any{
@@ -554,12 +559,12 @@ SELECT
 		)
 		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
 		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-conflict",
 				"host.display_name": "Conflict Host",
@@ -595,7 +600,7 @@ SELECT
 		identityCreate := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":             "txn-entity_linking-i-4-02-identity-create",
 				"identity.display_name":     "Alex Analyst",
@@ -664,7 +669,7 @@ SELECT
 		identityReuse := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":         "txn-entity_linking-i-4-02-identity-reuse",
 				"identity.display_name": "Alex Analyst Reused",
@@ -691,7 +696,7 @@ SELECT COUNT(*)
 		aliasOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":         "txn-entity_linking-i-4-02-identity-alias-only",
 				"identity.display_name": "Case Owner",
@@ -707,7 +712,7 @@ SELECT COUNT(*)
 		aliasPayloadOnly := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-02-identity-alias-payload-only",
 				"identity.aliases": map[string]any{
@@ -722,12 +727,12 @@ SELECT COUNT(*)
 		)
 		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
-		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
-		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
 		conflictResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":         "txn-entity_linking-i-4-02-identity-conflict",
 				"identity.display_name": "Conflict Identity",
@@ -774,7 +779,7 @@ SELECT COUNT(*)
 		hostResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			hostPayload,
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -808,7 +813,7 @@ SELECT COUNT(*)
 		identityResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			identityPayload,
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -827,19 +832,19 @@ SELECT COUNT(*)
 			t.Fatalf("expected identity and alias create mutation rows, got %d", got)
 		}
 
-		hostEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin)
-		contractassert.RequireDefaultQueryMeta(t, hostEnvelope, golden.RecordHostsViewSchemaID)
-		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
-		requireViewRowFieldSurface(t, "entity-resolution", hostRow, golden.RecordHostsViewSchemaID)
+		hostEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin)
+		contractassert.RequireDefaultQueryMeta(t, hostEnvelope, viewtest.HostsViewSchemaID)
+		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), hostRecordID.String())
+		requireViewRowFieldSurface(t, "entity-resolution", hostRow, viewtest.HostsViewSchemaID)
 		hostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRow, "host.aliases")
 		if hostAlias["item_kind"] != "alias" || hostAlias["alias_text"] != "Gateway Query Alias" || !strings.HasPrefix(hostAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected host alias readback: %#v", hostAlias)
 		}
 
-		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
-		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, golden.RecordIdentitiesViewSchemaID)
-		identityRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
-		requireViewRowFieldSurface(t, "entity-resolution", identityRow, golden.RecordIdentitiesViewSchemaID)
+		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin)
+		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, viewtest.IdentitiesViewSchemaID)
+		identityRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin), identityRecordID.String())
+		requireViewRowFieldSurface(t, "entity-resolution", identityRow, viewtest.IdentitiesViewSchemaID)
 		identityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRow, "identity.aliases")
 		if identityAlias["item_kind"] != "alias" || identityAlias["alias_text"] != "Query Owner" || !strings.HasPrefix(identityAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected identity alias readback: %#v", identityAlias)
@@ -865,15 +870,15 @@ SELECT COUNT(*)
 		contractassert.RequireProjectionDeterminism(t, hostProjectionBefore, hostProjectionAfter)
 		contractassert.RequireProjectionDeterminism(t, identityProjectionBefore, identityProjectionAfter)
 
-		hostRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
-		requireViewRowFieldSurface(t, "entity-resolution", hostRowAfterRebuild, golden.RecordHostsViewSchemaID)
+		hostRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), hostRecordID.String())
+		requireViewRowFieldSurface(t, "entity-resolution", hostRowAfterRebuild, viewtest.HostsViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, hostRow["cells"], hostRowAfterRebuild["cells"])
 		if rebuiltHostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRowAfterRebuild, "host.aliases"); rebuiltHostAlias["alias_text"] != "Gateway Query Alias" {
 			t.Fatalf("unexpected rebuilt host alias readback: %#v", rebuiltHostAlias)
 		}
 
-		identityRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
-		requireViewRowFieldSurface(t, "entity-resolution", identityRowAfterRebuild, golden.RecordIdentitiesViewSchemaID)
+		identityRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin), identityRecordID.String())
+		requireViewRowFieldSurface(t, "entity-resolution", identityRowAfterRebuild, viewtest.IdentitiesViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, identityRow["cells"], identityRowAfterRebuild["cells"])
 		if rebuiltIdentityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRowAfterRebuild, "identity.aliases"); rebuiltIdentityAlias["alias_text"] != "Query Owner" {
 			t.Fatalf("unexpected rebuilt identity alias readback: %#v", rebuiltIdentityAlias)
@@ -891,7 +896,7 @@ SELECT COUNT(*)
 		hostReplay := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			hostPayload,
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -920,7 +925,7 @@ SELECT COUNT(*)
 		hostDivergent := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-query-host",
 				"host.display_name": "Gateway query host divergent",
@@ -945,7 +950,7 @@ UPDATE incident_memberships
 		deniedResp := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-query-host-denied",
 				"host.display_name": "Denied host",
@@ -1012,7 +1017,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		"title":         "Entity create auth csrf ordering",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
 	defer socket.Close(1000, "test_complete")
 
 	type entityCreateFailureCounts struct {
@@ -1030,7 +1035,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		}
 	}
 	before := counts()
-	url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + golden.RecordHostsViewSchemaID + "/rows"
+	url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewtest.HostsViewSchemaID + "/rows"
 
 	unauthenticated := doEntitiesRawJSON(t, http.MethodPost, url, "{")
 	appsupport.RequireErrorBody(t, unauthenticated, http.StatusUnauthorized, "session_required")
@@ -1071,10 +1076,10 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			"title":         "Entity route failure precedence",
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor", "SURVIVOR", "", "")
-		appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser", "LOSER", "", "")
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "SURVIVOR", "unresolved", nil, nil)
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Survivor", "SURVIVOR", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Loser", "LOSER", "", "")
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "SURVIVOR", "unresolved", nil, nil)
 
 		type failureCounts struct {
 			changeSets      int
@@ -1086,12 +1091,12 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			return failureCounts{
 				changeSets:      appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
 				mutations:       appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
-				idempotencyRows: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key IN ($1, $2, $3)`, golden.RecordCanonicalHostRecordID.String(), golden.RecordDuplicateHostRecordID.String(), golden.RecordHostMentionID.String()),
+				idempotencyRows: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key IN ($1, $2, $3)`, entitytest.CanonicalHostRecordID.String(), entitytest.DuplicateHostRecordID.String(), entitytest.HostMentionID.String()),
 				hostProjection:  appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
 			}
 		}
 		before := counts()
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		mergeMalformedPath := harness.Server.HTTP.URL + "/api/v1/records/not-a-uuid/merge"
@@ -1111,8 +1116,8 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote entity route actor: %v", err)
 		}
-		mergeURL := harness.Server.HTTP.URL + "/api/v1/records/" + golden.RecordCanonicalHostRecordID.String() + "/merge"
-		mentionURL := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + golden.RecordHostMentionID.String() + "/resolve"
+		mergeURL := harness.Server.HTTP.URL + "/api/v1/records/" + entitytest.CanonicalHostRecordID.String() + "/merge"
+		mentionURL := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + entitytest.HostMentionID.String() + "/resolve"
 		for _, url := range []string{mergeURL, mentionURL} {
 			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
 		}
@@ -1123,10 +1128,10 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
 		}
 
-		otherActor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
+		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
 		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
 		hiddenLoserID := uuid.New()
-		appsupport.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
 
 		for _, loserID := range []string{"not-a-uuid", uuid.New().String(), hiddenLoserID.String()} {
 			resp := doEntitiesJSON(t, http.MethodPost, mergeURL, map[string]any{
@@ -1155,27 +1160,27 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			"title":         "Entity merge",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		timelineSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		timelineSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer timelineSocket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.sessionCookie.Value)
+		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.sessionCookie.Value)
 		defer hostSocket.Close(1000, "test_complete")
 
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
-		seedEntityAlias(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "host", "Workstation 23")
-		seedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		seedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateHostRecordID, golden.RecordFieldTimelineHostRefs, "WS-023")
-		seedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateHostRecordID, "observed_on_host", "manual", nil)
-		seedRecordTag(t, harness.DB, incidentID, adminUserID, golden.RecordTagIDSurvivor, golden.RecordCanonicalHostRecordID, "critical-host")
-		seedRecordTag(t, harness.DB, incidentID, adminUserID, golden.RecordTagIDLoser, golden.RecordDuplicateHostRecordID, "critical-host")
-		seedAssessment(t, harness.DB, incidentID, adminUserID, golden.RecordAssessmentHostID, golden.RecordDuplicateHostRecordID, "host", "confirmed")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
+		seedEntityAlias(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "host", "Workstation 23")
+		seedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		seedResolvedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, timelinetest.FieldHostRefs, "WS-023")
+		seedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, "observed_on_host", "manual", nil)
+		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
+		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
+		seedAssessment(t, harness.DB, incidentID, adminUserID, assessmenttest.HostAssessmentID, entitytest.DuplicateHostRecordID, "host", "confirmed")
 
 		mergeResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
@@ -1188,10 +1193,10 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			t.Fatalf("unexpected status: got %d want %d body=%#v", mergeResp.StatusCode, http.StatusOK, httptestx.ReadJSONBody(t, mergeResp))
 		}
 		mergeData := httptestx.RequireSuccessEnvelope(t, mergeResp, http.StatusOK)["data"].(map[string]any)
-		if mergeData["survivor_record_id"] != golden.RecordCanonicalHostRecordID.String() {
+		if mergeData["survivor_record_id"] != entitytest.CanonicalHostRecordID.String() {
 			t.Fatalf("unexpected survivor_record_id: %#v", mergeData)
 		}
-		if mergeData["loser_record_id"] != golden.RecordDuplicateHostRecordID.String() {
+		if mergeData["loser_record_id"] != entitytest.DuplicateHostRecordID.String() {
 			t.Fatalf("unexpected loser_record_id: %#v", mergeData)
 		}
 		if mergeData["record_type"] != "host" {
@@ -1203,7 +1208,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		if got := int64(mergeData["loser_row_version"].(float64)); got != 2 {
 			t.Fatalf("expected loser_row_version=2, got %d", got)
 		}
-		if mergeData["merged_into_record_id"] != golden.RecordCanonicalHostRecordID.String() {
+		if mergeData["merged_into_record_id"] != entitytest.CanonicalHostRecordID.String() {
 			t.Fatalf("expected merged_into_record_id to echo survivor, got %#v", mergeData)
 		}
 
@@ -1243,32 +1248,32 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			t.Fatalf("expected fqdn promoted_count=1, got %#v", exactMatchClasses[1])
 		}
 
-		survivorState, survivorMergedInto, survivorRowVersion, survivorFQDN := lookupHostState(t, harness.DB, golden.RecordCanonicalHostRecordID)
+		survivorState, survivorMergedInto, survivorRowVersion, survivorFQDN := lookupHostState(t, harness.DB, entitytest.CanonicalHostRecordID)
 		if survivorState != "canonical" || survivorMergedInto != nil || survivorRowVersion != 2 || survivorFQDN != "ws-023.corp.example.test" {
 			t.Fatalf("unexpected survivor host state after merge: state=%s merged_into=%v row_version=%d fqdn=%q", survivorState, survivorMergedInto, survivorRowVersion, survivorFQDN)
 		}
-		loserState, loserMergedInto, loserRowVersion, _ := lookupHostState(t, harness.DB, golden.RecordDuplicateHostRecordID)
-		if loserState != "merged" || loserMergedInto == nil || *loserMergedInto != golden.RecordCanonicalHostRecordID || loserRowVersion != 2 {
+		loserState, loserMergedInto, loserRowVersion, _ := lookupHostState(t, harness.DB, entitytest.DuplicateHostRecordID)
+		if loserState != "merged" || loserMergedInto == nil || *loserMergedInto != entitytest.CanonicalHostRecordID || loserRowVersion != 2 {
 			t.Fatalf("unexpected loser host state after merge: state=%s merged_into=%v row_version=%d", loserState, loserMergedInto, loserRowVersion)
 		}
 
-		mention := lookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+		mention := lookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected merge to repoint mention to survivor, got %#v", mention)
 		}
 		if mention.RowVersion != 2 {
 			t.Fatalf("expected merge to increment mention row_version, got %#v", mention)
 		}
 
-		link := lookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host")
-		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
+		link := lookupActiveLink(t, harness.DB, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host")
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
 		if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE record_link_id = $1
    AND deleted_at IS NULL
-`, golden.RecordDuplicateLinkID); got != 0 {
+`, linktest.DuplicateLinkID); got != 0 {
 			t.Fatalf("expected loser-targeted active link to disappear, got %d active rows", got)
 		}
 
@@ -1279,7 +1284,7 @@ SELECT COUNT(*)
    AND record_id = $2
    AND normalized_tag_name = 'critical-host'
    AND deleted_at IS NULL
-`, incidentID, golden.RecordCanonicalHostRecordID); got != 1 {
+`, incidentID, entitytest.CanonicalHostRecordID); got != 1 {
 			t.Fatalf("expected one active survivor tag after dedupe, got %d", got)
 		}
 		if got := queryCount(t, harness.DB, `
@@ -1287,27 +1292,27 @@ SELECT COUNT(*)
   FROM record_tags
  WHERE record_id = $1
    AND deleted_at IS NULL
-`, golden.RecordDuplicateHostRecordID); got != 0 {
+`, entitytest.DuplicateHostRecordID); got != 0 {
 			t.Fatalf("expected loser active tags to be cleared, got %d", got)
 		}
-		if got := lookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentHostID); got != golden.RecordCanonicalHostRecordID {
+		if got := lookupAssessmentSubject(t, harness.DB, assessmenttest.HostAssessmentID); got != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected loser assessment to repoint to survivor, got %s", got)
 		}
 
-		timelineChange := incidentwstest.RequireRecordChanged(t, timelineSocket, golden.RecordTimelineRecordID.String(), 1)
+		timelineChange := incidentwstest.RequireRecordChanged(t, timelineSocket, timelinetest.RecordID.String(), 1)
 		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
 			t.Fatalf("expected websocket invalidation to carry the merge change_set_id, got timeline=%#v merge=%#v", timelineChange, mergeData)
 		}
-		survivorChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 2)
+		survivorChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 2)
 		if len(survivorChange.AffectedViews) != 1 || survivorChange.AffectedViews[0].ChangeKind != "invalidate" {
 			t.Fatalf("expected survivor invalidation, got %#v", survivorChange)
 		}
-		loserChange := incidentwstest.RequireRecordChanged(t, hostSocket, golden.RecordDuplicateHostRecordID.String(), 2)
+		loserChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.DuplicateHostRecordID.String(), 2)
 		if len(loserChange.AffectedViews) != 1 || loserChange.AffectedViews[0].ChangeKind != "remove" {
 			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
 		}
 		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
-		survivorRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		survivorRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
 		if got := survivorRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected merge to project the repointed linked event on the survivor, got %#v row=%#v", got, survivorRow)
 		}
@@ -1315,9 +1320,9 @@ SELECT COUNT(*)
 		replayResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
@@ -1334,9 +1339,9 @@ SELECT COUNT(*)
 		divergentResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
@@ -1350,7 +1355,7 @@ SELECT COUNT(*)
 		createResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordHostsViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-03-create-after-merge",
 				"host.fqdn":     "ws-023.corp.example.test",
@@ -1360,7 +1365,7 @@ SELECT COUNT(*)
 		)
 		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusOK)["data"].(map[string]any)
 		row := createData["row"].(map[string]any)
-		if row["record_id"] != golden.RecordCanonicalHostRecordID.String() {
+		if row["record_id"] != entitytest.CanonicalHostRecordID.String() {
 			t.Fatalf("expected carried-forward exact match to reuse survivor, got %#v", createData)
 		}
 		_ = link
@@ -1375,18 +1380,18 @@ SELECT COUNT(*)
 			"title":         "Entity merge version conflict",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor Host", "SURVIVOR", "", "")
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser Host", "LOSER", "", "")
-		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET row_version = CASE record_id WHEN $1 THEN 2 ELSE 3 END WHERE record_id IN ($1, $2)`, golden.RecordCanonicalHostRecordID, golden.RecordDuplicateHostRecordID); err != nil {
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Survivor Host", "SURVIVOR", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Loser Host", "LOSER", "", "")
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET row_version = CASE record_id WHEN $1 THEN 2 ELSE 3 END WHERE record_id IN ($1, $2)`, entitytest.CanonicalHostRecordID, entitytest.DuplicateHostRecordID); err != nil {
 			t.Fatalf("advance merge fixture versions: %v", err)
 		}
 
 		response := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    2,
 				"client_txn_id":             "txn-entity_linking-i-4-03-version-conflict",
@@ -1397,8 +1402,8 @@ SELECT COUNT(*)
 		body := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "row_version_conflict")
 		details := body["error"].(map[string]any)["details"].(map[string]any)
 		expected := map[string]any{
-			"survivor_record_id":           golden.RecordCanonicalHostRecordID.String(),
-			"loser_record_id":              golden.RecordDuplicateHostRecordID.String(),
+			"survivor_record_id":           entitytest.CanonicalHostRecordID.String(),
+			"loser_record_id":              entitytest.DuplicateHostRecordID.String(),
 			"survivor_base_row_version":    float64(1),
 			"loser_base_row_version":       float64(2),
 			"survivor_current_row_version": float64(2),
@@ -1420,16 +1425,16 @@ SELECT COUNT(*)
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		blockingRecordID := uuid.New()
 
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor Host", "SURVIVOR-HOST", "survivor-host.corp.example.test", "")
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser Host", "LOSER-HOST", "blocked-host.corp.example.test", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Survivor Host", "SURVIVOR-HOST", "survivor-host.corp.example.test", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Loser Host", "LOSER-HOST", "blocked-host.corp.example.test", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, blockingRecordID, "Blocking Host", "BLOCKING-HOST", "blocked-host.corp.example.test", "")
 
 		mergeResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-collision-detail-merge",
@@ -1462,8 +1467,8 @@ SELECT COUNT(*)
 			"title":         "Entity merge authz",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "", "")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -1479,9 +1484,9 @@ UPDATE incident_memberships
 		resp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-authz-merge",
@@ -1503,21 +1508,21 @@ UPDATE incident_memberships
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		viewLogin := appsupport.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
 
-		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
-		appsupport.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-		appsupport.SeedEntityAlias(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateIdentityID, "identity", "Case Owner")
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		appsupport.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordIdentityMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, golden.RecordFieldTimelineIdentityRefs, "identity", "Case Owner")
-		appsupport.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, "observed_as_identity", "manual", nil)
-		appsupport.SeedAssessment(t, harness.DB, incidentID, adminUserID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
-		beforeMention := lookupMention(t, harness.DB, golden.RecordIdentityMentionID)
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		entitytest.SeedEntityAlias(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "identity", "Case Owner")
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+		entitytest.SeedResolvedMention(t, harness.DB, adminUserID, entitytest.IdentityMentionID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, timelinetest.FieldIdentityRefs, "identity", "Case Owner")
+		linktest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, "observed_as_identity", "manual", nil)
+		assessmenttest.SeedAssessment(t, harness.DB, incidentID, adminUserID, assessmenttest.IdentityAssessmentID, entitytest.DuplicateIdentityRecordID, "identity", "confirmed")
+		beforeMention := lookupMention(t, harness.DB, entitytest.IdentityMentionID)
 
 		mergeResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalIdentityID.String()+"/merge",
+			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalIdentityRecordID.String()+"/merge",
 			map[string]any{
-				"loser_record_id":           golden.RecordDuplicateIdentityID.String(),
+				"loser_record_id":           entitytest.DuplicateIdentityRecordID.String(),
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-identity-merge",
@@ -1527,7 +1532,7 @@ UPDATE incident_memberships
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		mergeData := httptestx.RequireSuccessEnvelope(t, mergeResp, http.StatusOK)["data"].(map[string]any)
-		if mergeData["survivor_record_id"] != golden.RecordCanonicalIdentityID.String() || mergeData["loser_record_id"] != golden.RecordDuplicateIdentityID.String() {
+		if mergeData["survivor_record_id"] != entitytest.CanonicalIdentityRecordID.String() || mergeData["loser_record_id"] != entitytest.DuplicateIdentityRecordID.String() {
 			t.Fatalf("unexpected identity merge payload: %#v", mergeData)
 		}
 		if mergeData["merge_summary"].(map[string]any)["record_type"] != "identity" {
@@ -1546,37 +1551,37 @@ UPDATE incident_memberships
 			t.Fatalf("expected identity merge to emit at least two mutation rows, got %d", got)
 		}
 
-		survivorState, survivorMergedInto, survivorRowVersion, survivorEmail := lookupIdentityState(t, harness.DB, golden.RecordCanonicalIdentityID)
+		survivorState, survivorMergedInto, survivorRowVersion, survivorEmail := lookupIdentityState(t, harness.DB, entitytest.CanonicalIdentityRecordID)
 		if survivorState != "canonical" || survivorMergedInto != nil || survivorRowVersion != 2 || survivorEmail != "alex.survivor@example.test" {
 			t.Fatalf("unexpected survivor identity state: state=%s merged_into=%v row_version=%d email=%q", survivorState, survivorMergedInto, survivorRowVersion, survivorEmail)
 		}
-		loserState, loserMergedInto, loserRowVersion, _ := lookupIdentityState(t, harness.DB, golden.RecordDuplicateIdentityID)
-		if loserState != "merged" || loserMergedInto == nil || *loserMergedInto != golden.RecordCanonicalIdentityID || loserRowVersion != 2 {
+		loserState, loserMergedInto, loserRowVersion, _ := lookupIdentityState(t, harness.DB, entitytest.DuplicateIdentityRecordID)
+		if loserState != "merged" || loserMergedInto == nil || *loserMergedInto != entitytest.CanonicalIdentityRecordID || loserRowVersion != 2 {
 			t.Fatalf("unexpected loser identity state: state=%s merged_into=%v row_version=%d", loserState, loserMergedInto, loserRowVersion)
 		}
 
-		afterMention := lookupMention(t, harness.DB, golden.RecordIdentityMentionID)
-		assertx.RequireMentionStatus(t, afterMention, golden.RecordMentionStatusResolved)
-		if afterMention.ResolvedRecordID == nil || *afterMention.ResolvedRecordID != golden.RecordCanonicalIdentityID {
+		afterMention := lookupMention(t, harness.DB, entitytest.IdentityMentionID)
+		entitytest.RequireMentionStatus(t, afterMention, entitytest.MentionStatusResolved)
+		if afterMention.ResolvedRecordID == nil || *afterMention.ResolvedRecordID != entitytest.CanonicalIdentityRecordID {
 			t.Fatalf("expected identity merge to repoint mention resolution to survivor, got %#v", afterMention)
 		}
-		assertx.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
+		entitytest.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
 
-		link := appsupport.LookupActiveLink(t, harness.DB, incidentID, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity")
-		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity", "manual", nil)
-		if got := appsupport.LookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentIdentID); got != golden.RecordCanonicalIdentityID {
+		link := linktest.LookupActiveLink(t, harness.DB, incidentID, timelinetest.RecordID, entitytest.CanonicalIdentityRecordID, "observed_as_identity")
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalIdentityRecordID, "observed_as_identity", "manual", nil)
+		if got := assessmenttest.LookupAssessmentSubject(t, harness.DB, assessmenttest.IdentityAssessmentID); got != entitytest.CanonicalIdentityRecordID {
 			t.Fatalf("expected identity assessment to repoint to survivor, got %s", got)
 		}
 
-		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
-		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, golden.RecordIdentitiesViewSchemaID)
-		identityRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
-		identitySurvivorRow := workbookscenariotest.FindRow(t, identityRows, golden.RecordCanonicalIdentityID.String())
+		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin)
+		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, viewtest.IdentitiesViewSchemaID)
+		identityRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin)
+		identitySurvivorRow := workbookscenariotest.FindRow(t, identityRows, entitytest.CanonicalIdentityRecordID.String())
 		if got := identitySurvivorRow["cells"].(map[string]any)["identity.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected identity merge to project the repointed linked event on the survivor, got %#v row=%#v", got, identitySurvivorRow)
 		}
 		for _, row := range identityRows {
-			if row["record_id"] == golden.RecordDuplicateIdentityID.String() {
+			if row["record_id"] == entitytest.DuplicateIdentityRecordID.String() {
 				t.Fatalf("expected merged loser to disappear from current-state identity rows, got %#v", identityRows)
 			}
 		}
@@ -1584,7 +1589,7 @@ UPDATE incident_memberships
 		createAfterMerge := appsupport.DoJSON(
 			t,
 			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIdentitiesViewSchemaID+"/rows",
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":         "txn-entity_linking-i-4-03-identity-after-merge",
 				"identity.email":        "alex.analyst@example.test",
@@ -1594,7 +1599,7 @@ UPDATE incident_memberships
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		createAfterMergeData := appsupport.RequireSuccessData(t, createAfterMerge, http.StatusOK)
-		if createAfterMergeData["row"].(map[string]any)["record_id"] != golden.RecordCanonicalIdentityID.String() {
+		if createAfterMergeData["row"].(map[string]any)["record_id"] != entitytest.CanonicalIdentityRecordID.String() {
 			t.Fatalf("expected carried-forward identity exact match to reuse survivor, got %#v", createAfterMergeData)
 		}
 	})
@@ -1603,14 +1608,14 @@ UPDATE incident_memberships
 func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 	harness := appsupport.StartServer(t, "entity_linking-entity-create-actor-scope")
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
-	editor := appsupport.SeedLocalUserFlags(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
+	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-scope-incident",
 		"incident_key":  "IR-E-ACTOR-SCOPE",
 		"title":         "Entity actor-scoped idempotency",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
 	editorLogin := loginLocalUser(t, harness.Server, editor.Email, "EntityScopeEditor1!")
 
 	cases := []struct {
@@ -1622,7 +1627,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 		{
 			name:       "hosts",
 			routeKey:   "entities.hosts.rows.create",
-			viewSchema: golden.RecordHostsViewSchemaID,
+			viewSchema: viewtest.HostsViewSchemaID,
 			payload: func(label string) map[string]any {
 				return map[string]any{
 					"client_txn_id":     "txn-entity_linking-shared-host-create",
@@ -1634,7 +1639,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 		{
 			name:       "identities",
 			routeKey:   "entities.identities.rows.create",
-			viewSchema: golden.RecordIdentitiesViewSchemaID,
+			viewSchema: viewtest.IdentitiesViewSchemaID,
 			payload: func(label string) map[string]any {
 				return map[string]any{
 					"client_txn_id":         "txn-entity_linking-shared-identity-create",
@@ -1646,7 +1651,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 		{
 			name:       "indicators",
 			routeKey:   "indicators.rows.create",
-			viewSchema: golden.RecordIndicatorsViewSchemaID,
+			viewSchema: viewtest.IndicatorsViewSchemaID,
 			payload: func(label string) map[string]any {
 				value := "198.51.100.10"
 				if label == "editor" {
@@ -1654,8 +1659,8 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 				}
 				return map[string]any{
 					"client_txn_id":              "txn-entity_linking-shared-indicator-create",
-					"indicator.indicator_type":   golden.RecordIndicatorTypeIPv4,
-					"indicator.value_kind":       golden.RecordIndicatorValueKindAtomic,
+					"indicator.indicator_type":   "ipv4_addr",
+					"indicator.value_kind":       "atomic",
 					"indicator.display_value":    value,
 					"indicator.normalized_value": value,
 					"indicator.defanged_value":   strings.ReplaceAll(value, ".", "[.]"),
@@ -1913,7 +1918,7 @@ func withHeader(key string, value string) func(*http.Request) {
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
 	t.Helper()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	var (
 		fqdnValue      any
@@ -1946,7 +1951,7 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 
 func seedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
@@ -2020,7 +2025,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 
 func seedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
 	t.Helper()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)
@@ -2076,10 +2081,10 @@ SELECT host_state, merged_into_record_id::text, row_version, COALESCE(fqdn, '')
 	return state, mergedInto, rowVersion, fqdn.String
 }
 
-func lookupMention(t testing.TB, db *sql.DB, mentionID uuid.UUID) fixtures.EntityMentionFixture {
+func lookupMention(t testing.TB, db *sql.DB, mentionID uuid.UUID) entitytest.MentionFixture {
 	t.Helper()
 
-	var mention fixtures.EntityMentionFixture
+	var mention entitytest.MentionFixture
 	var (
 		sourceRecordID   string
 		resolvedRecordID sql.NullString
@@ -2124,11 +2129,11 @@ SELECT source_record_id::text, raw_text, resolution_status, row_version, resolve
 	return mention
 }
 
-func lookupActiveLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) fixtures.LinkFixture {
+func lookupActiveLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) linktest.LinkFixture {
 	t.Helper()
 
 	var (
-		link        fixtures.LinkFixture
+		link        linktest.LinkFixture
 		confidence  sql.NullInt64
 		deletedAt   sql.NullTime
 		recordLink  string

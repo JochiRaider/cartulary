@@ -19,7 +19,7 @@ const (
 
 	AuthoredTableCount  = 109
 	RequiredTableCount  = 82
-	ContributionCount   = 28
+	ContributionCount   = 29
 	ObjectFamilyCount   = 6
 	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v1.json"
 	catalogDigestPrefix = "CARTULARY-RECOVERY-STATE-CATALOG-V1\n"

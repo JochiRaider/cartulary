@@ -3,14 +3,18 @@ package assessments_test
 import (
 	"context"
 	"encoding/json"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -20,16 +24,16 @@ import (
 
 func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-assessments-u-9-06")
+	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-06")
 	assessmentStore := assessments.NewStore(harness.DB, revisionsupport.MustAppender(t))
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
 
 	hostID := uuid.New()
 	identityID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment host", "workbook_interaction-assessment-host", "", "")
-	recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Workbook inspector assessment identity", "workbook_interaction@example.test", "workbook_interaction@example.test", "workbook_interaction")
+	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment host", "workbook_interaction-assessment-host", "", "")
+	entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Workbook inspector assessment identity", "workbook_interaction@example.test", "workbook_interaction@example.test", "workbook_interaction")
 
 	created := map[string]uuid.UUID{}
 	for index, tc := range []struct {
@@ -205,15 +209,15 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 
 func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-assessments-u-9-12")
+	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-12")
 	assessmentStore := assessments.NewStore(harness.DB, revisionsupport.MustAppender(t))
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
 	hostID := uuid.New()
 	supportID := uuid.New()
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment support host", "workbook_interaction-assessment-support", "", "")
-	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Workbook inspector assessment support host", "workbook_interaction-assessment-support", "", "")
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	request := validCreateRequest(hostID, "host", "confirmed")
 	request.ClientTxnID = "txn-workbook_interaction-u-9-12-valid"
@@ -222,7 +226,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("create assessment with support ref: %v", err)
 	}
-	link := recordstoretest.LookupActiveLink(t, harness.DB, incident.ID, result.RecordID, supportID, "supported_by")
+	link := linktest.LookupActiveLink(t, harness.DB, incident.ID, result.RecordID, supportID, "supported_by")
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual assessment support link must preserve provenance=manual confidence=NULL, got %#v", link)
 	}
@@ -705,7 +709,7 @@ func assessmentQueryMeta(t testing.TB) viewschema.QueryMeta {
 	return schema.DefaultQueryMeta()
 }
 
-func queryCount(t testing.TB, harness *recordstoretest.StoreHarness, query string, args ...any) int {
+func queryCount(t testing.TB, harness *appsupport.StoreHarness, query string, args ...any) int {
 	t.Helper()
 	var got int
 	if err := harness.DB.QueryRow(context.Background(), query, args...).Scan(&got); err != nil {
@@ -751,9 +755,9 @@ func expectWorkbookDecodePatchRejected(t testing.TB, body map[string]any) {
 	}
 }
 
-func requireManualLinkConfidenceNull(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
+func requireManualLinkConfidenceNull(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
 	t.Helper()
-	link := recordstoretest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
+	link := linktest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual %s link must preserve provenance=manual confidence=NULL, got %#v", linkType, link)
 	}

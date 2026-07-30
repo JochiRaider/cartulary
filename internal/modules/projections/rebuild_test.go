@@ -3,20 +3,23 @@ package projections_test
 import (
 	"context"
 	"errors"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -40,16 +43,16 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 
 func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "projection-timeline-source-paging")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-page@example.test", "Projection Page", "ProjectionPage1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-page-incident", "IR-PROJECTION-PAGE", "Projection paging")
+	harness := appsupport.StartStore(t, "projection-timeline-source-paging")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-page@example.test", "Projection Page", "ProjectionPage1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-page-incident", "IR-PROJECTION-PAGE", "Projection paging")
 	recordIDs := []uuid.UUID{
 		uuid.MustParse("10000000-0000-4000-8000-000000000003"),
 		uuid.MustParse("10000000-0000-4000-8000-000000000001"),
 		uuid.MustParse("10000000-0000-4000-8000-000000000002"),
 	}
 	for _, recordID := range recordIDs {
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
 	}
 
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -105,7 +108,7 @@ func (commitFailTx) Commit(context.Context) error {
 }
 
 func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "projection-restore-commit-failure")
+	harness := appsupport.StartStore(t, "projection-restore-commit-failure")
 	failingDB := commitFailDB{DB: harness.DB}
 	revisionComposition := revisionsupport.MustComposition(t)
 	rebuilder := projections.NewRestoreRebuilder(
@@ -140,7 +143,7 @@ func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "projection-restore-rebuild-result")
+	harness := appsupport.StartStore(t, "projection-restore-rebuild-result")
 	revisionComposition := revisionsupport.MustComposition(t)
 	rebuilder := projections.NewRestoreRebuilder(
 		harness.DB,
@@ -151,10 +154,10 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 			revisionComposition.Intents,
 		).ProjectionCatalog.Catalog,
 	)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()
-	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
 
 	insertStaleTimelineProjectionRow(t, harness.DB, incident.ID, timelineRecordID)
 

@@ -15,7 +15,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerEntities,
 				RecordType:             "host",
-				DeleteRestoreProvider:  entitiesdeleterestore.HostProvider(),
+				DeleteRestoreSource:    entitiesdeleterestore.NewHostSource(),
 				RowRollbackProvider:    entityrollback.NewHostProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
@@ -26,7 +26,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerEntities,
 				RecordType:             "identity",
-				DeleteRestoreProvider:  entitiesdeleterestore.IdentityProvider(),
+				DeleteRestoreSource:    entitiesdeleterestore.NewIdentitySource(),
 				RowRollbackProvider:    entityrollback.NewIdentityProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{

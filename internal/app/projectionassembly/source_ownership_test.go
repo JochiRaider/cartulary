@@ -107,7 +107,7 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 
 func TestValidateProjectionProviderSQLReference(t *testing.T) {
 	patterns := []schemaOwnerPattern{
-		{owner: "revisions", pattern: regexp.MustCompile(`^records$`)},
+		{owner: "records", pattern: regexp.MustCompile(`^records$`)},
 		{owner: "projections", pattern: regexp.MustCompile(`^host_grid_projection$`)},
 	}
 	descriptor := projections.ProviderDescriptor{

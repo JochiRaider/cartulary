@@ -2,8 +2,6 @@ package records
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -27,18 +25,11 @@ func NewRouteTargetResolver(db postgres.DB) *RouteTargetResolver {
 }
 
 func (r *RouteTargetResolver) Resolve(ctx context.Context, recordID uuid.UUID) (RouteTarget, error) {
-	var target RouteTarget
-	var deletedAt *time.Time
-	err := r.db.QueryRow(ctx, `
-SELECT incident_id, record_type, row_version, deleted_at
-  FROM records
- WHERE record_id = $1
-`, recordID).Scan(&target.IncidentID, &target.RecordType, &target.RowVersion, &deletedAt)
+	envelope, err := NewStore(r.db).LoadEnvelope(ctx, recordID)
 	if err != nil {
-		return RouteTarget{}, fmt.Errorf("resolve record route target: %w", err)
+		return RouteTarget{}, err
 	}
-	target.Deleted = deletedAt != nil
-	return target, nil
+	return routeTargetFromEnvelope(envelope), nil
 }
 
 func (r *RouteTargetResolver) ResolveIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
@@ -49,25 +40,19 @@ func (r *RouteTargetResolver) ResolveIncident(ctx context.Context, recordID uuid
 	return target.IncidentID, nil
 }
 
-func (r *RouteTargetResolver) RecordIncident(ctx context.Context, recordID uuid.UUID, _ string) (uuid.UUID, error) {
-	return r.ResolveIncident(ctx, recordID)
-}
-
-func (r *RouteTargetResolver) RecordRouteTarget(ctx context.Context, recordID uuid.UUID) (RouteTarget, error) {
-	return r.Resolve(ctx, recordID)
-}
-
 func (r *RouteTargetResolver) ResolveTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (RouteTarget, error) {
-	var target RouteTarget
-	var deletedAt *time.Time
-	err := tx.QueryRow(ctx, `
-SELECT incident_id, record_type, row_version, deleted_at
-  FROM records
- WHERE record_id = $1
-`, recordID).Scan(&target.IncidentID, &target.RecordType, &target.RowVersion, &deletedAt)
+	envelope, err := NewStore().LoadEnvelopeTx(ctx, tx, recordID, false)
 	if err != nil {
-		return RouteTarget{}, fmt.Errorf("resolve record route target: %w", err)
+		return RouteTarget{}, err
 	}
-	target.Deleted = deletedAt != nil
-	return target, nil
+	return routeTargetFromEnvelope(envelope), nil
+}
+
+func routeTargetFromEnvelope(envelope Envelope) RouteTarget {
+	return RouteTarget{
+		IncidentID: envelope.IncidentID,
+		RecordType: envelope.RecordType,
+		Deleted:    envelope.DeletedAt != nil,
+		RowVersion: envelope.RowVersion,
+	}
 }

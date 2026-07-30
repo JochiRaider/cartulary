@@ -5,21 +5,21 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
 
 // timeline-resolution-unit / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Unit(t *testing.T) {
 	t.Run("mention token contract preserves raw text and collapses whitespace for comparison", func(t *testing.T) {
-		payload := fixtures.TimelineCollectionPatchPayload(
-			golden.RecordFieldTimelineHostRefs,
+		payload := timelinetest.TimelineCollectionPatchPayload(
+			timelinetest.FieldHostRefs,
 			7,
 			"txn-entity_linking-u-4-08-normalize",
-			fixtures.CollectionActions(
-				fixtures.AddTokenAction(" vpn   gateway "),
+			timelinetest.CollectionActions(
+				timelinetest.AddTokenAction(" vpn   gateway "),
 			),
 		)
 		data, err := json.Marshal(payload)
@@ -31,7 +31,7 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("expected Record relationships Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
 		}
-		if request.CanonicalChange[0].FieldKey != golden.RecordFieldTimelineHostRefs {
+		if request.CanonicalChange[0].FieldKey != timelinetest.FieldHostRefs {
 			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
 		}
 		action := request.CanonicalChange[0].ActionPayload.Actions[0]
@@ -42,15 +42,15 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain valid submitted tokens", func(t *testing.T) {
-		tokenCases := append([]string{}, golden.RecordAutoResolutionSuppressedTokens...)
+		tokenCases := append([]string{}, entitytest.AutoResolutionSuppressedTokens...)
 		for _, rawText := range tokenCases {
 			t.Run(rawText, func(t *testing.T) {
-				payload := fixtures.TimelineCollectionPatchPayload(
-					golden.RecordFieldTimelineHostRefs,
+				payload := timelinetest.TimelineCollectionPatchPayload(
+					timelinetest.FieldHostRefs,
 					7,
 					"txn-entity_linking-u-4-08-"+rawText,
-					fixtures.CollectionActions(
-						fixtures.AddTokenAction(rawText),
+					timelinetest.CollectionActions(
+						timelinetest.AddTokenAction(rawText),
 					),
 				)
 				data, err := json.Marshal(payload)
@@ -74,12 +74,12 @@ func TestAutoResolutionEligibility_Unit(t *testing.T) {
 // timeline-resolution-unit / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 	t.Run("manual relationship mutation omits confidence and should decode", func(t *testing.T) {
-		payload := fixtures.TimelineCollectionPatchPayload(
-			golden.RecordFieldTimelineIdentityRefs,
+		payload := timelinetest.TimelineCollectionPatchPayload(
+			timelinetest.FieldIdentityRefs,
 			4,
 			"txn-entity_linking-u-4-09-manual",
-			fixtures.CollectionActions(
-				fixtures.AddResolvedRefAction("alex.analyst@example.test", golden.RecordCanonicalIdentityID),
+			timelinetest.CollectionActions(
+				timelinetest.AddResolvedRefAction("alex.analyst@example.test", entitytest.CanonicalIdentityRecordID),
 			),
 		)
 		data, err := json.Marshal(payload)
@@ -91,7 +91,7 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("expected manual relationship mutation without confidence to decode, got %#v", apiErr)
 		}
-		if request.CanonicalChange[0].FieldKey != golden.RecordFieldTimelineIdentityRefs {
+		if request.CanonicalChange[0].FieldKey != timelinetest.FieldIdentityRefs {
 			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
 		}
 	})
@@ -99,8 +99,8 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 	t.Run("manual create-time add_resolved_ref omits confidence and should decode", func(t *testing.T) {
 		payload := map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-create-manual",
-			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
-				fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
+			timelinetest.FieldHostRefs: timelinetest.CollectionActions(
+				timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 			),
 		}
 		data, err := json.Marshal(payload)
@@ -125,83 +125,83 @@ func TestManualTimelineConfidenceNull_Unit(t *testing.T) {
 		}{
 			{
 				name:  "add_resolved_ref confidence number",
-				field: golden.RecordFieldTimelineHostRefs,
+				field: timelinetest.FieldHostRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "WS-023",
-					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
+					"resolved_record_id": entitytest.CanonicalHostRecordID.String(),
 					"confidence":         80,
 				},
 			},
 			{
 				name:  "add_resolved_ref confidence null",
-				field: golden.RecordFieldTimelineIdentityRefs,
+				field: timelinetest.FieldIdentityRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "alex.analyst@example.test",
-					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
+					"resolved_record_id": entitytest.CanonicalIdentityRecordID.String(),
 					"confidence":         nil,
 				},
 			},
 			{
 				name:  "resolve_item confidence string",
-				field: golden.RecordFieldTimelineHostRefs,
+				field: timelinetest.FieldHostRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.RecordHostMentionID),
-					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
+					"item_ref":           entitytest.MentionItemRef(entitytest.HostMentionID),
+					"resolved_record_id": entitytest.CanonicalHostRecordID.String(),
 					"confidence":         "80",
 				},
 			},
 			{
 				name:  "resolve_item provenance override",
-				field: golden.RecordFieldTimelineIdentityRefs,
+				field: timelinetest.FieldIdentityRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.RecordIdentityMentionID),
-					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
+					"item_ref":           entitytest.MentionItemRef(entitytest.IdentityMentionID),
+					"resolved_record_id": entitytest.CanonicalIdentityRecordID.String(),
 					"provenance":         "auto_match",
 				},
 			},
 			{
 				name:  "add_resolved_ref link_type override",
-				field: golden.RecordFieldTimelineHostRefs,
+				field: timelinetest.FieldHostRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "WS-023",
-					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
+					"resolved_record_id": entitytest.CanonicalHostRecordID.String(),
 					"link_type":          "observed_as_identity",
 				},
 			},
 			{
 				name:  "resolve_item source routing metadata",
-				field: golden.RecordFieldTimelineHostRefs,
+				field: timelinetest.FieldHostRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.RecordHostMentionID),
-					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
-					"source_record_id":   golden.RecordTimelineRecordID.String(),
+					"item_ref":           entitytest.MentionItemRef(entitytest.HostMentionID),
+					"resolved_record_id": entitytest.CanonicalHostRecordID.String(),
+					"source_record_id":   timelinetest.RecordID.String(),
 				},
 			},
 			{
 				name:  "add_resolved_ref target routing metadata",
-				field: golden.RecordFieldTimelineIdentityRefs,
+				field: timelinetest.FieldIdentityRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "alex.analyst@example.test",
-					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
-					"target_record_id":   golden.RecordCanonicalIdentityID.String(),
+					"resolved_record_id": entitytest.CanonicalIdentityRecordID.String(),
+					"target_record_id":   entitytest.CanonicalIdentityRecordID.String(),
 				},
 			},
 		}
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				payload := fixtures.TimelineCollectionPatchPayload(
+				payload := timelinetest.TimelineCollectionPatchPayload(
 					tc.field,
 					4,
 					"txn-entity_linking-u-4-09-"+tc.name,
-					fixtures.CollectionActions(tc.action),
+					timelinetest.CollectionActions(tc.action),
 				)
 				data, err := json.Marshal(payload)
 				if err != nil {

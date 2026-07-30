@@ -8,6 +8,5 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		"change_sets",
 		"record_history_entry_refs",
 		"record_revisions",
-		"records",
 	))
 }

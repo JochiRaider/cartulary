@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -130,6 +131,7 @@ func (r *Runtime) NewCommandService(
 		Projections:                 projections,
 		ProviderContributions:       cloneProviderContributions(r.contributions),
 		Appender:                    r.appender,
+		EnvelopeStore:               records.NewStore(db),
 	})
 }
 

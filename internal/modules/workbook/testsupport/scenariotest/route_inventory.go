@@ -6,8 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 )
 
 type RouteHarnessClass string
@@ -328,16 +327,16 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 				return "/api/v1/entity-mentions/" + fixture.MentionID + "/resolve"
 			},
 			BuildBody: func(fixture RouteInventoryContext, clientTxnID string) any {
-				return fixtures.MentionResolveRoutePayload(1, clientTxnID, golden.RecordMentionActionResolve, uuidPointer(fixture.HostRecordID), nil)
+				return MentionResolveRoutePayload(1, clientTxnID, MentionActionResolve, uuidPointer(fixture.HostRecordID), nil)
 			},
 			BuildDivergentBody: func(fixture RouteInventoryContext, clientTxnID string) any {
-				return fixtures.MentionResolveRoutePayload(1, clientTxnID, golden.RecordMentionActionDismiss, nil, nil)
+				return MentionResolveRoutePayload(1, clientTxnID, MentionActionDismiss, nil, nil)
 			},
 			AffectedRecordID:      func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.TimelineRecordID },
 			SuccessStatus:         http.StatusOK,
 			SuccessShape:          RouteSuccessShapeMentionResolution,
 			RequiresCSRF:          true,
-			ExpectedViewSchemaID:  golden.RecordTimelineViewSchemaID,
+			ExpectedViewSchemaID:  viewtest.TimelineViewSchemaID,
 			ReplayCapability:      RouteReplayStoredPayloadReuse,
 			ReplayStatus:          http.StatusOK,
 			DivergentStatus:       http.StatusConflict,
@@ -347,14 +346,14 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			AuthorizationCode:     "authorization_denied",
 			ProjectionTarget:      RouteProjectionTimeline,
 			WebSocketExpectation:  RouteWebSocketRecordChanged,
-			WebSocketViewSchemaID: golden.RecordTimelineViewSchemaID,
+			WebSocketViewSchemaID: viewtest.TimelineViewSchemaID,
 			BuildWebSocketRecordID: func(fixture RouteInventoryContext) string {
 				return fixture.TimelineRecordID
 			},
 			WebSocketRowVersion: 2,
 			AdditionalWebSocketChanges: []RouteWebSocketChangeExpectation{
 				{
-					ViewSchemaID: golden.RecordHostsViewSchemaID,
+					ViewSchemaID: viewtest.HostsViewSchemaID,
 					BuildRecordID: func(fixture RouteInventoryContext) string {
 						return fixture.HostRecordID
 					},
@@ -388,7 +387,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			SuccessStatus:         http.StatusOK,
 			SuccessShape:          RouteSuccessShapeMerge,
 			RequiresCSRF:          true,
-			ExpectedViewSchemaID:  golden.RecordTimelineViewSchemaID,
+			ExpectedViewSchemaID:  viewtest.TimelineViewSchemaID,
 			ReplayCapability:      RouteReplayStoredPayloadReuse,
 			ReplayStatus:          http.StatusOK,
 			DivergentStatus:       http.StatusConflict,
@@ -398,7 +397,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			AuthorizationCode:     "authorization_denied",
 			ProjectionTarget:      RouteProjectionTimeline,
 			WebSocketExpectation:  RouteWebSocketRecordChanged,
-			WebSocketViewSchemaID: golden.RecordTimelineViewSchemaID,
+			WebSocketViewSchemaID: viewtest.TimelineViewSchemaID,
 			BuildWebSocketRecordID: func(fixture RouteInventoryContext) string {
 				return fixture.TimelineRecordID
 			},
@@ -417,9 +416,9 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "hosts create route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordHostsViewSchemaID + "/rows"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.HostsViewSchemaID + "/rows"
 			},
-			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any { return fixtures.HostCreatePayload(clientTxnID) },
+			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any { return HostCreatePayload(clientTxnID) },
 			BuildDivergentBody: func(_ RouteInventoryContext, clientTxnID string) any {
 				return map[string]any{"client_txn_id": clientTxnID, "host.display_name": "VPN Gateway Divergent", "host.hostname": "VPN-GATEWAY-DIVERGENT"}
 			},
@@ -427,7 +426,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			SuccessStatus:        http.StatusCreated,
 			SuccessShape:         RouteSuccessShapeMutationRow,
 			RequiresCSRF:         true,
-			ExpectedViewSchemaID: golden.RecordHostsViewSchemaID,
+			ExpectedViewSchemaID: viewtest.HostsViewSchemaID,
 			ReplayCapability:     RouteReplayStoredPayloadReuse,
 			ReplayStatus:         http.StatusOK,
 			DivergentStatus:      http.StatusConflict,
@@ -451,14 +450,14 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "hosts query route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordHostsViewSchemaID + "/query"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.HostsViewSchemaID + "/query"
 			},
 			BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
 			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.HostRecordID },
 			SuccessStatus:        http.StatusOK,
 			SuccessShape:         RouteSuccessShapeQueryRows,
 			RequiresCSRF:         false,
-			ExpectedViewSchemaID: golden.RecordHostsViewSchemaID,
+			ExpectedViewSchemaID: viewtest.HostsViewSchemaID,
 			ReplayCapability:     RouteReplayNotApplicable,
 			AuthorizationChange:  RouteAuthorizationRemoveMember,
 			AuthorizationStatus:  http.StatusNotFound,
@@ -477,10 +476,10 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "identities create route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordIdentitiesViewSchemaID + "/rows"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.IdentitiesViewSchemaID + "/rows"
 			},
 			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any {
-				return fixtures.IdentityCreatePayload(clientTxnID)
+				return IdentityCreatePayload(clientTxnID)
 			},
 			BuildDivergentBody: func(_ RouteInventoryContext, clientTxnID string) any {
 				return map[string]any{"client_txn_id": clientTxnID, "identity.display_name": "VPN User Divergent", "identity.email": "vpn.user.divergent@example.test", "identity.sam_account_name": "VPNDIV"}
@@ -489,7 +488,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			SuccessStatus:        http.StatusCreated,
 			SuccessShape:         RouteSuccessShapeMutationRow,
 			RequiresCSRF:         true,
-			ExpectedViewSchemaID: golden.RecordIdentitiesViewSchemaID,
+			ExpectedViewSchemaID: viewtest.IdentitiesViewSchemaID,
 			ReplayCapability:     RouteReplayStoredPayloadReuse,
 			ReplayStatus:         http.StatusOK,
 			DivergentStatus:      http.StatusConflict,
@@ -513,14 +512,14 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "identities query route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordIdentitiesViewSchemaID + "/query"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.IdentitiesViewSchemaID + "/query"
 			},
 			BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
 			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.IdentityRecordID },
 			SuccessStatus:        http.StatusOK,
 			SuccessShape:         RouteSuccessShapeQueryRows,
 			RequiresCSRF:         false,
-			ExpectedViewSchemaID: golden.RecordIdentitiesViewSchemaID,
+			ExpectedViewSchemaID: viewtest.IdentitiesViewSchemaID,
 			ReplayCapability:     RouteReplayNotApplicable,
 			AuthorizationChange:  RouteAuthorizationRemoveMember,
 			AuthorizationStatus:  http.StatusNotFound,
@@ -539,19 +538,19 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "indicators create route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordIndicatorsViewSchemaID + "/rows"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.IndicatorsViewSchemaID + "/rows"
 			},
 			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any {
-				return fixtures.IndicatorCreatePayload(clientTxnID)
+				return IndicatorCreatePayload(clientTxnID)
 			},
 			BuildDivergentBody: func(_ RouteInventoryContext, clientTxnID string) any {
-				return map[string]any{"client_txn_id": clientTxnID, "indicator.indicator_type": golden.RecordIndicatorExamples[0].IndicatorType, "indicator.value_kind": golden.RecordIndicatorExamples[0].ValueKind, "indicator.display_value": "203.0.113.25"}
+				return map[string]any{"client_txn_id": clientTxnID, "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": "203.0.113.25"}
 			},
 			AffectedRecordID:     func(_ RouteInventoryContext, data map[string]any) string { return rowRecordID(data) },
 			SuccessStatus:        http.StatusCreated,
 			SuccessShape:         RouteSuccessShapeMutationRow,
 			RequiresCSRF:         true,
-			ExpectedViewSchemaID: golden.RecordIndicatorsViewSchemaID,
+			ExpectedViewSchemaID: viewtest.IndicatorsViewSchemaID,
 			ReplayCapability:     RouteReplayStoredPayloadReuse,
 			ReplayStatus:         http.StatusOK,
 			DivergentStatus:      http.StatusConflict,
@@ -575,14 +574,14 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "indicators query route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordIndicatorsViewSchemaID + "/query"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.IndicatorsViewSchemaID + "/query"
 			},
 			BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
 			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.IndicatorRecordID },
 			SuccessStatus:        http.StatusOK,
 			SuccessShape:         RouteSuccessShapeQueryRows,
 			RequiresCSRF:         false,
-			ExpectedViewSchemaID: golden.RecordIndicatorsViewSchemaID,
+			ExpectedViewSchemaID: viewtest.IndicatorsViewSchemaID,
 			ReplayCapability:     RouteReplayNotApplicable,
 			AuthorizationChange:  RouteAuthorizationRemoveMember,
 			AuthorizationStatus:  http.StatusNotFound,
@@ -601,7 +600,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "timeline create route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordTimelineViewSchemaID + "/rows"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.TimelineViewSchemaID + "/rows"
 			},
 			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any {
 				return map[string]any{"client_txn_id": clientTxnID, "timeline.activity_synopsis_text": "support timeline create"}
@@ -613,7 +612,7 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			SuccessStatus:        http.StatusCreated,
 			SuccessShape:         RouteSuccessShapeMutationRow,
 			RequiresCSRF:         true,
-			ExpectedViewSchemaID: golden.RecordTimelineViewSchemaID,
+			ExpectedViewSchemaID: viewtest.TimelineViewSchemaID,
 			ReplayCapability:     RouteReplayStoredPayloadReuse,
 			ReplayStatus:         http.StatusOK,
 			DivergentStatus:      http.StatusConflict,
@@ -637,14 +636,14 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Name:   "timeline query route",
 			Method: http.MethodPost,
 			BuildPath: func(fixture RouteInventoryContext) string {
-				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.RecordTimelineViewSchemaID + "/query"
+				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + viewtest.TimelineViewSchemaID + "/query"
 			},
 			BuildBody:            func(RouteInventoryContext, string) any { return map[string]any{} },
 			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.TimelineRecordID },
 			SuccessStatus:        http.StatusOK,
 			SuccessShape:         RouteSuccessShapeQueryRows,
 			RequiresCSRF:         false,
-			ExpectedViewSchemaID: golden.RecordTimelineViewSchemaID,
+			ExpectedViewSchemaID: viewtest.TimelineViewSchemaID,
 			ReplayCapability:     RouteReplayNotApplicable,
 			AuthorizationChange:  RouteAuthorizationRemoveMember,
 			AuthorizationStatus:  http.StatusNotFound,
@@ -664,16 +663,16 @@ func WorkbookRouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 			Method:    http.MethodPatch,
 			BuildPath: func(fixture RouteInventoryContext) string { return "/api/v1/records/" + fixture.TimelineRecordID },
 			BuildBody: func(fixture RouteInventoryContext, clientTxnID string) any {
-				return fixtures.TimelineCollectionPatchPayload(golden.RecordFieldTimelineHostRefs, 1, clientTxnID, fixtures.CollectionActions(fixtures.AddResolvedRefAction("WS-023", mustUUID(fixture.HostRecordID))))
+				return TimelineCollectionPatchPayload(TimelineHostRefsFieldKey, 1, clientTxnID, CollectionActions(AddResolvedRefAction("WS-023", mustUUID(fixture.HostRecordID))))
 			},
 			BuildDivergentBody: func(fixture RouteInventoryContext, clientTxnID string) any {
-				return fixtures.TimelineCollectionPatchPayload(golden.RecordFieldTimelineHostRefs, 1, clientTxnID, fixtures.CollectionActions(fixtures.AddResolvedRefAction("WS-024", mustUUID(fixture.MergeLoserRecordID))))
+				return TimelineCollectionPatchPayload(TimelineHostRefsFieldKey, 1, clientTxnID, CollectionActions(AddResolvedRefAction("WS-024", mustUUID(fixture.MergeLoserRecordID))))
 			},
 			AffectedRecordID:     func(fixture RouteInventoryContext, _ map[string]any) string { return fixture.TimelineRecordID },
 			SuccessStatus:        http.StatusOK,
 			SuccessShape:         RouteSuccessShapeMutationRow,
 			RequiresCSRF:         true,
-			ExpectedViewSchemaID: golden.RecordTimelineViewSchemaID,
+			ExpectedViewSchemaID: viewtest.TimelineViewSchemaID,
 			ReplayCapability:     RouteReplayStoredPayloadReuse,
 			ReplayStatus:         http.StatusOK,
 			DivergentStatus:      http.StatusConflict,

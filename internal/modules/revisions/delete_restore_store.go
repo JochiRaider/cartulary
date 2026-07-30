@@ -3,7 +3,6 @@ package revisions
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -95,14 +94,7 @@ type DeleteRestoreResult struct {
 	Replayed     bool
 }
 
-type deleteRestoreRecord struct {
-	IncidentID      uuid.UUID
-	RecordID        uuid.UUID
-	RecordType      string
-	RowVersion      int64
-	DeletedAt       *time.Time
-	DeletedByUserID *uuid.UUID
-}
+type deleteRestoreRecord = records.Envelope
 
 func (s *commandStore) SoftDeleteRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
 	return s.applyDeleteRestore(ctx, actor, recordID, request, requestHash, requestID, now.UTC(), deleteRouteKey, true)
@@ -149,18 +141,18 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 		}
 	}
 
-	record, err := loadDeleteRestoreRecordTx(ctx, tx, recordID)
+	record, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	provider, ok := s.deleteRestoreProviders.Provider(record.RecordType)
+	sourceAdapter, ok := s.deleteRestoreSources.Source(record.RecordType)
 	if !ok {
 		return DeleteRestoreResult{}, ErrUnsupportedRecordType
 	}
-	viewSchemaID, err := provider.ViewSchemaID(ctx, tx, record.RecordID)
+	viewSchemaID, err := sourceAdapter.ViewSchemaID(ctx, tx, record.RecordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -174,26 +166,26 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 		return DeleteRestoreResult{}, ErrRecordNotDeleted
 	}
 	if deleting {
-		if err := validateDeletePreconditionsTx(ctx, tx, provider, record); err != nil {
+		if err := validateDeletePreconditionsTx(ctx, tx, sourceAdapter, record); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
 
-	beforeSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, provider)
+	beforeSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, sourceAdapter)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	nextRowVersion, err := updateEnvelopeDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting)
+	nextRowVersion, err := s.envelopes.SetDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting)
 	if err != nil {
-		return DeleteRestoreResult{}, err
+		return DeleteRestoreResult{}, adaptEnvelopeError(err)
 	}
-	if err := provider.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting); err != nil {
+	if err := sourceAdapter.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	afterSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, provider)
+	afterSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, sourceAdapter)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -244,7 +236,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	current, err := loadDeleteRestoreRecordTx(ctx, tx, recordID)
+	current, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -271,39 +263,16 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	}, nil
 }
 
-func loadDeleteRestoreRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (deleteRestoreRecord, error) {
-	var (
-		record       deleteRestoreRecord
-		deletedAt    sql.NullTime
-		deletedByRaw sql.NullString
-	)
-	if err := tx.QueryRow(ctx, `
-SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_user_id::text
-  FROM records
- WHERE record_id = $1
- FOR UPDATE
-`, recordID).Scan(&record.IncidentID, &record.RecordID, &record.RecordType, &record.RowVersion, &deletedAt, &deletedByRaw); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return deleteRestoreRecord{}, ErrRecordNotFound
-		}
-		return deleteRestoreRecord{}, err
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	if deletedByRaw.Valid {
-		parsed, err := uuid.Parse(deletedByRaw.String)
-		if err != nil {
-			return deleteRestoreRecord{}, err
-		}
-		record.DeletedByUserID = &parsed
+func (s *commandStore) loadDeleteRestoreRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (deleteRestoreRecord, error) {
+	record, err := s.envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
+	if err != nil {
+		return deleteRestoreRecord{}, adaptEnvelopeError(err)
 	}
 	return record, nil
 }
 
-func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, provider recorddeleterestore.SourceProvider, record deleteRestoreRecord) error {
-	reasonCode, blocked, err := provider.ValidateDeletePreconditionsTx(ctx, tx, record.IncidentID, record.RecordID)
+func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, source deleterestorecontract.DeleteRestoreSource, record deleteRestoreRecord) error {
+	reasonCode, blocked, err := source.ValidateDeletePreconditionsTx(ctx, tx, record.IncidentID, record.RecordID)
 	if err != nil {
 		return err
 	}
@@ -322,7 +291,7 @@ func lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, rec
 		if errors.As(err, &locked) {
 			return &RecordLockedError{RecordID: locked.RecordID}
 		}
-		if errors.Is(err, records.ErrRecordEnvelopeNotFound) {
+		if errors.Is(err, records.ErrEnvelopeNotFound) {
 			return ErrRecordNotFound
 		}
 		return err
@@ -330,36 +299,11 @@ func lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, rec
 	return nil
 }
 
-func updateEnvelopeDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) (int64, error) {
-	var rowVersion int64
-	if deleting {
-		if err := tx.QueryRow(ctx, `
-UPDATE records
-   SET row_version = row_version + 1,
-       deleted_at = $2,
-       deleted_by_user_id = $3,
-       updated_at = $2,
-       updated_by_user_id = $3
- WHERE record_id = $1
-RETURNING row_version
-`, recordID, now.UTC(), actorUserID).Scan(&rowVersion); err != nil {
-			return 0, err
-		}
-		return rowVersion, nil
+func adaptEnvelopeError(err error) error {
+	if errors.Is(err, records.ErrEnvelopeNotFound) {
+		return ErrRecordNotFound
 	}
-	if err := tx.QueryRow(ctx, `
-UPDATE records
-   SET row_version = row_version + 1,
-       deleted_at = NULL,
-       deleted_by_user_id = NULL,
-       updated_at = $2,
-       updated_by_user_id = $3
- WHERE record_id = $1
-RETURNING row_version
-`, recordID, now.UTC(), actorUserID).Scan(&rowVersion); err != nil {
-		return 0, err
-	}
-	return rowVersion, nil
+	return err
 }
 
 func buildDeleteRestorePayload(record deleteRestoreRecord, changeSetID uuid.UUID, deleted bool) map[string]any {

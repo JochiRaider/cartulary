@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
@@ -16,11 +19,12 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
@@ -34,9 +38,9 @@ import (
 const TimelineView = "cartulary.view.timeline.v2"
 
 func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "saved_view_query-active-links-tags-v1")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-views@example.test", "Workbook query Views", "SavedViewQueryViewsPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
+	harness := appsupport.StartStore(t, "saved_view_query-active-links-tags-v1")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-views@example.test", "Workbook query Views", "SavedViewQueryViewsPass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
 	incidentID := incident.ID
 
 	wantLinkColumns := []string{
@@ -86,7 +90,7 @@ func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	deletedTagRecord := uuid.New()
 	deletedTagEndpoint := uuid.New()
 	for _, recordID := range []uuid.UUID{src, dst, fieldDst, deletedLinkDst, deletedEndpoint, taggedRecord, deletedTagRecord, deletedTagEndpoint} {
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, recordID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, recordID)
 	}
 
 	activeLinkID := uuid.New()
@@ -109,10 +113,10 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedEndpoint, actor.ID); err != nil {
 		t.Fatalf("soft-delete link endpoint fixture: %v", err)
 	}
-	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
 		t.Fatalf("active_record_links_v1 did not expose active unfielded and field-key links, got %d", got)
 	}
-	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, deletedLinkID, endpointDeletedLinkID); got != 0 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, deletedLinkID, endpointDeletedLinkID); got != 0 {
 		t.Fatalf("active_record_links_v1 exposed deleted link or deleted endpoint link, got %d", got)
 	}
 	var fieldKey string
@@ -141,27 +145,27 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedTagEndpoint, actor.ID); err != nil {
 		t.Fatalf("soft-delete tag endpoint fixture: %v", err)
 	}
-	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
 		t.Fatalf("active_record_tags_v1 did not expose active tag, got %d", got)
 	}
-	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id IN ($1, $2)`, deletedTagID, endpointDeletedTagID); got != 0 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id IN ($1, $2)`, deletedTagID, endpointDeletedTagID); got != 0 {
 		t.Fatalf("active_record_tags_v1 exposed deleted tag or deleted endpoint tag, got %d", got)
 	}
 }
 
 func TestRecordLinkOwnerValidation(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "saved_view_query-link-owner-validation")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-validation@example.test", "Workbook query Validation", "SavedViewQueryValidationPass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
+	harness := appsupport.StartStore(t, "saved_view_query-link-owner-validation")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-validation@example.test", "Workbook query Validation", "SavedViewQueryValidationPass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
 	src := uuid.New()
 	dst := uuid.New()
 	replacement := uuid.New()
 	superseded := uuid.New()
 	host := uuid.New()
 	for _, recordID := range []uuid.UUID{src, dst, replacement, superseded} {
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
 	}
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
 
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -253,9 +257,9 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 }
 
 func TestTypedLinksAndTags_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "saved_view_query-u-8-01-links-tags")
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
+	harness := appsupport.StartStore(t, "saved_view_query-u-8-01-links-tags")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
 	revisionComposition := revisionsupport.MustComposition(t)
 	timelineFacade := timelineassembly.NewBundle(
@@ -281,8 +285,8 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 		for _, token := range baseTokens {
 			src := uuid.New()
 			dst := uuid.New()
-			recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
-			recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
+			timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
+			timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
 			if _, err := harness.DB.Exec(context.Background(), `
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, $4, 'manual', $5, $5)
@@ -292,8 +296,8 @@ VALUES ($1, $2, $3, $4, 'manual', $5, $5)
 		}
 		src := uuid.New()
 		dst := uuid.New()
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
 		if _, err := harness.DB.Exec(context.Background(), `SAVEPOINT saved_view_query_invalid_link_type`); err != nil {
 			t.Fatalf("create invalid link savepoint: %v", err)
 		}
@@ -342,7 +346,7 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 		}
 		row := result.Payload["row"].(map[string]any)
 		recordID := result.RecordID
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE incident_id = $1
@@ -359,7 +363,7 @@ SELECT COUNT(*)
 		if item["item_ref"] != wantRef || item["item_kind"] != "tag" || item["display_text"] != "Rough" || item["tag_id"] != tagID {
 			t.Fatalf("unexpected tag collection item: got %#v want item_ref=%s tag_id=%s", item, wantRef, tagID)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations
  WHERE target_kind = 'record_tag'
@@ -400,7 +404,7 @@ SELECT COUNT(*)
 		if items := collectionItems(t, patched, "timeline.tags"); len(items) != 0 {
 			t.Fatalf("remove_tag left active tag items: %#v", items)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations
  WHERE target_kind = 'record_tag'
@@ -469,7 +473,7 @@ func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
 	})
 	recordID := mustUUID(t, row["record_id"].(string))
 	evidenceID := uuid.New()
-	appsupport.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
+	envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
 	if _, err := harness.DB.Exec(`
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state)
 VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')

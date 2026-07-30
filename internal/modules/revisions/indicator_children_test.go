@@ -3,7 +3,6 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"slices"
 	"testing"
 	"time"
@@ -11,8 +10,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -28,7 +30,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 
 	t.Run("resolved observation create reversal tombstones and invalidates every affected record", func(t *testing.T) {
 		sourceID := uuid.New()
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "create")
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
 		observation, changeSetID, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
@@ -117,7 +119,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 
 	t.Run("observation resolution reversal restores exact unresolved state", func(t *testing.T) {
 		sourceID := uuid.New()
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "resolve")
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
@@ -154,7 +156,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 
 	t.Run("re-resolution reversal protects and restores old and new canonical indicators", func(t *testing.T) {
 		sourceID := uuid.New()
-		appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		oldIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-old")
 		newIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-new")
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
@@ -224,7 +226,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
 	value := "history_revision-" + suffix + ".example.test"
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (

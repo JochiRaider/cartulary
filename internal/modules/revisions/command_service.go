@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -22,6 +23,7 @@ type CommandServiceDependencies struct {
 	Projections                 ProjectionServices
 	ProviderContributions       []ProviderContribution
 	Appender                    *Appender
+	EnvelopeStore               *records.Store
 }
 
 type CommandService struct {
@@ -42,23 +44,25 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
 		{name: "projection services", value: dependencies.Projections},
 		{name: "appender", value: dependencies.Appender},
+		{name: "envelope store", value: dependencies.EnvelopeStore},
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
 			return nil, fmt.Errorf("%w: %s", ErrInvalidCommandServiceDependency, check.name)
 		}
 	}
-	deleteRestoreProviders, rowRollbackProviders, nonRowRollbackProviders, err := buildProviderCatalogs(dependencies.ProviderContributions)
+	deleteRestoreSources, rowRollbackProviders, nonRowRollbackProviders, err := buildProviderCatalogs(dependencies.ProviderContributions)
 	if err != nil {
 		return nil, fmt.Errorf("%w: provider contributions: %w", ErrInvalidCommandServiceDependency, err)
 	}
 	store := &commandStore{
 		db:                          dependencies.Database,
 		appender:                    dependencies.Appender,
+		envelopes:                   dependencies.EnvelopeStore,
 		incidentAccess:              incidents.NewAccess(dependencies.Database),
 		importedAttributionResolver: dependencies.ImportedAttributionResolver,
 		projections:                 dependencies.Projections,
-		deleteRestoreProviders:      deleteRestoreProviders,
+		deleteRestoreSources:        deleteRestoreSources,
 		rowRollbackProviders:        rowRollbackProviders,
 		nonRowRollbackProviders:     nonRowRollbackProviders,
 	}

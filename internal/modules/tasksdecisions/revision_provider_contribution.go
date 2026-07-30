@@ -13,7 +13,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "task_request",
-				DeleteRestoreProvider:  deleterestore.TaskRequestProvider(),
+				DeleteRestoreSource:    deleterestore.NewTaskRequestSource(),
 				RowRollbackProvider:    rollbackprovider.NewTaskRequestProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
@@ -24,7 +24,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "decision",
-				DeleteRestoreProvider:  deleterestore.DecisionProvider(),
+				DeleteRestoreSource:    deleterestore.NewDecisionSource(),
 				RowRollbackProvider:    rollbackprovider.NewDecisionProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{

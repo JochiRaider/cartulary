@@ -7,30 +7,33 @@ import (
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 // indicator-storage / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorObservationSeparation_Unit(t *testing.T) {
-	harness := storetest.StartStore(t, "entity_linking-u-4-07-indicators")
+	harness := appsupport.StartStore(t, "entity_linking-u-4-07-indicators")
 	store := indicators.NewStore(harness.DB, revisionsupport.MustAppender(t))
-	actor := storetest.SeedLocalUserFlags(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
-	incident := storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 
 	create := func(clientTxnID string) indicators.MutationResult {
 		t.Helper()
 		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateRequest{
 			ClientTxnID: clientTxnID,
 			Values: map[string]string{
-				"indicator.indicator_type":   golden.RecordIndicatorExamples[0].IndicatorType,
-				"indicator.value_kind":       golden.RecordIndicatorExamples[0].ValueKind,
-				"indicator.display_value":    golden.RecordIndicatorExamples[0].DisplayValue,
-				"indicator.normalized_value": golden.RecordIndicatorExamples[0].NormalizedValue,
+				"indicator.indicator_type":   indicatortest.Examples[0].IndicatorType,
+				"indicator.value_kind":       indicatortest.Examples[0].ValueKind,
+				"indicator.display_value":    indicatortest.Examples[0].DisplayValue,
+				"indicator.normalized_value": indicatortest.Examples[0].NormalizedValue,
 			},
-		}, []byte(clientTxnID), "req-"+clientTxnID, golden.RecordBaseTime)
+		}, []byte(clientTxnID), "req-"+clientTxnID, indicatortest.BaseTime)
 		if err != nil {
 			t.Fatalf("create indicator: %v", err)
 		}
@@ -42,15 +45,15 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 		t.Fatalf("canonical indicator dedupe failed: first=%#v second=%#v", first, second)
 	}
 
-	storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
-	storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineSiblingRecordID)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.SiblingRecordID)
 	for index, sourceRecordID := range []struct {
 		id      uuid.UUID
 		field   string
 		created time.Time
 	}{
-		{id: golden.RecordTimelineRecordID, field: golden.RecordFieldTimelineSourceText, created: golden.RecordPastTime},
-		{id: golden.RecordTimelineSiblingRecordID, field: golden.RecordFieldTimelineSummary, created: golden.RecordBaseTime},
+		{id: timelinetest.RecordID, field: timelinetest.FieldSourceText, created: indicatortest.PastTime},
+		{id: timelinetest.SiblingRecordID, field: timelinetest.FieldSummary, created: indicatortest.BaseTime},
 	} {
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID:                incident.ID,
@@ -58,7 +61,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 			SourceFieldKey:            sourceRecordID.field,
 			OriginKind:                "interactive_cell",
 			OriginLocator:             "entity_linking-u-4-07-observation-" + string(rune('1'+index)),
-			ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
+			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &first.RecordID,
 			CreatedAt:                 sourceRecordID.created,
 		})
@@ -70,12 +73,12 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 		IncidentID:        incident.ID,
 		IndicatorRecordID: first.RecordID,
 		LifecycleState:    "active",
-		ValidFrom:         golden.RecordPastTime,
-		CreatedAt:         golden.RecordPastTime,
+		ValidFrom:         indicatortest.PastTime,
+		CreatedAt:         indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}
-	projection := storetest.LookupIndicatorProjection(t, harness.DB, first.RecordID)
+	projection := indicatortest.LookupProjection(t, harness.DB, first.RecordID)
 	if projection.ObservationCount != 2 || projection.FirstObservedAt == nil || projection.LastObservedAt == nil || projection.LifecycleSummary == nil || *projection.LifecycleSummary != "active" {
 		t.Fatalf("observations did not remain distinct in projection: %#v", projection)
 	}

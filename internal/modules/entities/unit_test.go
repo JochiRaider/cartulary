@@ -5,26 +5,31 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/jackc/pgx/v5"
 
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -96,16 +101,16 @@ func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
 // entity-storage / REQ-02-034, REQ-02-038, REQ-02-054..REQ-02-055 / AC-020, AC-021, AC-186.
 func TestCreateFromMention_Unit(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-host-reuse")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-03-host-reuse")
 		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships entity-storage host")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships entity-storage host")
 
-		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineSiblingRecordID)
-		recordstoretest.SeedMention(t, harness.DB, actor.ID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
-		recordstoretest.SeedMention(t, harness.DB, actor.ID, golden.RecordResolvedHostMentionID, golden.RecordTimelineSiblingRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.SiblingRecordID)
+		entitytest.SeedMention(t, harness.DB, actor.ID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
+		entitytest.SeedMention(t, harness.DB, actor.ID, entitytest.ResolvedHostMentionID, timelinetest.SiblingRecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
 		tx, err := harness.DB.BeginTx(context.Background(), pgxTxOptions())
 		if err != nil {
@@ -113,8 +118,8 @@ func TestCreateFromMention_Unit(t *testing.T) {
 		}
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
-		targetID := golden.RecordCanonicalHostRecordID
-		result, err := mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, golden.RecordHostMentionID, &targetID, golden.RecordBaseTime)
+		targetID := entitytest.CanonicalHostRecordID
+		result, err := mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, timelinetest.RecordID, timelinetest.FieldHostRefs, entitytest.HostMentionID, &targetID, entitytest.BaseTime)
 		if err != nil {
 			t.Fatalf("resolve mention: %v", err)
 		}
@@ -122,24 +127,24 @@ func TestCreateFromMention_Unit(t *testing.T) {
 			t.Fatalf("commit tx: %v", err)
 		}
 
-		if result.RecordID != golden.RecordCanonicalHostRecordID || result.EntityType != "host" {
+		if result.RecordID != entitytest.CanonicalHostRecordID || result.EntityType != "host" {
 			t.Fatalf("expected selected mention to reuse canonical host, got %#v", result)
 		}
-		selected := recordstoretest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, selected, golden.RecordMentionStatusResolved)
-		if selected.ResolvedRecordID == nil || *selected.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+		selected := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, selected, entitytest.MentionStatusResolved)
+		if selected.ResolvedRecordID == nil || *selected.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected selected mention to resolve to canonical host, got %#v", selected)
 		}
 		if selected.RawText != "WS-023" {
 			t.Fatalf("expected selected raw text preservation, got %#v", selected)
 		}
 
-		sibling := recordstoretest.LookupMention(t, harness.DB, golden.RecordResolvedHostMentionID)
-		assertx.RequireMentionStatus(t, sibling, golden.RecordMentionStatusUnresolved)
+		sibling := entitytest.LookupMention(t, harness.DB, entitytest.ResolvedHostMentionID)
+		entitytest.RequireMentionStatus(t, sibling, entitytest.MentionStatusUnresolved)
 		if sibling.ResolvedRecordID != nil {
 			t.Fatalf("expected sibling mention to remain unresolved, got %#v", sibling)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
 			t.Fatalf("expected explicit resolve to avoid creating a second host, got %d rows", got)
 		}
 		var (
@@ -151,7 +156,7 @@ func TestCreateFromMention_Unit(t *testing.T) {
 SELECT display_name, hostname, host_state
   FROM host_grid_projection
  WHERE record_id = $1
-`, golden.RecordCanonicalHostRecordID).Scan(&projectedDisplayName, &projectedHostname, &projectedState); err != nil {
+`, entitytest.CanonicalHostRecordID).Scan(&projectedDisplayName, &projectedHostname, &projectedState); err != nil {
 			t.Fatalf("lookup host projection after explicit resolve: %v", err)
 		}
 		if projectedDisplayName != "WS-023" || projectedHostname != "WS-023" || projectedState != "canonical" {
@@ -160,13 +165,13 @@ SELECT display_name, hostname, host_state
 	})
 
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-03-identity-create")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-03-identity-create")
 		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships entity-storage identity")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships entity-storage identity")
 
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineMixedRecordID)
-		recordstoretest.SeedMention(t, harness.DB, actor.ID, golden.RecordIdentityMentionID, golden.RecordTimelineMixedRecordID, golden.RecordFieldTimelineIdentityRefs, "identity", "alex.analyst@example.test", "unresolved", nil, nil)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.MixedRecordID)
+		entitytest.SeedMention(t, harness.DB, actor.ID, entitytest.IdentityMentionID, timelinetest.MixedRecordID, timelinetest.FieldIdentityRefs, "identity", "alex.analyst@example.test", "unresolved", nil, nil)
 
 		tx, err := harness.DB.BeginTx(context.Background(), pgxTxOptions())
 		if err != nil {
@@ -174,17 +179,17 @@ SELECT display_name, hostname, host_state
 		}
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
-		_, err = mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, golden.RecordTimelineMixedRecordID, golden.RecordFieldTimelineIdentityRefs, golden.RecordIdentityMentionID, nil, golden.RecordBaseTime)
+		_, err = mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, timelinetest.MixedRecordID, timelinetest.FieldIdentityRefs, entitytest.IdentityMentionID, nil, entitytest.BaseTime)
 		if !errors.Is(err, mentions.ErrInvalidMentionResolution) {
 			t.Fatalf("expected missing target rejection, got %v", err)
 		}
 
-		mention := recordstoretest.LookupMention(t, harness.DB, golden.RecordIdentityMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.IdentityMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusUnresolved)
 		if mention.ResolvedRecordID != nil {
 			t.Fatalf("expected mention to remain unresolved, got %#v", mention)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 0 {
+		if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 0 {
 			t.Fatalf("expected missing-target resolve to create no identity rows, got %d", got)
 		}
 	})
@@ -192,15 +197,15 @@ SELECT display_name, hostname, host_state
 
 // entity-storage / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "entity_linking-u-4-04")
+	harness := appsupport.StartStore(t, "entity_linking-u-4-04")
 	timelineBundle := newEntityTestTimelineBundle(t, harness.DB)
 	mentionStore := timelineBundle.EntityMentionStore
 	timelineFacade := timelineBundle.Facade
 	timelineProjectionStore := timelineBundle.ProjectionCatalog.Query
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
 
-	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
 		t.Fatal("normalize mention token")
@@ -215,7 +220,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 					Op:             "add_resolved_ref",
 					RawText:        "WS-023",
 					NormalizedText: normalizedHostToken,
-					ResolvedRecord: &golden.RecordCanonicalHostRecordID,
+					ResolvedRecord: &entitytest.CanonicalHostRecordID,
 				},
 			},
 		},
@@ -226,7 +231,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 		Request:     createRequest,
 		RequestHash: []byte("txn-entity_linking-u-4-04-row"),
 		RequestID:   "req-entity_linking-u-4-04-row",
-		Now:         golden.RecordBaseTime,
+		Now:         entitytest.BaseTime,
 	})
 	if err != nil {
 		t.Fatalf("create resolved relationship row: %v", err)
@@ -235,27 +240,27 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query initial timeline rows: %v", err)
 	}
-	initialRow := recordstoretest.FindRow(t, initialRows, created.RecordID.String())
-	initialItem := recordstoretest.RequireSingleCollectionItem(t, initialRow, golden.RecordFieldTimelineHostRefs)
-	mentionID := recordstoretest.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
+	initialRow := workbookscenariotest.FindRow(t, initialRows, created.RecordID.String())
+	initialItem := workbookscenariotest.RequireSingleCollectionItem(t, initialRow, timelinetest.FieldHostRefs)
+	mentionID := entitytest.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
 
-	initialMention := recordstoretest.LookupMention(t, harness.DB, mentionID)
+	initialMention := entitytest.LookupMention(t, harness.DB, mentionID)
 	dismissRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: initialMention.RowVersion,
 		ClientTxnID:           "txn-entity_linking-u-4-04-dismiss",
 		Action:                "dismiss_item",
 	}
-	dismissResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, mentions.MentionActionRequestHash(dismissRequest), "req-entity_linking-u-4-04-dismiss", golden.RecordBaseTime)
+	dismissResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, mentions.MentionActionRequestHash(dismissRequest), "req-entity_linking-u-4-04-dismiss", entitytest.BaseTime)
 	if err != nil {
 		t.Fatalf("dismiss mention: %v", err)
 	}
 
-	dismissed := recordstoretest.LookupMention(t, harness.DB, mentionID)
-	assertx.RequireMentionStatus(t, dismissed, golden.RecordMentionStatusDismissed)
+	dismissed := entitytest.LookupMention(t, harness.DB, mentionID)
+	entitytest.RequireMentionStatus(t, dismissed, entitytest.MentionStatusDismissed)
 	if dismissed.ResolvedRecordID != nil || dismissed.ResolvedAt != nil || dismissed.ResolutionMethod != nil {
 		t.Fatalf("expected dismissed mention to clear resolution metadata, got %#v", dismissed)
 	}
-	if got := recordstoretest.QueryCount(t, harness.DB, `
+	if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE incident_id = $1
@@ -263,15 +268,15 @@ SELECT COUNT(*)
    AND dst_record_id = $3
    AND link_type = 'observed_on_host'
    AND deleted_at IS NULL
-`, incident.ID, created.RecordID, golden.RecordCanonicalHostRecordID); got != 0 {
+`, incident.ID, created.RecordID, entitytest.CanonicalHostRecordID); got != 0 {
 		t.Fatalf("expected dismiss to remove active derived link, got %d rows", got)
 	}
 	dismissedRows, err := timelineProjectionStore.QueryRows(context.Background(), incident.ID, timeline.TimelineViewSchemaID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query timeline rows after dismiss: %v", err)
 	}
-	dismissedRow := recordstoretest.FindRow(t, dismissedRows, created.RecordID.String())
-	if got := recordstoretest.CollectionItems(t, dismissedRow, golden.RecordFieldTimelineHostRefs); len(got) != 0 {
+	dismissedRow := workbookscenariotest.FindRow(t, dismissedRows, created.RecordID.String())
+	if got := workbookscenariotest.CollectionItems(t, dismissedRow, timelinetest.FieldHostRefs); len(got) != 0 {
 		t.Fatalf("dismissed mention must be excluded from current relationship-cell values, got %#v", got)
 	}
 	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, dismissResult.ChangeSetID, dismissedRow)
@@ -281,13 +286,13 @@ SELECT COUNT(*)
 		ClientTxnID:           "txn-entity_linking-u-4-04-restore",
 		Action:                "revert_to_unresolved",
 	}
-	restoreResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, mentions.MentionActionRequestHash(restoreRequest), "req-entity_linking-u-4-04-restore", golden.RecordBaseTime.Add(time.Minute))
+	restoreResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, mentions.MentionActionRequestHash(restoreRequest), "req-entity_linking-u-4-04-restore", entitytest.BaseTime.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("restore mention: %v", err)
 	}
 
-	restored := recordstoretest.LookupMention(t, harness.DB, mentionID)
-	assertx.RequireMentionStatus(t, restored, golden.RecordMentionStatusUnresolved)
+	restored := entitytest.LookupMention(t, harness.DB, mentionID)
+	entitytest.RequireMentionStatus(t, restored, entitytest.MentionStatusUnresolved)
 	if restored.RawText != "WS-023" || restored.ResolvedRecordID != nil || restored.ResolutionMethod != nil {
 		t.Fatalf("expected durable restore-to-unresolved semantics, got %#v", restored)
 	}
@@ -295,8 +300,8 @@ SELECT COUNT(*)
 	if err != nil {
 		t.Fatalf("query timeline rows after restore: %v", err)
 	}
-	restoredRow := recordstoretest.FindRow(t, restoredRows, created.RecordID.String())
-	restoredItem := recordstoretest.RequireSingleCollectionItem(t, restoredRow, golden.RecordFieldTimelineHostRefs)
+	restoredRow := workbookscenariotest.FindRow(t, restoredRows, created.RecordID.String())
+	restoredItem := workbookscenariotest.RequireSingleCollectionItem(t, restoredRow, timelinetest.FieldHostRefs)
 	if restoredItem["item_kind"] != "unresolved_mention" || restoredItem["raw_text"] != "WS-023" {
 		t.Fatalf("restore must surface the unresolved mention in current-state reads, got %#v", restoredItem)
 	}
@@ -314,19 +319,19 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 		}
 		return value
 	}
-	startFixture := func(t *testing.T, suffix string) (*recordstoretest.StoreHarness, *hostidentity.Store, authn.UserRecord, uuid.UUID) {
+	startFixture := func(t *testing.T, suffix string) (*appsupport.StoreHarness, *hostidentity.Store, authn.UserRecord, uuid.UUID) {
 		t.Helper()
 
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-05-"+suffix)
+		harness := appsupport.StartStore(t, "entity_linking-u-4-05-"+suffix)
 		store := newEntityTestStore(t, harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405EntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships entity-storage "+suffix)
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405EntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships entity-storage "+suffix)
 		return harness, store, actor, incident.ID
 	}
-	seedHost := func(t *testing.T, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
+	seedHost := func(t *testing.T, harness *appsupport.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
 		t.Helper()
 
-		recordstoretest.SeedHostRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-hostname", "seed.example.test", "")
+		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-hostname", "seed.example.test", "")
 		if _, err := harness.DB.Exec(context.Background(), `
 UPDATE hosts
    SET aad_device_id = $2,
@@ -337,10 +342,10 @@ UPDATE hosts
 			t.Fatalf("normalize seeded host identifiers: %v", err)
 		}
 	}
-	seedIdentity := func(t *testing.T, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadObjectID string, sid string, upn string, email string, samAccountName string) {
+	seedIdentity := func(t *testing.T, harness *appsupport.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadObjectID string, sid string, upn string, email string, samAccountName string) {
 		t.Helper()
 
-		recordstoretest.SeedIdentityRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-upn@example.test", "seed-email@example.test", "SEEDSAM")
+		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-upn@example.test", "seed-email@example.test", "SEEDSAM")
 		if _, err := harness.DB.Exec(context.Background(), `
 UPDATE identities
    SET aad_object_id = $2,
@@ -406,7 +411,7 @@ UPDATE identities
 				reuse, err := store.CreateHostRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime)
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime)
 				if err != nil {
 					t.Fatalf("host exact-match reuse: %v", err)
 				}
@@ -506,7 +511,7 @@ UPDATE identities
 				reuse, err := store.CreateIdentityRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.RecordBaseTime.Add(2*time.Minute))
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime.Add(2*time.Minute))
 				if err != nil {
 					t.Fatalf("identity exact-match reuse: %v", err)
 				}
@@ -535,14 +540,14 @@ UPDATE identities
 
 			hostAliasRecordID := uuid.New()
 			seedHost(t, harness, incidentID, actor.ID, hostAliasRecordID, "Canonical Alias Host", "", "ws-023.corp.example.test", "WS-023")
-			recordstoretest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, hostAliasRecordID, "host", "Workstation 23")
+			entitytest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, hostAliasRecordID, "host", "Workstation 23")
 
 			hostAliasOnly, err := store.CreateHostRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 				ClientTxnID: "txn-entity_linking-u-4-05-host-alias",
 				Values: map[string]string{
 					"host.display_name": "Workstation 23",
 				},
-			}, []byte("txn-entity_linking-u-4-05-host-alias"), "req-host-alias", golden.RecordBaseTime.Add(time.Minute))
+			}, []byte("txn-entity_linking-u-4-05-host-alias"), "req-host-alias", entitytest.BaseTime.Add(time.Minute))
 			if err != nil {
 				t.Fatalf("host alias-only create: %v", err)
 			}
@@ -556,14 +561,14 @@ UPDATE identities
 
 			identityAliasRecordID := uuid.New()
 			seedIdentity(t, harness, incidentID, actor.ID, identityAliasRecordID, "Case Owner", "", "", "", "", "CASEOWNER")
-			recordstoretest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, identityAliasRecordID, "identity", "Case Owner")
+			entitytest.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, identityAliasRecordID, "identity", "Case Owner")
 
 			identityFuzzyNonMatch, err := store.CreateIdentityRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 				ClientTxnID: "txn-entity_linking-u-4-05-identity-fuzzy",
 				Values: map[string]string{
 					"identity.display_name": "Case Ownr",
 				},
-			}, []byte("txn-entity_linking-u-4-05-identity-fuzzy"), "req-identity-fuzzy", golden.RecordBaseTime.Add(3*time.Minute))
+			}, []byte("txn-entity_linking-u-4-05-identity-fuzzy"), "req-identity-fuzzy", entitytest.BaseTime.Add(3*time.Minute))
 			if err != nil {
 				t.Fatalf("identity fuzzy non-match create: %v", err)
 			}
@@ -577,53 +582,53 @@ UPDATE identities
 // entity-storage / REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestExplicitEntityMerge_Unit(t *testing.T) {
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host")
 		store := newEntityTestStore(t, harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406EntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships entity-storage")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406@example.test", "U406", "U406EntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships entity-storage")
 
-		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
-		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
-		recordstoretest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateHostRecordID, "host", "Workstation 23")
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
+		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
+		entitytest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entitytest.DuplicateHostRecordID, "host", "Workstation 23")
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
 		outgoingTargetID := uuid.New()
 		outgoingLinkID := uuid.New()
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, outgoingTargetID)
-		recordstoretest.SeedResolvedMention(t, harness.DB, actor.ID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
-		recordstoretest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateHostRecordID, "observed_on_host", "manual", nil)
-		recordstoretest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, outgoingLinkID, golden.RecordDuplicateHostRecordID, outgoingTargetID, "references_record", "manual", nil)
-		recordstoretest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.RecordTagIDSurvivor, golden.RecordCanonicalHostRecordID, "critical-host")
-		recordstoretest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.RecordTagIDLoser, golden.RecordDuplicateHostRecordID, "critical-host")
-		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentHostID, golden.RecordDuplicateHostRecordID, "host", "confirmed")
-		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, outgoingTargetID)
+		entitytest.SeedResolvedMention(t, harness.DB, actor.ID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, timelinetest.FieldHostRefs, "host", "WS-023")
+		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, "observed_on_host", "manual", nil)
+		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, outgoingLinkID, entitytest.DuplicateHostRecordID, outgoingTargetID, "references_record", "manual", nil)
+		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
+		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
+		assessmenttest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, assessmenttest.HostAssessmentID, entitytest.DuplicateHostRecordID, "host", "confirmed")
+		beforeMention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 
-		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalHostRecordID, merge.MergeRequest{
-			LoserRecordID:          golden.RecordDuplicateHostRecordID,
+		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, entitytest.CanonicalHostRecordID, merge.MergeRequest{
+			LoserRecordID:          entitytest.DuplicateHostRecordID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-merge",
-		}, []byte("txn-entity_linking-u-4-06-merge"), "req-merge", golden.RecordBaseTime)
+		}, []byte("txn-entity_linking-u-4-06-merge"), "req-merge", entitytest.BaseTime)
 		if err != nil {
 			t.Fatalf("merge entity: %v", err)
 		}
-		if result.SurvivorRecordID != golden.RecordCanonicalHostRecordID || result.LoserRecordID != golden.RecordDuplicateHostRecordID {
+		if result.SurvivorRecordID != entitytest.CanonicalHostRecordID || result.LoserRecordID != entitytest.DuplicateHostRecordID {
 			t.Fatalf("unexpected merge result: %#v", result)
 		}
 		if result.MergeSummary.RepointedLinkCount != 2 {
 			t.Fatalf("expected merge to repoint incoming and outgoing links, got summary %#v", result.MergeSummary)
 		}
 
-		mention := recordstoretest.LookupMention(t, harness.DB, golden.RecordHostMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected merge to repoint mention resolution to survivor, got %#v", mention)
 		}
-		assertx.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
-		link := recordstoretest.LookupActiveLink(t, harness.DB, incident.ID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host")
-		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
-		outgoing := recordstoretest.LookupActiveLink(t, harness.DB, incident.ID, golden.RecordCanonicalHostRecordID, outgoingTargetID, "references_record")
-		assertx.RequireActiveLink(t, outgoing, golden.RecordCanonicalHostRecordID, outgoingTargetID, "references_record", "manual", nil)
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		entitytest.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
+		link := linktest.LookupActiveLink(t, harness.DB, incident.ID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host")
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
+		outgoing := linktest.LookupActiveLink(t, harness.DB, incident.ID, entitytest.CanonicalHostRecordID, outgoingTargetID, "references_record")
+		linktest.RequireActiveLink(t, outgoing, entitytest.CanonicalHostRecordID, outgoingTargetID, "references_record", "manual", nil)
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE record_link_id = $1
@@ -631,29 +636,29 @@ SELECT COUNT(*)
 `, outgoingLinkID); got != 0 {
 			t.Fatalf("expected loser-sourced active link to disappear, got %d rows", got)
 		}
-		if got := recordstoretest.LookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentHostID); got != golden.RecordCanonicalHostRecordID {
+		if got := assessmenttest.LookupAssessmentSubject(t, harness.DB, assessmenttest.HostAssessmentID); got != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected assessment repoint to survivor, got %s", got)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE incident_id = $1
    AND record_id = $2
    AND normalized_tag_name = 'critical-host'
    AND deleted_at IS NULL
-`, incident.ID, golden.RecordCanonicalHostRecordID); got != 1 {
+`, incident.ID, entitytest.CanonicalHostRecordID); got != 1 {
 			t.Fatalf("expected one active deduped survivor tag, got %d", got)
 		}
-		if got := recordstoretest.QueryCount(t, harness.DB, `
+		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE record_link_id = $1
    AND deleted_at IS NULL
-`, golden.RecordDuplicateLinkID); got != 0 {
+`, linktest.DuplicateLinkID); got != 0 {
 			t.Fatalf("expected loser-targeted active link to disappear, got %d rows", got)
 		}
-		state, mergedInto, rowVersion, _ := recordstoretest.LookupHostState(t, harness.DB, golden.RecordDuplicateHostRecordID)
-		if state != "merged" || mergedInto == nil || *mergedInto != golden.RecordCanonicalHostRecordID || rowVersion != 2 {
+		state, mergedInto, rowVersion, _ := entitytest.LookupHostState(t, harness.DB, entitytest.DuplicateHostRecordID)
+		if state != "merged" || mergedInto == nil || *mergedInto != entitytest.CanonicalHostRecordID || rowVersion != 2 {
 			t.Fatalf("expected loser host lineage state after merge, got state=%s merged_into=%v row_version=%d", state, mergedInto, rowVersion)
 		}
 
@@ -662,52 +667,52 @@ SELECT COUNT(*)
 			Values: map[string]string{
 				"host.fqdn": "ws-023.corp.example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-reuse"), "req-reuse", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-reuse"), "req-reuse", entitytest.BaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge exact-match reuse: %v", err)
 		}
-		if reuse.RecordID != golden.RecordCanonicalHostRecordID {
+		if reuse.RecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected exact-match reuse to carry forward to survivor, got %#v", reuse)
 		}
 	})
 
 	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity")
 		store := newEntityTestStore(t, harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityEntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships entity-storage identity")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityEntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships entity-storage identity")
 
-		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
-		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-		recordstoretest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateIdentityID, "identity", "Case Owner")
-		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.RecordTimelineRecordID)
-		recordstoretest.SeedResolvedMention(t, harness.DB, actor.ID, golden.RecordIdentityMentionID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, golden.RecordFieldTimelineIdentityRefs, "identity", "Case Owner")
-		recordstoretest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.RecordDuplicateLinkID, golden.RecordTimelineRecordID, golden.RecordDuplicateIdentityID, "observed_as_identity", "manual", nil)
-		recordstoretest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.RecordAssessmentIdentID, golden.RecordDuplicateIdentityID, "identity", "confirmed")
-		beforeMention := recordstoretest.LookupMention(t, harness.DB, golden.RecordIdentityMentionID)
+		entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, entitytest.DuplicateIdentityRecordID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		entitytest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entitytest.DuplicateIdentityRecordID, "identity", "Case Owner")
+		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
+		entitytest.SeedResolvedMention(t, harness.DB, actor.ID, entitytest.IdentityMentionID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, timelinetest.FieldIdentityRefs, "identity", "Case Owner")
+		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, "observed_as_identity", "manual", nil)
+		assessmenttest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, assessmenttest.IdentityAssessmentID, entitytest.DuplicateIdentityRecordID, "identity", "confirmed")
+		beforeMention := entitytest.LookupMention(t, harness.DB, entitytest.IdentityMentionID)
 
-		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, golden.RecordCanonicalIdentityID, merge.MergeRequest{
-			LoserRecordID:          golden.RecordDuplicateIdentityID,
+		result, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, entitytest.CanonicalIdentityRecordID, merge.MergeRequest{
+			LoserRecordID:          entitytest.DuplicateIdentityRecordID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-identity-merge",
-		}, []byte("txn-entity_linking-u-4-06-identity-merge"), "req-identity-merge", golden.RecordBaseTime)
+		}, []byte("txn-entity_linking-u-4-06-identity-merge"), "req-identity-merge", entitytest.BaseTime)
 		if err != nil {
 			t.Fatalf("merge identity: %v", err)
 		}
-		if result.SurvivorRecordID != golden.RecordCanonicalIdentityID || result.LoserRecordID != golden.RecordDuplicateIdentityID {
+		if result.SurvivorRecordID != entitytest.CanonicalIdentityRecordID || result.LoserRecordID != entitytest.DuplicateIdentityRecordID {
 			t.Fatalf("unexpected identity merge result: %#v", result)
 		}
 
-		mention := recordstoretest.LookupMention(t, harness.DB, golden.RecordIdentityMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalIdentityID {
+		mention := entitytest.LookupMention(t, harness.DB, entitytest.IdentityMentionID)
+		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalIdentityRecordID {
 			t.Fatalf("expected identity merge to repoint mention resolution to survivor, got %#v", mention)
 		}
-		assertx.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
-		link := recordstoretest.LookupActiveLink(t, harness.DB, incident.ID, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity")
-		assertx.RequireActiveLink(t, link, golden.RecordTimelineRecordID, golden.RecordCanonicalIdentityID, "observed_as_identity", "manual", nil)
-		if got := recordstoretest.LookupAssessmentSubject(t, harness.DB, golden.RecordAssessmentIdentID); got != golden.RecordCanonicalIdentityID {
+		entitytest.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
+		link := linktest.LookupActiveLink(t, harness.DB, incident.ID, timelinetest.RecordID, entitytest.CanonicalIdentityRecordID, "observed_as_identity")
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalIdentityRecordID, "observed_as_identity", "manual", nil)
+		if got := assessmenttest.LookupAssessmentSubject(t, harness.DB, assessmenttest.IdentityAssessmentID); got != entitytest.CanonicalIdentityRecordID {
 			t.Fatalf("expected identity assessment repoint to survivor, got %s", got)
 		}
 
@@ -720,10 +725,10 @@ SELECT COUNT(*)
 SELECT identity_state, merged_into_record_id::text, row_version
   FROM identities
  WHERE record_id = $1
-`, golden.RecordDuplicateIdentityID).Scan(&state, &mergedIntoRaw, &rowVersion); err != nil {
+`, entitytest.DuplicateIdentityRecordID).Scan(&state, &mergedIntoRaw, &rowVersion); err != nil {
 			t.Fatalf("lookup loser identity state: %v", err)
 		}
-		if state != "merged" || !mergedIntoRaw.Valid || mergedIntoRaw.String != golden.RecordCanonicalIdentityID.String() || rowVersion != 2 {
+		if state != "merged" || !mergedIntoRaw.Valid || mergedIntoRaw.String != entitytest.CanonicalIdentityRecordID.String() || rowVersion != 2 {
 			t.Fatalf("expected loser identity lineage after merge, got state=%s merged_into=%v row_version=%d", state, mergedIntoRaw, rowVersion)
 		}
 
@@ -732,32 +737,32 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"identity.email": "alex.analyst@example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-identity-reuse"), "req-identity-reuse", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reuse"), "req-identity-reuse", entitytest.BaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity exact-match reuse: %v", err)
 		}
-		if reuse.RecordID != golden.RecordCanonicalIdentityID {
+		if reuse.RecordID != entitytest.CanonicalIdentityRecordID {
 			t.Fatalf("expected identity exact-match reuse to carry forward to survivor, got %#v", reuse)
 		}
 	})
 
 	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
 		store := newEntityTestStore(t, harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusableEntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships entity-storage host reusable rows")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusableEntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships entity-storage host reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 
-		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "WS-023", "WS-023", "ws-023.current.example.test", "")
-		recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Legacy WS-023", "LEGACY-WS-023", "legacy-ws-023.example.test", "")
+		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "WS-023", "WS-023", "ws-023.current.example.test", "")
+		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Legacy WS-023", "LEGACY-WS-023", "legacy-ws-023.example.test", "")
 
 		if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-host-reusable-merge",
-		}, []byte("txn-entity_linking-u-4-06-host-reusable-merge"), "req-host-reusable-merge", golden.RecordBaseTime); err != nil {
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-merge"), "req-host-reusable-merge", entitytest.BaseTime); err != nil {
 			t.Fatalf("merge host reusable identifiers: %v", err)
 		}
 
@@ -774,7 +779,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"host.fqdn": "legacy-ws-023.example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-host-reusable-create"), "req-host-reusable-create", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-create"), "req-host-reusable-create", entitytest.BaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge host reusable exact match: %v", err)
 		}
@@ -786,22 +791,22 @@ SELECT identity_state, merged_into_record_id::text, row_version
 	})
 
 	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
-		harness := recordstoretest.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
+		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
 		store := newEntityTestStore(t, harness.DB)
-		actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusableEntityLinkingPass1!", false, false, true)
-		incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships entity-storage identity reusable rows")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusableEntityLinkingPass1!", false, false, true)
+		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships entity-storage identity reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
 
-		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "Alex Survivor", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
-		recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Alex Analyst Legacy", "alex.legacy@example.test", "alex.legacy@example.test", "ALEXLEGACY")
+		entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "Alex Survivor", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Alex Analyst Legacy", "alex.legacy@example.test", "alex.legacy@example.test", "ALEXLEGACY")
 
 		if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 			LoserRecordID:          loserID,
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-identity-reusable-merge",
-		}, []byte("txn-entity_linking-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", golden.RecordBaseTime); err != nil {
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", entitytest.BaseTime); err != nil {
 			t.Fatalf("merge identity reusable identifiers: %v", err)
 		}
 
@@ -818,7 +823,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"identity.email": "alex.legacy@example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-identity-reusable-create"), "req-identity-reusable-create", golden.RecordBaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-create"), "req-identity-reusable-create", entitytest.BaseTime.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity reusable exact match: %v", err)
 		}

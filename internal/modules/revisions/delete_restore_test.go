@@ -4,9 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -21,12 +26,44 @@ import (
 
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
+	wantAdapters := map[string]string{
+		"artifact":       "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore.Source",
+		"assessment":     "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore.Source",
+		"decision":       "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore.DecisionSource",
+		"evidence":       "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore.Source",
+		"host":           "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.HostSource",
+		"identity":       "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.IdentitySource",
+		"indicator":      "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore.Source",
+		"party":          "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore.Source",
+		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore.TaskRequestSource",
+		"timeline_event": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore.Source",
+	}
+	contributions := revisionassembly.CurrentProviderContributions()
+	gotAdapters := make(map[string]string, len(wantAdapters))
+	for _, contribution := range contributions {
+		for _, record := range contribution.Records {
+			if record.DeleteRestoreSource == nil {
+				t.Fatalf("record type %q has nil delete/restore source", record.RecordType)
+			}
+			sourceType := reflect.TypeOf(record.DeleteRestoreSource)
+			if sourceType.Kind() == reflect.Pointer {
+				sourceType = sourceType.Elem()
+			}
+			if _, exists := gotAdapters[record.RecordType]; exists {
+				t.Fatalf("record type %q has duplicate delete/restore sources", record.RecordType)
+			}
+			gotAdapters[record.RecordType] = sourceType.PkgPath() + "." + sourceType.Name()
+		}
+	}
+	if !reflect.DeepEqual(gotAdapters, wantAdapters) {
+		t.Fatalf("delete/restore adapter matrix = %#v, want %#v", gotAdapters, wantAdapters)
+	}
 	runtime, err := revisionassembly.Build(
 		revisionassembly.Dependencies{
 			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 			IntentAppender:         collaboration.NewIntentAppender(),
 		},
-		revisionassembly.CurrentProviderContributions()...,
+		contributions...,
 	)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
@@ -34,6 +71,131 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	_, err = runtime.NewCommandService(nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
+	}
+}
+
+func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        "history_revision-delete-restore-source-matrix",
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incidentID, hostID := seedRecord(
+		t,
+		harness.DB,
+		harness.Server,
+		login,
+		actorID,
+		"IR-DELETE-RESTORE-SOURCE-MATRIX",
+	)
+	recordIDs := seedDeleteRestoreAdapterRecords(t, harness.DB, incidentID, actorID, hostID)
+
+	sources := map[string]revisions.RecordProviderContribution{}
+	for _, contribution := range revisionassembly.CurrentProviderContributions() {
+		for _, record := range contribution.Records {
+			sources[record.RecordType] = record
+		}
+	}
+	wantViews := map[string]string{
+		"artifact":       "cartulary.view.notes.v1",
+		"assessment":     "cartulary.view.assessments.v1",
+		"decision":       "cartulary.view.decisions.v1",
+		"evidence":       "cartulary.view.evidence.v1",
+		"host":           "cartulary.view.hosts.v1",
+		"identity":       "cartulary.view.identities.v1",
+		"indicator":      "cartulary.view.indicators.v1",
+		"party":          "cartulary.view.parties.v1",
+		"task_request":   "cartulary.view.task_requests.v1",
+		"timeline_event": "cartulary.view.timeline.v2",
+	}
+	ctx := context.Background()
+	tx, err := harness.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin source adapter matrix transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	now := time.Date(2026, 7, 29, 18, 0, 0, 0, time.UTC)
+	for recordType, wantView := range wantViews {
+		contribution, ok := sources[recordType]
+		if !ok {
+			t.Fatalf("record type %q has no source contribution", recordType)
+		}
+		recordID := recordIDs[recordType]
+		snapshot, err := contribution.DeleteRestoreSource.SnapshotTx(ctx, tx, recordID)
+		if err != nil {
+			t.Fatalf("%s snapshot: %v", recordType, err)
+		}
+		record, recordOK := snapshot["record"].(map[string]any)
+		source, sourceOK := snapshot["source"].(map[string]any)
+		if !recordOK || !sourceOK ||
+			record["record_id"] != recordID.String() ||
+			record["record_type"] != recordType ||
+			source["record_id"] != recordID.String() {
+			t.Fatalf("%s snapshot shape = %#v", recordType, snapshot)
+		}
+		viewSchemaID, err := contribution.DeleteRestoreSource.ViewSchemaID(ctx, tx, recordID)
+		if err != nil || viewSchemaID != wantView {
+			t.Fatalf("%s view consequence = %q, %v; want %q", recordType, viewSchemaID, err, wantView)
+		}
+		reasonCode, blocked, err := contribution.DeleteRestoreSource.ValidateDeletePreconditionsTx(
+			ctx,
+			tx,
+			incidentID,
+			recordID,
+		)
+		if err != nil || blocked || reasonCode != "" {
+			t.Fatalf("%s delete precondition = reason %q blocked %v err %v", recordType, reasonCode, blocked, err)
+		}
+		if err := contribution.DeleteRestoreSource.UpdateSourceDeleteStateTx(
+			ctx,
+			tx,
+			recordID,
+			actorID,
+			now,
+			true,
+		); err != nil {
+			t.Fatalf("%s source delete: %v", recordType, err)
+		}
+	}
+	for _, recordType := range []string{"assessment", "indicator"} {
+		recordID := recordIDs[recordType]
+		table := recordType + "s"
+		var matched bool
+		if err := tx.QueryRow(
+			ctx,
+			"SELECT deleted_at = $2 AND deleted_by_user_id = $3 FROM "+table+" WHERE record_id = $1",
+			recordID,
+			now,
+			actorID,
+		).Scan(&matched); err != nil || !matched {
+			t.Fatalf("%s source tombstone = %v, %v", recordType, matched, err)
+		}
+	}
+	for recordType, contribution := range sources {
+		if err := contribution.DeleteRestoreSource.UpdateSourceDeleteStateTx(
+			ctx,
+			tx,
+			recordIDs[recordType],
+			actorID,
+			now.Add(time.Minute),
+			false,
+		); err != nil {
+			t.Fatalf("%s source restore: %v", recordType, err)
+		}
+	}
+	for _, recordType := range []string{"assessment", "indicator"} {
+		recordID := recordIDs[recordType]
+		table := recordType + "s"
+		var cleared bool
+		if err := tx.QueryRow(
+			ctx,
+			"SELECT deleted_at IS NULL AND deleted_by_user_id IS NULL FROM "+table+" WHERE record_id = $1",
+			recordID,
+		).Scan(&cleared); err != nil || !cleared {
+			t.Fatalf("%s source tombstone clear = %v, %v", recordType, cleared, err)
+		}
 	}
 }
 
@@ -55,7 +217,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 
 	setMembershipRole(t, harness.DB, incidentID, actorID, "editor")
 	staleRecord := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleRecord, "Stale Host", "stale-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleRecord, "Stale Host", "stale-host", "", "")
 	stale := deleteRecord(t, harness, login, staleRecord, map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-03-stale"})
 	staleErr := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
 	staleDetails := staleErr["error"].(map[string]any)["details"].(map[string]any)
@@ -82,7 +244,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 	}
 
 	reasonedRecord := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Delete Host", "reasoned-delete-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Delete Host", "reasoned-delete-host", "", "")
 	reasonedDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, reasonedRecord, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-u-7-03-delete-reasoned",
@@ -184,7 +346,7 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	}
 
 	reasonedRecord := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Restore Host", "reasoned-restore-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, reasonedRecord, "Reasoned Restore Host", "reasoned-restore-host", "", "")
 	reasonedDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, reasonedRecord, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-u-7-04-delete-reasoned",
@@ -265,9 +427,98 @@ SET row_version = EXCLUDED.row_version,
 	}
 }
 
+func seedDeleteRestoreAdapterRecords(
+	t testing.TB,
+	db *sql.DB,
+	incidentID uuid.UUID,
+	actorID uuid.UUID,
+	hostID uuid.UUID,
+) map[string]uuid.UUID {
+	t.Helper()
+	recordIDs := map[string]uuid.UUID{
+		"artifact":       uuid.New(),
+		"assessment":     uuid.New(),
+		"decision":       uuid.New(),
+		"evidence":       uuid.New(),
+		"host":           hostID,
+		"identity":       uuid.New(),
+		"indicator":      uuid.New(),
+		"party":          uuid.New(),
+		"task_request":   uuid.New(),
+		"timeline_event": uuid.New(),
+	}
+	entitytest.SeedIdentityRecord(
+		t,
+		db,
+		incidentID,
+		actorID,
+		recordIDs["identity"],
+		"Matrix Identity",
+		"matrix@example.test",
+		"matrix@example.test",
+		"matrix",
+	)
+	timelinetest.SeedTimelineRecord(t, db, incidentID, actorID, recordIDs["timeline_event"])
+	assessmenttest.SeedAssessment(
+		t,
+		db,
+		incidentID,
+		actorID,
+		recordIDs["assessment"],
+		hostID,
+		"host",
+		"suspected",
+	)
+	for _, recordType := range []string{
+		"artifact",
+		"decision",
+		"evidence",
+		"indicator",
+		"party",
+		"task_request",
+	} {
+		envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordIDs[recordType], recordType)
+	}
+	mustExec(t, db, `
+INSERT INTO artifacts (record_id, incident_id, artifact_type, title, created_by_user_id)
+VALUES ($1, $2, 'note', 'Matrix note', $3)
+`, recordIDs["artifact"], incidentID, actorID)
+	mustExec(t, db, `
+INSERT INTO decisions (record_id, incident_id, summary)
+VALUES ($1, $2, 'Matrix decision')
+`, recordIDs["decision"], incidentID)
+	mustExec(t, db, `
+INSERT INTO evidence (record_id, incident_id, title)
+VALUES ($1, $2, 'Matrix evidence')
+`, recordIDs["evidence"], incidentID)
+	mustExec(t, db, `
+INSERT INTO indicators (
+    record_id,
+    incident_id,
+    indicator_type,
+    value_kind,
+    display_value,
+    normalized_value,
+    dedupe_key,
+    created_by_user_id,
+    updated_by_user_id
+)
+VALUES ($1, $2, 'ipv4', 'atomic', '192.0.2.77', '192.0.2.77', 'ipv4:192.0.2.77', $3, $3)
+`, recordIDs["indicator"], incidentID, actorID)
+	mustExec(t, db, `
+INSERT INTO parties (record_id, incident_id, display_name, party_kind)
+VALUES ($1, $2, 'Matrix Party', 'person')
+`, recordIDs["party"], incidentID)
+	mustExec(t, db, `
+INSERT INTO task_requests (record_id, incident_id, title)
+VALUES ($1, $2, 'Matrix task')
+`, recordIDs["task_request"], incidentID)
+	return recordIDs
+}
+
 func seedNoteRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "artifact")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "artifact")
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
 VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
@@ -279,7 +530,7 @@ VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
 func seedIndicatorRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	appsupport.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "indicator")
+	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "indicator")
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (
     record_id,

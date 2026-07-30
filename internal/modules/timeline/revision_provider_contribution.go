@@ -12,7 +12,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerTimeline,
 			RecordType:             "timeline_event",
-			DeleteRestoreProvider:  deleterestore.NewProvider(),
+			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewTimelineProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{

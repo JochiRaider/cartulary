@@ -3,7 +3,8 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"strings"
 	"testing"
 	"time"
@@ -91,7 +92,7 @@ func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *tes
 
 func seedAliasMigrationHost(t *testing.T, db *sql.DB, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	actor := appsupport.SeedLocalUserFlags(t, db, "alias-migration-"+suffix+"@example.test", "Alias Migration", "AliasMigrationPass1!", false, false, true)
+	actor := authflowtest.SeedLocalUserRecord(t, db, "alias-migration-"+suffix+"@example.test", "Alias Migration", "AliasMigrationPass1!", false, false, true)
 	incidentID := uuid.New()
 	incidentKey := "IR-ALIAS-" + strings.ToUpper(suffix)
 	if _, err := db.ExecContext(context.Background(), `
@@ -103,7 +104,7 @@ INSERT INTO incidents (
 		t.Fatalf("seed alias migration incident: %v", err)
 	}
 	recordID := uuid.New()
-	appsupport.SeedHostRecord(t, db, incidentID, actor.ID, recordID, "Alias Host", "ALIAS-HOST", "", "")
+	entitytest.SeedHostRecord(t, db, incidentID, actor.ID, recordID, "Alias Host", "ALIAS-HOST", "", "")
 	return actor.ID, incidentID, recordID
 }
 

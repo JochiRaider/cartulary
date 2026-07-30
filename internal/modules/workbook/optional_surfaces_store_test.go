@@ -8,7 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -20,10 +21,10 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 	requireOptionalSurfaceResources(t)
 
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-store")
+	harness := appsupport.StartStore(t, "workbook_interaction-optional-surfaces-store")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-incident", "IR-OPTIONAL", "Workbook inspector optional surfaces")
 
 	before := countOptionalSurfaceDurableState(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -121,10 +122,10 @@ func TestOptionalStandardizedSurfacesStoreBehavior_Unit(t *testing.T) {
 }
 
 func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-surfaces-query")
+	harness := appsupport.StartStore(t, "workbook_interaction-optional-surfaces-query")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-query-incident", "IR-OPTIONAL-QUERY", "Workbook inspector optional query behavior")
 
 	finding := mustCreateRow(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-workbook_interaction-optional-query-finding-high", map[string]workbook.ValueChange{
 		"finding.statement":        Text("Confirmed malware execution"),
@@ -176,10 +177,10 @@ func TestOptionalStandardizedSurfacesProjectionQueryBehavior_Unit(t *testing.T) 
 }
 
 func TestFindingsConfidenceBandBoundaries_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-optional-findings-confidence-boundaries")
+	harness := appsupport.StartStore(t, "workbook_interaction-optional-findings-confidence-boundaries")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Workbook inspector optional finding confidence bands")
 
 	createdByBand := map[string][]uuid.UUID{}
 	for index, tc := range []struct {

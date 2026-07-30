@@ -1,6 +1,9 @@
 package assessments_test
 
 import (
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
@@ -25,8 +28,8 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
-	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
+	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
 
 	body := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
@@ -61,7 +64,7 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		t.Fatalf("unexpected support refs: %#v", items)
 	}
 
-	link := appsupport.LookupActiveLink(t, harness.DB, incidentID, recordID, supportID, "supported_by")
+	link := linktest.LookupActiveLink(t, harness.DB, incidentID, recordID, supportID, "supported_by")
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("unexpected support link metadata: %#v", link)
 	}
@@ -106,7 +109,7 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	hostID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment history host", "assess-history", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment history host", "assess-history", "", "")
 	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-filters-other-incident",
 		"incident_key":  "IR-ASSESS-OTHER",
@@ -114,7 +117,7 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 	})
 	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
 	otherHostID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, otherIncidentID, adminUserID, otherHostID, "Other assessment host", "assess-other", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, otherIncidentID, adminUserID, otherHostID, "Other assessment host", "assess-other", "", "")
 
 	created := make(map[string]string)
 	for _, tc := range []struct {

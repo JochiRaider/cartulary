@@ -2,6 +2,8 @@ package workbook_test
 
 import (
 	"context"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
@@ -131,10 +133,10 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 	resolveURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	invalidTokenURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/not-a-token/resolve"
 
-	viewer := appsupport.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
+	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
 	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "WorkbookInteractionConflictViewer1!")
-	nonMember := appsupport.SeedLocalUserFlags(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
+	nonMember := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
 	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "WorkbookInteractionConflictNonmember1!")
 
 	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-other-record", "Other record", "Other body")

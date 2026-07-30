@@ -12,8 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -86,15 +87,15 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 }
 
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "evidence_lifecycle-handle-current-state")
+	harness := appsupport.StartStore(t, "evidence_lifecycle-handle-current-state")
 	revisionComposition := revisionsupport.MustComposition(t)
 	store := evidence.NewStore(
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
 	)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 
 	unsupportedRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "available")
 	unsupportedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{

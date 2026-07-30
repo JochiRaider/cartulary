@@ -8,9 +8,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type Store struct{}
+type Store struct {
+	db postgres.DB
+}
 
 var ErrEnvelopeNotFound = errors.New("records: envelope not found")
 
@@ -24,6 +28,7 @@ type Envelope struct {
 	UpdatedByUserID uuid.UUID
 	UpdatedAt       time.Time
 	DeletedAt       *time.Time
+	DeletedByUserID *uuid.UUID
 }
 
 type InsertParams struct {
@@ -37,8 +42,12 @@ type InsertParams struct {
 	RowVersion      int64
 }
 
-func NewStore() *Store {
-	return &Store{}
+func NewStore(database ...postgres.DB) *Store {
+	store := &Store{}
+	if len(database) > 0 {
+		store.db = database[0]
+	}
+	return store
 }
 
 func (s *Store) InsertTx(ctx context.Context, tx pgx.Tx, params InsertParams) (uuid.UUID, error) {
@@ -104,6 +113,9 @@ UPDATE records
  WHERE record_id = $1
 RETURNING row_version
 `, recordID, now.UTC(), actorUserID).Scan(&rowVersion); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrEnvelopeNotFound
+		}
 		return 0, fmt.Errorf("advance record envelope version: %w", err)
 	}
 	return rowVersion, nil
@@ -116,21 +128,23 @@ SELECT row_version
   FROM records
  WHERE record_id = $1
 `, recordID).Scan(&rowVersion); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrEnvelopeNotFound
+		}
 		return 0, fmt.Errorf("load record envelope row version: %w", err)
 	}
 	return rowVersion, nil
 }
 
+func (s *Store) LoadEnvelope(ctx context.Context, recordID uuid.UUID) (Envelope, error) {
+	if s == nil || s.db == nil {
+		return Envelope{}, errors.New("records: envelope store database is required")
+	}
+	return loadEnvelopeRow(ctx, s.db.QueryRow(ctx, envelopeSelectSQL(false), recordID))
+}
+
 func (s *Store) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (Envelope, error) {
-	envelopes, err := s.LoadEnvelopesTx(ctx, tx, []uuid.UUID{recordID}, lock)
-	if err != nil {
-		return Envelope{}, err
-	}
-	envelope, ok := envelopes[recordID]
-	if !ok {
-		return Envelope{}, ErrEnvelopeNotFound
-	}
-	return envelope, nil
+	return loadEnvelopeRow(ctx, tx.QueryRow(ctx, envelopeSelectSQL(lock), recordID))
 }
 
 func (s *Store) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]Envelope, error) {
@@ -147,7 +161,8 @@ SELECT
     created_at,
     updated_by_user_id,
     updated_at,
-    deleted_at
+    deleted_at,
+    deleted_by_user_id
   FROM records
  WHERE record_id = ANY($1::uuid[])
  ORDER BY record_id`
@@ -173,6 +188,7 @@ SELECT
 			&envelope.UpdatedByUserID,
 			&envelope.UpdatedAt,
 			&envelope.DeletedAt,
+			&envelope.DeletedByUserID,
 		); err != nil {
 			return nil, fmt.Errorf("scan record envelope: %w", err)
 		}
@@ -188,4 +204,73 @@ SELECT
 		return nil, fmt.Errorf("iterate record envelopes: %w", err)
 	}
 	return envelopes, nil
+}
+
+func (s *Store) SetDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) (int64, error) {
+	var rowVersion int64
+	if err := tx.QueryRow(ctx, `
+UPDATE records
+   SET row_version = row_version + 1,
+       deleted_at = CASE WHEN $4::boolean THEN $2::timestamptz ELSE NULL END,
+       deleted_by_user_id = CASE WHEN $4::boolean THEN $3::uuid ELSE NULL END,
+       updated_at = $2,
+       updated_by_user_id = $3
+ WHERE record_id = $1
+RETURNING row_version
+`, recordID, now.UTC(), actorUserID, deleting).Scan(&rowVersion); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrEnvelopeNotFound
+		}
+		return 0, fmt.Errorf("set record envelope delete state: %w", err)
+	}
+	return rowVersion, nil
+}
+
+func envelopeSelectSQL(lock bool) string {
+	query := `
+SELECT
+    record_id,
+    incident_id,
+    record_type,
+    row_version,
+    created_by_user_id,
+    created_at,
+    updated_by_user_id,
+    updated_at,
+    deleted_at,
+    deleted_by_user_id
+  FROM records
+ WHERE record_id = $1`
+	if lock {
+		query += "\n FOR UPDATE"
+	}
+	return query
+}
+
+func loadEnvelopeRow(_ context.Context, row pgx.Row) (Envelope, error) {
+	var envelope Envelope
+	if err := row.Scan(
+		&envelope.RecordID,
+		&envelope.IncidentID,
+		&envelope.RecordType,
+		&envelope.RowVersion,
+		&envelope.CreatedByUserID,
+		&envelope.CreatedAt,
+		&envelope.UpdatedByUserID,
+		&envelope.UpdatedAt,
+		&envelope.DeletedAt,
+		&envelope.DeletedByUserID,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Envelope{}, ErrEnvelopeNotFound
+		}
+		return Envelope{}, fmt.Errorf("load record envelope: %w", err)
+	}
+	envelope.CreatedAt = envelope.CreatedAt.UTC()
+	envelope.UpdatedAt = envelope.UpdatedAt.UTC()
+	if envelope.DeletedAt != nil {
+		deletedAt := envelope.DeletedAt.UTC()
+		envelope.DeletedAt = &deletedAt
+	}
+	return envelope, nil
 }

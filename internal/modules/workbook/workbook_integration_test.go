@@ -2,6 +2,7 @@ package workbook_test
 
 import (
 	"context"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
@@ -643,7 +644,7 @@ SELECT
 			recordType:   "assessment",
 			insertChild: func(recordID uuid.UUID) {
 				subjectID := uuid.New()
-				appsupport.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
+				envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
 				execSeed(t, harness, `
 INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'Assessment subject', 'canonical', $3, $3)

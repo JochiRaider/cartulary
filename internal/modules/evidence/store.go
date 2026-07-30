@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -447,7 +448,7 @@ UPDATE evidence
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
-	rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actor.ID, now)
+	rowVersion, err := records.NewStore().AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
@@ -632,7 +633,7 @@ UPDATE evidence
 		}); err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actorUserID, now)
+		rowVersion, err := records.NewStore().AdvanceVersionTx(ctx, tx, recordID, actorUserID, now)
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
@@ -1248,19 +1249,6 @@ func publicCellValue(value any) any {
 	default:
 		return typed
 	}
-}
-
-func advanceRecordVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
-	var rowVersion int64
-	err := tx.QueryRow(ctx, `
-UPDATE records
-   SET row_version = row_version + 1,
-       updated_at = $2,
-       updated_by_user_id = $3
- WHERE record_id = $1
-RETURNING row_version
-`, recordID, now.UTC(), actorUserID).Scan(&rowVersion)
-	return rowVersion, err
 }
 
 func (s *Store) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {

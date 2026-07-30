@@ -6,8 +6,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	"io"
 	"net/http"
 	"slices"
@@ -17,9 +20,11 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -286,7 +291,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	const actorPassword = "SupportAdminPass1!"
-	actorRecord := appsupport.SeedLocalUserFlags(
+	actorRecord := authflowtest.SeedLocalUserRecord(
 		t,
 		s.harness.DB,
 		"entity_linking-support-"+s.label+"-"+string(route.Key)+"@example.test",
@@ -296,7 +301,7 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 		false,
 		true,
 	)
-	appsupport.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
+	incidentstoretest.SeedMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
 	actorLogin := loginLocalSupportUser(t, s.harness, actorRecord.Email, actorPassword)
 
 	timelineID := supportUUID(s.label, route.Key, "timeline")
@@ -367,22 +372,22 @@ func (s *SupportSuite) newScenario(t *testing.T, route workbookscenariotest.Rout
 func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	appsupport.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
-	appsupport.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
-	appsupport.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
-	appsupport.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-	appsupport.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
+	timelinetest.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
+	entitytest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
+	entitytest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
+	entitytest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+	entitytest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
 	s.seedWorkbookRouteFamilyData(t, route)
 
 	switch route.Key {
 	case workbookscenariotest.RouteMentionResolve:
-		appsupport.SeedMention(
+		entitytest.SeedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
 			s.mentionID,
 			s.timelineID,
-			golden.RecordFieldTimelineHostRefs,
+			timelinetest.FieldHostRefs,
 			"host",
 			"WS-023",
 			"unresolved",
@@ -390,18 +395,18 @@ func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.
 			nil,
 		)
 	case workbookscenariotest.RouteExplicitMerge:
-		appsupport.SeedResolvedMention(
+		entitytest.SeedResolvedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
 			s.mentionID,
 			s.timelineID,
 			s.duplicateHostID,
-			golden.RecordFieldTimelineHostRefs,
+			timelinetest.FieldHostRefs,
 			"host",
 			"WS-024",
 		)
-		appsupport.SeedRecordLink(
+		linktest.SeedRecordLink(
 			t,
 			s.harness.DB,
 			s.IncidentID,
@@ -413,9 +418,9 @@ func (s *SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.
 			"manual",
 			nil,
 		)
-		appsupport.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
-		appsupport.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
-		appsupport.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
+		linktest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
+		linktest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
+		assessmenttest.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
 	}
 
 	s.rebuildBaseProjections(t)

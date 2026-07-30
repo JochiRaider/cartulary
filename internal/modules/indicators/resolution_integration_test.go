@@ -2,17 +2,19 @@ package indicators_test
 
 import (
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
@@ -27,15 +29,15 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	payload := map[string]any{
 		"client_txn_id":              "txn-entity_linking-i-4-07-create",
-		"indicator.indicator_type":   golden.RecordIndicatorExamples[0].IndicatorType,
-		"indicator.value_kind":       golden.RecordIndicatorExamples[0].ValueKind,
-		"indicator.display_value":    golden.RecordIndicatorExamples[0].DisplayValue,
-		"indicator.normalized_value": golden.RecordIndicatorExamples[0].NormalizedValue,
+		"indicator.indicator_type":   indicatortest.Examples[0].IndicatorType,
+		"indicator.value_kind":       indicatortest.Examples[0].ValueKind,
+		"indicator.display_value":    indicatortest.Examples[0].DisplayValue,
+		"indicator.normalized_value": indicatortest.Examples[0].NormalizedValue,
 	}
 	response := appsupport.DoJSON(
 		t,
 		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIndicatorsViewSchemaID+"/rows",
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
 		payload,
 		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -50,21 +52,21 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		t.Fatalf("indicator mutation attribution mismatch: %#v", changeSet)
 	}
 	login := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
-	rows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, login)
+	rows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login)
 	queried := workbookscenariotest.FindRow(t, rows, row["record_id"].(string))
 	if queried["record_id"] != row["record_id"] {
 		t.Fatalf("indicator route readback mismatch: %#v", queried)
 	}
 	recordID := appsupport.MustUUID(t, row["record_id"].(string))
 	store := indicators.NewStore(harness.Server.Runtime.Postgres, harness.Server.Runtime.Revisions.Appender())
-	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineSiblingRecordID)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.SiblingRecordID)
 	for index, sourceRecordID := range []struct {
 		id    string
 		field string
 	}{
-		{id: golden.RecordTimelineRecordID.String(), field: golden.RecordFieldTimelineSourceText},
-		{id: golden.RecordTimelineSiblingRecordID.String(), field: golden.RecordFieldTimelineSummary},
+		{id: timelinetest.RecordID.String(), field: timelinetest.FieldSourceText},
+		{id: timelinetest.SiblingRecordID.String(), field: timelinetest.FieldSummary},
 	} {
 		sourceID := appsupport.MustUUID(t, sourceRecordID.id)
 		if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
@@ -73,9 +75,9 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 			SourceFieldKey:            sourceRecordID.field,
 			OriginKind:                "interactive_cell",
 			OriginLocator:             "entity_linking-i-4-07-observation-" + string(rune('1'+index)),
-			ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
+			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &recordID,
-			CreatedAt:                 golden.RecordPastTime.Add(time.Duration(index) * time.Minute),
+			CreatedAt:                 indicatortest.PastTime.Add(time.Duration(index) * time.Minute),
 		}); err != nil {
 			t.Fatalf("create observation %d: %v", index, err)
 		}
@@ -84,12 +86,12 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		IncidentID:        incidentID,
 		IndicatorRecordID: recordID,
 		LifecycleState:    "active",
-		ValidFrom:         golden.RecordPastTime,
-		CreatedAt:         golden.RecordPastTime,
+		ValidFrom:         indicatortest.PastTime,
+		CreatedAt:         indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("append lifecycle: %v", err)
 	}
-	rowsBeforeRebuild := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, login)
+	rowsBeforeRebuild := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login)
 	rowBeforeRebuild := workbookscenariotest.FindRow(t, rowsBeforeRebuild, recordID.String())
 	cells := rowBeforeRebuild["cells"].(map[string]any)
 	if cells["indicator.observation_count"].(map[string]any)["value"] != float64(2) || cells["indicator.lifecycle_summary"].(map[string]any)["value"] != "active" {
@@ -101,7 +103,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildIndicators(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild indicator projections: %v", err)
 	}
-	rowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, login), recordID.String())
+	rowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login), recordID.String())
 	if !reflect.DeepEqual(rowBeforeRebuild["cells"], rowAfterRebuild["cells"]) {
 		t.Fatalf("indicator projection rebuild drifted: before=%#v after=%#v", rowBeforeRebuild, rowAfterRebuild)
 	}

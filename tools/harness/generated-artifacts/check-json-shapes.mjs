@@ -319,6 +319,7 @@ const projectionProviderSourceAuthorityModules = new Set([
   "parties",
   "platform_jobs",
   "projections",
+  "records",
   "recovery",
   "reference_data",
   "reportcomposition",

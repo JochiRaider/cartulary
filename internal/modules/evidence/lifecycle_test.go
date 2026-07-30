@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -20,7 +21,7 @@ import (
 )
 
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
+	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	revisionComposition := revisionsupport.MustComposition(t)
 	evidenceStore := evidence.NewStore(
@@ -28,8 +29,8 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
 	)
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
 	requested := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-requested",

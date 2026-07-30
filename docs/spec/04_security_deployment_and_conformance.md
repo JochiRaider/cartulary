@@ -2091,6 +2091,58 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   incident, membership, preference, audit, projection, attribution, final
   object, or terminal-success artifact.
   - Verifies: REQ-01-639..REQ-01-640, REQ-01-642, REQ-01-644..REQ-01-646
+- **AC-509**: The physical `records` relation and its table-local object family
+  have exactly one Records owner; `change_sets`, `change_set_mutations`,
+  `record_revisions`, and `record_history_entry_refs` have exactly one
+  Revisions owner; recovery, Incident Portability, schema ownership, and
+  authored relation identities agree without a runtime alias or historical
+  migration rewrite.
+  - Verifies: REQ-00-067, REQ-01-649, REQ-02-262
+- **AC-510**: Direct Records evidence proves supplied and generated record
+  identity, default and supplied row version, attribution, UTC normalization,
+  single and batch load behavior, optional locking, delete tuple, version
+  advance, and one missing-envelope outcome. Records performs no history,
+  authorization, projection, publication, transport, network, or object-store
+  side effect.
+  - Verifies: REQ-00-067, REQ-01-649, REQ-02-262
+- **AC-511**: Transactional and nontransactional record-target resolution
+  return only incident ID, record type, deletion state, and row version;
+  deleted rows remain resolvable to trusted internal callers; the missing-row
+  outcome is the Records missing-envelope outcome; and route owners retain
+  authorization, hidden outcomes, and public error mapping. No view-schema
+  argument participates in target resolution.
+  - Verifies: REQ-00-067, REQ-01-649
+- **AC-512**: Destructive envelope locking copies, sorts, and deduplicates
+  record IDs, uses caller-owned `FOR UPDATE NOWAIT`, succeeds for empty input,
+  distinguishes missing from SQLSTATE `55P03` contention, identifies the
+  contended record, and returns no partial protected-set result.
+  - Verifies: REQ-00-067, REQ-01-649
+- **AC-513**: Legal Records rows import and deterministically re-export for
+  admitted versions `1` and `2`; exact-shape, identity, type, version,
+  timestamp, actor, delete-tuple, duplicate, incident-scope, missing-subtype,
+  incompatible-subtype, duplicate-subtype, and reverse-orphan cases each fail
+  with the exact closed Records invariant and safe public error, and every
+  failure leaves no visible state.
+  - Verifies: REQ-01-651, REQ-02-262
+- **AC-514**: Revisions owns the `DeleteRestoreSource` interface and complete
+  catalog; source owners construct concrete fixed-SQL adapters; application
+  assembly is the join point; every current record type resolves exactly once;
+  missing, duplicate, unknown, typed-nil, invalid-view, or nondeterministic
+  contributions fail before publication; and adapters perform no peer
+  orchestration or descriptor-driven SQL.
+  - Verifies: REQ-00-067, REQ-01-650, REQ-02-262
+- **AC-515**: The Records Reporting provider emits deterministic active
+  current-envelope facts from a caller-supplied transaction, excludes
+  soft-deleted envelopes, preserves its admitted provider key, family, path,
+  value, and support-reference behavior, and leaves materialization,
+  redaction, release, and publication with Reporting.
+  - Verifies: REQ-01-649
+- **AC-516**: Every helper formerly under Records test support has one
+  source-derived semantic owner and one registered support disposition; only
+  shared application support starts cross-owner services; runtime and support
+  security scans retain exact coverage; selectors retain their intended tests;
+  and no Records compatibility support root or forwarding alias remains.
+  - Verifies: REQ-01-649
 
 - **AC-409**: Whole-incident portability preserves the boundary between incident data and deployment-local auth state: the exported bundle contains no login-capable local users, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, deployment-local administrative audit state including deployment and incident-membership administrative audit events, or idempotency state; importing that bundle into another deployment does not synthesize any of those states without explicit deployment-local administrative action; and historical actors import only as inert imported actors or historical descriptors, never as login-capable principals.
   - Verifies: REQ-02-204, REQ-02-249, REQ-04-038

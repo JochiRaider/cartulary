@@ -17,32 +17,36 @@ type ExportFunc func(context.Context, ExportContext) ([]incidentportability.File
 type PrepareFunc func(context.Context, Bundle, ImportContext) (any, error)
 type ApplyFunc func(context.Context, pgx.Tx, any, ImportContext) error
 type ValidateFunc func(context.Context, pgx.Tx, any, ImportContext) error
+type ContractValidateFunc func() error
 
 type AdapterOptions struct {
-	Descriptor Descriptor
-	Export     ExportFunc
-	Prepare    PrepareFunc
-	Apply      ApplyFunc
-	Validate   ValidateFunc
+	Descriptor       Descriptor
+	Export           ExportFunc
+	Prepare          PrepareFunc
+	Apply            ApplyFunc
+	Validate         ValidateFunc
+	ValidateContract ContractValidateFunc
 }
 
 type Adapter struct {
-	descriptor Descriptor
-	export     ExportFunc
-	prepare    PrepareFunc
-	apply      ApplyFunc
-	validate   ValidateFunc
-	portKey    string
+	descriptor       Descriptor
+	export           ExportFunc
+	prepare          PrepareFunc
+	apply            ApplyFunc
+	validate         ValidateFunc
+	validateContract ContractValidateFunc
+	portKey          string
 }
 
 func NewAdapter(options AdapterOptions) *Adapter {
 	return &Adapter{
-		descriptor: cloneDescriptor(options.Descriptor),
-		export:     options.Export,
-		prepare:    options.Prepare,
-		apply:      options.Apply,
-		validate:   options.Validate,
-		portKey:    options.Descriptor.OwnerID + ":" + options.Descriptor.FamilyID,
+		descriptor:       cloneDescriptor(options.Descriptor),
+		export:           options.Export,
+		prepare:          options.Prepare,
+		apply:            options.Apply,
+		validate:         options.Validate,
+		validateContract: options.ValidateContract,
+		portKey:          options.Descriptor.OwnerID + ":" + options.Descriptor.FamilyID,
 	}
 }
 
@@ -56,6 +60,11 @@ func (a *Adapter) Descriptor() Descriptor {
 func (a *Adapter) ValidateSourcePortContract() error {
 	if a == nil || a.export == nil || a.prepare == nil || a.apply == nil || a.validate == nil {
 		return fmt.Errorf("%w: incomplete source port implementation", ErrInvalidCatalog)
+	}
+	if a.validateContract != nil {
+		if err := a.validateContract(); err != nil {
+			return fmt.Errorf("%w: source port contract rejected", ErrInvalidCatalog)
+		}
 	}
 	return nil
 }

@@ -154,6 +154,21 @@
       "id": "timeline-rollback-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/rollbackprovider",
       "allowed_importers": ["internal/modules/timeline/**"]
+    },
+    {
+      "id": "revisions-delete-restore-source-contract-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
+      "allowed_importers": [
+        "internal/modules/artifacts/deleterestore/provider.go",
+        "internal/modules/assessments/deleterestore/provider.go",
+        "internal/modules/entities/hostidentity/deleterestore/provider.go",
+        "internal/modules/evidence/deleterestore/provider.go",
+        "internal/modules/indicators/deleterestore/provider.go",
+        "internal/modules/parties/deleterestore/provider.go",
+        "internal/modules/revisions/**",
+        "internal/modules/tasksdecisions/deleterestore/provider.go",
+        "internal/modules/timeline/deleterestore/provider.go"
+      ]
     }
   ],
   "raw_ndjson_targets": [],
@@ -165,6 +180,20 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "records-no-peer-orchestration",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/auth",
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook"
+      ],
+      "scan_paths": ["internal/modules/records/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "jobs-and-network-flow-use-consumer-owned-collaboration-ports",
       "imports": [
@@ -380,6 +409,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
+        "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
@@ -394,7 +424,7 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
       ]
     },
     {
@@ -571,7 +601,6 @@
         "change_sets",
         "record_history_entry_refs",
         "record_revisions",
-        "records",
         "source"
       ],
       "scan_paths": ["internal/modules/revisions/**"]
@@ -606,6 +635,88 @@
         "timeline_grid_projection"
       ],
       "scan_paths": ["internal/modules/timeline/workbookprojection/query_surfaces.go"]
+    }
+  ],
+  "sql_table_access": [
+    {
+      "id": "records-current-envelope-access",
+      "table": "records",
+      "scan_paths": ["internal/modules/**"],
+      "read_allowed_paths": [
+        "internal/modules/artifacts/handoff_risk_refs.go",
+        "internal/modules/artifacts/deleterestore/provider.go",
+        "internal/modules/artifacts/incident_bundle_source_port.go",
+        "internal/modules/artifacts/linkednotes/facade.go",
+        "internal/modules/artifacts/projectionprovider/provider.go",
+        "internal/modules/artifacts/projectionprovider/query_surfaces.go",
+        "internal/modules/artifacts/reportingprovider/provider.go",
+        "internal/modules/artifacts/workbook_facade.go",
+        "internal/modules/assessments/incident_bundle_source_port.go",
+        "internal/modules/assessments/deleterestore/provider.go",
+        "internal/modules/assessments/projectionprovider/provider.go",
+        "internal/modules/assessments/projectionprovider/query_surfaces.go",
+        "internal/modules/assessments/rollbackprovider/provider.go",
+        "internal/modules/assessments/store.go",
+        "internal/modules/entities/hostidentity/match.go",
+        "internal/modules/entities/hostidentity/deleterestore/provider.go",
+        "internal/modules/entities/hostidentity/patch_store.go",
+        "internal/modules/entities/hostidentity/projectionprovider/provider.go",
+        "internal/modules/entities/hostidentity/reportingprovider/provider.go",
+        "internal/modules/entities/hostidentity/rollbackprovider/collections.go",
+        "internal/modules/entities/hostidentity/store.go",
+        "internal/modules/entities/incident_bundle_portability.go",
+        "internal/modules/entities/incident_bundle_source_port.go",
+        "internal/modules/entities/mentions/mention_lifecycle.go",
+        "internal/modules/entities/mentions/reportingprovider/provider.go",
+        "internal/modules/entities/mentions/rollbackprovider/mention.go",
+        "internal/modules/entities/merge/merge_store.go",
+        "internal/modules/evidence/incident_bundle_source_port.go",
+        "internal/modules/evidence/deleterestore/provider.go",
+        "internal/modules/evidence/projectionprovider/provider.go",
+        "internal/modules/evidence/projectionprovider/query_surfaces.go",
+        "internal/modules/evidence/reportingprovider/provider.go",
+        "internal/modules/evidence/store.go",
+        "internal/modules/evidence/timeline_port.go",
+        "internal/modules/evidence/workbook_facade.go",
+        "internal/modules/indicators/incident_bundle_source_port.go",
+        "internal/modules/indicators/deleterestore/provider.go",
+        "internal/modules/indicators/network_flow_participant.go",
+        "internal/modules/indicators/projectionprovider/provider.go",
+        "internal/modules/indicators/projectionprovider/query_surfaces.go",
+        "internal/modules/indicators/query.go",
+        "internal/modules/indicators/rollbackprovider/children.go",
+        "internal/modules/indicators/store.go",
+        "internal/modules/links/collection_actions.go",
+        "internal/modules/links/field_refs.go",
+        "internal/modules/links/incident_bundle_source_port.go",
+        "internal/modules/links/revisionprovider/provider.go",
+        "internal/modules/links/store.go",
+        "internal/modules/parties/deleterestore/provider.go",
+        "internal/modules/parties/incident_bundle_source_port.go",
+        "internal/modules/parties/projectionprovider/provider.go",
+        "internal/modules/parties/projectionprovider/query_surfaces.go",
+        "internal/modules/parties/reportingprovider/provider.go",
+        "internal/modules/parties/store.go",
+        "internal/modules/parties/workbook_facade.go",
+        "internal/modules/records/**",
+        "internal/modules/recovery/application/service.go",
+        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
+        "internal/modules/tasksdecisions/deleterestore/provider.go",
+        "internal/modules/tasksdecisions/projectionprovider/provider.go",
+        "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go",
+        "internal/modules/tasksdecisions/reportingprovider/provider.go",
+        "internal/modules/tasksdecisions/rollbackprovider/provider.go",
+        "internal/modules/tasksdecisions/supersede_facade.go",
+        "internal/modules/tasksdecisions/workbook_facade.go",
+        "internal/modules/timeline/incident_bundle_portability.go",
+        "internal/modules/timeline/deleterestore/provider.go",
+        "internal/modules/timeline/incident_bundle_source_port.go",
+        "internal/modules/timeline/reportingprovider/provider.go",
+        "internal/modules/timeline/workbookprojection/query_surfaces.go"
+      ],
+      "write_allowed_paths": [
+        "internal/modules/records/**"
+      ]
     }
   ],
   "forbidden_go_calls": [
@@ -981,6 +1092,27 @@
         "timeline.SameFieldConflictError"
       ],
       "scan_paths": ["internal/modules/workbook/routes.go"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "delete-restore-sources-no-generic-sql-metadata",
+      "tokens": [
+        "TableProvider",
+        "SourceTable",
+        "SourceRecordCol",
+        "fmt.Sprintf("
+      ],
+      "scan_paths": [
+        "internal/modules/artifacts/deleterestore/**",
+        "internal/modules/assessments/deleterestore/**",
+        "internal/modules/entities/hostidentity/deleterestore/**",
+        "internal/modules/evidence/deleterestore/**",
+        "internal/modules/indicators/deleterestore/**",
+        "internal/modules/parties/deleterestore/**",
+        "internal/modules/tasksdecisions/deleterestore/**",
+        "internal/modules/timeline/deleterestore/**"
+      ],
       "allowed_paths": [],
       "production_only": true
     }

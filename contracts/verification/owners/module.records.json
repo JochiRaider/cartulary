@@ -3,7 +3,52 @@
   "owner_id": "module.records",
   "verifications": [
     {
+      "verification_id": "module.records.verification.architecture_boundary",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "backend-module-boundary-check"
+    },
+    {
+      "verification_id": "module.records.verification.destructive_lock",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.records.verification.envelope_store",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.records.verification.incident_portability",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.records.verification.portability_envelope_invariants",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.records.verification.reporting_envelope_facts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.records.verification.route_target",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": ["go_test"],

@@ -339,6 +339,10 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM entity_mentions em JOIN records r ON r.record_id = em.source_record_id WHERE r.incident_id = $1`, incidentID, "entity mention count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM timeline_time_conversion_profiles WHERE incident_id = $1`, incidentID, "timeline time conversion profile count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID, "party count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM identities WHERE incident_id = $1`, incidentID, "identity count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM assessments WHERE incident_id = $1`, incidentID, "assessment count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM task_requests WHERE incident_id = $1`, incidentID, "task-request count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM decisions WHERE incident_id = $1`, incidentID, "decision count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM entity_preserved_identifiers WHERE incident_id = $1`, incidentID, "entity preserved identifier count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM artifact_findings WHERE incident_id = $1`, incidentID, "artifact finding count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM artifact_investigative_queries WHERE incident_id = $1`, incidentID, "artifact investigative query count")
@@ -402,6 +406,19 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1 AND source_table = 'change_sets' AND source_column = 'actor_user_id' AND source_actor_id = $2 AND local_user_id = $3`, incidentID, sourceAdminID, targetAdminID) == 0 {
 		t.Fatalf("import must retain source actor attribution sidecars")
+	}
+	reexportedBundle := exportBundleBytes(
+		t,
+		targetHarness,
+		targetAdmin,
+		incidentID,
+		"txn-reexport-imported-record-attribution",
+	)
+	if !bytes.Equal(
+		zipMemberBytes(t, bundleBytes, "data/records.ndjson"),
+		zipMemberBytes(t, reexportedBundle, "data/records.ndjson"),
+	) {
+		t.Fatal("re-export changed portable Records source attribution or envelope fields")
 	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'extension_profile-portability'`, incidentID, recordID) != 1 {
 		t.Fatalf("import must preserve record tag attachments")
@@ -887,6 +904,90 @@ func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
 		})
 	}
 
+	t.Run("records invariant failures are closed and atomic", func(t *testing.T) {
+		recordRows := decodeNDJSONRows(t, zipMemberMap(t, bundleBytes)["data/records.ndjson"])
+		if len(recordRows) == 0 {
+			t.Fatal("records invariant fixture requires at least one envelope")
+		}
+		incidentMismatchRows := append([]map[string]any(nil), recordRows...)
+		incidentMismatchRows[0] = mapsClone(incidentMismatchRows[0])
+		incidentMismatchRows[0]["incident_id"] = uuid.NewString()
+		envelopeRows := append([]map[string]any(nil), recordRows...)
+		envelopeRows[0] = mapsClone(envelopeRows[0])
+		envelopeRows[0]["hostile_member_name"] = "SELECT secret FROM records"
+		cases := []struct {
+			name        string
+			txn         string
+			bundle      []byte
+			invariantID string
+			hostile     string
+		}{
+			{
+				name: "incident scope",
+				txn:  "txn-import-records-incident-scope",
+				bundle: replaceStructuredBundleMember(
+					t,
+					bundleBytes,
+					"data/records.ndjson",
+					encodeNDJSONRows(t, incidentMismatchRows),
+				),
+				invariantID: "records.incident_scope",
+			},
+			{
+				name: "envelope legal",
+				txn:  "txn-import-records-envelope-legal",
+				bundle: replaceStructuredBundleMember(
+					t,
+					bundleBytes,
+					"data/records.ndjson",
+					encodeNDJSONRows(t, envelopeRows),
+				),
+				invariantID: "records.envelope_legal",
+				hostile:     "SELECT secret FROM records",
+			},
+			{
+				name: "subtype complete",
+				txn:  "txn-import-records-subtype-complete",
+				bundle: replaceStructuredBundleMember(
+					t,
+					bundleBytes,
+					"data/timeline_records.ndjson",
+					nil,
+				),
+				invariantID: "records.subtype_complete",
+			},
+		}
+		for _, testCase := range cases {
+			t.Run(testCase.name, func(t *testing.T) {
+				terminal := assertImportFailureLeavesState(
+					t,
+					targetHarness,
+					targetAdmin,
+					incidentID,
+					testCase.txn,
+					testCase.bundle,
+					"source_family_invalid",
+				)
+				errorSummary := terminal["error_summary"].(map[string]any)
+				details := errorSummary["details"].(map[string]any)
+				if len(details) != 3 ||
+					details["reason_code"] != "source_family_invalid" ||
+					details["source_family_id"] != "records" ||
+					details["invariant_id"] != testCase.invariantID {
+					t.Fatalf("records failure details are not closed: %#v", details)
+				}
+				encoded, err := json.Marshal(terminal)
+				if err != nil {
+					t.Fatalf("encode records failure result: %v", err)
+				}
+				if testCase.hostile != "" &&
+					strings.Contains(string(encoded), testCase.hostile) {
+					t.Fatalf("records failure exposed hostile source content: %s", encoded)
+				}
+			})
+		}
+	})
+
 	t.Run("safe directory entries import", func(t *testing.T) {
 		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-directory-import")
 		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, directoryHarness.Server.HTTP.URL)
@@ -1237,6 +1338,51 @@ VALUES ($1, $2, 'ExtensionProfile Portability', 'extension_profile-portability',
 
 	historyHostID := uuid.New()
 	insertHostRecord(t, harness.DB, incidentUUID, historyHostID, actorUUID, "portable host before", "portable-host")
+	if _, err := harness.DB.Exec(`
+UPDATE records
+   SET created_at = '2026-05-25T16:59:00Z',
+       updated_at = '2026-05-25T16:59:00Z'
+ WHERE record_id = $1
+`, historyHostID); err != nil {
+		t.Fatalf("normalize portable host envelope time: %v", err)
+	}
+
+	identityID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'identity', $3, $3)
+`, identityID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed identity envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO identities (
+    record_id, incident_id, display_name, upn, email, sam_account_name,
+    entity_origin, identity_state, created_by_user_id, updated_by_user_id
+)
+VALUES (
+    $1, $2, 'Portable Identity', 'portable.identity@example.test',
+    'portable.identity@example.test', 'portable.identity', 'entity_import',
+    'canonical', $3, $3
+)
+`, identityID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed identity row: %v", err)
+	}
+	assessmentID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'assessment', $3, $3)
+`, assessmentID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed assessment envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO assessments (
+    record_id, incident_id, subject_record_id, subject_type,
+    assessment_state, confidence_score, assessor_user_id, rationale
+)
+VALUES ($1, $2, $3, 'host', 'suspected', 70, $4, 'Portable assessment')
+`, assessmentID, incidentUUID, historyHostID, actorUUID); err != nil {
+		t.Fatalf("seed assessment row: %v", err)
+	}
 
 	indicatorID := uuid.New()
 	if _, err := harness.DB.Exec(`
@@ -1316,6 +1462,44 @@ INSERT INTO parties (
 VALUES ($1, $2, 'Portable Party', 'person', 'Cartulary IR', 'Incident lead', 'portable-party@example.test', 'America/New_York', 'party-1', 'portable party note')
 `, partyRecordID, incidentUUID); err != nil {
 		t.Fatalf("seed party row: %v", err)
+	}
+	taskRequestID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'task_request', $3, $3)
+`, taskRequestID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed task-request envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO task_requests (
+    record_id, incident_id, title, status, owner_user_id, priority,
+    task_kind, workstream, requester_party_id
+)
+VALUES (
+    $1, $2, 'Portable task request', 'open', $3, 'high',
+    'investigation', 'portable', $4
+)
+`, taskRequestID, incidentUUID, actorUUID, partyRecordID); err != nil {
+		t.Fatalf("seed task-request row: %v", err)
+	}
+	decisionID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'decision', $3, $3)
+`, decisionID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed decision envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO decisions (
+    record_id, incident_id, summary, status, owner_user_id,
+    decision_type, decided_at, rationale
+)
+VALUES (
+    $1, $2, 'Portable decision', 'accepted', $3,
+    'containment', '2026-05-25T17:02:00Z', 'Portable rationale'
+)
+`, decisionID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed decision row: %v", err)
 	}
 	if _, err := harness.DB.Exec(`
 INSERT INTO entity_preserved_identifiers (
@@ -1872,6 +2056,78 @@ func replaceZipMemberAndChecksum(t testing.TB, bundle []byte, memberPath string,
 	})
 }
 
+func replaceStructuredBundleMember(
+	t testing.TB,
+	bundle []byte,
+	memberPath string,
+	replacement []byte,
+) []byte {
+	t.Helper()
+	files := zipMemberMap(t, bundle)
+	files[memberPath] = append([]byte(nil), replacement...)
+	var manifest incidentbundles.BundleManifest
+	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
+		t.Fatalf("decode manifest for structured replacement: %v", err)
+	}
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		if path == "manifest.json" || strings.HasPrefix(path, "integrity/") {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	manifest.Files = make([]incidentbundles.ManifestFile, 0, len(paths))
+	checksumLines := make([]string, 0, len(paths))
+	for _, path := range paths {
+		digest := hashHexBytes(files[path])
+		manifest.Files = append(manifest.Files, incidentbundles.ManifestFile{
+			Path:      path,
+			SHA256:    "sha256:" + digest,
+			SizeBytes: int64(len(files[path])),
+			Required:  !strings.HasPrefix(path, "ext/"),
+		})
+		checksumLines = append(checksumLines, digest+"  "+path)
+	}
+	sourceBoundary, err := json.Marshal(manifest.Files)
+	if err != nil {
+		t.Fatalf("encode structured replacement boundary: %v", err)
+	}
+	manifest.SourceChangeSetHighWatermark = "cartulary.source_boundary.v1:" +
+		hashHexBytes(sourceBoundary)
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("encode structured replacement manifest: %v", err)
+	}
+	files["manifest.json"] = append(manifestBytes, '\n')
+	files["integrity/checksums.sha256"] = []byte(
+		strings.Join(checksumLines, "\n") + "\n",
+	)
+	return writeZipMemberMap(t, files)
+}
+
+func encodeNDJSONRows(t testing.TB, rows []map[string]any) []byte {
+	t.Helper()
+	var payload bytes.Buffer
+	for _, row := range rows {
+		encoded, err := json.Marshal(row)
+		if err != nil {
+			t.Fatalf("encode NDJSON row: %v", err)
+		}
+		payload.Write(encoded)
+		payload.WriteByte('\n')
+	}
+	return payload.Bytes()
+}
+
+func mapsClone(source map[string]any) map[string]any {
+	result := make(map[string]any, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
 func convertV2TimelineBundleToV1(t testing.TB, bundle []byte) []byte {
 	t.Helper()
 	files := zipMemberMap(t, bundle)
@@ -2370,7 +2626,7 @@ func timelineCellValue(t testing.TB, row map[string]any, fieldKey string) any {
 	return cell["value"]
 }
 
-func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) {
+func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) map[string]any {
 	t.Helper()
 	before := snapshotImportFailureState(t, harness, incidentID)
 	resp := postImport(t, harness.Server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
@@ -2409,6 +2665,7 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 	if !before.equal(after) {
 		t.Fatalf("failed import left partial state: before=%#v after=%#v", before, after)
 	}
+	return terminal
 }
 
 type importFailureState struct {

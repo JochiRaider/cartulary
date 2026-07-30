@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,12 +14,13 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
@@ -35,10 +37,10 @@ func workbookTestConflictTokens() conflicttokens.ConflictTokenCodec {
 
 func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-defaults")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-defaults")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-coordination@example.test", "Collaboration Coordination", "CollaborationCoordination1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-coordination@example.test", "Collaboration Coordination", "CollaborationCoordination1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
 
 	for _, tc := range []struct {
 		name         string
@@ -174,9 +176,9 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 }
 
 func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
-	harness := recordstoretest.StartServer(t, "workbook_interaction-collaboration-rejected-create-ws")
-	login, _ := recordstoretest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := recordstoretest.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := appsupport.StartServer(t, "workbook_interaction-collaboration-rejected-create-ws")
+	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-collaboration-rejected-ws-incident",
 		"incident_key":  "IR-COLLABORATION-REJECTED-WS",
 		"title":         "Workbook inspector collaboration workflow rejected create websocket",
@@ -205,13 +207,13 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 	} {
 		t.Run(tc.viewSchemaID, func(t *testing.T) {
 			before := countSQLDurableState(t, harness.DB, incidentID)
-			resp := recordstoretest.DoJSON(
+			resp := appsupport.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+tc.viewSchemaID+"/rows",
 				map[string]any{"client_txn_id": tc.clientTxnID},
-				recordstoretest.WithCookies(login.SessionCookie, login.CSRFCookie),
-				recordstoretest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+				appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 			)
 			body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 			httptestx.RequireErrorDetail(t, body, "field", tc.wantField)
@@ -250,7 +252,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		workbook.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			response := recordstoretest.DoJSON(
+			response := appsupport.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/saved-views",
@@ -260,8 +262,8 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 					"query_json":     map[string]any{},
 					"layout_json":    map[string]any{},
 				},
-				recordstoretest.WithCookies(login.SessionCookie, login.CSRFCookie),
-				recordstoretest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
+				appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 			)
 			created := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
 			if created["view_schema_id"] != viewSchemaID {
@@ -320,10 +322,10 @@ func DefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
 }
 
 func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-projections")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-projections")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-projection@example.test", "Collaboration Projection", "CollaborationProjection1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-projection@example.test", "Collaboration Projection", "CollaborationProjection1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
 	_ = mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]workbook.ValueChange{
@@ -433,10 +435,10 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 }
 
 func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-query-fields")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-query-fields")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-query-fields@example.test", "Collaboration Query Fields", "CollaborationQueryFields1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-query-fields@example.test", "Collaboration Query Fields", "CollaborationQueryFields1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
 
 	mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbook.ValueChange{
 		"comm_log.comm_type":          Text("briefing"),
@@ -503,11 +505,11 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 }
 
 func TestCoordinationSemanticFilters_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-semantic-filters")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-semantic-filters")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-filters@example.test", "Collaboration Filters", "CollaborationFilters1!", false, false, true)
-	alternate := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-filters-alt@example.test", "Collaboration Filters Alt", "CollaborationFiltersAlt1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters@example.test", "Collaboration Filters", "CollaborationFilters1!", false, false, true)
+	alternate := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters-alt@example.test", "Collaboration Filters Alt", "CollaborationFiltersAlt1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
 	_, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.HandoffViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-collaboration-filter-nonmember-owner",
@@ -517,7 +519,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		},
 	}, []byte("txn-workbook_interaction-collaboration-filter-nonmember-owner"), "req-workbook_interaction-collaboration-filter-nonmember-owner", Time(0))
 	requireMutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
-	recordstoretest.SeedIncidentMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
+	incidentstoretest.SeedMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
 	commPositive := mustCreateRow(t, store, actor, incident.ID, workbook.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]workbook.ValueChange{
 		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
@@ -624,10 +626,10 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 }
 
 func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-collection-shapes")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collection-shapes")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-shapes@example.test", "Collaboration Shapes", "CollaborationShapes1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-shapes-incident", "IR-COLLABORATION-SHAPES", "Workbook inspector collaboration workflow collection item shapes")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-shapes@example.test", "Collaboration Shapes", "CollaborationShapes1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-shapes-incident", "IR-COLLABORATION-SHAPES", "Workbook inspector collaboration workflow collection item shapes")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-party", "Coordination Shape Party")
 	attendeePartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-attendee", "Coordination Shape Attendee")
@@ -677,10 +679,10 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 }
 
 func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-duplicate-coalescing")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-duplicate-coalescing")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-duplicates@example.test", "Collaboration Duplicates", "CollaborationDuplicates1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-duplicates-incident", "IR-COLLABORATION-DUPLICATES", "Workbook inspector collaboration workflow duplicate coalescing")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-duplicates@example.test", "Collaboration Duplicates", "CollaborationDuplicates1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-duplicates-incident", "IR-COLLABORATION-DUPLICATES", "Workbook inspector collaboration workflow duplicate coalescing")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-party", "Duplicate Party")
 	decisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-decision", "approved", "Duplicate decision")
@@ -758,10 +760,10 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 
 func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-collaboration-coordination-collections")
+	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collections")
 	store := appsupport.NewWorkbookStore(harness.DB, workbookTestConflictTokens())
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "collaboration-collections@example.test", "Collaboration Collections", "CollaborationCollections1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-collections-incident", "IR-COLLABORATION-COLLECTIONS", "Workbook inspector collaboration workflow coordination collections")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-collections@example.test", "Collaboration Collections", "CollaborationCollections1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-collections-incident", "IR-COLLABORATION-COLLECTIONS", "Workbook inspector collaboration workflow coordination collections")
 
 	partyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party", "Coordination Legal")
 	otherPartyID := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-party-other", "Coordination Legal Alternate")
@@ -769,7 +771,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-task", "Coordinate endpoint logs")
 	evidenceID := mustCreateEvidenceFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-evidence", "Coordination evidence")
 
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-foreign-incident", "IR-COLLABORATION-COLLECTIONS-FOREIGN", "Workbook inspector collaboration workflow foreign incident")
+	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-foreign-incident", "IR-COLLABORATION-COLLECTIONS-FOREIGN", "Workbook inspector collaboration workflow foreign incident")
 	foreignEvidenceID := mustCreateEvidenceFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-evidence", "Foreign evidence")
 	foreignTaskID := mustCreateTaskFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-task", "Foreign task")
 	foreignDecisionID := mustCreateDecision(t, store, actor, otherIncident.ID, "txn-workbook_interaction-collaboration-foreign-decision", "approved", "Foreign decision")
@@ -1076,7 +1078,7 @@ type DurableState struct {
 	RiskRefs    int
 }
 
-func countDurableState(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID) DurableState {
+func countDurableState(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID) DurableState {
 	t.Helper()
 	var state DurableState
 	if err := harness.DB.QueryRow(context.Background(), `
@@ -1091,7 +1093,7 @@ SELECT
 	return state
 }
 
-func requireDurableState(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, want DurableState, context string) {
+func requireDurableState(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID, want DurableState, context string) {
 	t.Helper()
 	got := countDurableState(t, harness, incidentID)
 	if got != want {
@@ -1136,7 +1138,7 @@ SELECT COUNT(*)
 	return count
 }
 
-func requireArtifactType(t testing.TB, harness *recordstoretest.StoreHarness, recordID uuid.UUID, artifactType string) {
+func requireArtifactType(t testing.TB, harness *appsupport.StoreHarness, recordID uuid.UUID, artifactType string) {
 	t.Helper()
 	var recordType, gotArtifactType string
 	if err := harness.DB.QueryRow(context.Background(), `
@@ -1163,7 +1165,7 @@ func requireMutationValidation(t testing.TB, err error, field string, reason str
 	}
 }
 
-func requireInvalidCollectionPatch(t testing.TB, harness *recordstoretest.StoreHarness, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection workbook.CollectionActionPayload, context string) {
+func requireInvalidCollectionPatch(t testing.TB, harness *appsupport.StoreHarness, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection workbook.CollectionActionPayload, context string) {
 	t.Helper()
 	before := countDurableState(t, harness, incidentID)
 	baseVersion := RecordVersion(t, harness.DB, recordID)
@@ -1417,7 +1419,7 @@ func requireRecordOrder(t testing.TB, rows []map[string]any, want []uuid.UUID) {
 	}
 }
 
-func requireManualReferenceLink(t testing.TB, harness *recordstoretest.StoreHarness, sourceID uuid.UUID, targetID uuid.UUID, fieldKey string, linkType string) {
+func requireManualReferenceLink(t testing.TB, harness *appsupport.StoreHarness, sourceID uuid.UUID, targetID uuid.UUID, fieldKey string, linkType string) {
 	t.Helper()
 	var provenance string
 	var confidence sql.NullInt64
@@ -1437,7 +1439,7 @@ SELECT provenance, confidence
 	}
 }
 
-func countActiveRiskRefs(t testing.TB, harness *recordstoretest.StoreHarness, handoffID uuid.UUID) int {
+func countActiveRiskRefs(t testing.TB, harness *appsupport.StoreHarness, handoffID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRow(context.Background(), `
@@ -1451,7 +1453,7 @@ SELECT COUNT(*)
 	return count
 }
 
-func countLinksForField(t testing.TB, harness *recordstoretest.StoreHarness, sourceID uuid.UUID, fieldKey string) int {
+func countLinksForField(t testing.TB, harness *appsupport.StoreHarness, sourceID uuid.UUID, fieldKey string) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRow(context.Background(), `

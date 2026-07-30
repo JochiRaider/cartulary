@@ -2,19 +2,23 @@ package records
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
+func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) sourceport.Port {
 	descriptor := sourceport.Descriptor{
 		FamilyID: "records", ContractMajor: sourceport.ContractMajor,
-		OwnerID: "module.records", OwnerRelationIDs: []string{"record-revisions"},
+		OwnerID: "module.records", OwnerRelationIDs: []string{"record-envelope"},
 		Dependencies: []string{"incident"},
 		Paths: []sourceport.Path{{
-			LogicalPath: "data/records.ndjson", ContentRole: "source_rows",
+			LogicalPath: recordsBundlePath, ContentRole: "source_rows",
+			SchemaID: "cartulary.incident_bundle.records.row.v1",
 			Versions: []int{1, 2}, StableIdentity: []string{"record_id"},
 		}},
 		InvariantIDs: []string{
@@ -23,29 +27,89 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor,
-		Export:     sourceport.QueryExport(ExportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Descriptor:       descriptor,
+		ValidateContract: subtypeCatalog.ValidateContract,
+		Export: func(
+			ctx context.Context,
+			exportContext sourceport.ExportContext,
+		) ([]incidentportability.File, error) {
+			return exportIncidentBundleFiles(ctx, recordsExportContext{
+				Query:                exportContext.Query,
+				IncidentID:           exportContext.IncidentID,
+				PortableAttributions: exportContext.PortableAttributions,
+			})
 		},
-		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
+		Prepare: func(
+			_ context.Context,
+			bundle sourceport.Bundle,
+			importContext sourceport.ImportContext,
+		) (any, error) {
+			prepared, err := prepareRecordsImport(
+				bundle,
+				recordsPrivateImportContext(importContext),
+			)
+			return prepared, recordsPortError(err)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
-			var invalid bool
-			err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM records
-     WHERE incident_id <> $1
-       AND record_id IN (SELECT record_id FROM records WHERE incident_id = $1)
-)`, importContext.IncidentID).Scan(&invalid)
-			if err != nil {
-				return err
+		Apply: func(
+			ctx context.Context,
+			tx pgx.Tx,
+			value any,
+			importContext sourceport.ImportContext,
+		) error {
+			prepared, ok := value.(preparedRecordsImport)
+			if !ok {
+				return sourceport.ErrPreparedBinding
 			}
-			if invalid {
-				return &sourceport.Failure{FamilyID: "records", InvariantID: "records.incident_scope"}
+			return recordsPortError(applyPreparedRecordsImportTx(
+				ctx,
+				tx,
+				prepared,
+				recordsPrivateImportContext(importContext),
+			))
+		},
+		Validate: func(
+			ctx context.Context,
+			tx pgx.Tx,
+			value any,
+			importContext sourceport.ImportContext,
+		) error {
+			prepared, ok := value.(preparedRecordsImport)
+			if !ok {
+				return sourceport.ErrPreparedBinding
 			}
-			return nil
+			return recordsPortError(validatePreparedRecordsImportTx(
+				ctx,
+				tx,
+				prepared,
+				recordsPrivateImportContext(importContext),
+				subtypeCatalog,
+			))
 		},
 	})
+}
+
+func recordsPrivateImportContext(importContext sourceport.ImportContext) recordsImportContext {
+	return recordsImportContext{
+		IncidentID:   importContext.IncidentID,
+		ActorUserID:  importContext.ActorUserID,
+		Attributions: importContext.Attributions,
+		ActorAdmitted: func(actorID string) bool {
+			_, admitted := importContext.Actors.Lookup(actorID)
+			return admitted
+		},
+	}
+}
+
+func recordsPortError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var invariantFailure *recordsInvariantError
+	if errors.As(err, &invariantFailure) {
+		return &sourceport.Failure{
+			FamilyID:    "records",
+			InvariantID: invariantFailure.InvariantID,
+		}
+	}
+	return err
 }

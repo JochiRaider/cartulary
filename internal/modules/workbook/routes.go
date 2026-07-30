@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -717,9 +718,9 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
+	target, err := s.recordTargets.Resolve(r.Context(), recordID)
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
+	case isRecordTargetNotFound(err):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case err != nil:
@@ -796,8 +797,8 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
-	if errors.Is(err, pgx.ErrNoRows) {
+	target, err := s.recordTargets.Resolve(r.Context(), recordID)
+	if isRecordTargetNotFound(err) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
@@ -883,7 +884,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, pgx.ErrNoRows):
+	case isRecordTargetNotFound(err):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
@@ -927,9 +928,9 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
+	target, err := s.recordTargets.Resolve(r.Context(), recordID)
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
+	case isRecordTargetNotFound(err):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case err != nil:
@@ -986,7 +987,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, pgx.ErrNoRows):
+	case isRecordTargetNotFound(err):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
@@ -1093,6 +1094,10 @@ func internalAPIError(err error) *httpapi.APIError {
 
 func incidentNotFoundError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func isRecordTargetNotFound(err error) bool {
+	return errors.Is(err, records.ErrEnvelopeNotFound) || errors.Is(err, pgx.ErrNoRows)
 }
 
 func incidentClosedError() *httpapi.APIError {

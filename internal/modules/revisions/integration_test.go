@@ -3,7 +3,6 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
 	"testing"
@@ -12,9 +11,14 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -71,7 +75,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	}
 
 	rollbackRecordID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
 	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000701")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 13, 2, 0, 0, time.UTC), "rollback before", "rollback after")
 	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
@@ -156,7 +160,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	}
 
 	rowRestoreID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
 	rowRestoreTargetChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreID, actorID, rowRestoreTargetChangeSetID, time.Date(2026, 5, 10, 13, 5, 30, 0, time.UTC), "integration row before", "integration row snapshot")
@@ -371,17 +375,17 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	survivorTag := uuid.New()
 	loserTag := uuid.New()
 	assessment := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
-	appsupport.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
-	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
-	appsupport.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
-	appsupport.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
-	appsupport.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
-	appsupport.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
-	appsupport.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
-	appsupport.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
-	appsupport.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, survivor, "Survivor Host", "survivor-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
+	entitytest.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
+	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
+	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
+	entitytest.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
+	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
+	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
+	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
+	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
+	assessmenttest.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
 	seedHostProjection(t, harness.DB, incidentID, survivor)
 	seedHostProjection(t, harness.DB, incidentID, loser)
 
@@ -481,8 +485,8 @@ SELECT COUNT(*)
 
 	staleSurvivor := uuid.New()
 	staleLoser := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleSurvivor, "Stale Survivor", "stale-survivor", "", "")
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, staleLoser, "Stale Loser", "stale-loser", "stale.example.test", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleSurvivor, "Stale Survivor", "stale-survivor", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleLoser, "Stale Loser", "stale-loser", "stale.example.test", "")
 	seedHostProjection(t, harness.DB, incidentID, staleSurvivor)
 	seedHostProjection(t, harness.DB, incidentID, staleLoser)
 	staleMerge := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, staleSurvivor, map[string]any{
@@ -522,7 +526,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	rollbackRecordID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Stale Rollback Host", "stale-rollback-host", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Stale Rollback Host", "stale-rollback-host", "", "")
 	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000703")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 0, 0, time.UTC), "stale rollback before", "stale rollback after")
 	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
@@ -540,7 +544,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	rowRestoreRecordID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Stale Row Restore Host", "stale-row-restore", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Stale Row Restore Host", "stale-row-restore", "", "")
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
 	rowRestoreTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000708")
 	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreTargetChangeSet, time.Date(2026, 5, 10, 15, 2, 30, 0, time.UTC), "stale row before", "stale row snapshot")
@@ -583,7 +587,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 
 	unsupportedRecordID := uuid.New()
-	appsupport.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, unsupportedRecordID, "Unsupported after", "unsupported-after", "", "")
 	seedHostProjection(t, harness.DB, incidentID, unsupportedRecordID)
 	unsupportedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
 	seedRollbackHostAndTagChangeSet(t, harness.DB, incidentID, actorID, unsupportedChangeSetID, unsupportedRecordID)

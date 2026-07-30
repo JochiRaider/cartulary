@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -25,11 +26,11 @@ func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Contex
 }
 
 func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-05-parties")
+	harness := appsupport.StartStore(t, "workbook_interaction-u-9-05-parties")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector party-storage")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector party-storage Other")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector party-storage")
+	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector party-storage Other")
 
 	createdByEmail, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
@@ -313,7 +314,7 @@ func requireCellValue(t testing.TB, row map[string]any, fieldKey string, want an
 	}
 }
 
-func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, predicate string, want int) {
+func requirePartyCount(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID, predicate string, want int) {
 	t.Helper()
 	var got int
 	query := "SELECT count(*) FROM parties p JOIN records r ON r.incident_id = p.incident_id AND r.record_id = p.record_id WHERE p.incident_id = $1 AND r.deleted_at IS NULL AND " + predicate
@@ -325,7 +326,7 @@ func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, inci
 	}
 }
 
-func softDeletePartyFor(t testing.TB, harness *recordstoretest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
+func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	revisionRuntime := revisionComposition.Runtime

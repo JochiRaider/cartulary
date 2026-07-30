@@ -313,7 +313,7 @@ func (a recordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID u
 	if errors.Is(err, records.ErrEnvelopeNotFound) {
 		return sourcerepository.Envelope{}, sourcerepository.ErrEnvelopeNotFound
 	}
-	return sourcerepository.Envelope(envelope), err
+	return timelineEnvelope(envelope), err
 }
 
 func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]sourcerepository.Envelope, error) {
@@ -323,9 +323,23 @@ func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs
 	}
 	result := make(map[uuid.UUID]sourcerepository.Envelope, len(envelopes))
 	for recordID, envelope := range envelopes {
-		result[recordID] = sourcerepository.Envelope(envelope)
+		result[recordID] = timelineEnvelope(envelope)
 	}
 	return result, nil
+}
+
+func timelineEnvelope(envelope records.Envelope) sourcerepository.Envelope {
+	return sourcerepository.Envelope{
+		RecordID:        envelope.RecordID,
+		IncidentID:      envelope.IncidentID,
+		RecordType:      envelope.RecordType,
+		RowVersion:      envelope.RowVersion,
+		CreatedByUserID: envelope.CreatedByUserID,
+		CreatedAt:       envelope.CreatedAt,
+		UpdatedByUserID: envelope.UpdatedByUserID,
+		UpdatedAt:       envelope.UpdatedAt,
+		DeletedAt:       envelope.DeletedAt,
+	}
 }
 
 func (a recordAdapter) ResolveIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {

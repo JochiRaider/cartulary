@@ -12,6 +12,20 @@
       ]
     },
     {
+      "verification_id": "module.revisions.verification.delete_restore_source_adapter_matrix",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.delete_restore_source_port",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.revisions.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",

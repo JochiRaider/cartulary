@@ -11,7 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -111,11 +112,11 @@ func TestDirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs_Unit(t *testing
 
 func TestDirectPartyReferencesRequireSameIncidentActiveParties_Unit(t *testing.T) {
 	ctx := context.Background()
-	harness := recordstoretest.StartStore(t, "workbook_interaction-u-9-11-party-refs")
+	harness := appsupport.StartStore(t, "workbook_interaction-u-9-11-party-refs")
 	store := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
-	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-incident", "IR-U911", "Workbook inspector party-storage")
-	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-other-incident", "IR-U911B", "Workbook inspector party-storage Other")
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-incident", "IR-U911", "Workbook inspector party-storage")
+	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-other-incident", "IR-U911B", "Workbook inspector party-storage Other")
 
 	activeParty := mustCreatePartyFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-active-party", "Active Party")
 	foreignParty := mustCreatePartyFor(t, store, actor, otherIncident.ID, "txn-workbook_interaction-u-9-11-foreign-party", "Foreign Party")

@@ -3,6 +3,95 @@
   "owner_id": "module.records",
   "rows": [
     {
+      "row_id": "module.records.architecture.boundary",
+      "owner_id": "module.records",
+      "family_id": "module.records.architecture",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.architecture_boundary"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.backend_module_boundary_check.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.envelope.destructive_lock",
+      "owner_id": "module.records",
+      "family_id": "module.records.envelope",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.destructive_lock"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestDestructiveLockContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_group_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.envelope.route_target",
+      "owner_id": "module.records",
+      "family_id": "module.records.envelope",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.route_target"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestRouteTargetResolverContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.envelope.store",
+      "owner_id": "module.records",
+      "family_id": "module.records.envelope",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.envelope_store"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestEnvelopeStoreContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.records.integration.portability_apply_rollback_2eb3284f84",
       "owner_id": "module.records",
       "family_id": "module.records.integration",
@@ -28,6 +117,58 @@
       "status": "active"
     },
     {
+      "row_id": "module.records.portability.envelope_invariants",
+      "owner_id": "module.records",
+      "family_id": "module.records.portability",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.records.verification.portability_envelope_invariants"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records",
+        "tests": [
+          "TestRecordsPortableEnvelopeInvariantContract_Integration",
+          "TestRecordsPortableEnvelopeRejectsIncompleteSubtypeBindings_Integration",
+          "TestRecordsPortableExportPreservesSourceActorsAndExactShape_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.reporting.envelope_facts",
+      "owner_id": "module.records",
+      "family_id": "module.records.reporting",
+      "collaborator_ids": [
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.records.verification.reporting_envelope_facts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records/reportingprovider",
+        "tests": [
+          "TestReportingEnvelopeFactsContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.records.unit.portability_duplicate_identity_ad2a48986e",
       "owner_id": "module.records",
       "family_id": "module.records.unit",
@@ -41,7 +182,35 @@
       "selector": {
         "package": "./internal/modules/records",
         "tests": [
-          "TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit"
+          "TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit",
+          "TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit",
+          "TestRecordsPortableEnvelopeRejectsTrailingContent_Unit",
+          "TestRecordsSourcePortRejectsMissingSubtypeCatalog_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.records.unit.subtype_presence_catalog",
+      "owner_id": "module.records",
+      "family_id": "module.records.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.records.verification.portability_envelope_invariants"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/records/subtypepresence",
+        "tests": [
+          "TestCatalogAcceptsClosedTenTypeCoverage",
+          "TestCatalogRejectsInvalidContributions",
+          "TestValidateBindingsRequiresExactForwardAndReverseCoverage"
         ]
       },
       "evidence_class": "unit",

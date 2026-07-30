@@ -13,7 +13,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerIndicators,
 			RecordType:             "indicator",
-			DeleteRestoreProvider:  deleterestore.NewProvider(),
+			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{

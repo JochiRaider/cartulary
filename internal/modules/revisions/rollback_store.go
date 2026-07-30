@@ -3,7 +3,6 @@ package revisions
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -53,14 +53,7 @@ type RollbackRecordChange struct {
 	ChangedFieldKeys []string
 }
 
-type rollbackRecordEnvelope struct {
-	IncidentID      uuid.UUID
-	RecordID        uuid.UUID
-	RecordType      string
-	RowVersion      int64
-	DeletedAt       *time.Time
-	DeletedByUserID *uuid.UUID
-}
+type rollbackRecordEnvelope = records.Envelope
 
 type rollbackMutationTarget struct {
 	ChangeSetID   uuid.UUID
@@ -125,7 +118,7 @@ func (s *commandStore) RollbackRecord(ctx context.Context, actor authn.UserRecor
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	record, err := loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+	record, err := s.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
 	if err != nil {
 		return RollbackResult{}, err
 	}
@@ -137,7 +130,7 @@ func (s *commandStore) RollbackRecord(ctx context.Context, actor authn.UserRecor
 	if err := lockDestructiveOperationRecordsNowaitTx(ctx, tx, protected.Affected); err != nil {
 		return RollbackResult{}, err
 	}
-	record, err = loadRollbackRecordEnvelopeTx(ctx, tx, recordID, true)
+	record, err = s.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, true)
 	if err != nil {
 		return RollbackResult{}, err
 	}
@@ -415,35 +408,10 @@ SELECT csm.change_set_id,
 	return plan, nil
 }
 
-func loadRollbackRecordEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, forUpdate bool) (rollbackRecordEnvelope, error) {
-	query := `
-SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_user_id::text
-  FROM records
- WHERE record_id = $1`
-	if forUpdate {
-		query += ` FOR UPDATE`
-	}
-	var (
-		record       rollbackRecordEnvelope
-		deletedAt    sql.NullTime
-		deletedByRaw sql.NullString
-	)
-	if err := tx.QueryRow(ctx, query, recordID).Scan(&record.IncidentID, &record.RecordID, &record.RecordType, &record.RowVersion, &deletedAt, &deletedByRaw); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return rollbackRecordEnvelope{}, ErrRecordNotFound
-		}
-		return rollbackRecordEnvelope{}, err
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	if deletedByRaw.Valid {
-		parsed, err := uuid.Parse(deletedByRaw.String)
-		if err != nil {
-			return rollbackRecordEnvelope{}, err
-		}
-		record.DeletedByUserID = &parsed
+func (s *commandStore) loadRollbackRecordEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, forUpdate bool) (rollbackRecordEnvelope, error) {
+	record, err := s.envelopes.LoadEnvelopeTx(ctx, tx, recordID, forUpdate)
+	if err != nil {
+		return rollbackRecordEnvelope{}, adaptEnvelopeError(err)
 	}
 	return record, nil
 }
@@ -643,7 +611,7 @@ func (s *commandStore) applyRollbackPlanTx(ctx context.Context, tx pgx.Tx, actor
 }
 
 func (s *commandStore) applyRowRestorePlanTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, record rollbackRecordEnvelope, plan rollbackPlan, request RollbackRequest, requestID string, now time.Time) (rollbackApplyResult, error) {
-	provider, ok := s.deleteRestoreProviders.Provider(record.RecordType)
+	provider, ok := s.deleteRestoreSources.Source(record.RecordType)
 	if !ok {
 		return rollbackApplyResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
@@ -651,9 +619,9 @@ func (s *commandStore) applyRowRestorePlanTx(ctx context.Context, tx pgx.Tx, act
 	if err != nil {
 		return rollbackApplyResult{}, err
 	}
-	nextRowVersion, err := updateRollbackRecordEnvelopeTx(ctx, tx, record.RecordID, actor.ID, now)
+	nextRowVersion, err := s.envelopes.AdvanceVersionTx(ctx, tx, record.RecordID, actor.ID, now)
 	if err != nil {
-		return rollbackApplyResult{}, err
+		return rollbackApplyResult{}, adaptEnvelopeError(err)
 	}
 	if err := s.restoreRollbackSourceTx(ctx, tx, record.RecordType, record.RecordID, actor.ID, now, nextRowVersion, plan.RestoreSnapshot); err != nil {
 		return rollbackApplyResult{}, err
@@ -727,9 +695,9 @@ func (s *commandStore) applyChangeSetRollbackPlanTx(ctx context.Context, tx pgx.
 	}
 	nextVersions := make(map[uuid.UUID]int64, len(plan.Affected))
 	for _, recordID := range plan.Affected {
-		nextRowVersion, err := updateRollbackRecordEnvelopeTx(ctx, tx, recordID, actor.ID, now)
+		nextRowVersion, err := s.envelopes.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 		if err != nil {
-			return nil, err
+			return nil, adaptEnvelopeError(err)
 		}
 		nextVersions[recordID] = nextRowVersion
 	}
@@ -771,7 +739,7 @@ func (s *commandStore) applyRowBackedRollbackMutationTx(ctx context.Context, tx 
 	if err != nil {
 		return uuid.UUID{}, nil, ErrRollbackTargetNotFound
 	}
-	targetRecord, err := loadRollbackRecordEnvelopeTx(ctx, tx, targetRecordID, false)
+	targetRecord, err := s.loadRollbackRecordEnvelopeTx(ctx, tx, targetRecordID, false)
 	if err != nil {
 		return uuid.UUID{}, nil, err
 	}
@@ -779,7 +747,7 @@ func (s *commandStore) applyRowBackedRollbackMutationTx(ctx context.Context, tx 
 	if err != nil {
 		return uuid.UUID{}, nil, err
 	}
-	provider, ok := s.deleteRestoreProviders.Provider(recordType)
+	provider, ok := s.deleteRestoreSources.Source(recordType)
 	if !ok {
 		return uuid.UUID{}, nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
@@ -857,11 +825,11 @@ func (s *commandStore) executeNonRowInverseTx(ctx context.Context, tx pgx.Tx, ac
 }
 
 func (s *commandStore) insertRollbackRecordRevisionSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changeSetID uuid.UUID, beforeSnapshot map[string]any, rowVersion int64) (RollbackRecordChange, error) {
-	record, err := loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+	record, err := s.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
-	provider, ok := s.deleteRestoreProviders.Provider(record.RecordType)
+	provider, ok := s.deleteRestoreSources.Source(record.RecordType)
 	if !ok {
 		return RollbackRecordChange{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
@@ -897,7 +865,7 @@ func (s *commandStore) applyRowBackedRollbackTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return RollbackRecordChange{}, ErrRollbackTargetNotFound
 	}
-	targetRecord, err := loadRollbackRecordEnvelopeTx(ctx, tx, targetRecordID, false)
+	targetRecord, err := s.loadRollbackRecordEnvelopeTx(ctx, tx, targetRecordID, false)
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
@@ -905,7 +873,7 @@ func (s *commandStore) applyRowBackedRollbackTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
-	provider, ok := s.deleteRestoreProviders.Provider(recordType)
+	provider, ok := s.deleteRestoreSources.Source(recordType)
 	if !ok {
 		return RollbackRecordChange{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
@@ -913,9 +881,9 @@ func (s *commandStore) applyRowBackedRollbackTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return RollbackRecordChange{}, err
 	}
-	nextRowVersion, err := updateRollbackRecordEnvelopeTx(ctx, tx, targetRecordID, actor.ID, now)
+	nextRowVersion, err := s.envelopes.AdvanceVersionTx(ctx, tx, targetRecordID, actor.ID, now)
 	if err != nil {
-		return RollbackRecordChange{}, err
+		return RollbackRecordChange{}, adaptEnvelopeError(err)
 	}
 	if err := s.restoreRollbackSourceTx(ctx, tx, recordType, targetRecordID, actor.ID, now, nextRowVersion, target.BeforeValue); err != nil {
 		return RollbackRecordChange{}, err
@@ -1074,11 +1042,11 @@ func (s *commandStore) applyNonRowRollbackTx(ctx context.Context, tx pgx.Tx, act
 func (s *commandStore) snapshotRollbackAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
 	snapshots := make(map[uuid.UUID]map[string]any, len(recordIDs))
 	for _, recordID := range recordIDs {
-		record, err := loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+		record, err := s.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
 		if err != nil {
 			return nil, err
 		}
-		provider, ok := s.deleteRestoreProviders.Provider(record.RecordType)
+		provider, ok := s.deleteRestoreSources.Source(record.RecordType)
 		if !ok {
 			return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
@@ -1094,9 +1062,9 @@ func (s *commandStore) snapshotRollbackAffectedRecordsTx(ctx context.Context, tx
 func (s *commandStore) advanceRollbackAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, recordIDs []uuid.UUID, now time.Time) (map[uuid.UUID]int64, error) {
 	nextVersions := make(map[uuid.UUID]int64, len(recordIDs))
 	for _, recordID := range recordIDs {
-		nextRowVersion, err := updateRollbackRecordEnvelopeTx(ctx, tx, recordID, actor.ID, now)
+		nextRowVersion, err := s.envelopes.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 		if err != nil {
-			return nil, err
+			return nil, adaptEnvelopeError(err)
 		}
 		nextVersions[recordID] = nextRowVersion
 	}
@@ -1179,21 +1147,6 @@ func rollbackPayloadRowVersion(recordID uuid.UUID, fallback int64, changes []Rol
 		}
 	}
 	return fallback
-}
-
-func updateRollbackRecordEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
-	var rowVersion int64
-	if err := tx.QueryRow(ctx, `
-UPDATE records
-   SET row_version = row_version + 1,
-       updated_at = $2,
-       updated_by_user_id = $3
- WHERE record_id = $1
-RETURNING row_version
-`, recordID, now.UTC(), actorUserID).Scan(&rowVersion); err != nil {
-		return 0, err
-	}
-	return rowVersion, nil
 }
 
 func (s *commandStore) restoreRollbackSourceTx(ctx context.Context, tx pgx.Tx, recordType string, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64, retainedValue map[string]any) error {

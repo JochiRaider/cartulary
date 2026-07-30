@@ -11,7 +11,6 @@ import (
 )
 
 var (
-	ErrRecordEnvelopeNotFound           = errors.New("records: record envelope not found")
 	ErrDestructiveOperationRecordLocked = errors.New("records: destructive operation record locked")
 )
 
@@ -42,7 +41,7 @@ func LockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, rec
 				return &DestructiveOperationRecordLockedError{RecordID: ordered[i]}
 			}
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrRecordEnvelopeNotFound
+				return ErrEnvelopeNotFound
 			}
 			return err
 		}

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type commandServiceTestDB struct{}
@@ -66,6 +66,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
 		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
 		{name: "appender", mutate: func(value *CommandServiceDependencies) { value.Appender = nil }},
+		{name: "envelope store", mutate: func(value *CommandServiceDependencies) { value.EnvelopeStore = nil }},
 	}
 	for _, test := range tests {
 		test := test
@@ -82,8 +83,9 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 
 func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 	t.Helper()
+	database := commandServiceTestDB{}
 	return CommandServiceDependencies{
-		Database:                    commandServiceTestDB{},
+		Database:                    database,
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
 		ProviderContributions:       validProviderContributions(),
@@ -91,16 +93,17 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 			recordViews:      &RecordViewCatalog{},
 			historicalPolicy: commandServiceTestHistoricalPolicy{},
 		},
+		EnvelopeStore: records.NewStore(database),
 	}
 }
 
 func validProviderContributions() []ProviderContribution {
 	record := func(owner SourceOwnerModule, recordType string) RecordProviderContribution {
 		return RecordProviderContribution{
-			SourceOwnerModule:     owner,
-			RecordType:            recordType,
-			DeleteRestoreProvider: recorddeleterestore.TableProvider{},
-			RowRollbackProvider:   catalogRowProvider{},
+			SourceOwnerModule:   owner,
+			RecordType:          recordType,
+			DeleteRestoreSource: testDeleteRestoreSource{},
+			RowRollbackProvider: catalogRowProvider{},
 		}
 	}
 	nonRow := func(owner SourceOwnerModule, targetKind string) NonRowProviderContribution {
@@ -146,9 +149,9 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 			return values
 		}, want: ErrUnexpectedProviderContribution},
 		{name: "nil delete restore", mutate: func(values []ProviderContribution) []ProviderContribution {
-			values[0].Records[0].DeleteRestoreProvider = nil
+			values[0].Records[0].DeleteRestoreSource = nil
 			return values
-		}, want: ErrMissingDeleteRestoreProvider},
+		}, want: ErrMissingDeleteRestoreSource},
 		{name: "nil row rollback", mutate: func(values []ProviderContribution) []ProviderContribution {
 			values[0].Records[0].RowRollbackProvider = nil
 			return values

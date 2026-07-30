@@ -10,7 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
-	recordroutetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
@@ -556,7 +555,7 @@ func TestControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied(t 
 }
 
 func TestControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	routes := append(timelineroutetest.ControlCreateAndLive(), recordroutetest.ControlMutations()...)
+	routes := append(timelineroutetest.ControlCreateAndLive(), timelineroutetest.ControlMutations()...)
 	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, routes)
 }
 

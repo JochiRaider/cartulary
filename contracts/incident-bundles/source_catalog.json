@@ -15,10 +15,10 @@
     {
       "family_id": "records",
       "owner_id": "module.records",
-      "owner_relation_ids": ["record-revisions"],
+      "owner_relation_ids": ["record-envelope"],
       "dependencies": ["incident"],
       "paths": [
-        {"logical_path": "data/records.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["record_id"]}
+        {"logical_path": "data/records.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.records.row.v1", "versions": [1, 2], "stable_identity": ["record_id"]}
       ],
       "invariant_ids": ["records.incident_scope", "records.envelope_legal", "records.subtype_complete"]
     },

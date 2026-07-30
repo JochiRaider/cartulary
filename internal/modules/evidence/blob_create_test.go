@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
 	"testing"
@@ -14,9 +13,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -139,8 +141,8 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		t.Fatalf("unauthenticated request wrote object_blobs: got %d want %d", got, beforeInvalid)
 	}
 
-	viewer := appsupport.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
-	appsupport.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
+	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
 	viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycleBlobViewer1!")
 	denied := appsupport.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
@@ -201,17 +203,17 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 }
 
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
-	harness := recordstoretest.StartStore(t, "evidence_lifecycle-blob-idempotency")
+	harness := appsupport.StartStore(t, "evidence_lifecycle-blob-idempotency")
 	revisionComposition := revisionsupport.MustComposition(t)
 	store := evidence.NewStore(
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
 	)
-	actorA := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
-	actorB := recordstoretest.SeedLocalUserFlags(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
-	incidentA := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")
-	incidentB := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-b", "IR-P5-BLOB-B", "Evidence blob incident B")
+	actorA := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
+	actorB := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
+	incidentA := appsupport.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")
+	incidentB := appsupport.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-b", "IR-P5-BLOB-B", "Evidence blob incident B")
 
 	baseRequest := mustBlobCreateRequest(t, incidentA.ID, "txn-shared-blob", 12, " proof.bin ", " application/octet-stream ", nil)
 	first := createBlobSlot(t, store, baseRequest, actorA.ID, incidentA.ID, uuid.New(), "slot-a-first")
@@ -471,7 +473,7 @@ SELECT count(*)
 	return count
 }
 
-func countObjectBlobsInStore(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID) int {
+func countObjectBlobsInStore(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM object_blobs WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {
