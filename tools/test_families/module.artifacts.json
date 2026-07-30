@@ -3,27 +3,248 @@
   "owner_id": "module.artifacts",
   "rows": [
     {
-      "row_id": "module.artifacts.store.workbook_facade_persists_artifact_backed_notes_780a6ca4f2",
+      "row_id": "module.artifacts.collection_semantics.artifact_collection_mutations_preserve_typed_col_ab3546b03e",
       "owner_id": "module.artifacts",
-      "family_id": "module.artifacts.store",
+      "family_id": "module.artifacts.collection_semantics",
       "collaborator_ids": [
+        "module.collaboration",
+        "module.links",
+        "module.projections",
+        "module.revisions",
         "module.workbook"
       ],
       "verification_ids": [
-        "module.artifacts.verification.behavior_contract",
-        "module.artifacts.verification.incident_portability"
+        "module.artifacts.verification.collection_semantics"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/artifacts",
         "tests": [
-          "TestArtifactWorkbookFacadePersistsArtifactBackedNotes_Unit"
+          "TestArtifactCollectionMutationContractMatrix"
         ]
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.collection_semantics.artifact_risk_references_use_canonical_parent_sc_b69b618649",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.collection_semantics",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.collection_semantics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/riskrefs",
+        "tests": [
+          "TestRiskRefItemRefIsCanonical",
+          "TestRiskRefItemRefParsingIsStrict"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.conflict_revalidation.artifact_conflict_resolution_revalidates_source_07b695d48b",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.conflict_revalidation",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.conflict_source_revalidation"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactConflictSourceRevalidation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.import_facade.artifact_import_facade_preserves_registered_targ_a54c97551b",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.import_facade",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.imports",
+        "module.projections",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.import_create_facade"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactImportCreateFacadeContract"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.linked_notes.artifact_linked_note_creation_is_atomic_across_f_bce1ac123b",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.linked_notes",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.linked_note_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/linkednotes",
+        "tests": [
+          "TestArtifactLinkedNoteAtomicity"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.rollback_provider.artifact_rollback_maps_all_scalar_artifact_varia_4126aafbba",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.rollback_provider",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.rollback_source_mapping"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/rollbackprovider",
+        "tests": [
+          "TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections",
+          "TestValidSourceRejectsSubtypeInvariantViolations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.source_mutations.artifact_source_create_and_patch_preserve_all_ei_c8d63cf5cd",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactWorkbookMutationContractMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.surface_contracts.artifact_projection_provider_matches_canonical_a_6e485ff11b",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.surface_contracts",
+      "collaborator_ids": [
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.surface_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/projectionprovider",
+        "tests": [
+          "TestArtifactProjectionProviderSurfaceContractMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.artifacts.surface_contracts.artifact_surface_registry_recognizes_all_eight_c_778e06f594",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.surface_contracts",
+      "collaborator_ids": [
+        "module.projections",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.surface_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactSurfaceContractMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"

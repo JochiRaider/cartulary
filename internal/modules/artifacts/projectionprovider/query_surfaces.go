@@ -1,29 +1,17 @@
 package projectionprovider
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/links/readshape"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-)
-
-const (
-	commLogViewSchemaID              = "cartulary.view.comm_log.v1"
-	findingsViewSchemaID             = "cartulary.view.findings.v1"
-	forensicKeywordsViewSchemaID     = "cartulary.view.forensic_keywords.v1"
-	handoffViewSchemaID              = "cartulary.view.handoff.v1"
-	investigativeQueriesViewSchemaID = "cartulary.view.investigative_queries.v1"
-	lessonViewSchemaID               = "cartulary.view.lesson.v1"
-	notesViewSchemaID                = "cartulary.view.notes.v1"
-	statusReviewViewSchemaID         = "cartulary.view.status_review.v1"
 )
 
 func QuerySurfaces() []providercontract.QuerySurface {
 	return []providercontract.QuerySurface{
-		artifactSurface(findingsViewSchemaID, "finding", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.FindingsViewSchemaID, []providercontract.QueryField{
 			{Key: "finding.statement", Expr: "p.finding_statement", Kind: providercontract.FieldKindText},
 			{Key: "finding.kind", Expr: "p.finding_kind", SortExpr: enumSortExpr("p.finding_kind", "finding", "hypothesis"), Kind: providercontract.FieldKindText},
 			{Key: "finding.state", Expr: "p.finding_state", SortExpr: enumSortExpr("p.finding_state", "open", "closed"), Kind: providercontract.FieldKindText},
@@ -35,7 +23,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "finding.contradictory_refs", Expr: recordRefCollectionExprFor("p", "finding.contradictory_refs", "references_record"), Kind: providercontract.FieldKindCollection},
 			{Key: "finding.confidence_band", Expr: "p.finding_confidence_band", SortExpr: enumSortExpr("p.finding_confidence_band", "unset", "low", "medium", "high"), Kind: providercontract.FieldKindText},
 		}),
-		artifactSurface(forensicKeywordsViewSchemaID, "forensic_keyword", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.ForensicKeywordsViewSchemaID, []providercontract.QueryField{
 			{Key: "forensic_keyword.pattern", Expr: "p.forensic_keyword_pattern", Kind: providercontract.FieldKindText},
 			{Key: "forensic_keyword.reason", Expr: "p.forensic_keyword_reason", Kind: providercontract.FieldKindText},
 			{Key: "forensic_keyword.match_mode", Expr: "p.forensic_keyword_match_mode", SortExpr: enumSortExpr("p.forensic_keyword_match_mode", "literal", "regex"), Kind: providercontract.FieldKindText},
@@ -44,7 +32,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "forensic_keyword.keyword_id", Expr: "p.forensic_keyword_keyword_id", Kind: providercontract.FieldKindText},
 			{Key: "forensic_keyword.created_day", Expr: "p.forensic_keyword_created_day", Kind: providercontract.FieldKindDate},
 		}),
-		artifactSurface(investigativeQueriesViewSchemaID, "investigative_query", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.InvestigativeQueriesViewSchemaID, []providercontract.QueryField{
 			{Key: "investigative_query.platform", Expr: "p.investigative_query_platform", Kind: providercontract.FieldKindText},
 			{Key: "investigative_query.purpose", Expr: "p.investigative_query_purpose", Kind: providercontract.FieldKindText},
 			{Key: "investigative_query.query_text", Expr: "p.investigative_query_query_text", Kind: providercontract.FieldKindText},
@@ -53,7 +41,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "investigative_query.query_id", Expr: "p.investigative_query_query_id", Kind: providercontract.FieldKindText},
 			{Key: "investigative_query.created_day", Expr: "p.investigative_query_created_day", Kind: providercontract.FieldKindDate},
 		}),
-		artifactSurface(notesViewSchemaID, "note", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.NotesViewSchemaID, []providercontract.QueryField{
 			{Key: "note.title", Expr: "p.title", Kind: providercontract.FieldKindText},
 			{Key: "note.body", Expr: "p.body", Kind: providercontract.FieldKindText},
 			{Key: "note.tags", Expr: tagCollectionExprFor("p"), Kind: providercontract.FieldKindCollection},
@@ -61,7 +49,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "note.updated_at", Expr: "p.updated_at", Kind: providercontract.FieldKindTimestamp},
 			{Key: "note.created_by_user_id", Expr: "p.created_by_user_id", Kind: providercontract.FieldKindText},
 		}),
-		artifactSurface(commLogViewSchemaID, "", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.CommLogViewSchemaID, []providercontract.QueryField{
 			{Key: "comm_log.timestamp_utc", Expr: "p.timestamp_utc", Kind: providercontract.FieldKindTimestamp},
 			{Key: "comm_log.comm_type", Expr: "p.comm_type", Kind: providercontract.FieldKindText},
 			{Key: "comm_log.audience", Expr: "p.audience", Kind: providercontract.FieldKindText},
@@ -78,7 +66,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "comm_log.next_report_day", Expr: "p.next_report_day", Kind: providercontract.FieldKindDate},
 			{Key: "comm_log.updated_at", Expr: "p.updated_at", Kind: providercontract.FieldKindTimestamp},
 		}),
-		artifactSurface(handoffViewSchemaID, "", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.HandoffViewSchemaID, []providercontract.QueryField{
 			{Key: "handoff.timestamp_utc", Expr: "p.timestamp_utc", Kind: providercontract.FieldKindTimestamp},
 			{Key: "handoff.outgoing_owner_user_id", Expr: "p.outgoing_owner_user_id", Kind: providercontract.FieldKindText},
 			{Key: "handoff.incoming_owner_user_id", Expr: "p.incoming_owner_user_id", Kind: providercontract.FieldKindText},
@@ -93,7 +81,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "handoff.ack_state", Expr: "p.ack_state", SortExpr: enumSortExpr("p.ack_state", "pending", "acknowledged"), Kind: providercontract.FieldKindText},
 			{Key: "handoff.updated_at", Expr: "p.updated_at", Kind: providercontract.FieldKindTimestamp},
 		}),
-		artifactSurface(statusReviewViewSchemaID, "", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.StatusReviewViewSchemaID, []providercontract.QueryField{
 			{Key: "status_review.timestamp_utc", Expr: "p.timestamp_utc", Kind: providercontract.FieldKindTimestamp},
 			{Key: "status_review.review_owner_user_id", Expr: "p.review_owner_user_id", Kind: providercontract.FieldKindText},
 			{Key: "status_review.current_state_summary", Expr: "p.current_state_summary", Kind: providercontract.FieldKindText},
@@ -107,7 +95,7 @@ func QuerySurfaces() []providercontract.QuerySurface {
 			{Key: "status_review.next_report_day", Expr: "p.next_report_day", Kind: providercontract.FieldKindDate},
 			{Key: "status_review.updated_at", Expr: "p.updated_at", Kind: providercontract.FieldKindTimestamp},
 		}),
-		artifactSurface(lessonViewSchemaID, "", []providercontract.QueryField{
+		artifactSurface(surfacecatalog.LessonViewSchemaID, []providercontract.QueryField{
 			{Key: "lesson.timestamp_utc", Expr: "p.timestamp_utc", Kind: providercontract.FieldKindTimestamp},
 			{Key: "lesson.summary", Expr: "p.summary", Kind: providercontract.FieldKindText},
 			{Key: "lesson.owner_user_id", Expr: "p.owner_user_id", Kind: providercontract.FieldKindText},
@@ -121,38 +109,19 @@ func QuerySurfaces() []providercontract.QuerySurface {
 	}
 }
 
-func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []providercontract.QueryField) providercontract.QuerySurface {
-	artifactType := artifactTypeForSurface(viewSchemaID, fallbackArtifactType)
+func artifactSurface(viewSchemaID string, fields []providercontract.QueryField) providercontract.QuerySurface {
+	surface, ok := surfacecatalog.Lookup(viewSchemaID)
+	if !ok {
+		panic("projection provider requested an unregistered artifact surface: " + viewSchemaID)
+	}
 	return providercontract.QuerySurface{
 		ViewSchemaID: viewSchemaID,
 		FromSQL:      "FROM artifact_grid_projection p JOIN records r ON r.record_id = p.record_id",
 		RecordExpr:   "p.record_id",
 		IncidentExpr: "p.incident_id",
-		WhereSQL:     "p.artifact_type = '" + artifactType + "'",
+		WhereSQL:     "p.artifact_type = '" + surface.ArtifactType + "'",
 		Fields:       fields,
 	}
-}
-
-func artifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
-	schema, ok := viewschema.Lookup(viewSchemaID)
-	if ok {
-		if filter, hasFilter := schema.CanonicalSourceFilter(); hasFilter {
-			if schema.BaseProjection != "artifact_grid_projection" {
-				panic(fmt.Sprintf("artifact surface %s declares base_projection=%q", viewSchemaID, schema.BaseProjection))
-			}
-			if filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value == "" {
-				panic(fmt.Sprintf("artifact surface %s declares invalid canonical source filter %#v", viewSchemaID, filter))
-			}
-			if fallbackArtifactType != "" && fallbackArtifactType != filter.Value {
-				panic(fmt.Sprintf("artifact surface %s fallback artifact_type=%q contradicts contract value %q", viewSchemaID, fallbackArtifactType, filter.Value))
-			}
-			return filter.Value
-		}
-	}
-	if fallbackArtifactType == "" {
-		panic(fmt.Sprintf("artifact surface %s missing canonical artifact_type filter", viewSchemaID))
-	}
-	return fallbackArtifactType
 }
 
 func enumSortExpr(expr string, values ...string) string {

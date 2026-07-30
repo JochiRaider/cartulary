@@ -1,7 +1,7 @@
 package workbookassembly
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -19,7 +19,7 @@ func NewMutationStore(
 ) *workbook.Store {
 	return workbook.NewStore(workbook.StoreDependencies{
 		RecordTargets:       records.NewRouteTargetResolver(pool),
-		LinkedNoteOwner:     linkednotes.NewFacade(pool, appender),
+		ContextualNoteOwner: artifacts.NewContextualNoteFacade(pool, appender),
 		SupersedeOwner:      tasksdecisions.NewSupersedeFacade(pool, appender),
 		ContributionCatalog: contributionCatalog,
 	})

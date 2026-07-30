@@ -43,6 +43,7 @@ Use this table as the default target-module registry. A local plan may split a r
 | --- | --- | --- |
 | `auth` | Login, session, credential lifecycle, safe auth outcomes. | Password/TOTP verification, session expiry, bootstrap, revocation, audit. |
 | `incidents` | Incident lifecycle, membership, visible incident collection. | Visibility rules, versioning, membership audit, close/reopen races. |
+| `artifacts` | Structured artifact source semantics for notes, coordination artifacts, findings, investigative queries, and forensic keywords. | Exact surface admission, subtype validation/defaults, authoritative artifact persistence, collection-field policy, source mutation atomicity, and thin owner contributions. It does not own workbook UI, generic relationship persistence, revision mechanics, projection lifecycle, or reporting orchestration. |
 | `timeline` | Low-friction timeline capture and mutation. | Rough capture validation, mention extraction, row versions, projection triggers. |
 | `entities` | Hosts, identities, parties, mentions, stubs, resolution. | Alias handling, provenance, auto/manual resolution, merge/dedupe. |
 | `indicators` | Canonical indicators and observations. | Defanging, observation derivation, lifecycle intervals. |

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -20,16 +21,16 @@ var _ rollbackcontract.RowSourceProvider = Provider{}
 func NewProvider() Provider { return Provider{} }
 
 func (Provider) ValidateRollbackValue(value map[string]any) error {
-	source, ok := sourceForRollbackValue(value)
-	if !ok || !validSource(source) {
+	source, ok := sourcecontract.ExtractRollbackSource(value)
+	if !ok || !sourcecontract.ValidRollbackSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	return nil
 }
 
 func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
-	source, ok := sourceForRollbackValue(request.RetainedValue)
-	if !ok || !validSource(source) {
+	source, ok := sourcecontract.ExtractRollbackSource(request.RetainedValue)
+	if !ok || !sourcecontract.ValidRollbackSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	var artifactType string
@@ -262,111 +263,6 @@ UPDATE artifact_forensic_keywords
 	return err
 }
 
-func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
-	if source, ok := objectMap(value, "source"); ok {
-		return source, len(source) > 0
-	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		for fieldKey, sourceKey := range artifactFieldMapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, sourceKey := range artifactFieldMapping {
-			if _, present := value[sourceKey]; present {
-				return value, true
-			}
-		}
-	}
-	return nil, false
-}
-
-var artifactFieldMapping = map[string]string{
-	"note.title": "title", "note.body": "body",
-	"comm_log.timestamp_utc": "timestamp_utc", "comm_log.comm_type": "comm_type", "comm_log.audience": "audience",
-	"comm_log.channel_or_meeting": "channel_or_meeting", "comm_log.summary": "summary", "comm_log.next_report_at": "next_report_at",
-	"comm_log.privilege_tag": "privilege_tag", "comm_log.comm_id": "comm_id",
-	"handoff.timestamp_utc": "timestamp_utc", "handoff.outgoing_owner_user_id": "outgoing_owner_user_id",
-	"handoff.incoming_owner_user_id": "incoming_owner_user_id", "handoff.current_state_summary": "current_state_summary",
-	"handoff.next_checks": "next_checks", "handoff.acknowledged_at": "acknowledged_at", "handoff.handoff_id": "handoff_id",
-	"status_review.timestamp_utc": "timestamp_utc", "status_review.review_owner_user_id": "review_owner_user_id",
-	"status_review.current_state_summary": "current_state_summary", "status_review.active_risks_summary": "active_risks_summary",
-	"status_review.next_report_at": "next_report_at", "status_review.status_review_id": "status_review_id",
-	"lesson.timestamp_utc": "timestamp_utc", "lesson.summary": "summary", "lesson.owner_user_id": "owner_user_id",
-	"lesson.closure_state": "closure_state", "lesson.lesson_id": "lesson_id",
-	"finding.kind": "kind", "finding.statement": "statement", "finding.state": "state",
-	"finding.confidence_score": "confidence_score", "finding.owner_user_id": "owner_user_id", "finding.closed_at": "closed_at",
-	"investigative_query.platform": "platform", "investigative_query.purpose": "purpose",
-	"investigative_query.query_text": "query_text", "investigative_query.query_id": "query_id",
-	"forensic_keyword.pattern": "pattern", "forensic_keyword.reason": "reason",
-	"forensic_keyword.match_mode": "match_mode", "forensic_keyword.case_sensitive": "case_sensitive",
-	"forensic_keyword.keyword_id": "keyword_id",
-}
-
-func validSource(source map[string]any) bool {
-	for _, key := range []string{
-		"title", "body", "comm_id", "comm_type", "audience", "channel_or_meeting", "summary",
-		"privilege_tag", "handoff_id", "current_state_summary", "next_checks", "status_review_id",
-		"active_risks_summary", "lesson_id", "closure_state", "kind", "statement", "state",
-		"query_id", "platform", "purpose", "query_text", "keyword_id", "pattern", "reason", "match_mode",
-	} {
-		if raw, present := source[key]; present && raw != nil {
-			if _, valid := raw.(string); !valid {
-				return false
-			}
-		}
-	}
-	for _, key := range []string{
-		"comm_id", "comm_type", "audience", "channel_or_meeting", "summary", "handoff_id",
-		"current_state_summary", "status_review_id", "lesson_id", "kind", "statement", "state",
-		"query_id", "platform", "purpose", "query_text", "keyword_id", "pattern", "reason", "match_mode",
-	} {
-		if raw, present := source[key]; present && !nonEmptyText(raw) {
-			return false
-		}
-	}
-	if raw, present := source["comm_type"]; present && !oneOfText(raw, "meeting", "notification", "approval", "briefing", "handoff") {
-		return false
-	}
-	if raw, present := source["closure_state"]; present && !oneOfText(raw, "open", "closed") {
-		return false
-	}
-	if raw, present := source["kind"]; present && !oneOfText(raw, "finding", "hypothesis") {
-		return false
-	}
-	if raw, present := source["state"]; present && !oneOfText(raw, "open", "closed") {
-		return false
-	}
-	if raw, present := source["match_mode"]; present && !oneOfText(raw, "literal", "regex") {
-		return false
-	}
-	if raw, present := source["confidence_score"]; present && raw != nil {
-		score, valid := integerValue(raw)
-		if !valid || score < 0 || score > 100 {
-			return false
-		}
-	}
-	for _, field := range []typedField{
-		{"timestamp_utc", kindTime}, {"next_report_at", kindTime}, {"acknowledged_at", kindTime}, {"closed_at", kindTime},
-		{"outgoing_owner_user_id", kindUUID}, {"incoming_owner_user_id", kindUUID},
-		{"review_owner_user_id", kindUUID}, {"owner_user_id", kindUUID}, {"case_sensitive", kindBool},
-	} {
-		if _, err := typedPairs(source, []typedField{field}); err != nil {
-			return false
-		}
-	}
-	for _, key := range []string{"timestamp_utc", "incoming_owner_user_id", "review_owner_user_id", "owner_user_id", "case_sensitive"} {
-		if raw, present := source[key]; present && raw == nil {
-			return false
-		}
-	}
-	return true
-}
-
 type valueKind int
 
 const (
@@ -459,15 +355,6 @@ func checkImmutableTextTx(ctx context.Context, tx pgx.Tx, query string, recordID
 	return nil
 }
 
-func objectMap(value map[string]any, key string) (map[string]any, bool) {
-	raw, ok := value[key]
-	if !ok || raw == nil {
-		return nil, false
-	}
-	typed, ok := raw.(map[string]any)
-	return typed, ok
-}
-
 func integerValue(value any) (int, bool) {
 	switch typed := value.(type) {
 	case int:
@@ -479,22 +366,4 @@ func integerValue(value any) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-func oneOfText(value any, allowed ...string) bool {
-	text, valid := value.(string)
-	if !valid {
-		return false
-	}
-	for _, candidate := range allowed {
-		if text == candidate {
-			return true
-		}
-	}
-	return false
-}
-
-func nonEmptyText(value any) bool {
-	text, valid := value.(string)
-	return valid && strings.TrimSpace(text) != ""
 }

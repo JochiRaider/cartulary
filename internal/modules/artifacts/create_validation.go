@@ -12,7 +12,20 @@ func (e *ValidationError) Error() string {
 }
 
 func ValidateCreateParams(params CreateParams) error {
+	if _, ok := lookupArtifactSourceSurface(params.ViewSchemaID); !ok {
+		return &ValidationError{Field: "view_schema_id", ReasonCode: "unsupported_view_schema"}
+	}
 	values := params.Values
+	for fieldKey, value := range values {
+		policy, ok := lookupArtifactSourceField(fieldKey)
+		if !ok || policy.viewSchemaID != params.ViewSchemaID ||
+			policy.kind != sourceFieldDirect || !policy.writable {
+			return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
+		}
+		if err := validateArtifactDirectValue(policy, value); err != nil {
+			return err
+		}
+	}
 	switch params.ViewSchemaID {
 	case NotesViewSchemaID:
 		if !hasText(values, "note.title") && !hasText(values, "note.body") {
@@ -78,6 +91,13 @@ func ValidateCreateParams(params CreateParams) error {
 }
 
 func ValidateDirectPatchChange(fieldKey string, value FieldValue) error {
+	policy, ok := lookupArtifactSourceField(fieldKey)
+	if !ok || policy.kind != sourceFieldDirect || !policy.writable {
+		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
+	}
+	if err := validateArtifactDirectValue(policy, value); err != nil {
+		return err
+	}
 	if fieldKey == "finding.confidence_score" && value.Number != nil && !ValidConfidenceScore(*value.Number) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 	}

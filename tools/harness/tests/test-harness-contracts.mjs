@@ -87,7 +87,10 @@ import { collectTestCatalogImportViolations } from "../test-catalog/import-bound
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { validateSemanticIdentities } from "../test-catalog/semantic-identity-check-cli.mjs";
 import { deriveTestRowID } from "../test-catalog/row-id-authoring.mjs";
-import { commandTargetForEvidenceTarget } from "../test-catalog/target-routing.mjs";
+import {
+  commandTargetForEvidenceTarget,
+  targetForCatalogRow,
+} from "../test-catalog/target-routing.mjs";
 import {
   auditOwnerEvidence,
   accountingRowsForTarget,
@@ -272,9 +275,9 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 60);
-  assert.equal(catalog.summary.family_count, 209);
-  assert.equal(catalog.summary.row_count, 956);
-  assert.equal(catalog.summary.selector_count, 1769);
+  assert.equal(catalog.summary.family_count, 215);
+  assert.equal(catalog.summary.row_count, 964);
+  assert.equal(catalog.summary.selector_count, 1779);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -385,6 +388,27 @@ test("owner evidence accounting projects exact catalog rows without delivery met
   assert.equal(
     commandTargetForEvidenceTarget("backend-unit"),
     "backend-unit",
+  );
+  assert.equal(
+    targetForCatalogRow({
+      row_id: "module.artifacts.surface_contracts.fixture",
+      runner: "go",
+      family_id: "module.artifacts.surface_contracts",
+      evidence_class: "unit",
+      runtime_profile_id: "none",
+    }),
+    "backend-unit",
+    "explicit unit evidence must not depend on a semantic family-name suffix",
+  );
+  assert.equal(
+    targetForCatalogRow({
+      row_id: "module.artifacts.store.fixture",
+      runner: "go",
+      family_id: "module.artifacts.store",
+      evidence_class: "integration",
+    }),
+    "backend-store",
+    "non-unit specialized Go routing must remain compatible",
   );
 });
 

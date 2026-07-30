@@ -148,7 +148,7 @@ func NewCatalog(timelineSource projections.TimelineSource) (*projections.Catalog
 			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
 			artifactprojection.QuerySurfaces(),
 			[]string{"assessment"},
-			[]string{"internal/modules/artifacts", "internal/modules/artifacts/linkednotes", "internal/modules/workbook"},
+			[]string{"internal/modules/artifacts", "internal/modules/workbook"},
 			[]string{"internal/modules/workbook/coordination_surfaces_test.go", "internal/modules/projections/query_test.go"},
 		)),
 		projections.NewEvidenceProvider(descriptor(

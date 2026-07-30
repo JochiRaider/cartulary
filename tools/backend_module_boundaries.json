@@ -76,6 +76,11 @@
       "allowed_importers": ["internal/modules/artifacts/**"]
     },
     {
+      "id": "artifact-surface-catalog-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog",
+      "allowed_importers": ["internal/modules/artifacts/**"]
+    },
+    {
       "id": "assessment-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore",
       "allowed_importers": ["internal/modules/assessments/**"]
@@ -180,6 +185,24 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "artifact-source-kernel-no-consumer-orchestration",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi"
+      ],
+      "scan_paths": [
+        "internal/modules/artifacts/mutation_kernel.go",
+        "internal/modules/artifacts/source_kernel.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "records-no-peer-orchestration",
       "imports": [
@@ -646,7 +669,6 @@
         "internal/modules/artifacts/handoff_risk_refs.go",
         "internal/modules/artifacts/deleterestore/provider.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
-        "internal/modules/artifacts/linkednotes/facade.go",
         "internal/modules/artifacts/projectionprovider/provider.go",
         "internal/modules/artifacts/projectionprovider/query_surfaces.go",
         "internal/modules/artifacts/reportingprovider/provider.go",

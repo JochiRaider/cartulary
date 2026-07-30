@@ -24,7 +24,12 @@ export function commandTargetForEvidenceTarget(targetID) {
 }
 
 export function targetForCatalogRow(row, { commandTargetByID = new Map() } = {}) {
-  if (row.runner === "go") return goTargetForFamily(row.family_id);
+  if (row.runner === "go") {
+    if (row.evidence_class === "unit" && row.runtime_profile_id === "none") {
+      return "backend-unit";
+    }
+    return goTargetForFamily(row.family_id);
+  }
   if (row.runner === "vitest") return "frontend-unit";
   if (row.runner === "playwright") {
     const target = playwrightTargets[row.selector.stage];

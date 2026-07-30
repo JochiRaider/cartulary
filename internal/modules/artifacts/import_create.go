@@ -15,6 +15,11 @@ import (
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
+type artifactImportCreateAdapter struct {
+	source           artifactSourceKernel
+	revisionAppender ownerfacade.RevisionAppender
+}
+
 func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
@@ -23,17 +28,28 @@ func NewImportCreateFacade(
 	if !IsArtifactBackedView(targetViewSchemaID) {
 		return nil, fmt.Errorf("artifact import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(appender)
+	adapter := &artifactImportCreateAdapter{
+		source: artifactSourceKernel{
+			records:     records.NewStore(),
+			rows:        newSourceStore(appender),
+			projections: newArtifactImportProjectionPort(),
+		},
+		revisionAppender: appender,
+	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		store.CreateImportRowTx,
+		adapter.createImportRowTx,
 	)
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (a *artifactImportCreateAdapter) createImportRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ImportCreateCommand,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if !IsArtifactBackedView(request.TargetViewSchemaID) {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("artifact import surface %q not mapped", request.TargetViewSchemaID)
@@ -51,26 +67,22 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		}
 	}
 	now := command.Now.UTC()
-	recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
-		IncidentID:      request.IncidentID,
-		RecordType:      "artifact",
-		CreatedByUserID: request.ActorUserID,
-		CreatedAt:       now,
-		UpdatedByUserID: request.ActorUserID,
-		UpdatedAt:       now,
-		RowVersion:      1,
-	})
+	recordID, err := a.source.createRecordTx(
+		ctx,
+		tx,
+		request.IncidentID,
+		request.ActorUserID,
+		params,
+		now,
+	)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	if err := s.InsertRowTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, err
-	}
-	row, err := s.RefreshImportRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
+	row, err := a.source.refreshRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeTx(ctx, tx, a.revisionAppender, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

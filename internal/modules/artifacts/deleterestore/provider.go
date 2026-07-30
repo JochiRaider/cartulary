@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type Source struct{}
@@ -39,18 +39,11 @@ func (Source) ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (
 	if err := tx.QueryRow(ctx, `SELECT artifact_type FROM artifacts WHERE record_id = $1`, recordID).Scan(&artifactType); err != nil {
 		return "", err
 	}
-	variant, ok := viewschema.LookupArtifactVariantByArtifactType(artifactType)
+	surface, ok := surfacecatalog.LookupByArtifactType(artifactType)
 	if !ok {
-		switch artifactType {
-		case "investigative_query":
-			return "cartulary.view.investigative_queries.v1", nil
-		case "forensic_keyword":
-			return "cartulary.view.forensic_keywords.v1", nil
-		default:
-			return "", fmt.Errorf("unsupported artifact type %q", artifactType)
-		}
+		return "", fmt.Errorf("unsupported artifact type %q", artifactType)
 	}
-	return variant.PublicSurfaceRef, nil
+	return surface.ViewSchemaID, nil
 }
 
 func (Source) ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error) {

@@ -43,7 +43,7 @@ func ValidateHandoffRiskRefPayload(payload RiskRefActionPayload) error {
 	return nil
 }
 
-func (s *Store) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, actorID uuid.UUID, payload RiskRefActionPayload, now time.Time) (bool, error) {
+func (s *sourceStore) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, actorID uuid.UUID, payload RiskRefActionPayload, now time.Time) (bool, error) {
 	if err := ValidateHandoffRiskRefPayload(payload); err != nil {
 		return false, err
 	}
@@ -74,7 +74,7 @@ func (s *Store) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, inc
 	return changed, nil
 }
 
-func (s *Store) UpsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) UpsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 INSERT INTO handoff_risk_refs (
     incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text,
@@ -90,7 +90,7 @@ DO NOTHING
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *Store) TombstoneHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, riskRefID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) TombstoneHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, riskRefID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 UPDATE handoff_risk_refs
    SET deleted_at = $5,

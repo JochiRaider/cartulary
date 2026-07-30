@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 )
 
@@ -27,15 +26,15 @@ const (
 )
 
 type Store struct {
-	recordTargets   workbookRecordTargetPort
-	linkedNoteStore workbookLinkedNotePort
-	supersedeStore  workbookSupersedePort
-	contributions   *WorkbookContributionCatalog
+	recordTargets       workbookRecordTargetPort
+	contextualNoteOwner workbookContextualNotePort
+	supersedeStore      workbookSupersedePort
+	contributions       *WorkbookContributionCatalog
 }
 
 type StoreDependencies struct {
 	RecordTargets       workbookRecordTargetPort
-	LinkedNoteOwner     workbookLinkedNotePort
+	ContextualNoteOwner workbookContextualNotePort
 	SupersedeOwner      workbookSupersedePort
 	ContributionCatalog *WorkbookContributionCatalog
 }
@@ -44,8 +43,8 @@ func NewStore(dependencies StoreDependencies) *Store {
 	if dependencies.RecordTargets == nil {
 		panic("workbook record target owner is required")
 	}
-	if dependencies.LinkedNoteOwner == nil {
-		panic("workbook linked-note owner is required")
+	if dependencies.ContextualNoteOwner == nil {
+		panic("workbook contextual-note owner is required")
 	}
 	if dependencies.SupersedeOwner == nil {
 		panic("workbook supersede owner is required")
@@ -54,18 +53,18 @@ func NewStore(dependencies StoreDependencies) *Store {
 		panic("workbook contribution catalog is required")
 	}
 	return &Store{
-		recordTargets:   dependencies.RecordTargets,
-		linkedNoteStore: dependencies.LinkedNoteOwner,
-		supersedeStore:  dependencies.SupersedeOwner,
-		contributions:   dependencies.ContributionCatalog,
+		recordTargets:       dependencies.RecordTargets,
+		contextualNoteOwner: dependencies.ContextualNoteOwner,
+		supersedeStore:      dependencies.SupersedeOwner,
+		contributions:       dependencies.ContributionCatalog,
 	}
 }
 
-type workbookLinkedNotePort interface {
+type workbookContextualNotePort interface {
 	Create(
 		ctx context.Context,
-		command linkednotes.CreateCommand,
-	) (linkednotes.MutationResult, error)
+		command artifacts.ContextualNoteCreateCommand,
+	) (artifacts.ContextualNoteMutationResult, error)
 	SourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error)
 }
 

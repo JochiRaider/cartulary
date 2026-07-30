@@ -3,6 +3,8 @@ package rollbackprovider
 import (
 	"reflect"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
 )
 
 func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *testing.T) {
@@ -18,9 +20,9 @@ func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *test
 		"forensic_keyword.case_sensitive":    map[string]any{"value": true},
 		"handoff.open_risk_refs":             map[string]any{"value": []any{"ignored"}},
 	}}
-	got, ok := sourceForRollbackValue(value)
+	got, ok := sourcecontract.ExtractRollbackSource(value)
 	if !ok {
-		t.Fatal("sourceForRollbackValue returned ok=false")
+		t.Fatal("ExtractRollbackSource returned ok=false")
 	}
 	want := map[string]any{
 		"body": "note", "summary": "brief", "next_checks": nil, "active_risks_summary": "risk",
@@ -38,8 +40,8 @@ func TestValidSourceRejectsSubtypeInvariantViolations(t *testing.T) {
 		{"confidence_score": float64(101)},
 		{"match_mode": "glob"},
 	} {
-		if validSource(source) {
-			t.Fatalf("validSource(%#v) = true", source)
+		if sourcecontract.ValidRollbackSource(source) {
+			t.Fatalf("ValidRollbackSource(%#v) = true", source)
 		}
 	}
 }

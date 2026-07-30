@@ -3,10 +3,15 @@ package artifacts
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 func RevisionProviderContribution() revisions.ProviderContribution {
+	routes := make([]revisions.RecordViewRouteContribution, 0, 8)
+	for _, surface := range surfacecatalog.All() {
+		routes = append(routes, recordViewRoute(surface))
+	}
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerArtifacts,
 		Records: []revisions.RecordProviderContribution{{
@@ -15,27 +20,26 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
-			RecordViewRoutes: []revisions.RecordViewRouteContribution{
-				recordViewRoute("artifacts.comm_log", CommLogViewSchemaID),
-				recordViewRoute("artifacts.findings", FindingsViewSchemaID),
-				recordViewRoute("artifacts.forensic_keywords", ForensicKeywordsViewSchemaID),
-				recordViewRoute("artifacts.handoff", HandoffViewSchemaID),
-				recordViewRoute("artifacts.investigative_queries", InvestigativeQueriesViewSchemaID),
-				recordViewRoute("artifacts.lesson", LessonViewSchemaID),
-				recordViewRoute("artifacts.notes", NotesViewSchemaID),
-				recordViewRoute("artifacts.status_review", StatusReviewViewSchemaID),
-			},
+			RecordViewRoutes:       routes,
 		}},
 	}
 }
 
-func recordViewRoute(contributionID string, viewSchemaID string) revisions.RecordViewRouteContribution {
+func recordViewRoute(surface surfacecatalog.Surface) revisions.RecordViewRouteContribution {
 	return revisions.RecordViewRouteContribution{
-		ContributionID: contributionID,
+		ContributionID: "artifacts." + viewSchemaKey(surface.ViewSchemaID),
 		Variant: &revisions.RecordVariant{
 			Kind:  "artifact_type",
-			Value: ArtifactTypeForView(viewSchemaID),
+			Value: surface.ArtifactType,
 		},
-		ViewSchemaIDs: []string{viewSchemaID},
+		ViewSchemaIDs: []string{surface.ViewSchemaID},
 	}
+}
+
+func viewSchemaKey(viewSchemaID string) string {
+	const (
+		prefix = "cartulary.view."
+		suffix = ".v1"
+	)
+	return viewSchemaID[len(prefix) : len(viewSchemaID)-len(suffix)]
 }

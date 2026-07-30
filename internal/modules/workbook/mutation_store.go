@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -510,7 +509,7 @@ func adaptTaskDecisionWorkbookOwnerError(err error) error {
 }
 
 func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, sourceRecordID uuid.UUID, request LinkedNoteCreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	result, err := s.linkedNoteStore.Create(ctx, linkednotes.CreateCommand{
+	result, err := s.contextualNoteOwner.Create(ctx, artifacts.ContextualNoteCreateCommand{
 		Actor:          actor,
 		SourceRecordID: sourceRecordID,
 		Request:        linkedNoteCreateRequestToArtifacts(request),
@@ -537,29 +536,29 @@ func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, so
 }
 
 func (s *Store) LinkedNoteSourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error) {
-	return s.linkedNoteStore.SourceIncident(ctx, sourceRecordID)
+	return s.contextualNoteOwner.SourceIncident(ctx, sourceRecordID)
 }
 
-func linkedNoteCreateRequestToArtifacts(request LinkedNoteCreateRequest) linkednotes.CreateRequest {
-	return linkednotes.CreateRequest{
+func linkedNoteCreateRequestToArtifacts(request LinkedNoteCreateRequest) artifacts.ContextualNoteCreateRequest {
+	return artifacts.ContextualNoteCreateRequest{
 		ClientTxnID: request.ClientTxnID,
 		Values:      artifactValuesFromWorkbook(request.Values),
 		Collections: artifactCollectionsFromWorkbook(request.Collections),
 	}
 }
 
-func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]linkednotes.CollectionActionPayload {
-	result := make(map[string]linkednotes.CollectionActionPayload, len(collections))
+func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]artifacts.WorkbookCollectionActionPayload {
+	result := make(map[string]artifacts.WorkbookCollectionActionPayload, len(collections))
 	for fieldKey, payload := range collections {
 		result[fieldKey] = linkedNoteCollectionPayloadFromWorkbook(payload)
 	}
 	return result
 }
 
-func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) linkednotes.CollectionActionPayload {
-	actions := make([]linkednotes.CollectionAction, 0, len(payload.Actions))
+func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.WorkbookCollectionActionPayload {
+	actions := make([]artifacts.WorkbookCollectionAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		actions = append(actions, linkednotes.CollectionAction{
+		actions = append(actions, artifacts.WorkbookCollectionAction{
 			Op:             action.Op,
 			RawText:        action.RawText,
 			LinkedRecordID: action.LinkedRecordID,
@@ -568,16 +567,20 @@ func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) li
 			NormalizedText: action.NormalizedText,
 		})
 	}
-	return linkednotes.CollectionActionPayload{Actions: actions}
+	return artifacts.WorkbookCollectionActionPayload{Actions: actions}
 }
 
 func adaptLinkedNoteOwnerError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var validation *linkednotes.MutationValidationError
+	var validation *artifacts.ValidationError
 	if errors.As(err, &validation) {
 		return mutationValidationError(validation.Field, validation.ReasonCode)
+	}
+	var collectionValidation *links.CollectionValidationError
+	if errors.As(err, &collectionValidation) {
+		return mutationValidationError(collectionValidation.Field, collectionValidation.ReasonCode)
 	}
 	return err
 }

@@ -21,7 +21,6 @@ func approvedProductionProjectionRootImporterPaths() []string {
 		"internal/app/timelineassembly/assembly.go",
 		"internal/app/workbookassembly/catalog.go",
 		"internal/modules/artifacts/import_projection.go",
-		"internal/modules/artifacts/linkednotes/facade.go",
 		"internal/modules/artifacts/workbook_facade.go",
 		"internal/modules/assessments/store.go",
 		"internal/modules/entities/hostidentity/ports.go",
